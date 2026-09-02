@@ -24,8 +24,9 @@ type AuditConfig struct {
 }
 
 // PolicyDefaultsConfig is the koanf-decoded shape of audit.defaults. Publish
-// is the only field today; pre_action and delivery/retries are reserved for
-// P10a/P10b and not modeled until those phases act on them.
+// is the only field today; pre_action and delivery/retries are anticipated
+// future settings and are not modeled here until a feature actually needs
+// them.
 //
 // Setting Publish: false here is deliberate allowlist mode: nothing publishes
 // except what an explicit policies rule turns back on with set.publish: true.
@@ -80,7 +81,10 @@ var (
 		string(audit.CategoryManagement), string(audit.CategoryAuthorization),
 	}
 	validOrigins = []string{string(audit.OriginAPI), string(audit.OriginMCP)}
-	validResults = []string{string(audit.ResultSuccess), string(audit.ResultFailure), string(audit.ResultDenied)}
+	validResults = []string{
+		string(audit.ResultSuccess), string(audit.ResultFailure),
+		string(audit.ResultDenied), string(audit.ResultUnauthenticated),
+	}
 
 	// validResources, validOperationIDs and validActions are derived from
 	// apiaudit.GetOperations() — the same table BuildPatternMap cross-checks

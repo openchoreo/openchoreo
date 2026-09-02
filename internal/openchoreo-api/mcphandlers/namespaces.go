@@ -58,6 +58,9 @@ func (h *MCPHandler) CreateNamespace(ctx context.Context, req *gen.CreateNamespa
 	if err != nil {
 		return nil, err
 	}
+	// A corev1.Namespace carries no namespace of its own, so this records only
+	// the name and UID — the same shape the REST CreateNamespace handler records.
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -103,6 +106,7 @@ func (h *MCPHandler) CreateSecretReference(ctx context.Context, namespaceName st
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -130,6 +134,7 @@ func (h *MCPHandler) UpdateSecretReference(ctx context.Context, namespaceName st
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

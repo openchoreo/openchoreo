@@ -54,6 +54,7 @@ func (h *MCPHandler) CreateProjectRelease(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 

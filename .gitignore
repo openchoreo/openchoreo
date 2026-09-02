@@ -10,6 +10,8 @@ Dockerfile.cross
 
 # Built binaries in root directory
 /observer
+/auditgen
+/auditcoverage
 
 # Test binary, built with `go test -c`
 *.test

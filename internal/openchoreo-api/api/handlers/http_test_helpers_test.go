@@ -36,7 +36,7 @@ func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.H
 // newTestHTTPHandlerWithLogger is like newTestHTTPHandler but lets the caller supply
 // the logger, so a test can capture emitted log records (e.g. audit events).
 //
-// Builds its chain via APIMiddlewares, the same constructor production uses,
+// Builds its chain via OpenAPIMiddlewares, the same constructor production uses,
 // so tests exercise the real middleware ordering rather than a hand-assembled
 // stand-in — do not rebuild the chain here instead (see #2588).
 func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger) http.Handler {
@@ -50,13 +50,13 @@ func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Servic
 	h := &Handler{services: services, logger: logger}
 	strictHandler := gen.NewStrictHandler(h, nil)
 	mux := http.NewServeMux()
-	middlewares, err := APIMiddlewares(APIMiddlewareOptions{
+	middlewares, err := OpenAPIMiddlewares(OpenAPIMiddlewareOptions{
 		Logger:         logger,
 		AuthMiddleware: injectTestSubject,
 		AuditEmitter:   emitter,
 		AuditEnabled:   auditCfg.Enabled,
 	})
-	require.NoError(t, err, "test APIMiddlewareOptions must build a valid middleware chain")
+	require.NoError(t, err, "test OpenAPIMiddlewareOptions must build a valid middleware chain")
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  mux,
 		Middlewares: middlewares,

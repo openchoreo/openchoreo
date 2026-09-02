@@ -15,6 +15,7 @@ import (
 	disabledAuthz "github.com/openchoreo/openchoreo/internal/authz"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	authzmocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -108,6 +109,54 @@ func TestCheck_NilSubject_DisabledAuthz(t *testing.T) {
 	// context.Background() has no SubjectContext — disabled authorizer should still allow.
 	err := checker.Check(context.Background(), testCheckRequest())
 	require.NoError(t, err, "expected nil error with disabled authz")
+}
+
+// TestCheck_RecordsHierarchyRegardlessOfDecision guards that the hierarchy a
+// check was made on reaches the audit record even on a denial or a PDP
+// error — recorded before pdp.Evaluate runs, not after — so an investigator
+// can tell which project/component a refused request named.
+func TestCheck_RecordsHierarchyRegardlessOfDecision(t *testing.T) {
+	evalErr := errors.New("pdp unavailable")
+	tests := []struct {
+		name     string
+		decision *authz.Decision
+		evalErr  error
+	}{
+		{name: "allow", decision: &authz.Decision{Decision: true, Context: &authz.DecisionContext{}}},
+		{name: "deny", decision: &authz.Decision{Decision: false, Context: &authz.DecisionContext{}}},
+		{name: "pdp error", evalErr: evalErr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pdp := authzmocks.NewMockPDP(t)
+			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(tt.decision, tt.evalErr)
+			checker := newTestChecker(pdp)
+
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+			_ = checker.Check(ctx, testCheckRequest())
+
+			want := audit.Hierarchy{Namespace: "ns-1", Project: "my-project"}
+			require.Equal(t, want, auditData.Hierarchy)
+		})
+	}
+}
+
+// TestBatchCheck_DoesNotRecordHierarchy guards that FilteredList's per-item
+// checks — routed through BatchCheck, not Check — stay out of the audit
+// record. BatchCheck is used for read-side filtering, not an audited
+// mutating operation, so it must never populate AuditData.Hierarchy.
+func TestBatchCheck_DoesNotRecordHierarchy(t *testing.T) {
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().BatchEvaluate(mock.Anything, mock.Anything).
+		Return(&authz.BatchEvaluateResponse{Decisions: []authz.Decision{{Decision: true}}}, nil)
+	checker := newTestChecker(pdp)
+
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+	_, err := checker.BatchCheck(ctx, []CheckRequest{testCheckRequest()})
+	require.NoError(t, err)
+
+	require.Equal(t, audit.Hierarchy{}, auditData.Hierarchy)
 }
 
 // ---------------------------------------------------------------------------

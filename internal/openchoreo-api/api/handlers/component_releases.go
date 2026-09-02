@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListComponentReleases returns a paginated list of component releases within a namespace.
@@ -113,6 +114,8 @@ func (h *Handler) CreateComponentRelease(
 		h.logger.Error("Failed to create component release", "error", err)
 		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*created)
 	if err != nil {

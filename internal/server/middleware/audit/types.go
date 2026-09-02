@@ -20,12 +20,10 @@ type Category string
 
 const (
 	// CategoryManagement covers create/update/delete on managed platform
-	// resources (projects, dataplanes, environments, secrets today; more as
-	// P1 coverage expands).
+	// resources.
 	CategoryManagement Category = "management"
 	// CategoryAuthorization covers authorization-change operations (authzroles,
-	// authzrolebindings). No Operation uses it yet (P1 coverage work), but
-	// policy.go's selector grammar already validates against it.
+	// authzrolebindings).
 	CategoryAuthorization Category = "authorization"
 )
 
@@ -39,13 +37,41 @@ type Resource struct {
 	Metadata  map[string]any `json:"metadata,omitempty"`  // Additional resource-scoped context (optional)
 }
 
+// Hierarchy identifies where in OpenChoreo's resource tree an audited
+// operation was authorized — mirroring authz.ResourceHierarchy's json tags
+// (Namespace/Project/Component/Resource) so a record is directly comparable
+// to a policy scope. Declared locally rather than importing
+// internal/authz/core, keeping this package a leaf so internal/openchoreo-api
+// can depend on it without a cycle.
+//
+// Recorded here rather than merged into Resource: SetResource replaces the
+// whole *Resource rather than merging fields (see SetResource's doc comment),
+// so a hierarchy stored inside Resource would be silently wiped by any of the
+// handler-side SetResource calls that run after the authz check that
+// populated it. Kept as a sibling and folded into the "resource" group only
+// at render time (see Event.MarshalJSON and Logger.LogEvent), that ordering
+// can't erase it.
+type Hierarchy struct {
+	Namespace string `json:"namespace,omitempty"`
+	Project   string `json:"project,omitempty"`
+	Component string `json:"component,omitempty"`
+	Resource  string `json:"resource,omitempty"`
+}
+
 // Result represents the outcome of an action
 type Result string
 
 const (
 	ResultSuccess Result = "success"
 	ResultFailure Result = "failure"
-	ResultDenied  Result = "denied"
+	// ResultDenied means an authenticated subject was refused by policy
+	// (e.g. a PDP denial). Distinguished from ResultUnauthenticated so a
+	// misconfigured client's expired-token retries don't read the same as a
+	// real authorization refusal.
+	ResultDenied Result = "denied"
+	// ResultUnauthenticated means the request carried no authenticated
+	// subject at all — REST's 401, or MCP's tools.ErrNoSubject.
+	ResultUnauthenticated Result = "unauthenticated"
 )
 
 // Origin identifies which surface produced an audit event.
@@ -64,9 +90,10 @@ type Event struct {
 	Action       string         `json:"action"`                 // Semantic action name (e.g., "create_project")
 	Category     Category       `json:"category"`               // Action category
 	Origin       Origin         `json:"origin,omitempty"`       // Surface that produced the event: api | mcp
-	OperationID  string         `json:"operation_id,omitempty"` // OpenAPI operationId, e.g. "createProject"
+	OperationID  string         `json:"operation_id,omitempty"` // OpenAPI operationId, e.g. "CreateProject"
 	ResourceType string         `json:"-"`
 	Resource     *Resource      `json:"resource"`           // Target resource (can be nil for non-resource actions)
+	Hierarchy    Hierarchy      `json:"-"`                  // Project/component/resource the decision was made on; folded into "resource" at render time
 	Result       Result         `json:"result"`             // Outcome
 	RequestID    string         `json:"request_id"`         // Correlation ID linking to access log
 	SourceIP     string         `json:"source_ip"`          // Client IP address
@@ -92,11 +119,15 @@ type eventJSON struct {
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
-// resourceJSON is Resource with Type merged back in — the shape
-// Logger.LogEvent renders, and the shape MarshalJSON reproduces.
+// resourceJSON is Resource with Type merged back in, plus Hierarchy's
+// project/component/resource folded in as flat siblings after namespace —
+// the shape Logger.LogEvent renders, and the shape MarshalJSON reproduces.
 type resourceJSON struct {
 	Type      string         `json:"type,omitempty"`
 	Namespace string         `json:"namespace,omitempty"`
+	Project   string         `json:"project,omitempty"`
+	Component string         `json:"component,omitempty"`
+	Resource  string         `json:"resource,omitempty"`
 	ID        string         `json:"id,omitempty"`
 	Name      string         `json:"name,omitempty"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
@@ -123,10 +154,25 @@ func (e Event) MarshalJSON() ([]byte, error) {
 		Service:     e.Service,
 		Metadata:    e.Metadata,
 	}
-	if e.ResourceType != "" || e.Resource != nil {
-		out.Resource = &resourceJSON{Type: e.ResourceType}
+	if e.ResourceType != "" || e.Resource != nil || e.Hierarchy != (Hierarchy{}) {
+		// Namespace defaults to the hierarchy's and is overridden by a
+		// non-empty Resource.Namespace — the same precedence buildEvent's
+		// withHierarchyNamespaceFallback applies, repeated here so this
+		// render path is correct for any Event, not only one that came
+		// through the emitter. Without it, an Event carrying a hierarchy but
+		// no Resource at all would publish resource.project while silently
+		// dropping resource.namespace.
+		out.Resource = &resourceJSON{
+			Type:      e.ResourceType,
+			Namespace: e.Hierarchy.Namespace,
+			Project:   e.Hierarchy.Project,
+			Component: e.Hierarchy.Component,
+			Resource:  e.Hierarchy.Resource,
+		}
 		if e.Resource != nil {
-			out.Resource.Namespace = e.Resource.Namespace
+			if e.Resource.Namespace != "" {
+				out.Resource.Namespace = e.Resource.Namespace
+			}
 			out.Resource.ID = e.Resource.ID
 			out.Resource.Name = e.Resource.Name
 			out.Resource.Metadata = e.Resource.Metadata
@@ -137,14 +183,24 @@ func (e Event) MarshalJSON() ([]byte, error) {
 
 // AuditData is a mutable container for audit information set by handlers.
 //
-// Metadata has no writer anywhere in the codebase today — AddMetadata was
-// removed and never replaced. It is still plumbed through end-to-end
-// (EmitFromContext → Envelope → Event → Logger renders it as a "metadata"
-// group), so in future can wire a setter without touching the pipeline;
-// until then it is always nil and never appears in a published event.
+// Metadata has no writer today, so it is always nil and never appears in a
+// published event. It is still plumbed through end-to-end (EmitFromContext →
+// Envelope → Event → Logger renders it as a "metadata" group), so a future
+// setter can be wired in without touching the pipeline.
+//
+// Result overrides the status-code-derived Result the REST middleware would
+// otherwise compute (see determineResult in middleware.go). nil everywhere
+// except a handler that hijacks the connection: once hijacked, the response
+// status code can no longer change, so WriteHeader-based classification goes
+// silently wrong for anything that fails after the hijack (see exec.go's
+// SetResult calls). MCP never sets it — mcpaudit.classifyResult uses the
+// tool's returned error instead, which stays available after any point in
+// the call.
 type AuditData struct {
-	Resource *Resource
-	Metadata map[string]any
+	Resource  *Resource
+	Metadata  map[string]any
+	Hierarchy Hierarchy
+	Result    *Result
 }
 
 // contextKey is a type for context keys to avoid collisions

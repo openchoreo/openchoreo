@@ -18,6 +18,7 @@ import (
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListComponents returns a paginated list of components within a namespace.
@@ -97,6 +98,8 @@ func (h *Handler) CreateComponent(
 		h.logger.Error("Failed to create component", "error", err)
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*created)
 	if err != nil {
@@ -251,6 +254,8 @@ func (h *Handler) UpdateComponent(
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated component", "error", err)
@@ -363,6 +368,8 @@ func (h *Handler) GenerateRelease(
 		h.logger.Error("Failed to generate release", "error", err)
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(release.UID), Name: release.Name})
 
 	genRelease, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*release)
 	if err != nil {

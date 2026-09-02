@@ -14,6 +14,7 @@ import (
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListWorkflows returns a paginated list of workflows within a namespace.
@@ -79,6 +80,8 @@ func (h *Handler) CreateWorkflow(
 		h.logger.Error("Failed to create workflow", "error", err)
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*created)
 	if err != nil {
@@ -154,6 +157,8 @@ func (h *Handler) UpdateWorkflow(
 		h.logger.Error("Failed to update workflow", "error", err)
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*updated)
 	if err != nil {
@@ -282,6 +287,8 @@ func (h *Handler) CreateWorkflowRun(
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow run", "error", err)
@@ -362,6 +369,8 @@ func (h *Handler) UpdateWorkflowRun(
 		h.logger.Error("Failed to update workflow run", "error", err)
 		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*updated)
 	if err != nil {

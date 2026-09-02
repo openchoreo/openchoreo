@@ -8,7 +8,7 @@ package audit
 // tools bind onto it through a declared table rather than a second set of
 // action definitions.
 type Operation struct {
-	// ID is the OpenAPI operationId, e.g. "createProject".
+	// ID is the OpenAPI operationId, e.g. "CreateProject".
 	ID string
 	// Action is the semantic audit action, e.g. "create_project".
 	Action string
@@ -30,4 +30,14 @@ type Operation struct {
 	// Declared per operation since it doesn't mechanically derive from
 	// ResourceType — mirrors MCPBinding.ResourceArg's REST counterpart.
 	RESTResourceParam string
+	// NotInOpenAPISpec marks an operation whose route isn't in the OpenAPI
+	// spec at all (e.g. a WebSocket or SSE endpoint registered on its own
+	// mux outside the generated handler), so BuildPatternMap can't and
+	// shouldn't try to cross-reference it — it skips any operation with this
+	// set rather than failing construction. The operation still flows
+	// through GetOperations() for everything else a spec-derived one gets:
+	// selector validation, the coverage gate, the coverage matrix. The
+	// caller that actually serves the route is responsible for its own
+	// pattern-map entry (see audit.NewMiddlewareForRoutes).
+	NotInOpenAPISpec bool
 }

@@ -136,3 +136,32 @@ func TestBuildPatternMap_PatternCollision(t *testing.T) {
 		t.Errorf("error = %q, want it to name the colliding pattern", err.Error())
 	}
 }
+
+// TestBuildPatternMap_SkipsNotInOpenAPISpec guards exec/wirelogs' construction
+// path: an operation with no route in the spec at all must be skipped rather
+// than failing construction (the outcome TestBuildPatternMap_UnknownOperationID
+// covers for every other operation), and must not appear in the result — its
+// caller (NewExecWirelogsAuditMiddleware) owns its own pattern-map entry.
+func TestBuildPatternMap_SkipsNotInOpenAPISpec(t *testing.T) {
+	swagger := loadTestSpec(t)
+	ops := []Operation{
+		{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement},
+		{ID: "Exec", Action: "exec_component", ResourceType: "component", Category: CategoryManagement, NotInOpenAPISpec: true},
+	}
+
+	patternMap, err := BuildPatternMap(ops, swagger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(patternMap) != 1 {
+		t.Fatalf("len(patternMap) = %d, want 1 (the NotInOpenAPISpec operation must be skipped)", len(patternMap))
+	}
+	if _, ok := patternMap[testProjectPattern]; !ok {
+		t.Fatal(`patternMap["POST /projects"] missing`)
+	}
+	for pattern, op := range patternMap {
+		if op.ID == "Exec" {
+			t.Errorf("BuildPatternMap() included the NotInOpenAPISpec operation %q under pattern %q", op.ID, pattern)
+		}
+	}
+}

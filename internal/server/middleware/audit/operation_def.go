@@ -15,7 +15,7 @@ type OperationDef struct {
 	ID string
 	// Action is the semantic audit action, e.g. "create_project".
 	Action string
-	// ResourceType is derived from the operation, e.g. "projects".
+	// ResourceType is derived from the operation, e.g. "project".
 	ResourceType string
 	// Category is stamped from the operation's resource kind.
 	Category Category
@@ -39,6 +39,8 @@ type OperationDef struct {
 	// identifying name, e.g. "projectName". Empty for operations with no
 	// resource name in the path (e.g. Create routes).
 	RESTResourceParam string
+	// NotInOpenAPISpec — see Operation.NotInOpenAPISpec's doc comment.
+	NotInOpenAPISpec bool
 }
 
 // Operations returns every audited Operation in the surface-neutral shape the
@@ -48,10 +50,56 @@ func Operations(defs []OperationDef) []Operation {
 	for i, d := range defs {
 		ops[i] = Operation{
 			ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category,
-			RESTResourceParam: d.RESTResourceParam,
+			RESTResourceParam: d.RESTResourceParam, NotInOpenAPISpec: d.NotInOpenAPISpec,
 		}
 	}
 	return ops
+}
+
+// scopeTracker tracks, per MCP tool name, which MCPScope values have already
+// been bound to it. Shared by MCPBindings and MergeMCPAliases so a binding
+// arriving from either source is checked against the same rule: see
+// checkAndRecord's doc comment for what that rule guards.
+type scopeTracker map[string]map[string]bool
+
+// checkAndRecord reports an error if binding tool at scope would mix an
+// unscoped binding (scope == "") with a scoped one for the same tool name.
+// That combination doesn't collide on an (MCPBindingKey{tool, scope}) map
+// key — {tool, ""} and {tool, "cluster"} are distinct entries — but the
+// adapter's resolveBinding always tries the unscoped key first, so the scoped
+// binding would be silently unreachable and every call to that tool would
+// resolve to the unscoped operation regardless of its actual scope argument.
+// On success, records scope as seen for tool.
+func (t scopeTracker) checkAndRecord(tool, scope string) error {
+	seen := t[tool]
+	if scope == "" && len(seen) != 0 {
+		return fmt.Errorf("audit: MCP tool %q cannot mix an unscoped binding with a scoped one", tool)
+	}
+	if scope != "" && seen[""] {
+		return fmt.Errorf("audit: MCP tool %q cannot mix an unscoped binding with a scoped one", tool)
+	}
+	if seen == nil {
+		seen = make(map[string]bool)
+		t[tool] = seen
+	}
+	seen[scope] = true
+	return nil
+}
+
+// newScopeTrackerFromBindings seeds a scopeTracker with every (tool, scope)
+// pair already present in bindings, so MergeMCPAliases can check a new alias
+// against bindings MCPBindings already built, not just against other aliases.
+func newScopeTrackerFromBindings(bindings map[MCPBindingKey]MCPBinding) scopeTracker {
+	t := make(scopeTracker, len(bindings))
+	for key := range bindings {
+		seen := t[key.ToolName]
+		if seen == nil {
+			seen = make(map[string]bool)
+			t[key.ToolName] = seen
+		}
+		seen[key.Scope] = true
+	}
+	return t
 }
 
 // MCPBindings derives the MCP tool-to-operation binding table, keyed by
@@ -75,23 +123,14 @@ func Operations(defs []OperationDef) []Operation {
 // to the unscoped operation regardless of its actual scope argument.
 func MCPBindings(defs []OperationDef) (map[MCPBindingKey]MCPBinding, error) {
 	bindings := make(map[MCPBindingKey]MCPBinding)
-	scopesSeen := make(map[string]map[string]bool) // tool name -> set of scopes already bound
+	tracker := make(scopeTracker)
 	for _, d := range defs {
 		if d.MCPToolName == "" {
 			continue
 		}
-		seen := scopesSeen[d.MCPToolName]
-		if d.MCPScope == "" && len(seen) != 0 {
-			return nil, fmt.Errorf("audit: MCP tool %q cannot mix an unscoped binding with a scoped one", d.MCPToolName)
+		if err := tracker.checkAndRecord(d.MCPToolName, d.MCPScope); err != nil {
+			return nil, err
 		}
-		if d.MCPScope != "" && seen[""] {
-			return nil, fmt.Errorf("audit: MCP tool %q cannot mix an unscoped binding with a scoped one", d.MCPToolName)
-		}
-		if seen == nil {
-			seen = make(map[string]bool)
-			scopesSeen[d.MCPToolName] = seen
-		}
-		seen[d.MCPScope] = true
 
 		key := MCPBindingKey{ToolName: d.MCPToolName, Scope: d.MCPScope}
 		if existing, collides := bindings[key]; collides {
@@ -101,7 +140,7 @@ func MCPBindings(defs []OperationDef) (map[MCPBindingKey]MCPBinding, error) {
 		bindings[key] = MCPBinding{
 			Operation: &Operation{
 				ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category,
-				RESTResourceParam: d.RESTResourceParam,
+				RESTResourceParam: d.RESTResourceParam, NotInOpenAPISpec: d.NotInOpenAPISpec,
 			},
 			ResourceArg: d.MCPResourceArg,
 		}

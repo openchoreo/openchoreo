@@ -58,6 +58,20 @@ func newMiddleware(logger *slog.Logger, patternMap map[string]*Operation, emitte
 	}
 }
 
+// NewMiddlewareForRoutes builds a Middleware from a hand-declared route ->
+// Operation map, bypassing BuildPatternMap's OpenAPI-spec cross-referencing
+// entirely. For routes registered outside the OpenAPI-generated mux, which
+// have no operationId to resolve against a spec but whose Go 1.22+ ServeMux
+// registration pattern is known and fixed at wiring time.
+//
+// Each key must be the exact string net/http.Request.Pattern reports once
+// routed for that route (e.g. "GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs",
+// or a bare subtree prefix like "/exec/" for a pattern registered without a
+// method).
+func NewMiddlewareForRoutes(logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, enabled bool) *Middleware {
+	return newMiddleware(logger, patternMap, emitter, enabled)
+}
+
 // responseWriter wraps http.ResponseWriter to capture status code
 type responseWriter struct {
 	http.ResponseWriter
@@ -124,8 +138,13 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		// denial raised inside the handler never reaches the SetResource call
 		// that would otherwise set it, so this is the only source of
 		// resource.namespace/name on a denied or failed request. Every
-		// audited route is nested under /namespaces/{namespaceName}/..., so
-		// the path parameter name is fixed across all of them. resource.type
+		// OpenAPI-spec-derived route is nested under
+		// /namespaces/{namespaceName}/..., so the path parameter name is
+		// fixed across all of them — but a route registered outside the spec
+		// (NotInOpenAPISpec, e.g. wirelogs' {namespace}) can use a different
+		// parameter name, in which case this seed's namespace comes back
+		// empty and the handler must call SetResource itself with the real
+		// value before its own first exit (see wirelogs.go). resource.type
 		// needs no seed here — it is stamped from op.ResourceType at emit
 		// time regardless of whether a resource was ever set (see
 		// buildEvent). Mirrors the MCP adapter's pre-call seed (see
@@ -146,10 +165,20 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		// behavior above is unchanged.
 		defer func() {
 			if p := recover(); p != nil {
+				markEmitted(ctx)
 				EmitFromContext(ctx, m.emitter, op, OriginAPI, ResultFailure, auditData, r.Header, r.RemoteAddr)
 				panic(p)
 			}
+			// A hijacking handler (e.g. exec's WebSocket upgrade) can call
+			// SetResult once the response status code stops reflecting the
+			// real outcome — see AuditData.Result's doc comment. Anything
+			// that didn't hijack leaves this nil and falls through to the
+			// ordinary status-code classification.
 			result := determineResult(rw.statusCode)
+			if auditData.Result != nil {
+				result = *auditData.Result
+			}
+			markEmitted(ctx)
 			EmitFromContext(ctx, m.emitter, op, OriginAPI, result, auditData, r.Header, r.RemoteAddr)
 		}()
 
@@ -162,7 +191,9 @@ func determineResult(statusCode int) Result {
 	switch {
 	case statusCode >= 200 && statusCode < 300:
 		return ResultSuccess
-	case statusCode == 401 || statusCode == 403:
+	case statusCode == 401:
+		return ResultUnauthenticated
+	case statusCode == 403:
 		return ResultDenied
 	default:
 		return ResultFailure

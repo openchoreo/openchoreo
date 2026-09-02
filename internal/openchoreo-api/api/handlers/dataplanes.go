@@ -87,13 +87,13 @@ func (h *Handler) CreateDataPlane(
 		return gen.CreateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created data plane", "error", err)
 		return gen.CreateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("DataPlane created successfully", "namespaceName", request.NamespaceName, "dataPlane", created.Name)
 	return gen.CreateDataPlane201JSONResponse(genDP), nil
@@ -164,13 +164,13 @@ func (h *Handler) UpdateDataPlane(
 		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated data plane", "error", err)
 		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("DataPlane updated successfully", "namespaceName", request.NamespaceName, "dataPlane", updated.Name)
 	return gen.UpdateDataPlane200JSONResponse(genDP), nil

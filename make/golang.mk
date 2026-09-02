@@ -203,6 +203,16 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	@$(call log, "Generating Observer FinOps Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-finops-adapter-client.yaml openapi/finops-adapter-api.yaml
 
+.PHONY: audit-gen
+audit-gen: openapi-codegen ## Regenerate the audit definitions table from the OpenAPI spec.
+	@$(call log, "Generating audit operation definitions")
+	go run ./tools/auditgen
+
+.PHONY: audit-coverage-matrix
+audit-coverage-matrix: ## Regenerate docs/audit/coverage-matrix.md — reporting only, not part of code.gen.
+	@$(call log, "Generating audit coverage matrix")
+	go run ./tools/auditcoverage
+
 .PHONY: mockery-gen
 mockery-gen: mockery ## Regenerate mockery mocks.
 	@$(call log, "Generating openchoreo-api service mocks")

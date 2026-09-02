@@ -87,13 +87,13 @@ func (h *Handler) CreateEnvironment(
 		return gen.CreateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created environment", "error", err)
 		return gen.CreateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Environment created successfully", "namespaceName", request.NamespaceName, "environment", created.Name)
 	return gen.CreateEnvironment201JSONResponse(genEnv), nil
@@ -164,13 +164,13 @@ func (h *Handler) UpdateEnvironment(
 		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated environment", "error", err)
 		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Environment updated successfully", "namespaceName", request.NamespaceName, "environment", updated.Name)
 	return gen.UpdateEnvironment200JSONResponse(genEnv), nil

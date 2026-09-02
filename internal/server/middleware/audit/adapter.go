@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -58,25 +59,44 @@ func ExtractActor(ctx context.Context) Actor {
 	return actor
 }
 
-// maxRequestIDLen bounds the client-supplied X-Request-ID recorded in audit
-// events. Without a cap, a client can send an oversized header value (up to
-// the server's MaxHeaderBytes limit) and inflate every audit record — and
-// every sink — for that request. 128 comfortably fits a UUID (36 chars) or a
-// typical trace ID with room for prefixes.
-const maxRequestIDLen = 128
+// requestIDRejections counts inbound X-Request-ID headers rejected for not
+// parsing as a UUID. An absent header isn't a rejection, so it doesn't
+// increment this.
+var requestIDRejections atomic.Int64
 
-// RequestIDFromHeader returns the X-Request-ID header value, generating a
-// fresh UUID v7 if absent or too long. Shared by every surface adapter.
+// RequestIDRejections returns the number of inbound X-Request-ID headers
+// rejected so far because they didn't parse as a UUID.
+func RequestIDRejections() int64 {
+	return requestIDRejections.Load()
+}
+
+// RequestIDFromHeader returns the X-Request-ID header value if it parses as a
+// UUID, generating a fresh UUID v7 otherwise (absent, malformed, or an
+// arbitrary client-chosen string). Shared by every surface adapter.
+//
+// A client-chosen value reaches Event.RequestID verbatim otherwise, so
+// without validation a client could inflate every audit record for its
+// request with an oversized or arbitrary string. Requiring a valid UUID
+// bounds it to a fixed shape.
+//
+// On REST and MCP, logger.Middleware already runs this same validation
+// against the inbound header and normalizes it before this ever executes, so
+// here it's a no-op in the common case — this stays so the audit envelope is
+// still well-formed if that ever changes. exec and wirelogs have no logger
+// middleware in front of them (see NewExecWirelogsAuditMiddleware), so this
+// is their only validation and normalization point.
 func RequestIDFromHeader(h http.Header) string {
 	requestID := h.Get("X-Request-ID")
-	if requestID == "" || len(requestID) > maxRequestIDLen {
-		if id, err := uuid.NewV7(); err == nil {
-			requestID = id.String()
-		} else {
-			requestID = uuid.New().String() // fallback if v7 generation fails
+	if requestID != "" {
+		if _, err := uuid.Parse(requestID); err == nil {
+			return requestID
 		}
+		requestIDRejections.Add(1)
 	}
-	return requestID
+	if id, err := uuid.NewV7(); err == nil {
+		return id.String()
+	}
+	return uuid.New().String() // fallback if v7 generation fails
 }
 
 // SourceIPFromHeader extracts the client IP from proxy headers
@@ -131,6 +151,7 @@ func EmitFromContext(
 		Actor:     ExtractActor(ctx),
 		Result:    result,
 		Resource:  auditData.Resource,
+		Hierarchy: auditData.Hierarchy,
 		RequestID: RequestIDFromHeader(header),
 		SourceIP:  sourceIP,
 		Metadata:  auditData.Metadata,

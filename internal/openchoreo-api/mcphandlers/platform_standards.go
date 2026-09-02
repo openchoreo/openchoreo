@@ -68,6 +68,7 @@ func (h *MCPHandler) CreateComponentType(ctx context.Context, namespaceName stri
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -95,6 +96,7 @@ func (h *MCPHandler) UpdateComponentType(ctx context.Context, namespaceName stri
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -139,6 +141,7 @@ func (h *MCPHandler) CreateTrait(ctx context.Context, namespaceName string, req 
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -166,6 +169,7 @@ func (h *MCPHandler) UpdateTrait(ctx context.Context, namespaceName string, req 
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -210,6 +214,7 @@ func (h *MCPHandler) CreateWorkflow(ctx context.Context, namespaceName string, r
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -237,6 +242,7 @@ func (h *MCPHandler) UpdateWorkflow(ctx context.Context, namespaceName string, r
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -280,6 +286,7 @@ func (h *MCPHandler) CreateClusterComponentType(ctx context.Context, req *gen.Cr
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -307,6 +314,7 @@ func (h *MCPHandler) UpdateClusterComponentType(ctx context.Context, req *gen.Up
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -349,6 +357,7 @@ func (h *MCPHandler) CreateClusterTrait(ctx context.Context, req *gen.CreateClus
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -376,6 +385,7 @@ func (h *MCPHandler) UpdateClusterTrait(ctx context.Context, req *gen.UpdateClus
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -418,6 +428,7 @@ func (h *MCPHandler) CreateClusterWorkflow(ctx context.Context, req *gen.CreateC
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -445,6 +456,7 @@ func (h *MCPHandler) UpdateClusterWorkflow(ctx context.Context, req *gen.UpdateC
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

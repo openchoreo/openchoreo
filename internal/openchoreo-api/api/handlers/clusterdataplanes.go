@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListClusterDataPlanes returns a paginated list of cluster-scoped data planes.
@@ -80,6 +81,8 @@ func (h *Handler) CreateClusterDataPlane(
 		h.logger.Error("Failed to create cluster data plane", "error", err)
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*created)
 	if err != nil {
@@ -155,6 +158,8 @@ func (h *Handler) UpdateClusterDataPlane(
 		h.logger.Error("Failed to update cluster data plane", "error", err)
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*updated)
 	if err != nil {

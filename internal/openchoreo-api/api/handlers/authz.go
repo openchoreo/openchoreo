@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -360,6 +361,8 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role", "error", err)
@@ -434,6 +437,8 @@ func (h *Handler) UpdateClusterRole(
 		h.logger.Error("Failed to update cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*updated)
 	if err != nil {
@@ -540,6 +545,8 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role binding", "error", err)
@@ -614,6 +621,8 @@ func (h *Handler) UpdateClusterRoleBinding(
 		h.logger.Error("Failed to update cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*updated)
 	if err != nil {
@@ -714,6 +723,8 @@ func (h *Handler) CreateNamespaceRole(
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role", "error", err)
@@ -788,6 +799,8 @@ func (h *Handler) UpdateNamespaceRole(
 		h.logger.Error("Failed to update namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*updated)
 	if err != nil {
@@ -891,6 +904,8 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role binding", "error", err)
@@ -965,6 +980,8 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		h.logger.Error("Failed to update namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*updated)
 	if err != nil {

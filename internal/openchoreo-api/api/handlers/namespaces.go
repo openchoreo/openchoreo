@@ -13,6 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListNamespaces returns a paginated list of namespaces.
@@ -111,6 +112,8 @@ func (h *Handler) CreateNamespace(
 		return gen.CreateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace", "error", err)
@@ -158,6 +161,8 @@ func (h *Handler) UpdateNamespace(
 		h.logger.Error("Failed to update namespace", "error", err)
 		return gen.UpdateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*updated)
 	if err != nil {

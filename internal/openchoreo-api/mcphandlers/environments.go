@@ -60,7 +60,7 @@ func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(created.UID), Name: created.Name})
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -86,7 +86,7 @@ func (h *MCPHandler) UpdateEnvironment(ctx context.Context, namespaceName string
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(updated.UID), Name: updated.Name})
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

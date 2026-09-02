@@ -133,6 +133,68 @@ func TestEmitter_StampsResourceTypeFromOperation(t *testing.T) {
 	}
 }
 
+// TestBuildEvent_FillsEmptyNamespaceFromHierarchy guards the fallback that
+// lets a hierarchy captured in AuthzChecker.Check (e.g. CreateNamespace,
+// whose REST path has no {namespaceName} to seed Resource.Namespace from)
+// still produce a populated resource.namespace.
+func TestBuildEvent_FillsEmptyNamespaceFromHierarchy(t *testing.T) {
+	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "namespace", Category: CategoryManagement}
+	resource := &Resource{Name: "ns-1"}
+	env := Envelope{
+		Origin: OriginAPI, Result: ResultSuccess,
+		Resource: resource, Hierarchy: Hierarchy{Namespace: "ns-1"},
+	}
+
+	event := buildEvent(op, env, "test-service")
+
+	if event.Resource == nil || event.Resource.Namespace != "ns-1" {
+		t.Fatalf("Resource = %+v, want Namespace filled from Hierarchy", event.Resource)
+	}
+	if event.Resource == resource {
+		t.Error("buildEvent must not mutate the Envelope's *Resource in place; it must return a copy")
+	}
+	if resource.Namespace != "" {
+		t.Errorf("original Resource mutated: Namespace = %q, want empty", resource.Namespace)
+	}
+}
+
+// TestBuildEvent_DoesNotOverrideExistingNamespace guards that the hierarchy
+// fallback only fills a gap — a handler-supplied namespace (the existing,
+// authoritative source per E.1) is never replaced.
+func TestBuildEvent_DoesNotOverrideExistingNamespace(t *testing.T) {
+	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "component", Category: CategoryManagement}
+	env := Envelope{
+		Origin: OriginAPI, Result: ResultSuccess,
+		Resource: &Resource{Namespace: "handler-namespace"}, Hierarchy: Hierarchy{Namespace: "hierarchy-namespace"},
+	}
+
+	event := buildEvent(op, env, "test-service")
+
+	if event.Resource.Namespace != "handler-namespace" {
+		t.Errorf("Resource.Namespace = %q, want the handler-supplied value preserved", event.Resource.Namespace)
+	}
+}
+
+// TestBuildEvent_CarriesHierarchyEvenWithNilResource guards a denial before
+// any handler ran (Envelope.Resource nil), where the hierarchy is the only
+// tenancy information available.
+func TestBuildEvent_CarriesHierarchyEvenWithNilResource(t *testing.T) {
+	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "component", Category: CategoryManagement}
+	env := Envelope{
+		Origin: OriginAPI, Result: ResultDenied,
+		Hierarchy: Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1"},
+	}
+
+	event := buildEvent(op, env, "test-service")
+
+	if event.Hierarchy != env.Hierarchy {
+		t.Errorf("Hierarchy = %+v, want %+v", event.Hierarchy, env.Hierarchy)
+	}
+	if event.Resource == nil || event.Resource.Namespace != "ns-1" {
+		t.Errorf("Resource = %+v, want a synthesized Resource carrying the hierarchy's namespace", event.Resource)
+	}
+}
+
 func TestEmitter_SkipsAllSinksWhenPolicyDenies(t *testing.T) {
 	policies, errs := NewPolicySet(coreconfig.NewPath("audit"), Settings{Publish: false}, nil)
 	if len(errs) != 0 {

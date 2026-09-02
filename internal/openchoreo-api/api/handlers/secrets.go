@@ -91,13 +91,13 @@ func (h *Handler) CreateSecret(
 		return mapCreateSecretError(h, err)
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
+
 	out, err := convert[corev1.Secret, gen.Secret](*result)
 	if err != nil {
 		h.logger.Error("Failed to convert created secret", "error", err)
 		return gen.CreateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
 
 	return gen.CreateSecret201JSONResponse(out), nil
 }
@@ -149,13 +149,13 @@ func (h *Handler) UpdateSecret(
 		return mapUpdateSecretError(h, err)
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
+
 	out, err := convert[corev1.Secret, gen.Secret](*result)
 	if err != nil {
 		h.logger.Error("Failed to convert updated secret", "error", err)
 		return gen.UpdateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
 
 	return gen.UpdateSecret200JSONResponse(out), nil
 }

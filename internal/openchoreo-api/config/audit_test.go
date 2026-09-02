@@ -41,6 +41,36 @@ audit:
 	}
 }
 
+// TestAuditConfig_ExecAndWirelogsAreSelectable guards against exec/wirelogs
+// silently falling outside the policy vocabulary: they're audited via a
+// hand-declared route map rather than the OpenAPI spec (see
+// apiaudit.nonSpecOperationDefs), so it would be easy for them to never
+// reach apiaudit.GetOperations() and become the one action no operator can
+// write a policy for despite being the highest-sensitivity one in the API.
+func TestAuditConfig_ExecAndWirelogsAreSelectable(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  enabled: true
+  defaults:
+    publish: true
+  policies:
+    - match:
+        operations: [Exec]
+        actions: [exec_component]
+      set:
+        publish: true
+    - match:
+        operations: [Wirelogs]
+        actions: [view_wirelogs]
+      set:
+        publish: true
+`)
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v, want none — Exec/Wirelogs must be valid operations/actions", err)
+	}
+}
+
 func TestAuditConfig_RejectsCategoryInSet(t *testing.T) {
 	cfg := loadAuditTestConfig(t, `
 audit:

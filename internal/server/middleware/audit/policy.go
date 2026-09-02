@@ -30,10 +30,10 @@ type Selector struct {
 // not a field here: it is stamped from the Operation, never operator-set —
 // see the config layer's rejection of a `set: {category: ...}` key.
 //
-// Publish is the only field today. pre_action (P10a) and delivery/retries
-// (P10b) are reserved for later phases — they are deliberately not modeled
-// here until the phase that acts on them lands, rather than carried as inert
-// config that does nothing.
+// Publish is the only field today. pre_action and delivery/retries are
+// anticipated future settings, deliberately not modeled here until a
+// feature actually acts on them, rather than carried as inert config that
+// does nothing.
 type PartialSettings struct {
 	Publish *bool
 }

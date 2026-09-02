@@ -70,6 +70,7 @@ func (h *MCPHandler) CreateProjectType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -99,6 +100,7 @@ func (h *MCPHandler) UpdateProjectType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -169,6 +171,7 @@ func (h *MCPHandler) CreateClusterProjectType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -198,6 +201,7 @@ func (h *MCPHandler) UpdateClusterProjectType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
