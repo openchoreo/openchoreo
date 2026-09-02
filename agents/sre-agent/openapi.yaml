@@ -853,6 +853,16 @@ components:
       type: object
       required: [release_binding]
       properties:
+        target_kind:
+          type: string
+          enum: [ReleaseBinding, ResourceReleaseBinding]
+          default: ReleaseBinding
+          description: >-
+            Which binding kind to modify. 'ReleaseBinding' for a Component,
+            'ResourceReleaseBinding' for a Resource (e.g. a managed Postgres).
+            ResourceReleaseBinding targets support only `fields`
+            (paths under /spec/resourceTypeEnvironmentConfigs) — not `env` or `files`.
+            Defaults to 'ReleaseBinding' for older reports that predate this field.
         release_binding:
           type: string
         env:
