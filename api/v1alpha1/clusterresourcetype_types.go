@@ -37,6 +37,16 @@ type ClusterResourceTypeSpec struct {
 	// +listMapKey=name
 	Outputs []ResourceTypeOutput `json:"outputs,omitempty"`
 
+	// Endpoints declares the dialable network endpoints of this resource type.
+	// Consumers may redirect the env bindings of a declared endpoint to a different
+	// address, so an address that must always be used as published -- an externally
+	// served admin UI, for example -- must not be declared here.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=10
+	Endpoints []ResourceTypeEndpoint `json:"endpoints,omitempty"`
+
 	// Resources are the Kubernetes manifests the ClusterResourceType provisioner
 	// emits on the data plane. Each entry has a unique id used by readyWhen and
 	// outputs CEL to reference applied.<id>.status.* fields.

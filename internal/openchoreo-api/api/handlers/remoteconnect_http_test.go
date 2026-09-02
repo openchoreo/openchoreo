@@ -43,6 +43,9 @@ func hierarchyPath(h authzcore.ResourceHierarchy) string {
 	if h.Component != "" {
 		path += "/component/" + h.Component
 	}
+	if h.Resource != "" {
+		path += "/resource/" + h.Resource
+	}
 	return strings.Trim(path, "/")
 }
 

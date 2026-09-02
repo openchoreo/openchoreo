@@ -422,3 +422,119 @@ func hasErrorContaining(errs field.ErrorList, substr string) bool {
 	}
 	return false
 }
+
+func TestValidateEndpoints(t *testing.T) {
+	outputs := []v1alpha1.ResourceTypeOutput{
+		{Name: "host", Value: "h"},
+		{Name: "port", Value: "6379"},
+		{Name: "monitorPort", Value: "8222"},
+	}
+	base := func(endpoints []v1alpha1.ResourceTypeEndpoint) *v1alpha1.ResourceTypeSpec {
+		return &v1alpha1.ResourceTypeSpec{
+			Outputs:   outputs,
+			Endpoints: endpoints,
+			Resources: []v1alpha1.ResourceTypeManifest{{ID: "marker"}},
+		}
+	}
+
+	t.Run("accepts_distinct_port_outputs", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", HostFrom: "host", PortFrom: "port"},
+			{Name: "monitor", HostFrom: "host", PortFrom: "monitorPort"},
+		}), field.NewPath("spec"))
+		require.Empty(t, errs)
+	})
+
+	t.Run("rejects_undeclared_output", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", HostFrom: "nope", PortFrom: "port"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[0].hostFrom", errs[0].Field)
+	})
+
+	t.Run("rejects_shared_port_output", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "writer", HostFrom: "host", PortFrom: "port"},
+			{Name: "reader", HostFrom: "host", PortFrom: "port"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[1].portFrom", errs[0].Field)
+	})
+
+	t.Run("rejects_malformed_host_expression", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", HostFrom: "host", PortFrom: "port", Host: "${nosuchvar.field}"},
+		}), field.NewPath("spec"))
+		require.NotEmpty(t, errs)
+	})
+
+	t.Run("accepts_inline_host_and_port", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", HostFrom: "host", PortFrom: "port",
+				Host: "${metadata.name}.${metadata.namespace}.svc.cluster.local", Port: "6379"},
+		}), field.NewPath("spec"))
+		require.Empty(t, errs)
+	})
+
+	// A host published as an output whose port is not leaves half the address
+	// redirectable: a consumer rewrites the host binding to the local tunnel while the
+	// port binding keeps the in-cluster port, so the app dials 127.0.0.1:<remote port>.
+	t.Run("rejects_host_output_without_port_output", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", HostFrom: "host", Port: "6379"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[0].portFrom", errs[0].Field)
+	})
+
+	// The reverse: a port published as an output whose host is inline. The port binding
+	// is redirectable while the host has no binding to rewrite, so the app would dial
+	// <in-cluster host>:<local port>.
+	t.Run("rejects_port_output_without_host_output", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", Host: "${metadata.name}.svc", PortFrom: "port"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[0].hostFrom", errs[0].Field)
+	})
+
+	// A fully inline address is fine: nothing names an output, so there is no per-output
+	// binding to leave behind -- the whole address travels inside one composed value.
+	t.Run("accepts_fully_inline_address", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", Host: "${metadata.name}.svc", Port: "6379"},
+			{Name: "monitor", Host: "${metadata.name}.svc", Port: "8222"},
+		}), field.NewPath("spec"))
+		require.Empty(t, errs)
+	})
+
+	// An inline port that cannot be a port is knowable now, so it is rejected here
+	// rather than at resolve time, where it would take the whole binding NotReady.
+	t.Run("rejects_out_of_range_literal_port", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", Host: "cache.svc", Port: "99999"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[0].port", errs[0].Field)
+		require.Contains(t, errs[0].Detail, "1-65535")
+	})
+
+	t.Run("rejects_non_numeric_literal_port", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", Host: "cache.svc", Port: "http"},
+		}), field.NewPath("spec"))
+		require.Len(t, errs, 1)
+		require.Equal(t, "spec.endpoints[0].port", errs[0].Field)
+	})
+
+	// A templated port is only a number once rendered, so the literal range check does
+	// not apply to it -- the expression is compiled here and the value checked at
+	// resolve time.
+	t.Run("accepts_templated_port", func(t *testing.T) {
+		errs := ValidateResourceTypeSpec(base([]v1alpha1.ResourceTypeEndpoint{
+			{Name: "client", Host: "cache.svc", Port: "${metadata.name}"},
+		}), field.NewPath("spec"))
+		require.Empty(t, errs)
+	})
+}

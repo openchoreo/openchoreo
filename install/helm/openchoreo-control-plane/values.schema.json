@@ -3479,6 +3479,19 @@
                   "title": "reaperTtlSeconds",
                   "type": "integer"
                 },
+                "secretTtlSeconds": {
+                  "default": 600,
+                  "description": "Capability lifetime when the capability authorizes reading secret- or\nconfigmap-backed dependency values. Authorization is decided once, at resolve,\nand the per-stream authorize callback re-checks nothing — so this is the entire\nrevocation window for a credential read, and is meant to be shorter than\nttlSeconds. A value above ttlSeconds is rejected at startup. 0 falls back to\nttlSeconds.\n",
+                  "minimum": 0,
+                  "title": "secretTtlSeconds",
+                  "type": "integer"
+                },
+                "secretsEnabled": {
+                  "default": true,
+                  "description": "Allow `occ remote` to resolve secret- and configmap-backed dependency values.\nThe remote-agent reads them in the data plane and returns them over the tunnel, so\nthey never pass through openchoreo-api. Reading a secret additionally requires\nthe resource:read-secrets action, so this is an operator kill switch independent\nof role configuration: with it off, no capability authorizes a read whatever the\nroles grant.\n",
+                  "title": "secretsEnabled",
+                  "type": "boolean"
+                },
                 "signingKeyPath": {
                   "default": "/etc/remote-connect/signing.pem",
                   "description": "PEM Ed25519 signing key mount path (from the secret below) used to sign/verify capabilities.",

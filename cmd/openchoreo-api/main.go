@@ -284,8 +284,12 @@ func main() {
 		// Heartbeat: the remote-agent's periodic liveness callback while it has live
 		// sessions. Also unauthenticated at the middleware layer — the presented
 		// capability is the credential (verified, expiry tolerated, inside the handler).
+		// A heartbeat keeps the agent alive but is not a read.
 		heartbeatHandler := openapihandlers.NewRemoteConnectHeartbeatHandler(
-			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+			remoteConnectHandler.VerifyKey(),
+			func(ctx context.Context, namespace, env, dpNamespace string) error {
+				return remoteConnectHandler.TouchAgent(ctx, namespace, env, dpNamespace, false)
+			}, logger)
 		baseMux.Handle("POST "+remoteconnect.HeartbeatPath, heartbeatHandler)
 		logger.Info("Remote-connect resolve + authorize + heartbeat endpoints registered",
 			"resolve", "/api/v1/remote-connect:resolve",

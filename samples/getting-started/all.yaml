@@ -1121,6 +1121,11 @@ spec:
 
   retainPolicy: Delete
 
+  endpoints:
+    - name: client
+      hostFrom: host
+      portFrom: port
+
   outputs:
     - name: host
       value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
@@ -1507,6 +1512,11 @@ spec:
 
   retainPolicy: Delete
 
+  endpoints:
+    - name: client
+      hostFrom: host
+      portFrom: port
+
   outputs:
     - name: host
       value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
@@ -1761,6 +1771,11 @@ spec:
           default: false
 
   retainPolicy: Delete
+
+  endpoints:
+    - name: client
+      hostFrom: host
+      portFrom: port
 
   outputs:
     - name: host

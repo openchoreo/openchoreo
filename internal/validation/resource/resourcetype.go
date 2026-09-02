@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -50,6 +51,7 @@ func ValidateResourceTypeSpec(spec *v1alpha1.ResourceTypeSpec, basePath *field.P
 		spec.EnvironmentConfigs,
 		spec.Resources,
 		spec.Outputs,
+		spec.Endpoints,
 		basePath,
 	)
 }
@@ -67,6 +69,7 @@ func ValidateClusterResourceTypeSpec(spec *v1alpha1.ClusterResourceTypeSpec, bas
 		spec.EnvironmentConfigs,
 		spec.Resources,
 		spec.Outputs,
+		spec.Endpoints,
 		basePath,
 	)
 }
@@ -76,6 +79,7 @@ func validateResourceTypeSpecCommon(
 	environmentConfigs *v1alpha1.SchemaSection,
 	resources []v1alpha1.ResourceTypeManifest,
 	outputs []v1alpha1.ResourceTypeOutput,
+	endpoints []v1alpha1.ResourceTypeEndpoint,
 	basePath *field.Path,
 ) field.ErrorList {
 	var allErrs field.ErrorList
@@ -113,10 +117,96 @@ func validateResourceTypeSpecCommon(
 	}
 
 	outputsPath := basePath.Child("outputs")
+	declaredOutputs := make(map[string]bool, len(outputs))
 	for i := range outputs {
 		allErrs = append(allErrs, validateResourceOutput(
 			&outputs[i], appliedEnv, declaredIDs, outputsPath.Index(i),
 		)...)
+		if outputs[i].Name != "" {
+			declaredOutputs[outputs[i].Name] = true
+		}
+	}
+
+	endpointsPath := basePath.Child("endpoints")
+	portOwner := make(map[string]string, len(endpoints))
+	for i := range endpoints {
+		allErrs = append(allErrs, validateResourceEndpoint(
+			&endpoints[i], appliedEnv, declaredIDs, declaredOutputs, portOwner, endpointsPath.Index(i),
+		)...)
+	}
+
+	return allErrs
+}
+
+// validateResourceEndpoint validates a single endpoints[] entry: that hostFrom and
+// portFrom name declared outputs, that no two endpoints claim the same port output,
+// and that the optional address expression compiles.
+func validateResourceEndpoint(
+	ep *v1alpha1.ResourceTypeEndpoint,
+	appliedEnv *cel.Env,
+	declaredIDs map[string]bool,
+	declaredOutputs map[string]bool,
+	portOwner map[string]string,
+	path *field.Path,
+) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if ep.HostFrom != "" && !declaredOutputs[ep.HostFrom] {
+		allErrs = append(allErrs, field.NotFound(path.Child("hostFrom"), ep.HostFrom))
+	}
+	if ep.PortFrom != "" && !declaredOutputs[ep.PortFrom] {
+		allErrs = append(allErrs, field.NotFound(path.Child("portFrom"), ep.PortFrom))
+	}
+
+	// hostFrom and portFrom go together. A consumer redirects an endpoint by rewriting
+	// the env bindings of its named outputs, so a half declared inline has no binding to
+	// rewrite and the other half would be redirected alone: the app would dial
+	// 127.0.0.1:<in-cluster port>, or <in-cluster host>:<local port>. The two legal
+	// shapes are both halves as outputs, or both inline — the latter redirected inside a
+	// composed value instead.
+	if ep.HostFrom != "" && ep.PortFrom == "" {
+		allErrs = append(allErrs, field.Required(path.Child("portFrom"),
+			"required when hostFrom is set, so a consumer redirects the host and the port "+
+				"together; publish the port as an output, or set host inline instead of hostFrom"))
+	}
+	if ep.PortFrom != "" && ep.HostFrom == "" {
+		allErrs = append(allErrs, field.Required(path.Child("hostFrom"),
+			"required when portFrom is set, so a consumer redirects the host and the port "+
+				"together; publish the host as an output, or set port inline instead of portFrom"))
+	}
+
+	// One env var cannot carry a redirected address for two endpoints, so a shared
+	// port output is rejected here rather than resolved arbitrarily.
+	if ep.PortFrom != "" {
+		if owner, taken := portOwner[ep.PortFrom]; taken {
+			allErrs = append(allErrs, field.Duplicate(path.Child("portFrom"),
+				fmt.Sprintf("%s (already used by endpoint %q)", ep.PortFrom, owner)))
+		} else {
+			portOwner[ep.PortFrom] = ep.Name
+		}
+	}
+
+	if ep.Host != "" {
+		allErrs = append(allErrs, validateCELString(
+			ep.Host, appliedEnv, declaredIDs, path.Child("host"),
+		)...)
+	}
+	if ep.Port != "" {
+		allErrs = append(allErrs, validateCELString(
+			ep.Port, appliedEnv, declaredIDs, path.Child("port"),
+		)...)
+		// A literal port is knowable now, so reject a bad one here rather than at
+		// resolve time, where it would fail the whole binding. A templated port can
+		// only be checked once rendered.
+		if !strings.Contains(ep.Port, "${") {
+			if n, err := strconv.Atoi(ep.Port); err != nil {
+				allErrs = append(allErrs, field.Invalid(path.Child("port"), ep.Port,
+					"must be a number, or a ${...} expression rendering to one"))
+			} else if n < 1 || n > 65535 {
+				allErrs = append(allErrs, field.Invalid(path.Child("port"), ep.Port,
+					"must be in the range 1-65535"))
+			}
+		}
 	}
 
 	return allErrs

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,10 +24,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 )
 
+// localHost is where every tunnel terminates, which is what lets one host binding
+// serve several endpoints of the same resource.
+const localHost = "127.0.0.1"
+
 // tunnel is one yamux session to a project+env remote-agent; each accepted local
 // connection opens a stream on it for a resolved target key.
 type tunnel interface {
 	OpenStream(key string) (net.Conn, error)
+	// Fetch resolves one value-fetch key to the bytes the remote-agent read from its own
+	// namespace. Separate from OpenStream because a fetch stream is a single
+	// request/response, not a byte pipe.
+	Fetch(key string) ([]byte, error)
 	Close() error
 }
 
@@ -124,8 +133,15 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 	}
 
 	overrides := map[string]string{}
+	// Names of env vars whose values were fetched from the data plane. Tracked so
+	// --print-env can redact them rather than writing credentials to the terminal.
+	sensitive := map[string]bool{}
 	var listeners []net.Listener
 	var tunnels []tunnel
+	// Fetched file bindings live here for the life of the session. The cleanup below
+	// runs on every return path — including the ctx-cancelled one that Ctrl-C takes —
+	// so credentials written to disk do not outlive the tunnels that fetched them.
+	files := newFileStore()
 	defer func() {
 		for _, ln := range listeners {
 			_ = ln.Close()
@@ -133,6 +149,7 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		for _, tn := range tunnels {
 			_ = tn.Close()
 		}
+		files.cleanup()
 	}()
 
 	for _, wl := range workloads {
@@ -143,37 +160,41 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		componentName := wl.Spec.Owner.ComponentName
 		remoteEndpoints, links := splitDependencies(wl, namespace, byIdentity)
 
-		fmt.Fprintf(out, "Connected to %s/%s (%s):\n", wl.Spec.Owner.ProjectName, componentName, p.Environment)
+		fmt.Fprintf(out, "Connecting to %s/%s (%s)...\n", wl.Spec.Owner.ProjectName, componentName, p.Environment)
 
-		if len(remoteEndpoints) > 0 {
+		hasResources := wl.Spec.Dependencies != nil && len(wl.Spec.Dependencies.Resources) > 0
+		if len(remoteEndpoints) > 0 || hasResources {
 			req := buildResolveRequest(wl, namespace, p.Environment, remoteEndpoints)
 			resp, err := d.resolver.Resolve(ctx, req)
 			if err != nil {
 				return err
 			}
 
-			if len(resp.Targets) > 0 {
-				// Open one tunnel per distinct remote-agent the targets fan out to (one per
-				// provider project+env namespace), then route each target's streams to
-				// its agent. Same-namespace dependencies share a tunnel.
-				reporter := newStreamErrorReporter(out, resp.Capability)
-				agentTunnels := make(map[string]tunnel, len(resp.Agents))
-				for id, agent := range resp.Agents {
-					tn, terr := d.dialTunnel(ctx, agent, resp.Capability)
-					if terr != nil {
-						return terr
-					}
-					tunnels = append(tunnels, tn)
-					agentTunnels[id] = tn
+			// Per resource, the in-cluster address each of its endpoints resolved to and
+			// the local listener that now stands in for it.
+			localAddrs := map[string][]addrSwap{}
+			// Hoisted out of the target loop: fetching values needs the same tunnels the
+			// listeners use, and a resource with no endpoint at all still needs one.
+			agentTunnels := make(map[string]tunnel, len(resp.Agents))
+			for id, agent := range resp.Agents {
+				tn, terr := d.dialTunnel(ctx, agent, resp.Capability)
+				if terr != nil {
+					return terr
 				}
-
+				tunnels = append(tunnels, tn)
+				agentTunnels[id] = tn
+			}
+			if len(resp.Targets) > 0 {
+				// Route each target's streams to its own agent; same-namespace
+				// dependencies share a tunnel.
+				reporter := newStreamErrorReporter(out, resp.Capability)
 				for _, t := range resp.Targets {
 					tn, ok := agentTunnels[t.AgentID]
 					if !ok {
 						return fmt.Errorf("resolve returned no remote-agent %q for target %s", t.AgentID, t.Key)
 					}
 
-					ln, lerr := net.Listen("tcp", "127.0.0.1:0")
+					ln, lerr := net.Listen("tcp", net.JoinHostPort(localHost, "0"))
 					if lerr != nil {
 						return fmt.Errorf("open local listener for %s: %w", t.Key, lerr)
 					}
@@ -184,10 +205,21 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 					open := func() (net.Conn, error) { return tn.OpenStream(key) }
 					go forward(ln, key, open, reporter.report)
 
-					mergeOverrides(overrides, out, remoteconnect.RenderEnv(t, "127.0.0.1", port))
-					fmt.Fprintf(out, "  %-28s -> 127.0.0.1:%d  (endpoint)\n", t.Key, port)
+					mergeOverrides(overrides, out, remoteconnect.RenderEnv(t, localHost, port))
+					if t.Resource != nil && t.Resource.RemoteAddr != "" {
+						localAddrs[t.Resource.Ref] = append(localAddrs[t.Resource.Ref],
+							newAddrSwap(t.Resource.RemoteAddr, strconv.Itoa(port)))
+					}
+					fmt.Fprintf(out, "  %-28s -> %s:%d  (%s)\n", t.Key, localHost, port, targetKind(t))
 				}
 			}
+			applyResourceBindings(overrides, out, resp, localAddrs)
+			// After the tunnels: a fetched value travels over one, so this cannot run
+			// before they are up.
+			fetchBindings(overrides, sensitive, out, resp, agentTunnels, files, localAddrs, p.NoSecrets)
+			// After both merges: an env var naming a mount path may have come from
+			// StaticEnv or from a fetch, so the repoint must see the finished map.
+			repointFilePaths(overrides, out, files)
 			for _, u := range resp.Unconnectable {
 				fmt.Fprintf(out, "  ! %s: %s\n", u.Ref, u.Reason)
 			}
@@ -201,7 +233,7 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 	}
 
 	if p.PrintEnv {
-		printEnvBindings(out, overrides)
+		printEnvBindings(out, overrides, sensitive)
 		fmt.Fprintln(out, "\nTunnels open. Press Ctrl-C to disconnect.")
 		<-ctx.Done()
 		return nil
@@ -265,12 +297,10 @@ func splitDependencies(wl *v1alpha1.Workload, namespace string, byIdentity map[w
 // schemeForEndpointType mirrors the control plane's endpoint-type -> URL scheme
 // mapping (internal/controller/releasebinding's schemeForEndpointType) so a local link
 // renders an `address` binding identically to what a remote resolve would have produced.
-const schemeHTTP = "http"
-
 func schemeForEndpointType(t v1alpha1.EndpointType) string {
 	switch t {
 	case v1alpha1.EndpointTypeHTTP, v1alpha1.EndpointTypeGraphQL:
-		return schemeHTTP
+		return "http"
 	case v1alpha1.EndpointTypeWebsocket:
 		return "ws"
 	case v1alpha1.EndpointTypeGRPC:
@@ -280,7 +310,7 @@ func schemeForEndpointType(t v1alpha1.EndpointType) string {
 	case v1alpha1.EndpointTypeUDP:
 		return "udp"
 	default:
-		return schemeHTTP
+		return "http"
 	}
 }
 
@@ -350,6 +380,202 @@ func (r *streamErrorReporter) report(key string, err error) {
 	fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)
 }
 
+func targetKind(t remoteconnect.ResolvedTarget) string {
+	if t.Resource != nil {
+		return "resource/" + t.Resource.Endpoint
+	}
+	return "endpoint"
+}
+
+// applyResourceBindings merges the env each resource dependency contributes directly:
+// values the control plane resolved itself, re-pointed at the local listeners where they
+// embed a tunneled address, plus a report of the bindings that could not be resolved at
+// all. Values behind a Secret/ConfigMap reference are not here — they are fetched over
+// the tunnel by fetchBindings. Resources with no endpoint at all are included, which is
+// what lets a dependency with nothing to dial still supply its configuration.
+func applyResourceBindings(
+	overrides map[string]string,
+	out io.Writer,
+	resp *remoteconnect.ResolveResponse,
+	localAddrs map[string][]addrSwap,
+) {
+	tunneledRefs := make(map[string]bool, len(resp.Targets))
+	for _, t := range resp.Targets {
+		if t.Resource != nil {
+			tunneledRefs[t.Resource.Ref] = true
+		}
+	}
+	for _, rb := range resp.Resources {
+		mergeOverrides(overrides, out, rewriteAddrs(rb.StaticEnv, localAddrs[rb.Ref],
+			remoteconnect.ResourceRefKey(rb.Ref), out))
+		if !tunneledRefs[rb.Ref] {
+			// Either the type declares nothing dialable, or the binding is still pinned
+			// to a ResourceRelease cut before it did. Either way the addresses below are
+			// the in-cluster ones as published, which this machine may not resolve.
+			fmt.Fprintf(out, "  %-28s (no endpoint tunneled; %d binding(s) resolved as published in-cluster)\n",
+				remoteconnect.ResourceRefKey(rb.Ref), len(rb.StaticEnv))
+		}
+		for _, om := range rb.OmittedSecretEnv {
+			what := "value"
+			if om.File {
+				what = "file"
+			}
+			fmt.Fprintf(out, "  ! %s: %s %s not resolved (%s)\n",
+				remoteconnect.ResourceRefKey(rb.Ref), om.Target, what, om.Reason)
+		}
+	}
+}
+
+// addrSwap pairs the in-cluster address an endpoint resolved to with the local
+// listener that replaces it, split into parts so a composed value carrying the host
+// and port at separate positions can be re-pointed too.
+type addrSwap struct {
+	remote     string // in-cluster "host:port"
+	local      string // "127.0.0.1:<local port>"
+	remoteHost string
+	remotePort string
+	localPort  string
+}
+
+// newAddrSwap splits an endpoint's in-cluster address so both the fused pair and its
+// parts can be substituted. A remote address that will not split yields a swap that
+// only ever matches as a whole.
+func newAddrSwap(remote, localPort string) addrSwap {
+	sw := addrSwap{
+		remote:    remote,
+		local:     net.JoinHostPort(localHost, localPort),
+		localPort: localPort,
+	}
+	if host, port, err := net.SplitHostPort(remote); err == nil {
+		sw.remoteHost, sw.remotePort = host, port
+	}
+	return sw
+}
+
+// splittable reports whether this swap can be applied to a host and a port held at
+// separate positions in one value.
+func (s addrSwap) splittable() bool {
+	return s.remoteHost != "" && s.remotePort != ""
+}
+
+// rewriteAddrs re-points a resource's composed bindings at its tunnels, so a connection
+// URL or driver connection string resolved for the cluster works from the developer's
+// machine. Two shapes are handled, in order:
+//
+// Fused -- "redis://SVC:6379" -- has the host and port adjacent, so the pair is
+// substituted as one string. Being that specific is what keeps the rewrite safe: it
+// cannot match a host named with some other port, nor a bare hostname.
+//
+// Split -- "host=SVC,port=6379,password=x" -- holds the two apart, so they are
+// substituted individually. That is only attempted for an endpoint whose fused pair is
+// absent from the value, and only when the value carries both the host AND that
+// endpoint's port as a delimited token. A value naming the host alone (a TLS server
+// name) or with a different port (an admin URL) satisfies neither condition and is left
+// as resolved, and reported. Each split rewrite is reported too, since substituting a
+// bare host is the weaker inference of the two.
+func rewriteAddrs(env map[string]string, swaps []addrSwap, ref string, out io.Writer) map[string]string {
+	if len(env) == 0 || len(swaps) == 0 {
+		return env
+	}
+	// Local listener ports, so a split rewrite never consumes a port an earlier rewrite
+	// just produced. Ephemeral ports are assigned by the OS and could coincide with
+	// another endpoint's in-cluster port; substituting into that would silently undo the
+	// earlier endpoint's rewrite.
+	localPorts := make(map[string]bool, len(swaps))
+	for _, sw := range swaps {
+		localPorts[sw.localPort] = true
+	}
+
+	rewritten := make(map[string]string, len(env))
+	for k, v := range env {
+		got := v
+		for _, sw := range swaps {
+			got = strings.ReplaceAll(got, sw.remote, sw.local)
+		}
+		// Decided against the original value, not the partially rewritten one: several
+		// endpoints of a resource share a host output, so the first rewrite would
+		// otherwise hide the host from the endpoints still to be applied.
+		for _, sw := range swaps {
+			if !sw.splittable() || strings.Contains(v, sw.remote) {
+				continue
+			}
+			if !strings.Contains(v, sw.remoteHost) || !containsPortToken(v, sw.remotePort) {
+				continue
+			}
+			if localPorts[sw.remotePort] {
+				// This endpoint's in-cluster port is some endpoint's local port, so a
+				// substitution here cannot be told apart from one already applied. Left
+				// alone, and reported below as still pointing into the cluster.
+				continue
+			}
+			got = strings.ReplaceAll(got, sw.remoteHost, localHost)
+			got = replacePortToken(got, sw.remotePort, sw.localPort)
+			fmt.Fprintf(out, "  ~ %s: %s had its host and port re-pointed separately\n", ref, k)
+		}
+		if got == v {
+			// Unchanged, but mentions a tunneled host: the value embeds the host with
+			// some other port, so it still points into the cluster.
+			for _, sw := range swaps {
+				if sw.remoteHost != "" && strings.Contains(v, sw.remoteHost) {
+					fmt.Fprintf(out, "  ! %s: %s still points at %s and was not re-pointed at a tunnel\n", ref, k, sw.remoteHost)
+					break
+				}
+			}
+		}
+		rewritten[k] = got
+	}
+	return rewritten
+}
+
+// containsPortToken reports whether port appears in s as a standalone token.
+func containsPortToken(s, port string) bool {
+	return findPortToken(s, port, 0) >= 0
+}
+
+// replacePortToken replaces every standalone occurrence of port in s with local.
+func replacePortToken(s, port, local string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		j := findPortToken(s, port, i)
+		if j < 0 {
+			b.WriteString(s[i:])
+			break
+		}
+		b.WriteString(s[i:j])
+		b.WriteString(local)
+		i = j + len(port)
+	}
+	return b.String()
+}
+
+// findPortToken returns the index of the first standalone occurrence of port in s at or
+// after from, or -1. Standalone means not flanked by a character that could belong to a
+// hostname or a longer number, so the 6379 in "cache6379.ns" or "63790" is not a match.
+func findPortToken(s, port string, from int) int {
+	for i := from; ; {
+		j := strings.Index(s[i:], port)
+		if j < 0 {
+			return -1
+		}
+		j += i
+		if !isAddrChar(s, j-1) && !isAddrChar(s, j+len(port)) {
+			return j
+		}
+		i = j + 1
+	}
+}
+
+// isAddrChar reports whether s[i] is a character a hostname or number can be made of.
+// An index outside s is a delimiter, not a character.
+func isAddrChar(s string, i int) bool {
+	if i < 0 || i >= len(s) {
+		return false
+	}
+	c := s[i]
+	return c == '.' || c == '-' || c == '_' ||
+		('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+}
+
 // loadWorkloadFromFile reads a YAML file and returns its Workload document.
 func loadWorkloadFromFile(path string) (*v1alpha1.Workload, error) {
 	data, err := os.ReadFile(path)
@@ -410,6 +636,15 @@ func buildResolveRequest(wl *v1alpha1.Workload, namespace, env string, endpoints
 			},
 		})
 	}
+	if wl.Spec.Dependencies != nil {
+		for _, r := range wl.Spec.Dependencies.Resources {
+			req.Resources = append(req.Resources, remoteconnect.ResourceDep{
+				Ref:          r.Ref,
+				EnvBindings:  r.EnvBindings,
+				FileBindings: r.FileBindings,
+			})
+		}
+	}
 	return req
 }
 
@@ -430,7 +665,11 @@ func mergeEnv(base []string, overrides map[string]string) []string {
 	return out
 }
 
-func printEnvBindings(out io.Writer, env map[string]string) {
+// printEnvBindings lists the resolved bindings for --print-env. Values fetched from the
+// data plane are redacted: they are the same credentials the cluster keeps in a Secret,
+// and --print-env output lands in a terminal, scrollback, and often a pasted bug report.
+// The name is still shown so the developer can see the binding was resolved.
+func printEnvBindings(out io.Writer, env map[string]string, sensitive map[string]bool) {
 	keys := make([]string, 0, len(env))
 	for k := range env {
 		keys = append(keys, k)
@@ -438,6 +677,10 @@ func printEnvBindings(out io.Writer, env map[string]string) {
 	sort.Strings(keys)
 	fmt.Fprintln(out, "\nEnvironment bindings:")
 	for _, k := range keys {
+		if sensitive[k] {
+			fmt.Fprintf(out, "  export %s=<hidden; set in the subshell>\n", k)
+			continue
+		}
 		fmt.Fprintf(out, "  export %s=%s\n", k, env[k])
 	}
 }

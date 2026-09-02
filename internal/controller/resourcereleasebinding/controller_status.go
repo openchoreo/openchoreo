@@ -6,7 +6,9 @@ package resourcereleasebinding
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -18,6 +20,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 )
+
+// endpointRetryInterval paces re-resolution of a pending endpoint.
+const endpointRetryInterval = 15 * time.Second
 
 // evaluateReadiness reads the live RenderedRelease status, resolves declared
 // outputs, and aggregates per-entry readiness. Writes ResourcesReady,
@@ -40,12 +45,13 @@ func (r *Reconciler) evaluateReadiness(
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
 	rr *openchoreov1alpha1.RenderedRelease,
-) {
+) time.Duration {
 	logger := log.FromContext(ctx)
 
 	observed := observedStatusByID(rr.Status.Resources, logger)
-	r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
+	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
 	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, observed, logger)
+	return retryAfter
 }
 
 // observedStatusByID decodes RenderedRelease.status.resources[].status from
@@ -86,7 +92,7 @@ func (r *Reconciler) evaluateOutputs(
 	project *openchoreov1alpha1.Project,
 	observed map[string]map[string]any,
 	logger logr.Logger,
-) {
+) time.Duration {
 	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
 
 	resolved, err := r.Pipeline.ResolveOutputs(ctx, input, observed)
@@ -94,7 +100,7 @@ func (r *Reconciler) evaluateOutputs(
 		binding.Status.Outputs = mapResolvedOutputs(resolved)
 		controller.MarkTrueCondition(binding, ConditionOutputsResolved, ReasonOutputsResolved,
 			fmt.Sprintf("Resolved %d output(s)", len(resolved)))
-		return
+		return r.evaluateEndpoints(ctx, binding, input, observed, resolved, logger)
 	}
 
 	// Partial failure: pipeline returns the successful subset alongside the
@@ -107,6 +113,91 @@ func (r *Reconciler) evaluateOutputs(
 	controller.MarkFalseCondition(binding, ConditionOutputsResolved, ReasonOutputResolutionFailed,
 		fmt.Sprintf("Failed to resolve %d output(s): %v", countOutputErrors(err), err))
 	logger.Info("Output resolution failed", "error", err)
+	// Endpoints resolve from the outputs, so the previous condition stands.
+	return 0
+}
+
+// evaluateEndpoints resolves the ResourceType's endpoint declarations against the
+// already-resolved outputs and writes them to status.endpoints and EndpointsResolved. As
+// with outputs, a partial failure keeps the resolved subset; a top-level failure leaves
+// the previous endpoints in place rather than erasing a still-valid view.
+//
+// Returns how long to wait before re-resolving, or 0 for no timed retry.
+func (r *Reconciler) evaluateEndpoints(
+	ctx context.Context,
+	binding *openchoreov1alpha1.ResourceReleaseBinding,
+	input *resourcepipeline.RenderInput,
+	observed map[string]map[string]any,
+	outputs []resourcepipeline.ResolvedOutput,
+	logger logr.Logger,
+) time.Duration {
+	endpoints, err := r.Pipeline.ResolveEndpoints(ctx, input, observed, outputs)
+	if err == nil {
+		if len(endpoints) == 0 {
+			// The type declares none, so the condition would say nothing. Endpoints from
+			// an earlier release are dropped rather than left for a consumer to dial.
+			binding.Status.Endpoints = nil
+			meta.RemoveStatusCondition(&binding.Status.Conditions, string(ConditionEndpointsResolved))
+			return 0
+		}
+		binding.Status.Endpoints = mapResolvedEndpoints(endpoints)
+		controller.MarkTrueCondition(binding, ConditionEndpointsResolved, ReasonEndpointsResolved,
+			fmt.Sprintf("Resolved %d endpoint(s)", len(endpoints)))
+		return 0
+	}
+
+	if len(endpoints) > 0 {
+		binding.Status.Endpoints = mapResolvedEndpoints(endpoints)
+	}
+	// An expired render deadline produces no watch event, so this is retried on a timer.
+	if endpointsPending(err) {
+		controller.MarkFalseCondition(binding, ConditionEndpointsResolved, ReasonEndpointsPending, err.Error())
+		logger.Info("Endpoint resolution pending", "error", err)
+		return endpointRetryInterval
+	}
+	controller.MarkFalseCondition(binding, ConditionEndpointsResolved, ReasonEndpointResolutionFailed, err.Error())
+	logger.Info("Endpoint resolution failed", "error", err)
+	return 0
+}
+
+// endpointsPending reports whether every endpoint failure in err clears on its own: an
+// address awaiting observed state, or a render that ran out of time. One that does not
+// makes the whole set a defect.
+func endpointsPending(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		errs := joined.Unwrap()
+		if len(errs) == 0 {
+			return false
+		}
+		for _, e := range errs {
+			if !endpointsPending(e) {
+				return false
+			}
+		}
+		return true
+	}
+	return errors.Is(err, resourcepipeline.ErrNotYetResolved) ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
+// mapResolvedEndpoints converts pipeline-resolved endpoints into the binding's
+// API shape.
+func mapResolvedEndpoints(resolved []resourcepipeline.ResolvedEndpoint) []openchoreov1alpha1.ResolvedResourceEndpoint {
+	if len(resolved) == 0 {
+		return nil
+	}
+	out := make([]openchoreov1alpha1.ResolvedResourceEndpoint, 0, len(resolved))
+	for i := range resolved {
+		entry := &resolved[i]
+		out = append(out, openchoreov1alpha1.ResolvedResourceEndpoint{
+			Name:     entry.Name,
+			Host:     entry.Host,
+			Port:     entry.Port,
+			HostFrom: entry.HostFrom,
+			PortFrom: entry.PortFrom,
+		})
+	}
+	return out
 }
 
 // countOutputErrors returns the number of joined errors when the pipeline
@@ -234,6 +325,9 @@ func (r *Reconciler) evaluateResourcesReady(
 // into the top-level Ready. Ready=True only when all three sub-conditions
 // are True; otherwise Ready=False inherits the failing sub-condition's
 // Reason and Message.
+//
+// EndpointsResolved is excluded: it identifies the resource's dialable addresses, which
+// is separate from whether the resource is ready.
 func (r *Reconciler) setReadyCondition(binding *openchoreov1alpha1.ResourceReleaseBinding) {
 	synced := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionSynced))
 	resReady := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionResourcesReady))

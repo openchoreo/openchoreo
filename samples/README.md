@@ -76,7 +76,7 @@ Configuration samples targeted at Platform Engineers. Learn how to set up deploy
 - **[Environments](./platform-config/new-environments/)** - Configure development, QA, pre-production, and production environments
 
 ### [Local Development](./local-development)
-Run your code on your machine against an environment's real upstreams with `occ remote`. This self-contained sample seeds cross-project endpoint providers, then tunnels their endpoints to localhost.
+Run your code on your machine against an environment's real upstreams with `occ remote`. This self-contained sample seeds both an endpoint dependency and a resource dependency, then tunnels them to localhost.
 
 **Available Samples:**
-- **[Local Development with `occ remote`](./local-development/)** - Tunnel endpoint dependencies to your machine for a fast inner loop
+- **[Local Development with `occ remote`](./local-development/)** - Tunnel endpoint and resource dependencies to your machine for a fast inner loop

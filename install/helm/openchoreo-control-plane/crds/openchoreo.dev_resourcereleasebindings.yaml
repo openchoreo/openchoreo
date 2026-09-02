@@ -192,6 +192,54 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              endpoints:
+                description: |-
+                  Endpoints holds the resolved dialable endpoints for this binding's
+                  environment, one per endpoint declared on the referenced ResourceType.
+                  Populated by the binding controller alongside Outputs.
+                items:
+                  description: |-
+                    ResolvedResourceEndpoint is a single dialable endpoint resolved by the binding
+                    controller from a ResourceType endpoint declaration.
+                  properties:
+                    host:
+                      description: |-
+                        Host is the resolved hostname or IP to dial. Empty when the address is published
+                        only through a Secret, which the control plane does not read: the endpoint is
+                        still declared, but there is no address to dial.
+                      minLength: 1
+                      type: string
+                    hostFrom:
+                      description: |-
+                        HostFrom is the output name this endpoint's host came from, carried through so
+                        a consumer can tell which of its env bindings represent this host. Empty when
+                        no output represents the host on its own -- a resource type publishing only a
+                        composed connection URL.
+                      type: string
+                    name:
+                      description: Name matches the endpoint name declared on the
+                        referenced ResourceType.
+                      minLength: 1
+                      type: string
+                    port:
+                      description: Port is the resolved TCP port to dial, empty under
+                        the same conditions as Host.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    portFrom:
+                      description: |-
+                        PortFrom is the output name this endpoint's port came from, empty under the
+                        same conditions as HostFrom.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               outputs:
                 description: |-
                   Outputs holds resolved output values for this binding's environment, populated

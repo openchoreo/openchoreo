@@ -27,6 +27,12 @@ const (
 	// every declared output.
 	ConditionOutputsResolved controller.ConditionType = "OutputsResolved"
 
+	// ConditionEndpointsResolved indicates status.endpoints has been resolved from the
+	// ResourceType's endpoint declarations. Present only on types that declare endpoints,
+	// and not aggregated into Ready: endpoints identify the resource's dialable
+	// addresses, which is separate from whether the resource is ready.
+	ConditionEndpointsResolved controller.ConditionType = "EndpointsResolved"
+
 	// ConditionReady aggregates Synced, ResourcesReady, and OutputsResolved.
 	ConditionReady controller.ConditionType = "Ready"
 
@@ -115,6 +121,17 @@ const (
 	// expressions failed to evaluate against the observed applied status.
 	// Successfully-resolved outputs are still written to status.outputs.
 	ReasonOutputResolutionFailed controller.ConditionReason = "OutputResolutionFailed"
+
+	// ReasonEndpointsResolved indicates every declared endpoint resolved to an address.
+	ReasonEndpointsResolved controller.ConditionReason = "EndpointsResolved"
+
+	// ReasonEndpointsPending indicates an endpoint's address depends on state not
+	// observed yet, or a render that ran out of time. Both clear on their own.
+	ReasonEndpointsPending controller.ConditionReason = "EndpointsPending"
+
+	// ReasonEndpointResolutionFailed indicates an endpoint cannot resolve for unchanged
+	// inputs: a rendered address that is not usable, or a breached render cost limit.
+	ReasonEndpointResolutionFailed controller.ConditionReason = "EndpointResolutionFailed"
 
 	// ReasonReady indicates the binding is fully ready: Synced, ResourcesReady,
 	// and OutputsResolved are all True.

@@ -7,6 +7,13 @@
 // capability + target key into a concrete host:port, then dials it and pipes bytes.
 // The agent holds no capability-signing/verification
 // key: per-stream authorization is an online check against the control plane.
+//
+// A stream may also be a value fetch rather than a tunnel: for a key the control plane
+// answers with Secret/ConfigMap coordinates, the agent reads that key from its own
+// namespace through the Kubernetes API and returns the value on the stream. This is what
+// keeps secret material on the path data plane -> occ, out of the control plane. The
+// agent's ServiceAccount is granted `get` on exactly the object names the control plane
+// authorized, so it cannot enumerate its namespace.
 package remoteagent
 
 import "time"
@@ -53,6 +60,8 @@ type Config struct {
 	AuthorizeTimeout time.Duration
 	// DialTimeout bounds dialing an upstream dependency target.
 	DialTimeout time.Duration
+	// ReadTimeout bounds a single Secret/ConfigMap read against the Kubernetes API.
+	ReadTimeout time.Duration
 
 	// MaxStreamsPerSession caps concurrent streams on a single tunnel connection
 	// (0 = unlimited).
@@ -65,6 +74,7 @@ const (
 	DefaultStreamOpenTimeout = 10 * time.Second
 	DefaultAuthorizeTimeout  = 10 * time.Second
 	DefaultDialTimeout       = 10 * time.Second
+	DefaultReadTimeout       = 10 * time.Second
 	// DefaultHeartbeatInterval is comfortably under the control plane's default reaper
 	// TTL (30 min), so a couple of missed heartbeats don't reap a live agent.
 	DefaultHeartbeatInterval = 60 * time.Second
@@ -83,6 +93,9 @@ func (c Config) withDefaults() Config {
 	}
 	if c.DialTimeout == 0 {
 		c.DialTimeout = DefaultDialTimeout
+	}
+	if c.ReadTimeout == 0 {
+		c.ReadTimeout = DefaultReadTimeout
 	}
 	if c.HeartbeatInterval == 0 {
 		c.HeartbeatInterval = DefaultHeartbeatInterval
