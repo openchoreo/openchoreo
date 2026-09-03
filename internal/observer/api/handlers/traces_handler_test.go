@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
@@ -325,6 +326,44 @@ func TestGetSpanDetailsForTrace_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
+func TestGetSpanDetailsForTrace_AuthzForbidden(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	rr := serve(t, h, req)
+
+	require.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), string(gen.Forbidden))
+	assert.Contains(t, rr.Body.String(), "Access denied")
+}
+
+func TestGetSpanDetailsForTrace_AuthzUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	rr := serve(t, h, req)
+
+	require.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), string(gen.Unauthorized))
+	assert.Contains(t, rr.Body.String(), "Unauthorized")
+}
+
 func TestGetSpanDetailsForTrace_ServiceNotInitialized(t *testing.T) {
 	t.Parallel()
 
@@ -374,6 +413,24 @@ func TestGetSpanDetailsForTrace_RetrievalError(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesRetrievalFailed)
+}
+
+func TestGetSpanDetailsForTrace_InvalidRequest(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: bad", service.ErrTracesInvalidRequest))
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	rr := serve(t, h, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInvalidRequest)
 }
 
 func TestGetSpanDetailsForTrace_GenericError(t *testing.T) {
