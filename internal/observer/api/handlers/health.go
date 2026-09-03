@@ -12,10 +12,6 @@ import (
 )
 
 // Health handles GET /health
-//
-// This is the one public operation the spec marks `security: []`, so it is the
-// only one auth.OpenAPIAuth lets through unauthenticated. Kubernetes probes
-// depend on that; see TestPublicSpecHealthIsTheOnlyUnauthenticatedOperation.
 func (h *Handler) Health(
 	ctx context.Context,
 	_ gen.HealthRequestObject,

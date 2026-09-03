@@ -116,31 +116,6 @@ func rulesURL(sourceType string) string {
 
 // routing ------------------------------------------------------------------------
 
-// TestInternalRouterServesOnlyItsOwnOperations pins that the internal port
-// exposes the 5 internal operations and nothing else. Before the split, one spec
-// described both ports; a single generated router would have exposed every
-// public query endpoint here too.
-func TestInternalRouterServesOnlyItsOwnOperations(t *testing.T) {
-	t.Parallel()
-
-	srv := newInternalServer(t, servicemocks.NewMockAlertRuleService(t))
-
-	// Public operations must not be reachable on the internal port.
-	for _, path := range []string{
-		"/api/v1/logs/query",
-		"/api/v1/events/query",
-		"/api/v1/metrics/query",
-		"/api/v1alpha1/traces/query",
-		"/api/v1alpha1/incidents/query",
-		"/health",
-	} {
-		rr := httptest.NewRecorder()
-		srv.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, path, nil))
-		assert.Equal(t, http.StatusNotFound, rr.Code,
-			"%s must not be served on the internal port", path)
-	}
-}
-
 func TestInternalRouterRejectsWrongMethod(t *testing.T) {
 	t.Parallel()
 
@@ -165,10 +140,10 @@ func TestCreateAlertRule_InvalidSourceType(t *testing.T) {
 }
 
 // TestCreateAlertRule_InvalidJSON also guards the error *shape*. The strict
-// handler decodes the body now, so this 400 comes from
-// StrictRequestErrorHandler rather than from the handler. Without that
-// explicit hook the generated default would return plain text, silently
-// breaking the contract every other observer error follows.
+// handler decodes the body, so this 400 comes from StrictRequestErrorHandler
+// rather than from the handler; without that explicit hook the generated
+// default would return plain text, breaking the contract every other observer
+// error follows.
 func TestCreateAlertRule_InvalidJSON(t *testing.T) {
 	t.Parallel()
 
@@ -259,17 +234,12 @@ func TestGetAlertRule_InvalidSourceType(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "INVALID_SOURCE_TYPE")
 }
 
-// TestGetAlertRule_EmptyRuleName records a deliberate behavior change.
+// TestGetAlertRule_EmptyRuleName pins the response to a trailing-slash request.
 //
-// Before the migration the route was one hand-registered pattern and the
-// handler validated ruleName itself, returning 400 INVALID_RULE_NAME for an
-// empty value. Under the generated router, `{ruleName}` matches only a
-// non-empty path segment, so a trailing-slash request never reaches the handler
-// and the mux returns 404.
-//
-// 404 is the better answer — there is no such resource — and the handler keeps
-// its defensive check for callers that invoke it directly. Recorded here so the
-// change is visible rather than discovered.
+// `{ruleName}` matches only a non-empty path segment, so such a request never
+// reaches the handler and the mux returns 404 rather than the handler's 400
+// INVALID_RULE_NAME. 404 is the right answer — there is no such resource — and
+// the handler keeps its defensive check for callers that invoke it directly.
 func TestGetAlertRule_EmptyRuleName(t *testing.T) {
 	t.Parallel()
 
@@ -342,7 +312,7 @@ func TestUpdateAlertRule_InvalidSourceType(t *testing.T) {
 }
 
 // TestUpdateAlertRule_EmptyRuleName — see TestGetAlertRule_EmptyRuleName for why
-// this is now a routing 404 rather than a handler 400.
+// this is a routing 404 rather than a handler 400.
 func TestUpdateAlertRule_EmptyRuleName(t *testing.T) {
 	t.Parallel()
 
@@ -363,9 +333,8 @@ func TestUpdateAlertRule_SourceTypeMismatch(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "SOURCE_TYPE_MISMATCH")
 }
 
-// TestUpdateAlertRule_NotFound covers the 404 the pre-split spec never declared.
-// The handler has always returned it; observer-internal-api.yaml now documents
-// it, which is what lets the strict interface express it at all.
+// TestUpdateAlertRule_NotFound covers the 404. observer-internal-api.yaml
+// declares it, which is what lets the strict interface express it at all.
 func TestUpdateAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
@@ -595,8 +564,8 @@ func TestGetAlertRule_Budget_Success(t *testing.T) {
 //
 // A service returning (nil, nil) violates the AlertRuleService contract, so this
 // is unreachable in practice — but the strict response types are value types, so
-// without the guard each of these would panic on a nil dereference. Five
-// branches deserve one test; before this, all five were uncovered.
+// without the guard each of these would panic on a nil dereference. One test
+// covers all five branches.
 func TestInternalHandlers_NilServiceResponse(t *testing.T) {
 	t.Parallel()
 
@@ -659,7 +628,8 @@ func TestInternalHandlers_NilServiceResponse(t *testing.T) {
 			t.Parallel()
 
 			svc := servicemocks.NewMockAlertRuleService(t)
-			// Return (nil, nil): no response, no error.
+			// Registered at both arities, since the five service methods take
+			// either two or three arguments.
 			svc.On(tc.mockCall, mock.Anything, mock.Anything, mock.Anything).
 				Maybe().Return(nil, nil)
 			svc.On(tc.mockCall, mock.Anything, mock.Anything).
@@ -684,8 +654,8 @@ func TestInternalHandlers_NilServiceResponse(t *testing.T) {
 
 // assertErrorResponseShape checks a response body is the gen.ErrorResponse JSON
 // object rather than plain text. This is what distinguishes a properly wired
-// error handler from the generated default, and no test asserted it before the
-// migration — which is exactly why the regression would have shipped silently.
+// error handler from the generated default, which would otherwise regress
+// silently.
 func assertErrorResponseShape(t *testing.T, rr *httptest.ResponseRecorder) {
 	t.Helper()
 

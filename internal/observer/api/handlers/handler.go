@@ -4,27 +4,23 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
+	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
+	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
 // baseHandler holds state shared by Handler and InternalHandler.
-//
-// It used to carry writeJSON and writeErrorResponse helpers too. Those are gone:
-// handlers no longer touch an http.ResponseWriter, they return a response object
-// and the generated strict layer writes it. The equivalents now live in
-// gen_adapters.go as jsonResponse and errorResponse.
 type baseHandler struct {
 	logger *slog.Logger
 }
 
 // Compile-time check that Handler implements the generated public strict server
-// interface. Together with the internal one in alerts.go, this is what makes the
-// specs authoritative: an operation added, removed or reshaped in
-// openapi/observer-api.yaml becomes a build error here rather than a silent
-// routing divergence.
+// interface.
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // Handler contains the HTTP handlers for the public observer API (v1/v1alpha1).
@@ -83,5 +79,73 @@ func NewInternalHandler(
 	return &InternalHandler{
 		baseHandler:  baseHandler{logger: logger},
 		alertService: alertService,
+	}
+}
+
+// ObserverMiddlewareOptions carries the dependencies ObserverMiddlewares needs.
+type ObserverMiddlewareOptions struct {
+	Logger *slog.Logger
+	// AuthMiddleware is auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
+	// in production. Must not be nil.
+	AuthMiddleware func(http.Handler) http.Handler
+}
+
+// ObserverMiddlewares returns the ordered middleware chain for the generated
+// public OpenAPI routes.
+//
+// oapi-codegen applies these last-to-first, so the last entry is outermost:
+//
+//	logger → recovery → auth → contentType → handler
+//
+// contentType sits innermost, inside auth, so an unauthenticated caller cannot
+// probe it.
+//
+// Auth is not applied to a hand-picked set of routes. It wraps every generated
+// route, and auth.OpenAPIAuth decides per request by reading the scopes context
+// key the generated wrapper sets. Which routes are public is therefore decided
+// by the spec: /health and /.well-known/oauth-protected-resource carry
+// `security: []`, and nothing else does. TestObserverMiddlewaresLeaveHealthPublic
+// and TestGetOAuthProtectedResourceMetadata_NeedsNoToken drive the real
+// auth.OpenAPIAuth against both.
+//
+// This is the single definition of the chain — main.go supplies dependencies but
+// owns no ordering.
+func ObserverMiddlewares(opts ObserverMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
+	if opts.AuthMiddleware == nil {
+		return nil, errors.New("observer: ObserverMiddlewareOptions.AuthMiddleware must not be nil")
+	}
+
+	return []gen.MiddlewareFunc{
+		RequireJSONContentType(opts.Logger),
+		opts.AuthMiddleware,
+		observermiddleware.Recovery(opts.Logger),
+		observermiddleware.Logger(opts.Logger),
+	}, nil
+}
+
+// InternalMiddlewareOptions carries the dependencies InternalMiddlewares needs.
+type InternalMiddlewareOptions struct {
+	Logger *slog.Logger
+}
+
+// InternalMiddlewares returns the ordered middleware chain for the generated
+// internal OpenAPI routes (port 8081).
+//
+// oapi-codegen applies these last-to-first, so the last entry is outermost:
+//
+//	logger → recovery → handler
+//
+// There is deliberately no auth middleware here. The internal API declares no
+// security scheme, because the internal port has no JWT layer and the
+// ObservabilityAlertRule controller that drives alert rule CRUD sends no
+// Authorization header. Do not add auth here without the controller-side token
+// work that must accompany it.
+//
+// This is the single definition of the chain — main.go supplies dependencies but
+// owns no ordering.
+func InternalMiddlewares(opts InternalMiddlewareOptions) []internalgen.MiddlewareFunc {
+	return []internalgen.MiddlewareFunc{
+		observermiddleware.Recovery(opts.Logger),
+		observermiddleware.Logger(opts.Logger),
 	}
 }

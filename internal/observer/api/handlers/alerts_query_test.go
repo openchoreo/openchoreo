@@ -367,3 +367,83 @@ func TestQueryIncidents_GenericError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_INCIDENTS_FAILED")
 }
+
+// nil-response guard -------------------------------------------------------------
+
+// TestPublicAlertHandlers_NilServiceResponse covers the errNilServiceResponse
+// branch in the three operations that return generated typed responses.
+//
+// A service returning (nil, nil) violates the AlertIncidentService contract, so
+// this is unreachable in practice — but the generated response types are value
+// types, so without the guard each of these would panic on a nil dereference.
+func TestPublicAlertHandlers_NilServiceResponse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mockCall  string
+		method    string
+		url       string
+		body      func(*testing.T) io.Reader
+		errorCode string
+	}{
+		{
+			name:      "QueryAlerts",
+			mockCall:  "QueryAlerts",
+			method:    http.MethodPost,
+			url:       "/api/v1alpha1/alerts/query",
+			body:      validAlertsRequestBody,
+			errorCode: "QUERY_ALERTS_FAILED",
+		},
+		{
+			name:      "QueryIncidents",
+			mockCall:  "QueryIncidents",
+			method:    http.MethodPost,
+			url:       "/api/v1alpha1/incidents/query",
+			body:      validIncidentsRequestBody,
+			errorCode: "QUERY_INCIDENTS_FAILED",
+		},
+		{
+			name:     "UpdateIncident",
+			mockCall: "UpdateIncident",
+			method:   http.MethodPut,
+			url:      "/api/v1alpha1/incidents/inc-1",
+			body: func(t *testing.T) io.Reader {
+				t.Helper()
+				b, err := json.Marshal(gen.IncidentPutRequest{Status: gen.Acknowledged})
+				require.NoError(t, err)
+				return bytes.NewReader(b)
+			},
+			errorCode: "UPDATE_INCIDENT_FAILED",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := servicemocks.NewMockAlertIncidentService(t)
+			// Registered at both arities, since UpdateIncident takes an
+			// incident ID the two query methods do not.
+			svc.On(tc.mockCall, mock.Anything, mock.Anything, mock.Anything).
+				Maybe().Return(nil, nil)
+			svc.On(tc.mockCall, mock.Anything, mock.Anything).
+				Maybe().Return(nil, nil)
+
+			h := &Handler{
+				baseHandler:          baseHandler{logger: noopLogger()},
+				alertIncidentService: svc,
+			}
+
+			rr := serve(t, h, httptest.NewRequest(tc.method, tc.url, tc.body(t)))
+
+			require.Equal(t, http.StatusInternalServerError, rr.Code,
+				"a nil service response must be a 500, not a panic")
+			assert.Contains(t, rr.Body.String(), tc.errorCode)
+			// Without the guard the recovery middleware would turn the nil
+			// dereference into a plain-text 500, so the body shape is what
+			// separates the guard from the panic path.
+			assertErrorResponseShape(t, rr)
+		})
+	}
+}

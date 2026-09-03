@@ -16,8 +16,8 @@ import (
 // GetComponentCosts handles
 // GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}
 //
-// startTime and endTime are declared required in the spec, so a missing one is
-// now rejected by the generated wrapper before this runs -- see
+// startTime and endTime are declared required in the spec, so the generated
+// wrapper rejects a request missing either one before this runs — see
 // ParamBindingErrorHandler, which renders that as gen.ErrorResponse rather than
 // the generated default's plain text.
 func (h *Handler) GetComponentCosts(

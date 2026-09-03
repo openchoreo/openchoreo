@@ -698,17 +698,17 @@ func TestValidateIncidentPutRequest(t *testing.T) {
 		},
 		{
 			name:    "status active",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusActive},
+			req:     &gen.IncidentPutRequest{Status: gen.Active},
 			wantErr: false,
 		},
 		{
 			name:    "status acknowledged",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusAcknowledged},
+			req:     &gen.IncidentPutRequest{Status: gen.Acknowledged},
 			wantErr: false,
 		},
 		{
 			name:    "status resolved",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusResolved},
+			req:     &gen.IncidentPutRequest{Status: gen.Resolved},
 			wantErr: false,
 		},
 	}

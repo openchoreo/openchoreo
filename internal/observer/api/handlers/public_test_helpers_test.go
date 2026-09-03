@@ -18,9 +18,8 @@ import (
 // error handlers.
 //
 // It calls the real ObserverMiddlewares rather than assembling a chain of its
-// own, so the ordering has exactly one definition (exit criterion 6). An earlier
-// version listed the middlewares here, which meant ~4,100 lines of handler tests
-// ran an ordering main.go did not own.
+// own, so the ordering has exactly one definition. Listing the middlewares here
+// instead would mean the handler tests run an ordering main.go does not own.
 //
 // The only substitution is authentication: a pass-through stands in for
 // auth.OpenAPIAuth so these tests exercise handler behavior instead of

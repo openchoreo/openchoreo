@@ -541,9 +541,9 @@ func ValidateIncidentPutRequest(req *gen.IncidentPutRequest) error {
 		return fmt.Errorf("status is required")
 	}
 	switch status {
-	case string(gen.IncidentPutRequestStatusActive),
-		string(gen.IncidentPutRequestStatusAcknowledged),
-		string(gen.IncidentPutRequestStatusResolved):
+	case string(gen.Active),
+		string(gen.Acknowledged),
+		string(gen.Resolved):
 		// valid
 	default:
 		return fmt.Errorf("status must be one of 'active', 'acknowledged', or 'resolved'")

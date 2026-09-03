@@ -16,15 +16,13 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
-// TestGetOAuthProtectedResourceMetadata pins the payload across the move from a
-// hand-registered route served by internal/server/oauth.NewMetadataHandler to a
-// generated one.
+// TestGetOAuthProtectedResourceMetadata pins the payload field by field.
 //
 // MCP clients parse this to find the authorization server and the scopes to ask
 // for, so a dropped or renamed field breaks discovery rather than returning an
-// error anyone would notice. Field-by-field, not a golden string: JSON key order
-// changed with the move (the generated struct orders fields alphabetically) and
-// no client should care.
+// error anyone would notice. Field-by-field rather than a golden string, because
+// the generated struct orders fields alphabetically and no client should care
+// about JSON key order.
 func TestGetOAuthProtectedResourceMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -83,11 +81,11 @@ func TestGetOAuthProtectedResourceMetadata_NoScopesConfigured(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"scopes_supported":[]`)
 }
 
-// TestGetOAuthProtectedResourceMetadata_NeedsNoToken is the wiring half of the
-// guarantee: the spec marks this operation `security: []`, and a client has to
-// read it before it can obtain a token, so requiring one would be circular.
+// TestGetOAuthProtectedResourceMetadata_NeedsNoToken pins the guarantee: the
+// spec marks this operation `security: []`, and a client has to read it before
+// it can obtain a token, so requiring one would be circular.
 //
-// TestPublicSpecUnauthenticatedOperations covers the spec side.
+// It drives the real auth.OpenAPIAuth, so removing that override fails here.
 func TestGetOAuthProtectedResourceMetadata_NeedsNoToken(t *testing.T) {
 	t.Parallel()
 

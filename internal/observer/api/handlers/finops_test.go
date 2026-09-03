@@ -70,14 +70,13 @@ func TestGetComponentCosts_Success(t *testing.T) {
 }
 
 // TestGetComponentCosts_MissingTimes covers the other half of the error-shape
-// guarantee, and it is the first case that reaches ParamBindingErrorHandler.
+// guarantee: the rejection that reaches ParamBindingErrorHandler.
 //
 // startTime and endTime are required non-pointer query parameters, so the
-// generated wrapper rejects the request before the handler runs. Without an
-// explicit ErrorHandlerFunc that 400 would be plain text from http.Error, unlike
-// every other observer error. Pre-migration this case reached
-// ValidateCostQueryRequest instead, which produced a domain message -- the
-// status is the same, the message is not.
+// generated wrapper rejects the request before the handler runs and
+// ValidateCostQueryRequest never sees it. Without an explicit ErrorHandlerFunc
+// that 400 would be plain text from http.Error, unlike every other observer
+// error.
 func TestGetComponentCosts_MissingTimes(t *testing.T) {
 	t.Parallel()
 

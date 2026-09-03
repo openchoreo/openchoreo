@@ -1,6 +1,9 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+# This spec owns its own domain schemas, with one exception: `ErrorResponse` is
+# `$ref`'d from `observer-api.yaml` so the Go model stays single-sourced.
+
 openapi: 3.0.3
 info:
   title: OpenChoreo Observer Internal API
@@ -15,18 +18,7 @@ info:
       - an observability module's logs-adapter or metrics-adapter (alert webhook)
 
     Authentication: this API declares no security scheme, because none is
-    enforced. Network reachability is the control. This accurately describes
-    the deployed topology rather than an aspiration -- see the note below.
-
-    **One external dependency.** This spec owns its own domain schemas. The
-    single exception is `ErrorResponse`, which is genuinely shared with the
-    public API and is `$ref`'d from `observer-api.yaml` so the Go model stays
-    single-sourced. That one reference means the file cannot be loaded entirely
-    on its own: any tool that reads it standalone -- a docs publish, a
-    spectral/redocly lint, third-party SDK generation -- must resolve
-    `./observer-api.yaml` from the same directory. Keep both files together in
-    `openapi/`, and bundle them (e.g. `redocly bundle`) before handing this
-    spec to anything that cannot follow relative file refs.
+    enforced. Network reachability is the control.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -45,11 +37,9 @@ tags:
 # controller that drives alert rule CRUD sends no Authorization header (it has
 # no token source: the reconciler acts for no user). Declaring BearerAuth here
 # would make the generated router demand a token that no caller sends, breaking
-# alert rule reconciliation.
-#
-# Do NOT add a security scheme to this spec on its own. Requiring auth on these
-# operations is a deliberate, separate change that must land together with a
-# service-account token source in internal/controller/observabilityalertrule.
+# alert rule reconciliation. Requiring auth on these operations must land
+# together with a service-account token source in
+# internal/controller/observabilityalertrule.
 
 paths:
   /api/v1alpha1/alerts/sources/{sourceType}/rules:
@@ -120,6 +110,7 @@ paths:
         description: The name of the alert rule
         schema:
           type: string
+          minLength: 1
     get:
       tags:
         - Alerts

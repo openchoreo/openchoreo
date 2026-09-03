@@ -6,7 +6,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
@@ -16,52 +15,64 @@ import (
 )
 
 // QueryAlerts handles POST /api/v1alpha1/alerts/query
+//
+// Returns the generated typed responses rather than the apiResponse passthrough:
+// the service already speaks gen.* and every status this handler produces is
+// declared in the spec, so the compiler checks both the body shape and the
+// status against the contract.
 func (h *Handler) QueryAlerts(
 	ctx context.Context,
 	request gen.QueryAlertsRequestObject,
 ) (gen.QueryAlertsResponseObject, error) {
 	if request.Body == nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY",
-			"invalid request body: request body is required"), nil
+		return gen.QueryAlerts400JSONResponse(errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY",
+			"invalid request body: request body is required")), nil
 	}
 	req := *request.Body
 
 	if err := ValidateAlertsQueryRequest(&req); err != nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "VALIDATION_ERROR", err.Error()), nil
+		return gen.QueryAlerts400JSONResponse(errorPayload(gen.BadRequest,
+			"VALIDATION_ERROR", err.Error())), nil
 	}
 
 	if h.alertIncidentService == nil {
-		return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-			"SERVICE_NOT_READY", "alerts querier is not initialized"), nil
+		return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,
+			"SERVICE_NOT_READY", "alerts querier is not initialized")), nil
 	}
 
 	resp, err := h.alertIncidentService.QueryAlerts(ctx, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
-			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
+			return gen.QueryAlerts403JSONResponse(errorPayload(gen.Forbidden, "", "Access denied")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
-			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
+			return gen.QueryAlerts401JSONResponse(errorPayload(gen.Unauthorized, "", "Unauthorized")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
-			return errorResponse(http.StatusServiceUnavailable, gen.InternalServerError,
-				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable"), nil
+			return gen.QueryAlerts503JSONResponse(errorPayload(gen.InternalServerError,
+				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")), nil
 		case errors.Is(err, service.ErrAlertsResolveSearchScope):
 			if errors.Is(err, service.ErrScopeNotFound) {
-				return errorResponse(http.StatusBadRequest, gen.BadRequest,
-					"SCOPE_NOT_FOUND", "one or more resources in the search scope were not found"), nil
+				return gen.QueryAlerts400JSONResponse(errorPayload(gen.BadRequest,
+					"SCOPE_NOT_FOUND", "one or more resources in the search scope were not found")), nil
 			}
 			h.logger.Error("Failed to resolve alerts search scope", "error", err)
-			return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-				"RESOLVE_SCOPE_FAILED", "failed to resolve search scope"), nil
+			return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,
+				"RESOLVE_SCOPE_FAILED", "failed to resolve search scope")), nil
 		default:
 			h.logger.Error("Failed to query alerts", "error", err)
-			return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-				"QUERY_ALERTS_FAILED", "failed to query alerts"), nil
+			return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,
+				"QUERY_ALERTS_FAILED", "failed to query alerts")), nil
 		}
 	}
 
-	return jsonResponse(http.StatusOK, resp), nil
+	if resp == nil {
+		h.logger.Error("Failed to query alerts", "error", errNilServiceResponse)
+		return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,
+			"QUERY_ALERTS_FAILED", "failed to query alerts")), nil
+	}
+
+	return gen.QueryAlerts200JSONResponse(*resp), nil
 }
 
 // QueryIncidents handles POST /api/v1alpha1/incidents/query
@@ -70,94 +81,107 @@ func (h *Handler) QueryIncidents(
 	request gen.QueryIncidentsRequestObject,
 ) (gen.QueryIncidentsResponseObject, error) {
 	if request.Body == nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY",
-			"invalid request body: request body is required"), nil
+		return gen.QueryIncidents400JSONResponse(errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY",
+			"invalid request body: request body is required")), nil
 	}
 	req := *request.Body
 
 	if err := ValidateIncidentsQueryRequest(&req); err != nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "VALIDATION_ERROR", err.Error()), nil
+		return gen.QueryIncidents400JSONResponse(errorPayload(gen.BadRequest,
+			"VALIDATION_ERROR", err.Error())), nil
 	}
 
 	if h.alertIncidentService == nil {
-		return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-			"SERVICE_NOT_READY", "incidents querier is not initialized"), nil
+		return gen.QueryIncidents500JSONResponse(errorPayload(gen.InternalServerError,
+			"SERVICE_NOT_READY", "incidents querier is not initialized")), nil
 	}
 
 	resp, err := h.alertIncidentService.QueryIncidents(ctx, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
-			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
+			return gen.QueryIncidents403JSONResponse(errorPayload(gen.Forbidden, "", "Access denied")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
-			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
+			return gen.QueryIncidents401JSONResponse(errorPayload(gen.Unauthorized, "", "Unauthorized")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
-			return errorResponse(http.StatusServiceUnavailable, gen.InternalServerError,
-				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable"), nil
+			return gen.QueryIncidents503JSONResponse(errorPayload(gen.InternalServerError,
+				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")), nil
 		default:
 			h.logger.Error("Failed to query incidents", "error", err)
-			return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-				"QUERY_INCIDENTS_FAILED", "failed to query incidents"), nil
+			return gen.QueryIncidents500JSONResponse(errorPayload(gen.InternalServerError,
+				"QUERY_INCIDENTS_FAILED", "failed to query incidents")), nil
 		}
 	}
 
-	return jsonResponse(http.StatusOK, resp), nil
+	if resp == nil {
+		h.logger.Error("Failed to query incidents", "error", errNilServiceResponse)
+		return gen.QueryIncidents500JSONResponse(errorPayload(gen.InternalServerError,
+			"QUERY_INCIDENTS_FAILED", "failed to query incidents")), nil
+	}
+
+	return gen.QueryIncidents200JSONResponse(*resp), nil
 }
 
 // UpdateIncident handles PUT /api/v1alpha1/incidents/{incidentId}
 //
-// incidentId is bound by the generated router. The TrimSpace-and-reject check is
-// kept because {incidentId} can still match a whitespace-only segment, which
-// the mux treats as non-empty.
+// incidentId is bound by the generated router, which rejects an empty path
+// segment but not a whitespace-only one — hence the TrimSpace check below.
 func (h *Handler) UpdateIncident(
 	ctx context.Context,
 	request gen.UpdateIncidentRequestObject,
 ) (gen.UpdateIncidentResponseObject, error) {
 	id := strings.TrimSpace(request.IncidentId)
 	if id == "" {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest,
-			"INVALID_INCIDENT_ID", "incidentId path parameter is required"), nil
+		return gen.UpdateIncident400JSONResponse(errorPayload(gen.BadRequest,
+			"INVALID_INCIDENT_ID", "incidentId path parameter is required")), nil
 	}
 
 	if request.Body == nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY",
-			"invalid request body: request body is required"), nil
+		return gen.UpdateIncident400JSONResponse(errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY",
+			"invalid request body: request body is required")), nil
 	}
 	req := *request.Body
 
 	if err := ValidateIncidentPutRequest(&req); err != nil {
-		return errorResponse(http.StatusBadRequest, gen.BadRequest, "VALIDATION_ERROR", err.Error()), nil
+		return gen.UpdateIncident400JSONResponse(errorPayload(gen.BadRequest,
+			"VALIDATION_ERROR", err.Error())), nil
 	}
 
 	if h.alertIncidentService == nil {
-		return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-			"SERVICE_NOT_READY", "incident update service is not initialized"), nil
+		return gen.UpdateIncident500JSONResponse(errorPayload(gen.InternalServerError,
+			"SERVICE_NOT_READY", "incident update service is not initialized")), nil
 	}
 
 	resp, err := h.alertIncidentService.UpdateIncident(ctx, id, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
-			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
+			return gen.UpdateIncident403JSONResponse(errorPayload(gen.Forbidden, "", "Access denied")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
-			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
+			return gen.UpdateIncident401JSONResponse(errorPayload(gen.Unauthorized, "", "Unauthorized")), nil
 		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
-			return errorResponse(http.StatusServiceUnavailable, gen.InternalServerError,
-				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable"), nil
+			return gen.UpdateIncident503JSONResponse(errorPayload(gen.InternalServerError,
+				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")), nil
 		case errors.Is(err, incidententry.ErrIncidentNotFound):
-			return errorResponse(http.StatusNotFound, gen.NotFound,
-				"INCIDENT_NOT_FOUND", "incident not found"), nil
+			return gen.UpdateIncident404JSONResponse(errorPayload(gen.NotFound,
+				"INCIDENT_NOT_FOUND", "incident not found")), nil
 		case errors.Is(err, incidententry.ErrInvalidStatusTransition):
-			return errorResponse(http.StatusBadRequest, gen.BadRequest,
-				"INVALID_STATUS_TRANSITION", err.Error()), nil
+			return gen.UpdateIncident400JSONResponse(errorPayload(gen.BadRequest,
+				"INVALID_STATUS_TRANSITION", err.Error())), nil
 		default:
 			h.logger.Error("Failed to update incident", "error", err)
-			return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
-				"UPDATE_INCIDENT_FAILED", "failed to update incident"), nil
+			return gen.UpdateIncident500JSONResponse(errorPayload(gen.InternalServerError,
+				"UPDATE_INCIDENT_FAILED", "failed to update incident")), nil
 		}
 	}
 
-	return jsonResponse(http.StatusOK, resp), nil
+	if resp == nil {
+		h.logger.Error("Failed to update incident", "error", errNilServiceResponse)
+		return gen.UpdateIncident500JSONResponse(errorPayload(gen.InternalServerError,
+			"UPDATE_INCIDENT_FAILED", "failed to update incident")), nil
+	}
+
+	return gen.UpdateIncident200JSONResponse(*resp), nil
 }

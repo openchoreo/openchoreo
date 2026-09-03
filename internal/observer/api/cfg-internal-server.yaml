@@ -2,40 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # oapi-codegen configuration for generating the Observer *internal* API server
-# interface and embedded spec. The internal API is served on INTERNAL_PORT
-# (default 8081) as a cluster-local ClusterIP Service, separate from the public
-# API on Server.Port.
+# interface and embedded spec, served on INTERNAL_PORT (default 8081).
 #
-# Why a config separate from cfg-server.yaml rather than another spec passed to
-# it: the two specs must generate into two different Go packages. Both emit
-# ServerInterface, StrictServerInterface, HandlerWithOptions, NewStrictHandler,
-# StdHTTPServerOptions and GetSwagger, so generating them into one package would
-# be a pile of duplicate declarations. Two packages means two configs.
+# A separate config rather than a second spec on cfg-server.yaml: the two specs
+# must land in different Go packages, since each emits ServerInterface,
+# HandlerWithOptions, GetSwagger and friends.
 #
-# `models: true` is bundled here rather than split into its own config, matching
-# how every other SINGLE-artifact generated package in this repo is configured:
-# cfg-logs-adapter-client.yaml and cfg-finops-adapter-client.yaml both set
-# `models: true` alongside `client: true` and emit one file.
-#
-# The rule the repo actually follows is that models must be generated exactly
-# once per Go package. The multi-artifact packages (openchoreo-api/api/gen and
-# observer/api/gen, each with models + server + client) therefore need a
-# dedicated cfg-models.yaml, with `models: false` on the server and client
-# configs. internalgen has a server and nothing else, so there is no second
-# consumer to share with and a separate config would buy nothing.
-#
-# Every schema here is an external $ref anyway, so this pass adds only the three
-# `<Operation>JSONRequestBody` aliases the strict server needs.
-#
-# Split models into their own config if internalgen ever gains a second
-# artifact -- most likely a generated client, so the ObservabilityAlertRule
-# controller can stop hand-rolling http.NewRequestWithContext.
-#
-# Shared schemas are NOT regenerated: import-mapping points the internal spec's
-# external $refs at the existing `gen` package, so AlertRuleRequest,
-# ErrorResponse and friends remain single-sourced in gen/models.gen.go and the
-# service layer keeps using them unchanged. The mapping key must match the $ref
-# string literally, including the leading "./".
+# `models: true` is bundled in here because internalgen generates a server and
+# nothing else; a package with several generated artifacts needs its own
+# cfg-models.yaml so models are generated exactly once per package.
 # See: https://github.com/oapi-codegen/oapi-codegen
 
 package: internalgen
@@ -48,16 +23,14 @@ generate:
 output-options:
   skip-prune: true
 
-# Enum constants are prefixed with their type name unconditionally.
-#
-# Without this, oapi-codegen only prefixes on collision, so this small package
-# would emit bare `Success` and `Error` constants for AlertWebhookResponseStatus
-# -- names that are both fragile (a second enum with a "success" value silently
-# renames them) and startlingly generic for exported identifiers. The larger
-# `gen` package already prefixes because it has collisions, so this also keeps
-# the two packages stylistically consistent.
+# oapi-codegen otherwise prefixes enum constants only on collision, which would
+# leave AlertWebhookResponseStatus emitting bare `Success` and `Error` — generic
+# exported names that a later enum with the same value would silently rename.
 compatibility:
   always-prefix-enum-values: true
 
+# Points the internal spec's external $refs at the existing gen package, so the
+# shared schemas are not regenerated here. The key must match the $ref string
+# literally, including the leading "./".
 import-mapping:
   ./observer-api.yaml: github.com/openchoreo/openchoreo/internal/observer/api/gen

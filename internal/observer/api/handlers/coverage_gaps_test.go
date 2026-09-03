@@ -3,8 +3,8 @@
 
 package handlers
 
-// coverage_gaps_test.go closes the remaining coverage gaps identified after the
-// initial test run: UpdateIncident authorization/error paths, additional
+// coverage_gaps_test.go covers the paths the per-operation test files leave out:
+// UpdateIncident authorization and error paths, the remaining
 // ValidateIncidentsQueryRequest cases, and QuerySpansForTrace validation errors.
 
 import (

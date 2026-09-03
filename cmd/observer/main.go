@@ -263,16 +263,14 @@ func main() {
 
 	// ===== Non-spec routes =====
 	//
-	// /mcp is not in openapi/observer-api.yaml and cannot be: it is streaming
-	// JSON-RPC rather than a request/response operation, and the generated
-	// chain's wrapped ResponseWriter breaks the http.Hijacker it needs. It is
-	// registered by hand on the base mux BEFORE the generated routes are layered
-	// on, following the same pattern as cmd/openchoreo-api.
+	// /mcp cannot be a spec operation: it is streaming JSON-RPC rather than
+	// request/response, and the generated chain's wrapped ResponseWriter breaks
+	// the http.Hijacker it needs. It is registered on the base mux before the
+	// generated routes are layered on.
 	//
-	// It must be wrapped explicitly: the generated routes carry their middleware
-	// via HandlerWithOptions, so anything registered directly on the mux would
-	// otherwise get no logger and no recovery, turning a handler panic into a
-	// dropped connection.
+	// The generated routes carry their middleware via HandlerWithOptions, so
+	// anything registered directly on the mux must be wrapped here or it gets no
+	// logger and no recovery, turning a handler panic into a dropped connection.
 	routes := middleware.NewRouteBuilder(mux).With(loggerMiddleware, recoveryMiddleware)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
@@ -298,15 +296,13 @@ func main() {
 
 	// ===== Public API routes (port 9097) =====
 	//
-	// All thirteen routes are registered by generated code from
-	// openapi/observer-api.yaml, layered onto the same mux carrying the non-spec
-	// routes above. There is no hand-written pattern string for a spec
-	// operation, so the spec and the served routes cannot diverge.
+	// Registered by generated code from openapi/observer-api.yaml, layered onto
+	// the same mux carrying the non-spec routes above.
 	//
-	// Authentication comes from the spec too: auth.OpenAPIAuth reads the scopes
-	// context key the generated wrapper sets, so /health (the one operation with
-	// `security: []`) stays public and the other twelve require a Bearer token.
-	// Nothing here picks routes by hand.
+	// Authentication is spec-driven: auth.OpenAPIAuth reads the scopes context
+	// key the generated wrapper sets, so the operations marked `security: []`
+	// stay public and the rest require a Bearer token. No route is selected by
+	// hand here.
 	publicAPILogger := logger.With("component", "public-api")
 	authMiddleware := auth.OpenAPIAuth(jwtAuth, gen.BearerAuthScopes)
 
@@ -331,9 +327,8 @@ func main() {
 	publicHTTPHandler := gen.HandlerWithOptions(publicStrictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  mux,
 		Middlewares: observerMiddlewares,
-		// Required FinOps startTime/endTime are bound here, so a missing one is
-		// rejected before the handler runs. Without this it would be plain text
-		// rather than observer's gen.ErrorResponse shape.
+		// Parameter binding rejects a request before the handler runs; without
+		// this hook that response is plain text rather than gen.ErrorResponse.
 		ErrorHandlerFunc: apihandler.ParamBindingErrorHandler(publicAPILogger),
 	})
 
@@ -350,18 +345,15 @@ func main() {
 
 	// ===== Internal Server (port 8081) — v1alpha1 alert CRUD =====
 	//
-	// All five routes are registered by generated code from
-	// openapi/observer-internal-api.yaml, so the spec and the served routes
-	// cannot diverge — there is no hand-written pattern string here to drift.
+	// Registered by generated code from openapi/observer-internal-api.yaml.
 	//
 	// No auth middleware: the internal spec declares no security scheme because
 	// this port has none, and the ObservabilityAlertRule controller that calls
-	// it sends no Authorization header. See TestInternalSpecDeclaresNoSecurity.
+	// it sends no Authorization header.
 	internalAPILogger := logger.With("component", "internal-api")
 	internalMux := http.NewServeMux()
 
-	// The strict handler decodes bodies and writes typed responses. Both error
-	// hooks are supplied explicitly so a malformed body returns observer's
+	// The error hooks are supplied explicitly so a malformed body returns
 	// gen.ErrorResponse JSON rather than the generated default's plain text.
 	internalStrictHandler := internalgen.NewStrictHandlerWithOptions(
 		internalHandler,
@@ -372,8 +364,6 @@ func main() {
 		},
 	)
 
-	// Middleware ordering lives in apihandler.InternalMiddlewares, the single
-	// place the internal chain is composed; main.go supplies dependencies only.
 	internalHTTPHandler := internalgen.HandlerWithOptions(internalStrictHandler, internalgen.StdHTTPServerOptions{
 		BaseRouter: internalMux,
 		Middlewares: apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
@@ -550,8 +540,8 @@ func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 }
 
 // oauthMetadataConfig resolves what the RFC 9728 protected-resource metadata
-// advertises. The endpoint itself is a generated route now, served by
-// apihandler.GetOAuthProtectedResourceMetadata; this only supplies the values.
+// advertises. apihandler.GetOAuthProtectedResourceMetadata renders it; this
+// only supplies the values.
 func oauthMetadataConfig(logger *slog.Logger) apihandler.OAuthMetadataConfig {
 	// Get configuration from environment variables
 	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")

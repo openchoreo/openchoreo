@@ -14,16 +14,13 @@ import (
 )
 
 // Compile-time check that InternalHandler implements the generated internal
-// strict server interface. This is what makes the internal spec authoritative:
-// adding, removing or reshaping an operation in observer-internal-api.yaml
-// becomes a build error here rather than a silent routing divergence.
+// strict server interface.
 var _ internalgen.StrictServerInterface = (*InternalHandler)(nil)
 
-// errNilServiceResponse guards a service returning (nil, nil), which the
-// AlertRuleService contract does not permit. The strict response types are value
-// types, so dereferencing without this check would panic. Before the migration
-// the same case wrote a 200 with a literal `null` body; a 500 is both safer and
-// more honest, and no caller can reach it while the contract holds.
+// errNilServiceResponse guards a service returning (nil, nil), which neither the
+// AlertRuleService nor the AlertIncidentService contract permits. The strict
+// response types are value types, so dereferencing without this check would
+// panic. No caller can reach it while the contracts hold.
 var errNilServiceResponse = errors.New("alert service returned no response and no error")
 
 // CreateAlertRule handles POST /api/v1alpha1/alerts/sources/{sourceType}/rules
@@ -40,8 +37,8 @@ func (h *InternalHandler) CreateAlertRule(
 		return internalgen.CreateAlertRule400JSONResponse(
 			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// The generated request-body type is an alias of internalgen.AlertRuleRequest,
-	// so this is the same type the service layer already takes.
+	// The generated request-body types are aliases of the internalgen schema
+	// types the service layer takes, so no conversion is needed here.
 	req := *request.Body
 
 	if err := validateAlertRuleRequest(req); err != nil {
@@ -136,8 +133,6 @@ func (h *InternalHandler) UpdateAlertRule(
 		return internalgen.UpdateAlertRule400JSONResponse(
 			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// The generated request-body type is an alias of internalgen.AlertRuleRequest,
-	// so this is the same type the service layer already takes.
 	req := *request.Body
 
 	if err := validateAlertRuleRequest(req); err != nil {
@@ -221,7 +216,6 @@ func (h *InternalHandler) HandleAlertWebhook(
 		return internalgen.HandleAlertWebhook400JSONResponse(
 			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// Alias of internalgen.AlertWebhookRequest — see CreateAlertRule.
 	req := *request.Body
 
 	if req.RuleName == nil || *req.RuleName == "" {

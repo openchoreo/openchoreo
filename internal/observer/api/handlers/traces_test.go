@@ -178,12 +178,6 @@ func TestConvertSpansResponseToGen_WithIncludeAttributes(t *testing.T) {
 	assert.Equal(t, "my-service", (*span.ResourceAttributes)["service.name"])
 	require.NotNil(t, span.Status)
 	require.NotNil(t, span.Status.Code)
-	// gen.Error, not gen.SpanStatusCodeError: oapi-codegen prefixes enum
-	// constants with their type name only when two enums in the package share a
-	// value. Moving the alert-rule schemas (whose status enum also had "error")
-	// out to observer-internal-api.yaml removed that collision, so these
-	// constants are now unprefixed -- consistent with the other unprefixed ones
-	// this package already had (Created, Deleted, Synced, Failed).
 	assert.Equal(t, gen.Error, *span.Status.Code)
 	require.NotNil(t, span.Status.Message)
 	assert.Equal(t, "failed to initialize connection to database", *span.Status.Message)

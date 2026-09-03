@@ -33,10 +33,7 @@ type OAuthMetadataConfig struct {
 // `security: []`, which is required rather than incidental: a client has to read
 // this to discover where to authenticate, so it cannot itself need a token.
 //
-// This mirrors openchoreo-api's handler of the same name. Before the migration
-// the route was registered by hand and served by the shared
-// internal/server/oauth.NewMetadataHandler; it is a generated route now, so the
-// spec covers it like every other public operation.
+// This mirrors openchoreo-api's handler of the same name.
 func (h *Handler) GetOAuthProtectedResourceMetadata(
 	_ context.Context,
 	_ gen.GetOAuthProtectedResourceMetadataRequestObject,

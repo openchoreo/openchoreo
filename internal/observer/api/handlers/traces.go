@@ -44,14 +44,12 @@ func (h *Handler) QueryTraces(
 		},
 	}
 
-	// 2. VALIDATE REQUEST
 	if err := ValidateTracesQueryRequest(&genReq); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
 		return errorResponse(http.StatusBadRequest, gen.BadRequest,
 			types.ErrorCodeV1TracesInvalidRequest, err.Error()), nil
 	}
 
-	// 3. CHECK SERVICE INITIALIZATION
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
 		return errorResponse(
@@ -62,7 +60,7 @@ func (h *Handler) QueryTraces(
 		), nil
 	}
 
-	// 4. CALL SERVICE (authorization is enforced by the service layer)
+	// Authorization is enforced by the service layer.
 	result, err := h.tracesService.QueryTraces(ctx, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -97,7 +95,6 @@ func (h *Handler) QueryTraces(
 		), nil
 	}
 
-	// 5. CONVERT TO GENERATED TYPE AND RETURN
 	return jsonResponse(http.StatusOK, convertTracesResponseToGen(result)), nil
 }
 
@@ -132,14 +129,12 @@ func (h *Handler) QuerySpansForTrace(
 		},
 	}
 
-	// 2. VALIDATE REQUEST
 	if err := ValidateTracesQueryRequest(&genReq); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
 		return errorResponse(http.StatusBadRequest, gen.BadRequest,
 			types.ErrorCodeV1TracesInvalidRequest, err.Error()), nil
 	}
 
-	// 3. CHECK SERVICE INITIALIZATION
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
 		return errorResponse(
@@ -150,7 +145,7 @@ func (h *Handler) QuerySpansForTrace(
 		), nil
 	}
 
-	// 4. CALL SERVICE (authorization is enforced by the service layer)
+	// Authorization is enforced by the service layer.
 	result, err := h.tracesService.QuerySpans(ctx, traceID, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -183,7 +178,6 @@ func (h *Handler) QuerySpansForTrace(
 		), nil
 	}
 
-	// 5. CONVERT TO GENERATED TYPE AND RETURN
 	return jsonResponse(http.StatusOK, convertSpansResponseToGen(result, req.IncludeAttributes)), nil
 }
 
@@ -197,7 +191,6 @@ func (h *Handler) GetSpanDetailsForTrace(
 
 	h.logger.Debug("GetSpanDetailsForTrace called", "traceId", traceID, "spanId", spanID)
 
-	// 1. VALIDATE PATH PARAMETERS
 	if traceID == "" {
 		return errorResponse(http.StatusBadRequest, gen.BadRequest,
 			types.ErrorCodeV1TracesInvalidRequest, "traceId is required"), nil
@@ -207,7 +200,6 @@ func (h *Handler) GetSpanDetailsForTrace(
 			types.ErrorCodeV1TracesInvalidRequest, "spanId is required"), nil
 	}
 
-	// 2. CHECK SERVICE INITIALIZATION
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
 		return errorResponse(
@@ -218,7 +210,6 @@ func (h *Handler) GetSpanDetailsForTrace(
 		), nil
 	}
 
-	// 3. CALL SERVICE
 	spanInfo, err := h.tracesService.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		h.logger.Error("Failed to get span details", "error", err)
@@ -248,7 +239,6 @@ func (h *Handler) GetSpanDetailsForTrace(
 		), nil
 	}
 
-	// 4. CONVERT TO GENERATED TYPE AND RETURN
 	return jsonResponse(http.StatusOK, convertSpanDetailsToGen(spanInfo)), nil
 }
 

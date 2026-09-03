@@ -84,7 +84,7 @@ func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 	return decodeAdapterSyncResponse(resp)
 }
 
-// toAdapterAlertRuleRequest converts a internalgen.AlertRuleRequest to the adapter client type
+// toAdapterAlertRuleRequest converts an internalgen.AlertRuleRequest to the adapter client type
 // via JSON round-trip. The schemas are not identical: logsadapterclientgen.AlertRuleRequest's
 // Source struct omits the Type field because the adapter is log-only. Dropping Source.Type
 // during the round-trip is intentional and safe because sourceTypeFromRequest and
@@ -122,7 +122,7 @@ func mapAdapterHTTPError(resp *http.Response, adapterName string) error {
 	}
 }
 
-// decodeAdapterSyncResponse decodes the adapter's HTTP response body into a internalgen.AlertingRuleSyncResponse
+// decodeAdapterSyncResponse decodes the adapter's HTTP response body into an internalgen.AlertingRuleSyncResponse
 // by JSON round-tripping, since the schemas are structurally identical.
 func decodeAdapterSyncResponse(resp *http.Response) (*internalgen.AlertingRuleSyncResponse, error) {
 	body, err := io.ReadAll(resp.Body)
@@ -136,7 +136,7 @@ func decodeAdapterSyncResponse(resp *http.Response) (*internalgen.AlertingRuleSy
 	return &result, nil
 }
 
-// decodeAdapterAlertRuleResponse decodes the adapter's HTTP response body into a internalgen.AlertRuleResponse
+// decodeAdapterAlertRuleResponse decodes the adapter's HTTP response body into an internalgen.AlertRuleResponse
 // by JSON round-tripping, since the schemas are structurally identical.
 func decodeAdapterAlertRuleResponse(resp *http.Response) (*internalgen.AlertRuleResponse, error) {
 	body, err := io.ReadAll(resp.Body)

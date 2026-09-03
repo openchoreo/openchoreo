@@ -25,9 +25,6 @@ func (h *Handler) QueryLogs(
 
 	req, err := toTypesLogsQuery(*request.Body)
 	if err != nil {
-		// Reached when the searchScope oneOf is malformed or mixes scopes --
-		// types.SearchScope.UnmarshalJSON rejects it. Pre-migration this came
-		// out of httputil.BindJSON with the same status and message.
 		h.logger.Error("Failed to bind request", "error", err)
 		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}

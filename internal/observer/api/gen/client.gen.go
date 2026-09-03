@@ -1330,6 +1330,7 @@ type QueryAlertsResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON503      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1410,6 +1411,7 @@ type QueryIncidentsResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON503      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1437,6 +1439,7 @@ type UpdateIncidentResp struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON503      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2029,6 +2032,13 @@ func ParseQueryAlertsResp(rsp *http.Response) (*QueryAlertsResp, error) {
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -2205,6 +2215,13 @@ func ParseQueryIncidentsResp(rsp *http.Response) (*QueryIncidentsResp, error) {
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -2265,6 +2282,13 @@ func ParseUpdateIncidentResp(rsp *http.Response) (*UpdateIncidentResp, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

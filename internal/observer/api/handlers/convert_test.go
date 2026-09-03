@@ -28,9 +28,10 @@ import (
 // "query time range cannot exceed N days", a different and misleading error for
 // the same mistake.
 //
-// rfc3339OrEmpty maps the zero time to "" to keep the original message. Without
-// that mapping every case below still returns 400, so only asserting the status
-// would not catch the regression — the message is the assertion that matters.
+// rfc3339OrEmpty maps the zero time to "" so the required-field message wins.
+// Without that mapping every case below still returns 400, so only asserting the
+// status would not catch the regression — the message is the assertion that
+// matters.
 func TestAbsentStartTimeKeepsRequiredMessage(t *testing.T) {
 	t.Parallel()
 
@@ -113,19 +114,14 @@ func TestAbsentStartTimeKeepsRequiredMessage(t *testing.T) {
 // These are unreachable through the generated router: for a required request
 // body the strict layer always sets Body, and a body that fails to decode is
 // rejected by StrictRequestErrorHandler before the handler runs. They exist so a
-// nil Body cannot panic on dereference.
-//
-// Tested rather than left bare to match the precedent set by
-// errNilServiceResponse: if a defensive branch is worth keeping, it is worth one
-// test. Called directly, since the router cannot produce this input.
+// nil Body cannot panic on dereference, and are called directly here because the
+// router cannot produce this input.
 func TestNilRequestBodyGuards(t *testing.T) {
 	t.Parallel()
 
 	h := &Handler{baseHandler: baseHandler{logger: noopLogger()}}
 	ctx := context.Background()
 
-	// Each returns a response object; none may panic, and all must be a 400
-	// carrying the standard error shape.
 	checks := []struct {
 		name string
 		call func() (int, error)
@@ -198,19 +194,18 @@ func TestRFC3339OrEmpty(t *testing.T) {
 	t.Run("sub-second precision survives", func(t *testing.T) {
 		t.Parallel()
 		// RFC3339 (as opposed to RFC3339Nano) would truncate the .5, silently
-		// moving a query window boundary that the pre-migration handlers passed
-		// through verbatim from the raw query string.
+		// moving a query window boundary.
 		ts := time.Date(2024, 1, 1, 0, 0, 0, 500_000_000, time.UTC)
 		assert.Equal(t, "2024-01-01T00:00:00.5Z", rfc3339OrEmpty(ts))
 	})
 }
 
-// TestSearchScopeMixedOneOfStillRejected proves the adapters kept the
-// hand-written oneOf discrimination.
+// TestSearchScopeMixedOneOfStillRejected covers the hand-written oneOf
+// discrimination the adapters rely on.
 //
 // types.SearchScope.UnmarshalJSON rejects a searchScope that mixes
 // workflowRunName with component-scope fields. The generated wrapper holds the
-// scope as raw JSON and performs no such check, so this only still works because
+// scope as raw JSON and performs no such check, so this only works because
 // remarshalJSON re-decodes through the hand-written type rather than mapping
 // fields.
 func TestSearchScopeMixedOneOfStillRejected(t *testing.T) {
