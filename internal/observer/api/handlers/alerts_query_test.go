@@ -66,9 +66,7 @@ func TestQueryAlerts_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -82,9 +80,7 @@ func TestQueryAlerts_InvalidBody(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", bytes.NewReader([]byte("{bad")))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -105,9 +101,7 @@ func TestQueryAlerts_ValidationError(t *testing.T) {
 	}
 	b, _ := json.Marshal(raw)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", bytes.NewReader(b))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
@@ -122,9 +116,7 @@ func TestQueryAlerts_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_NOT_READY")
@@ -142,9 +134,7 @@ func TestQueryAlerts_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -161,9 +151,7 @@ func TestQueryAlerts_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -180,9 +168,7 @@ func TestQueryAlerts_AuthzServiceUnavailable(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
@@ -199,9 +185,7 @@ func TestQueryAlerts_AuthzTimeout(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
@@ -220,9 +204,7 @@ func TestQueryAlerts_ScopeNotFound(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SCOPE_NOT_FOUND")
@@ -242,9 +224,7 @@ func TestQueryAlerts_ResolveScopeFailed(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "RESOLVE_SCOPE_FAILED")
@@ -262,9 +242,7 @@ func TestQueryAlerts_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_ALERTS_FAILED")
@@ -284,9 +262,7 @@ func TestQueryIncidents_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -300,9 +276,7 @@ func TestQueryIncidents_InvalidBody(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", bytes.NewReader([]byte("!!!")))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -322,9 +296,7 @@ func TestQueryIncidents_ValidationError(t *testing.T) {
 	}
 	b, _ := json.Marshal(raw)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", bytes.NewReader(b))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -338,9 +310,7 @@ func TestQueryIncidents_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_NOT_READY")
@@ -358,9 +328,7 @@ func TestQueryIncidents_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -377,9 +345,7 @@ func TestQueryIncidents_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -396,10 +362,88 @@ func TestQueryIncidents_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_INCIDENTS_FAILED")
+}
+
+// nil-response guard -------------------------------------------------------------
+
+// TestPublicAlertHandlers_NilServiceResponse covers the errNilServiceResponse
+// branch in the three operations that return generated typed responses.
+//
+// A service returning (nil, nil) violates the AlertIncidentService contract, so
+// this is unreachable in practice — but the generated response types are value
+// types, so without the guard each of these would panic on a nil dereference.
+func TestPublicAlertHandlers_NilServiceResponse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mockCall  string
+		method    string
+		url       string
+		body      func(*testing.T) io.Reader
+		errorCode string
+	}{
+		{
+			name:      "QueryAlerts",
+			mockCall:  "QueryAlerts",
+			method:    http.MethodPost,
+			url:       "/api/v1alpha1/alerts/query",
+			body:      validAlertsRequestBody,
+			errorCode: "QUERY_ALERTS_FAILED",
+		},
+		{
+			name:      "QueryIncidents",
+			mockCall:  "QueryIncidents",
+			method:    http.MethodPost,
+			url:       "/api/v1alpha1/incidents/query",
+			body:      validIncidentsRequestBody,
+			errorCode: "QUERY_INCIDENTS_FAILED",
+		},
+		{
+			name:     "UpdateIncident",
+			mockCall: "UpdateIncident",
+			method:   http.MethodPut,
+			url:      "/api/v1alpha1/incidents/inc-1",
+			body: func(t *testing.T) io.Reader {
+				t.Helper()
+				b, err := json.Marshal(gen.IncidentPutRequest{Status: gen.Acknowledged})
+				require.NoError(t, err)
+				return bytes.NewReader(b)
+			},
+			errorCode: "UPDATE_INCIDENT_FAILED",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := servicemocks.NewMockAlertIncidentService(t)
+			// Registered at both arities, since UpdateIncident takes an
+			// incident ID the two query methods do not.
+			svc.On(tc.mockCall, mock.Anything, mock.Anything, mock.Anything).
+				Maybe().Return(nil, nil)
+			svc.On(tc.mockCall, mock.Anything, mock.Anything).
+				Maybe().Return(nil, nil)
+
+			h := &Handler{
+				baseHandler:          baseHandler{logger: noopLogger()},
+				alertIncidentService: svc,
+			}
+
+			rr := serve(t, h, httptest.NewRequest(tc.method, tc.url, tc.body(t)))
+
+			require.Equal(t, http.StatusInternalServerError, rr.Code,
+				"a nil service response must be a 500, not a panic")
+			assert.Contains(t, rr.Body.String(), tc.errorCode)
+			// Without the guard the recovery middleware would turn the nil
+			// dereference into a plain-text 500, so the body shape is what
+			// separates the guard from the panic path.
+			assertErrorResponseShape(t, rr)
+		})
+	}
 }

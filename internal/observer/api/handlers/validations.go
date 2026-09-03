@@ -13,6 +13,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -315,7 +316,7 @@ func ValidateLogLevels(logLevels []string) error {
 }
 
 // validateAlertRuleRequest validates the new API AlertRuleRequest type.
-func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
+func validateAlertRuleRequest(req internalgen.AlertRuleRequest) error {
 	// Metadata validations
 	if strings.TrimSpace(req.Metadata.Name) == "" {
 		return fmt.Errorf("metadata.name is required")
@@ -540,9 +541,9 @@ func ValidateIncidentPutRequest(req *gen.IncidentPutRequest) error {
 		return fmt.Errorf("status is required")
 	}
 	switch status {
-	case string(gen.IncidentPutRequestStatusActive),
-		string(gen.IncidentPutRequestStatusAcknowledged),
-		string(gen.IncidentPutRequestStatusResolved):
+	case string(gen.Active),
+		string(gen.Acknowledged),
+		string(gen.Resolved):
 		// valid
 	default:
 		return fmt.Errorf("status must be one of 'active', 'acknowledged', or 'resolved'")

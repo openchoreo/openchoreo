@@ -198,6 +198,8 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-server.yaml openapi/observer-api.yaml
 	@$(call log, "Generating Observer OpenAPI client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-client.yaml openapi/observer-api.yaml
+	@$(call log, "Generating Observer Internal OpenAPI server interface")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-internal-server.yaml openapi/observer-internal-api.yaml
 	@$(call log, "Generating Observer Logs Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-logs-adapter-client.yaml openapi/observability-logs-adapter-api.yaml
 	@$(call log, "Generating Observer FinOps Adapter API client")

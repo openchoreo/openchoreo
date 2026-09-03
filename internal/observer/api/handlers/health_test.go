@@ -27,10 +27,7 @@ func TestHealth_Healthy(t *testing.T) {
 		healthService: svc,
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	rr := httptest.NewRecorder()
-
-	h.Health(rr, req)
+	rr := serve(t, h, httptest.NewRequest(http.MethodGet, "/health", nil))
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"status":"healthy"`)
@@ -47,10 +44,7 @@ func TestHealth_Unhealthy(t *testing.T) {
 		healthService: svc,
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	rr := httptest.NewRecorder()
-
-	h.Health(rr, req)
+	rr := serve(t, h, httptest.NewRequest(http.MethodGet, "/health", nil))
 
 	require.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"status":"unhealthy"`)

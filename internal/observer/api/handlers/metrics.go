@@ -4,159 +4,150 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
-	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryMetrics handles POST /api/v1/metrics/query
-func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
-	var req types.MetricsQueryRequest
-	if err := httputil.BindJSON(r, &req); err != nil {
+func (h *Handler) QueryMetrics(
+	ctx context.Context,
+	request gen.QueryMetricsRequestObject,
+) (gen.QueryMetricsResponseObject, error) {
+	if request.Body == nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
+	}
+
+	req, err := toTypesMetricsQuery(*request.Body)
+	if err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}
 
 	// Validate request
-	if err := ValidateMetricsQueryRequest(&req); err != nil {
+	if err := ValidateMetricsQueryRequest(req); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
 	}
 
-	ctx := r.Context()
 	// Guard against misconfigured deployments.
 	if h.metricsService == nil {
 		h.logger.Error("Metrics service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1MetricsServiceNotReady,
 			"Metrics service is not initialized",
-		)
-		return
+		), nil
 	}
-	result, err := h.metricsService.QueryMetrics(ctx, &req)
+
+	result, err := h.metricsService.QueryMetrics(ctx, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
+			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
+			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
 		h.logger.Error("Failed to query metrics", "error", err)
 		errorCode := types.ErrorCodeV1MetricsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrMetricsInvalidRequest):
 			h.logger.Debug("Invalid metrics request", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, err.Error())
-			return
+			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, err.Error()), nil
 		case errors.Is(err, service.ErrMetricsResolveSearchScope):
 			errorCode = types.ErrorCodeV1MetricsResolverFailed
 		case errors.Is(err, service.ErrMetricsRetrieval):
 			errorCode = types.ErrorCodeV1MetricsRetrievalFailed
 		}
 		h.logger.Error("Failed to query metrics", "error", err)
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve metrics",
-		)
-		return
+		), nil
 	}
 
-	h.writeJSON(w, http.StatusOK, result)
+	return jsonResponse(http.StatusOK, result), nil
 }
 
 // QueryRuntimeTopology handles POST /api/v1alpha1/metrics/runtime-topology.
-func (h *Handler) QueryRuntimeTopology(w http.ResponseWriter, r *http.Request) {
-	var req types.RuntimeTopologyRequest
-	if err := httputil.BindJSON(r, &req); err != nil {
+func (h *Handler) QueryRuntimeTopology(
+	ctx context.Context,
+	request gen.QueryRuntimeTopologyRequestObject,
+) (gen.QueryRuntimeTopologyResponseObject, error) {
+	if request.Body == nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
+	}
+
+	req, err := toTypesRuntimeTopology(*request.Body)
+	if err != nil {
 		h.logger.Error("Failed to bind runtime topology request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}
 
-	if err := ValidateRuntimeTopologyRequest(&req); err != nil {
+	if err := ValidateRuntimeTopologyRequest(req); err != nil {
 		h.logger.Debug("Runtime topology validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
 	}
 
-	ctx := r.Context()
 	// Guard against misconfigured deployments.
 	if h.metricsService == nil {
 		h.logger.Error("Metrics service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1MetricsServiceNotReady,
 			"Metrics service is not initialized",
-		)
-		return
+		), nil
 	}
 
-	result, err := h.metricsService.QueryRuntimeTopology(ctx, &req)
+	result, err := h.metricsService.QueryRuntimeTopology(ctx, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
+			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
+			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
 		errorCode := types.ErrorCodeV1RuntimeTopologyInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrRuntimeTopologyInvalidRequest):
 			h.logger.Debug("Invalid runtime topology request", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, err.Error())
-			return
+			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, err.Error()), nil
 		case errors.Is(err, service.ErrRuntimeTopologyResolveSearchScope):
 			errorCode = types.ErrorCodeV1RuntimeTopologyResolverFailed
 		case errors.Is(err, service.ErrRuntimeTopologyRetrieval):
 			errorCode = types.ErrorCodeV1RuntimeTopologyRetrievalFailed
 		}
 		h.logger.Error("Failed to query runtime topology", "error", err)
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve runtime topology",
-		)
-		return
+		), nil
 	}
 
-	h.writeJSON(w, http.StatusOK, result)
+	return jsonResponse(http.StatusOK, result), nil
 }

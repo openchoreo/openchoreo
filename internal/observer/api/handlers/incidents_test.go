@@ -35,7 +35,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 	respBody := &gen.IncidentPutResponse{
 		IncidentId:                    ptrString("inc-1"),
 		AlertId:                       ptrString("a-1"),
-		Status:                        ptrIncidentPutStatus(gen.IncidentPutResponseStatusAcknowledged),
+		Status:                        ptrIncidentPutStatus(gen.Acknowledged),
 		Notes:                         ptrString("notes"),
 		Description:                   ptrString("desc"),
 		IncidentTriggerAiRca:          ptrBool(true),
@@ -61,7 +61,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 	}
 
 	body := gen.IncidentPutRequest{
-		Status:      gen.IncidentPutRequestStatusAcknowledged,
+		Status:      gen.Acknowledged,
 		Notes:       ptrString("notes"),
 		Description: ptrString("desc"),
 	}
@@ -69,10 +69,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 	require.NoError(t, err, "failed to marshal request")
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1", bytes.NewReader(raw))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 
@@ -85,7 +82,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 
 	// Assert the mock received the correct ID and request.
 	assert.Equal(t, "inc-1", capturedID)
-	assert.Equal(t, gen.IncidentPutRequestStatusAcknowledged, capturedReq.Status)
+	assert.Equal(t, gen.Acknowledged, capturedReq.Status)
 }
 
 func TestUpdateIncident_NotFound(t *testing.T) {
@@ -101,10 +98,7 @@ func TestUpdateIncident_NotFound(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/non-existent", bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "non-existent")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusNotFound, rr.Code)
 }
@@ -115,6 +109,6 @@ func ptrString(s string) *string { return &s }
 
 func ptrBool(b bool) *bool { return &b }
 
-func ptrIncidentPutStatus(s gen.IncidentPutResponseStatus) *gen.IncidentPutResponseStatus {
+func ptrIncidentPutStatus(s gen.IncidentStatus) *gen.IncidentStatus {
 	return &s
 }

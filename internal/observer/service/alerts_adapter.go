@@ -10,12 +10,12 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
 )
 
 // createLogAlertRuleViaAdapter forwards a create-alert-rule request to the logs adapter.
-func (s *AlertService) createLogAlertRuleViaAdapter(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) createLogAlertRuleViaAdapter(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	adapterReq, err := toAdapterAlertRuleRequest(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert alert rule request: %w", err)
@@ -35,7 +35,7 @@ func (s *AlertService) createLogAlertRuleViaAdapter(ctx context.Context, req gen
 }
 
 // getLogAlertRuleViaAdapter forwards a get-alert-rule request to the logs adapter.
-func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*gen.AlertRuleResponse, error) {
+func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertRuleResponse, error) {
 	resp, err := s.logsAdapter.adapterClient.GetAlertRule(ctx, ruleName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call logs adapter get alert rule: %w", err)
@@ -50,7 +50,7 @@ func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, ruleName s
 }
 
 // updateLogAlertRuleViaAdapter forwards an update-alert-rule request to the logs adapter.
-func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleName string, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	adapterReq, err := toAdapterAlertRuleRequest(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert alert rule request: %w", err)
@@ -70,7 +70,7 @@ func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 }
 
 // deleteLogAlertRuleViaAdapter forwards a delete-alert-rule request to the logs adapter.
-func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
 	resp, err := s.logsAdapter.adapterClient.DeleteAlertRule(ctx, ruleName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call logs adapter delete alert rule: %w", err)
@@ -84,12 +84,12 @@ func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 	return decodeAdapterSyncResponse(resp)
 }
 
-// toAdapterAlertRuleRequest converts a gen.AlertRuleRequest to the adapter client type
+// toAdapterAlertRuleRequest converts an internalgen.AlertRuleRequest to the adapter client type
 // via JSON round-trip. The schemas are not identical: logsadapterclientgen.AlertRuleRequest's
 // Source struct omits the Type field because the adapter is log-only. Dropping Source.Type
 // during the round-trip is intentional and safe because sourceTypeFromRequest and
 // createLogAlertRuleViaAdapter validate the type before this conversion is reached.
-func toAdapterAlertRuleRequest(req gen.AlertRuleRequest) (logsadapterclientgen.AlertRuleRequest, error) {
+func toAdapterAlertRuleRequest(req internalgen.AlertRuleRequest) (logsadapterclientgen.AlertRuleRequest, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return logsadapterclientgen.AlertRuleRequest{}, fmt.Errorf("failed to marshal request: %w", err)
@@ -122,28 +122,28 @@ func mapAdapterHTTPError(resp *http.Response, adapterName string) error {
 	}
 }
 
-// decodeAdapterSyncResponse decodes the adapter's HTTP response body into a gen.AlertingRuleSyncResponse
+// decodeAdapterSyncResponse decodes the adapter's HTTP response body into an internalgen.AlertingRuleSyncResponse
 // by JSON round-tripping, since the schemas are structurally identical.
-func decodeAdapterSyncResponse(resp *http.Response) (*gen.AlertingRuleSyncResponse, error) {
+func decodeAdapterSyncResponse(resp *http.Response) (*internalgen.AlertingRuleSyncResponse, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read adapter response: %w", err)
 	}
-	var result gen.AlertingRuleSyncResponse
+	var result internalgen.AlertingRuleSyncResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode adapter sync response: %w", err)
 	}
 	return &result, nil
 }
 
-// decodeAdapterAlertRuleResponse decodes the adapter's HTTP response body into a gen.AlertRuleResponse
+// decodeAdapterAlertRuleResponse decodes the adapter's HTTP response body into an internalgen.AlertRuleResponse
 // by JSON round-tripping, since the schemas are structurally identical.
-func decodeAdapterAlertRuleResponse(resp *http.Response) (*gen.AlertRuleResponse, error) {
+func decodeAdapterAlertRuleResponse(resp *http.Response) (*internalgen.AlertRuleResponse, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read adapter response: %w", err)
 	}
-	var result gen.AlertRuleResponse
+	var result internalgen.AlertRuleResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode adapter alert rule response: %w", err)
 	}

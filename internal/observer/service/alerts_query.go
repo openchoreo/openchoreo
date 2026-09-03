@@ -80,26 +80,16 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 		return nil, fmt.Errorf("query alert entries: %w", err)
 	}
 
-	items := make([]alertQueryItemPayload, 0, len(entries))
+	items := make([]gen.Alert, 0, len(entries))
 	for _, entry := range entries {
 		items = append(items, s.buildAlertQueryItem(entry))
 	}
 
-	responsePayload := alertQueryResponsePayload{
-		Alerts: items,
+	return &gen.AlertsQueryResponse{
+		Alerts: &items,
 		Total:  intPtr(total),
 		TookMs: intPtr(int(time.Since(start).Milliseconds())),
-	}
-
-	raw, err := json.Marshal(responsePayload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal alerts query response payload: %w", err)
-	}
-	var response gen.AlertsQueryResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal alerts query response payload: %w", err)
-	}
-	return &response, nil
+	}, nil
 }
 
 func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error) {
@@ -155,21 +145,21 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 		return nil, fmt.Errorf("query incident entries: %w", err)
 	}
 
-	items := make([]incidentQueryItemPayload, 0, len(entries))
+	items := make([]gen.Incident, 0, len(entries))
 	for _, entry := range entries {
-		items = append(items, incidentQueryItemPayload{
+		items = append(items, gen.Incident{
 			Timestamp:                     parseTimePtr(entry.Timestamp),
-			AlertID:                       stringPtr(strings.TrimSpace(entry.AlertID)),
-			IncidentID:                    stringPtr(strings.TrimSpace(entry.ID)),
+			AlertId:                       stringPtr(strings.TrimSpace(entry.AlertID)),
+			IncidentId:                    stringPtr(strings.TrimSpace(entry.ID)),
 			IncidentTriggerAiRca:          boolPtr(entry.TriggerAiRca),
 			IncidentTriggerAiCostAnalysis: boolPtr(entry.TriggerAiCostAnalysis),
-			Status:                        stringPtr(strings.TrimSpace(entry.Status)),
+			Status:                        enumPtr[gen.IncidentStatus](entry.Status),
 			TriggeredAt:                   parseTimePtr(entry.TriggeredAt),
 			AcknowledgedAt:                parseTimePtr(entry.AcknowledgedAt),
 			ResolvedAt:                    parseTimePtr(entry.ResolvedAt),
 			Notes:                         stringPtr(strings.TrimSpace(entry.Notes)),
 			Description:                   stringPtr(strings.TrimSpace(entry.Description)),
-			Labels: buildLabelsPayload(
+			Labels: buildResourceLabels(
 				entry.NamespaceName,
 				entry.ProjectName,
 				entry.ComponentName,
@@ -181,21 +171,11 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 		})
 	}
 
-	responsePayload := incidentQueryResponsePayload{
-		Incidents: items,
+	return &gen.IncidentsQueryResponse{
+		Incidents: &items,
 		Total:     intPtr(total),
 		TookMs:    intPtr(int(time.Since(start).Milliseconds())),
-	}
-
-	raw, err := json.Marshal(responsePayload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal incidents query response payload: %w", err)
-	}
-	var response gen.IncidentsQueryResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal incidents query response payload: %w", err)
-	}
-	return &response, nil
+	}, nil
 }
 
 func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
@@ -221,10 +201,10 @@ func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.In
 		return nil, fmt.Errorf("update incident entry: %w", err)
 	}
 
-	payload := incidentPutResponsePayload{
-		IncidentID:                    stringPtr(strings.TrimSpace(entry.ID)),
-		AlertID:                       stringPtr(strings.TrimSpace(entry.AlertID)),
-		Status:                        stringPtr(strings.TrimSpace(entry.Status)),
+	return &gen.IncidentPutResponse{
+		IncidentId:                    stringPtr(strings.TrimSpace(entry.ID)),
+		AlertId:                       stringPtr(strings.TrimSpace(entry.AlertID)),
+		Status:                        enumPtr[gen.IncidentStatus](entry.Status),
 		TriggeredAt:                   parseTimePtr(entry.TriggeredAt),
 		AcknowledgedAt:                parseTimePtr(entry.AcknowledgedAt),
 		ResolvedAt:                    parseTimePtr(entry.ResolvedAt),
@@ -232,7 +212,7 @@ func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.In
 		Description:                   stringPtr(strings.TrimSpace(entry.Description)),
 		IncidentTriggerAiRca:          boolPtr(entry.TriggerAiRca),
 		IncidentTriggerAiCostAnalysis: boolPtr(entry.TriggerAiCostAnalysis),
-		Labels: buildLabelsPayload(
+		Labels: buildResourceLabels(
 			entry.NamespaceName,
 			entry.ProjectName,
 			entry.ComponentName,
@@ -241,27 +221,19 @@ func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.In
 			entry.ComponentID,
 			entry.EnvironmentID,
 		),
-	}
-
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal incident put response payload: %w", err)
-	}
-	var response gen.IncidentPutResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal incident put response payload: %w", err)
-	}
-	return &response, nil
+	}, nil
 }
 
-func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) alertQueryItemPayload {
-	item := alertQueryItemPayload{
+func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) gen.Alert {
+	// Metadata is always non-nil: the field carries `omitempty`, so a nil pointer
+	// would drop the `metadata` key from the response rather than emit it empty.
+	item := gen.Alert{
 		Timestamp:       parseTimePtr(entry.Timestamp),
-		AlertID:         stringPtr(strings.TrimSpace(entry.ID)),
+		AlertId:         stringPtr(strings.TrimSpace(entry.ID)),
 		AlertValue:      stringPtr(strings.TrimSpace(entry.AlertValue)),
 		IncidentEnabled: boolPtr(entry.IncidentEnabled),
-		Metadata: alertMetadataPayload{
-			Labels: buildLabelsPayload(
+		Metadata: &gen.AlertMetadata{
+			Labels: buildResourceLabels(
 				entry.NamespaceName,
 				entry.ProjectName,
 				entry.ComponentName,
@@ -270,9 +242,9 @@ func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) alertQue
 				entry.ComponentID,
 				entry.EnvironmentID,
 			),
-			AlertRule: &alertRulePayload{Name: stringPtr(strings.TrimSpace(entry.AlertRuleName))},
+			AlertRule: &gen.AlertRule{Name: stringPtr(strings.TrimSpace(entry.AlertRuleName))},
 		},
-		NotificationChannels: parseNotificationChannelsJSON(entry.NotificationChannels),
+		NotificationChannels: notificationChannelsOrNil(entry.NotificationChannels),
 	}
 
 	if strings.TrimSpace(entry.Severity) != "" || strings.TrimSpace(entry.Description) != "" ||
@@ -280,17 +252,17 @@ func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) alertQue
 		strings.TrimSpace(entry.SourceMetric) != "" || strings.TrimSpace(entry.ConditionOperator) != "" ||
 		entry.ConditionThreshold != 0 || strings.TrimSpace(entry.ConditionWindow) != "" ||
 		strings.TrimSpace(entry.ConditionInterval) != "" {
-		item.Metadata.AlertRule = &alertRulePayload{
+		item.Metadata.AlertRule = &gen.AlertRule{
 			Name:        stringPtr(strings.TrimSpace(entry.AlertRuleName)),
 			Description: stringPtr(strings.TrimSpace(entry.Description)),
-			Severity:    stringPtr(strings.TrimSpace(entry.Severity)),
-			Source: &alertRuleSourcePayload{
-				Type:   stringPtr(strings.TrimSpace(entry.SourceType)),
+			Severity:    enumPtr[gen.AlertRuleSeverity](entry.Severity),
+			Source: &gen.AlertRuleSource{
+				Type:   enumPtr[gen.AlertRuleSourceType](entry.SourceType),
 				Query:  stringPtr(strings.TrimSpace(entry.SourceQuery)),
 				Metric: stringPtr(strings.TrimSpace(entry.SourceMetric)),
 			},
-			Condition: &alertRuleConditionPayload{
-				Operator:  stringPtr(strings.TrimSpace(entry.ConditionOperator)),
+			Condition: &gen.AlertRuleCondition{
+				Operator:  enumPtr[gen.AlertRuleConditionOperator](entry.ConditionOperator),
 				Threshold: float32Ptr(float32(entry.ConditionThreshold)),
 				Window:    stringPtr(strings.TrimSpace(entry.ConditionWindow)),
 				Interval:  stringPtr(strings.TrimSpace(entry.ConditionInterval)),
@@ -319,18 +291,32 @@ func parseNotificationChannelsJSON(raw string) []string {
 	return result
 }
 
-func buildLabelsPayload(
+// notificationChannelsOrNil returns nil rather than an empty slice, so the
+// field stays absent from the response.
+//
+// `omitempty` on a *[]string only tests the pointer, so a non-nil pointer to an
+// empty slice would emit `"notificationChannels":[]` for every alert that failed
+// to notify.
+func notificationChannelsOrNil(raw string) *[]string {
+	channels := parseNotificationChannelsJSON(raw)
+	if len(channels) == 0 {
+		return nil
+	}
+	return &channels
+}
+
+func buildResourceLabels(
 	namespace, project, component, environment string,
 	projectUID, componentUID, environmentUID string,
-) *labelsPayload {
-	return &labelsPayload{
+) *gen.ResourceLabels {
+	return &gen.ResourceLabels{
 		NamespaceName:   stringPtr(strings.TrimSpace(namespace)),
 		ProjectName:     stringPtr(strings.TrimSpace(project)),
 		ComponentName:   stringPtr(strings.TrimSpace(component)),
 		EnvironmentName: stringPtr(strings.TrimSpace(environment)),
-		ProjectUID:      uuidStringPtr(strings.TrimSpace(projectUID)),
-		ComponentUID:    uuidStringPtr(strings.TrimSpace(componentUID)),
-		EnvironmentUID:  uuidStringPtr(strings.TrimSpace(environmentUID)),
+		ProjectUid:      uuidPtr(projectUID),
+		ComponentUid:    uuidPtr(componentUID),
+		EnvironmentUid:  uuidPtr(environmentUID),
 	}
 }
 
@@ -398,100 +384,39 @@ func intPtr(value int) *int {
 	return &value
 }
 
-func uuidStringPtr(value string) *string {
-	if value == "" {
+// uuidPtr parses value into a UUID, returning nil when it is blank or not a
+// valid UUID.
+//
+// Dropping an unparseable UID rather than erroring is deliberate: the alert and
+// incident stores are the source of truth for these values, and a malformed one
+// should not fail the whole query. The generated field is a *uuid.UUID, so
+// without the nil the zero UUID would surface on the wire as
+// "00000000-0000-0000-0000-000000000000".
+func uuidPtr(value string) *uuid.UUID {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
 		return nil
 	}
-	if _, err := uuid.Parse(value); err != nil {
+	parsed, err := uuid.Parse(trimmed)
+	if err != nil {
 		return nil
 	}
-	return &value
+	return &parsed
 }
 
-type alertQueryResponsePayload struct {
-	Alerts []alertQueryItemPayload `json:"alerts"`
-	Total  *int                    `json:"total,omitempty"`
-	TookMs *int                    `json:"tookMs,omitempty"`
-}
-
-type alertQueryItemPayload struct {
-	Timestamp            *time.Time           `json:"timestamp,omitempty"`
-	AlertID              *string              `json:"alertId,omitempty"`
-	AlertValue           *string              `json:"alertValue,omitempty"`
-	NotificationChannels []string             `json:"notificationChannels,omitempty"`
-	IncidentEnabled      *bool                `json:"incidentEnabled,omitempty"`
-	Metadata             alertMetadataPayload `json:"metadata,omitempty"`
-}
-
-type alertMetadataPayload struct {
-	AlertRule *alertRulePayload `json:"alertRule,omitempty"`
-	Labels    *labelsPayload    `json:"labels,omitempty"`
-}
-
-type alertRulePayload struct {
-	Name        *string                    `json:"name,omitempty"`
-	Description *string                    `json:"description,omitempty"`
-	Severity    *string                    `json:"severity,omitempty"`
-	Source      *alertRuleSourcePayload    `json:"source,omitempty"`
-	Condition   *alertRuleConditionPayload `json:"condition,omitempty"`
-}
-
-type alertRuleSourcePayload struct {
-	Type   *string `json:"type,omitempty"`
-	Query  *string `json:"query,omitempty"`
-	Metric *string `json:"metric,omitempty"`
-}
-
-type alertRuleConditionPayload struct {
-	Operator  *string  `json:"operator,omitempty"`
-	Threshold *float32 `json:"threshold,omitempty"`
-	Window    *string  `json:"window,omitempty"`
-	Interval  *string  `json:"interval,omitempty"`
-}
-
-type labelsPayload struct {
-	ComponentName   *string `json:"componentName,omitempty"`
-	ComponentUID    *string `json:"componentUid,omitempty"`
-	EnvironmentName *string `json:"environmentName,omitempty"`
-	EnvironmentUID  *string `json:"environmentUid,omitempty"`
-	NamespaceName   *string `json:"namespaceName,omitempty"`
-	ProjectName     *string `json:"projectName,omitempty"`
-	ProjectUID      *string `json:"projectUid,omitempty"`
-}
-
-type incidentQueryResponsePayload struct {
-	Incidents []incidentQueryItemPayload `json:"incidents"`
-	Total     *int                       `json:"total,omitempty"`
-	TookMs    *int                       `json:"tookMs,omitempty"`
-}
-
-type incidentQueryItemPayload struct {
-	Timestamp                     *time.Time     `json:"timestamp,omitempty"`
-	AlertID                       *string        `json:"alertId,omitempty"`
-	IncidentID                    *string        `json:"incidentId,omitempty"`
-	IncidentTriggerAiRca          *bool          `json:"incidentTriggerAiRca,omitempty"`
-	IncidentTriggerAiCostAnalysis *bool          `json:"incidentTriggerAiCostAnalysis,omitempty"`
-	Status                        *string        `json:"status,omitempty"`
-	TriggeredAt                   *time.Time     `json:"triggeredAt,omitempty"`
-	AcknowledgedAt                *time.Time     `json:"acknowledgedAt,omitempty"`
-	ResolvedAt                    *time.Time     `json:"resolvedAt,omitempty"`
-	Notes                         *string        `json:"notes,omitempty"`
-	Description                   *string        `json:"description,omitempty"`
-	Labels                        *labelsPayload `json:"labels,omitempty"`
-}
-
-type incidentPutResponsePayload struct {
-	IncidentID                    *string        `json:"incidentId,omitempty"`
-	AlertID                       *string        `json:"alertId,omitempty"`
-	Status                        *string        `json:"status,omitempty"`
-	TriggeredAt                   *time.Time     `json:"triggeredAt,omitempty"`
-	AcknowledgedAt                *time.Time     `json:"acknowledgedAt,omitempty"`
-	ResolvedAt                    *time.Time     `json:"resolvedAt,omitempty"`
-	Notes                         *string        `json:"notes,omitempty"`
-	Description                   *string        `json:"description,omitempty"`
-	IncidentTriggerAiRca          *bool          `json:"incidentTriggerAiRca,omitempty"`
-	IncidentTriggerAiCostAnalysis *bool          `json:"incidentTriggerAiCostAnalysis,omitempty"`
-	Labels                        *labelsPayload `json:"labels,omitempty"`
+// enumPtr converts a store string into one of the generated enum types,
+// mapping blank to nil the way stringPtr does.
+//
+// The value is not checked against the enum's permitted set. The stores hold
+// values written by the alerting pipeline, and rejecting one here would turn a
+// data problem into a failed query.
+func enumPtr[T ~string](value string) *T {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	converted := T(trimmed)
+	return &converted
 }
 
 func wrapScopeError(err error, resourceType, resourceName string) error {

@@ -88,24 +88,72 @@ func TestIntPtrValue(t *testing.T) {
 	})
 }
 
-func TestUuidStringPtr(t *testing.T) {
+func TestUUIDPtr(t *testing.T) {
 	t.Run("empty returns nil", func(t *testing.T) {
-		assert.Nil(t, uuidStringPtr(""))
+		assert.Nil(t, uuidPtr(""))
 	})
 
+	// Dropping an unparseable UID keeps a bad store value out of the response
+	// rather than emitting the zero UUID for it.
 	t.Run("invalid UUID returns nil", func(t *testing.T) {
-		assert.Nil(t, uuidStringPtr("not-a-uuid"))
+		assert.Nil(t, uuidPtr("not-a-uuid"))
 	})
 
 	t.Run("valid UUID returns pointer", func(t *testing.T) {
 		id := uuid.New().String()
-		result := uuidStringPtr(id)
+		result := uuidPtr(id)
 		require.NotNil(t, result)
-		assert.Equal(t, id, *result)
+		assert.Equal(t, id, result.String())
 	})
 
 	t.Run("whitespace-only returns nil", func(t *testing.T) {
-		assert.Nil(t, uuidStringPtr("   "))
+		assert.Nil(t, uuidPtr("   "))
+	})
+}
+
+func TestEnumPtr(t *testing.T) {
+	t.Run("empty returns nil", func(t *testing.T) {
+		assert.Nil(t, enumPtr[gen.IncidentStatus](""))
+	})
+
+	t.Run("whitespace-only returns nil", func(t *testing.T) {
+		assert.Nil(t, enumPtr[gen.IncidentStatus]("   "))
+	})
+
+	t.Run("value is trimmed and converted", func(t *testing.T) {
+		result := enumPtr[gen.IncidentStatus](" acknowledged ")
+		require.NotNil(t, result)
+		assert.Equal(t, gen.Acknowledged, *result)
+	})
+
+	// Store values are not validated against the enum's permitted set, so a
+	// value the spec does not list still passes through.
+	t.Run("unlisted value passes through", func(t *testing.T) {
+		result := enumPtr[gen.IncidentStatus]("unknown")
+		require.NotNil(t, result)
+		assert.Equal(t, gen.IncidentStatus("unknown"), *result)
+	})
+}
+
+func TestNotificationChannelsOrNil(t *testing.T) {
+	// The field must stay absent rather than serialize as [], which is what the
+	// pre-existing []string + omitempty did.
+	t.Run("empty JSON array returns nil", func(t *testing.T) {
+		assert.Nil(t, notificationChannelsOrNil("[]"))
+	})
+
+	t.Run("blank returns nil", func(t *testing.T) {
+		assert.Nil(t, notificationChannelsOrNil(""))
+	})
+
+	t.Run("unparseable returns nil", func(t *testing.T) {
+		assert.Nil(t, notificationChannelsOrNil("{not json"))
+	})
+
+	t.Run("channels are returned", func(t *testing.T) {
+		result := notificationChannelsOrNil(`["email","slack"]`)
+		require.NotNil(t, result)
+		assert.Equal(t, []string{"email", "slack"}, *result)
 	})
 }
 

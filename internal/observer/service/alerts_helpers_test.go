@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 )
 
 const (
@@ -24,34 +24,34 @@ func TestSourceTypeFromRequest(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		req       gen.AlertRuleRequest
+		req       internalgen.AlertRuleRequest
 		expected  string
 		expectErr bool
 	}{
 		{
 			name:      "empty source type",
-			req:       gen.AlertRuleRequest{},
+			req:       internalgen.AlertRuleRequest{},
 			expectErr: true,
 		},
 		{
 			name: "log type",
-			req: gen.AlertRuleRequest{
+			req: internalgen.AlertRuleRequest{
 				Source: struct {
-					Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-					Query  *string                           `json:"query,omitempty"`
-					Type   gen.AlertRuleRequestSourceType    `json:"type"`
-				}{Type: gen.AlertRuleRequestSourceTypeLog},
+					Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+					Query  *string                                   `json:"query,omitempty"`
+					Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
+				}{Type: internalgen.AlertRuleRequestSourceTypeLog},
 			},
 			expected: "log",
 		},
 		{
 			name: "metric type",
-			req: gen.AlertRuleRequest{
+			req: internalgen.AlertRuleRequest{
 				Source: struct {
-					Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-					Query  *string                           `json:"query,omitempty"`
-					Type   gen.AlertRuleRequestSourceType    `json:"type"`
-				}{Type: gen.AlertRuleRequestSourceTypeMetric},
+					Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+					Query  *string                                   `json:"query,omitempty"`
+					Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
+				}{Type: internalgen.AlertRuleRequestSourceTypeMetric},
 			},
 			expected: "metric",
 		},
@@ -111,7 +111,7 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 		projUID := openapi_types.UUID{0x02}
 		envUID := openapi_types.UUID{0x03}
 
-		req := gen.AlertRuleRequest{
+		req := internalgen.AlertRuleRequest{
 			//nolint:revive,staticcheck
 			Metadata: struct {
 				ComponentUid   openapi_types.UUID `json:"componentUid"`
@@ -124,17 +124,17 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 				ComponentUid: compUID, ProjectUid: projUID, EnvironmentUid: envUID,
 			},
 			Source: struct {
-				Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-				Query  *string                           `json:"query,omitempty"`
-				Type   gen.AlertRuleRequestSourceType    `json:"type"`
-			}{Type: gen.AlertRuleRequestSourceTypeLog, Query: &query},
+				Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+				Query  *string                                   `json:"query,omitempty"`
+				Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
+			}{Type: internalgen.AlertRuleRequestSourceTypeLog, Query: &query},
 			Condition: struct {
-				Enabled   bool                                  `json:"enabled"`
-				Interval  string                                `json:"interval"`
-				Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-				Threshold float32                               `json:"threshold"`
-				Window    string                                `json:"window"`
-			}{Enabled: true, Window: "5m", Interval: "1m", Operator: gen.AlertRuleRequestConditionOperatorGt, Threshold: float32(10)},
+				Enabled   bool                                          `json:"enabled"`
+				Interval  string                                        `json:"interval"`
+				Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+				Threshold float32                                       `json:"threshold"`
+				Window    string                                        `json:"window"`
+			}{Enabled: true, Window: "5m", Interval: "1m", Operator: internalgen.AlertRuleRequestConditionOperatorGt, Threshold: float32(10)},
 		}
 
 		legacy := genRequestToLegacyRequest(req)
@@ -148,7 +148,7 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 	})
 
 	t.Run("zero-value sub-fields", func(t *testing.T) {
-		legacy := genRequestToLegacyRequest(gen.AlertRuleRequest{})
+		legacy := genRequestToLegacyRequest(internalgen.AlertRuleRequest{})
 		assert.Equal(t, "", legacy.Metadata.Name)
 		assert.Equal(t, "", legacy.Source.Type)
 		assert.Equal(t, "", legacy.Condition.Window)

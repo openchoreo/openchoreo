@@ -178,7 +178,7 @@ func TestConvertSpansResponseToGen_WithIncludeAttributes(t *testing.T) {
 	assert.Equal(t, "my-service", (*span.ResourceAttributes)["service.name"])
 	require.NotNil(t, span.Status)
 	require.NotNil(t, span.Status.Code)
-	assert.Equal(t, gen.SpanStatusCodeError, *span.Status.Code)
+	assert.Equal(t, gen.Error, *span.Status.Code)
 	require.NotNil(t, span.Status.Message)
 	assert.Equal(t, "failed to initialize connection to database", *span.Status.Message)
 }

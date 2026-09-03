@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -697,17 +698,17 @@ func TestValidateIncidentPutRequest(t *testing.T) {
 		},
 		{
 			name:    "status active",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusActive},
+			req:     &gen.IncidentPutRequest{Status: gen.Active},
 			wantErr: false,
 		},
 		{
 			name:    "status acknowledged",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusAcknowledged},
+			req:     &gen.IncidentPutRequest{Status: gen.Acknowledged},
 			wantErr: false,
 		},
 		{
 			name:    "status resolved",
-			req:     &gen.IncidentPutRequest{Status: gen.IncidentPutRequestStatusResolved},
+			req:     &gen.IncidentPutRequest{Status: gen.Resolved},
 			wantErr: false,
 		},
 	}
@@ -733,13 +734,13 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 
 	uid := nonZeroUUID
 	logQuery := "ERROR"
-	cpuMetric := gen.AlertRuleRequestSourceMetric("cpu_usage")
-	memMetric := gen.AlertRuleRequestSourceMetric("memory_usage")
-	invalidMetric := gen.AlertRuleRequestSourceMetric("disk_usage")
+	cpuMetric := internalgen.AlertRuleRequestSourceMetric("cpu_usage")
+	memMetric := internalgen.AlertRuleRequestSourceMetric("memory_usage")
+	invalidMetric := internalgen.AlertRuleRequestSourceMetric("disk_usage")
 
 	// Helper: build a minimal valid log-based rule and let each test mutate a field.
-	baseLogRule := func() gen.AlertRuleRequest {
-		req := gen.AlertRuleRequest{}
+	baseLogRule := func() internalgen.AlertRuleRequest {
+		req := internalgen.AlertRuleRequest{}
 		req.Metadata.Name = "test-rule"
 		req.Metadata.ComponentUid = uid
 		req.Metadata.ProjectUid = uid
@@ -755,19 +756,19 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		req         func() gen.AlertRuleRequest
+		req         func() internalgen.AlertRuleRequest
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name:        "missing name",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Metadata.Name = ""; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Metadata.Name = ""; return r },
 			wantErr:     true,
 			errContains: "metadata.name is required",
 		},
 		{
 			name: "missing componentUid",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Metadata.ComponentUid = openapi_types.UUID{}
 				return r
@@ -777,7 +778,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name: "missing projectUid",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Metadata.ProjectUid = openapi_types.UUID{}
 				return r
@@ -787,7 +788,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name: "missing environmentUid",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Metadata.EnvironmentUid = openapi_types.UUID{}
 				return r
@@ -797,19 +798,19 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name:        "invalid source type",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Source.Type = "trace"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Source.Type = "trace"; return r },
 			wantErr:     true,
 			errContains: "source.type must be",
 		},
 		{
 			name:        "log rule missing query",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Source.Query = nil; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Source.Query = nil; return r },
 			wantErr:     true,
 			errContains: "source.query is required",
 		},
 		{
 			name: "metric rule missing metric field",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Source.Type = sourceTypeMetric
 				r.Source.Query = nil
@@ -821,7 +822,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name: "metric rule invalid metric value",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Source.Type = sourceTypeMetric
 				r.Source.Query = nil
@@ -833,44 +834,44 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name:        "invalid window duration",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Window = "not-duration"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Window = "not-duration"; return r },
 			wantErr:     true,
 			errContains: "condition.window must be a valid duration",
 		},
 		{
 			name:        "zero window duration",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Window = "0s"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Window = "0s"; return r },
 			wantErr:     true,
 			errContains: "condition.window must be greater than zero",
 		},
 		{
 			name:        "invalid interval duration",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Interval = "bad"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Interval = "bad"; return r },
 			wantErr:     true,
 			errContains: "condition.interval must be a valid duration",
 		},
 		{
 			name:        "interval exceeds window",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Interval = "10m"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Interval = "10m"; return r },
 			wantErr:     true,
 			errContains: "interval must not exceed",
 		},
 		{
 			name:        "invalid operator",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Operator = "between"; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Operator = "between"; return r },
 			wantErr:     true,
 			errContains: "condition.operator must be one of",
 		},
 		{
 			name:        "threshold not positive",
-			req:         func() gen.AlertRuleRequest { r := baseLogRule(); r.Condition.Threshold = 0; return r },
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Condition.Threshold = 0; return r },
 			wantErr:     true,
 			errContains: "condition.threshold must be greater than zero",
 		},
 		{name: "valid log rule", req: baseLogRule, wantErr: false},
 		{
 			name: "valid metric rule cpu_usage",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Source.Type = sourceTypeMetric
 				r.Source.Query = nil
@@ -881,7 +882,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name: "valid metric rule memory_usage",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Source.Type = sourceTypeMetric
 				r.Source.Query = nil
@@ -892,7 +893,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 		},
 		{
 			name: "all valid operators",
-			req: func() gen.AlertRuleRequest {
+			req: func() internalgen.AlertRuleRequest {
 				r := baseLogRule()
 				r.Condition.Operator = "gte"
 				return r

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
@@ -36,18 +36,18 @@ func TestCreateAlertRule_UnsupportedSourceType(t *testing.T) {
 
 	svc := newTestAlertService()
 
-	req := gen.AlertRuleRequest{
+	req := internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
-		}{Type: gen.AlertRuleRequestSourceType("unsupported")},
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
+		}{Type: internalgen.AlertRuleRequestSourceType("unsupported")},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{Interval: "1m", Window: "5m"},
 	}
 
@@ -77,7 +77,7 @@ func TestHandleAlertWebhook_NilK8sClient(t *testing.T) {
 	svc := &AlertService{
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-	_, err := svc.HandleAlertWebhook(context.Background(), gen.AlertWebhookRequest{})
+	_, err := svc.HandleAlertWebhook(context.Background(), internalgen.AlertWebhookRequest{})
 	require.Error(t, err)
 }
 
@@ -90,7 +90,7 @@ func TestHandleAlertWebhook_MissingRuleName(t *testing.T) {
 		k8sClient: fakeK8sClient(),
 		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-	_, err := svc.HandleAlertWebhook(context.Background(), gen.AlertWebhookRequest{
+	_, err := svc.HandleAlertWebhook(context.Background(), internalgen.AlertWebhookRequest{
 		RuleName:      &emptyName,
 		RuleNamespace: &ns,
 	})
@@ -106,7 +106,7 @@ func TestHandleAlertWebhook_MissingRuleNamespace(t *testing.T) {
 		k8sClient: fakeK8sClient(),
 		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-	_, err := svc.HandleAlertWebhook(context.Background(), gen.AlertWebhookRequest{
+	_, err := svc.HandleAlertWebhook(context.Background(), internalgen.AlertWebhookRequest{
 		RuleName:      &name,
 		RuleNamespace: &emptyNS,
 	})

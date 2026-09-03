@@ -94,6 +94,96 @@ func TestAlertServiceQueryAlerts(t *testing.T) {
 	}
 }
 
+// TestAlertsQueryResponseWireShape pins the parts of the alerts response that
+// building gen.Alert directly could get wrong, and that the populated fixture
+// above does not exercise.
+//
+// Each case is a coercion whose absence changes bytes for clients without
+// failing schema validation, so only a byte-level assertion catches it.
+func TestAlertsQueryResponseWireShape(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := &fakeAlertEntryStore{
+		entries: []alertentry.AlertEntry{
+			{
+				ID:            "a-1",
+				Timestamp:     "2026-03-07T10:20:30Z",
+				NamespaceName: "team-a",
+				// No notification channels: the field must stay absent, not
+				// serialize as [].
+				NotificationChannels: "",
+				// Not a UUID. It must be dropped rather than emitted as the
+				// zero UUID.
+				ProjectID: "not-a-uuid",
+			},
+		},
+		total: 1,
+	}
+
+	svc := &AlertService{
+		alertEntryStore: fakeStore,
+		logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	resp, err := svc.QueryAlerts(context.Background(), gen.AlertsQueryRequest{
+		StartTime:   time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC),
+		EndTime:     time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC),
+		SearchScope: gen.ComponentSearchScope{Namespace: "team-a"},
+	})
+	if err != nil {
+		t.Fatalf("query alerts failed: %v", err)
+	}
+
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal response: %v", err)
+	}
+	out := string(raw)
+
+	// gen.Alert.Metadata is a pointer with omitempty, so leaving it nil would
+	// drop the key rather than emit it empty.
+	if !strings.Contains(out, `"metadata"`) {
+		t.Errorf("metadata must be present even when empty: %s", out)
+	}
+	if strings.Contains(out, `"notificationChannels"`) {
+		t.Errorf("notificationChannels must be absent when there are none, not []: %s", out)
+	}
+	if strings.Contains(out, `"projectUid"`) {
+		t.Errorf("an unparseable projectUid must be dropped: %s", out)
+	}
+	if strings.Contains(out, "00000000-0000-0000-0000-000000000000") {
+		t.Errorf("the zero UUID must never reach the wire: %s", out)
+	}
+}
+
+// TestAlertsQueryResponseEmptyList pins `"alerts":[]` for a zero-result query:
+// the key must be present with an empty array, never absent.
+func TestAlertsQueryResponseEmptyList(t *testing.T) {
+	t.Parallel()
+
+	svc := &AlertService{
+		alertEntryStore: &fakeAlertEntryStore{entries: nil, total: 0},
+		logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	resp, err := svc.QueryAlerts(context.Background(), gen.AlertsQueryRequest{
+		StartTime:   time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC),
+		EndTime:     time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC),
+		SearchScope: gen.ComponentSearchScope{Namespace: "team-a"},
+	})
+	if err != nil {
+		t.Fatalf("query alerts failed: %v", err)
+	}
+
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal response: %v", err)
+	}
+	if !strings.Contains(string(raw), `"alerts":[]`) {
+		t.Errorf(`expected "alerts":[] for an empty result: %s`, raw)
+	}
+}
+
 func TestAlertServiceQueryIncidents(t *testing.T) {
 	t.Parallel()
 
@@ -198,7 +288,7 @@ func TestAlertServiceUpdateIncident(t *testing.T) {
 	note := "Updated notes"
 	desc := "Updated description"
 	req := gen.IncidentPutRequest{
-		Status:      gen.IncidentPutRequestStatusAcknowledged,
+		Status:      gen.Acknowledged,
 		Notes:       &note,
 		Description: &desc,
 	}
@@ -211,8 +301,8 @@ func TestAlertServiceUpdateIncident(t *testing.T) {
 	if fakeStore.lastUpdateID != "inc-1" {
 		t.Fatalf("expected lastUpdateID=inc-1, got %s", fakeStore.lastUpdateID)
 	}
-	if fakeStore.lastUpdateStatus != string(gen.IncidentPutRequestStatusAcknowledged) {
-		t.Fatalf("expected lastUpdateStatus=%s, got %s", gen.IncidentPutRequestStatusAcknowledged, fakeStore.lastUpdateStatus)
+	if fakeStore.lastUpdateStatus != string(gen.Acknowledged) {
+		t.Fatalf("expected lastUpdateStatus=%s, got %s", gen.Acknowledged, fakeStore.lastUpdateStatus)
 	}
 	if fakeStore.lastUpdateNotes == nil || *fakeStore.lastUpdateNotes != note {
 		t.Fatalf("expected lastUpdateNotes=%q, got %v", note, fakeStore.lastUpdateNotes)
@@ -270,7 +360,7 @@ func TestUpdateIncident_PreservesOmittedFields(t *testing.T) {
 
 	// Request with only status - no Notes, no Description
 	req := gen.IncidentPutRequest{
-		Status: gen.IncidentPutRequestStatusAcknowledged,
+		Status: gen.Acknowledged,
 	}
 
 	resp, err := svc.UpdateIncident(ctx, "inc-1", req)

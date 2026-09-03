@@ -54,9 +54,7 @@ func TestQueryEvents_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"total":1`)
@@ -73,9 +71,7 @@ func TestQueryEvents_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", strings.NewReader("not-json"))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -92,9 +88,7 @@ func TestQueryEvents_ValidationError(t *testing.T) {
 	body := `{"startTime":"2026-06-05T02:58:31Z","endTime":"2026-06-05T03:08:31Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -108,9 +102,7 @@ func TestQueryEvents_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1EventsServiceNotReady)
@@ -128,9 +120,7 @@ func TestQueryEvents_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -147,9 +137,7 @@ func TestQueryEvents_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -167,9 +155,7 @@ func TestQueryEvents_ResolveSearchScopeError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1EventsResolverFailed)
@@ -188,9 +174,7 @@ func TestQueryEvents_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1EventsRetrievalFailed)
@@ -208,9 +192,7 @@ func TestQueryEvents_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/events/query", validEventsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryEvents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1EventsInternalGeneric)

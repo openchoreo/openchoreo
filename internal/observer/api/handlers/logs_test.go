@@ -37,9 +37,7 @@ func TestQueryLogs_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"total":1`)
@@ -55,9 +53,7 @@ func TestQueryLogs_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", strings.NewReader("not-json"))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -74,9 +70,7 @@ func TestQueryLogs_ValidationError(t *testing.T) {
 	body := `{"startTime":"2024-01-01T00:00:00Z","endTime":"2024-01-02T00:00:00Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -90,9 +84,7 @@ func TestQueryLogs_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1LogsServiceNotReady)
@@ -110,9 +102,7 @@ func TestQueryLogs_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -129,9 +119,7 @@ func TestQueryLogs_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -148,9 +136,7 @@ func TestQueryLogs_ResolveSearchScopeError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1LogsResolverFailed)
@@ -168,9 +154,7 @@ func TestQueryLogs_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1LogsRetrievalFailed)
@@ -188,9 +172,7 @@ func TestQueryLogs_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1LogsInternalGeneric)
