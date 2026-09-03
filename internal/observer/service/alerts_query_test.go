@@ -313,8 +313,8 @@ func (f *fakeAlertEntryStore) QueryAlertEntries(_ context.Context, params alerte
 	f.lastQueryParams = params
 	return f.entries, f.total, nil
 }
-func (f *fakeAlertEntryStore) HasRecentAlert(context.Context, string, string, string, time.Time) (bool, error) {
-	return false, nil
+func (f *fakeAlertEntryStore) GetRecentAlert(context.Context, string, string, string, time.Time) (*alertentry.AlertEntry, error) {
+	return nil, nil
 }
 func (f *fakeAlertEntryStore) Close() error { return nil }
 
@@ -337,6 +337,9 @@ func (f *fakeIncidentEntryStore) WriteIncidentEntry(context.Context, *incidenten
 func (f *fakeIncidentEntryStore) QueryIncidentEntries(_ context.Context, params incidententry.QueryParams) ([]incidententry.IncidentEntry, int, error) {
 	f.lastQueryParams = params
 	return f.entries, f.total, nil
+}
+func (f *fakeIncidentEntryStore) GetIncidentStatusByAlertID(context.Context, string) (string, bool, error) {
+	return "", false, nil
 }
 func (f *fakeIncidentEntryStore) UpdateIncidentEntry(_ context.Context, id string, status string, notes, description *string, _ time.Time) (incidententry.IncidentEntry, error) {
 	f.lastUpdateID = id
