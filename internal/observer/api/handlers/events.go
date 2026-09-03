@@ -4,90 +4,85 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
-	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryEvents handles POST /api/v1/events/query
-func (h *Handler) QueryEvents(w http.ResponseWriter, r *http.Request) {
-	var req types.EventsQueryRequest
-	if err := httputil.BindJSON(r, &req); err != nil {
+func (h *Handler) QueryEvents(
+	ctx context.Context,
+	request gen.QueryEventsRequestObject,
+) (gen.QueryEventsResponseObject, error) {
+	if request.Body == nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
+	}
+
+	req, err := toTypesEventsQuery(*request.Body)
+	if err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}
 
 	// Validate request
-	if err := ValidateEventsQueryRequest(&req); err != nil {
+	if err := ValidateEventsQueryRequest(req); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
 	}
 
-	ctx := r.Context()
 	if h.eventsService == nil {
 		h.logger.Error("Events service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1EventsServiceNotReady,
 			"Events service is not initialized",
-		)
-		return
+		), nil
 	}
-	result, err := h.eventsService.QueryEvents(ctx, &req)
+
+	result, err := h.eventsService.QueryEvents(ctx, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
+			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
+			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
 		if errors.Is(err, service.ErrEventsNotImplemented) {
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusNotImplemented,
 				gen.NotImplemented,
 				types.ErrorCodeV1EventsNotImplemented,
 				"Events query is not implemented by the configured logs adapter",
-			)
-			return
+			), nil
 		}
 		h.logger.Error("Failed to query events", "error", err)
 		errorCode := types.ErrorCodeV1EventsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrEventsResolveSearchScope):
 			errorCode = types.ErrorCodeV1EventsResolverFailed
 		case errors.Is(err, service.ErrEventsRetrieval):
 			errorCode = types.ErrorCodeV1EventsRetrievalFailed
 		}
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve events",
-		)
-		return
+		), nil
 	}
 
-	h.writeJSON(w, http.StatusOK, result)
+	return jsonResponse(http.StatusOK, result), nil
 }

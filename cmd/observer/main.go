@@ -17,7 +17,9 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -28,9 +30,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
-	"github.com/openchoreo/openchoreo/internal/server/oauth"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -239,6 +241,7 @@ func main() {
 		authzAlertIncidentService,
 		authzTracesService,
 		authzFinOpsService,
+		oauthMetadataConfig(logger),
 		logger.With("component", "api-handler"),
 	)
 
@@ -250,50 +253,25 @@ func main() {
 
 	// ===== Initialize Middlewares =====
 
-	// Global middlewares - applies to all routes
+	// Global middlewares - applied to the non-spec routes below. The generated
+	// routes get their own composed chain from apihandler.ObserverMiddlewares.
 	loggerMiddleware := observermiddleware.Logger(logger)
 	recoveryMiddleware := observermiddleware.Recovery(logger)
-
-	// Create route builder with global middleware
-	routes := middleware.NewRouteBuilder(mux).With(loggerMiddleware, recoveryMiddleware)
-
-	// ===== Public Routes (No Authentication Required) =====
-
-	// Health check endpoint (new API)
-	routes.HandleFunc("GET /health", newAPIHandler.Health)
-
-	// OAuth Protected Resource Metadata endpoint
-	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
-
-	// ===== Protected API Routes (JWT Authentication Required) =====
 
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(cfg, logger)
 
-	// Create protected route group with JWT auth
-	api := routes.With(jwtAuth)
-
-	// ===== New API Routes (v1) =====
-	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
-	api.HandleFunc("POST /api/v1/events/query", newAPIHandler.QueryEvents)
-	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
-
-	// ===== New API Routes (v1alpha1) Traces, Incidents & Runtime topology =====
-	api.HandleFunc("POST /api/v1alpha1/metrics/runtime-topology", newAPIHandler.QueryRuntimeTopology)
-	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
-	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
-	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
-	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
-	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
-	api.HandleFunc("PUT /api/v1alpha1/incidents/{incidentId}", newAPIHandler.UpdateIncident)
-
-	// ===== New API Routes (v1alpha1) FinOps cost insights =====
-	api.HandleFunc(
-		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}",
-		newAPIHandler.GetComponentCosts)
-	api.HandleFunc(
-		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations",
-		newAPIHandler.GetRecommendations)
+	// ===== Non-spec routes =====
+	//
+	// /mcp cannot be a spec operation: it is streaming JSON-RPC rather than
+	// request/response, and the generated chain's wrapped ResponseWriter breaks
+	// the http.Hijacker it needs. It is registered on the base mux before the
+	// generated routes are layered on.
+	//
+	// The generated routes carry their middleware via HandlerWithOptions, so
+	// anything registered directly on the mux must be wrapped here or it gets no
+	// logger and no recovery, turning a handler panic into a dropped connection.
+	routes := middleware.NewRouteBuilder(mux).With(loggerMiddleware, recoveryMiddleware)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler, err := observermcp.NewMCPHandler(
@@ -316,36 +294,88 @@ func main() {
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
 	mcpRoutes.Handle("/mcp", newMCPServer)
 
+	// ===== Public API routes (port 9097) =====
+	//
+	// Registered by generated code from openapi/observer-api.yaml, layered onto
+	// the same mux carrying the non-spec routes above.
+	//
+	// Authentication is spec-driven: auth.OpenAPIAuth reads the scopes context
+	// key the generated wrapper sets, so the operations marked `security: []`
+	// stay public and the rest require a Bearer token. No route is selected by
+	// hand here.
+	publicAPILogger := logger.With("component", "public-api")
+	authMiddleware := auth.OpenAPIAuth(jwtAuth, gen.BearerAuthScopes)
+
+	observerMiddlewares, err := apihandler.ObserverMiddlewares(apihandler.ObserverMiddlewareOptions{
+		Logger:         publicAPILogger,
+		AuthMiddleware: authMiddleware,
+	})
+	if err != nil {
+		logger.Error("Failed to build observer middlewares", "error", err)
+		os.Exit(1)
+	}
+
+	publicStrictHandler := gen.NewStrictHandlerWithOptions(
+		newAPIHandler,
+		nil,
+		gen.StrictHTTPServerOptions{
+			RequestErrorHandlerFunc:  apihandler.StrictRequestErrorHandler(publicAPILogger),
+			ResponseErrorHandlerFunc: apihandler.StrictResponseErrorHandler(publicAPILogger),
+		},
+	)
+
+	publicHTTPHandler := gen.HandlerWithOptions(publicStrictHandler, gen.StdHTTPServerOptions{
+		BaseRouter:  mux,
+		Middlewares: observerMiddlewares,
+		// Parameter binding rejects a request before the handler runs; without
+		// this hook that response is plain text rather than gen.ErrorResponse.
+		ErrorHandlerFunc: apihandler.ParamBindingErrorHandler(publicAPILogger),
+	})
+
 	// Create HTTP server
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests
 	// before the mux's method-based routing returns 405.
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      observermiddleware.CORS(cfg.CORS.AllowedOrigins)(mux),
+		Handler:      observermiddleware.CORS(cfg.CORS.AllowedOrigins)(publicHTTPHandler),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
 
 	// ===== Internal Server (port 8081) — v1alpha1 alert CRUD =====
+	//
+	// Registered by generated code from openapi/observer-internal-api.yaml.
+	//
+	// No auth middleware: the internal spec declares no security scheme because
+	// this port has none, and the ObservabilityAlertRule controller that calls
+	// it sends no Authorization header.
+	internalAPILogger := logger.With("component", "internal-api")
 	internalMux := http.NewServeMux()
-	internalRoutes := middleware.NewRouteBuilder(internalMux).With(loggerMiddleware, recoveryMiddleware)
-	internalRoutes.HandleFunc(
-		"POST /api/v1alpha1/alerts/sources/{sourceType}/rules", internalHandler.CreateAlertRule)
-	internalRoutes.HandleFunc(
-		"GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.GetAlertRule)
-	internalRoutes.HandleFunc(
-		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.UpdateAlertRule)
-	internalRoutes.HandleFunc(
-		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.DeleteAlertRule)
 
-	// ===== v1alpha1 Alert Webhook Endpoint  =====
-	internalRoutes.HandleFunc("POST /api/v1alpha1/alerts/webhook", internalHandler.HandleAlertWebhook)
+	// The error hooks are supplied explicitly so a malformed body returns
+	// gen.ErrorResponse JSON rather than the generated default's plain text.
+	internalStrictHandler := internalgen.NewStrictHandlerWithOptions(
+		internalHandler,
+		nil,
+		internalgen.StrictHTTPServerOptions{
+			RequestErrorHandlerFunc:  apihandler.StrictRequestErrorHandler(internalAPILogger),
+			ResponseErrorHandlerFunc: apihandler.StrictResponseErrorHandler(internalAPILogger),
+		},
+	)
+
+	internalHTTPHandler := internalgen.HandlerWithOptions(internalStrictHandler, internalgen.StdHTTPServerOptions{
+		BaseRouter: internalMux,
+		Middlewares: apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
+			Logger: internalAPILogger,
+		}),
+		ErrorHandlerFunc: apihandler.ParamBindingErrorHandler(internalAPILogger),
+	})
 
 	internalAddr := fmt.Sprintf(":%d", cfg.Server.InternalPort)
 	internalServer := &http.Server{
 		Addr:         internalAddr,
-		Handler:      internalMux,
+		Handler:      internalHTTPHandler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
@@ -457,7 +487,7 @@ func createBootstrapLogger() *slog.Logger {
 
 // initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
 func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handler) http.Handler {
-	jwtDisabled := os.Getenv(apiconfig.EnvJWTDisabled) == "true"
+	jwtDisabled := !jwtEnabled()
 	jwksURL := os.Getenv(apiconfig.EnvJWKSURL)
 	jwtIssuer := os.Getenv(apiconfig.EnvJWTIssuer)
 	jwtAudience := os.Getenv(apiconfig.EnvJWTAudience)
@@ -509,9 +539,10 @@ func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL, mcpOAuthScopes())
 }
 
-// oauthProtectedResourceMetadata returns a handler for OAuth 2.0 protected resource metadata
-// as defined in RFC 9728 and related OAuth standards
-func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
+// oauthMetadataConfig resolves what the RFC 9728 protected-resource metadata
+// advertises. apihandler.GetOAuthProtectedResourceMetadata renders it; this
+// only supplies the values.
+func oauthMetadataConfig(logger *slog.Logger) apihandler.OAuthMetadataConfig {
 	// Get configuration from environment variables
 	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")
 	if observerBaseURL == "" {
@@ -525,16 +556,22 @@ func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
 		authServerBaseURL = apiconfig.DefaultThunderBaseURL
 	}
 
-	// Create and return metadata handler
-	return oauth.NewMetadataHandler(oauth.MetadataHandlerConfig{
+	return apihandler.OAuthMetadataConfig{
 		ResourceName: "OpenChoreo Observer MCP Server",
 		ResourceURL:  observerBaseURL + "/mcp",
 		AuthorizationServers: []string{
 			authServerBaseURL,
 		},
 		ScopesSupported: mcpOAuthScopes(),
-		Logger:          logger,
-	})
+		SecurityEnabled: jwtEnabled(),
+	}
+}
+
+// jwtEnabled reports whether the JWT middleware will enforce authentication.
+// Shared by initJWTMiddleware and the protected-resource metadata so the two
+// cannot disagree about it.
+func jwtEnabled() bool {
+	return os.Getenv(apiconfig.EnvJWTDisabled) != "true"
 }
 
 // mcpOAuthScopes returns the OAuth scopes to advertise for the MCP endpoint.

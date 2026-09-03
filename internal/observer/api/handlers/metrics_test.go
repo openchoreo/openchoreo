@@ -33,9 +33,7 @@ func TestQueryMetrics_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"data"`)
@@ -51,9 +49,7 @@ func TestQueryMetrics_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", strings.NewReader("{bad json"))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -70,9 +66,7 @@ func TestQueryMetrics_ValidationError(t *testing.T) {
 	body := `{"searchScope":{"namespace":"ns"},"startTime":"2024-01-01T00:00:00Z","endTime":"2024-01-02T00:00:00Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -86,9 +80,7 @@ func TestQueryMetrics_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1MetricsServiceNotReady)
@@ -106,9 +98,7 @@ func TestQueryMetrics_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -125,9 +115,7 @@ func TestQueryMetrics_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -144,9 +132,7 @@ func TestQueryMetrics_InvalidRequestError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -163,9 +149,7 @@ func TestQueryMetrics_ResolveSearchScopeError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1MetricsResolverFailed)
@@ -183,9 +167,7 @@ func TestQueryMetrics_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1MetricsRetrievalFailed)
@@ -203,9 +185,7 @@ func TestQueryMetrics_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1MetricsInternalGeneric)
@@ -225,9 +205,7 @@ func TestQueryRuntimeTopology_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 }
@@ -242,9 +220,7 @@ func TestQueryRuntimeTopology_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", strings.NewReader("{bad json"))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -261,9 +237,7 @@ func TestQueryRuntimeTopology_ValidationError(t *testing.T) {
 	body := `{"searchScope":{"project":"proj","environment":"env"},"startTime":"2024-01-01T00:00:00Z","endTime":"2024-01-02T00:00:00Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -280,9 +254,7 @@ func TestQueryRuntimeTopology_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -299,9 +271,7 @@ func TestQueryRuntimeTopology_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -318,9 +288,7 @@ func TestQueryRuntimeTopology_ScopeAuthFailed(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
@@ -337,9 +305,7 @@ func TestQueryRuntimeTopology_InvalidRequestError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -356,9 +322,7 @@ func TestQueryRuntimeTopology_ResolveSearchScopeError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1RuntimeTopologyResolverFailed)
@@ -376,9 +340,7 @@ func TestQueryRuntimeTopology_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1RuntimeTopologyRetrievalFailed)
@@ -396,9 +358,7 @@ func TestQueryRuntimeTopology_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/metrics/runtime-topology", validRuntimeTopologyRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryRuntimeTopology(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1RuntimeTopologyInternalGeneric)

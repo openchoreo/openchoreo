@@ -15,102 +15,34 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// Defines values for AlertRuleRequestConditionOperator.
+// Defines values for AlertRuleSeverity.
 const (
-	AlertRuleRequestConditionOperatorEq  AlertRuleRequestConditionOperator = "eq"
-	AlertRuleRequestConditionOperatorGt  AlertRuleRequestConditionOperator = "gt"
-	AlertRuleRequestConditionOperatorGte AlertRuleRequestConditionOperator = "gte"
-	AlertRuleRequestConditionOperatorLt  AlertRuleRequestConditionOperator = "lt"
-	AlertRuleRequestConditionOperatorLte AlertRuleRequestConditionOperator = "lte"
-	AlertRuleRequestConditionOperatorNeq AlertRuleRequestConditionOperator = "neq"
+	Critical AlertRuleSeverity = "critical"
+	Info     AlertRuleSeverity = "info"
+	Warning  AlertRuleSeverity = "warning"
 )
 
-// Defines values for AlertRuleRequestSourceMetric.
+// Defines values for AlertRuleConditionOperator.
 const (
-	AlertRuleRequestSourceMetricBudget      AlertRuleRequestSourceMetric = "budget"
-	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
-	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
+	Eq  AlertRuleConditionOperator = "eq"
+	Gt  AlertRuleConditionOperator = "gt"
+	Gte AlertRuleConditionOperator = "gte"
+	Lt  AlertRuleConditionOperator = "lt"
+	Lte AlertRuleConditionOperator = "lte"
+	Neq AlertRuleConditionOperator = "neq"
 )
 
-// Defines values for AlertRuleRequestSourceType.
+// Defines values for AlertRuleSourceType.
 const (
-	AlertRuleRequestSourceTypeBudget AlertRuleRequestSourceType = "budget"
-	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
-	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
-)
-
-// Defines values for AlertRuleResponseConditionOperator.
-const (
-	AlertRuleResponseConditionOperatorEq  AlertRuleResponseConditionOperator = "eq"
-	AlertRuleResponseConditionOperatorGt  AlertRuleResponseConditionOperator = "gt"
-	AlertRuleResponseConditionOperatorGte AlertRuleResponseConditionOperator = "gte"
-	AlertRuleResponseConditionOperatorLt  AlertRuleResponseConditionOperator = "lt"
-	AlertRuleResponseConditionOperatorLte AlertRuleResponseConditionOperator = "lte"
-	AlertRuleResponseConditionOperatorNeq AlertRuleResponseConditionOperator = "neq"
-)
-
-// Defines values for AlertRuleResponseSourceMetric.
-const (
-	AlertRuleResponseSourceMetricBudget      AlertRuleResponseSourceMetric = "budget"
-	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
-	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
-)
-
-// Defines values for AlertRuleResponseSourceType.
-const (
-	AlertRuleResponseSourceTypeBudget AlertRuleResponseSourceType = "budget"
-	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
-	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
-)
-
-// Defines values for AlertWebhookResponseStatus.
-const (
-	AlertWebhookResponseStatusError   AlertWebhookResponseStatus = "error"
-	AlertWebhookResponseStatusSuccess AlertWebhookResponseStatus = "success"
-)
-
-// Defines values for AlertingRuleSyncResponseAction.
-const (
-	Created   AlertingRuleSyncResponseAction = "created"
-	Deleted   AlertingRuleSyncResponseAction = "deleted"
-	Unchanged AlertingRuleSyncResponseAction = "unchanged"
-	Updated   AlertingRuleSyncResponseAction = "updated"
-)
-
-// Defines values for AlertingRuleSyncResponseStatus.
-const (
-	Failed AlertingRuleSyncResponseStatus = "failed"
-	Synced AlertingRuleSyncResponseStatus = "synced"
+	Budget AlertRuleSourceType = "budget"
+	Log    AlertRuleSourceType = "log"
+	Metric AlertRuleSourceType = "metric"
 )
 
 // Defines values for AlertsQueryRequestSortOrder.
 const (
 	AlertsQueryRequestSortOrderAsc  AlertsQueryRequestSortOrder = "asc"
 	AlertsQueryRequestSortOrderDesc AlertsQueryRequestSortOrder = "desc"
-)
-
-// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator.
-const (
-	Eq  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "eq"
-	Gt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gt"
-	Gte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gte"
-	Lt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lt"
-	Lte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lte"
-	Neq AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "neq"
-)
-
-// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSeverity.
-const (
-	Critical AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "critical"
-	Info     AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "info"
-	Warning  AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "warning"
-)
-
-// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSourceType.
-const (
-	Budget AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "budget"
-	Log    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
-	Metric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
 )
 
 // Defines values for ErrorResponseTitle.
@@ -130,31 +62,17 @@ const (
 	EventsQueryRequestSortOrderDesc EventsQueryRequestSortOrder = "desc"
 )
 
-// Defines values for IncidentPutRequestStatus.
+// Defines values for IncidentStatus.
 const (
-	IncidentPutRequestStatusAcknowledged IncidentPutRequestStatus = "acknowledged"
-	IncidentPutRequestStatusActive       IncidentPutRequestStatus = "active"
-	IncidentPutRequestStatusResolved     IncidentPutRequestStatus = "resolved"
-)
-
-// Defines values for IncidentPutResponseStatus.
-const (
-	IncidentPutResponseStatusAcknowledged IncidentPutResponseStatus = "acknowledged"
-	IncidentPutResponseStatusActive       IncidentPutResponseStatus = "active"
-	IncidentPutResponseStatusResolved     IncidentPutResponseStatus = "resolved"
+	Acknowledged IncidentStatus = "acknowledged"
+	Active       IncidentStatus = "active"
+	Resolved     IncidentStatus = "resolved"
 )
 
 // Defines values for IncidentsQueryRequestSortOrder.
 const (
 	IncidentsQueryRequestSortOrderAsc  IncidentsQueryRequestSortOrder = "asc"
 	IncidentsQueryRequestSortOrderDesc IncidentsQueryRequestSortOrder = "desc"
-)
-
-// Defines values for IncidentsQueryResponseIncidentsStatus.
-const (
-	Acknowledged IncidentsQueryResponseIncidentsStatus = "acknowledged"
-	Active       IncidentsQueryResponseIncidentsStatus = "active"
-	Resolved     IncidentsQueryResponseIncidentsStatus = "resolved"
 )
 
 // Defines values for LogsQueryRequestLogLevels.
@@ -198,9 +116,9 @@ const (
 
 // Defines values for SpanStatusCode.
 const (
-	SpanStatusCodeError SpanStatusCode = "error"
-	SpanStatusCodeOk    SpanStatusCode = "ok"
-	SpanStatusCodeUnset SpanStatusCode = "unset"
+	Error SpanStatusCode = "error"
+	Ok    SpanStatusCode = "ok"
+	Unset SpanStatusCode = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
@@ -209,166 +127,85 @@ const (
 	Desc TracesQueryRequestSortOrder = "desc"
 )
 
-// AlertRuleRequest defines model for AlertRuleRequest.
-type AlertRuleRequest struct {
-	Condition struct {
-		// Enabled Whether the alert rule is enabled
-		Enabled bool `json:"enabled"`
-
-		// Interval The interval of time to query for the alert rule
-		Interval string `json:"interval"`
-
-		// Operator The operator to use for the alert rule
-		Operator AlertRuleRequestConditionOperator `json:"operator"`
-
-		// Threshold The threshold value to use for the alert rule
-		Threshold float32 `json:"threshold"`
-
-		// Window The window of time to query for the alert rule
-		Window string `json:"window"`
-	} `json:"condition"`
-	Metadata struct {
-		// ComponentUid The OpenChoreo component UID to query
-		ComponentUid openapi_types.UUID `json:"componentUid"`
-
-		// EnvironmentUid The OpenChoreo environment UID to query
-		EnvironmentUid openapi_types.UUID `json:"environmentUid"`
-
-		// Name The name of the alert rule
-		Name string `json:"name"`
-
-		// Namespace The namespace of the alert rule CR
-		Namespace string `json:"namespace"`
-
-		// ProjectUid The OpenChoreo project UID to query
-		ProjectUid openapi_types.UUID `json:"projectUid"`
-	} `json:"metadata"`
-	Source struct {
-		// Metric The metric to query for metric based alerts
-		Metric *AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-
-		// Query The query to execute for log based alerts
-		Query *string `json:"query,omitempty"`
-
-		// Type The type of the source
-		Type AlertRuleRequestSourceType `json:"type"`
-	} `json:"source"`
-}
-
-// AlertRuleRequestConditionOperator The operator to use for the alert rule
-type AlertRuleRequestConditionOperator string
-
-// AlertRuleRequestSourceMetric The metric to query for metric based alerts
-type AlertRuleRequestSourceMetric string
-
-// AlertRuleRequestSourceType The type of the source
-type AlertRuleRequestSourceType string
-
-// AlertRuleResponse defines model for AlertRuleResponse.
-type AlertRuleResponse struct {
-	Condition *struct {
-		// Enabled Whether the alert rule is enabled
-		Enabled *bool `json:"enabled,omitempty"`
-
-		// Interval The interval of time to query for the alert rule
-		Interval *string `json:"interval,omitempty"`
-
-		// Operator The operator to use for the alert rule
-		Operator *AlertRuleResponseConditionOperator `json:"operator,omitempty"`
-
-		// Threshold The threshold value to use for the alert rule
-		Threshold *float32 `json:"threshold,omitempty"`
-
-		// Window The window of time to query for the alert rule
-		Window *string `json:"window,omitempty"`
-	} `json:"condition,omitempty"`
-	Metadata *struct {
-		// ComponentUid The OpenChoreo component UID to query
-		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-		// EnvironmentUid The OpenChoreo environment UID to query
-		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-		// Name The name of the alert rule
-		Name *string `json:"name,omitempty"`
-
-		// Namespace The namespace of the alert rule CR
-		Namespace *string `json:"namespace,omitempty"`
-
-		// ProjectUid The OpenChoreo project UID to query
-		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-	} `json:"metadata,omitempty"`
-	Source *struct {
-		// Metric The metric to query for metric based alerts
-		Metric *AlertRuleResponseSourceMetric `json:"metric,omitempty"`
-
-		// Query The query to execute for log based alerts
-		Query *string `json:"query,omitempty"`
-
-		// Type The type of the source
-		Type *AlertRuleResponseSourceType `json:"type,omitempty"`
-	} `json:"source,omitempty"`
-}
-
-// AlertRuleResponseConditionOperator The operator to use for the alert rule
-type AlertRuleResponseConditionOperator string
-
-// AlertRuleResponseSourceMetric The metric to query for metric based alerts
-type AlertRuleResponseSourceMetric string
-
-// AlertRuleResponseSourceType The type of the source
-type AlertRuleResponseSourceType string
-
-// AlertWebhookRequest defines model for AlertWebhookRequest.
-type AlertWebhookRequest struct {
-	// AlertTimestamp The timestamp of the alert
-	AlertTimestamp *time.Time `json:"alertTimestamp,omitempty"`
+// Alert A single fired alert.
+type Alert struct {
+	// AlertId The alert ID
+	AlertId *string `json:"alertId,omitempty"`
 
 	// AlertValue The value of the alert
-	AlertValue *float32 `json:"alertValue,omitempty"`
+	AlertValue *string `json:"alertValue,omitempty"`
 
-	// RuleName The name of the alert rule
-	RuleName *string `json:"ruleName,omitempty"`
+	// IncidentEnabled Whether the alert rule is configured to trigger incidents when fired
+	IncidentEnabled *bool          `json:"incidentEnabled,omitempty"`
+	Metadata        *AlertMetadata `json:"metadata,omitempty"`
 
-	// RuleNamespace The namespace of the alert rule
-	RuleNamespace *string `json:"ruleNamespace,omitempty"`
+	// NotificationChannels The notification channels of the alert. Empty if failed to notify.
+	NotificationChannels *[]string `json:"notificationChannels,omitempty"`
+
+	// Timestamp The timestamp of the alert
+	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
-// AlertWebhookResponse defines model for AlertWebhookResponse.
-type AlertWebhookResponse struct {
-	// Message The message of the alert webhook
-	Message *string `json:"message,omitempty"`
-
-	// Status The status of the alert webhook
-	Status *AlertWebhookResponseStatus `json:"status,omitempty"`
+// AlertMetadata defines model for AlertMetadata.
+type AlertMetadata struct {
+	// AlertRule The alert rule that produced the alert.
+	AlertRule *AlertRule      `json:"alertRule,omitempty"`
+	Labels    *ResourceLabels `json:"labels,omitempty"`
 }
 
-// AlertWebhookResponseStatus The status of the alert webhook
-type AlertWebhookResponseStatus string
+// AlertRule The alert rule that produced the alert.
+type AlertRule struct {
+	// Condition The condition configuration of the alert rule
+	Condition *AlertRuleCondition `json:"condition,omitempty"`
 
-// AlertingRuleSyncResponse defines model for AlertingRuleSyncResponse.
-type AlertingRuleSyncResponse struct {
-	// Action The action taken on the alert rule
-	Action *AlertingRuleSyncResponseAction `json:"action,omitempty"`
+	// Description The description of the alert rule
+	Description *string `json:"description,omitempty"`
 
-	// LastSyncedAt The timestamp of the last sync
-	LastSyncedAt *string `json:"lastSyncedAt,omitempty"`
+	// Name The name of the alert rule
+	Name *string `json:"name,omitempty"`
 
-	// RuleBackendId The backend ID (UID from observability backend) of the alert rule
-	RuleBackendId *string `json:"ruleBackendId,omitempty"`
+	// Severity The severity of the alert rule
+	Severity *AlertRuleSeverity `json:"severity,omitempty"`
 
-	// RuleLogicalId The logical ID (name) of the alert rule
-	RuleLogicalId *string `json:"ruleLogicalId,omitempty"`
-
-	// Status The status of the alert rule
-	Status *AlertingRuleSyncResponseStatus `json:"status,omitempty"`
+	// Source The source configuration of the alert rule
+	Source *AlertRuleSource `json:"source,omitempty"`
 }
 
-// AlertingRuleSyncResponseAction The action taken on the alert rule
-type AlertingRuleSyncResponseAction string
+// AlertRuleSeverity The severity of the alert rule
+type AlertRuleSeverity string
 
-// AlertingRuleSyncResponseStatus The status of the alert rule
-type AlertingRuleSyncResponseStatus string
+// AlertRuleCondition The condition configuration of the alert rule
+type AlertRuleCondition struct {
+	// Interval The evaluation interval (e.g. "1m", "5m")
+	Interval *string `json:"interval,omitempty"`
+
+	// Operator The comparison operator used for evaluation
+	Operator *AlertRuleConditionOperator `json:"operator,omitempty"`
+
+	// Threshold The threshold value that triggers the alert
+	Threshold *float32 `json:"threshold,omitempty"`
+
+	// Window The time window for aggregation (e.g. "5m", "1h")
+	Window *string `json:"window,omitempty"`
+}
+
+// AlertRuleConditionOperator The comparison operator used for evaluation
+type AlertRuleConditionOperator string
+
+// AlertRuleSource The source configuration of the alert rule
+type AlertRuleSource struct {
+	// Metric The metric used for metric-based alerts
+	Metric *string `json:"metric,omitempty"`
+
+	// Query The query used for log-based alerts
+	Query *string `json:"query,omitempty"`
+
+	// Type The type of the alert source
+	Type *AlertRuleSourceType `json:"type,omitempty"`
+}
+
+// AlertRuleSourceType The type of the alert source
+type AlertRuleSourceType string
 
 // AlertsQueryRequest defines model for AlertsQueryRequest.
 type AlertsQueryRequest struct {
@@ -392,83 +229,7 @@ type AlertsQueryRequestSortOrder string
 // AlertsQueryResponse defines model for AlertsQueryResponse.
 type AlertsQueryResponse struct {
 	// Alerts The list of alerts
-	Alerts *[]struct {
-		// AlertId The alert ID
-		AlertId *string `json:"alertId,omitempty"`
-
-		// AlertValue The value of the alert
-		AlertValue *string `json:"alertValue,omitempty"`
-
-		// IncidentEnabled Whether the alert rule is configured to trigger incidents when fired
-		IncidentEnabled *bool `json:"incidentEnabled,omitempty"`
-		Metadata        *struct {
-			AlertRule *struct {
-				// Condition The condition configuration of the alert rule
-				Condition *struct {
-					// Interval The evaluation interval (e.g. "1m", "5m")
-					Interval *string `json:"interval,omitempty"`
-
-					// Operator The comparison operator used for evaluation
-					Operator *AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator `json:"operator,omitempty"`
-
-					// Threshold The threshold value that triggers the alert
-					Threshold *float32 `json:"threshold,omitempty"`
-
-					// Window The time window for aggregation (e.g. "5m", "1h")
-					Window *string `json:"window,omitempty"`
-				} `json:"condition,omitempty"`
-
-				// Description The description of the alert rule
-				Description *string `json:"description,omitempty"`
-
-				// Name The name of the alert rule
-				Name *string `json:"name,omitempty"`
-
-				// Severity The severity of the alert rule
-				Severity *AlertsQueryResponseAlertsMetadataAlertRuleSeverity `json:"severity,omitempty"`
-
-				// Source The source configuration of the alert rule
-				Source *struct {
-					// Metric The metric used for metric-based alerts
-					Metric *string `json:"metric,omitempty"`
-
-					// Query The query used for log-based alerts
-					Query *string `json:"query,omitempty"`
-
-					// Type The type of the alert source
-					Type *AlertsQueryResponseAlertsMetadataAlertRuleSourceType `json:"type,omitempty"`
-				} `json:"source,omitempty"`
-			} `json:"alertRule,omitempty"`
-			Labels *struct {
-				// ComponentName The name of the component
-				ComponentName *string `json:"componentName,omitempty"`
-
-				// ComponentUid The UID of the component
-				ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-				// EnvironmentName The name of the environment
-				EnvironmentName *string `json:"environmentName,omitempty"`
-
-				// EnvironmentUid The UID of the environment
-				EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-				// NamespaceName The name of the namespace
-				NamespaceName *string `json:"namespaceName,omitempty"`
-
-				// ProjectName The name of the project
-				ProjectName *string `json:"projectName,omitempty"`
-
-				// ProjectUid The UID of the project
-				ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-			} `json:"labels,omitempty"`
-		} `json:"metadata,omitempty"`
-
-		// NotificationChannels The notification channels of the alert. Empty if failed to notify.
-		NotificationChannels *[]string `json:"notificationChannels,omitempty"`
-
-		// Timestamp The timestamp of the alert
-		Timestamp *time.Time `json:"timestamp,omitempty"`
-	} `json:"alerts,omitempty"`
+	Alerts *[]Alert `json:"alerts,omitempty"`
 
 	// TookMs The time taken to query the alerts in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
@@ -476,15 +237,6 @@ type AlertsQueryResponse struct {
 	// Total The total number of alerts
 	Total *int `json:"total,omitempty"`
 }
-
-// AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator The comparison operator used for evaluation
-type AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator string
-
-// AlertsQueryResponseAlertsMetadataAlertRuleSeverity The severity of the alert rule
-type AlertsQueryResponseAlertsMetadataAlertRuleSeverity string
-
-// AlertsQueryResponseAlertsMetadataAlertRuleSourceType The type of the alert source
-type AlertsQueryResponseAlertsMetadataAlertRuleSourceType string
 
 // ComponentCost defines model for ComponentCost.
 type ComponentCost struct {
@@ -520,51 +272,6 @@ type ComponentCost struct {
 
 	// StartTime Inclusive start of the window this record covers.
 	StartTime time.Time `json:"startTime"`
-}
-
-// ComponentLogEntry defines model for ComponentLogEntry.
-type ComponentLogEntry struct {
-	// Level The log level
-	Level *string `json:"level,omitempty"`
-
-	// Log The log message
-	Log *string `json:"log,omitempty"`
-
-	// Metadata The metadata of the log entry
-	Metadata *struct {
-		// ComponentName The OpenChoreo component name that generated the log
-		ComponentName *string `json:"componentName,omitempty"`
-
-		// ComponentUid The OpenChoreo component UID that generated the log
-		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-		// ContainerName The container name that generated the log
-		ContainerName *string `json:"containerName,omitempty"`
-
-		// EnvironmentName The OpenChoreo environment name that generated the log
-		EnvironmentName *string `json:"environmentName,omitempty"`
-
-		// EnvironmentUid The OpenChoreo environment UID that generated the log
-		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-		// NamespaceName The OpenChoreo namespace name that generated the log
-		NamespaceName *string `json:"namespaceName,omitempty"`
-
-		// PodName The Kubernetes pod name that generated the log
-		PodName *string `json:"podName,omitempty"`
-
-		// PodNamespace The namespace of the Kubernetes pod that generated the log
-		PodNamespace *string `json:"podNamespace,omitempty"`
-
-		// ProjectName The OpenChoreo project name that generated the log
-		ProjectName *string `json:"projectName,omitempty"`
-
-		// ProjectUid The OpenChoreo project UID that generated the log
-		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-	} `json:"metadata,omitempty"`
-
-	// Timestamp The timestamp of the log entry
-	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
 // ComponentRecommendation defines model for ComponentRecommendation.
@@ -719,6 +426,43 @@ type HttpMetricsTimeSeries struct {
 	UnsuccessfulRequestCount *[]MetricsTimeSeriesItem `json:"unsuccessfulRequestCount,omitempty"`
 }
 
+// Incident A single incident raised from a fired alert.
+type Incident struct {
+	// AcknowledgedAt The timestamp when the incident was acknowledged
+	AcknowledgedAt *time.Time `json:"acknowledgedAt,omitempty"`
+
+	// AlertId The ID of the alert that triggered the incident
+	AlertId *string `json:"alertId,omitempty"`
+
+	// Description The description of the incident
+	Description *string `json:"description,omitempty"`
+
+	// IncidentId The ID of the incident
+	IncidentId *string `json:"incidentId,omitempty"`
+
+	// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
+	IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
+
+	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
+	IncidentTriggerAiRca *bool           `json:"incidentTriggerAiRca,omitempty"`
+	Labels               *ResourceLabels `json:"labels,omitempty"`
+
+	// Notes Notes associated with the incident
+	Notes *string `json:"notes,omitempty"`
+
+	// ResolvedAt The timestamp when the incident was resolved
+	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
+
+	// Status The status of the incident
+	Status *IncidentStatus `json:"status,omitempty"`
+
+	// Timestamp The timestamp of the incident
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+
+	// TriggeredAt The timestamp when the incident was triggered
+	TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
+}
+
 // IncidentPutRequest defines model for IncidentPutRequest.
 type IncidentPutRequest struct {
 	// Description The description of the incident
@@ -728,11 +472,8 @@ type IncidentPutRequest struct {
 	Notes *string `json:"notes,omitempty"`
 
 	// Status The status of the incident
-	Status IncidentPutRequestStatus `json:"status"`
+	Status IncidentStatus `json:"status"`
 }
-
-// IncidentPutRequestStatus The status of the incident
-type IncidentPutRequestStatus string
 
 // IncidentPutResponse defines model for IncidentPutResponse.
 type IncidentPutResponse struct {
@@ -752,29 +493,8 @@ type IncidentPutResponse struct {
 	IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
 
 	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
-	IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
-	Labels               *struct {
-		// ComponentName The name of the component
-		ComponentName *string `json:"componentName,omitempty"`
-
-		// ComponentUid The UID of the component
-		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-		// EnvironmentName The name of the environment
-		EnvironmentName *string `json:"environmentName,omitempty"`
-
-		// EnvironmentUid The UID of the environment
-		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-		// NamespaceName The name of the namespace
-		NamespaceName *string `json:"namespaceName,omitempty"`
-
-		// ProjectName The name of the project
-		ProjectName *string `json:"projectName,omitempty"`
-
-		// ProjectUid The UID of the project
-		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-	} `json:"labels,omitempty"`
+	IncidentTriggerAiRca *bool           `json:"incidentTriggerAiRca,omitempty"`
+	Labels               *ResourceLabels `json:"labels,omitempty"`
 
 	// Notes Notes associated with the incident
 	Notes *string `json:"notes,omitempty"`
@@ -783,14 +503,14 @@ type IncidentPutResponse struct {
 	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
 
 	// Status The status of the incident
-	Status *IncidentPutResponseStatus `json:"status,omitempty"`
+	Status *IncidentStatus `json:"status,omitempty"`
 
 	// TriggeredAt The timestamp when the incident was triggered
 	TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
 }
 
-// IncidentPutResponseStatus The status of the incident
-type IncidentPutResponseStatus string
+// IncidentStatus The status of the incident
+type IncidentStatus string
 
 // IncidentsQueryRequest defines model for IncidentsQueryRequest.
 type IncidentsQueryRequest struct {
@@ -814,62 +534,7 @@ type IncidentsQueryRequestSortOrder string
 // IncidentsQueryResponse defines model for IncidentsQueryResponse.
 type IncidentsQueryResponse struct {
 	// Incidents The list of incidents
-	Incidents *[]struct {
-		// AcknowledgedAt The timestamp when the incident was acknowledged
-		AcknowledgedAt *time.Time `json:"acknowledgedAt,omitempty"`
-
-		// AlertId The ID of the alert that triggered the incident
-		AlertId *string `json:"alertId,omitempty"`
-
-		// Description The description of the incident
-		Description *string `json:"description,omitempty"`
-
-		// IncidentId The ID of the incident
-		IncidentId *string `json:"incidentId,omitempty"`
-
-		// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
-		IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
-
-		// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
-		IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
-		Labels               *struct {
-			// ComponentName The name of the component
-			ComponentName *string `json:"componentName,omitempty"`
-
-			// ComponentUid The UID of the component
-			ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-			// EnvironmentName The name of the environment
-			EnvironmentName *string `json:"environmentName,omitempty"`
-
-			// EnvironmentUid The UID of the environment
-			EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-			// NamespaceName The name of the namespace
-			NamespaceName *string `json:"namespaceName,omitempty"`
-
-			// ProjectName The name of the project
-			ProjectName *string `json:"projectName,omitempty"`
-
-			// ProjectUid The UID of the project
-			ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-		} `json:"labels,omitempty"`
-
-		// Notes Notes associated with the incident
-		Notes *string `json:"notes,omitempty"`
-
-		// ResolvedAt The timestamp when the incident was resolved
-		ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
-
-		// Status The status of the incident
-		Status *IncidentsQueryResponseIncidentsStatus `json:"status,omitempty"`
-
-		// Timestamp The timestamp of the incident
-		Timestamp *time.Time `json:"timestamp,omitempty"`
-
-		// TriggeredAt The timestamp when the incident was triggered
-		TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
-	} `json:"incidents,omitempty"`
+	Incidents *[]Incident `json:"incidents,omitempty"`
 
 	// TookMs The time taken to query the incidents in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
@@ -878,8 +543,53 @@ type IncidentsQueryResponse struct {
 	Total *int `json:"total,omitempty"`
 }
 
-// IncidentsQueryResponseIncidentsStatus The status of the incident
-type IncidentsQueryResponseIncidentsStatus string
+// LogEntry A single log entry. timestamp and log are always present. level and metadata are present when the queried scope provides them — component queries populate both; workflow queries currently populate neither.
+type LogEntry struct {
+	// Level The log level
+	Level *string `json:"level,omitempty"`
+
+	// Log The log message
+	Log string `json:"log"`
+
+	// Metadata The metadata of the log entry
+	Metadata *LogEntryMetadata `json:"metadata,omitempty"`
+
+	// Timestamp The timestamp of the log entry
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// LogEntryMetadata The metadata of the log entry
+type LogEntryMetadata struct {
+	// ComponentName The OpenChoreo component name that generated the log
+	ComponentName *string `json:"componentName,omitempty"`
+
+	// ComponentUid The OpenChoreo component UID that generated the log
+	ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+	// ContainerName The container name that generated the log
+	ContainerName *string `json:"containerName,omitempty"`
+
+	// EnvironmentName The OpenChoreo environment name that generated the log
+	EnvironmentName *string `json:"environmentName,omitempty"`
+
+	// EnvironmentUid The OpenChoreo environment UID that generated the log
+	EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+	// NamespaceName The OpenChoreo namespace name that generated the log
+	NamespaceName *string `json:"namespaceName,omitempty"`
+
+	// PodName The Kubernetes pod name that generated the log
+	PodName *string `json:"podName,omitempty"`
+
+	// PodNamespace The namespace of the Kubernetes pod that generated the log
+	PodNamespace *string `json:"podNamespace,omitempty"`
+
+	// ProjectName The OpenChoreo project name that generated the log
+	ProjectName *string `json:"projectName,omitempty"`
+
+	// ProjectUid The OpenChoreo project UID that generated the log
+	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+}
 
 // LogsQueryRequest defines model for LogsQueryRequest.
 type LogsQueryRequest struct {
@@ -913,24 +623,13 @@ type LogsQueryRequestSortOrder string
 // LogsQueryResponse defines model for LogsQueryResponse.
 type LogsQueryResponse struct {
 	// Logs The logs queried successfully
-	Logs *LogsQueryResponse_Logs `json:"logs,omitempty"`
+	Logs *[]LogEntry `json:"logs,omitempty"`
 
 	// TookMs The time taken to query the logs in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
 	// Total The total number of matching log entries, capped at 1000
 	Total *int `json:"total,omitempty"`
-}
-
-// LogsQueryResponseLogs0 defines model for .
-type LogsQueryResponseLogs0 = []ComponentLogEntry
-
-// LogsQueryResponseLogs1 defines model for .
-type LogsQueryResponseLogs1 = []WorkflowLogEntry
-
-// LogsQueryResponse_Logs The logs queried successfully
-type LogsQueryResponse_Logs struct {
-	union json.RawMessage
 }
 
 // MetricsQueryRequest defines model for MetricsQueryRequest.
@@ -966,11 +665,58 @@ type MetricsTimeSeriesItem struct {
 	Value *float64 `json:"value,omitempty"`
 }
 
+// OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728.
+// `openchoreo_security_enabled` is an OpenChoreo extension, permitted by
+// RFC 9728 §2.
+type OAuthProtectedResourceMetadata struct {
+	// AuthorizationServers List of authorization server URLs
+	AuthorizationServers []string `json:"authorization_servers"`
+
+	// BearerMethodsSupported Supported bearer token methods
+	BearerMethodsSupported []string `json:"bearer_methods_supported"`
+
+	// OpenchoreoSecurityEnabled Whether authentication is enforced on this server
+	OpenchoreoSecurityEnabled *bool `json:"openchoreo_security_enabled,omitempty"`
+
+	// Resource URL of the protected resource
+	Resource string `json:"resource"`
+
+	// ResourceName Human-readable name of the protected resource
+	ResourceName string `json:"resource_name"`
+
+	// ScopesSupported Supported OAuth scopes
+	ScopesSupported []string `json:"scopes_supported"`
+}
+
 // RecommendationResponse defines model for RecommendationResponse.
 type RecommendationResponse struct {
 	// Items One recommendation per component in scope. A single element when
 	// `component` is specified; one per component in the project otherwise.
 	Items []ComponentRecommendation `json:"items"`
+}
+
+// ResourceLabels defines model for ResourceLabels.
+type ResourceLabels struct {
+	// ComponentName The name of the component
+	ComponentName *string `json:"componentName,omitempty"`
+
+	// ComponentUid The UID of the component
+	ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+	// EnvironmentName The name of the environment
+	EnvironmentName *string `json:"environmentName,omitempty"`
+
+	// EnvironmentUid The UID of the environment
+	EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+	// NamespaceName The name of the namespace
+	NamespaceName *string `json:"namespaceName,omitempty"`
+
+	// ProjectName The name of the project
+	ProjectName *string `json:"projectName,omitempty"`
+
+	// ProjectUid The UID of the project
+	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
 }
 
 // ResourceMetricsTimeSeries defines model for ResourceMetricsTimeSeries.
@@ -1164,20 +910,8 @@ type RuntimeTopologySummary struct {
 	StartTime   time.Time `json:"startTime"`
 }
 
-// SpanStatus Execution status of the span, following the OpenTelemetry span Status model.
-type SpanStatus struct {
-	// Code The status code of the span. One of "ok", "error", or "unset".
-	Code *SpanStatusCode `json:"code,omitempty"`
-
-	// Message Developer-facing human-readable status description. Typically set only when code is "error".
-	Message *string `json:"message,omitempty"`
-}
-
-// SpanStatusCode The status code of the span. One of "ok", "error", or "unset".
-type SpanStatusCode string
-
-// TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
-type TraceSpanDetailsResponse struct {
+// SpanInfo A single span within a trace.
+type SpanInfo struct {
 	// Attributes The span attributes
 	Attributes *map[string]interface{} `json:"attributes,omitempty"`
 
@@ -1209,40 +943,52 @@ type TraceSpanDetailsResponse struct {
 	Status *SpanStatus `json:"status,omitempty"`
 }
 
+// SpanStatus Execution status of the span, following the OpenTelemetry span Status model.
+type SpanStatus struct {
+	// Code The status code of the span. One of "ok", "error", or "unset".
+	Code *SpanStatusCode `json:"code,omitempty"`
+
+	// Message Developer-facing human-readable status description. Typically set only when code is "error".
+	Message *string `json:"message,omitempty"`
+}
+
+// SpanStatusCode The status code of the span. One of "ok", "error", or "unset".
+type SpanStatusCode string
+
+// TraceInfo Summary of a single trace.
+type TraceInfo struct {
+	// DurationNs The duration of the trace in nanoseconds
+	DurationNs *int64 `json:"durationNs,omitempty"`
+
+	// EndTime The end time of the trace
+	EndTime *time.Time `json:"endTime,omitempty"`
+
+	// HasErrors Whether any span in the trace has an error status.
+	HasErrors    *bool   `json:"hasErrors,omitempty"`
+	RootSpanId   *string `json:"rootSpanId,omitempty"`
+	RootSpanKind *string `json:"rootSpanKind,omitempty"`
+	RootSpanName *string `json:"rootSpanName,omitempty"`
+
+	// SpanCount The number of spans in the trace
+	SpanCount *int `json:"spanCount,omitempty"`
+
+	// StartTime The start time of the trace
+	StartTime *time.Time `json:"startTime,omitempty"`
+
+	// TraceId The trace ID
+	TraceId *string `json:"traceId,omitempty"`
+
+	// TraceName The name of the trace
+	TraceName *string `json:"traceName,omitempty"`
+}
+
+// TraceSpanDetailsResponse A single span within a trace.
+type TraceSpanDetailsResponse = SpanInfo
+
 // TraceSpansQueryResponse defines model for TraceSpansQueryResponse.
 type TraceSpansQueryResponse struct {
 	// Spans The list of spans
-	Spans *[]struct {
-		// Attributes The span attributes
-		Attributes *map[string]interface{} `json:"attributes,omitempty"`
-
-		// DurationNs The duration of the span in nanoseconds
-		DurationNs *int64 `json:"durationNs,omitempty"`
-
-		// EndTime The end time of the span
-		EndTime *time.Time `json:"endTime,omitempty"`
-
-		// ParentSpanId The parent span ID
-		ParentSpanId *string `json:"parentSpanId,omitempty"`
-
-		// ResourceAttributes The resource attributes
-		ResourceAttributes *map[string]interface{} `json:"resourceAttributes,omitempty"`
-
-		// SpanId The span ID
-		SpanId *string `json:"spanId,omitempty"`
-
-		// SpanKind The name of the span
-		SpanKind *string `json:"spanKind,omitempty"`
-
-		// SpanName The name of the span
-		SpanName *string `json:"spanName,omitempty"`
-
-		// StartTime The start time of the span
-		StartTime *time.Time `json:"startTime,omitempty"`
-
-		// Status Execution status of the span, following the OpenTelemetry span Status model.
-		Status *SpanStatus `json:"status,omitempty"`
-	} `json:"spans,omitempty"`
+	Spans *[]SpanInfo `json:"spans,omitempty"`
 
 	// TookMs The time taken to query the spans in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
@@ -1282,40 +1028,7 @@ type TracesQueryResponse struct {
 	Total *int `json:"total,omitempty"`
 
 	// Traces The list of traces
-	Traces *[]struct {
-		// DurationNs The duration of the trace in nanoseconds
-		DurationNs *int64 `json:"durationNs,omitempty"`
-
-		// EndTime The end time of the trace
-		EndTime *time.Time `json:"endTime,omitempty"`
-
-		// HasErrors Whether any span in the trace has an error status.
-		HasErrors    *bool   `json:"hasErrors,omitempty"`
-		RootSpanId   *string `json:"rootSpanId,omitempty"`
-		RootSpanKind *string `json:"rootSpanKind,omitempty"`
-		RootSpanName *string `json:"rootSpanName,omitempty"`
-
-		// SpanCount The number of spans in the trace
-		SpanCount *int `json:"spanCount,omitempty"`
-
-		// StartTime The start time of the trace
-		StartTime *time.Time `json:"startTime,omitempty"`
-
-		// TraceId The trace ID
-		TraceId *string `json:"traceId,omitempty"`
-
-		// TraceName The name of the trace
-		TraceName *string `json:"traceName,omitempty"`
-	} `json:"traces,omitempty"`
-}
-
-// WorkflowLogEntry defines model for WorkflowLogEntry.
-type WorkflowLogEntry struct {
-	// Log The log message
-	Log *string `json:"log,omitempty"`
-
-	// Timestamp The timestamp of the log entry
-	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Traces *[]TraceInfo `json:"traces,omitempty"`
 }
 
 // WorkflowSearchScope defines model for WorkflowSearchScope.
@@ -1392,15 +1105,6 @@ type QueryMetricsJSONRequestBody = MetricsQueryRequest
 
 // QueryAlertsJSONRequestBody defines body for QueryAlerts for application/json ContentType.
 type QueryAlertsJSONRequestBody = AlertsQueryRequest
-
-// CreateAlertRuleJSONRequestBody defines body for CreateAlertRule for application/json ContentType.
-type CreateAlertRuleJSONRequestBody = AlertRuleRequest
-
-// UpdateAlertRuleJSONRequestBody defines body for UpdateAlertRule for application/json ContentType.
-type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
-
-// HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
-type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
 
 // QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
 type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
@@ -1537,68 +1241,6 @@ func (t LogsQueryRequest_SearchScope) MarshalJSON() ([]byte, error) {
 }
 
 func (t *LogsQueryRequest_SearchScope) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsLogsQueryResponseLogs0 returns the union data inside the LogsQueryResponse_Logs as a LogsQueryResponseLogs0
-func (t LogsQueryResponse_Logs) AsLogsQueryResponseLogs0() (LogsQueryResponseLogs0, error) {
-	var body LogsQueryResponseLogs0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromLogsQueryResponseLogs0 overwrites any union data inside the LogsQueryResponse_Logs as the provided LogsQueryResponseLogs0
-func (t *LogsQueryResponse_Logs) FromLogsQueryResponseLogs0(v LogsQueryResponseLogs0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeLogsQueryResponseLogs0 performs a merge with any union data inside the LogsQueryResponse_Logs, using the provided LogsQueryResponseLogs0
-func (t *LogsQueryResponse_Logs) MergeLogsQueryResponseLogs0(v LogsQueryResponseLogs0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsLogsQueryResponseLogs1 returns the union data inside the LogsQueryResponse_Logs as a LogsQueryResponseLogs1
-func (t LogsQueryResponse_Logs) AsLogsQueryResponseLogs1() (LogsQueryResponseLogs1, error) {
-	var body LogsQueryResponseLogs1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromLogsQueryResponseLogs1 overwrites any union data inside the LogsQueryResponse_Logs as the provided LogsQueryResponseLogs1
-func (t *LogsQueryResponse_Logs) FromLogsQueryResponseLogs1(v LogsQueryResponseLogs1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeLogsQueryResponseLogs1 performs a merge with any union data inside the LogsQueryResponse_Logs, using the provided LogsQueryResponseLogs1
-func (t *LogsQueryResponse_Logs) MergeLogsQueryResponseLogs1(v LogsQueryResponseLogs1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t LogsQueryResponse_Logs) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *LogsQueryResponse_Logs) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
