@@ -31,12 +31,12 @@ type fakeTracingAdapter struct {
 	spanDetailResult *observability.SpanDetail
 	spanDetailErr    error
 
-	tracesCalled           bool
-	spansCalled            bool
-	querySpanDetailsCalled bool
-	lastTraceID            string
-	lastSpanID             string
-	lastParams             observability.TracesQueryParams
+	tracesCalled      bool
+	spansCalled       bool
+	spanDetailsCalled bool
+	lastTraceID       string
+	lastSpanID        string
+	lastParams        observability.TracesQueryParams
 }
 
 func (f *fakeTracingAdapter) GetTraces(_ context.Context,
@@ -56,13 +56,11 @@ func (f *fakeTracingAdapter) GetSpans(_ context.Context, traceID string,
 	return f.spansResult, f.spansErr
 }
 
-func (f *fakeTracingAdapter) QuerySpanDetails(_ context.Context, traceID, spanID string,
-	params observability.TracesQueryParams,
+func (f *fakeTracingAdapter) GetSpanDetails(_ context.Context, traceID, spanID string,
 ) (*observability.SpanDetail, error) {
-	f.querySpanDetailsCalled = true
+	f.spanDetailsCalled = true
 	f.lastTraceID = traceID
 	f.lastSpanID = spanID
-	f.lastParams = params
 	return f.spanDetailResult, f.spanDetailErr
 }
 
@@ -338,61 +336,74 @@ func TestTracesService_QuerySpans_AdapterError(t *testing.T) {
 	require.ErrorIs(t, err, ErrTracesRetrieval)
 }
 
-func TestTracesService_QuerySpanDetails_NamespaceOnly_Success(t *testing.T) {
+func TestTracesService_GetSpanDetails_EmptyTraceID(t *testing.T) {
 	t.Parallel()
+	svc := newTracesServiceForTest(t, &fakeTracingAdapter{})
+	_, err := svc.GetSpanDetails(context.Background(), "", "span-1")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrTracesInvalidRequest)
+}
+
+func TestTracesService_GetSpanDetails_EmptySpanID(t *testing.T) {
+	t.Parallel()
+	svc := newTracesServiceForTest(t, &fakeTracingAdapter{})
+	_, err := svc.GetSpanDetails(context.Background(), "trace-1", "")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrTracesInvalidRequest)
+}
+
+func TestTracesService_GetSpanDetails_Success(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC)
 	adapter := &fakeTracingAdapter{
-		spanDetailResult: &observability.SpanDetail{SpanID: "span-1", SpanName: "http.request"},
+		spanDetailResult: &observability.SpanDetail{
+			SpanID:       "span-1",
+			SpanName:     "http.request",
+			SpanKind:     "SERVER",
+			ParentSpanID: "",
+			StartTime:    now,
+			EndTime:      now.Add(time.Second),
+			DurationNs:   1000000000,
+			Status:       &observability.SpanStatus{Code: "error", Message: "failed to initialize connection to database"},
+			Attributes:   map[string]interface{}{"http.method": "GET"},
+		},
 	}
 	svc := newTracesServiceForTest(t, adapter)
 
-	resp, err := svc.QuerySpanDetails(context.Background(), "trace-1", "span-1",
-		types.ComponentSearchScope{Namespace: "ns"})
+	resp, err := svc.GetSpanDetails(context.Background(), "trace-1", "span-1")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.True(t, adapter.querySpanDetailsCalled)
-	assert.Equal(t, "ns", adapter.lastParams.Namespace)
-	assert.Empty(t, adapter.lastParams.ProjectID)
+	assert.True(t, adapter.spanDetailsCalled)
+	assert.Equal(t, "trace-1", adapter.lastTraceID)
+	assert.Equal(t, "span-1", adapter.lastSpanID)
 	assert.Equal(t, "span-1", resp.SpanID)
+	assert.Equal(t, "http.request", resp.SpanName)
+	assert.Equal(t, "SERVER", resp.SpanKind)
+	assert.Equal(t, int64(1000000000), resp.DurationNs)
+	assert.Equal(t, "GET", resp.Attributes["http.method"])
+	require.NotNil(t, resp.Status)
+	assert.Equal(t, "error", resp.Status.Code)
+	assert.Equal(t, "failed to initialize connection to database", resp.Status.Message)
 }
 
-func TestTracesService_QuerySpanDetails_WithResolver_ForwardsScopeUIDs(t *testing.T) {
+func TestTracesService_GetSpanDetails_NotFoundPassthrough(t *testing.T) {
 	t.Parallel()
+	adapter := &fakeTracingAdapter{spanDetailErr: ErrSpanNotFound}
+	svc := newTracesServiceForTest(t, adapter)
 
-	tokenSrv := newAlwaysOKTokenServer(t)
-	defer tokenSrv.Close()
+	_, err := svc.GetSpanDetails(context.Background(), "trace-1", "missing")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrSpanNotFound)
+}
 
-	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.Contains(r.URL.Path, "/projects/"):
-			_, _ = w.Write([]byte(uidResponse(sampleProjectUID)))
-		case strings.Contains(r.URL.Path, "/components/"):
-			_, _ = w.Write([]byte(uidResponse(sampleComponentUID)))
-		case strings.Contains(r.URL.Path, "/environments/"):
-			_, _ = w.Write([]byte(uidResponse(sampleEnvironmentUID)))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer apiSrv.Close()
+func TestTracesService_GetSpanDetails_OtherError(t *testing.T) {
+	t.Parallel()
+	adapter := &fakeTracingAdapter{spanDetailErr: errors.New("upstream boom")}
+	svc := newTracesServiceForTest(t, adapter)
 
-	resolver := newTestResolver(t, apiSrv, tokenSrv, &config.UIDResolverConfig{MaxAuthRetry: 1})
-
-	adapter := &fakeTracingAdapter{
-		spanDetailResult: &observability.SpanDetail{SpanID: "span-1"},
-	}
-	svc, err := NewTracesService(adapter, resolver, &config.Config{},
-		slog.New(slog.NewTextHandler(io.Discard, nil)))
-	require.NoError(t, err)
-
-	resp, err := svc.QuerySpanDetails(context.Background(), "trace-1", "span-1",
-		types.ComponentSearchScope{Namespace: "ns", Project: "proj", Component: "comp", Environment: "env"})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, "ns", adapter.lastParams.Namespace)
-	assert.Equal(t, sampleProjectUID, adapter.lastParams.ProjectID)
-	assert.Equal(t, sampleComponentUID, adapter.lastParams.ComponentID)
-	assert.Equal(t, sampleEnvironmentUID, adapter.lastParams.EnvironmentID)
+	_, err := svc.GetSpanDetails(context.Background(), "trace-1", "span-1")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrTracesRetrieval)
 }
 
 func TestTracesService_ConvertAdapterSpansToResponse(t *testing.T) {

@@ -64,18 +64,8 @@ func (s *tracesServiceWithAuthz) QuerySpans(ctx context.Context, traceID string,
 	return s.internal.QuerySpans(ctx, traceID, req)
 }
 
-func (s *tracesServiceWithAuthz) QuerySpanDetails(ctx context.Context, traceID string, spanID string, scope types.ComponentSearchScope) (*types.SpanInfo, error) {
-	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
-
-	if err := observerAuthz.CheckAuthorization(
-		ctx, s.logger, s.pdp,
-		observerAuthz.ActionViewTraces,
-		resourceType, resourceName, hierarchy,
-		authzcore.Context{Resource: authzcore.ResourceAttribute{
-			Environment: observerAuthz.FormatDualScopedResourceName(scope.Namespace, scope.Environment, false),
-		}},
-	); err != nil {
-		return nil, err
-	}
-	return s.internal.QuerySpanDetails(ctx, traceID, spanID, scope)
+// GetSpanDetails passes through without an authz check — traceID+spanID alone do not
+// carry enough scope context (namespace/project/component) to evaluate authorization.
+func (s *tracesServiceWithAuthz) GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
+	return s.internal.GetSpanDetails(ctx, traceID, spanID)
 }

@@ -128,24 +128,9 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 	return convertSpansAdapterResponse(resp.JSON200), nil
 }
 
-// QuerySpanDetails implements observability.TracingAdapter interface
-func (t *TracingAdapter) QuerySpanDetails(ctx context.Context, traceID string, spanID string, params observability.TracesQueryParams) (*observability.SpanDetail, error) {
-	reqBody := gen.QuerySpanDetailsForTraceJSONRequestBody{
-		SearchScope: gen.ComponentSearchScope{
-			Namespace: params.Namespace,
-		},
-	}
-	if params.ProjectID != "" {
-		reqBody.SearchScope.Project = &params.ProjectID
-	}
-	if params.ComponentID != "" {
-		reqBody.SearchScope.Component = &params.ComponentID
-	}
-	if params.EnvironmentID != "" {
-		reqBody.SearchScope.Environment = &params.EnvironmentID
-	}
-
-	resp, err := t.client.QuerySpanDetailsForTraceWithResponse(ctx, traceID, spanID, reqBody)
+// GetSpanDetails implements observability.TracingAdapter interface
+func (t *TracingAdapter) GetSpanDetails(ctx context.Context, traceID string, spanID string) (*observability.SpanDetail, error) {
+	resp, err := t.client.GetSpanDetailsForTraceWithResponse(ctx, traceID, spanID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}

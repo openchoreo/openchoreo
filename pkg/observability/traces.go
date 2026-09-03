@@ -14,8 +14,8 @@ type TracingAdapter interface {
 	GetTraces(ctx context.Context, params TracesQueryParams) (*TracesQueryResult, error)
 	// GetSpans retrieves spans for a specific trace
 	GetSpans(ctx context.Context, traceID string, params TracesQueryParams) (*SpansResult, error)
-	// QuerySpanDetails retrieves detailed information about a specific span within a scope
-	QuerySpanDetails(ctx context.Context, traceID string, spanID string, params TracesQueryParams) (*SpanDetail, error)
+	// GetSpanDetails retrieves detailed information about a specific span
+	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*SpanDetail, error)
 }
 
 // SpanStatus represents the execution status of a span, following the
