@@ -353,7 +353,7 @@ func (r *Reconciler) buildMetadataContext(
 		Namespace:          namespace,
 		ComponentNamespace: namespaceName,
 		Labels:             standardLabels,
-		Annotations:        commitAnnotations(componentRelease.Spec.Workload.Source),
+		Annotations:        map[string]string{},
 		PodSelectors:       podSelectors,
 		ComponentName:      componentName,
 		ComponentUID:       componentUID,
@@ -364,35 +364,6 @@ func (r *Reconciler) buildMetadataContext(
 		EnvironmentName:    environmentName,
 		EnvironmentUID:     environmentUID,
 	}
-}
-
-// commitAnnotations exposes a workload's commit provenance to resource templates
-// through MetadataContext.Annotations.
-//
-// It does NOT reach rendered resources on its own: postProcessResources injects
-// MetadataContext.Labels onto every resource and there is no annotation
-// equivalent, so a template has to read ${metadata.annotations} explicitly and
-// none of the shipped ones do. Delivery lifecycle events therefore read the
-// commit from the owning ComponentRelease instead (see
-// renderedrelease.resolveDeliveryProvenance) rather than off the resource.
-//
-// Returns an empty (not nil) map when source is unset, because
-// MetadataContext.Annotations is validated as required.
-func commitAnnotations(source *openchoreov1alpha1.WorkloadSource) map[string]string {
-	annotations := map[string]string{}
-	if source == nil {
-		return annotations
-	}
-	if source.Commit != "" {
-		annotations[labels.AnnotationKeyCommit] = source.Commit
-	}
-	if source.AuthoredAt != nil {
-		annotations[labels.AnnotationKeyCommitAuthoredAt] = source.AuthoredAt.UTC().Format(time.RFC3339)
-	}
-	if source.Branch != "" {
-		annotations[labels.AnnotationKeySourceBranch] = source.Branch
-	}
-	return annotations
 }
 
 // collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
