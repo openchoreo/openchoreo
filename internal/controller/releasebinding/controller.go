@@ -353,7 +353,7 @@ func (r *Reconciler) buildMetadataContext(
 		Namespace:          namespace,
 		ComponentNamespace: namespaceName,
 		Labels:             standardLabels,
-		Annotations:        map[string]string{},
+		Annotations:        commitAnnotations(componentRelease.Spec.Workload.Source),
 		PodSelectors:       podSelectors,
 		ComponentName:      componentName,
 		ComponentUID:       componentUID,
@@ -364,6 +364,28 @@ func (r *Reconciler) buildMetadataContext(
 		EnvironmentName:    environmentName,
 		EnvironmentUID:     environmentUID,
 	}
+}
+
+// commitAnnotations stamps a workload's commit provenance onto the rendered
+// primary resource so the renderedrelease controller can read it back into
+// delivery lifecycle events for Lead Time for Changes. Returns an empty (not
+// nil) map when source is unset, since callers assign it directly as the
+// resource's annotations.
+func commitAnnotations(source *openchoreov1alpha1.WorkloadSource) map[string]string {
+	annotations := map[string]string{}
+	if source == nil {
+		return annotations
+	}
+	if source.Commit != "" {
+		annotations[labels.AnnotationKeyCommit] = source.Commit
+	}
+	if source.AuthoredAt != nil {
+		annotations[labels.AnnotationKeyCommitAuthoredAt] = source.AuthoredAt.UTC().Format(time.RFC3339)
+	}
+	if source.Branch != "" {
+		annotations[labels.AnnotationKeySourceBranch] = source.Branch
+	}
+	return annotations
 }
 
 // collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
