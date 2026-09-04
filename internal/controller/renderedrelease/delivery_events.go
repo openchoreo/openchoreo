@@ -56,13 +56,24 @@ const (
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
-	ProjectUID           string `json:"projectUid,omitempty"`
-	ComponentUID         string `json:"componentUid,omitempty"`
-	EnvironmentUID       string `json:"environmentUid,omitempty"`
-	Commit               string `json:"commit,omitempty"`
-	CommitAuthoredAt     string `json:"commitAuthoredAt,omitempty"`
-	Phase                string `json:"phase"`
-	FailureReason        string `json:"failureReason,omitempty"`
+	// OrgNamespace is the control-plane namespace the rollout belongs to. It is in
+	// the payload for the same reason the UIDs are: a Kubernetes Event does not
+	// inherit the involved object's labels, so anything a consumer needs has to
+	// travel in the message rather than depend on collector enrichment.
+	OrgNamespace     string `json:"orgNamespace,omitempty"`
+	ProjectUID       string `json:"projectUid,omitempty"`
+	ComponentUID     string `json:"componentUid,omitempty"`
+	EnvironmentUID   string `json:"environmentUid,omitempty"`
+	Commit           string `json:"commit,omitempty"`
+	CommitAuthoredAt string `json:"commitAuthoredAt,omitempty"`
+	Phase            string `json:"phase"`
+	FailureReason    string `json:"failureReason,omitempty"`
+	// FailureEpisode identifies which failure->recovery cycle of this rollout the
+	// event belongs to. The episode is already distinguished in the event *name*
+	// (-e1, -e2); a consumer that keys on the rollout alone would merge successive
+	// cycles into one, so it travels in the payload too. Carried on Failed and
+	// Recovered; zero on Started and Succeeded.
+	FailureEpisode int32 `json:"failureEpisode,omitempty"`
 }
 
 // deliveryContext is everything needed to emit delivery events for one
@@ -190,7 +201,7 @@ func (r *Reconciler) reconcileDeliveryEvents(
 	now := metav1.Now()
 
 	if d.StartedAt == nil {
-		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", ""); err != nil {
+		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", 0); err != nil {
 			return err
 		}
 		d.StartedAt = &now
@@ -211,14 +222,14 @@ func (r *Reconciler) reconcileDeliveryEvents(
 		reason := degradedFailureReason(degradedID, liveResources)
 		episode := d.FailureEpisode + 1
 		if err := r.emitDeliveryEvent(
-			ctx, planeClient, dc, reasonDeploymentFailed, reason, episodeSuffix(episode)); err != nil {
+			ctx, planeClient, dc, reasonDeploymentFailed, reason, episode); err != nil {
 			return err
 		}
 		d.FailedAt = &now
 		d.FailureEpisode = episode
 	case allHealthy:
 		if d.SucceededAt == nil {
-			if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentSucceeded, "", ""); err != nil {
+			if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentSucceeded, "", 0); err != nil {
 				return err
 			}
 			d.SucceededAt = &now
@@ -227,7 +238,7 @@ func (r *Reconciler) reconcileDeliveryEvents(
 			// Same episode number as the failure it closes.
 			if err := r.emitDeliveryEvent(
 				ctx, planeClient, dc, reasonDeploymentRecovered, "",
-				episodeSuffix(d.FailureEpisode)); err != nil {
+				d.FailureEpisode); err != nil {
 				return err
 			}
 			d.RecoveredAt = &now
@@ -321,7 +332,7 @@ func (r *Reconciler) markDeliveryApplyFailure(
 	episode := d.FailureEpisode + 1
 	if err := r.emitDeliveryEvent(
 		ctx, planeClient, dc, reasonDeploymentFailed, failureReasonApplyFailed,
-		episodeSuffix(episode)); err != nil {
+		episode); err != nil {
 		return before != release.Status.Delivery
 	}
 	d.FailedAt = &now
@@ -408,13 +419,22 @@ func (r *Reconciler) emitDeliveryEvent(
 	dc *deliveryContext,
 	reason string,
 	failureReason string,
-	nameSuffix string,
+	// episode is the failure episode this event belongs to, 0 for the phases that
+	// have none (Started, Succeeded). The event name suffix is derived from it here
+	// rather than passed alongside, so the name and the payload cannot disagree.
+	episode int32,
 ) error {
 	logger := log.FromContext(ctx)
+
+	nameSuffix := ""
+	if episode > 0 {
+		nameSuffix = episodeSuffix(episode)
+	}
 
 	payload := deliveryEventPayload{
 		RenderedReleaseUID:   dc.rolloutID,
 		ComponentReleaseName: dc.componentReleaseName,
+		OrgNamespace:         dc.primary.GetLabels()[labels.LabelKeyNamespaceName],
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
@@ -422,6 +442,7 @@ func (r *Reconciler) emitDeliveryEvent(
 		CommitAuthoredAt:     dc.primary.GetAnnotations()[labels.AnnotationKeyCommitAuthoredAt],
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
+		FailureEpisode:       episode,
 	}
 	message, err := json.Marshal(payload)
 	if err != nil {
