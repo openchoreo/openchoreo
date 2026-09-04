@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -79,6 +81,18 @@ type deliveryContext struct {
 	// primary is the desired primary workload resource (Deployment, StatefulSet,
 	// or CronJob) the events anchor to as involvedObject.
 	primary *unstructured.Unstructured
+	// commit and commitAuthoredAt are the rollout's commit provenance, read from
+	// the owning ComponentRelease by resolveDeliveryProvenance.
+	//
+	// They are NOT read off `primary`: the render pipeline injects
+	// MetadataContext.Labels onto every resource but never its Annotations (see
+	// postProcessResources, which calls addLabels only), so a commit placed in the
+	// metadata context never reaches a rendered resource. The UID fields below do
+	// come from labels, which is why those work. Reading the ComponentRelease
+	// directly also drops a round-trip: the release is already identified by
+	// LabelKeyComponentReleaseName.
+	commit           string
+	commitAuthoredAt string
 }
 
 // primaryWorkloadGVKs are the resource kinds whose health defines rollout
@@ -140,6 +154,44 @@ func hasOpenFailureEpisode(d *openchoreov1alpha1.DeliveryStatus) bool {
 		return false
 	}
 	return d.RecoveredAt == nil || d.RecoveredAt.Time.Before(d.FailedAt.Time)
+}
+
+// resolveDeliveryProvenance fills the rollout's commit provenance from the owning
+// ComponentRelease, which holds the embedded Workload and therefore its Source.
+//
+// Provenance is best-effort on purpose. It feeds Lead Time for Changes only, so a
+// ComponentRelease that has been deleted or is not yet readable must not fail the
+// reconcile and block the rollout; the events are still emitted, just without a
+// commit, which the aggregator already tolerates (it leaves LeadTimeMs unset).
+func (r *Reconciler) resolveDeliveryProvenance(
+	ctx context.Context,
+	release *openchoreov1alpha1.RenderedRelease,
+	dc *deliveryContext,
+) {
+	if dc == nil {
+		return
+	}
+	logger := log.FromContext(ctx)
+
+	componentRelease := &openchoreov1alpha1.ComponentRelease{}
+	key := types.NamespacedName{
+		Name:      dc.componentReleaseName,
+		Namespace: release.Namespace,
+	}
+	if err := r.Get(ctx, key, componentRelease); err != nil {
+		logger.V(1).Info("Delivery provenance unavailable; lead time will not be computed for this rollout",
+			"componentRelease", key.String(), "error", err.Error())
+		return
+	}
+
+	source := componentRelease.Spec.Workload.Source
+	if source == nil {
+		return
+	}
+	dc.commit = source.Commit
+	if source.AuthoredAt != nil {
+		dc.commitAuthoredAt = source.AuthoredAt.UTC().Format(time.RFC3339)
+	}
 }
 
 // emitDeliveryEvents runs the delivery lifecycle emission for releases that have
@@ -418,8 +470,8 @@ func (r *Reconciler) emitDeliveryEvent(
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
-		Commit:               dc.primary.GetAnnotations()[labels.AnnotationKeyCommit],
-		CommitAuthoredAt:     dc.primary.GetAnnotations()[labels.AnnotationKeyCommitAuthoredAt],
+		Commit:               dc.commit,
+		CommitAuthoredAt:     dc.commitAuthoredAt,
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
 	}

@@ -366,11 +366,18 @@ func (r *Reconciler) buildMetadataContext(
 	}
 }
 
-// commitAnnotations stamps a workload's commit provenance onto the rendered
-// primary resource so the renderedrelease controller can read it back into
-// delivery lifecycle events for Lead Time for Changes. Returns an empty (not
-// nil) map when source is unset, since callers assign it directly as the
-// resource's annotations.
+// commitAnnotations exposes a workload's commit provenance to resource templates
+// through MetadataContext.Annotations.
+//
+// It does NOT reach rendered resources on its own: postProcessResources injects
+// MetadataContext.Labels onto every resource and there is no annotation
+// equivalent, so a template has to read ${metadata.annotations} explicitly and
+// none of the shipped ones do. Delivery lifecycle events therefore read the
+// commit from the owning ComponentRelease instead (see
+// renderedrelease.resolveDeliveryProvenance) rather than off the resource.
+//
+// Returns an empty (not nil) map when source is unset, because
+// MetadataContext.Annotations is validated as required.
 func commitAnnotations(source *openchoreov1alpha1.WorkloadSource) map[string]string {
 	annotations := map[string]string{}
 	if source == nil {

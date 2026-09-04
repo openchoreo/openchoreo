@@ -144,6 +144,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	deliveryCtx := deliveryContextFor(release, desiredResources)
+	// Commit provenance comes from the owning ComponentRelease rather than the
+	// rendered resource: the render pipeline injects metadata labels but not
+	// metadata annotations, so it never reaches the resource. Best-effort.
+	r.resolveDeliveryProvenance(ctx, release, deliveryCtx)
 
 	// PHASE 1: Apply desired resources to the target plane
 	// This ensures all resources in the spec are created/updated with proper tracking labels

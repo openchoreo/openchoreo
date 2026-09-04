@@ -9,11 +9,13 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -754,6 +756,104 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 		}
 		if !errors.Is(err, inner) {
 			t.Errorf("wrapped error must still unwrap to the data plane failure, got %v", err)
+		}
+	})
+}
+
+// TestDeliveryProvenanceReachesPayload is the end-to-end assertion the provenance
+// chain was missing: the commit recorded on the Workload must arrive in the emitted
+// event payload, which is what the aggregator turns into Lead Time for Changes.
+//
+// It failed before resolveDeliveryProvenance existed, because the commit was read
+// from the rendered resource's annotations and the render pipeline never puts them
+// there (postProcessResources injects Metadata.Labels only). Every hop was covered
+// by a test up to the Workload CR, and nothing covered the last one.
+func TestDeliveryProvenanceReachesPayload(t *testing.T) {
+	ctx := context.Background()
+	desired := []*unstructured.Unstructured{makeDeliveryDeployment()}
+	authored := metav1.Date(2026, 8, 30, 9, 15, 0, 0, time.UTC)
+
+	scheme := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add scheme: %v", err)
+	}
+
+	newReconciler := func(objs ...client.Object) (*Reconciler, client.Client) {
+		cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+		return &Reconciler{Client: cpClient}, fake.NewClientBuilder().Build()
+	}
+
+	componentRelease := func(source *openchoreov1alpha1.WorkloadSource) *openchoreov1alpha1.ComponentRelease {
+		return &openchoreov1alpha1.ComponentRelease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testComponentReleaseName,
+				Namespace: "acme",
+			},
+			Spec: openchoreov1alpha1.ComponentReleaseSpec{
+				Workload: openchoreov1alpha1.WorkloadTemplateSpec{Source: source},
+			},
+		}
+	}
+
+	t.Run("commit and authored time reach the payload", func(t *testing.T) {
+		r, planeClient := newReconciler(componentRelease(&openchoreov1alpha1.WorkloadSource{
+			Commit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+			Branch:     "main",
+			AuthoredAt: &authored,
+		}))
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		r.resolveDeliveryProvenance(ctx, release, dc)
+
+		statuses := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
+		}
+		mustReconcileDelivery(t, r, ctx, planeClient, release, dc, statuses)
+
+		events := listDeliveryEvents(t, planeClient)
+		started := findEventByReason(events, reasonDeploymentStarted)
+		if started == nil {
+			t.Fatal("expected DeploymentStarted event")
+		}
+		var payload deliveryEventPayload
+		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		if payload.Commit != "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4" {
+			t.Errorf("payload commit = %q, want the Workload's commit", payload.Commit)
+		}
+		if payload.CommitAuthoredAt != "2026-08-30T09:15:00Z" {
+			t.Errorf("payload commitAuthoredAt = %q, want 2026-08-30T09:15:00Z", payload.CommitAuthoredAt)
+		}
+	})
+
+	t.Run("a missing ComponentRelease degrades instead of failing the rollout", func(t *testing.T) {
+		r, planeClient := newReconciler() // no ComponentRelease in the control plane
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		r.resolveDeliveryProvenance(ctx, release, dc)
+
+		if dc.commit != "" {
+			t.Errorf("commit = %q, want empty when the ComponentRelease is absent", dc.commit)
+		}
+		statuses := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
+		}
+		// Emission must still happen: provenance only feeds lead time.
+		mustReconcileDelivery(t, r, ctx, planeClient, release, dc, statuses)
+		if findEventByReason(listDeliveryEvents(t, planeClient), reasonDeploymentStarted) == nil {
+			t.Error("expected DeploymentStarted even without provenance")
+		}
+	})
+
+	t.Run("a Workload with no Source leaves the commit empty", func(t *testing.T) {
+		r, _ := newReconciler(componentRelease(nil))
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		r.resolveDeliveryProvenance(ctx, release, dc)
+
+		if dc.commit != "" || dc.commitAuthoredAt != "" {
+			t.Errorf("commit=%q authoredAt=%q, want both empty", dc.commit, dc.commitAuthoredAt)
 		}
 	})
 }
