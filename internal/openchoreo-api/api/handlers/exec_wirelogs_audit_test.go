@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
@@ -17,7 +18,7 @@ import (
 func newTestAuditEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet(nil)
+	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error building policy set: %v", err)
 	}

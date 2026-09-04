@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
@@ -42,7 +43,7 @@ func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.H
 func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger) http.Handler {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet(nil)
+	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	require.NoError(t, err, "test audit defaults must build a valid PolicySet")
 	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
 	require.NoError(t, err, "test audit defaults must build a valid Emitter")

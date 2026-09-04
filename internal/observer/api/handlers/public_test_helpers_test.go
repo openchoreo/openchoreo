@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // newPublicServer builds the public API the way cmd/observer does: the generated
@@ -45,12 +46,26 @@ func newPublicServerWithAuth(
 	authMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
 	t.Helper()
+	return newPublicServerWithAudit(t, h, authMiddleware, noopAuditEmitter(t))
+}
+
+// newPublicServerWithAudit is newPublicServerWithAuth with a caller-supplied
+// audit emitter, for the tests that assert on emitted events.
+func newPublicServerWithAudit(
+	t *testing.T,
+	h *Handler,
+	authMiddleware func(http.Handler) http.Handler,
+	auditEmitter *audit.Emitter,
+) http.Handler {
+	t.Helper()
 
 	logger := noopLogger()
 
 	mws, err := ObserverMiddlewares(ObserverMiddlewareOptions{
 		Logger:         logger,
 		AuthMiddleware: authMiddleware,
+		AuditEmitter:   auditEmitter,
+		AuditEnabled:   true,
 	})
 	require.NoError(t, err)
 

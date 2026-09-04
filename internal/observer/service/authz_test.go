@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service/mocks"
+	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -106,6 +107,7 @@ func TestAlertIncidentAuthz_QueryIncidents_Denied(t *testing.T) {
 func TestAlertIncidentAuthz_UpdateIncident_NilPDP(t *testing.T) {
 	inner := mocks.NewMockAlertIncidentService(t)
 	expected := &gen.IncidentPutResponse{}
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns", "proj", "comp", nil)
 	inner.EXPECT().UpdateIncident(mock.Anything, "inc-1", mock.Anything).Return(expected, nil)
 
 	svc := NewAlertIncidentServiceWithAuthz(inner, nil, testLogger())
@@ -117,11 +119,59 @@ func TestAlertIncidentAuthz_UpdateIncident_NilPDP(t *testing.T) {
 
 func TestAlertIncidentAuthz_UpdateIncident_Denied(t *testing.T) {
 	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns", "proj", "comp", nil)
 
 	svc := NewAlertIncidentServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
 
 	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
 	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+}
+
+// TestAlertIncidentAuthz_UpdateIncident_AuthorizesOnIncidentHierarchy guards
+// against authorizing UpdateIncident with an empty ResourceHierarchy{}, which
+// resourceHierarchyToPath renders as the "*" wildcard — under prefix matching
+// only a policy whose own resource is "*" matches that, silently denying
+// namespace- and project-scoped incidents:update grants.
+//
+// Asserting on the EvaluateRequest is what catches a regression to the
+// scope-free form — the call still succeeds either way, so nothing else would.
+func TestAlertIncidentAuthz_UpdateIncident_AuthorizesOnIncidentHierarchy(t *testing.T) {
+	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns-a", "proj-b", "comp-c", nil)
+	inner.EXPECT().UpdateIncident(mock.Anything, "inc-1", mock.Anything).
+		Return(&gen.IncidentPutResponse{}, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	var got *authzcore.EvaluateRequest
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *authzcore.EvaluateRequest) { got = req }).
+		Return(&authzcore.Decision{Decision: true}, nil)
+
+	svc := NewAlertIncidentServiceWithAuthz(inner, pdp, testLogger())
+	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
+	require.NoError(t, err)
+
+	require.NotNil(t, got)
+	assert.Equal(t, string(observerAuthz.ActionUpdateIncidents), got.Action)
+	assert.Equal(t, authzcore.ResourceHierarchy{
+		Namespace: "ns-a", Project: "proj-b", Component: "comp-c",
+	}, got.Resource.Hierarchy, "the check must name the incident's own hierarchy, not an empty one")
+	assert.Equal(t, "comp-c", got.Resource.ID)
+}
+
+// TestAlertIncidentAuthz_UpdateIncident_ScopeLookupFails covers the pre-authz
+// read failing. The PDP mock carries no expectations, so mockery fails the
+// test if it is consulted at all — the update must not be authorized against
+// a hierarchy that could not be established, nor run.
+func TestAlertIncidentAuthz_UpdateIncident_ScopeLookupFails(t *testing.T) {
+	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").
+		Return("", "", "", incidententry.ErrIncidentNotFound)
+
+	svc := NewAlertIncidentServiceWithAuthz(inner, coremocks.NewMockPDP(t), testLogger())
+
+	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
+	assert.ErrorIs(t, err, incidententry.ErrIncidentNotFound)
 }
 
 // --- LogsQuerier Authz Tests ---

@@ -482,6 +482,109 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 	return entry, nil
 }
 
+// incidentEntrySelectSQL returns the single-row SELECT both GetIncidentEntry
+// and loadAndPrepareIncidentEntryForUpdate use, with placeholder substituted
+// for the backend's parameter marker.
+//
+// One definition so the column list and scanIncidentEntryRow's scan order
+// cannot drift apart — two hand-maintained copies of an 18-column scan is its
+// own bug, and a mismatch would silently populate the wrong fields.
+func incidentEntrySelectSQL(placeholder string) string {
+	return `SELECT
+		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
+		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+		notes, description,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id
+	FROM incident_entries WHERE id = ` + placeholder
+}
+
+// incidentEntryRow is one scanned row, with the nullable and nanosecond
+// columns still in their raw form so each caller can apply its own
+// interpretation.
+type incidentEntryRow struct {
+	entry            IncidentEntry
+	timestampNS      int64
+	triggeredAtNS    int64
+	acknowledgedAtNS sql.NullInt64
+	resolvedAtNS     sql.NullInt64
+	notes            sql.NullString
+	description      sql.NullString
+}
+
+// scanIncidentEntryRow scans a row selected by incidentEntrySelectSQL,
+// translating no-rows into ErrIncidentNotFound.
+func scanIncidentEntryRow(row *sql.Row, id string) (incidentEntryRow, error) {
+	var r incidentEntryRow
+	if err := row.Scan(
+		&r.entry.ID,
+		&r.entry.AlertID,
+		&r.timestampNS,
+		&r.entry.Status,
+		&r.entry.TriggerAiRca,
+		&r.entry.TriggerAiCostAnalysis,
+		&r.triggeredAtNS,
+		&r.acknowledgedAtNS,
+		&r.resolvedAtNS,
+		&r.notes,
+		&r.description,
+		&r.entry.NamespaceName,
+		&r.entry.ComponentName,
+		&r.entry.EnvironmentName,
+		&r.entry.ProjectName,
+		&r.entry.ComponentID,
+		&r.entry.EnvironmentID,
+		&r.entry.ProjectID,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return incidentEntryRow{}, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
+		}
+		return incidentEntryRow{}, fmt.Errorf("failed to load incident entry %q: %w", id, err)
+	}
+	return r, nil
+}
+
+// GetIncidentEntry reads a single incident entry by ID, without locking.
+//
+// It exists so an authorization check can be made against the incident's real
+// namespace/project/component before the update runs: nothing in
+// IncidentPutRequest names a scope, so the hierarchy is only knowable by
+// reading the stored incident.
+func (s *sqlStore) GetIncidentEntry(ctx context.Context, id string) (IncidentEntry, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return IncidentEntry{}, fmt.Errorf("incident id is required")
+	}
+
+	placeholder := "?"
+	if s.backend == BackendPostgreSQL {
+		placeholder = "$1"
+	}
+
+	scanned, err := scanIncidentEntryRow(
+		s.db.QueryRowContext(ctx, incidentEntrySelectSQL(placeholder), id), id)
+	if err != nil {
+		return IncidentEntry{}, err
+	}
+
+	entry := scanned.entry
+	entry.Timestamp = time.Unix(0, scanned.timestampNS).UTC().Format(time.RFC3339Nano)
+	entry.TriggeredAt = time.Unix(0, scanned.triggeredAtNS).UTC().Format(time.RFC3339Nano)
+	if scanned.acknowledgedAtNS.Valid && scanned.acknowledgedAtNS.Int64 != 0 {
+		entry.AcknowledgedAt = time.Unix(0, scanned.acknowledgedAtNS.Int64).UTC().Format(time.RFC3339Nano)
+	}
+	if scanned.resolvedAtNS.Valid && scanned.resolvedAtNS.Int64 != 0 {
+		entry.ResolvedAt = time.Unix(0, scanned.resolvedAtNS.Int64).UTC().Format(time.RFC3339Nano)
+	}
+	if scanned.notes.Valid {
+		entry.Notes = scanned.notes.String
+	}
+	if scanned.description.Valid {
+		entry.Description = scanned.description.String
+	}
+	return entry, nil
+}
+
 // loadAndPrepareIncidentEntryForUpdate loads the existing incident entry within the given transaction
 // and applies status, timestamp, and notes/description changes. It returns the updated entry along with
 // the nanosecond values to be written for acknowledged/resolved timestamps.
@@ -498,61 +601,23 @@ func (s *sqlStore) loadAndPrepareIncidentEntryForUpdate(
 		placeholder = "$1"
 	}
 
-	var selectQuery string
-	// #nosec G202 -- id value is always passed as a parameter via placeholder; query text concatenation is limited to backend-specific placeholder.
+	// #nosec G202 -- id is always passed as a parameter via placeholder; query text concatenation is limited to backend-specific placeholder and the constant FOR UPDATE clause.
+	selectQuery := incidentEntrySelectSQL(placeholder)
 	if s.backend == BackendPostgreSQL {
-		selectQuery = `SELECT
-		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
-		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
-		notes, description,
-		namespace_name, component_name, environment_name, project_name,
-		component_id, environment_id, project_id
-	FROM incident_entries WHERE id = ` + placeholder + ` FOR UPDATE`
-	} else {
-		selectQuery = `SELECT
-		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
-		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
-		notes, description,
-		namespace_name, component_name, environment_name, project_name,
-		component_id, environment_id, project_id
-	FROM incident_entries WHERE id = ` + placeholder
+		selectQuery += ` FOR UPDATE`
 	}
 
-	row := tx.QueryRowContext(ctx, selectQuery, id)
-
-	var entry IncidentEntry
-	var tsNS int64
-	var triggeredNS int64
-	var acknowledgedNS sql.NullInt64
-	var resolvedNS sql.NullInt64
-	var existingNotes sql.NullString
-	var existingDescription sql.NullString
-
-	if err := row.Scan(
-		&entry.ID,
-		&entry.AlertID,
-		&tsNS,
-		&entry.Status,
-		&entry.TriggerAiRca,
-		&entry.TriggerAiCostAnalysis,
-		&triggeredNS,
-		&acknowledgedNS,
-		&resolvedNS,
-		&existingNotes,
-		&existingDescription,
-		&entry.NamespaceName,
-		&entry.ComponentName,
-		&entry.EnvironmentName,
-		&entry.ProjectName,
-		&entry.ComponentID,
-		&entry.EnvironmentID,
-		&entry.ProjectID,
-	); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return IncidentEntry{}, 0, 0, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
-		}
-		return IncidentEntry{}, 0, 0, fmt.Errorf("failed to load incident entry %q: %w", id, err)
+	scanned, err := scanIncidentEntryRow(tx.QueryRowContext(ctx, selectQuery, id), id)
+	if err != nil {
+		return IncidentEntry{}, 0, 0, err
 	}
+	entry := scanned.entry
+	tsNS := scanned.timestampNS
+	triggeredNS := scanned.triggeredAtNS
+	acknowledgedNS := scanned.acknowledgedAtNS
+	resolvedNS := scanned.resolvedAtNS
+	existingNotes := scanned.notes
+	existingDescription := scanned.description
 
 	// Enforce forward-only status transitions.
 	oldStatus := entry.Status

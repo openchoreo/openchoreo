@@ -91,9 +91,15 @@ func newInternalServer(t *testing.T, svc service.AlertRuleService) http.Handler 
 		},
 	)
 
+	middlewares, err := InternalMiddlewares(InternalMiddlewareOptions{
+		Logger:       logger,
+		AuditEmitter: noopAuditEmitter(t),
+	})
+	require.NoError(t, err)
+
 	return internalgen.HandlerWithOptions(strict, internalgen.StdHTTPServerOptions{
 		BaseRouter:       http.NewServeMux(),
-		Middlewares:      InternalMiddlewares(InternalMiddlewareOptions{Logger: logger}),
+		Middlewares:      middlewares,
 		ErrorHandlerFunc: ParamBindingErrorHandler(logger),
 	})
 }
