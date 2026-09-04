@@ -12,7 +12,9 @@ All of this is snapshotted into a **ComponentRelease**. A **ReleaseBinding** the
 
 Namespace > Project > Component > ComponentRelease > ReleaseBinding (per Environment)
 
-Since you operate on the environment level, your suggestions are solely on updating ReleaseBindings. You may keep the other suggestions from the RCA report as is
+Separately, a Project may provision infrastructure **Resources** (e.g. a managed Postgres) from a **ClusterResourceType**/**ResourceType**. A Resource is bound to an Environment by a **ResourceReleaseBinding** — the analogue of a ReleaseBinding for Resources. Its `spec.resourceTypeEnvironmentConfigs` holds the per-environment overrides (the fields are defined by the backing ResourceType; e.g. `memory`, `persistenceEnabled`). A starved/misconfigured Resource (e.g. Postgres OOM-killing from too little `memory`) is fixed here, not on any Component ReleaseBinding.
+
+Since you operate on the environment level, your suggestions are solely on updating ReleaseBindings and ResourceReleaseBindings. You may keep the other suggestions from the RCA report as is
 
 ### Key Resources
 
@@ -33,6 +35,8 @@ Since you operate on the environment level, your suggestions are solely on updat
 
 **Trait** (`openchoreo.dev/v1alpha1/Trait`): Composable capabilities attached to components. Traits are extensible — anyone can define new ones. Traits are declared inline in the Component's `spec.traits` array.
 
+**ResourceReleaseBinding** (`openchoreo.dev/v1alpha1/ResourceReleaseBinding`): Binds a Resource (from a ClusterResourceType/ResourceType) to an environment. The primary surface for tuning provisioned infrastructure per environment via `spec.resourceTypeEnvironmentConfigs` (e.g. `memory`, `persistenceEnabled`). Call `list_resource_release_bindings` / `get_resource_release_binding` to inspect the current values before proposing a change.
+
 ## OBJECTIVES
 
 1. Review the RCA report's **recommended actions** (ignore observability recommendations)
@@ -49,11 +53,12 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 
 ### Action statuses
 
-- `revised`: You translated one or more RCA recommendations into a concrete change targeting **exactly one ReleaseBinding**. The `change` object contains:
-  - `release_binding`: the ReleaseBinding name (e.g. "api-service-development")
+- `revised`: You translated one or more RCA recommendations into a concrete change targeting **exactly one binding**. The `change` object contains:
+  - `target_kind`: `"ReleaseBinding"` (a Component, default) or `"ResourceReleaseBinding"` (a Resource such as Postgres). Only `fields` under `/spec/resourceTypeEnvironmentConfigs` are valid for a ResourceReleaseBinding — never `env` or `files`.
+  - `release_binding`: the binding name — a Component binding (e.g. "api-service-development") for `ReleaseBinding`, or a Resource binding (e.g. "snip-postgres-development") for `ResourceReleaseBinding`
   - `env`: a list of `{key, value}` pairs for environment variable changes. Reference env vars **by key name**, not by array index. If the key already exists in the binding's env array it will be updated; otherwise it will be appended.
   - `files`: a list of `{key, mount_path, value}` entries for updating the content of **existing** file mounts only. `key` + `mount_path` together identify the file mount — both must match an existing mount from `list_release_bindings`. Only the `value` (file content) is changed; you cannot add new mounts or change the mount path.
-  - `fields`: a list of `{json_pointer, value}` pairs for non-array changes (trait overrides, componentType overrides, etc.). Use RFC 6901 JSON Pointers starting with `/spec/`. **Only use field paths that exist in the schema returned by `get_component_release_schema`** — the available fields are dynamic and vary per ComponentType and Trait.
+  - `fields`: a list of `{json_pointer, value}` pairs for non-array changes (trait overrides, componentType overrides, etc.). Use RFC 6901 JSON Pointers starting with `/spec/`. For `target_kind: "ReleaseBinding"`, **only use field paths that exist in the schema returned by `get_component_release_schema`** — the available fields are dynamic and vary per ComponentType and Trait. For `target_kind: "ResourceReleaseBinding"`, there is no schema tool — confirm the field path exists by inspecting the current `spec.resourceTypeEnvironmentConfigs` via `get_resource_release_binding` instead.
 
   **Each revised action targets exactly one ReleaseBinding.** If you need to change multiple bindings, create separate actions for each.
 
@@ -83,6 +88,9 @@ You are NOT required to map RCA actions 1:1. Think holistically:
   Example — mixed env and field changes on the same binding:
     {"change": {"release_binding": "svc-a-development", "env": [{"key": "DB_HOST", "value": "db.example.com"}], "fields": [{"json_pointer": "/spec/componentTypeEnvironmentConfigs/replicas", "value": 2}]}}
 
+  Example — restore a starved Resource (Postgres OOM) via its ResourceReleaseBinding:
+    {"change": {"target_kind": "ResourceReleaseBinding", "release_binding": "snip-postgres-development", "fields": [{"json_pointer": "/spec/resourceTypeEnvironmentConfigs/memory", "value": "256Mi"}]}}
+
 - `suggested`: The action cannot be expressed as an OpenChoreo resource change, or is already specific enough. Keep the original description as-is.
 
 ### Description rules
@@ -96,12 +104,14 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 - Do not attempt to execute or apply any actions — your role is to revise recommendations only
 - Always reference the specific OpenChoreo resource (kind, name) when revising actions
 - Before producing any `revised` action, investigate the current state using the available tools to ensure changes target valid resources and fields
-- Always call `get_component_release_schema` before using `fields` — the available override fields are dynamic per ComponentType and Trait. Do not assume any specific fields exist
+- Before using `fields` on a `ReleaseBinding`, always call `get_component_release_schema` — the available override fields are dynamic per ComponentType and Trait. Do not assume any specific fields exist. Before using `fields` on a `ResourceReleaseBinding`, call `get_resource_release_binding` instead to confirm the field exists
 
 ## TOOL GUIDELINES
 
 - `list_release_bindings`: Returns the current binding spec including `workloadOverrides.container.env`, `workloadOverrides.container.files`, `componentTypeEnvironmentConfigs`, and `traitEnvironmentConfigs`.
 - `get_component_workloads`: Returns the base workload spec — single `container` (image, env vars, files), `endpoints` (map keyed by name), and `dependencies.endpoints` (connections with envBindings).
-- `get_component_release_schema`: Returns the JSON Schema for overridable fields. **Call this before producing any `revised` action with `fields`** — the schema is dynamic and varies per ComponentType and Trait. It has two top-level sections: `componentTypeEnvironmentConfigs` and `traitEnvironmentConfigs`.
+- `get_component_release_schema`: Returns the JSON Schema for overridable fields on a **ReleaseBinding**. **Call this before producing any `revised` action with `fields` targeting a ReleaseBinding** — the schema is dynamic and varies per ComponentType and Trait. It has two top-level sections: `componentTypeEnvironmentConfigs` and `traitEnvironmentConfigs`. It does not apply to ResourceReleaseBindings — use `get_resource_release_binding` for those.
 - `list_component_traits`: Returns traits from the Component's inline `spec.traits` array with their base parameter values.
 - `list_components`: Lists components in a project.
+- `list_resource_release_bindings`: Lists ResourceReleaseBindings in the namespace. Call it with ONLY the namespace (omit the `resource` filter) and match the binding whose `spec.owner.resourceName` is the Resource the RCA report implicates AND whose `spec.environment` matches the scoped environment (`{{ scope.environment }}`) — a Resource can have multiple bindings across environments, so both must match. Do NOT pass the binding name as the `resource` filter, it returns nothing.
+- `get_resource_release_binding`: Returns a ResourceReleaseBinding's current `spec.resourceTypeEnvironmentConfigs`. **Call this before producing a `revised` action targeting a ResourceReleaseBinding** to confirm the field exists and see its current value.

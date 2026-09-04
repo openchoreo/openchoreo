@@ -35,3 +35,76 @@ def test_get_env_registers_match_test(monkeypatch):
     monkeypatch.setattr(tm._manager, "_env", None)
     env = tm._manager._get_env()
     assert "match" in env.tests
+
+
+def _make_scope(environment: str):
+    from src.helpers import AlertScope
+
+    return AlertScope(
+        namespace="default",
+        project="url-shortener",
+        project_uid="proj-uid",
+        environment=environment,
+        environment_uid=f"{environment}-uid",
+    )
+
+
+def _make_tool(name: str):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(name=name)
+
+
+def test_rca_prompt_requires_environment_match_for_resource_binding_selection():
+    rendered = tm.render(
+        "prompts/rca_agent_prompt.j2",
+        {
+            "openchoreo_tools": [_make_tool("list_resource_release_bindings")],
+            "observability_tools": [],
+            "scope": _make_scope("staging"),
+        },
+    )
+    assert "spec.environment" in rendered
+    assert "staging" in rendered
+
+
+def test_rca_prompt_reflects_different_scoped_environments():
+    oc_tools = [_make_tool("list_resource_release_bindings")]
+    dev = tm.render(
+        "prompts/rca_agent_prompt.j2",
+        {"openchoreo_tools": oc_tools, "observability_tools": [], "scope": _make_scope("development")},
+    )
+    prod = tm.render(
+        "prompts/rca_agent_prompt.j2",
+        {"openchoreo_tools": oc_tools, "observability_tools": [], "scope": _make_scope("production")},
+    )
+    assert "development" in dev
+    assert "production" not in dev
+    assert "production" in prod
+    assert "development" not in prod
+
+
+def test_remed_prompt_requires_environment_match_for_resource_binding_selection():
+    rendered = tm.render(
+        "prompts/remed_agent_prompt.j2",
+        {"tools": [], "scope": _make_scope("staging")},
+    )
+    assert "spec.environment" in rendered
+    assert "staging" in rendered
+
+
+def test_remed_prompt_separates_schema_source_by_target_kind():
+    rendered = tm.render(
+        "prompts/remed_agent_prompt.j2",
+        {"tools": [], "scope": _make_scope("staging")},
+    )
+    fields_bullet = next(
+        line for line in rendered.splitlines() if line.strip().startswith("- `fields`:")
+    )
+    assert "get_component_release_schema" in fields_bullet
+    assert "get_resource_release_binding" in fields_bullet
+
+    constraints_line = next(
+        line for line in rendered.splitlines() if "get_component_release_schema" in line and "ReleaseBinding`" in line
+    )
+    assert "get_resource_release_binding" in constraints_line

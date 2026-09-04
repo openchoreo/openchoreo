@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ActionStatus(StrEnum):
@@ -58,11 +59,27 @@ class FieldChange(BaseModel):
 
 
 class ResourceChange(BaseModel):
-    """A set of changes to apply to a specific ReleaseBinding"""
+    """A set of changes to apply to a single ReleaseBinding or ResourceReleaseBinding"""
 
+    model_config = ConfigDict(populate_by_name=True)
+
+    target_kind: Literal["ReleaseBinding", "ResourceReleaseBinding"] = Field(
+        default="ReleaseBinding",
+        alias="targetKind",
+        description=(
+            "Which binding kind to modify. 'ReleaseBinding' for a Component, "
+            "'ResourceReleaseBinding' for a Resource (e.g. a managed Postgres). "
+            "ResourceReleaseBinding targets support only `fields` "
+            "(paths under /spec/resourceTypeEnvironmentConfigs) — not `env` or `files`."
+        ),
+    )
     release_binding: str = Field(
         ...,
-        description="Name of the ReleaseBinding to modify (e.g. 'api-service-development')",
+        description=(
+            "Name of the binding to modify. For target_kind 'ReleaseBinding' a Component "
+            "binding (e.g. 'api-service-development'); for 'ResourceReleaseBinding' a "
+            "Resource binding (e.g. 'snip-postgres-development')."
+        ),
     )
     env: list[EnvVarChange] = Field(
         default_factory=list,
@@ -76,6 +93,15 @@ class ResourceChange(BaseModel):
         default_factory=list,
         description="Field-level changes for non-array paths (e.g. trait overrides, componentType overrides)",
     )
+
+    @model_validator(mode="after")
+    def _validate_target_kind_payload(self) -> "ResourceChange":
+        if self.target_kind == "ResourceReleaseBinding" and (self.env or self.files):
+            raise ValueError(
+                "ResourceReleaseBinding targets support only `fields` "
+                "(paths under /spec/resourceTypeEnvironmentConfigs) — not `env` or `files`."
+            )
+        return self
 
 
 class RemediationAction(BaseModel):
