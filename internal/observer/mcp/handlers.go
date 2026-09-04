@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	apihandlers "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -368,6 +369,15 @@ func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, c
 			typed[i] = gen.DoraMetricsQueryRequestMetrics(m)
 		}
 		req.Metrics = &typed
+	}
+
+	// The same validator the HTTP path runs. Without it this path had no 400-day
+	// window cap, no endTime > startTime check and no granularity/metrics enum
+	// check, so an unbounded window reached buildFrequencySeries and produced one
+	// point per bucket to the requested end -- twice over, since the payload is
+	// JSON round-tripped.
+	if err := apihandlers.ValidateDoraMetricsQueryRequest(&req); err != nil {
+		return nil, err
 	}
 
 	return h.insightsService.QueryDoraMetrics(ctx, req)

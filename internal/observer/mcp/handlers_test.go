@@ -546,3 +546,57 @@ func TestQueryDoraMetrics(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid end_time")
 	})
 }
+
+// TestQueryDoraMetricsEnforcesHTTPValidation pins that the MCP path runs the same
+// request validation as the HTTP path.
+//
+// It previously ran only validateComponentScope, so an MCP caller faced no
+// 400-day window cap, no endTime > startTime check, and no granularity or metrics
+// enum check. An unbounded window mattered most: buildFrequencySeries emits one
+// point per bucket from the window start to endTime with no bound, and the payload
+// is JSON round-tripped, so a far-future end_time at daily granularity builds
+// millions of points twice over.
+//
+// The mocks carry no expectations on purpose: the service must never be reached.
+func TestQueryDoraMetricsEnforcesHTTPValidation(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name        string
+		granularity string
+		start, end  string
+		metrics     []string
+		wantErr     string
+	}{
+		{
+			name:  "window beyond the cap is rejected",
+			start: "2020-01-01T00:00:00Z", end: "9999-01-01T00:00:00Z",
+			wantErr: "query time range cannot exceed",
+		},
+		{
+			name:  "end before start is rejected",
+			start: testEndTime, end: testStartTime,
+			wantErr: "endTime must be after startTime",
+		},
+		{
+			name:        "unknown granularity is rejected",
+			granularity: "hourly",
+			start:       testStartTime, end: testEndTime,
+			wantErr: "granularity must be one of",
+		},
+		{
+			name:  "unknown metric is rejected",
+			start: testStartTime, end: testEndTime,
+			metrics: []string{"notAMetric"},
+			wantErr: "metrics must be a subset of",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestMCPHandler(t, withInsightsService(mocks.NewMockInsightsService(t)))
+			_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+				tc.granularity, tc.start, tc.end, tc.metrics)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
