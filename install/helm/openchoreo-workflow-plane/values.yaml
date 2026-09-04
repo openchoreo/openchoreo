@@ -65,15 +65,15 @@ argo-workflows:
         # @schema
         # type: string
         # description: Memory limit for the controller
-        # default: 64Mi
+        # default: 256Mi
         # @schema
-        memory: 64Mi
+        memory: 256Mi
         # @schema
         # type: string
         # description: CPU limit for the controller
-        # default: 50m
+        # default: 500m
         # @schema
-        cpu: 50m
+        cpu: 500m
       # @schema
       # type: object
       # additionalProperties: true
@@ -83,15 +83,15 @@ argo-workflows:
         # @schema
         # type: string
         # description: Memory request for the controller
-        # default: 32Mi
+        # default: 128Mi
         # @schema
-        memory: 32Mi
+        memory: 128Mi
         # @schema
         # type: string
         # description: CPU request for the controller
-        # default: 25m
+        # default: 100m
         # @schema
-        cpu: 25m
+        cpu: 100m
 
   # @schema
   # type: object
