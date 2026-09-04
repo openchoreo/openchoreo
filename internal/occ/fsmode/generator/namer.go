@@ -15,7 +15,7 @@ import (
 
 // GenerateReleaseName generates a release name following the naming convention
 // Format: <component-name>-<YYYYMMDD>-<version>
-func GenerateReleaseName(componentName string, date time.Time, version string, index *fsmode.Index) (string, error) {
+func GenerateReleaseName(componentName string, date time.Time, version, namespace, projectName string, index *fsmode.Index) (string, error) {
 	if date.IsZero() {
 		date = time.Now()
 	}
@@ -23,7 +23,7 @@ func GenerateReleaseName(componentName string, date time.Time, version string, i
 
 	if version == "" {
 		// Auto-detect version
-		latestVersion := getLatestVersionForDate(componentName, dateStr, index)
+		latestVersion := getLatestVersionForDate(componentName, dateStr, namespace, projectName, index)
 		version = IncrementVersion(latestVersion)
 	}
 
@@ -31,15 +31,21 @@ func GenerateReleaseName(componentName string, date time.Time, version string, i
 }
 
 // getLatestVersionForDate finds the latest version number for a component on a specific date.
-// It returns "0" if no releases are found for that day.
-func getLatestVersionForDate(componentName, dateStr string, index *fsmode.Index) string {
-	// 1. Get all releases from the index
-	releases := index.ListReleases()
+// It returns "0" if no releases are found for that day. Releases are scoped to the
+// component's namespace and project via ownership, so releases with the same component
+// name in another namespace do not affect version increment.
+func getLatestVersionForDate(componentName, dateStr, namespace, projectName string, index *fsmode.Index) string {
+	// Get releases owned by this namespace/project/component from the index
+	releases := index.ListReleasesForComponent(namespace, projectName, componentName)
 	if len(releases) == 0 {
 		return "0" // No releases found, start with version 0
 	}
 
-	// 2. Filter releases for the target component and date, then collect versions
+	// Filter releases for the target component and date, then collect versions.
+	// Only conventionally-named <component>-<date>-<version> releases participate in
+	// auto-numbering. Off-convention releases (e.g. hand-authored hotfixes) that are
+	// owned by this component but named differently are ignored, so they do not perturb
+	// the generated version sequence.
 	var versionsOnDate []int
 	for _, releaseEntry := range releases {
 		relCompName, relDateStr, relVersion, err := ParseReleaseName(releaseEntry.Name())
@@ -60,7 +66,7 @@ func getLatestVersionForDate(componentName, dateStr string, index *fsmode.Index)
 		return "0" // No releases for this specific component and day
 	}
 
-	// 3. Find the highest version number
+	// Find the highest version number
 	sort.Ints(versionsOnDate)
 	latestVersion := versionsOnDate[len(versionsOnDate)-1]
 
