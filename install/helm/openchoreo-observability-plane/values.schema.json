@@ -1467,6 +1467,37 @@
           "title": "image",
           "type": "object"
         },
+        "insights": {
+          "additionalProperties": false,
+          "description": "Delivery Insights (DORA metrics).",
+          "properties": {
+            "aggregationEnabled": {
+              "default": true,
+              "description": "Run the DORA aggregator in the Observer process. It has no leader election, so exactly one replica may run it; the chart refuses replicas \u003e 1 while this is enabled.",
+              "title": "aggregationEnabled",
+              "type": "boolean"
+            },
+            "eventsSourceEnabled": {
+              "default": false,
+              "description": "Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter implementing the events reasons filter and searchAfter pagination; without it Deployment Frequency, Lead Time and Change Failure Rate have no data.",
+              "title": "eventsSourceEnabled",
+              "type": "boolean"
+            },
+            "uidResolution": {
+              "default": "resolver",
+              "description": "How insights search-scope names are resolved to UIDs. \"resolver\" uses openchoreo-api; \"passthrough\" treats names as UIDs and is a development affordance for seeded data only.",
+              "enum": [
+                "resolver",
+                "passthrough"
+              ],
+              "required": [],
+              "title": "uidResolution"
+            }
+          },
+          "required": [],
+          "title": "insights",
+          "type": "object"
+        },
         "internalService": {
           "additionalProperties": false,
           "description": "Kubernetes service configuration for the Observer internal API (v1alpha1 alert CRUD)",
@@ -1732,7 +1763,9 @@
           "type": "object"
         }
       },
-      "required": [],
+      "required": [
+        "insights"
+      ],
       "title": "observer",
       "type": "object"
     },

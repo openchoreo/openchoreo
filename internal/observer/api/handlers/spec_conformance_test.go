@@ -478,4 +478,100 @@ func TestResponsesConformToSpec(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		assertConformsToSpec(t, req, serve(t, h, req))
 	})
+	t.Run("queryDoraMetrics", func(t *testing.T) {
+		t.Parallel()
+
+		var resp gen.DoraMetricsQueryResponse
+		unmarshalInto(t, `{
+			"scope": {"namespace": "default", "project": "storefront"},
+			"granularity": "daily",
+			"window": {
+				"startTime": "2026-08-01T00:00:00Z",
+				"endTime": "2026-08-31T00:00:00Z",
+				"generatedAt": "2026-08-31T00:05:00Z"
+			},
+			"summary": {
+				"deploymentFrequency": {
+					"total": 42,
+					"perDay": 1.4,
+					"classification": "High",
+					"deltaPct": 12.5
+				},
+				"leadTime": {
+					"p50Ms": 3600000,
+					"p95Ms": 86400000,
+					"coverage": 0.8,
+					"classification": "Elite",
+					"deltaPct": null
+				}
+			},
+			"series": {
+				"deploymentFrequency": [
+					{"bucketStart": "2026-08-29T00:00:00Z", "count": 2},
+					{"bucketStart": "2026-08-30T00:00:00Z", "count": 0}
+				],
+				"leadTime": [
+					{"bucketStart": "2026-08-29T00:00:00Z", "p50Ms": 3600000, "p75Ms": 7200000, "p95Ms": 86400000}
+				],
+				"changeFailureRate": [
+					{"bucketStart": "2026-08-29T00:00:00Z", "rate": 0.5, "failed": 1, "total": 2}
+				]
+			}
+		}`, &resp)
+
+		svc := servicemocks.NewMockInsightsService(t)
+		svc.On("QueryDoraMetrics", mock.Anything, mock.Anything).Return(&resp, nil)
+
+		h := &Handler{
+			baseHandler:     baseHandler{logger: noopLogger()},
+			insightsService: svc,
+		}
+
+		req := httptest.NewRequest(http.MethodPost, doraMetricsPath, validDoraRequestBody(t))
+		req.Header.Set("Content-Type", "application/json")
+		assertConformsToSpec(t, req, serve(t, h, req))
+	})
+
+	t.Run("queryDoraDeployments", func(t *testing.T) {
+		t.Parallel()
+
+		var resp gen.DoraDeploymentsQueryResponse
+		unmarshalInto(t, `{
+			"deployments": [{
+				"deployedAt": "2026-08-30T10:00:00Z",
+				"projectName": "storefront",
+				"componentName": "checkout",
+				"environmentName": "production",
+				"componentRelease": "checkout-v3",
+				"commit": "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+				"outcome": "success",
+				"leadTimeMs": 3600000
+			}, {
+				"deployedAt": "2026-08-30T12:00:00Z",
+				"projectName": "storefront",
+				"componentName": "checkout",
+				"environmentName": "production",
+				"componentRelease": "checkout-v4",
+				"outcome": "failed",
+				"failedBy": "incident",
+				"failureReason": "CrashLoopBackOff",
+				"incidentId": "inc-7",
+				"leadTimeMs": null
+			}],
+			"totalCount": 1,
+			"tookMs": 4
+		}`, &resp)
+
+		svc := servicemocks.NewMockInsightsService(t)
+		svc.On("QueryDoraDeployments", mock.Anything, mock.Anything).Return(&resp, nil)
+
+		h := &Handler{
+			baseHandler:     baseHandler{logger: noopLogger()},
+			insightsService: svc,
+		}
+
+		req := httptest.NewRequest(http.MethodPost, doraDeploymentsPath, validDoraRequestBody(t))
+		req.Header.Set("Content-Type", "application/json")
+		assertConformsToSpec(t, req, serve(t, h, req))
+	})
 }

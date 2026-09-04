@@ -148,3 +148,4 @@ packages:
       IncidentsUpdater:
       AlertIncidentService:
       AlertRuleService:
+      InsightsService:

@@ -393,6 +393,29 @@ observer:
   # @schema
   replicas: 1
 
+  # Delivery Insights (DORA metrics).
+  insights:
+    # @schema
+    # type: boolean
+    # description: Run the DORA aggregator in the Observer process. It has no leader election, so exactly one replica may run it; the chart refuses replicas > 1 while this is enabled.
+    # default: true
+    # @schema
+    aggregationEnabled: true
+
+    # @schema
+    # type: boolean
+    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter implementing the events reasons filter and searchAfter pagination; without it Deployment Frequency, Lead Time and Change Failure Rate have no data.
+    # default: false
+    # @schema
+    eventsSourceEnabled: false
+
+    # @schema
+    # description: How insights search-scope names are resolved to UIDs. "resolver" uses openchoreo-api; "passthrough" treats names as UIDs and is a development affordance for seeded data only.
+    # enum: [resolver, passthrough]
+    # default: resolver
+    # @schema
+    uidResolution: resolver
+
   # @schema
   # description: Alert entry storage backend for fired alerts
   # enum: [sqlite, postgresql]

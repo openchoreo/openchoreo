@@ -252,6 +252,31 @@ type WorkloadResourceDependency struct {
 	FileBindings map[string]string `json:"fileBindings,omitempty"`
 }
 
+// WorkloadSource records the VCS commit provenance of the image running in this
+// workload. Populated by the producer alongside the image (native CI's push-workload
+// step, or an external CI calling the API/occ directly) and threaded through to the
+// rendered data-plane resource so Delivery Insights can compute Lead Time for Changes
+// from real deployments. Optional: DF/CFR/MTTR compute without it; Lead Time reports
+// unavailable when absent.
+type WorkloadSource struct {
+	// Commit is the VCS commit SHA the running image was built from.
+	// +optional
+	Commit string `json:"commit,omitempty"`
+
+	// Branch is the VCS branch the commit was built from.
+	// +optional
+	Branch string `json:"branch,omitempty"`
+
+	// Repository is the VCS repository URL the commit belongs to.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// AuthoredAt is when the commit was authored, not when it was committed or
+	// built. This is the timestamp Lead Time for Changes measures from.
+	// +optional
+	AuthoredAt *metav1.Time `json:"authoredAt,omitempty"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// Container defines the container specification for this workload.
@@ -266,6 +291,11 @@ type WorkloadTemplateSpec struct {
 	// Dependencies define the dependencies of this workload on other components.
 	// +optional
 	Dependencies *WorkloadDependencies `json:"dependencies,omitempty"`
+
+	// Source records the commit provenance of the image in Container, for Delivery
+	// Insights' Lead Time for Changes metric.
+	// +optional
+	Source *WorkloadSource `json:"source,omitempty"`
 }
 
 // GetDependencyEndpoints returns the endpoint connections from dependencies, or nil if none.

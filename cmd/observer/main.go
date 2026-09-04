@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/observer/aggregator"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
@@ -27,6 +29,7 @@ import (
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
+	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
@@ -125,6 +128,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A nil PDP makes the authz-wrapped services skip authorization checks entirely.
+	var pdp authzcore.PDP = authzClient
+	if cfg.Authz.Disabled {
+		logger.Warn("Authorization is DISABLED (AUTHZ_DISABLED=true) - all requests will be permitted")
+		pdp = nil
+	}
+
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
@@ -200,6 +210,13 @@ func main() {
 		}
 	}()
 
+	deliveryInsightsStore, closeDeliveryInsightsStore, err := newDeliveryInsightsStore(
+		cfg, logger.With("component", "delivery-insights-store"))
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	defer closeDeliveryInsightsStore()
+
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
 		alertEntryStore,
@@ -217,20 +234,24 @@ func main() {
 		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
+	insightsService := newInsightsService(cfg, deliveryInsightsStore, uidResolver, logger)
+
 	// Wrap services with authorization checks.
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
-	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzLogsService := service.NewLogsServiceWithAuthz(logsService, pdp, logger.With("component", "authz-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
-		eventsService, authzClient, logger.With("component", "authz-events"))
+		eventsService, pdp, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
-		metricsService, authzClient, logger.With("component", "authz-metrics"))
+		metricsService, pdp, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
-		tracesService, authzClient, logger.With("component", "authz-traces"))
+		tracesService, pdp, logger.With("component", "authz-traces"))
 	authzFinOpsService := service.NewFinOpsServiceWithAuthz(
-		finopsAdapter, authzClient, logger.With("component", "authz-finops"))
+		finopsAdapter, pdp, logger.With("component", "authz-finops"))
 	authzAlertIncidentService := service.NewAlertIncidentServiceWithAuthz(
-		alertService, authzClient, logger.With("component", "authz-alerts-incidents"))
+		alertService, pdp, logger.With("component", "authz-alerts-incidents"))
+	authzInsightsService := service.NewInsightsServiceWithAuthz(
+		insightsService, pdp, logger.With("component", "authz-insights"))
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
@@ -242,6 +263,7 @@ func main() {
 		authzTracesService,
 		authzFinOpsService,
 		oauthMetadataConfig(logger),
+		authzInsightsService,
 		logger.With("component", "api-handler"),
 	)
 
@@ -282,6 +304,7 @@ func main() {
 		authzAlertIncidentService,
 		authzTracesService,
 		authzFinOpsService,
+		authzInsightsService,
 		logger.With("component", "mcp-handler"),
 	)
 	if err != nil {
@@ -380,6 +403,14 @@ func main() {
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
 
+	// Graceful shutdown using signal context (also stops background workers)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Start the DORA aggregator, which folds delivery signals into the insights store.
+	backgroundWG := startDoraAggregator(
+		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
+
 	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
@@ -395,10 +426,6 @@ func main() {
 			log.Fatalf("Failed to start internal server: %v", err)
 		}
 	}()
-
-	// Graceful shutdown using signal context
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	// Wait for interrupt signal
 	<-ctx.Done()
@@ -424,8 +451,118 @@ func main() {
 		}
 	}()
 
+	// Drain background workers alongside server shutdown rather than before it, and
+	// bound the wait by the same timeout: an in-flight aggregator tick must not hold
+	// the process past the deadline, or the pod is SIGKILLed before connections drain.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if !waitForGroup(shutdownCtx, backgroundWG) {
+			logger.Warn("Background workers did not finish before the shutdown timeout")
+		}
+	}()
+
 	wg.Wait()
 	logger.Info("Server shutdown complete")
+}
+
+// newDeliveryInsightsStore opens the delivery insights store and applies its
+// migrations, returning the store and the function that closes it. The caller
+// defers that function; keeping it out of main means the store's three failure
+// branches do not sit in main's control flow.
+func newDeliveryInsightsStore(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (deliveryinsights.Store, func(), error) {
+	store, err := deliveryinsights.New(cfg.Insights.StoreBackend, cfg.Insights.StoreDSN, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize delivery insights store: %w", err)
+	}
+	if err := store.Initialize(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize delivery insights store schema: %w", err)
+	}
+	return store, func() {
+		if closeErr := store.Close(); closeErr != nil {
+			logger.Error("Failed to close delivery insights store", "error", closeErr)
+		}
+	}, nil
+}
+
+// newInsightsService builds the delivery insights (DORA metrics) query service.
+// The passthrough resolver is a development affordance for querying seeded dummy
+// data without a control plane to resolve scope names against.
+func newInsightsService(
+	cfg *config.Config,
+	store deliveryinsights.Store,
+	uidResolver service.ScopeUIDResolver,
+	logger *slog.Logger,
+) *service.DoraInsightsService {
+	resolver := uidResolver
+	if cfg.Insights.UIDResolution == "passthrough" {
+		logger.Warn("Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
+		resolver = service.NewPassthroughUIDResolver()
+	}
+	return service.NewInsightsService(store, resolver, logger.With("component", "insights-service"))
+}
+
+// startDoraAggregator starts the DORA aggregator, which folds incidents and delivery
+// events into the delivery insights store. It returns a WaitGroup that completes once
+// the aggregator has stopped; when aggregation is disabled the group is already done.
+func startDoraAggregator(
+	ctx context.Context,
+	cfg *config.Config,
+	store deliveryinsights.Store,
+	incidents incidententry.IncidentEntryStore,
+	logsAdapter aggregator.EventsSource,
+	logger *slog.Logger,
+) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	if !cfg.Insights.AggregationEnabled {
+		logger.Info("DORA aggregator is disabled (INSIGHTS_AGGREGATION_ENABLED=false)")
+		return &wg
+	}
+
+	// The events source needs a logs adapter with the reasons filter and
+	// searchAfter pagination; keep it opt-in until the deployed adapter has them.
+	var eventsSource aggregator.EventsSource
+	if cfg.Insights.EventsSourceEnabled {
+		eventsSource = logsAdapter
+	}
+
+	doraAggregator := aggregator.New(
+		store,
+		incidents,
+		eventsSource,
+		aggregator.Config{
+			Interval:          cfg.Insights.AggregationInterval,
+			Overlap:           cfg.Insights.AggregationOverlap,
+			AttributionWindow: cfg.Insights.AttributionWindow,
+			IncidentLookback:  cfg.Insights.IncidentLookback,
+		},
+		logger.With("component", "dora-aggregator"),
+	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		doraAggregator.Run(ctx)
+	}()
+	return &wg
+}
+
+// waitForGroup waits for wg, returning false if ctx is done first.
+func waitForGroup(ctx context.Context, wg *sync.WaitGroup) bool {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // sanitizeURL strips userinfo (user:password) from a URL so it can be safely logged.
