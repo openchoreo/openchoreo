@@ -555,29 +555,46 @@ WHERE component_uid = ? AND environment_uid = ?
 	AND ` + occurredMsExpr + ` <= ? AND ` + occurredMsExpr + ` > ?
 ORDER BY occurred_ms DESC LIMIT 1;`)
 
-	var result AttributionResult
-	err := s.db.QueryRowContext(ctx, query,
-		componentUID, environmentUID, triggeredMs, triggeredMs-windowMs,
-	).Scan(&result.ReleaseUID, &result.OccurredMs)
-	if errors.Is(err, sql.ErrNoRows) {
-		return AttributionResult{}, nil
-	}
-	if err != nil {
-		return AttributionResult{}, fmt.Errorf("failed to find deployment for incident %q: %w", incidentID, err)
-	}
-
 	// Rollout failures take precedence; already-attributed facts stay untouched,
 	// which also makes re-processing the same incident idempotent.
 	update := s.rebind(`UPDATE deployment_fact
 SET outcome = 'failed', failed_by = 'incident', incident_id = ?, updated_at_ms = ?
 WHERE release_uid = ? AND failed_by = '';`)
-	updateResult, err := s.db.ExecContext(ctx, update,
-		incidentID, time.Now().UnixMilli(), result.ReleaseUID)
+
+	// One transaction: the "deployment live at the trigger" answer must not go stale
+	// between reading it and writing to it. The UPDATE's failed_by = '' guard already
+	// makes a concurrent attribution a compare-and-set rather than a double write,
+	// but it does not stop a newer fact landing in between and making the row we
+	// picked no longer the live one.
+	var result AttributionResult
+	var noRows bool
+	err := s.execInTx(ctx, func(tx *sql.Tx) error {
+		scanErr := tx.QueryRowContext(ctx, query,
+			componentUID, environmentUID, triggeredMs, triggeredMs-windowMs,
+		).Scan(&result.ReleaseUID, &result.OccurredMs)
+		if errors.Is(scanErr, sql.ErrNoRows) {
+			noRows = true
+			return nil
+		}
+		if scanErr != nil {
+			return fmt.Errorf("failed to find deployment for incident %q: %w", incidentID, scanErr)
+		}
+
+		updateResult, execErr := tx.ExecContext(ctx, update,
+			incidentID, time.Now().UnixMilli(), result.ReleaseUID)
+		if execErr != nil {
+			return fmt.Errorf("failed to attribute incident %q: %w", incidentID, execErr)
+		}
+		if rows, rowsErr := updateResult.RowsAffected(); rowsErr == nil && rows > 0 {
+			result.Attributed = true
+		}
+		return nil
+	})
 	if err != nil {
-		return AttributionResult{}, fmt.Errorf("failed to attribute incident %q: %w", incidentID, err)
+		return AttributionResult{}, err
 	}
-	if rows, rowsErr := updateResult.RowsAffected(); rowsErr == nil && rows > 0 {
-		result.Attributed = true
+	if noRows {
+		return AttributionResult{}, nil
 	}
 	return result, nil
 }
