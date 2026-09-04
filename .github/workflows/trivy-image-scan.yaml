@@ -5,11 +5,16 @@ on:
 
 permissions: {}
 
+env:
+  OCI_REGISTRY_HOST: ${{ vars.OCI_REGISTRY_HOST || 'ghcr.io' }}
+  IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
+
 jobs:
   scan:
     name: Scan (${{ matrix.image }})
     runs-on: ubuntu-latest
     permissions:
+      packages: read
       security-events: write
     strategy:
       fail-fast: false
@@ -27,20 +32,27 @@ jobs:
           - finops-agent
           - portal-assistant
     steps:
+      - name: Login to container registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
+
       - name: Set image tag
         id: tag
         run: echo "sha=$(echo '${{ github.sha }}' | cut -c1-8)" >> "$GITHUB_OUTPUT"
 
       - name: Verify image exists
         run: |
-          docker manifest inspect ghcr.io/openchoreo/${{ matrix.image }}:${{ steps.tag.outputs.sha }} > /dev/null 2>&1 || \
-            (echo "::error::Image ghcr.io/openchoreo/${{ matrix.image }}:${{ steps.tag.outputs.sha }} not found. Ensure the build workflow has completed." && exit 1)
+          docker manifest inspect "${IMAGE_REPO_PREFIX}/${{ matrix.image }}:${{ steps.tag.outputs.sha }}" > /dev/null 2>&1 || \
+            (echo "::error::Image ${IMAGE_REPO_PREFIX}/${{ matrix.image }}:${{ steps.tag.outputs.sha }} not found. Ensure the build workflow has completed." && exit 1)
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ghcr.io/openchoreo/${{ matrix.image }}:${{ steps.tag.outputs.sha }}
+          image-ref: ${{ env.IMAGE_REPO_PREFIX }}/${{ matrix.image }}:${{ steps.tag.outputs.sha }}
           format: sarif
           output: ${{ matrix.image }}.sarif
 

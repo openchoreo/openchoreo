@@ -17,6 +17,10 @@ permissions:
   contents: read
 
 env:
+  OCI_REGISTRY_HOST: ${{ vars.OCI_REGISTRY_HOST || 'ghcr.io' }}
+  IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
+  HELM_OCI_REGISTRY: ${{ vars.HELM_OCI_REGISTRY || 'oci://ghcr.io/openchoreo/helm-charts' }}
+  PUBLISH_LATEST: ${{ vars.PUBLISH_LATEST || 'true' }}
   IMAGE_PLATFORMS: ${{ github.event_name == 'push' && 'linux/amd64 linux/arm64' || 'linux/amd64' }}
   CLI_EXTRA_PLATFORMS: ${{ github.event_name == 'push' && 'darwin/amd64 darwin/arm64 windows/amd64 windows/arm64' || '' }}
 
@@ -170,6 +174,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [ lint, gen-check, test, build, agent-tests ]
     permissions:
+      contents: read
       packages: write
     steps:
       - name: Clone the code
@@ -236,13 +241,13 @@ jobs:
         # See: https://github.com/actions/download-artifact/issues/14
         run: find bin/dist -type f -exec chmod +x {} +
           
-      - name: Login to GitHub container registry
+      - name: Login to container registry
         if: github.event_name == 'push'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Setup docker multiarch
         if: github.event_name == 'push'
@@ -259,7 +264,7 @@ jobs:
           SHA=$(git rev-parse --short=8 HEAD)
           ALL_EXIST=true
           for IMG in controller quick-start openchoreo-api observer event-forwarder sre-agent finops-agent portal-assistant openchoreo-cli cluster-gateway cluster-agent remote-agent remote-agent-router; do
-            if docker buildx imagetools inspect "ghcr.io/openchoreo/${IMG}:${SHA}" >/dev/null 2>&1; then
+            if docker buildx imagetools inspect "${IMAGE_REPO_PREFIX}/${IMG}:${SHA}" >/dev/null 2>&1; then
               echo "  ✅ ${IMG}:${SHA} exists"
             else
               echo "  ❌ ${IMG}:${SHA} not found"
@@ -280,7 +285,7 @@ jobs:
           make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
 
           # Retag images as latest-dev for main branch only
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" && "${PUBLISH_LATEST}" == "true" ]]; then
             make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=latest-dev
           fi
 
@@ -288,7 +293,7 @@ jobs:
           echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
           make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
 
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" && "${PUBLISH_LATEST}" == "true" ]]; then
             make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
           fi
 
