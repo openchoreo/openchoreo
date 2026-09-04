@@ -29,6 +29,7 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 const (
@@ -237,4 +238,35 @@ func TestQueryDoraDeployments_NilResponse(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_DORA_DEPLOYMENTS_FAILED")
+}
+
+// TestInsightsOperationsRequireAuth pins that both insights operations sit behind
+// authentication. They read delivery history across a whole namespace, project or
+// component, so they must never end up public the way /health deliberately is —
+// which here means neither operation may carry `security: []` in the spec.
+//
+// TestObserverMiddlewaresLeaveHealthPublic makes the same point for one logs
+// operation; this covers the two operations that expose delivery data.
+func TestInsightsOperationsRequireAuth(t *testing.T) {
+	t.Parallel()
+
+	rejectAll := func(http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		})
+	}
+
+	// No service expectations: auth must reject before the handler is reached.
+	h := insightsHandler(t, servicemocks.NewMockInsightsService(t))
+	srv := newPublicServerWithAuth(t, h, auth.OpenAPIAuth(rejectAll, gen.BearerAuthScopes))
+
+	for _, path := range []string{doraMetricsPath, doraDeploymentsPath} {
+		t.Run(path, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			srv.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, path, validDoraRequestBody(t)))
+
+			assert.Equal(t, http.StatusUnauthorized, rr.Code,
+				"%s must reach the auth middleware; check it has no `security: []` override", path)
+		})
+	}
 }
