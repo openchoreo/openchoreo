@@ -4381,6 +4381,24 @@ portalAssistant:
   llm:
     secretName: ""
     modelName: ""
+    # @schema
+    # type: string
+    # description: LangChain provider id for the model (e.g., google_genai, google_vertexai, openai, anthropic). Leave empty to let LangChain infer the provider from the model name; set it explicitly for models the name-based inference doesn't recognise.
+    # default: ""
+    # @schema
+    modelProvider: ""
+    # @schema
+    # type: string
+    # description: Google Cloud project, read by the google_vertexai provider. Only needed when modelProvider is google_vertexai.
+    # default: ""
+    # @schema
+    googleCloudProject: ""
+    # @schema
+    # type: string
+    # description: Google Cloud location, read by the google_vertexai provider (e.g., us-central1). Only needed when modelProvider is google_vertexai.
+    # default: ""
+    # @schema
+    googleCloudLocation: ""
     # Optional OpenAI-compatible base URL. Set to route LLM calls through the
     # ai-gateway-agentgateway module (e.g. http://agentgateway-proxy.openchoreo-data-plane)
     # instead of the provider directly; the provider key is then managed at the

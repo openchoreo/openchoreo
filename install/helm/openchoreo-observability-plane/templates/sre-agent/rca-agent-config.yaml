@@ -11,6 +11,16 @@ data:
   OPENCHOREO_API_URL: {{ .Values.rca.openchoreoApiUrl | quote }}
   AUTHZ_TIMEOUT_SECONDS: {{ .Values.rca.authz.timeoutSeconds | quote }}
   RCA_MODEL_NAME: {{ .Values.rca.llm.modelName | quote }}
+  # Empty means "let LangChain infer the provider from the model name";
+  # src/clients/llm.py maps the empty string to None before calling
+  # init_chat_model, which rejects "" as a provider id.
+  RCA_MODEL_PROVIDER: {{ .Values.rca.llm.modelProvider | quote }}
+  {{- if .Values.rca.llm.googleCloudProject }}
+  GOOGLE_CLOUD_PROJECT: {{ .Values.rca.llm.googleCloudProject | quote }}
+  {{- end }}
+  {{- if .Values.rca.llm.googleCloudLocation }}
+  GOOGLE_CLOUD_LOCATION: {{ .Values.rca.llm.googleCloudLocation | quote }}
+  {{- end }}
   {{- if .Values.rca.llm.baseUrl }}
   RCA_LLM_BASE_URL: {{ .Values.rca.llm.baseUrl | quote }}
   {{- end }}
