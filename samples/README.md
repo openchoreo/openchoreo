@@ -12,6 +12,96 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 
 This creates a default project, three environments (development, staging, production), component types (service, web-application, scheduled-task), build workflows, and traits. See the [getting-started README](./getting-started/README.md) for details.
 
+## Your First Deployment — End-to-End Walkthrough
+
+This walkthrough takes you from a running OpenChoreo installation to a deployed service you can call with `curl`. It uses the [Go Greeter Service (from image)](./from-image/go-greeter-service/) sample.
+
+### Prerequisites
+
+- A running OpenChoreo installation (see the [Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/))
+- `kubectl` configured to connect to your cluster
+- Getting-started resources applied (step 1 below)
+
+### Step 1: Apply the Getting-Started Resources
+
+These resources create a default project, environments, component types, and deployment pipeline:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+```
+
+Wait for all resources to become ready:
+
+```bash
+kubectl get project,environment,deploymentpipeline,clustercomponenttype
+```
+
+You should see a `default` project, three environments (`development`, `staging`, `production`), a `default` deployment pipeline, and four component types.
+
+### Step 2: Deploy the Go Greeter Service
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/go-greeter-service/greeter-service.yaml
+```
+
+### Step 3: Monitor the Deployment
+
+Watch the Component, ReleaseBinding, and RenderedRelease progress:
+
+```bash
+# Check the Component status
+kubectl get component greeter-service -o jsonpath='{.status.conditions}' | jq .
+
+# Watch the ReleaseBinding until it becomes Ready
+kubectl get releasebinding -w
+```
+
+The deployment typically takes 30–60 seconds. The ReleaseBinding status should show `Ready=True`.
+
+### Step 4: Access the Service
+
+```bash
+# Get the hostname and path from the HTTPRoute
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=greeter-service \
+  -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=greeter-service \
+  -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
+
+# Call the greeting endpoint
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=OpenChoreo"
+```
+
+Expected response:
+
+```json
+{"message": "Hello, OpenChoreo!"}
+```
+
+### Step 5: Clean Up
+
+```bash
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/go-greeter-service/greeter-service.yaml
+```
+
+### What Happened Behind the Scenes
+
+```mermaid
+flowchart TD
+    A["kubectl apply greeter-service.yaml"] --> B["Component + Workload created"]
+    B --> C["Component controller detects change"]
+    C --> D["ComponentRelease created<br/>(immutable snapshot)"]
+    D --> E["ReleaseBinding created<br/>(binds to development env)"]
+    E --> F["RenderedRelease generated<br/>(final K8s manifests)"]
+    F --> G["Deployment + Service + HTTPRoute<br/>applied to Data Plane"]
+    G --> H["Pod running, traffic routable"]
+```
+
+### Next Steps
+
+- Deploy a [web application](./from-image/react-starter-web-app/) to see a different component type
+- Try [building from source](./from-source/) to see the CI pipeline in action
+- Learn about [platform configuration](./platform-config/) to customize environments and pipelines
+
 ## Sample Categories
 
 ### [Deploy from Pre-built Images](./from-image)
