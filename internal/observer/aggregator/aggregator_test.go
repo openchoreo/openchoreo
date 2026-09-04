@@ -250,6 +250,28 @@ func deliveryEvent(reason, releaseUID string, ts time.Time, extra map[string]str
 	}
 }
 
+// episodeReleaseUID is the rollout the episode fixtures below share.
+const episodeReleaseUID = "rel-ep"
+
+// deliveryEventEpisode is deliveryEvent with a numeric failureEpisode. The payload
+// field is an int32, so it cannot come through the string-valued extras map.
+func deliveryEventEpisode(
+	reason string, ts time.Time, episode int32, extra map[string]string,
+) DeliveryEvent {
+	e := deliveryEvent(reason, episodeReleaseUID, ts, extra)
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(e.Message), &payload); err != nil {
+		panic(err)
+	}
+	payload["failureEpisode"] = episode
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	e.Message = string(raw)
+	return e
+}
+
 func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	t.Parallel()
 
@@ -490,4 +512,53 @@ func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
 	require.NoError(t, err)
 	t.Fatalf("capped sweep never drained the overlap window: folded %d of %d events",
 		len(facts), eventCount)
+}
+
+// TestSuccessiveFailureEpisodesStayDistinct pins that each failure->recovery cycle
+// of one rollout is its own MTTR sample.
+//
+// The recovery-fact ID used to key on the rollout alone, so episode 2's Recovered
+// merged into episode 1's row. Because the store deliberately preserves the
+// original failure_started_ms on merge, the surviving duration ran from episode 1's
+// failure to episode 2's recovery -- spanning the healthy interval between them.
+// Two one-hour outages twenty hours apart therefore reported a single ~21h
+// recovery instead of two 1h ones.
+func TestSuccessiveFailureEpisodesStayDistinct(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
+
+	failed1 := time.Date(2026, 9, 1, 1, 0, 0, 0, time.UTC)
+	recovered1 := failed1.Add(time.Hour)
+	failed2 := recovered1.Add(20 * time.Hour)
+	recovered2 := failed2.Add(time.Hour)
+
+	source := &fakeEventsSource{events: []DeliveryEvent{
+		deliveryEventEpisode(ReasonDeploymentFailed, failed1, 1,
+			map[string]string{"failureReason": "CrashLoopBackOff"}),
+		deliveryEventEpisode(ReasonDeploymentRecovered, recovered1, 1, nil),
+		deliveryEventEpisode(ReasonDeploymentFailed, failed2, 2,
+			map[string]string{"failureReason": "CrashLoopBackOff"}),
+		deliveryEventEpisode(ReasonDeploymentRecovered, recovered2, 2, nil),
+	}}
+
+	a := newTestAggregator(store, incidents, source, now)
+	require.NoError(t, a.RunOnce(ctx))
+
+	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: failed1.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.UnixMilli(),
+		Limit:   deliveryinsights.MaxQueryLimit,
+	})
+	require.NoError(t, err)
+	require.Len(t, recoveries, 2, "each failure->recovery cycle is its own MTTR sample")
+
+	for _, r := range recoveries {
+		require.NotNil(t, r.RecoveredMs, "both episodes must be closed")
+		require.NotNil(t, r.DurationMs)
+		require.Equal(t, time.Hour.Milliseconds(), *r.DurationMs,
+			"duration must cover the outage only, not the healthy interval between episodes")
+	}
 }

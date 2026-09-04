@@ -63,6 +63,11 @@ type deliveryEventPayload struct {
 	Commit               string `json:"commit"`
 	CommitAuthoredAt     string `json:"commitAuthoredAt"`
 	FailureReason        string `json:"failureReason"`
+	// FailureEpisode distinguishes successive failure->recovery cycles of one
+	// rollout. Without it every episode shares a recovery-fact ID, so episode 2's
+	// Recovered merges into episode 1's row and the duration spans the healthy
+	// interval between them -- inflating MTTR and undercounting recoveries.
+	FailureEpisode int32 `json:"failureEpisode,omitempty"`
 }
 
 // eventsProgress is where the next events sweep must start from, recorded after a tick.
@@ -215,7 +220,7 @@ func (a *Aggregator) foldEvent(
 		fact.StartedMs = &eventMs
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
-			ID:               healthRecoveryID(payload.RenderedReleaseUID),
+			ID:               healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
 			OrgNamespace:     event.Namespace,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
@@ -228,7 +233,7 @@ func (a *Aggregator) foldEvent(
 	case ReasonDeploymentRecovered:
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
-			ID:             healthRecoveryID(payload.RenderedReleaseUID),
+			ID:             healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
 			OrgNamespace:   event.Namespace,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
@@ -250,6 +255,20 @@ func (a *Aggregator) foldEvent(
 	return &fact, nil, true
 }
 
-func healthRecoveryID(releaseUID string) string {
-	return fmt.Sprintf("health-%s", releaseUID)
+// healthRecoveryID identifies one failure->recovery episode of one rollout.
+//
+// The episode is part of the key: a rollout can fail, recover, and fail again, and
+// each cycle is its own MTTR sample. Keying on the rollout alone merged them, and
+// because the store preserves the original failure_started_ms on merge, the
+// resulting duration ran from episode 1's failure to episode 2's recovery --
+// spanning the healthy interval in between.
+//
+// Episode 0 means the emitter sent no episode (an event from before the field
+// existed). Those keep the original ID so they stay idempotent rather than
+// creating a duplicate alongside the row they already wrote.
+func healthRecoveryID(releaseUID string, episode int32) string {
+	if episode <= 0 {
+		return fmt.Sprintf("health-%s", releaseUID)
+	}
+	return fmt.Sprintf("health-%s-e%d", releaseUID, episode)
 }
