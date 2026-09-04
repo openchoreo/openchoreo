@@ -32,6 +32,7 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var testMgr ctrl.Manager
 var ctx context.Context
 var cancel context.CancelFunc
 
@@ -74,7 +75,7 @@ var _ = BeforeSuite(func() {
 	// Create a manager with cache enabled only for types that need field index queries
 	// (ComponentRelease, ReleaseBinding, Workload, WorkflowRun for owner lookups during finalization)
 	// Other types bypass cache to avoid staleness issues in tests
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	testMgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // Disable metrics server in tests
@@ -100,7 +101,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Register field indices used by the component controller for finalization
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentRelease{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentRelease{},
 		"spec.owner.componentName", func(obj client.Object) []string {
 			release := obj.(*openchoreov1alpha1.ComponentRelease)
 			if release.Spec.Owner.ComponentName == "" {
@@ -110,7 +111,7 @@ var _ = BeforeSuite(func() {
 		})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
 		controller.IndexKeyReleaseBindingOwnerComponentName, func(obj client.Object) []string {
 			binding := obj.(*openchoreov1alpha1.ReleaseBinding)
 			if binding.Spec.Owner.ComponentName == "" {
@@ -120,7 +121,7 @@ var _ = BeforeSuite(func() {
 		})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
 		controller.IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
 			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
 			if rb.Spec.Owner.ProjectName == "" || rb.Spec.Owner.ComponentName == "" || rb.Spec.Environment == "" {
@@ -135,7 +136,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Register field index for Workload by owner (projectName/componentName)
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{},
 		workloadOwnerIndex, func(obj client.Object) []string {
 			workload := obj.(*openchoreov1alpha1.Workload)
 			ownerKey := fmt.Sprintf("%s/%s",
@@ -146,7 +147,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Register field index for Project by deploymentPipelineRef
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
 		controller.IndexKeyProjectDeploymentPipelineRef, func(obj client.Object) []string {
 			project := obj.(*openchoreov1alpha1.Project)
 			if project.Spec.DeploymentPipelineRef.Name == "" {
@@ -157,7 +158,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Register field index for Component by owner project name
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
 		controller.IndexKeyComponentOwnerProjectName, func(obj client.Object) []string {
 			component := obj.(*openchoreov1alpha1.Component)
 			if component.Spec.Owner.ProjectName == "" {
@@ -170,15 +171,15 @@ var _ = BeforeSuite(func() {
 	// Start the manager in a goroutine
 	go func() {
 		defer GinkgoRecover()
-		err := mgr.Start(ctx)
+		err := testMgr.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
 	// Wait for cache to sync before running tests
-	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+	Expect(testMgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 
 	// Use the manager's client which has field index support
-	k8sClient = mgr.GetClient()
+	k8sClient = testMgr.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 })
 
