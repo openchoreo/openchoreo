@@ -1080,11 +1080,6 @@ type SpanStatus struct {
 // SpanStatusCode The status code of the span. One of "ok", "error", or "unset".
 type SpanStatusCode string
 
-// TraceSpanDetailsRequest defines model for TraceSpanDetailsRequest.
-type TraceSpanDetailsRequest struct {
-	SearchScope ComponentSearchScope `json:"searchScope"`
-}
-
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
 	// Attributes The span attributes
@@ -1269,9 +1264,6 @@ type QueryTracesJSONRequestBody = TracesQueryRequest
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
-
-// QuerySpanDetailsForTraceJSONRequestBody defines body for QuerySpanDetailsForTrace for application/json ContentType.
-type QuerySpanDetailsForTraceJSONRequestBody = TraceSpanDetailsRequest
 
 // AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
 func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {

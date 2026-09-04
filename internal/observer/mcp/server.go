@@ -324,28 +324,14 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "get_span_details",
 		Description: "Get full details for a specific span within a trace in OpenChoreo. Returns complete span information including attributes, resource attributes, parent span ID, and timing details. Use trace_id and span_id from query_trace_spans results.",
 		InputSchema: createSchema(map[string]any{
-			"trace_id":    stringProperty("Trace ID containing the span (required)"),
-			"span_id":     stringProperty("Span ID to retrieve details for (required)"),
-			"namespace":   stringProperty("Organization namespace (required)"),
-			"project":     stringProperty("Project name"),
-			"component":   stringProperty("Component name"),
-			"environment": stringProperty("Environment name"),
-		}, []string{"trace_id", "span_id", "namespace"}),
+			"trace_id": stringProperty("Trace ID containing the span (required)"),
+			"span_id":  stringProperty("Span ID to retrieve details for (required)"),
+		}, []string{"trace_id", "span_id"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		TraceID     string `json:"trace_id"`
-		SpanID      string `json:"span_id"`
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
+		TraceID string `json:"trace_id"`
+		SpanID  string `json:"span_id"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
-		}
-		result, err := handler.GetSpanDetails(ctx,
-			args.TraceID, args.SpanID,
-			args.Namespace, args.Project, args.Component, args.Environment,
-		)
+		result, err := handler.GetSpanDetails(ctx, args.TraceID, args.SpanID)
 		return handleToolResult(result, err)
 	})
 

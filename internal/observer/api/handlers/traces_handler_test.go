@@ -4,7 +4,7 @@
 package handlers
 
 // traces_handler_test.go covers the HTTP handler paths for QueryTraces,
-// QuerySpansForTrace, and QuerySpanDetailsForTrace that are NOT already covered
+// QuerySpansForTrace, and GetSpanDetailsForTrace that are NOT already covered
 // by scope_auth_test.go (scope-auth error) or traces_test.go (conversion functions).
 
 import (
@@ -338,52 +338,148 @@ func TestQuerySpansForTrace_GenericError(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)
 }
 
-// QuerySpanDetailsForTrace tests -------------------------------------------------
+// GetSpanDetailsForTrace tests ---------------------------------------------------
 
-func spanDetailsBody(namespace string) *strings.Reader {
-	return strings.NewReader(`{"searchScope":{"namespace":"` + namespace + `"}}`)
-}
-
-func TestQuerySpanDetailsForTrace_Success(t *testing.T) {
+func TestGetSpanDetailsForTrace_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockTracesQuerier(t)
-	svc.On("QuerySpanDetails", mock.Anything, "trace-1", "span-1", types.ComponentSearchScope{Namespace: "test-ns"}).
-		Return(&types.SpanInfo{SpanID: "span-1"}, nil)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(&types.SpanInfo{SpanID: "span-1"}, nil)
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/span-1", spanDetailsBody("test-ns"))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
 	req.SetPathValue("traceId", "trace-1")
 	req.SetPathValue("spanId", "span-1")
 	rr := httptest.NewRecorder()
 
-	h.QuerySpanDetailsForTrace(rr, req)
+	h.GetSpanDetailsForTrace(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
-func TestQuerySpanDetailsForTrace_AuthzForbidden(t *testing.T) {
+func TestGetSpanDetailsForTrace_EmptyTraceID(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces//spans/span-1", nil)
+	req.SetPathValue("traceId", "")
+	req.SetPathValue("spanId", "span-1")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "traceId is required")
+}
+
+func TestGetSpanDetailsForTrace_EmptySpanID(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/", nil)
+	req.SetPathValue("traceId", "trace-1")
+	req.SetPathValue("spanId", "")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "spanId is required")
+}
+
+func TestGetSpanDetailsForTrace_ServiceNotInitialized(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: nil,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	req.SetPathValue("traceId", "trace-1")
+	req.SetPathValue("spanId", "span-1")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesServiceNotReady)
+}
+
+func TestGetSpanDetailsForTrace_SpanNotFound(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockTracesQuerier(t)
-	svc.On("QuerySpanDetails", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, observerAuthz.ErrAuthzForbidden)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrSpanNotFound)
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/span-1", spanDetailsBody("test-ns"))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-99", nil)
+	req.SetPathValue("traceId", "trace-1")
+	req.SetPathValue("spanId", "span-99")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	require.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesSpanNotFound)
+}
+
+func TestGetSpanDetailsForTrace_RetrievalError(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend", service.ErrTracesRetrieval))
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
 	req.SetPathValue("traceId", "trace-1")
 	req.SetPathValue("spanId", "span-1")
 	rr := httptest.NewRecorder()
 
-	h.QuerySpanDetailsForTrace(rr, req)
+	h.GetSpanDetailsForTrace(rr, req)
 
-	assert.Equal(t, http.StatusForbidden, rr.Code)
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesRetrievalFailed)
+}
+
+func TestGetSpanDetailsForTrace_GenericError(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("unexpected"))
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	req.SetPathValue("traceId", "trace-1")
+	req.SetPathValue("spanId", "span-1")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)
 }
