@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,7 @@ import (
 	coremocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
@@ -294,18 +296,106 @@ func TestTracesAuthz_QuerySpans_Denied(t *testing.T) {
 	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
 }
 
-func TestTracesAuthz_GetSpanDetails_PassThrough(t *testing.T) {
+func spanWithScope() *types.SpanInfo {
+	return &types.SpanInfo{
+		SpanID: "span-1",
+		ResourceAttributes: map[string]interface{}{
+			labels.NamespaceName:   "ns",
+			labels.ProjectName:     "proj",
+			labels.ComponentName:   "comp",
+			labels.EnvironmentName: "dev",
+		},
+	}
+}
+
+func TestTracesAuthz_GetSpanDetails_NilPDP(t *testing.T) {
 	inner := mocks.NewMockTracesQuerier(t)
-	expected := &types.SpanInfo{SpanID: "span-1"}
+	expected := spanWithScope()
 	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(expected, nil)
 
-	// PDP with no Evaluate expectation — testify will fail if Evaluate is called
-	pdp := coremocks.NewMockPDP(t)
-	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+	svc := NewTracesServiceWithAuthz(inner, nil, testLogger())
 
 	resp, err := svc.GetSpanDetails(context.Background(), "trace-1", "span-1")
 	require.NoError(t, err)
 	assert.Equal(t, expected, resp)
+}
+
+// spanScopeEvaluateReq matches the EvaluateRequest that GetSpanDetails derives
+// from spanWithScope's resource attributes: a component-scoped traces:view check.
+func spanScopeEvaluateReq(req *authzcore.EvaluateRequest) bool {
+	return req.Action == string(observerAuthz.ActionViewTraces) &&
+		req.Resource.Type == string(observerAuthz.ResourceTypeComponent) &&
+		req.Resource.ID == "comp" &&
+		req.Resource.Hierarchy == authzcore.ResourceHierarchy{Namespace: "ns", Project: "proj", Component: "comp"} &&
+		req.Context.Resource.Environment == "ns/dev"
+}
+
+func TestTracesAuthz_GetSpanDetails_Allowed(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	expected := spanWithScope()
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(expected, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(spanScopeEvaluateReq)).
+		Return(&authzcore.Decision{Decision: true}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	require.NoError(t, err)
+	assert.Equal(t, expected, resp)
+}
+
+func TestTracesAuthz_GetSpanDetails_Denied(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(spanWithScope(), nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(spanScopeEvaluateReq)).
+		Return(&authzcore.Decision{Decision: false}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+	assert.Nil(t, resp)
+}
+
+// The span fetch failing short-circuits before any authorization is attempted.
+func TestTracesAuthz_GetSpanDetails_FetchError(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	wantErr := errors.New("adapter unavailable")
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(nil, wantErr)
+
+	// A non-nil PDP with no Evaluate expectation: the mock fails if authz is consulted.
+	pdp := coremocks.NewMockPDP(t)
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	assert.ErrorIs(t, err, wantErr)
+	assert.Nil(t, resp)
+}
+
+// A span lacking openchoreo.dev/* attributes yields an empty (unknown) scope; the
+// PDP is still consulted and its decision is honored.
+func TestTracesAuthz_GetSpanDetails_MissingScopeAttributes(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	span := &types.SpanInfo{
+		SpanID:             "span-1",
+		ResourceAttributes: map[string]interface{}{"service.name": "frontend"},
+	}
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(span, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authzcore.EvaluateRequest) bool {
+		return req.Resource.Type == string(observerAuthz.ResourceTypeUnknown) &&
+			req.Resource.ID == "" &&
+			req.Resource.Hierarchy == authzcore.ResourceHierarchy{} &&
+			req.Context.Resource.Environment == ""
+	})).Return(&authzcore.Decision{Decision: true}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	require.NoError(t, err)
+	assert.Equal(t, span, resp)
 }
 
 // --- MetricsQuerier QueryRuntimeTopology Authz Tests ---

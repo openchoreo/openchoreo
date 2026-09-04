@@ -244,6 +244,14 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	spanInfo, err := h.tracesService.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		h.logger.Error("Failed to get span details", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
