@@ -19,13 +19,13 @@
                   "description": "Maximum resources the controller can consume",
                   "properties": {
                     "cpu": {
-                      "default": "50m",
+                      "default": "500m",
                       "description": "CPU limit for the controller",
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
-                      "default": "64Mi",
+                      "default": "256Mi",
                       "description": "Memory limit for the controller",
                       "title": "memory",
                       "type": "string"
@@ -40,13 +40,13 @@
                   "description": "Minimum resources guaranteed for the controller",
                   "properties": {
                     "cpu": {
-                      "default": "25m",
+                      "default": "100m",
                       "description": "CPU request for the controller",
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
-                      "default": "32Mi",
+                      "default": "128Mi",
                       "description": "Memory request for the controller",
                       "title": "memory",
                       "type": "string"
