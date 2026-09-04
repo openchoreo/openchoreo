@@ -699,3 +699,54 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 		}
 	}
 }
+
+// TestExhaustiveReadPagesTiesWithoutLossOrDuplication covers the page boundary.
+//
+// An exhaustive read pages with LIMIT/OFFSET, which is only stable over a total
+// order. ready_ms is not unique -- a batch rollout puts many deployments in the
+// same millisecond -- so without a unique tiebreaker the database may order tied
+// rows differently between pages, silently dropping some and repeating others.
+// Here every fact shares one ready_ms and the set spans several pages.
+func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+
+	// Deliberately more than two pages, all tied on the sort key.
+	const count = factPageSize*2 + 137
+	readyMs := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC).UnixMilli()
+
+	facts := make([]DeploymentFact, 0, count)
+	for i := 0; i < count; i++ {
+		f := testFact(fmt.Sprintf("tie-%06d", i), readyMs)
+		lead := int64(i + 1)
+		f.LeadTimeMs = &lead
+		facts = append(facts, f)
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+
+	q := FactQuery{OrgNamespace: "default", StartMs: readyMs - 1, EndMs: readyMs + 1, All: true}
+
+	leads, err := store.QueryLeadTimes(ctx, q)
+	require.NoError(t, err)
+	require.Len(t, leads, count, "every tied row must be read exactly once")
+
+	// Exactly once: the lead times were assigned 1..count, so the set must be whole.
+	seen := make(map[int64]int, len(leads))
+	for _, v := range leads {
+		seen[v]++
+	}
+	require.Len(t, seen, count, "no duplicates across page boundaries")
+	for i := 1; i <= count; i++ {
+		require.Equal(t, 1, seen[int64(i)], "lead time %d must appear exactly once", i)
+	}
+
+	got, total, err := store.QueryDeploymentFacts(ctx, q)
+	require.NoError(t, err)
+	require.Equal(t, count, total)
+	require.Len(t, got, count, "paged fact read must return every row")
+	uids := make(map[string]int, len(got))
+	for i := range got {
+		uids[got[i].ReleaseUID]++
+	}
+	require.Len(t, uids, count, "no duplicate facts across page boundaries")
+}

@@ -783,16 +783,22 @@ func TestDeliveryProvenanceReachesPayload(t *testing.T) {
 		return &Reconciler{Client: cpClient}, fake.NewClientBuilder().Build()
 	}
 
-	componentRelease := func(source *openchoreov1alpha1.WorkloadSource) *openchoreov1alpha1.ComponentRelease {
+	componentReleaseWithUID := func(
+		uid string, source *openchoreov1alpha1.WorkloadSource,
+	) *openchoreov1alpha1.ComponentRelease {
 		return &openchoreov1alpha1.ComponentRelease{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testComponentReleaseName,
 				Namespace: "acme",
+				UID:       types.UID(uid),
 			},
 			Spec: openchoreov1alpha1.ComponentReleaseSpec{
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{Source: source},
 			},
 		}
+	}
+	componentRelease := func(source *openchoreov1alpha1.WorkloadSource) *openchoreov1alpha1.ComponentRelease {
+		return componentReleaseWithUID(testComponentReleaseUID, source)
 	}
 
 	t.Run("commit and authored time reach the payload", func(t *testing.T) {
@@ -843,6 +849,25 @@ func TestDeliveryProvenanceReachesPayload(t *testing.T) {
 		mustReconcileDelivery(t, r, ctx, planeClient, release, dc, statuses)
 		if findEventByReason(listDeliveryEvents(t, planeClient), reasonDeploymentStarted) == nil {
 			t.Error("expected DeploymentStarted even without provenance")
+		}
+	})
+
+	t.Run("a reused ComponentRelease name does not lend its commit to this rollout", func(t *testing.T) {
+		// Same name, different object: the rollout identity comes from the labeled
+		// UID, so pairing it with this commit would measure lead time from a commit
+		// the rollout never deployed.
+		r, _ := newReconciler(componentReleaseWithUID("cr-uid-REPLACED",
+			&openchoreov1alpha1.WorkloadSource{
+				Commit:     "beefbeefbeefbeefbeefbeefbeefbeefbeefbeef",
+				AuthoredAt: &authored,
+			}))
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		r.resolveDeliveryProvenance(ctx, release, dc)
+
+		if dc.commit != "" || dc.commitAuthoredAt != "" {
+			t.Errorf("commit=%q authoredAt=%q, want both empty on UID mismatch",
+				dc.commit, dc.commitAuthoredAt)
 		}
 	})
 

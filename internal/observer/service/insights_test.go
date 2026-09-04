@@ -172,3 +172,73 @@ func TestDeltaPct(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// TestDistributionReadsAreNotCapped covers the window that exceeds any fixed cap.
+//
+// Raising the row limit from 100 to 10,000 only moved the threshold at which the
+// numbers start lying: the reads are ORDER BY ... ASC, so a cap keeps the oldest
+// rows and drops the newest, and percentiles computed from that are biased while
+// CountDeployments stays exact. With 10,001 facts the old cap would have dropped
+// exactly one -- the newest, and by construction the largest -- so p95 and the
+// deployment count would disagree about which population they describe.
+func TestDistributionReadsAreNotCapped(t *testing.T) {
+	ctx := context.Background()
+	store := newInsightsTestStore(t)
+
+	const count = 10_001
+	start := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	facts := make([]deliveryinsights.DeploymentFact, 0, count)
+	for i := 0; i < count; i++ {
+		readyMs := start.Add(time.Duration(i) * time.Minute).UnixMilli()
+		lead := int64(i+1) * 1000
+		authored := readyMs - lead
+		facts = append(facts, deliveryinsights.DeploymentFact{
+			ReleaseUID:       fmt.Sprintf("rollout-%05d", i),
+			OrgNamespace:     "acme",
+			ProjectUID:       "shop",
+			ComponentUID:     "checkout",
+			EnvironmentUID:   "prod",
+			CommitSHA:        fmt.Sprintf("%040d", i),
+			CommitAuthoredMs: &authored,
+			ReadyMs:          &readyMs,
+			Outcome:          deliveryinsights.OutcomeSuccess,
+			LeadTimeMs:       &lead,
+			UpdatedAtMs:      readyMs,
+		})
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+
+	resp, err := newInsightsTestService(t, store).QueryDoraMetrics(ctx, gen.DoraMetricsQueryRequest{
+		SearchScope: gen.ComponentSearchScope{
+			Namespace: "acme",
+			Project:   strPtr("shop"),
+			Component: strPtr("checkout"),
+		},
+		StartTime: start.Add(-time.Minute),
+		EndTime:   start.Add(count * time.Minute),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// The count is exact, and the distribution has to describe the same population.
+	require.NotNil(t, resp.Summary.DeploymentFrequency)
+	require.NotNil(t, resp.Summary.DeploymentFrequency.Total)
+	require.Equal(t, count, *resp.Summary.DeploymentFrequency.Total)
+
+	lt := resp.Summary.LeadTime
+	require.NotNil(t, lt)
+	require.NotNil(t, lt.P95Ms)
+
+	// Exact, because the difference a cap makes here is one row. Percentile ranks as
+	// int(n*p + 0.999999) - 1, so over all 10,001 values the rank is 9500 and p95 is
+	// 9,501,000ms; over the oldest 10,000 the rank is 9499 and p95 is 9,500,000ms. A
+	// loose bound passes either way -- checked, it does -- so it has to be equality.
+	require.Equal(t, int64(9_501_000), *lt.P95Ms,
+		"p95 must come from all %d rows, not the oldest page", count)
+
+	// Coverage cannot discriminate here: it is round3(len(leadTimes)/success), and
+	// 10000/10001 rounds to 1.000 just as 10001/10001 does. Asserted as a sanity
+	// check on the happy path, not as the guard against truncation.
+	require.NotNil(t, lt.Coverage)
+	require.InDelta(t, 1.0, *lt.Coverage, 0.001)
+}

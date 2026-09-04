@@ -90,6 +90,11 @@ type deliveryContext struct {
 	// environment the release is bound to. The pair is unique and stable.
 	rolloutID            string
 	componentReleaseName string
+	// componentReleaseUID is the labeled UID of that ComponentRelease. Provenance
+	// is only trusted when the fetched object's UID matches it: the fetch is by
+	// name, and a reused name would otherwise pair this rollout's identity with a
+	// different object's commit.
+	componentReleaseUID string
 	// primary is the desired primary workload resource (Deployment, StatefulSet,
 	// or CronJob) the events anchor to as involvedObject.
 	primary *unstructured.Unstructured
@@ -146,6 +151,7 @@ func deliveryContextFor(release *openchoreov1alpha1.RenderedRelease, desiredReso
 	return &deliveryContext{
 		rolloutID:            fmt.Sprintf("%s.%s", crUID, release.UID),
 		componentReleaseName: crName,
+		componentReleaseUID:  crUID,
 		primary:              primary,
 	}
 }
@@ -193,6 +199,17 @@ func (r *Reconciler) resolveDeliveryProvenance(
 	if err := r.Get(ctx, key, componentRelease); err != nil {
 		logger.V(1).Info("Delivery provenance unavailable; lead time will not be computed for this rollout",
 			"componentRelease", key.String(), "error", err.Error())
+		return
+	}
+
+	// The fetch is by name but the rollout is identified by UID, so a name that has
+	// been deleted and recreated would otherwise attach the replacement's commit to
+	// this rollout. Mismatched provenance is worse than none: lead time would be
+	// measured from a commit this rollout never deployed.
+	if string(componentRelease.UID) != dc.componentReleaseUID {
+		logger.V(1).Info("ComponentRelease UID does not match the rollout's; ignoring provenance",
+			"componentRelease", key.String(),
+			"fetchedUID", string(componentRelease.UID), "rolloutUID", dc.componentReleaseUID)
 		return
 	}
 

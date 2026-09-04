@@ -550,7 +550,7 @@ func TestSuccessiveFailureEpisodesStayDistinct(t *testing.T) {
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: failed1.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		Limit:   deliveryinsights.MaxQueryLimit,
+		All:     true,
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 2, "each failure->recovery cycle is its own MTTR sample")
@@ -652,7 +652,7 @@ func TestOneUnattributableEventDoesNotWedgeTheTick(t *testing.T) {
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: good.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		Limit:   deliveryinsights.MaxQueryLimit,
+		All:     true,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1, "the good event must still be written")

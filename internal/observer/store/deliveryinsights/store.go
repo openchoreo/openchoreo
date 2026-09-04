@@ -38,12 +38,6 @@ const (
 	RecoverySourceHealth   = "health"
 )
 
-// MaxQueryLimit is the largest row count any fact query will return. Callers that
-// compute a statistic over the whole window -- as opposed to showing a page of rows
-// -- must pass it explicitly: FactQuery.Limit of 0 means "a page", not "everything",
-// and silently yields the 100 oldest rows.
-const MaxQueryLimit = 10000
-
 // Rollup scope types.
 const (
 	ScopeTypeOrg       = "org"
@@ -156,11 +150,18 @@ type FactQuery struct {
 	EnvironmentUID string
 	StartMs        int64
 	EndMs          int64
-	// Limit caps every fact read (deployments, recoveries, lead times, recovery
-	// durations), normalized through normalizeLimit. A read that returns exactly
-	// Limit rows logs a truncation warning, because the distribution reads feed
-	// means and percentiles where a silent cut would quietly skew a metric.
-	Limit     int
+	// Limit caps a paged fact read (normalized through normalizeLimit) and is what
+	// the drill-down list wants: a page of rows, newest or oldest first.
+	//
+	// It must not be used for a read that feeds a statistic over the whole window.
+	// The reads are ordered, so a cap keeps one end of the distribution and drops
+	// the other -- percentiles, means and rollup counts computed from it are biased,
+	// not merely based on fewer rows, while CountDeployments stays exact. Set All
+	// instead.
+	Limit int
+	// All reads every matching row, paging internally, and ignores Limit. Callers
+	// computing a statistic over the window use it so there is no cap to bias.
+	All       bool
 	SortOrder string
 }
 

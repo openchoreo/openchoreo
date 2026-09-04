@@ -20,7 +20,7 @@ import (
 const (
 	initializeTimeout = 30 * time.Second
 	defaultQueryLimit = 100
-	maxQueryLimit     = MaxQueryLimit
+	maxQueryLimit     = 10000
 	sortOrderAsc      = "ASC"
 	sortOrderDesc     = "DESC"
 )
@@ -499,17 +499,42 @@ func (s *sqlStore) QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]Dep
 		return nil, 0, fmt.Errorf("failed to count deployment facts: %w", err)
 	}
 
-	query := s.rebind(`SELECT release_uid, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT release_uid, org_namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
 FROM deployment_fact` + where +
-		" ORDER BY " + occurredMsExpr + " " + orderClause +
-		" LIMIT " + strconv.Itoa(limit) + ";")
+		// release_uid breaks ties: paging LIMIT/OFFSET over a non-unique sort key
+		// duplicates or drops rows when a tie straddles a page boundary, and a batch
+		// rollout puts many facts in the same millisecond.
+		" ORDER BY " + occurredMsExpr + " " + orderClause + ", release_uid ASC"
 
+	if q.All {
+		query := s.rebind(base + " LIMIT ? OFFSET ?;")
+		facts, err := pageAll(func(limit, offset int) ([]DeploymentFact, error) {
+			return s.scanDeploymentFacts(ctx, query, withLimitOffset(args, limit, offset))
+		})
+		if err != nil {
+			return nil, 0, err
+		}
+		return facts, total, nil
+	}
+
+	query := s.rebind(base + " LIMIT " + strconv.Itoa(limit) + ";")
+	facts, err := s.scanDeploymentFacts(ctx, query, args)
+	if err != nil {
+		return nil, 0, err
+	}
+	return facts, total, nil
+}
+
+// scanDeploymentFacts runs one deployment-fact query and decodes its rows.
+func (s *sqlStore) scanDeploymentFacts(
+	ctx context.Context, query string, args []any,
+) ([]DeploymentFact, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to query deployment facts: %w", err)
+		return nil, fmt.Errorf("failed to query deployment facts: %w", err)
 	}
 	defer closeRows(rows, s.logger)
 
@@ -522,7 +547,7 @@ FROM deployment_fact` + where +
 			&f.ComponentRelease, &f.CommitSHA, &authored, &started, &ready,
 			&f.Outcome, &f.FailedBy, &f.FailureReason, &f.IncidentID, &leadTime,
 			&f.UpdatedAtMs); err != nil {
-			return nil, 0, fmt.Errorf("failed to scan deployment fact: %w", err)
+			return nil, fmt.Errorf("failed to scan deployment fact: %w", err)
 		}
 		f.CommitAuthoredMs = int64Ptr(authored)
 		f.StartedMs = int64Ptr(started)
@@ -531,9 +556,9 @@ FROM deployment_fact` + where +
 		facts = append(facts, f)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("failed to iterate deployment facts: %w", err)
+		return nil, fmt.Errorf("failed to iterate deployment facts: %w", err)
 	}
-	return facts, total, nil
+	return facts, nil
 }
 
 func (s *sqlStore) AttributeIncident(
@@ -600,17 +625,37 @@ WHERE release_uid = ? AND failed_by = '';`)
 }
 
 func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]RecoveryFact, error) {
-	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions, "failure_started_ms >= ?", "failure_started_ms < ?")
-	args = append(args, q.StartMs, q.EndMs, limit)
+	args = append(args, q.StartMs, q.EndMs)
 
-	query := s.rebind(`SELECT id, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT id, org_namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
-		" ORDER BY failure_started_ms ASC LIMIT ?;")
+		" ORDER BY failure_started_ms ASC, id ASC"
 
+	if q.All {
+		query := s.rebind(base + " LIMIT ? OFFSET ?;")
+		return pageAll(func(limit, offset int) ([]RecoveryFact, error) {
+			return s.scanRecoveryFacts(ctx, query, withLimitOffset(args, limit, offset))
+		})
+	}
+
+	limit := normalizeLimit(q.Limit)
+	query := s.rebind(base + " LIMIT ?;")
+	facts, err := s.scanRecoveryFacts(ctx, query, append(args, limit))
+	if err != nil {
+		return nil, err
+	}
+	s.warnIfTruncated("recovery facts", len(facts), limit)
+	return facts, nil
+}
+
+// scanRecoveryFacts runs one recovery-fact query and decodes its rows.
+func (s *sqlStore) scanRecoveryFacts(
+	ctx context.Context, query string, args []any,
+) ([]RecoveryFact, error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query recovery facts: %w", err)
@@ -633,13 +678,9 @@ FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to iterate recovery facts: %w", err)
 	}
-	s.warnIfTruncated("recovery facts", len(facts), limit)
 	return facts, nil
 }
 
-// warnIfTruncated logs when a read returned exactly its limit, meaning rows may have
-// been dropped. Callers derive means and percentiles from these rows, so a silent
-// truncation would skew a metric with nothing in the logs to explain it.
 func (s *sqlStore) warnIfTruncated(what string, got, limit int) {
 	if got < limit {
 		return
@@ -676,18 +717,25 @@ FROM deployment_fact WHERE ` + strings.Join(conditions, " AND ") + ";")
 }
 
 func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error) {
-	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions,
 		"ready_ms IS NOT NULL", "ready_ms >= ?", "ready_ms < ?",
 		"lead_time_ms IS NOT NULL", "lead_time_ms >= 0")
-	args = append(args, q.StartMs, q.EndMs, limit)
+	args = append(args, q.StartMs, q.EndMs)
 
-	// ORDER BY makes the truncation deterministic: the same window always yields the
-	// same sample, so a percentile does not drift between ticks.
-	query := s.rebind("SELECT lead_time_ms FROM deployment_fact WHERE " +
-		strings.Join(conditions, " AND ") + " ORDER BY ready_ms ASC LIMIT ?;")
-	values, err := s.queryInt64s(ctx, query, args, "lead times")
+	base := "SELECT lead_time_ms FROM deployment_fact WHERE " +
+		strings.Join(conditions, " AND ") + " ORDER BY ready_ms ASC, release_uid ASC"
+
+	if q.All {
+		query := s.rebind(base + " LIMIT ? OFFSET ?;")
+		return pageAll(func(limit, offset int) ([]int64, error) {
+			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "lead times")
+		})
+	}
+
+	limit := normalizeLimit(q.Limit)
+	query := s.rebind(base + " LIMIT ?;")
+	values, err := s.queryInt64s(ctx, query, append(args, limit), "lead times")
 	if err != nil {
 		return nil, err
 	}
@@ -696,15 +744,24 @@ func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, er
 }
 
 func (s *sqlStore) QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error) {
-	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions,
 		"failure_started_ms >= ?", "failure_started_ms < ?", "duration_ms IS NOT NULL")
-	args = append(args, q.StartMs, q.EndMs, limit)
+	args = append(args, q.StartMs, q.EndMs)
 
-	query := s.rebind("SELECT duration_ms FROM recovery_fact WHERE " +
-		strings.Join(conditions, " AND ") + " ORDER BY failure_started_ms ASC LIMIT ?;")
-	values, err := s.queryInt64s(ctx, query, args, "recovery durations")
+	base := "SELECT duration_ms FROM recovery_fact WHERE " +
+		strings.Join(conditions, " AND ") + " ORDER BY failure_started_ms ASC, id ASC"
+
+	if q.All {
+		query := s.rebind(base + " LIMIT ? OFFSET ?;")
+		return pageAll(func(limit, offset int) ([]int64, error) {
+			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "recovery durations")
+		})
+	}
+
+	limit := normalizeLimit(q.Limit)
+	query := s.rebind(base + " LIMIT ?;")
+	values, err := s.queryInt64s(ctx, query, append(args, limit), "recovery durations")
 	if err != nil {
 		return nil, err
 	}
@@ -912,6 +969,39 @@ func normalizeSortOrder(sortOrder string) (string, error) {
 	default:
 		return "", fmt.Errorf("invalid sort order %q", sortOrder)
 	}
+}
+
+// factPageSize is how many rows an exhaustive (FactQuery.All) read fetches per
+// round trip. It bounds the query, not the result: pageAll keeps going until a
+// short page arrives, so the caller still sees every matching row.
+const factPageSize = 5000
+
+// pageAll calls fetch with increasing offsets until a page comes back short,
+// which is the last one.
+//
+// It exists because the reads feeding percentiles, means and rollup counts are
+// ordered, so any cap on them drops one end of the distribution: raising the cap
+// only moves the threshold at which the numbers start lying. Paging removes it.
+func pageAll[T any](fetch func(limit, offset int) ([]T, error)) ([]T, error) {
+	var out []T
+	for offset := 0; ; offset += factPageSize {
+		page, err := fetch(factPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, page...)
+		if len(page) < factPageSize {
+			return out, nil
+		}
+	}
+}
+
+// withLimitOffset returns a copy of args with the paging parameters appended, so
+// successive pages cannot alias one backing array.
+func withLimitOffset(args []any, limit, offset int) []any {
+	out := make([]any, 0, len(args)+2)
+	out = append(out, args...)
+	return append(out, limit, offset)
 }
 
 func normalizeLimit(limit int) int {

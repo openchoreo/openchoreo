@@ -356,39 +356,26 @@ func (a *Aggregator) recomputeRollups(ctx context.Context, touchedMs []int64, ti
 	readStartMs := deliveryinsights.BucketStartMs(deliveryinsights.GranularityWeekly, monthStartMs)
 	endMs := tickStart.UnixMilli() + 1
 
+	// All, not a Limit: a rollup is a count and a set of percentiles over its
+	// bucket, so a capped read produces undercounted buckets -- and because
+	// UpsertRollups replaces, the undercount persists. Skipping the write on
+	// truncation was the previous guard, but a window that stays above the cap then
+	// never recomputes at all, so the rollups go stale indefinitely instead. Reading
+	// every row removes both failure modes.
 	factQuery := deliveryinsights.FactQuery{
 		StartMs: readStartMs,
 		EndMs:   endMs,
-		Limit:   rollupFactLimit,
+		All:     true,
 		// Deployment moment ascending keeps the read deterministic.
 		SortOrder: "ASC",
 	}
-	facts, total, err := a.store.QueryDeploymentFacts(ctx, factQuery)
+	facts, _, err := a.store.QueryDeploymentFacts(ctx, factQuery)
 	if err != nil {
 		return err
-	}
-	if total > len(facts) {
-		// Writing anyway would replace correct buckets with undercounted ones, and the
-		// next tick truncates identically, so the wrong values would persist rather
-		// than lag. Stale-but-correct beats fresh-but-wrong for a metrics store.
-		a.logger.Error("Rollup recompute fact read truncated — skipping this recompute to "+
-			"avoid overwriting rollups with undercounted values",
-			"total", total, "read", len(facts), "limit", rollupFactLimit)
-		return nil
 	}
 	recoveries, err := a.store.QueryRecoveryFacts(ctx, factQuery)
 	if err != nil {
 		return err
-	}
-	// QueryRecoveryFacts reports no total, so hitting the cap is the only signal
-	// available. It cannot distinguish "exactly at the cap" from "truncated", and it
-	// errs toward skipping, which is the safe direction: the alternative is writing
-	// undercounted MTTR rollups that the next tick reproduces identically.
-	if len(recoveries) >= rollupFactLimit {
-		a.logger.Error("Rollup recompute recovery read hit its row limit — skipping this "+
-			"recompute to avoid overwriting MTTR rollups with undercounted values",
-			"read", len(recoveries), "limit", rollupFactLimit)
-		return nil
 	}
 
 	rollups := deliveryinsights.BuildRollups(facts, recoveries, tickStart.UnixMilli())
@@ -405,9 +392,6 @@ func (a *Aggregator) recomputeRollups(ctx context.Context, touchedMs []int64, ti
 	}
 	return a.store.UpsertRollups(ctx, covered)
 }
-
-// rollupFactLimit bounds one recompute read; matches the store's max query limit.
-const rollupFactLimit = 10000
 
 func parseEntryTime(value string) (int64, error) {
 	t, err := time.Parse(time.RFC3339Nano, value)
