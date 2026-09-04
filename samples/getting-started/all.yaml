@@ -1071,7 +1071,9 @@ metadata:
   annotations:
     openchoreo.dev/description: >-
       In-cluster PostgreSQL database backed by a single-replica StatefulSet.
-      Ephemeral storage (emptyDir); for demonstration purposes only.
+      Storage defaults to ephemeral (emptyDir), for demonstration purposes
+      only; set environmentConfigs.persistenceEnabled to back it with a PVC
+      instead.
 spec:
   parameters:
     openAPIV3Schema:
@@ -1080,6 +1082,13 @@ spec:
         database:
           type: string
           default: appdb
+        initSQL:
+          type: string
+          default: ""
+          description: >-
+            SQL run once at initdb, on first boot when the data directory
+            is empty. Changing this after the database has already
+            initialized has no effect.
 
   environmentConfigs:
     openAPIV3Schema:
@@ -1091,6 +1100,24 @@ spec:
         adminEnabled:
           type: boolean
           default: false
+        persistenceEnabled:
+          type: boolean
+          default: false
+          description: >-
+            Back the data volume with a PVC (via volumeClaimTemplates)
+            instead of emptyDir. The PVC survives pod recreation (e.g. a
+            StatefulSet rolling update triggered by changing `memory`), so
+            data is not lost when the pod restarts or is rescheduled.
+        storageSize:
+          type: string
+          default: 1Gi
+          description: Only used when persistenceEnabled is true.
+        storageClassName:
+          type: string
+          default: ""
+          description: >-
+            Only used when persistenceEnabled is true. Empty string uses the
+            cluster's default StorageClass.
 
   retainPolicy: Delete
 
@@ -1175,6 +1202,8 @@ spec:
               CREATE USER "$APPUSER" WITH PASSWORD '$APPUSER_PASSWORD';
               GRANT ALL ON DATABASE "$POSTGRES_DB" TO "$APPUSER";
               GRANT ALL ON SCHEMA public TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "$APPUSER";
             EOSQL
           02-create-demo-user.sh: |
             #!/bin/bash
@@ -1182,6 +1211,12 @@ spec:
             psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
               CREATE USER demo WITH SUPERUSER PASSWORD 'demo';
             EOSQL
+          # Optional app schema, supplied via parameters.initSQL. Runs after the
+          # app user exists (03, alphabetical) so it's a no-op when unset — the
+          # 01 script's ALTER DEFAULT PRIVILEGES above covers tables created
+          # here even though they're owned by the postgres superuser.
+          03-app-schema.sql: |
+            ${parameters.initSQL}
 
     # Postgres superuser password: generated on the data plane by ESO and
     # never written to the control plane. Used by initdb and by the init
@@ -1303,6 +1338,27 @@ spec:
           selector:
             matchLabels:
               app: ${metadata.name}
+          # Only present when persistenceEnabled is true. A StatefulSet's
+          # volumeClaimTemplates-backed PVCs survive pod recreation (e.g. a
+          # rolling update triggered by changing `memory`), unlike emptyDir.
+          # volumeClaimTemplates is immutable after StatefulSet creation, so
+          # persistenceEnabled effectively only takes effect at create time —
+          # toggling it afterward will fail to apply.
+          volumeClaimTemplates: |
+            ${environmentConfigs.persistenceEnabled
+              ? [{"metadata": {"name": "data"},
+                  "spec": {"accessModes": ["ReadWriteOnce"],
+                           "resources": {"requests": {"storage": environmentConfigs.storageSize}},
+                           "storageClassName": environmentConfigs.storageClassName != ""
+                             ? environmentConfigs.storageClassName
+                             : oc_omit()}}]
+              : oc_omit()}
+          # Delete the PVC when the StatefulSet itself is torn down (Resource
+          # deleted), but keep it across ordinary pod restarts/rolling updates.
+          persistentVolumeClaimRetentionPolicy: |
+            ${environmentConfigs.persistenceEnabled
+              ? {"whenDeleted": "Delete", "whenScaled": "Retain"}
+              : oc_omit()}
           template:
             metadata:
               labels:
@@ -1348,8 +1404,12 @@ spec:
                     - name: init-scripts
                       mountPath: /docker-entrypoint-initdb.d
               volumes:
-                - name: data
-                  emptyDir: {}
+                # Omitted when persistenceEnabled is true — the "data" volume
+                # is supplied by volumeClaimTemplates above instead.
+                - |
+                  ${environmentConfigs.persistenceEnabled
+                    ? oc_omit()
+                    : {"name": "data", "emptyDir": {}}}
                 - name: init-scripts
                   configMap:
                     name: ${metadata.name}-init
