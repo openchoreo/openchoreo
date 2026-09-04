@@ -18,7 +18,9 @@ GO_BUILD_BINARIES := \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
 	event-forwarder:$(PROJECT_DIR)/cmd/event-forwarder/main.go \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway \
-	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent \
+	remote-agent:$(PROJECT_DIR)/cmd/remote-agent \
+	remote-agent-router:$(PROJECT_DIR)/cmd/remote-agent-router
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
 
@@ -196,10 +198,22 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-server.yaml openapi/observer-api.yaml
 	@$(call log, "Generating Observer OpenAPI client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-client.yaml openapi/observer-api.yaml
+	@$(call log, "Generating Observer Internal OpenAPI server interface")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-internal-server.yaml openapi/observer-internal-api.yaml
 	@$(call log, "Generating Observer Logs Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-logs-adapter-client.yaml openapi/observability-logs-adapter-api.yaml
 	@$(call log, "Generating Observer FinOps Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-finops-adapter-client.yaml openapi/finops-adapter-api.yaml
+
+.PHONY: audit-gen
+audit-gen: openapi-codegen ## Regenerate the audit definitions table from the OpenAPI spec.
+	@$(call log, "Generating audit operation definitions")
+	go run ./tools/auditgen
+
+.PHONY: audit-coverage-matrix
+audit-coverage-matrix: ## Regenerate docs/audit/coverage-matrix.md — reporting only, not part of code.gen.
+	@$(call log, "Generating audit coverage matrix")
+	go run ./tools/auditcoverage
 
 .PHONY: mockery-gen
 mockery-gen: mockery ## Regenerate mockery mocks.

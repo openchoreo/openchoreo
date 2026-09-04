@@ -89,7 +89,7 @@ func (h *MCPHandler) CreateProject(
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(created.UID), Name: created.Name})
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -133,7 +133,7 @@ func (h *MCPHandler) UpdateProject(
 			namespaceName, projectName, deploymentPipeline, err,
 		)
 	}
-	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(updated.UID), Name: updated.Name})
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated", map[string]any{
 		"deploymentPipelineRef": updated.Spec.DeploymentPipelineRef.Name,
 	}), nil

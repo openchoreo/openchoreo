@@ -60,6 +60,7 @@ func (h *MCPHandler) CreateProjectReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -99,6 +100,7 @@ func (h *MCPHandler) UpdateProjectReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

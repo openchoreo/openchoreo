@@ -25,7 +25,32 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
+
+// responseWriterUnwrapper is implemented by a ResponseWriter wrapper that
+// exposes the writer it wraps — the same interface http.ResponseController
+// looks for (net/http.rwUnwrapper), duplicated here since it's unexported.
+type responseWriterUnwrapper interface {
+	Unwrap() http.ResponseWriter
+}
+
+// findFlusher walks w's Unwrap() chain looking for an http.Flusher, without
+// invoking it — the same lookup http.ResponseController performs internally
+// for Flush(), exposed here as a pure capability check so callers can fail
+// fast before writing any response header.
+func findFlusher(w http.ResponseWriter) (http.Flusher, bool) {
+	for {
+		if f, ok := w.(http.Flusher); ok {
+			return f, true
+		}
+		u, ok := w.(responseWriterUnwrapper)
+		if !ok {
+			return nil, false
+		}
+		w = u.Unwrap()
+	}
+}
 
 // RFC1123 DNS label (the k8s name form accepted by the gateway).
 var wirelogsNameRE = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
@@ -108,6 +133,11 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The middleware's pre-handler seed can't fill resource.namespace for
+	// this route (its path parameter isn't "namespaceName"), so set it here
+	// — after validation, so a malformed value never reaches the record.
+	audit.SetResource(r.Context(), &audit.Resource{Namespace: namespace, Name: environment})
+
 	ctx := r.Context()
 	logger := h.logger.With(
 		"namespace", namespace,
@@ -164,17 +194,18 @@ func (h *WirelogsHandler) proxyWirelogsStream(ctx context.Context, w http.Respon
 
 	logger = logger.With("planeType", plane.planeType, "planeID", plane.planeID)
 
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := findFlusher(w)
 	if !ok {
 		logger.Error("ResponseWriter does not support flushing; cannot stream SSE")
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
+	rc := http.NewResponseController(w)
 	// The http.Server's WriteTimeout is an absolute deadline from when request
 	// headers are read; for a long-lived SSE stream it would kill the connection
 	// after that deadline regardless of activity. Hence, clear the deadline on this connection only
 	// Other endpoints keep the server's default protection.
-	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil {
+	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
 		logger.Warn("Failed to disable write deadline for SSE stream", "error", err)
 	}
 

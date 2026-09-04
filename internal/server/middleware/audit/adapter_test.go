@@ -7,13 +7,15 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestRequestIDFromHeader(t *testing.T) {
 	h := http.Header{}
-	h.Set("X-Request-ID", "req-123")
-	if got := RequestIDFromHeader(h); got != "req-123" {
-		t.Errorf("RequestIDFromHeader(with header) = %q, want req-123", got)
+	h.Set("X-Request-ID", "018f1e4a-6b3a-7c3a-8b3a-6b3a7c3a8b3a")
+	if got := RequestIDFromHeader(h); got != "018f1e4a-6b3a-7c3a-8b3a-6b3a7c3a8b3a" {
+		t.Errorf("RequestIDFromHeader(valid UUID) = %q, want the header value unchanged", got)
 	}
 
 	if got := RequestIDFromHeader(http.Header{}); got == "" {
@@ -21,20 +23,54 @@ func TestRequestIDFromHeader(t *testing.T) {
 	}
 }
 
-// TestRequestIDFromHeader_BoundsOversizedValue guards against a client
-// inflating every audit record for its request by sending an oversized
-// X-Request-ID — the value is attacker-controlled and reaches Event.RequestID
-// verbatim otherwise.
-func TestRequestIDFromHeader_BoundsOversizedValue(t *testing.T) {
+// TestRequestIDFromHeader_RejectsNonUUID guards that a client-chosen value
+// which doesn't parse as a UUID must not reach Event.RequestID verbatim —
+// it's replaced with a generated UUID and counted via RequestIDRejections.
+func TestRequestIDFromHeader_RejectsNonUUID(t *testing.T) {
+	before := RequestIDRejections()
+
 	h := http.Header{}
-	h.Set("X-Request-ID", strings.Repeat("a", maxRequestIDLen+1))
+	h.Set("X-Request-ID", "req-123")
 
 	got := RequestIDFromHeader(h)
-	if len(got) > maxRequestIDLen {
-		t.Errorf("RequestIDFromHeader(oversized) = %q (len %d), want a generated value within maxRequestIDLen", got, len(got))
+	if got == "req-123" {
+		t.Error("RequestIDFromHeader(non-UUID) returned the client value verbatim, want a generated UUID")
 	}
-	if got == strings.Repeat("a", maxRequestIDLen+1) {
+	if _, err := uuid.Parse(got); err != nil {
+		t.Errorf("RequestIDFromHeader(non-UUID) = %q, want a valid generated UUID: %v", got, err)
+	}
+
+	if after := RequestIDRejections(); after != before+1 {
+		t.Errorf("RequestIDRejections() = %d, want %d (exactly one new rejection)", after, before+1)
+	}
+}
+
+// TestRequestIDFromHeader_BoundsOversizedValue guards against a client
+// inflating every audit record for its request by sending an oversized
+// X-Request-ID — an oversized value can never parse as a UUID, so it's
+// rejected the same way any other malformed value is.
+func TestRequestIDFromHeader_BoundsOversizedValue(t *testing.T) {
+	h := http.Header{}
+	oversized := strings.Repeat("a", 129)
+	h.Set("X-Request-ID", oversized)
+
+	got := RequestIDFromHeader(h)
+	if got == oversized {
 		t.Error("RequestIDFromHeader(oversized) returned the oversized value verbatim, want a generated UUID")
+	}
+	if _, err := uuid.Parse(got); err != nil {
+		t.Errorf("RequestIDFromHeader(oversized) = %q, want a valid generated UUID: %v", got, err)
+	}
+}
+
+// TestRequestIDFromHeader_AbsentHeaderDoesNotCountAsRejection guards against
+// over-counting: a client that sends no X-Request-ID at all hasn't sent a
+// malformed one, so RequestIDRejections must not increment for it.
+func TestRequestIDFromHeader_AbsentHeaderDoesNotCountAsRejection(t *testing.T) {
+	before := RequestIDRejections()
+	RequestIDFromHeader(http.Header{})
+	if after := RequestIDRejections(); after != before {
+		t.Errorf("RequestIDRejections() = %d, want unchanged at %d for an absent header", after, before)
 	}
 }
 

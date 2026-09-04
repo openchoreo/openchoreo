@@ -22,10 +22,12 @@ import (
 // match r.Pattern and audit silently stops for that service (not a wrong
 // record) until a baseURL parameter is added back here.
 //
-// Returns an error if an operationId has no match in the spec, if two
-// operations collide on the same pattern, or if an operation's
-// RESTResourceParam names a path parameter the resolved pattern doesn't
-// have — never silently skips.
+// An operation with NotInOpenAPISpec set is skipped entirely — its route
+// isn't in the spec to look up, by design, and its caller owns its own
+// pattern-map entry. Every other operation is cross-referenced: returns an
+// error if its operationId has no match in the spec, if two operations
+// collide on the same pattern, or if its RESTResourceParam names a path
+// parameter the resolved pattern doesn't have.
 func BuildPatternMap(ops []Operation, swagger *openapi3.T) (map[string]*Operation, error) {
 	byOperationID := make(map[string]string, len(swagger.Paths.InMatchingOrder())*4)
 	for _, path := range swagger.Paths.InMatchingOrder() {
@@ -41,6 +43,9 @@ func BuildPatternMap(ops []Operation, swagger *openapi3.T) (map[string]*Operatio
 	result := make(map[string]*Operation, len(ops))
 	for i := range ops {
 		op := &ops[i]
+		if op.NotInOpenAPISpec {
+			continue
+		}
 		pattern, ok := byOperationID[op.ID]
 		if !ok {
 			return nil, fmt.Errorf("audit: operationId %q has no matching route in the OpenAPI spec", op.ID)

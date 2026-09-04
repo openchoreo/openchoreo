@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workflowplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowplane"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListWorkflowPlanes returns a paginated list of workflow planes within a namespace.
@@ -103,6 +104,8 @@ func (h *Handler) CreateWorkflowPlane(
 		return gen.CreateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genBP, err := convert[openchoreov1alpha1.WorkflowPlane, gen.WorkflowPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow plane", "error", err)
@@ -149,6 +152,8 @@ func (h *Handler) UpdateWorkflowPlane(
 		h.logger.Error("Failed to update workflow plane", "error", err)
 		return gen.UpdateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genBP, err := convert[openchoreov1alpha1.WorkflowPlane, gen.WorkflowPlane](*updated)
 	if err != nil {

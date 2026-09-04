@@ -9,6 +9,7 @@ ALL_GO_FILES := $(shell \
 		! -path './internal/openchoreo-api/api/gen/*' \
 		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
 		! -path './internal/observer/api/gen/*' \
+		! -path './internal/observer/api/internalgen/*' \
 		! -path './internal/observer/api/logsadapterclientgen/*' \
 		! -path './internal/observer/api/finopsadapterclientgen/*' \
 		! -path './samples/*' \
@@ -157,7 +158,7 @@ workflow-templates-gen: ## Generate samples/getting-started/workflow-templates.y
 	@echo "✓ Generated $(GETTING_STARTED_DIR)/workflow-templates.yaml"
 
 .PHONY: code.gen
-code.gen: manifests generate openapi-codegen go.mod.lint helm-generate samples-gen workflow-templates-gen mockery-gen ## Generate code and fix the code with linter
+code.gen: manifests generate openapi-codegen go.mod.lint helm-generate samples-gen workflow-templates-gen mockery-gen audit-gen ## Generate code and fix the code with linter
 
 .PHONY: code.gen-check
 code.gen-check: code.gen ## Verify the clean Git status after code generation

@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListObservabilityAlertsNotificationChannels returns a paginated list of observability alerts notification channels within a namespace.
@@ -77,6 +78,8 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to create observability alerts notification channel", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*created)
 	if err != nil {
@@ -152,6 +155,8 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to update observability alerts notification channel", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*updated)
 	if err != nil {

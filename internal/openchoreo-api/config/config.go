@@ -29,6 +29,8 @@ type Config struct {
 	ClusterGateway ClusterGatewayConfig `koanf:"cluster_gateway"`
 	// Audit defines audit logging settings.
 	Audit AuditConfig `koanf:"audit"`
+	// RemoteConnect defines the `occ remote` resolve endpoint settings.
+	RemoteConnect RemoteConnectConfig `koanf:"remote_connect"`
 }
 
 // Defaults returns the default configuration.
@@ -42,6 +44,7 @@ func Defaults() Config {
 		Logging:          LoggingDefaults(),
 		ClusterGateway:   ClusterGatewayDefaults(),
 		Audit:            AuditDefaults(),
+		RemoteConnect:    RemoteConnectDefaults(),
 	}
 }
 
@@ -97,6 +100,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
 	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
 	errs = append(errs, c.Audit.Validate(coreconfig.NewPath("audit"), c.Security.KnownActorTypes())...)
+	errs = append(errs, c.RemoteConnect.Validate(coreconfig.NewPath("remote_connect"))...)
 
 	return errs.OrNil()
 }

@@ -1,0 +1,36 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating the Observer *internal* API server
+# interface and embedded spec, served on INTERNAL_PORT (default 8081).
+#
+# A separate config rather than a second spec on cfg-server.yaml: the two specs
+# must land in different Go packages, since each emits ServerInterface,
+# HandlerWithOptions, GetSwagger and friends.
+#
+# `models: true` is bundled in here because internalgen generates a server and
+# nothing else; a package with several generated artifacts needs its own
+# cfg-models.yaml so models are generated exactly once per package.
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: internalgen
+output: internal/observer/api/internalgen/server.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true
+
+# oapi-codegen otherwise prefixes enum constants only on collision, which would
+# leave AlertWebhookResponseStatus emitting bare `Success` and `Error` — generic
+# exported names that a later enum with the same value would silently rename.
+compatibility:
+  always-prefix-enum-values: true
+
+# Points the internal spec's external $refs at the existing gen package, so the
+# shared schemas are not regenerated here. The key must match the $ref string
+# literally, including the leading "./".
+import-mapping:
+  ./observer-api.yaml: github.com/openchoreo/openchoreo/internal/observer/api/gen

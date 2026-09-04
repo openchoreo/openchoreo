@@ -20,7 +20,7 @@ import (
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
@@ -94,7 +94,7 @@ func NewAlertService(
 
 // CreateAlertRule creates a new alert rule via the configured adapter.
 // Returns an error wrapping ErrAlertRuleAlreadyExists if the rule already exists.
-func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) CreateAlertRule(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	if err := validateAlertDurations(req.Condition.Interval, req.Condition.Window); err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 		}
-		budgetMetric := gen.AlertRuleRequestSourceMetricBudget
+		budgetMetric := internalgen.AlertRuleRequestSourceMetricBudget
 		req.Source.Metric = &budgetMetric
 		return s.createMetricAlertRuleViaAdapter(ctx, req)
 	default:
@@ -130,7 +130,7 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 // GetAlertRule fetches an alert rule via the configured adapter.
 // sourceType must be "log", "metric", or "budget".
 // Returns an error wrapping ErrAlertRuleNotFound if the rule does not exist.
-func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertRuleResponse, error) {
+func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
 		if s.logsAdapter == nil {
@@ -154,7 +154,7 @@ func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType st
 
 // UpdateAlertRule updates an existing alert rule via the configured adapter.
 // Returns an error wrapping ErrAlertRuleNotFound if the rule does not exist.
-func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	if err := validateAlertDurations(req.Condition.Interval, req.Condition.Window); err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 		}
-		budgetMetric := gen.AlertRuleRequestSourceMetricBudget
+		budgetMetric := internalgen.AlertRuleRequestSourceMetricBudget
 		req.Source.Metric = &budgetMetric
 		return s.updateMetricAlertRuleViaAdapter(ctx, ruleName, req)
 	default:
@@ -190,7 +190,7 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 // DeleteAlertRule deletes an alert rule via the configured adapter.
 // sourceType must be "log", "metric", or "budget".
 // Returns ErrAlertRuleNotFound if the rule does not exist.
-func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
 		if s.logsAdapter == nil {
@@ -215,7 +215,7 @@ func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType
 // HandleAlertWebhook processes an incoming alert webhook in the normalized v1alpha1 format.
 // It fetches the ObservabilityAlertRule CR, enriches alert details, stores the alert entry,
 // sends a notification, and optionally triggers AI RCA analysis.
-func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error) {
+func (s *AlertService) HandleAlertWebhook(ctx context.Context, req internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error) {
 	ruleName, ruleNamespace, err := s.validateWebhookRequest(req)
 	if err != nil {
 		return nil, err
@@ -243,16 +243,16 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 
 	s.triggerBackgroundTasks(alertID, alertDetails, alertRule)
 
-	successStatus := gen.AlertWebhookResponseStatusSuccess
+	successStatus := internalgen.AlertWebhookResponseStatusSuccess
 	msg := fmt.Sprintf("alert acknowledged, alertID: %s", alertID)
-	return &gen.AlertWebhookResponse{
+	return &internalgen.AlertWebhookResponse{
 		Status:  &successStatus,
 		Message: &msg,
 	}, nil
 }
 
 // validateWebhookRequest validates the required fields in the webhook request.
-func (s *AlertService) validateWebhookRequest(req gen.AlertWebhookRequest) (string, string, error) {
+func (s *AlertService) validateWebhookRequest(req internalgen.AlertWebhookRequest) (string, string, error) {
 	ruleName := stringPtrVal(req.RuleName)
 	ruleNamespace := stringPtrVal(req.RuleNamespace)
 	if ruleName == "" {
@@ -283,7 +283,7 @@ func (s *AlertService) fetchAlertRule(ctx context.Context, ruleName, ruleNamespa
 }
 
 // checkAlertSuppression checks if the alert should be suppressed based on the suppression window.
-func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, ruleNamespace string, alertRule *choreoapis.ObservabilityAlertRule) (bool, *gen.AlertWebhookResponse) {
+func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, ruleNamespace string, alertRule *choreoapis.ObservabilityAlertRule) (bool, *internalgen.AlertWebhookResponse) {
 	if s.config.Alerting.AlertSuppressionWindow <= 0 {
 		return false, nil
 	}
@@ -306,9 +306,9 @@ func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, rule
 		s.logger.Info("Alert suppressed (duplicate within suppression window)",
 			"ruleName", ruleName, "ruleNamespace", ruleNamespace,
 			"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
-		suppressedStatus := gen.AlertWebhookResponseStatusSuccess
+		suppressedStatus := internalgen.AlertWebhookResponseStatusSuccess
 		msg := "alert suppressed: duplicate within suppression window"
-		return true, &gen.AlertWebhookResponse{
+		return true, &internalgen.AlertWebhookResponse{
 			Status:  &suppressedStatus,
 			Message: &msg,
 		}
@@ -318,7 +318,7 @@ func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, rule
 }
 
 // buildAlertDetails enriches alert details from the webhook request and alert rule CR.
-func (s *AlertService) buildAlertDetails(req gen.AlertWebhookRequest, alertRule *choreoapis.ObservabilityAlertRule) *legacytypes.AlertDetails {
+func (s *AlertService) buildAlertDetails(req internalgen.AlertWebhookRequest, alertRule *choreoapis.ObservabilityAlertRule) *legacytypes.AlertDetails {
 	var alertValue string
 	if req.AlertValue != nil {
 		alertValue = strconv.FormatFloat(float64(*req.AlertValue), 'f', -1, 64)
@@ -673,7 +673,7 @@ var ErrAlertRuleNotFound = errors.New("alert rule not found")
 var ErrAlertRuleAlreadyExists = errors.New("alert rule already exists")
 
 // genRequestToLegacyRequest converts the generated API type to the legacy type used by the adapter clients.
-func genRequestToLegacyRequest(req gen.AlertRuleRequest) legacytypes.AlertingRuleRequest {
+func genRequestToLegacyRequest(req internalgen.AlertRuleRequest) legacytypes.AlertingRuleRequest {
 	meta := legacytypes.AlertingRuleMetadata{
 		Name:           req.Metadata.Name,
 		Namespace:      req.Metadata.Namespace,
@@ -746,7 +746,7 @@ func validateMinutesHoursDuration(value, fieldName string) error {
 
 // ---- Utility helpers ----
 
-func sourceTypeFromRequest(req gen.AlertRuleRequest) (string, error) {
+func sourceTypeFromRequest(req internalgen.AlertRuleRequest) (string, error) {
 	sourceType := string(req.Source.Type)
 	if sourceType == "" {
 		return "", fmt.Errorf("source.type is required")
@@ -761,11 +761,11 @@ func stringPtrVal(s *string) string {
 	return *s
 }
 
-func buildSyncResponse(action, logicalID, backendID string, lastSynced time.Time) *gen.AlertingRuleSyncResponse {
+func buildSyncResponse(action, logicalID, backendID string, lastSynced time.Time) *internalgen.AlertingRuleSyncResponse {
 	lastSyncedStr := lastSynced.Format(time.RFC3339)
-	status := gen.AlertingRuleSyncResponseStatus(alertStatusSynced)
-	act := gen.AlertingRuleSyncResponseAction(action)
-	return &gen.AlertingRuleSyncResponse{
+	status := internalgen.AlertingRuleSyncResponseStatus(alertStatusSynced)
+	act := internalgen.AlertingRuleSyncResponseAction(action)
+	return &internalgen.AlertingRuleSyncResponse{
 		Status:        &status,
 		Action:        &act,
 		RuleLogicalId: &logicalID,

@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 )
 
 const (
@@ -28,15 +28,15 @@ func TestAlertService_MetricsAdapter_CreateAlertRule(t *testing.T) {
 	t.Parallel()
 
 	ruleName := testMetricRuleName
-	metricName := gen.AlertRuleRequestSourceMetric("cpu_usage")
+	metricName := internalgen.AlertRuleRequestSourceMetric("cpu_usage")
 
-	metricAlertReq := gen.AlertRuleRequest{
+	metricAlertReq := internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type:   gen.AlertRuleRequestSourceTypeMetric,
+			Type:   internalgen.AlertRuleRequestSourceTypeMetric,
 			Metric: &metricName,
 		},
 		//nolint:revive,staticcheck // field names match generated code
@@ -51,15 +51,15 @@ func TestAlertService_MetricsAdapter_CreateAlertRule(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{
 			Enabled:   true,
 			Interval:  "1m",
-			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Operator:  internalgen.AlertRuleRequestConditionOperatorGt,
 			Threshold: float32(10),
 			Window:    "5m",
 		},
@@ -69,7 +69,7 @@ func TestAlertService_MetricsAdapter_CreateAlertRule(t *testing.T) {
 		t.Parallel()
 
 		var adapterCalled atomic.Bool
-		var capturedRequest gen.AlertRuleRequest
+		var capturedRequest internalgen.AlertRuleRequest
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			adapterCalled.Store(true)
@@ -88,9 +88,9 @@ func TestAlertService_MetricsAdapter_CreateAlertRule(t *testing.T) {
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			status := gen.AlertingRuleSyncResponseStatus("synced")
-			action := gen.AlertingRuleSyncResponseAction("created")
-			syncResp := gen.AlertingRuleSyncResponse{
+			status := internalgen.AlertingRuleSyncResponseStatus("synced")
+			action := internalgen.AlertingRuleSyncResponseAction("created")
+			syncResp := internalgen.AlertingRuleSyncResponse{
 				Status:        &status,
 				Action:        &action,
 				RuleLogicalId: &ruleName,
@@ -155,7 +155,7 @@ func TestAlertService_MetricsAdapter_GetAlertRule(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			//nolint:revive,staticcheck // field names match generated code
-			ruleResp := gen.AlertRuleResponse{
+			ruleResp := internalgen.AlertRuleResponse{
 				Metadata: &struct {
 					ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
 					EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
@@ -207,15 +207,15 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 	t.Parallel()
 
 	ruleName := testMetricRuleName
-	metricName := gen.AlertRuleRequestSourceMetric("cpu_usage")
+	metricName := internalgen.AlertRuleRequestSourceMetric("cpu_usage")
 
-	metricAlertReq := gen.AlertRuleRequest{
+	metricAlertReq := internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type:   gen.AlertRuleRequestSourceTypeMetric,
+			Type:   internalgen.AlertRuleRequestSourceTypeMetric,
 			Metric: &metricName,
 		},
 		//nolint:revive,staticcheck // field names match generated code
@@ -230,15 +230,15 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{
 			Enabled:   true,
 			Interval:  "1m",
-			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Operator:  internalgen.AlertRuleRequestConditionOperatorGt,
 			Threshold: float32(20),
 			Window:    "5m",
 		},
@@ -248,7 +248,7 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 		t.Parallel()
 
 		var adapterCalled atomic.Bool
-		var capturedRequest gen.AlertRuleRequest
+		var capturedRequest internalgen.AlertRuleRequest
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			adapterCalled.Store(true)
@@ -267,9 +267,9 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			status := gen.AlertingRuleSyncResponseStatus("synced")
-			action := gen.AlertingRuleSyncResponseAction("updated")
-			syncResp := gen.AlertingRuleSyncResponse{
+			status := internalgen.AlertingRuleSyncResponseStatus("synced")
+			action := internalgen.AlertingRuleSyncResponseAction("updated")
+			syncResp := internalgen.AlertingRuleSyncResponse{
 				Status:        &status,
 				Action:        &action,
 				RuleLogicalId: &ruleName,
@@ -329,9 +329,9 @@ func TestAlertService_MetricsAdapter_DeleteAlertRule(t *testing.T) {
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			status := gen.AlertingRuleSyncResponseStatus("synced")
-			action := gen.AlertingRuleSyncResponseAction("deleted")
-			syncResp := gen.AlertingRuleSyncResponse{
+			status := internalgen.AlertingRuleSyncResponseStatus("synced")
+			action := internalgen.AlertingRuleSyncResponseAction("deleted")
+			syncResp := internalgen.AlertingRuleSyncResponse{
 				Status:        &status,
 				Action:        &action,
 				RuleLogicalId: &ruleName,

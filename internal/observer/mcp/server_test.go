@@ -145,7 +145,6 @@ type MockTracesQuerier struct {
 	spansRequests       []*types.TracesQueryRequest
 	spanDetailsTraceIDs []string
 	spanDetailsSpanIDs  []string
-	spanDetailsScopes   []types.ComponentSearchScope
 	tracesResponse      *types.TracesQueryResponse
 	spansResponse       *types.SpansQueryResponse
 	spanInfo            *types.SpanInfo
@@ -196,12 +195,9 @@ func (m *MockTracesQuerier) QuerySpans(_ context.Context, traceID string, req *t
 	return m.spansResponse, nil
 }
 
-func (m *MockTracesQuerier) QuerySpanDetails(_ context.Context, traceID string, spanID string,
-	scope types.ComponentSearchScope,
-) (*types.SpanInfo, error) {
+func (m *MockTracesQuerier) GetSpanDetails(_ context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
 	m.spanDetailsTraceIDs = append(m.spanDetailsTraceIDs, traceID)
 	m.spanDetailsSpanIDs = append(m.spanDetailsSpanIDs, spanID)
-	m.spanDetailsScopes = append(m.spanDetailsScopes, scope)
 	if m.spanDetailsErr != nil {
 		return nil, m.spanDetailsErr
 	}
@@ -227,7 +223,6 @@ func (m *MockTracesQuerier) reset() {
 	m.spansRequests = nil
 	m.spanDetailsTraceIDs = nil
 	m.spanDetailsSpanIDs = nil
-	m.spanDetailsScopes = nil
 }
 
 type MockAlertIncidentService struct {
@@ -731,29 +726,19 @@ var allToolSpecs = []toolTestSpec{
 		name:                "get_span_details",
 		descriptionKeywords: []string{"span"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"trace_id", "span_id", "namespace"},
-		optionalParams:      []string{"project", "component", "environment"},
+		requiredParams:      []string{"trace_id", "span_id"},
+		optionalParams:      []string{},
 		testArgs: map[string]any{
-			"trace_id":    testTraceID,
-			"span_id":     testSpanID,
-			"namespace":   testNamespace,
-			"project":     testProject,
-			"component":   testComponent,
-			"environment": testEnvironment,
+			"trace_id": testTraceID,
+			"span_id":  testSpanID,
 		},
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
-			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected QuerySpanDetails to be called")
-			require.NotEmpty(t, svcs.traces.spanDetailsSpanIDs, "Expected QuerySpanDetails to be called")
-			require.NotEmpty(t, svcs.traces.spanDetailsScopes, "Expected QuerySpanDetails scope to be recorded")
+			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected GetSpanDetails to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsSpanIDs, "Expected GetSpanDetails to be called")
 			lastIdx := len(svcs.traces.spanDetailsSpanIDs) - 1
 			assert.Equal(t, testTraceID, svcs.traces.spanDetailsTraceIDs[lastIdx])
 			assert.Equal(t, testSpanID, svcs.traces.spanDetailsSpanIDs[lastIdx])
-			scope := svcs.traces.spanDetailsScopes[lastIdx]
-			assert.Equal(t, testNamespace, scope.Namespace)
-			assert.Equal(t, testProject, scope.Project)
-			assert.Equal(t, testComponent, scope.Component)
-			assert.Equal(t, testEnvironment, scope.Environment)
 		},
 	},
 	{
@@ -1242,9 +1227,8 @@ func TestMinimalParameterSets(t *testing.T) {
 			name:     "get_span_details_minimal",
 			toolName: "get_span_details",
 			args: map[string]any{
-				"trace_id":  testTraceID,
-				"span_id":   testSpanID,
-				"namespace": testNamespace,
+				"trace_id": testTraceID,
+				"span_id":  testSpanID,
 			},
 		},
 		{
@@ -1400,9 +1384,8 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			name:     "span_details_service_error",
 			toolName: "get_span_details",
 			args: map[string]any{
-				"trace_id":  testTraceID,
-				"span_id":   testSpanID,
-				"namespace": testNamespace,
+				"trace_id": testTraceID,
+				"span_id":  testSpanID,
 			},
 			setupErr: func(s *testServices) { s.traces.spanDetailsErr = errors.New("span not found") },
 		},
@@ -1786,12 +1769,8 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"sort_order":  "string",
 		},
 		"get_span_details": {
-			"trace_id":    "string",
-			"span_id":     "string",
-			"namespace":   "string",
-			"project":     "string",
-			"component":   "string",
-			"environment": "string",
+			"trace_id": "string",
+			"span_id":  "string",
 		},
 	}
 

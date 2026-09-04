@@ -10,6 +10,10 @@ info:
     as well as logs from workflows.
     It integrates with separate observability modules to fetch the actual data via
     API calls to the adaptors provided by the modules.
+
+    This spec covers the observer's **public** API, served on the main server
+    port and reachable through the gateway. Every operation here requires a
+    Bearer token except `/health`.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -63,6 +67,28 @@ paths:
                   error:
                     type: string
                     example: "opensearch: connection failed"
+
+  /.well-known/oauth-protected-resource:
+    get:
+      tags:
+        - Operations
+      summary: Get OAuth protected resource metadata
+      description: |
+        Returns OAuth 2.0 protected resource metadata as defined in RFC 9728,
+        describing the observer's `/mcp` endpoint. MCP clients fetch this to
+        discover the authorization server and the scopes to request.
+
+        Public by specification: a client must be able to read this before it
+        has a token.
+      operationId: getOAuthProtectedResourceMetadata
+      security: []
+      responses:
+        "200":
+          description: OAuth protected resource metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthProtectedResourceMetadata"
 
   # Logs query endpoint
   /api/v1/logs/query:
@@ -509,12 +535,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1alpha1/traces/{traceId}/spans/{spanId}:
-    post:
+    get:
       tags:
         - Traces
       summary: Get details of a span for a trace
-      description: Get details of a span for a trace
-      operationId: querySpanDetailsForTrace
+      description: Get details of a span for a trace from the observer service
+      operationId: getSpanDetailsForTrace
       parameters:
         - name: traceId
           in: path
@@ -528,12 +554,6 @@ paths:
           description: The ID of the span
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TraceSpanDetailsRequest"
       responses:
         "200":
           description: Span details queried successfully
@@ -555,202 +575,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/sources/{sourceType}/rules:
-    parameters:
-      - name: sourceType
-        in: path
-        required: true
-        description: The source type of the alert rule (log, metric, or budget)
-        schema:
-          type: string
-          enum:
-            - log
-            - metric
-            - budget
-    post:
-      tags:
-        - Alerts
-      summary: Create alert rule
-      description: Create an alert rule in the observer service
-      operationId: createAlertRule
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertRuleRequest"
-      responses:
-        "201":
-          description: Alert rule created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Alert rule already exists
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}:
-    parameters:
-      - name: sourceType
-        in: path
-        required: true
-        description: The source type of the alert rule (log, metric, or budget)
-        schema:
-          type: string
-          enum:
-            - log
-            - metric
-            - budget
-      - name: ruleName
-        in: path
-        required: true
-        description: The name of the alert rule
-        schema:
-          type: string
-    get:
-      tags:
-        - Alerts
-      summary: Get alert rule
-      description: Get an alert rule in the observer service
-      operationId: getAlertRule
-      responses:
-        "200":
-          description: Alert rule retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertRuleResponse"
-        "404":
-          description: Alert rule not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    put:
-      tags:
-        - Alerts
-      summary: Update alert rule
-      description: Update an alert rule in the observer service
-      operationId: updateAlertRule
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertRuleRequest"
-      responses:
-        "200":
-          description: Alert rule updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      tags:
-        - Alerts
-      summary: Delete alert rule
-      description: Delete an alert rule in the observer service
-      operationId: deleteAlertRule
-      responses:
-        "200":
-          description: Alert rule deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "404":
-          description: Alert rule not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/webhook:
-    post:
-      security: []
-      tags:
-        - Alerts
-      summary: Handles triggered alerts from the alerting backend
-      description: Handles triggered alerts from the alerting backend
-      operationId: handleAlertWebhook
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertWebhookRequest"
-      responses:
-        "200":
-          description: Alert webhook handled successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertWebhookResponse"
-        "400":
-          description: Invalid request
           content:
             application/json:
               schema:
@@ -803,6 +627,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
           content:
             application/json:
               schema:
@@ -865,6 +695,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # Triggered alerts query endpoint
   /api/v1alpha1/alerts/query:
@@ -907,6 +743,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
           content:
             application/json:
               schema:
@@ -959,6 +801,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1alpha1/insights/dora/deployments/query:
     post:
@@ -1002,6 +850,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
           content:
             application/json:
               schema:
@@ -1137,8 +991,59 @@ components:
       required: [startTime, endTime, searchScope]
 
     # Response schemas for logs
-    ComponentLogEntry:
+    LogEntryMetadata:
       type: object
+      description: The metadata of the log entry
+      properties:
+        componentName:
+          type: string
+          description: The OpenChoreo component name that generated the log
+        projectName:
+          type: string
+          description: The OpenChoreo project name that generated the log
+        environmentName:
+          type: string
+          description: The OpenChoreo environment name that generated the log
+        namespaceName:
+          type: string
+          description: The OpenChoreo namespace name that generated the log
+        componentUid:
+          type: string
+          description: The OpenChoreo component UID that generated the log
+          format: uuid
+        projectUid:
+          type: string
+          description: The OpenChoreo project UID that generated the log
+          format: uuid
+        environmentUid:
+          type: string
+          description: The OpenChoreo environment UID that generated the log
+          format: uuid
+        containerName:
+          type: string
+          description: The container name that generated the log
+        podName:
+          type: string
+          description: The Kubernetes pod name that generated the log
+        podNamespace:
+          type: string
+          description: The namespace of the Kubernetes pod that generated the log
+
+    # One entry type for both component- and workflow-scoped queries, matching
+    # types.LogEntry, which already serves both paths.
+    #
+    # This is deliberately not a oneOf over separate component and workflow
+    # schemas. Which fields are populated depends on the request's searchScope,
+    # and a response schema cannot condition on the request: the payload carries
+    # no discriminator, so a oneOf would claim the arms are distinguishable from
+    # the response alone when they are not.
+    LogEntry:
+      type: object
+      description: >-
+        A single log entry. timestamp and log are always present. level and
+        metadata are present when the queried scope provides them — component
+        queries populate both; workflow queries currently populate neither.
+      required: [timestamp, log]
       properties:
         timestamp:
           type: string
@@ -1151,66 +1056,16 @@ components:
           type: string
           description: The log level
         metadata:
-          type: object
-          description: The metadata of the log entry
-          properties:
-            componentName:
-              type: string
-              description: The OpenChoreo component name that generated the log
-            projectName:
-              type: string
-              description: The OpenChoreo project name that generated the log
-            environmentName:
-              type: string
-              description: The OpenChoreo environment name that generated the log
-            namespaceName:
-              type: string
-              description: The OpenChoreo namespace name that generated the log
-            componentUid:
-              type: string
-              description: The OpenChoreo component UID that generated the log
-              format: uuid
-            projectUid:
-              type: string
-              description: The OpenChoreo project UID that generated the log
-              format: uuid
-            environmentUid:
-              type: string
-              description: The OpenChoreo environment UID that generated the log
-              format: uuid
-            containerName:
-              type: string
-              description: The container name that generated the log
-            podName:
-              type: string
-              description: The Kubernetes pod name that generated the log
-            podNamespace:
-              type: string
-              description: The namespace of the Kubernetes pod that generated the log
-
-    WorkflowLogEntry:
-      type: object
-      properties:
-        timestamp:
-          type: string
-          description: The timestamp of the log entry
-          format: date-time
-        log:
-          type: string
-          description: The log message
+          $ref: "#/components/schemas/LogEntryMetadata"
 
     LogsQueryResponse:
       type: object
       properties:
         logs:
-          oneOf:
-            - type: array
-              items:
-                $ref: "#/components/schemas/ComponentLogEntry"
-            - type: array
-              items:
-                $ref: "#/components/schemas/WorkflowLogEntry"
+          type: array
           description: The logs queried successfully
+          items:
+            $ref: "#/components/schemas/LogEntry"
         total:
           type: integer
           description: The total number of matching log entries, capped at 1000
@@ -1670,14 +1525,42 @@ components:
           default: false
       required: [startTime, endTime, searchScope]
 
-    TraceSpanDetailsRequest:
-      type: object
-      properties:
-        searchScope:
-          $ref: "#/components/schemas/ComponentSearchScope"
-      required: [searchScope]
-
     # Response schemas for traces
+    TraceInfo:
+      type: object
+      description: Summary of a single trace.
+      properties:
+        traceId:
+          type: string
+          description: The trace ID
+        traceName:
+          type: string
+          description: The name of the trace
+        spanCount:
+          type: integer
+          description: The number of spans in the trace
+        rootSpanId:
+          type: string
+        rootSpanName:
+          type: string
+        rootSpanKind:
+          type: string
+        startTime:
+          type: string
+          description: The start time of the trace
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the trace
+          format: date-time
+        durationNs:
+          type: integer
+          format: int64
+          description: The duration of the trace in nanoseconds
+        hasErrors:
+          type: boolean
+          description: Whether any span in the trace has an error status.
+
     TracesQueryResponse:
       type: object
       properties:
@@ -1685,38 +1568,7 @@ components:
           type: array
           description: The list of traces
           items:
-            type: object
-            properties:
-              traceId:
-                type: string
-                description: The trace ID
-              traceName:
-                type: string
-                description: The name of the trace
-              spanCount:
-                type: integer
-                description: The number of spans in the trace
-              rootSpanId:
-                type: string
-              rootSpanName:
-                type: string
-              rootSpanKind:
-                type: string
-              startTime:
-                type: string
-                description: The start time of the trace
-                format: date-time
-              endTime:
-                type: string
-                description: The end time of the trace
-                format: date-time
-              durationNs:
-                type: integer
-                format: int64
-                description: The duration of the trace in nanoseconds
-              hasErrors:
-                type: boolean
-                description: Whether any span in the trace has an error status.
+            $ref: "#/components/schemas/TraceInfo"
         total:
           type: integer
           description: The total number of matching traces, capped at 1000
@@ -1724,58 +1576,12 @@ components:
           type: integer
           description: The time taken to query the traces in milliseconds
 
-    TraceSpansQueryResponse:
+    # One span shape, referenced by both the span-list and span-detail responses.
+    # They were written out separately and had already drifted: the list copy
+    # described spanKind as "The name of the span".
+    SpanInfo:
       type: object
-      properties:
-        spans:
-          type: array
-          description: The list of spans
-          items:
-            type: object
-            properties:
-              spanId:
-                type: string
-                description: The span ID
-              spanName:
-                type: string
-                description: The name of the span
-              spanKind:
-                type: string
-                description: The name of the span
-              startTime:
-                type: string
-                description: The start time of the span
-                format: date-time
-              endTime:
-                type: string
-                description: The end time of the span
-                format: date-time
-              durationNs:
-                type: integer
-                format: int64
-                description: The duration of the span in nanoseconds
-              parentSpanId:
-                type: string
-                description: The parent span ID
-              status:
-                $ref: "#/components/schemas/SpanStatus"
-              attributes:
-                type: object
-                description: The span attributes
-                additionalProperties: true
-              resourceAttributes:
-                type: object
-                description: The resource attributes
-                additionalProperties: true
-        total:
-          type: integer
-          description: The total number of matching spans, capped at 1000
-        tookMs:
-          type: integer
-          description: The time taken to query the spans in milliseconds
-
-    TraceSpanDetailsResponse:
-      type: object
+      description: A single span within a trace.
       properties:
         spanId:
           type: string
@@ -1812,6 +1618,24 @@ components:
           description: The resource attributes
           additionalProperties: true
 
+    TraceSpansQueryResponse:
+      type: object
+      properties:
+        spans:
+          type: array
+          description: The list of spans
+          items:
+            $ref: "#/components/schemas/SpanInfo"
+        total:
+          type: integer
+          description: The total number of matching spans, capped at 1000
+        tookMs:
+          type: integer
+          description: The time taken to query the spans in milliseconds
+
+    TraceSpanDetailsResponse:
+      $ref: "#/components/schemas/SpanInfo"
+
     # OpenTelemetry span status (code + optional message)
     SpanStatus:
       type: object
@@ -1831,211 +1655,6 @@ components:
           description: >-
             Developer-facing human-readable status description. Typically set
             only when code is "error".
-
-    # Request schemas for alert rules
-    AlertRuleRequest:
-      type: object
-      required: [metadata, source, condition]
-      properties:
-        metadata:
-          type: object
-          required: [name, namespace, projectUid, environmentUid, componentUid]
-          properties:
-            name:
-              type: string
-              description: The name of the alert rule
-            namespace:
-              type: string
-              description: The namespace of the alert rule CR
-            projectUid:
-              type: string
-              description: The OpenChoreo project UID to query
-              format: uuid
-            environmentUid:
-              type: string
-              description: The OpenChoreo environment UID to query
-              format: uuid
-            componentUid:
-              type: string
-              description: The OpenChoreo component UID to query
-              format: uuid
-        source:
-          type: object
-          required: [type]
-          properties:
-            type:
-              type: string
-              description: The type of the source
-              enum:
-                - log
-                - metric
-                - budget
-            query:
-              type: string
-              description: The query to execute for log based alerts
-            metric:
-              type: string
-              description: The metric to query for metric based alerts
-              enum:
-                - cpu_usage
-                - memory_usage
-                - budget
-        condition:
-          type: object
-          required: [enabled, window, interval, operator, threshold]
-          properties:
-            enabled:
-              type: boolean
-              description: Whether the alert rule is enabled
-            window:
-              type: string
-              description: The window of time to query for the alert rule
-            interval:
-              type: string
-              description: The interval of time to query for the alert rule
-            operator:
-              type: string
-              description: The operator to use for the alert rule
-              enum:
-                - gt
-                - gte
-                - lt
-                - lte
-                - eq
-                - neq
-            threshold:
-              type: number
-              description: The threshold value to use for the alert rule
-
-    # Response schemas for alert rules
-    AlertRuleResponse:
-      type: object
-      properties:
-        metadata:
-          type: object
-          properties:
-            name:
-              type: string
-              description: The name of the alert rule
-            namespace:
-              type: string
-              description: The namespace of the alert rule CR
-            projectUid:
-              type: string
-              description: The OpenChoreo project UID to query
-              format: uuid
-            environmentUid:
-              type: string
-              description: The OpenChoreo environment UID to query
-              format: uuid
-            componentUid:
-              type: string
-              description: The OpenChoreo component UID to query
-              format: uuid
-        source:
-          type: object
-          properties:
-            type:
-              type: string
-              description: The type of the source
-              enum:
-                - log
-                - metric
-                - budget
-            query:
-              type: string
-              description: The query to execute for log based alerts
-            metric:
-              type: string
-              description: The metric to query for metric based alerts
-              enum:
-                - cpu_usage
-                - memory_usage
-                - budget
-        condition:
-          type: object
-          properties:
-            enabled:
-              type: boolean
-              description: Whether the alert rule is enabled
-            window:
-              type: string
-              description: The window of time to query for the alert rule
-            interval:
-              type: string
-              description: The interval of time to query for the alert rule
-            operator:
-              type: string
-              description: The operator to use for the alert rule
-              enum:
-                - gt
-                - gte
-                - lt
-                - lte
-                - eq
-                - neq
-            threshold:
-              type: number
-              description: The threshold value to use for the alert rule
-
-    AlertingRuleSyncResponse:
-      type: object
-      properties:
-        action:
-          type: string
-          description: The action taken on the alert rule
-          enum:
-            - created
-            - updated
-            - unchanged
-            - deleted
-        lastSyncedAt:
-          type: string
-          description: The timestamp of the last sync
-        status:
-          type: string
-          description: The status of the alert rule
-          enum:
-            - synced
-            - failed
-        ruleLogicalId:
-          type: string
-          description: The logical ID (name) of the alert rule
-        ruleBackendId:
-          type: string
-          description: The backend ID (UID from observability backend) of the alert rule
-
-    # Request schema for alert webhook
-    AlertWebhookRequest:
-      type: object
-      properties:
-        ruleName:
-          type: string
-          description: The name of the alert rule
-        ruleNamespace:
-          type: string
-          description: The namespace of the alert rule
-        alertValue:
-          type: number
-          description: The value of the alert
-        alertTimestamp:
-          type: string
-          description: The timestamp of the alert
-          format: date-time
-
-    # Response schema for alert webhook
-    AlertWebhookResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The message of the alert webhook
-        status:
-          type: string
-          description: The status of the alert webhook
-          enum:
-            - success
-            - error
 
     # Request schema for alerts query
     AlertsQueryRequest:
@@ -2066,6 +1685,135 @@ components:
           $ref: "#/components/schemas/ComponentSearchScope"
       required: [startTime, endTime, searchScope]
 
+    # The OpenChoreo resource an alert or incident belongs to. Referenced from
+    # AlertMetadata, Incident and IncidentPutResponse, which each carried their
+    # own copy of this object.
+    ResourceLabels:
+      type: object
+      properties:
+        componentName:
+          type: string
+          description: The name of the component
+        environmentName:
+          type: string
+          description: The name of the environment
+        projectName:
+          type: string
+          description: The name of the project
+        namespaceName:
+          type: string
+          description: The name of the namespace
+        componentUid:
+          type: string
+          description: The UID of the component
+          format: uuid
+        environmentUid:
+          type: string
+          description: The UID of the environment
+          format: uuid
+        projectUid:
+          type: string
+          description: The UID of the project
+          format: uuid
+
+    AlertRuleSource:
+      type: object
+      description: The source configuration of the alert rule
+      properties:
+        type:
+          type: string
+          description: The type of the alert source
+          enum:
+            - log
+            - metric
+            - budget
+        query:
+          type: string
+          description: The query used for log-based alerts
+        metric:
+          type: string
+          description: The metric used for metric-based alerts
+
+    AlertRuleCondition:
+      type: object
+      description: The condition configuration of the alert rule
+      properties:
+        operator:
+          type: string
+          description: The comparison operator used for evaluation
+          enum:
+            - gt
+            - lt
+            - gte
+            - lte
+            - eq
+            - neq
+        threshold:
+          type: number
+          description: The threshold value that triggers the alert
+        window:
+          type: string
+          description: The time window for aggregation (e.g. "5m", "1h")
+        interval:
+          type: string
+          description: The evaluation interval (e.g. "1m", "5m")
+
+    AlertRule:
+      type: object
+      description: The alert rule that produced the alert.
+      properties:
+        name:
+          type: string
+          description: The name of the alert rule
+        description:
+          type: string
+          description: The description of the alert rule
+        severity:
+          type: string
+          description: The severity of the alert rule
+          enum:
+            - info
+            - warning
+            - critical
+        source:
+          $ref: "#/components/schemas/AlertRuleSource"
+        condition:
+          $ref: "#/components/schemas/AlertRuleCondition"
+
+    AlertMetadata:
+      type: object
+      properties:
+        alertRule:
+          $ref: "#/components/schemas/AlertRule"
+        labels:
+          $ref: "#/components/schemas/ResourceLabels"
+
+    Alert:
+      type: object
+      description: A single fired alert.
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the alert
+          format: date-time
+        alertId:
+          type: string
+          description: The alert ID
+        alertValue:
+          type: string
+          description: The value of the alert
+        notificationChannels:
+          type: array
+          description: The notification channels of the alert. Empty if failed to notify.
+          items:
+            type: string
+            description: The name of the notification channel
+        incidentEnabled:
+          type: boolean
+          description: Whether the alert rule is configured to trigger incidents when fired
+        metadata:
+          $ref: "#/components/schemas/AlertMetadata"
+
     # Response schema for alerts query
     AlertsQueryResponse:
       type: object
@@ -2074,113 +1822,7 @@ components:
           type: array
           description: The list of alerts
           items:
-            type: object
-            properties:
-              timestamp:
-                type: string
-                description: The timestamp of the alert
-                format: date-time
-              alertId:
-                type: string
-                description: The alert ID
-              alertValue:
-                type: string
-                description: The value of the alert
-              notificationChannels:
-                type: array
-                description: The notification channels of the alert. Empty if failed to notify.
-                items:
-                  type: string
-                  description: The name of the notification channel
-              incidentEnabled:
-                type: boolean
-                description: Whether the alert rule is configured to trigger incidents when fired
-              metadata:
-                type: object
-                properties:
-                  alertRule:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                        description: The name of the alert rule
-                      description:
-                        type: string
-                        description: The description of the alert rule
-                      severity:
-                        type: string
-                        description: The severity of the alert rule
-                        enum:
-                          - info
-                          - warning
-                          - critical
-                      source:
-                        type: object
-                        description: The source configuration of the alert rule
-                        properties:
-                          type:
-                            type: string
-                            description: The type of the alert source
-                            enum:
-                              - log
-                              - metric
-                              - budget
-                          query:
-                            type: string
-                            description: The query used for log-based alerts
-                          metric:
-                            type: string
-                            description: The metric used for metric-based alerts
-                      condition:
-                        type: object
-                        description: The condition configuration of the alert rule
-                        properties:
-                          operator:
-                            type: string
-                            description: The comparison operator used for evaluation
-                            enum:
-                              - gt
-                              - lt
-                              - gte
-                              - lte
-                              - eq
-                              - neq
-                          threshold:
-                            type: number
-                            description: The threshold value that triggers the alert
-                          window:
-                            type: string
-                            description: The time window for aggregation (e.g. "5m", "1h")
-                          interval:
-                            type: string
-                            description: The evaluation interval (e.g. "1m", "5m")
-                  labels:
-                    type: object
-                    properties:
-                      componentName:
-                        type: string
-                        description: The name of the component
-                      environmentName:
-                        type: string
-                        description: The name of the environment
-                      projectName:
-                        type: string
-                        description: The name of the project
-                      namespaceName:
-                        type: string
-                        description: The name of the namespace
-                      componentUid:
-                        type: string
-                        description: The UID of the component
-                        format: uuid
-                      environmentUid:
-                        type: string
-                        description: The UID of the environment
-                        format: uuid
-                      projectUid:
-                        type: string
-                        description: The UID of the project
-                        format: uuid
+            $ref: "#/components/schemas/Alert"
         total:
           type: integer
           description: The total number of alerts
@@ -2218,6 +1860,62 @@ components:
       required: [startTime, endTime, searchScope]
 
     # Response schema for incidents query
+    # One enum shared by Incident, IncidentPutRequest and IncidentPutResponse,
+    # which each declared it inline. Constants generate unprefixed (gen.Active,
+    # gen.Acknowledged, gen.Resolved), as they do for every top-level enum here
+    # -- ErrorResponseTitle yields gen.BadRequest the same way. x-enum-varnames
+    # and x-enumNames are both ignored by oapi-codegen v2.5.1.
+    IncidentStatus:
+      type: string
+      description: The status of the incident
+      enum:
+        - active
+        - acknowledged
+        - resolved
+
+    Incident:
+      type: object
+      description: A single incident raised from a fired alert.
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the incident
+          format: date-time
+        alertId:
+          type: string
+          description: The ID of the alert that triggered the incident
+        incidentId:
+          type: string
+          description: The ID of the incident
+        incidentTriggerAiRca:
+          type: boolean
+          description: Whether AI RCA was triggered for the incident
+        incidentTriggerAiCostAnalysis:
+          type: boolean
+          description: Whether AI cost analysis was triggered for the incident
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        triggeredAt:
+          type: string
+          description: The timestamp when the incident was triggered
+          format: date-time
+        acknowledgedAt:
+          type: string
+          description: The timestamp when the incident was acknowledged
+          format: date-time
+        resolvedAt:
+          type: string
+          description: The timestamp when the incident was resolved
+          format: date-time
+        notes:
+          type: string
+          description: Notes associated with the incident
+        description:
+          type: string
+          description: The description of the incident
+        labels:
+          $ref: "#/components/schemas/ResourceLabels"
+
     IncidentsQueryResponse:
       type: object
       properties:
@@ -2225,76 +1923,7 @@ components:
           type: array
           description: The list of incidents
           items:
-            type: object
-            properties:
-              timestamp:
-                type: string
-                description: The timestamp of the incident
-                format: date-time
-              alertId:
-                type: string
-                description: The ID of the alert that triggered the incident
-              incidentId:
-                type: string
-                description: The ID of the incident
-              incidentTriggerAiRca:
-                type: boolean
-                description: Whether AI RCA was triggered for the incident
-              incidentTriggerAiCostAnalysis:
-                type: boolean
-                description: Whether AI cost analysis was triggered for the incident
-              status:
-                type: string
-                description: The status of the incident
-                enum:
-                  - active
-                  - acknowledged
-                  - resolved
-              triggeredAt:
-                type: string
-                description: The timestamp when the incident was triggered
-                format: date-time
-              acknowledgedAt:
-                type: string
-                description: The timestamp when the incident was acknowledged
-                format: date-time
-              resolvedAt:
-                type: string
-                description: The timestamp when the incident was resolved
-                format: date-time
-              notes:
-                type: string
-                description: Notes associated with the incident
-              description:
-                type: string
-                description: The description of the incident
-              labels:
-                type: object
-                properties:
-                  componentName:
-                    type: string
-                    description: The name of the component
-                  environmentName:
-                    type: string
-                    description: The name of the environment
-                  projectName:
-                    type: string
-                    description: The name of the project
-                  namespaceName:
-                    type: string
-                    description: The name of the namespace
-                  componentUid:
-                    type: string
-                    description: The UID of the component
-                    format: uuid
-                  environmentUid:
-                    type: string
-                    description: The UID of the environment
-                    format: uuid
-                  projectUid:
-                    type: string
-                    description: The UID of the project
-                    format: uuid
+            $ref: "#/components/schemas/Incident"
         total:
           type: integer
           description: The total number of incidents
@@ -2307,12 +1936,7 @@ components:
       type: object
       properties:
         status:
-          type: string
-          description: The status of the incident
-          enum:
-            - active
-            - acknowledged
-            - resolved
+          $ref: "#/components/schemas/IncidentStatus"
         notes:
           type: string
           description: Notes associated with the incident
@@ -2332,12 +1956,7 @@ components:
           type: string
           description: The ID of the alert that triggered the incident
         status:
-          type: string
-          description: The status of the incident
-          enum:
-            - active
-            - acknowledged
-            - resolved
+          $ref: "#/components/schemas/IncidentStatus"
         triggeredAt:
           type: string
           description: The timestamp when the incident was triggered
@@ -2363,32 +1982,7 @@ components:
           type: boolean
           description: Whether AI cost analysis was triggered for the incident
         labels:
-          type: object
-          properties:
-            componentName:
-              type: string
-              description: The name of the component
-            environmentName:
-              type: string
-              description: The name of the environment
-            projectName:
-              type: string
-              description: The name of the project
-            namespaceName:
-              type: string
-              description: The name of the namespace
-            componentUid:
-              type: string
-              description: The UID of the component
-              format: uuid
-            environmentUid:
-              type: string
-              description: The UID of the environment
-              format: uuid
-            projectUid:
-              type: string
-              description: The UID of the project
-              format: uuid
+          $ref: "#/components/schemas/ResourceLabels"
 
     # FinOps cost insights schemas
     CostResponse:
@@ -2545,6 +2139,48 @@ components:
           type: number
           format: float
           description: Memory cost for the selected time window at these resource settings.
+
+    OAuthProtectedResourceMetadata:
+      type: object
+      description: |
+        OAuth 2.0 protected resource metadata as defined in RFC 9728.
+        `openchoreo_security_enabled` is an OpenChoreo extension, permitted by
+        RFC 9728 §2.
+      required:
+        - resource_name
+        - resource
+        - authorization_servers
+        - bearer_methods_supported
+        - scopes_supported
+      properties:
+        resource_name:
+          type: string
+          description: Human-readable name of the protected resource
+          example: OpenChoreo Observer MCP Server
+        resource:
+          type: string
+          description: URL of the protected resource
+          example: https://observer.openchoreo.dev/mcp
+        authorization_servers:
+          type: array
+          description: List of authorization server URLs
+          items:
+            type: string
+        bearer_methods_supported:
+          type: array
+          description: Supported bearer token methods
+          items:
+            type: string
+          example:
+            - header
+        scopes_supported:
+          type: array
+          description: Supported OAuth scopes
+          items:
+            type: string
+        openchoreo_security_enabled:
+          type: boolean
+          description: Whether authentication is enforced on this server
 
     # Request/response schemas for delivery insights (DORA metrics)
     DoraMetricsQueryRequest:

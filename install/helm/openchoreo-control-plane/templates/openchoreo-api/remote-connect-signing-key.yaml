@@ -1,0 +1,26 @@
+{{- $remoteConnect := .Values.openchoreoApi.config.remoteConnect | default dict }}
+{{- if and .Values.openchoreoApi.enabled $remoteConnect.enabled $remoteConnect.generateSigningKey }}
+{{- $secretName := $remoteConnect.signingKeySecretName | default "remote-connect-signing-key" }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $key := "" }}
+{{- if and $existing $existing.data (index $existing.data "signing.pem") }}
+{{- /* Reuse the stored key: regenerating on upgrade invalidates live capabilities. */}}
+{{- $key = index $existing.data "signing.pem" }}
+{{- else }}
+{{- /* Emits a PKCS#8 PEM, as loadEd25519PrivateKeyPEM expects. */}}
+{{- $key = genPrivateKey "ed25519" | b64enc }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  signing.pem: {{ $key }}
+{{- end }}

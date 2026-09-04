@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -35,7 +36,7 @@ type MetricsQuerier interface {
 type TracesQuerier interface {
 	QueryTraces(ctx context.Context, req *types.TracesQueryRequest) (*types.TracesQueryResponse, error)
 	QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error)
-	QuerySpanDetails(ctx context.Context, traceID string, spanID string, scope types.ComponentSearchScope) (*types.SpanInfo, error)
+	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error)
 }
 
 // FinOpsQuerier is the interface for querying cost insights and right-sizing
@@ -72,9 +73,11 @@ type AlertIncidentService interface {
 // AlertRuleService is the interface for managing alert rules
 // and processing incoming alert webhooks.
 type AlertRuleService interface {
-	CreateAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)
-	GetAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertRuleResponse, error)
-	UpdateAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)
-	DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertingRuleSyncResponse, error)
-	HandleAlertWebhook(ctx context.Context, req gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error)
+	CreateAlertRule(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)
+	GetAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error)
+	UpdateAlertRule(
+		ctx context.Context, ruleName string, req internalgen.AlertRuleRequest,
+	) (*internalgen.AlertingRuleSyncResponse, error)
+	DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error)
+	HandleAlertWebhook(ctx context.Context, req internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error)
 }

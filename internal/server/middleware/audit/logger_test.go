@@ -108,6 +108,74 @@ func TestLogEvent_ResourceTypeIndependentOfResource(t *testing.T) {
 	}
 }
 
+// TestLogEvent_IncludesHierarchy guards that project, component, and the
+// hierarchy's resource field render as flat siblings of namespace inside
+// the "resource" group.
+func TestLogEvent_IncludesHierarchy(t *testing.T) {
+	var buf bytes.Buffer
+	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+	logger.LogEvent(&Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "update_workload",
+		Category:     CategoryManagement,
+		Result:       ResultSuccess,
+		ResourceType: "workload",
+		Resource:     &Resource{Namespace: "ns-1", ID: "uid-1", Name: "wl-1"},
+		Hierarchy:    Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1", Resource: "wl-1"},
+	})
+
+	var record map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &record); err != nil {
+		t.Fatalf("failed to unmarshal log line: %v", err)
+	}
+
+	resource, ok := record["resource"].(map[string]any)
+	if !ok {
+		t.Fatal("expected a resource group")
+	}
+	if resource["project"] != "p1" {
+		t.Errorf("resource.project = %v, want p1", resource["project"])
+	}
+	if resource["component"] != "c1" {
+		t.Errorf("resource.component = %v, want c1", resource["component"])
+	}
+	if resource["resource"] != "wl-1" {
+		t.Errorf("resource.resource = %v, want wl-1", resource["resource"])
+	}
+}
+
+// TestLogEvent_OmitsEmptyHierarchyFields guards that an operation with no
+// project/component (e.g. a cluster-scoped resource) doesn't grow empty
+// "project"/"component"/"resource" keys.
+func TestLogEvent_OmitsEmptyHierarchyFields(t *testing.T) {
+	var buf bytes.Buffer
+	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+	logger.LogEvent(&Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "create_dataplane",
+		Category:     CategoryManagement,
+		Result:       ResultSuccess,
+		ResourceType: "dataplane",
+	})
+
+	var record map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &record); err != nil {
+		t.Fatalf("failed to unmarshal log line: %v", err)
+	}
+
+	resource, ok := record["resource"].(map[string]any)
+	if !ok {
+		t.Fatal("expected a resource group (ResourceType is set)")
+	}
+	for _, key := range []string{"project", "component", "resource", "namespace", "id", "name"} {
+		if _, present := resource[key]; present {
+			t.Errorf("resource.%s = %v, want absent", key, resource[key])
+		}
+	}
+}
+
 // TestEvent_MarshalJSONMatchesLogEventShape guards against a future sink that
 // marshals *Event directly (e.g. a P5 webhook sink) publishing a different
 // wire shape than Logger.LogEvent — both must render resource.type nested
@@ -120,6 +188,7 @@ func TestEvent_MarshalJSONMatchesLogEventShape(t *testing.T) {
 		Result:       ResultSuccess,
 		ResourceType: "project",
 		Resource:     &Resource{ID: "uid-1", Name: "p1"},
+		Hierarchy:    Hierarchy{Project: "p1"},
 	}
 
 	var loggerRecord map[string]any
@@ -156,8 +225,120 @@ func TestEvent_MarshalJSONMatchesLogEventShape(t *testing.T) {
 	if marshalResource["name"] != loggerResource["name"] {
 		t.Errorf("resource.name = %v, want %v (matching LogEvent)", marshalResource["name"], loggerResource["name"])
 	}
+	if marshalResource["project"] != loggerResource["project"] {
+		t.Errorf("resource.project = %v, want %v (matching LogEvent)", marshalResource["project"], loggerResource["project"])
+	}
 	if _, present := marshalRecord["resource_type"]; present {
 		t.Error(`json.Marshal(event) must not emit a sibling "resource_type" field`)
+	}
+}
+
+// testRenderNamespace is the namespace the two render-path tests below assert
+// on, named rather than repeated so the literal appears once per role.
+const testRenderNamespace = "ns-1"
+
+// TestRenderPaths_NamespaceFromHierarchyWithNilResource guards the one input
+// shape where the two render paths could silently disagree with each other and
+// with buildEvent: an Event carrying a hierarchy but no *Resource at all.
+//
+// buildEvent's withHierarchyNamespaceFallback means the emitter never produces
+// that shape — it synthesizes a Resource when the hierarchy has a namespace —
+// but Event.MarshalJSON is exported, so a sink that marshals a hand-built
+// Event (or one whose Resource was never set) must still publish
+// resource.namespace rather than emitting resource.project beside a missing
+// namespace.
+func TestRenderPaths_NamespaceFromHierarchyWithNilResource(t *testing.T) {
+	event := &Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "create_component",
+		Category:     CategoryManagement,
+		Result:       ResultDenied,
+		ResourceType: "component",
+		Resource:     nil,
+		Hierarchy:    Hierarchy{Namespace: testRenderNamespace, Project: "p1", Component: "c1"},
+	}
+
+	var buf bytes.Buffer
+	NewLogger(slog.New(slog.NewJSONHandler(&buf, nil))).LogEvent(event)
+	var loggerRecord map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &loggerRecord); err != nil {
+		t.Fatalf("failed to unmarshal LogEvent output: %v", err)
+	}
+
+	marshaled, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("json.Marshal(event) failed: %v", err)
+	}
+	var marshalRecord map[string]any
+	if err := json.Unmarshal(marshaled, &marshalRecord); err != nil {
+		t.Fatalf("failed to unmarshal json.Marshal(event) output: %v", err)
+	}
+
+	for name, record := range map[string]map[string]any{
+		"LogEvent":    loggerRecord,
+		"MarshalJSON": marshalRecord,
+	} {
+		resource, ok := record["resource"].(map[string]any)
+		if !ok {
+			t.Errorf("%s: no resource group", name)
+			continue
+		}
+		if resource["namespace"] != testRenderNamespace {
+			t.Errorf("%s: resource.namespace = %v, want %q", name, resource["namespace"], testRenderNamespace)
+		}
+		if resource["project"] != "p1" {
+			t.Errorf("%s: resource.project = %v, want %q", name, resource["project"], "p1")
+		}
+		if resource["component"] != "c1" {
+			t.Errorf("%s: resource.component = %v, want %q", name, resource["component"], "c1")
+		}
+	}
+}
+
+// TestRenderPaths_ResourceNamespaceOverridesHierarchy pins the precedence the
+// namespace fallback depends on: a Resource that carries its own namespace
+// wins over the hierarchy's, on both render paths. The reverse would let a
+// hierarchy captured at the authz check overwrite the namespace a handler
+// explicitly recorded.
+func TestRenderPaths_ResourceNamespaceOverridesHierarchy(t *testing.T) {
+	event := &Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "create_namespace",
+		Category:     CategoryManagement,
+		Result:       ResultSuccess,
+		ResourceType: "namespace",
+		Resource:     &Resource{Namespace: "from-resource", Name: testRenderNamespace},
+		Hierarchy:    Hierarchy{Namespace: "from-hierarchy"},
+	}
+
+	var buf bytes.Buffer
+	NewLogger(slog.New(slog.NewJSONHandler(&buf, nil))).LogEvent(event)
+	var loggerRecord map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &loggerRecord); err != nil {
+		t.Fatalf("failed to unmarshal LogEvent output: %v", err)
+	}
+
+	marshaled, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("json.Marshal(event) failed: %v", err)
+	}
+	var marshalRecord map[string]any
+	if err := json.Unmarshal(marshaled, &marshalRecord); err != nil {
+		t.Fatalf("failed to unmarshal json.Marshal(event) output: %v", err)
+	}
+
+	for name, record := range map[string]map[string]any{
+		"LogEvent":    loggerRecord,
+		"MarshalJSON": marshalRecord,
+	} {
+		resource, ok := record["resource"].(map[string]any)
+		if !ok {
+			t.Errorf("%s: no resource group", name)
+			continue
+		}
+		if resource["namespace"] != "from-resource" {
+			t.Errorf("%s: resource.namespace = %v, want %q", name, resource["namespace"], "from-resource")
+		}
 	}
 }
 

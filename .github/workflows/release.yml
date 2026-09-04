@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  OCI_REGISTRY_HOST: ${{ vars.OCI_REGISTRY_HOST || 'ghcr.io' }}
+  IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
+  HELM_OCI_REGISTRY: ${{ vars.HELM_OCI_REGISTRY || 'oci://ghcr.io/openchoreo/helm-charts' }}
+  PUBLISH_LATEST: ${{ vars.PUBLISH_LATEST || 'true' }}
+
 jobs:
   # In the release job, try to use artifacts from the build job as much as possible
   # to keep the release deterministic. This will ensure the release includes the tested artifacts.
@@ -63,19 +69,19 @@ jobs:
             exit 1
           fi
 
-      - name: Login to GitHub container registry
+      - name: Login to container registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Retag and push existing images
         run: |
           make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=${{ env.RELEASE_TAG }}
 
           # TODO: Move latest tagging to a separate workflow to have more manual control
-          if [ "${{ env.LATEST }}" == "true" ]; then
+          if [[ "${{ env.LATEST }}" == "true" && "${PUBLISH_LATEST}" == "true" ]]; then
               make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
           fi
 
@@ -95,9 +101,11 @@ jobs:
             openchoreo-cli
             cluster-gateway
             cluster-agent
+            remote-agent
+            remote-agent-router
           )
           for image in "${IMAGES[@]}"; do
-            FULL_REF="ghcr.io/openchoreo/${image}:${{ env.RELEASE_TAG }}"
+            FULL_REF="${IMAGE_REPO_PREFIX}/${image}:${{ env.RELEASE_TAG }}"
             DIGEST=$(docker buildx imagetools inspect "${FULL_REF}" --format '{{json .Manifest}}' | jq -r '.digest')
             if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
               echo "ERROR: Failed to resolve digest for ${FULL_REF}"
@@ -108,7 +116,7 @@ jobs:
               -a "repo=${{ github.repository }}" \
               -a "workflow=${{ github.workflow }}" \
               -a "ref=${{ github.sha }}" \
-              "ghcr.io/openchoreo/${image}@${DIGEST}"
+              "${IMAGE_REPO_PREFIX}/${image}@${DIGEST}"
           done
 
       - name: Download occ artifact from the build workflow

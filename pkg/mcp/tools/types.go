@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -120,6 +121,70 @@ type Toolsets struct {
 	BuildToolset      BuildToolsetHandler
 	PEToolset         PEToolsetHandler
 	ResourceToolset   ResourceToolsetHandler
+}
+
+// AllToolsetsHandler is satisfied by a single handler implementing every
+// toolset's interface. NewToolsets takes one so a caller that wants several
+// (or all) toolsets backed by the same handler value doesn't need its own
+// struct literal naming every field — see mcphandlers.MCPHandler, the only
+// production implementation, which backs every field in practice today.
+type AllToolsetsHandler interface {
+	NamespaceToolsetHandler
+	ProjectToolsetHandler
+	ComponentToolsetHandler
+	DeploymentToolsetHandler
+	BuildToolsetHandler
+	PEToolsetHandler
+	ResourceToolsetHandler
+}
+
+// AllToolsetTypes returns every known ToolsetType mapped to true. This is the
+// one place the full set is enumerated — callers that need "every toolset"
+// (constructing a from-scratch registry for documentation or coverage
+// tooling, e.g. tools/auditcoverage) should build off this rather than
+// re-listing the ToolsetType consts by hand, which is what let the coverage
+// tool and its test silently drift out of sync with each other and with
+// production's toolset switch before this existed.
+func AllToolsetTypes() map[ToolsetType]bool {
+	return map[ToolsetType]bool{
+		ToolsetNamespace:  true,
+		ToolsetProject:    true,
+		ToolsetComponent:  true,
+		ToolsetDeployment: true,
+		ToolsetBuild:      true,
+		ToolsetPE:         true,
+		ToolsetResource:   true,
+	}
+}
+
+// NewToolsets builds a Toolsets struct with handler backing every toolset
+// named true in enabled, leaving the rest nil (nil is exactly Register's
+// signal to skip a toolset — see register.go). Pass AllToolsetTypes() for
+// enabled to back every toolset with the same handler.
+func NewToolsets(handler AllToolsetsHandler, enabled map[ToolsetType]bool) *Toolsets {
+	t := &Toolsets{}
+	if enabled[ToolsetNamespace] {
+		t.NamespaceToolset = handler
+	}
+	if enabled[ToolsetProject] {
+		t.ProjectToolset = handler
+	}
+	if enabled[ToolsetComponent] {
+		t.ComponentToolset = handler
+	}
+	if enabled[ToolsetDeployment] {
+		t.DeploymentToolset = handler
+	}
+	if enabled[ToolsetBuild] {
+		t.BuildToolset = handler
+	}
+	if enabled[ToolsetPE] {
+		t.PEToolset = handler
+	}
+	if enabled[ToolsetResource] {
+		t.ResourceToolset = handler
+	}
+	return t
 }
 
 // PEToolsetHandler handles platform engineering operations on openchoreo
@@ -577,6 +642,23 @@ func (p ToolPermission) Actions() []string {
 		return nil
 	}
 	return []string{p.Action}
+}
+
+// IsReadOnly reports whether every action this permission may require is a
+// "view" verb, meaning the tool needs no audit binding or exemption. A tool
+// with no actions at all is conservatively treated as not read-only, since
+// there is nothing here confirming it's safe to skip.
+func (p ToolPermission) IsReadOnly() bool {
+	actions := p.Actions()
+	if len(actions) == 0 {
+		return false
+	}
+	for _, a := range actions {
+		if !strings.HasSuffix(a, ":view") {
+			return false
+		}
+	}
+	return true
 }
 
 // ActionForScope returns the authz action required for the given scope value. For

@@ -88,15 +88,33 @@ func (l *Logger) LogEvent(event *Event) {
 		attrs = append(attrs, slog.String("operation_id", event.OperationID))
 	}
 
-	if event.ResourceType != "" || event.Resource != nil {
+	if event.ResourceType != "" || event.Resource != nil || event.Hierarchy != (Hierarchy{}) {
 		var resourceAttrs []any
 		if event.ResourceType != "" {
 			resourceAttrs = append(resourceAttrs, slog.String("type", event.ResourceType))
 		}
+		// Same precedence as Event.MarshalJSON and buildEvent's
+		// withHierarchyNamespaceFallback: the hierarchy's namespace unless
+		// the Resource carries one of its own. Keeping the two render paths
+		// identical here is what TestEvent_MarshalJSONMatchesLogEventShape
+		// guards.
+		namespace := event.Hierarchy.Namespace
+		if event.Resource != nil && event.Resource.Namespace != "" {
+			namespace = event.Resource.Namespace
+		}
+		if namespace != "" {
+			resourceAttrs = append(resourceAttrs, slog.String("namespace", namespace))
+		}
+		if event.Hierarchy.Project != "" {
+			resourceAttrs = append(resourceAttrs, slog.String("project", event.Hierarchy.Project))
+		}
+		if event.Hierarchy.Component != "" {
+			resourceAttrs = append(resourceAttrs, slog.String("component", event.Hierarchy.Component))
+		}
+		if event.Hierarchy.Resource != "" {
+			resourceAttrs = append(resourceAttrs, slog.String("resource", event.Hierarchy.Resource))
+		}
 		if event.Resource != nil {
-			if event.Resource.Namespace != "" {
-				resourceAttrs = append(resourceAttrs, slog.String("namespace", event.Resource.Namespace))
-			}
 			if event.Resource.ID != "" {
 				resourceAttrs = append(resourceAttrs, slog.String("id", event.Resource.ID))
 			}

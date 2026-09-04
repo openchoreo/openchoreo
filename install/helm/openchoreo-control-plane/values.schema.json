@@ -3393,6 +3393,121 @@
               "title": "mcp",
               "type": "object"
             },
+            "remoteConnect": {
+              "additionalProperties": false,
+              "description": "`occ remote` remote-connect: resolve/authorize endpoints + the per-project+env remote-agent the control plane provisions into the data plane.",
+              "properties": {
+                "agentImage": {
+                  "additionalProperties": false,
+                  "description": "Container image for the provisioned remote-agent Deployment",
+                  "properties": {
+                    "repository": {
+                      "default": "ghcr.io/openchoreo/remote-agent",
+                      "description": "Remote-agent image repository",
+                      "title": "repository",
+                      "type": "string"
+                    },
+                    "tag": {
+                      "default": "",
+                      "description": "Image tag. Empty uses Chart.AppVersion.",
+                      "title": "tag",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "agentImage"
+                },
+                "agentListenPort": {
+                  "default": 8443,
+                  "description": "TLS tunnel port the provisioned remote-agent listens on.",
+                  "maximum": 65535,
+                  "minimum": 1,
+                  "title": "agentListenPort",
+                  "type": "integer"
+                },
+                "authorizeInsecure": {
+                  "default": false,
+                  "description": "Skip TLS verification when the remote-agent calls the control plane (development only).",
+                  "title": "authorizeInsecure",
+                  "type": "boolean"
+                },
+                "authorizeUrl": {
+                  "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/remote-connect:authorize",
+                  "description": "Control-plane authorize endpoint the remote-agent calls per stream, as reachable from the DP.",
+                  "title": "authorizeUrl",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": false,
+                  "description": "Enable the remote-connect resolve/authorize endpoints and remote-agent provisioning.\nRequires remoteAgentRouter.enabled on each data plane and a reachable\nentrypointAddress; off by default because both are deployment-specific.\n",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "entrypointAddress": {
+                  "default": "",
+                  "description": "host:port of the shared remote-connect SNI router that occ dials, as reachable from a\ndeveloper machine (one per data plane; see the openchoreo-data-plane chart's\nremoteAgentRouter). Required when enabled; no default, as it is site-specific.\n",
+                  "title": "entrypointAddress",
+                  "type": "string"
+                },
+                "generateSigningKey": {
+                  "default": true,
+                  "description": "Generate the Ed25519 capability signing key into signingKeySecretName, reusing\nan existing secret on upgrade. Set false to manage the secret yourself; it must\nthen already exist, or openchoreo-api will not start.\nReuse relies on a cluster lookup, which is unavailable to client-side renderers\n(helm template, Argo CD without server-side lookup) — those regenerate the key on\nevery render, invalidating live `occ remote` sessions. Manage the secret yourself\nin those setups.\n",
+                  "title": "generateSigningKey",
+                  "type": "boolean"
+                },
+                "issuer": {
+                  "default": "openchoreo-control-plane",
+                  "description": "Capability JWT issuer (iss) claim.",
+                  "title": "issuer",
+                  "type": "string"
+                },
+                "keyId": {
+                  "default": "remote-connect-1",
+                  "description": "JWT kid header for capability signing-key rotation.",
+                  "title": "keyId",
+                  "type": "string"
+                },
+                "reaperIntervalSeconds": {
+                  "default": 300,
+                  "description": "How often the idle-remote-agent reaper runs, in seconds.",
+                  "title": "reaperIntervalSeconds",
+                  "type": "integer"
+                },
+                "reaperTtlSeconds": {
+                  "default": 1800,
+                  "description": "How long a remote-agent may be idle before the reaper deletes it, in seconds.",
+                  "title": "reaperTtlSeconds",
+                  "type": "integer"
+                },
+                "signingKeyPath": {
+                  "default": "/etc/remote-connect/signing.pem",
+                  "description": "PEM Ed25519 signing key mount path (from the secret below) used to sign/verify capabilities.",
+                  "title": "signingKeyPath",
+                  "type": "string"
+                },
+                "signingKeySecretName": {
+                  "default": "remote-connect-signing-key",
+                  "description": "Secret holding signing.pem, mounted at signingKeyPath. Created by the chart unless generateSigningKey is false.",
+                  "title": "signingKeySecretName",
+                  "type": "string"
+                },
+                "sniSuffix": {
+                  "default": "remote-connect",
+                  "description": "Suffix appended to the data-plane namespace to form each agent's SNI host.",
+                  "title": "sniSuffix",
+                  "type": "string"
+                },
+                "ttlSeconds": {
+                  "default": 1800,
+                  "description": "Capability lifetime in seconds.",
+                  "title": "ttlSeconds",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "remoteConnect",
+              "type": "object"
+            },
             "security": {
               "additionalProperties": false,
               "description": "Security configuration for authentication, subjects, and authorization",

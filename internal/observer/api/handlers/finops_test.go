@@ -18,17 +18,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
-// newCostsRequest builds a GET costs request with path values populated (as the
-// ServeMux would) and the given raw query string.
+// newCostsRequest builds a GET costs request with the given raw query string.
+// Path values come from the URL -- the generated router binds them.
 func newCostsRequest(query string) *http.Request {
 	target := "/api/v1alpha1/costs/namespaces/default/environments/production"
 	if query != "" {
 		target += "?" + query
 	}
-	req := httptest.NewRequest(http.MethodGet, target, nil)
-	req.SetPathValue("namespace", "default")
-	req.SetPathValue("environment", "production")
-	return req
+	return httptest.NewRequest(http.MethodGet, target, nil)
 }
 
 func newRecommendationsRequest(query string) *http.Request {
@@ -36,10 +33,7 @@ func newRecommendationsRequest(query string) *http.Request {
 	if query != "" {
 		target += "?" + query
 	}
-	req := httptest.NewRequest(http.MethodGet, target, nil)
-	req.SetPathValue("namespace", "default")
-	req.SetPathValue("environment", "production")
-	return req
+	return httptest.NewRequest(http.MethodGet, target, nil)
 }
 
 const validCostsQuery = "startTime=2026-05-23T10:00:01Z&endTime=2026-05-24T10:00:01Z"
@@ -65,13 +59,24 @@ func TestGetComponentCosts_Success(t *testing.T) {
 		finOpsService: svc,
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery+"&project=checkout&component=payment-service&granularity=1d"))
+	rr := serve(t, h, newCostsRequest(
+		validCostsQuery+"&project=checkout&component=payment-service&granularity=1d"))
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"items"`)
+	// The mock's MatchedBy asserts namespace and environment arrived from the
+	// path and the times survived the time.Time round-trip unchanged.
+	svc.AssertExpectations(t)
 }
 
+// TestGetComponentCosts_MissingTimes covers the other half of the error-shape
+// guarantee: the rejection that reaches ParamBindingErrorHandler.
+//
+// startTime and endTime are required non-pointer query parameters, so the
+// generated wrapper rejects the request before the handler runs and
+// ValidateCostQueryRequest never sees it. Without an explicit ErrorHandlerFunc
+// that 400 would be plain text from http.Error, unlike every other observer
+// error.
 func TestGetComponentCosts_MissingTimes(t *testing.T) {
 	t.Parallel()
 
@@ -80,10 +85,28 @@ func TestGetComponentCosts_MissingTimes(t *testing.T) {
 		finOpsService: servicemocks.NewMockFinOpsQuerier(t),
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(""))
+	rr := serve(t, h, newCostsRequest(""))
 
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assertErrorResponseShape(t, rr)
+	assert.Contains(t, rr.Body.String(), "INVALID_PARAMETER")
+	assert.Contains(t, rr.Body.String(), "startTime")
+}
+
+// TestGetComponentCosts_UnparseableTime is also rejected during binding, since
+// the generated parameter is a time.Time.
+func TestGetComponentCosts_UnparseableTime(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		finOpsService: servicemocks.NewMockFinOpsQuerier(t),
+	}
+
+	rr := serve(t, h, newCostsRequest("startTime=not-a-date&endTime=2026-05-24T10:00:01Z"))
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assertErrorResponseShape(t, rr)
 }
 
 func TestGetComponentCosts_ComponentWithoutProject(t *testing.T) {
@@ -94,8 +117,7 @@ func TestGetComponentCosts_ComponentWithoutProject(t *testing.T) {
 		finOpsService: servicemocks.NewMockFinOpsQuerier(t),
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery+"&component=payment-service"))
+	rr := serve(t, h, newCostsRequest(validCostsQuery+"&component=payment-service"))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -108,8 +130,7 @@ func TestGetComponentCosts_BadGranularity(t *testing.T) {
 		finOpsService: servicemocks.NewMockFinOpsQuerier(t),
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery+"&granularity=daily"))
+	rr := serve(t, h, newCostsRequest(validCostsQuery+"&granularity=daily"))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -119,8 +140,7 @@ func TestGetComponentCosts_ServiceNotInitialized(t *testing.T) {
 
 	h := &Handler{baseHandler: baseHandler{logger: noopLogger()}}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery))
+	rr := serve(t, h, newCostsRequest(validCostsQuery))
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
@@ -137,8 +157,7 @@ func TestGetComponentCosts_Forbidden(t *testing.T) {
 		finOpsService: svc,
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery))
+	rr := serve(t, h, newCostsRequest(validCostsQuery))
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -155,8 +174,7 @@ func TestGetComponentCosts_RetrievalError(t *testing.T) {
 		finOpsService: svc,
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetComponentCosts(rr, newCostsRequest(validCostsQuery))
+	rr := serve(t, h, newCostsRequest(validCostsQuery))
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
@@ -180,11 +198,11 @@ func TestGetRecommendations_Success(t *testing.T) {
 		finOpsService: svc,
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetRecommendations(rr, newRecommendationsRequest(validCostsQuery+"&project=checkout"))
+	rr := serve(t, h, newRecommendationsRequest(validCostsQuery+"&project=checkout"))
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"items"`)
+	svc.AssertExpectations(t)
 }
 
 func TestGetRecommendations_Forbidden(t *testing.T) {
@@ -199,8 +217,7 @@ func TestGetRecommendations_Forbidden(t *testing.T) {
 		finOpsService: svc,
 	}
 
-	rr := httptest.NewRecorder()
-	h.GetRecommendations(rr, newRecommendationsRequest(validCostsQuery))
+	rr := serve(t, h, newRecommendationsRequest(validCostsQuery))
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }

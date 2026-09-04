@@ -23,7 +23,7 @@ import (
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -195,11 +195,11 @@ func (f *webhookTestFixture) incidentCount(t *testing.T) int {
 	return total
 }
 
-func webhookReq(crName string) gen.AlertWebhookRequest {
+func webhookReq(crName string) internalgen.AlertWebhookRequest {
 	val := float32(42)
 	now := time.Now().UTC()
 	ns := testCRNamespace
-	return gen.AlertWebhookRequest{
+	return internalgen.AlertWebhookRequest{
 		RuleName:       &crName,
 		RuleNamespace:  &ns,
 		AlertValue:     &val,
@@ -214,7 +214,7 @@ func TestWebhook_FirstAlert_FullProcessing(t *testing.T) {
 	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
+	assert.Equal(t, internalgen.AlertWebhookResponseStatusSuccess, *resp.Status)
 	assert.Contains(t, *resp.Message, "alert acknowledged")
 
 	// Alert entry must be persisted
@@ -425,7 +425,7 @@ func TestWebhook_FinOpsEnabled_TriggersAnalysis(t *testing.T) {
 	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
+	assert.Equal(t, internalgen.AlertWebhookResponseStatusSuccess, *resp.Status)
 	assert.Contains(t, *resp.Message, "alert acknowledged")
 
 	// Alert entry must be persisted
@@ -474,7 +474,7 @@ func TestWebhook_BothRCAAndFinOps_BothTriggered(t *testing.T) {
 	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
+	assert.Equal(t, internalgen.AlertWebhookResponseStatusSuccess, *resp.Status)
 	assert.Contains(t, *resp.Message, "alert acknowledged")
 
 	// Alert entry must be persisted
@@ -541,7 +541,7 @@ func TestWebhook_FinOpsWithEmptyAlertValue(t *testing.T) {
 	ns := testCRNamespace
 	crName := "rule-cr-1"
 	now := time.Now().UTC()
-	req := gen.AlertWebhookRequest{
+	req := internalgen.AlertWebhookRequest{
 		RuleName:       &crName,
 		RuleNamespace:  &ns,
 		AlertValue:     nil, // No alert value

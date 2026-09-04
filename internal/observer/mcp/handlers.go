@@ -243,15 +243,8 @@ func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, pr
 	return h.tracesService.QuerySpans(ctx, traceID, req)
 }
 
-func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID,
-	namespace, project, component, environment string) (any, error) {
-	scope := types.ComponentSearchScope{
-		Namespace:   namespace,
-		Project:     project,
-		Component:   component,
-		Environment: environment,
-	}
-	return h.tracesService.QuerySpanDetails(ctx, traceID, spanID, scope)
+func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID string) (any, error) {
+	return h.tracesService.GetSpanDetails(ctx, traceID, spanID)
 }
 
 func (h *MCPHandler) QueryAlerts(ctx context.Context, namespace, project, component, environment,

@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListClusterProjectTypes returns a paginated list of cluster-scoped project types.
@@ -79,6 +80,8 @@ func (h *Handler) CreateClusterProjectType(
 		return gen.CreateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster project type", "error", err)
@@ -122,6 +125,8 @@ func (h *Handler) UpdateClusterProjectType(
 		h.logger.Error("Failed to update cluster project type", "error", err)
 		return gen.UpdateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*updated)
 	if err != nil {

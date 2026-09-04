@@ -131,7 +131,7 @@ func TestGetComponentRelease_AuthzCheck(t *testing.T) {
 	})
 }
 
-// --- P1 (with nil guard): CreateComponentRelease ---
+// --- CreateComponentRelease (with nil guard) ---
 
 func TestCreateComponentRelease_AuthzCheck(t *testing.T) {
 	cr := testCR()

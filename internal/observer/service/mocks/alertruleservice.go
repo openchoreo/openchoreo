@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	gen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	internalgen "github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -23,27 +23,27 @@ func (_m *MockAlertRuleService) EXPECT() *MockAlertRuleService_Expecter {
 }
 
 // CreateAlertRule provides a mock function with given fields: ctx, req
-func (_m *MockAlertRuleService) CreateAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (_m *MockAlertRuleService) CreateAlertRule(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateAlertRule")
 	}
 
-	var r0 *gen.AlertingRuleSyncResponse
+	var r0 *internalgen.AlertingRuleSyncResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)); ok {
 		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, gen.AlertRuleRequest) *gen.AlertingRuleSyncResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, internalgen.AlertRuleRequest) *internalgen.AlertingRuleSyncResponse); ok {
 		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gen.AlertingRuleSyncResponse)
+			r0 = ret.Get(0).(*internalgen.AlertingRuleSyncResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, gen.AlertRuleRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, internalgen.AlertRuleRequest) error); ok {
 		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
@@ -59,46 +59,46 @@ type MockAlertRuleService_CreateAlertRule_Call struct {
 
 // CreateAlertRule is a helper method to define mock.On call
 //   - ctx context.Context
-//   - req gen.AlertRuleRequest
+//   - req internalgen.AlertRuleRequest
 func (_e *MockAlertRuleService_Expecter) CreateAlertRule(ctx interface{}, req interface{}) *MockAlertRuleService_CreateAlertRule_Call {
 	return &MockAlertRuleService_CreateAlertRule_Call{Call: _e.mock.On("CreateAlertRule", ctx, req)}
 }
 
-func (_c *MockAlertRuleService_CreateAlertRule_Call) Run(run func(ctx context.Context, req gen.AlertRuleRequest)) *MockAlertRuleService_CreateAlertRule_Call {
+func (_c *MockAlertRuleService_CreateAlertRule_Call) Run(run func(ctx context.Context, req internalgen.AlertRuleRequest)) *MockAlertRuleService_CreateAlertRule_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(gen.AlertRuleRequest))
+		run(args[0].(context.Context), args[1].(internalgen.AlertRuleRequest))
 	})
 	return _c
 }
 
-func (_c *MockAlertRuleService_CreateAlertRule_Call) Return(_a0 *gen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_CreateAlertRule_Call {
+func (_c *MockAlertRuleService_CreateAlertRule_Call) Return(_a0 *internalgen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_CreateAlertRule_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAlertRuleService_CreateAlertRule_Call) RunAndReturn(run func(context.Context, gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_CreateAlertRule_Call {
+func (_c *MockAlertRuleService_CreateAlertRule_Call) RunAndReturn(run func(context.Context, internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_CreateAlertRule_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // DeleteAlertRule provides a mock function with given fields: ctx, ruleName, sourceType
-func (_m *MockAlertRuleService) DeleteAlertRule(ctx context.Context, ruleName string, sourceType string) (*gen.AlertingRuleSyncResponse, error) {
+func (_m *MockAlertRuleService) DeleteAlertRule(ctx context.Context, ruleName string, sourceType string) (*internalgen.AlertingRuleSyncResponse, error) {
 	ret := _m.Called(ctx, ruleName, sourceType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAlertRule")
 	}
 
-	var r0 *gen.AlertingRuleSyncResponse
+	var r0 *internalgen.AlertingRuleSyncResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.AlertingRuleSyncResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*internalgen.AlertingRuleSyncResponse, error)); ok {
 		return rf(ctx, ruleName, sourceType)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.AlertingRuleSyncResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *internalgen.AlertingRuleSyncResponse); ok {
 		r0 = rf(ctx, ruleName, sourceType)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gen.AlertingRuleSyncResponse)
+			r0 = ret.Get(0).(*internalgen.AlertingRuleSyncResponse)
 		}
 	}
 
@@ -131,34 +131,34 @@ func (_c *MockAlertRuleService_DeleteAlertRule_Call) Run(run func(ctx context.Co
 	return _c
 }
 
-func (_c *MockAlertRuleService_DeleteAlertRule_Call) Return(_a0 *gen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_DeleteAlertRule_Call {
+func (_c *MockAlertRuleService_DeleteAlertRule_Call) Return(_a0 *internalgen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_DeleteAlertRule_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAlertRuleService_DeleteAlertRule_Call) RunAndReturn(run func(context.Context, string, string) (*gen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_DeleteAlertRule_Call {
+func (_c *MockAlertRuleService_DeleteAlertRule_Call) RunAndReturn(run func(context.Context, string, string) (*internalgen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_DeleteAlertRule_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAlertRule provides a mock function with given fields: ctx, ruleName, sourceType
-func (_m *MockAlertRuleService) GetAlertRule(ctx context.Context, ruleName string, sourceType string) (*gen.AlertRuleResponse, error) {
+func (_m *MockAlertRuleService) GetAlertRule(ctx context.Context, ruleName string, sourceType string) (*internalgen.AlertRuleResponse, error) {
 	ret := _m.Called(ctx, ruleName, sourceType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAlertRule")
 	}
 
-	var r0 *gen.AlertRuleResponse
+	var r0 *internalgen.AlertRuleResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.AlertRuleResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*internalgen.AlertRuleResponse, error)); ok {
 		return rf(ctx, ruleName, sourceType)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.AlertRuleResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *internalgen.AlertRuleResponse); ok {
 		r0 = rf(ctx, ruleName, sourceType)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gen.AlertRuleResponse)
+			r0 = ret.Get(0).(*internalgen.AlertRuleResponse)
 		}
 	}
 
@@ -191,38 +191,38 @@ func (_c *MockAlertRuleService_GetAlertRule_Call) Run(run func(ctx context.Conte
 	return _c
 }
 
-func (_c *MockAlertRuleService_GetAlertRule_Call) Return(_a0 *gen.AlertRuleResponse, _a1 error) *MockAlertRuleService_GetAlertRule_Call {
+func (_c *MockAlertRuleService_GetAlertRule_Call) Return(_a0 *internalgen.AlertRuleResponse, _a1 error) *MockAlertRuleService_GetAlertRule_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAlertRuleService_GetAlertRule_Call) RunAndReturn(run func(context.Context, string, string) (*gen.AlertRuleResponse, error)) *MockAlertRuleService_GetAlertRule_Call {
+func (_c *MockAlertRuleService_GetAlertRule_Call) RunAndReturn(run func(context.Context, string, string) (*internalgen.AlertRuleResponse, error)) *MockAlertRuleService_GetAlertRule_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // HandleAlertWebhook provides a mock function with given fields: ctx, req
-func (_m *MockAlertRuleService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error) {
+func (_m *MockAlertRuleService) HandleAlertWebhook(ctx context.Context, req internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error) {
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleAlertWebhook")
 	}
 
-	var r0 *gen.AlertWebhookResponse
+	var r0 *internalgen.AlertWebhookResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error)); ok {
 		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, gen.AlertWebhookRequest) *gen.AlertWebhookResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, internalgen.AlertWebhookRequest) *internalgen.AlertWebhookResponse); ok {
 		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gen.AlertWebhookResponse)
+			r0 = ret.Get(0).(*internalgen.AlertWebhookResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, gen.AlertWebhookRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, internalgen.AlertWebhookRequest) error); ok {
 		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
@@ -238,50 +238,50 @@ type MockAlertRuleService_HandleAlertWebhook_Call struct {
 
 // HandleAlertWebhook is a helper method to define mock.On call
 //   - ctx context.Context
-//   - req gen.AlertWebhookRequest
+//   - req internalgen.AlertWebhookRequest
 func (_e *MockAlertRuleService_Expecter) HandleAlertWebhook(ctx interface{}, req interface{}) *MockAlertRuleService_HandleAlertWebhook_Call {
 	return &MockAlertRuleService_HandleAlertWebhook_Call{Call: _e.mock.On("HandleAlertWebhook", ctx, req)}
 }
 
-func (_c *MockAlertRuleService_HandleAlertWebhook_Call) Run(run func(ctx context.Context, req gen.AlertWebhookRequest)) *MockAlertRuleService_HandleAlertWebhook_Call {
+func (_c *MockAlertRuleService_HandleAlertWebhook_Call) Run(run func(ctx context.Context, req internalgen.AlertWebhookRequest)) *MockAlertRuleService_HandleAlertWebhook_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(gen.AlertWebhookRequest))
+		run(args[0].(context.Context), args[1].(internalgen.AlertWebhookRequest))
 	})
 	return _c
 }
 
-func (_c *MockAlertRuleService_HandleAlertWebhook_Call) Return(_a0 *gen.AlertWebhookResponse, _a1 error) *MockAlertRuleService_HandleAlertWebhook_Call {
+func (_c *MockAlertRuleService_HandleAlertWebhook_Call) Return(_a0 *internalgen.AlertWebhookResponse, _a1 error) *MockAlertRuleService_HandleAlertWebhook_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAlertRuleService_HandleAlertWebhook_Call) RunAndReturn(run func(context.Context, gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error)) *MockAlertRuleService_HandleAlertWebhook_Call {
+func (_c *MockAlertRuleService_HandleAlertWebhook_Call) RunAndReturn(run func(context.Context, internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error)) *MockAlertRuleService_HandleAlertWebhook_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateAlertRule provides a mock function with given fields: ctx, ruleName, req
-func (_m *MockAlertRuleService) UpdateAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (_m *MockAlertRuleService) UpdateAlertRule(ctx context.Context, ruleName string, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	ret := _m.Called(ctx, ruleName, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateAlertRule")
 	}
 
-	var r0 *gen.AlertingRuleSyncResponse
+	var r0 *internalgen.AlertingRuleSyncResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)); ok {
 		return rf(ctx, ruleName, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, gen.AlertRuleRequest) *gen.AlertingRuleSyncResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, internalgen.AlertRuleRequest) *internalgen.AlertingRuleSyncResponse); ok {
 		r0 = rf(ctx, ruleName, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gen.AlertingRuleSyncResponse)
+			r0 = ret.Get(0).(*internalgen.AlertingRuleSyncResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, gen.AlertRuleRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, internalgen.AlertRuleRequest) error); ok {
 		r1 = rf(ctx, ruleName, req)
 	} else {
 		r1 = ret.Error(1)
@@ -298,24 +298,24 @@ type MockAlertRuleService_UpdateAlertRule_Call struct {
 // UpdateAlertRule is a helper method to define mock.On call
 //   - ctx context.Context
 //   - ruleName string
-//   - req gen.AlertRuleRequest
+//   - req internalgen.AlertRuleRequest
 func (_e *MockAlertRuleService_Expecter) UpdateAlertRule(ctx interface{}, ruleName interface{}, req interface{}) *MockAlertRuleService_UpdateAlertRule_Call {
 	return &MockAlertRuleService_UpdateAlertRule_Call{Call: _e.mock.On("UpdateAlertRule", ctx, ruleName, req)}
 }
 
-func (_c *MockAlertRuleService_UpdateAlertRule_Call) Run(run func(ctx context.Context, ruleName string, req gen.AlertRuleRequest)) *MockAlertRuleService_UpdateAlertRule_Call {
+func (_c *MockAlertRuleService_UpdateAlertRule_Call) Run(run func(ctx context.Context, ruleName string, req internalgen.AlertRuleRequest)) *MockAlertRuleService_UpdateAlertRule_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(gen.AlertRuleRequest))
+		run(args[0].(context.Context), args[1].(string), args[2].(internalgen.AlertRuleRequest))
 	})
 	return _c
 }
 
-func (_c *MockAlertRuleService_UpdateAlertRule_Call) Return(_a0 *gen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_UpdateAlertRule_Call {
+func (_c *MockAlertRuleService_UpdateAlertRule_Call) Return(_a0 *internalgen.AlertingRuleSyncResponse, _a1 error) *MockAlertRuleService_UpdateAlertRule_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAlertRuleService_UpdateAlertRule_Call) RunAndReturn(run func(context.Context, string, gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_UpdateAlertRule_Call {
+func (_c *MockAlertRuleService_UpdateAlertRule_Call) RunAndReturn(run func(context.Context, string, internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)) *MockAlertRuleService_UpdateAlertRule_Call {
 	_c.Call.Return(run)
 	return _c
 }

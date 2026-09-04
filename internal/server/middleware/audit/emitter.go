@@ -84,7 +84,8 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 		Actor:     env.Actor,
 		Result:    env.Result,
 		Origin:    env.Origin,
-		Resource:  env.Resource,
+		Resource:  withHierarchyNamespaceFallback(env.Resource, env.Hierarchy),
+		Hierarchy: env.Hierarchy,
 		RequestID: env.RequestID,
 		SourceIP:  env.SourceIP,
 		Metadata:  env.Metadata,
@@ -96,4 +97,30 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 		event.ResourceType = op.ResourceType
 	}
 	return event
+}
+
+// withHierarchyNamespaceFallback fills resource.Namespace from h.Namespace
+// when resource carries none itself — e.g. CreateNamespace, whose REST path
+// has no {namespaceName} to seed from, but whose authz check already knows
+// ns.Name. Namespace's existing source (a handler's SetResource call, or the
+// surface adapter's pre-call seed) stays authoritative: this only fills a gap,
+// never overrides.
+//
+// Returns a shallow copy rather than mutating resource in place: resource is
+// the same *Resource pointer AuditData holds for the lifetime of the request,
+// so mutating it here would leak this fallback into whatever the caller
+// (e.g. a later NewAuditContext caller reading it back) still holds.
+func withHierarchyNamespaceFallback(resource *Resource, h Hierarchy) *Resource {
+	if h.Namespace == "" {
+		return resource
+	}
+	if resource == nil {
+		return &Resource{Namespace: h.Namespace}
+	}
+	if resource.Namespace != "" {
+		return resource
+	}
+	cp := *resource
+	cp.Namespace = h.Namespace
+	return &cp
 }

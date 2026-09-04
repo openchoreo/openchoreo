@@ -27,6 +27,11 @@ ports:
   - port: 19443:19443
     nodeFilters:
       - loadbalancer
+  # `occ remote` SNI router. Needs remoteAgentRouter.service type NodePort with this
+  # nodePort, and a matching remoteConnect.entrypointAddress on the control plane.
+  - port: 30443:30443
+    nodeFilters:
+      - loadbalancer
   # Workflow Plane uses port range 10xxx
   # Argo Workflows UI for development testing
   - port: 10081:10081

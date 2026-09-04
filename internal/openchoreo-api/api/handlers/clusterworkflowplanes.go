@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterworkflowplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflowplane"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListClusterWorkflowPlanes returns a paginated list of cluster-scoped workflow planes.
@@ -103,6 +104,8 @@ func (h *Handler) CreateClusterWorkflowPlane(
 		return gen.CreateClusterWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCBP, err := convert[openchoreov1alpha1.ClusterWorkflowPlane, gen.ClusterWorkflowPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster workflow plane", "error", err)
@@ -149,6 +152,8 @@ func (h *Handler) UpdateClusterWorkflowPlane(
 		h.logger.Error("Failed to update cluster workflow plane", "error", err)
 		return gen.UpdateClusterWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	genCBP, err := convert[openchoreov1alpha1.ClusterWorkflowPlane, gen.ClusterWorkflowPlane](*updated)
 	if err != nil {

@@ -93,6 +93,7 @@ func (h *MCPHandler) CreateDeploymentPipeline(ctx context.Context, namespaceName
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -130,6 +131,7 @@ func (h *MCPHandler) UpdateDeploymentPipeline(ctx context.Context, namespaceName
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

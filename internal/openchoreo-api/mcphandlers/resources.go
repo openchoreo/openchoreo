@@ -93,6 +93,7 @@ func (h *MCPHandler) CreateResource(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created", map[string]any{
 		"type": map[string]any{
 			"kind": string(created.Spec.Type.Kind),
@@ -128,6 +129,7 @@ func (h *MCPHandler) UpdateResource(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -184,6 +186,7 @@ func (h *MCPHandler) CreateResourceRelease(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -244,6 +247,7 @@ func (h *MCPHandler) CreateResourceReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -264,6 +268,7 @@ func (h *MCPHandler) UpdateResourceReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

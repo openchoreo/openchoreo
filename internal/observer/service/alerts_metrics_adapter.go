@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 )
 
 // createMetricAlertRuleViaAdapter forwards a create-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) createMetricAlertRuleViaAdapter(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) createMetricAlertRuleViaAdapter(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal alert rule request: %w", err)
@@ -41,7 +41,7 @@ func (s *AlertService) createMetricAlertRuleViaAdapter(ctx context.Context, req 
 }
 
 // getMetricAlertRuleViaAdapter forwards a get-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) getMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*gen.AlertRuleResponse, error) {
+func (s *AlertService) getMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertRuleResponse, error) {
 	url := s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + ruleName
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func (s *AlertService) getMetricAlertRuleViaAdapter(ctx context.Context, ruleNam
 }
 
 // updateMetricAlertRuleViaAdapter forwards an update-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) updateMetricAlertRuleViaAdapter(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) updateMetricAlertRuleViaAdapter(ctx context.Context, ruleName string, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal alert rule request: %w", err)
@@ -89,7 +89,7 @@ func (s *AlertService) updateMetricAlertRuleViaAdapter(ctx context.Context, rule
 }
 
 // deleteMetricAlertRuleViaAdapter forwards a delete-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) deleteMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*gen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) deleteMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
 	url := s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + ruleName
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {

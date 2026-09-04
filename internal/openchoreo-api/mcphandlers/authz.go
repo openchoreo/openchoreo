@@ -47,6 +47,7 @@ func (h *MCPHandler) CreateAuthzRole(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -61,6 +62,7 @@ func (h *MCPHandler) UpdateAuthzRole(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -102,6 +104,7 @@ func (h *MCPHandler) CreateClusterAuthzRole(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -116,6 +119,7 @@ func (h *MCPHandler) UpdateClusterAuthzRole(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -159,6 +163,7 @@ func (h *MCPHandler) CreateAuthzRoleBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -173,6 +178,7 @@ func (h *MCPHandler) UpdateAuthzRoleBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -216,6 +222,7 @@ func (h *MCPHandler) CreateClusterAuthzRoleBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -230,6 +237,7 @@ func (h *MCPHandler) UpdateClusterAuthzRoleBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

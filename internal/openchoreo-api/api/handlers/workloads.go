@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListWorkloads returns a paginated list of workloads within a namespace.
@@ -86,6 +87,8 @@ func (h *Handler) CreateWorkload(
 		h.logger.Error("Failed to create workload", "error", err)
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*created)
 	if err != nil {
@@ -162,6 +165,8 @@ func (h *Handler) UpdateWorkload(
 		h.logger.Error("Failed to update workload", "error", err)
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*updated)
 	if err != nil {

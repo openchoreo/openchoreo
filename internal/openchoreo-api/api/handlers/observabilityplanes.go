@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListObservabilityPlanes returns a paginated list of observability planes within a namespace.
@@ -109,6 +110,8 @@ func (h *Handler) CreateObservabilityPlane(
 		return gen.CreateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created observability plane", "error", err)
@@ -155,6 +158,8 @@ func (h *Handler) UpdateObservabilityPlane(
 		h.logger.Error("Failed to update observability plane", "error", err)
 		return gen.UpdateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*updated)
 	if err != nil {
