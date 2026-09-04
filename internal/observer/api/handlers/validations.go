@@ -213,6 +213,107 @@ func ValidateAndSetLimit(limit *int) error {
 	return nil
 }
 
+// Caps on the cluster logs query string. A query string has length limits a request
+// body would not, so an over-long value is rejected rather than truncated. These mirror
+// the maxItems/maxLength declared on the ClusterLogs* parameters in the OpenAPI spec.
+const (
+	maxClusterLogsFilterItems  = 20
+	maxClusterLogsValueLength  = 253
+	maxClusterLogsSelectorLen  = 256
+	maxClusterLogsSearchLength = 256
+)
+
+// ParseLabelSelector parses an equality-based Kubernetes label selector - the syntax
+// `kubectl -l` accepts, where a comma means AND - into the pairs the adapter contract
+// takes. Set-based operators are not supported; rejecting them is better than silently
+// treating `key!=value` as a key named "key!".
+func ParseLabelSelector(selector string) (map[string]string, error) {
+	if selector == "" {
+		return nil, nil
+	}
+	if len(selector) > maxClusterLogsSelectorLen {
+		return nil, fmt.Errorf("labels selector cannot exceed %d characters", maxClusterLogsSelectorLen)
+	}
+
+	labels := make(map[string]string)
+	for _, term := range strings.Split(selector, ",") {
+		term = strings.TrimSpace(term)
+		if term == "" {
+			continue
+		}
+		key, value, found := strings.Cut(term, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid label selector %q; expected key=value", term)
+		}
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if key == "" {
+			return nil, fmt.Errorf("invalid label selector %q; key must not be empty", term)
+		}
+		// "!=" and "==" both survive the Cut above with a stray character on one side.
+		if strings.HasSuffix(key, "!") || strings.HasPrefix(value, "=") {
+			return nil, fmt.Errorf(
+				"invalid label selector %q; only equality selectors (key=value) are supported", term)
+		}
+		if existing, dup := labels[key]; dup && existing != value {
+			return nil, fmt.Errorf("label %q is given conflicting values; a record cannot match both", key)
+		}
+		labels[key] = value
+	}
+	return labels, nil
+}
+
+// ValidateClusterLogsQueryRequest validates the ClusterLogsQueryRequest and applies
+// defaults for limit and sort order.
+func ValidateClusterLogsQueryRequest(req *types.ClusterLogsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	filters := map[string][]string{
+		"clusterInstance": req.ClusterInstances,
+		"namespace":       req.Namespaces,
+		"podName":         req.PodNames,
+		"containerName":   req.ContainerNames,
+	}
+	for name, values := range filters {
+		if err := validateClusterLogsFilter(name, values); err != nil {
+			return err
+		}
+	}
+
+	if len(req.SearchPhrase) > maxClusterLogsSearchLength {
+		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxClusterLogsSearchLength)
+	}
+
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if err := ValidateLogLevels(req.LogLevels); err != nil {
+		return err
+	}
+	if err := ValidateAndSetLimit(&req.Limit); err != nil {
+		return err
+	}
+	return ValidateAndSetSortOrder(&req.SortOrder)
+}
+
+func validateClusterLogsFilter(name string, values []string) error {
+	if len(values) > maxClusterLogsFilterItems {
+		return fmt.Errorf("%s cannot have more than %d values", name, maxClusterLogsFilterItems)
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		if len(v) > maxClusterLogsValueLength {
+			return fmt.Errorf("%s values cannot exceed %d characters", name, maxClusterLogsValueLength)
+		}
+		if _, dup := seen[v]; dup {
+			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)
+		}
+		seen[v] = struct{}{}
+	}
+	return nil
+}
+
 // ValidateAndSetSortOrder validates and sets default for sort order
 func ValidateAndSetSortOrder(sortOrder *string) error {
 	if *sortOrder == "" {

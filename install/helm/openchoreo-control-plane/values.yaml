@@ -1619,6 +1619,7 @@ openchoreoApi:
                 - "finopsreport:update"
                 - "finops:view"
                 - "deliveryinsights:view"
+                - "clusterlogs:view"
                 - "portal-assistant:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"

@@ -90,6 +90,43 @@ type WorkflowLogsResult struct {
 	Took       int                `json:"took"`
 }
 
+// ClusterLogsParams holds parameters for cluster log queries.
+type ClusterLogsParams struct {
+	ClusterInstances []string          `json:"clusterInstances"`
+	Namespaces       []string          `json:"namespaces"`
+	PodNames         []string          `json:"podNames"`
+	ContainerNames   []string          `json:"containerNames"`
+	Labels           map[string]string `json:"labels"`
+	StartTime        time.Time         `json:"startTime"`
+	EndTime          time.Time         `json:"endTime"`
+	SearchPhrase     string            `json:"searchPhrase"`
+	LogLevels        []string          `json:"logLevels"`
+	Limit            int               `json:"limit"`
+	SortOrder        string            `json:"sortOrder"`
+}
+
+// ClusterLogEntry represents a parsed cluster log record.
+type ClusterLogEntry struct {
+	Timestamp       time.Time         `json:"timestamp"`
+	Log             string            `json:"log"`
+	LogLevel        string            `json:"logLevel"`
+	ClusterInstance string            `json:"clusterInstance"`
+	NamespaceName   string            `json:"namespaceName"`
+	PodName         string            `json:"podName"`
+	ContainerName   string            `json:"containerName"`
+	PodIP           string            `json:"podIp"`
+	NodeName        string            `json:"nodeName"`
+	ContainerImage  string            `json:"containerImage"`
+	Labels          map[string]string `json:"labels,omitempty"`
+}
+
+// ClusterLogsResult represents the result of a cluster log query
+type ClusterLogsResult struct {
+	Logs       []ClusterLogEntry `json:"logs"`
+	TotalCount int               `json:"totalCount"`
+	Took       int               `json:"took"`
+}
+
 // LogsAdapter defines the interface for logs adapter implementations
 type LogsAdapter interface {
 	// GetComponentApplicationLogs retrieves component application logs
@@ -99,4 +136,11 @@ type LogsAdapter interface {
 	// GetWorkflowLogs retrieves workflow run logs
 	GetWorkflowLogs(ctx context.Context,
 		params WorkflowLogsParams) (*WorkflowLogsResult, error)
+}
+
+// ClusterLogsAdapter defines the interface for fetching cluster logs
+type ClusterLogsAdapter interface {
+	// GetClusterLogs retrieves logs by raw Kubernetes coordinates, with no
+	// project/component/environment correlation.
+	GetClusterLogs(ctx context.Context, params ClusterLogsParams) (*ClusterLogsResult, error)
 }

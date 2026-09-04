@@ -15,6 +15,7 @@ const (
 	ActionUpdateIncidents      Action = "incidents:update"
 	ActionViewDeliveryInsights Action = "deliveryinsights:view"
 	ActionViewFinOps           Action = "finops:view"
+	ActionViewClusterLogs      Action = "clusterlogs:view"
 )
 
 type ResourceType string
@@ -25,4 +26,5 @@ const (
 	ResourceTypeProject     ResourceType = "project"
 	ResourceTypeNamespace   ResourceType = "namespace"
 	ResourceTypeWorkflowRun ResourceType = "workflowRun"
+	ResourceTypeCluster     ResourceType = "cluster"
 )

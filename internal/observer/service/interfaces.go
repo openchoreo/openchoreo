@@ -21,6 +21,11 @@ type LogsQuerier interface {
 	QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error)
 }
 
+// ClusterLogsQuerier is the interface for querying cluster logs.
+type ClusterLogsQuerier interface {
+	QueryClusterLogs(ctx context.Context, req *types.ClusterLogsQueryRequest) (*types.ClusterLogsResponse, error)
+}
+
 // EventsQuerier is the interface for querying Kubernetes events.
 type EventsQuerier interface {
 	QueryEvents(ctx context.Context, req *types.EventsQueryRequest) (*types.EventsQueryResponse, error)

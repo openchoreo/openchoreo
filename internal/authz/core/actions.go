@@ -290,6 +290,11 @@ const (
 
 	// Delivery insights (DORA metrics) actions
 	ActionViewDeliveryInsights = "deliveryinsights:view"
+
+	// Cluster logs observability actions.
+	// Cluster-scoped: cluster logs are not owned by any namespace or project,
+	// this reads every log the observability plane holds, user workload logs included.
+	ActionViewClusterLogs = "clusterlogs:view"
 )
 
 // Action represents a system action with metadata
@@ -564,6 +569,9 @@ var systemActions = []Action{
 	// Delivery insights (DORA metrics). Queried at namespace, project and component
 	// scope, so the lowest level it is evaluated at is the component.
 	{Name: ActionViewDeliveryInsights, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Cluster logs observability
+	{Name: ActionViewClusterLogs, LowestScope: ScopeCluster, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions
