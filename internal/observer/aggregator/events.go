@@ -57,6 +57,7 @@ type EventsSource interface {
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
+	OrgNamespace         string `json:"orgNamespace"`
 	ProjectUID           string `json:"projectUid"`
 	ComponentUID         string `json:"componentUid"`
 	EnvironmentUID       string `json:"environmentUid"`
@@ -117,6 +118,19 @@ func (a *Aggregator) processEvents(
 		return nil, eventsProgress{}, err
 	}
 	progress = eventsProgress{watermarkMs: tickStart.UnixMilli()}
+	// The !complete branch runs before the empty-result return on purpose. An
+	// incomplete sweep that yielded no events must not advance the watermark to
+	// tickStart and clear resumeMs, which would skip the remainder it stopped
+	// short of. Unreachable with the current adapter (20 pages x 1000), but the
+	// ordering is what makes it safe rather than the adapter's shape.
+	if !complete && len(events) == 0 {
+		progress.watermarkMs = watermark
+		progress.resumeMs = priorResumeMs
+		a.logger.Error("Delivery event sweep reported incomplete with no events; "+
+			"holding position rather than advancing past the unread remainder",
+			"fromMs", fromMs, "windowEndMs", tickStart.UnixMilli())
+		return nil, progress, nil
+	}
 	if len(events) == 0 {
 		return nil, progress, nil
 	}
@@ -183,9 +197,27 @@ func (a *Aggregator) foldEvent(
 		return nil, nil, false
 	}
 
+	// The payload is authoritative; collector enrichment is the fallback for events
+	// emitted before orgNamespace was carried in the message.
+	//
+	// Skipping here rather than letting the store reject the fact is the point:
+	// UpsertDeploymentFacts validates the whole slice before writing any of it and
+	// returns on the first error, so one event missing this field wrote none of the
+	// batch, failed the tick, and left the watermark unmoved -- re-reading the same
+	// bad event on every tick, forever.
+	orgNamespace := payload.OrgNamespace
+	if orgNamespace == "" {
+		orgNamespace = event.Namespace
+	}
+	if orgNamespace == "" {
+		a.logger.Warn("Skipping delivery event with no org namespace; it cannot be attributed",
+			"reason", event.Reason, "renderedReleaseUid", payload.RenderedReleaseUID)
+		return nil, nil, false
+	}
+
 	fact := deliveryinsights.DeploymentFact{
 		ReleaseUID:       payload.RenderedReleaseUID,
-		OrgNamespace:     event.Namespace,
+		OrgNamespace:     orgNamespace,
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
 		EnvironmentUID:   payload.EnvironmentUID,
@@ -221,7 +253,7 @@ func (a *Aggregator) foldEvent(
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
 			ID:               healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
-			OrgNamespace:     event.Namespace,
+			OrgNamespace:     orgNamespace,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
@@ -234,7 +266,7 @@ func (a *Aggregator) foldEvent(
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
 			ID:             healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
-			OrgNamespace:   event.Namespace,
+			OrgNamespace:   orgNamespace,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,

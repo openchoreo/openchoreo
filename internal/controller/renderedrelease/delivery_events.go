@@ -58,13 +58,19 @@ const (
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
-	ProjectUID           string `json:"projectUid,omitempty"`
-	ComponentUID         string `json:"componentUid,omitempty"`
-	EnvironmentUID       string `json:"environmentUid,omitempty"`
-	Commit               string `json:"commit,omitempty"`
-	CommitAuthoredAt     string `json:"commitAuthoredAt,omitempty"`
-	Phase                string `json:"phase"`
-	FailureReason        string `json:"failureReason,omitempty"`
+	// OrgNamespace is the control-plane namespace the rollout belongs to. It is in
+	// the payload for the same reason the UIDs are: a Kubernetes Event does not
+	// inherit the involved object's labels, so anything the consumer needs has to
+	// travel in the message. It is the one field the store requires, and depending
+	// on collector enrichment for it meant an un-enriched event could not be folded.
+	OrgNamespace     string `json:"orgNamespace,omitempty"`
+	ProjectUID       string `json:"projectUid,omitempty"`
+	ComponentUID     string `json:"componentUid,omitempty"`
+	EnvironmentUID   string `json:"environmentUid,omitempty"`
+	Commit           string `json:"commit,omitempty"`
+	CommitAuthoredAt string `json:"commitAuthoredAt,omitempty"`
+	Phase            string `json:"phase"`
+	FailureReason    string `json:"failureReason,omitempty"`
 	// FailureEpisode identifies which failure->recovery cycle of this rollout the
 	// event belongs to. The emitter already distinguishes episodes -- it suffixes
 	// event names -e1, -e2 -- but a consumer keying a recovery on the rollout alone
@@ -481,6 +487,7 @@ func (r *Reconciler) emitDeliveryEvent(
 	payload := deliveryEventPayload{
 		RenderedReleaseUID:   dc.rolloutID,
 		ComponentReleaseName: dc.componentReleaseName,
+		OrgNamespace:         dc.primary.GetLabels()[labels.LabelKeyNamespaceName],
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],

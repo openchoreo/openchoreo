@@ -619,3 +619,74 @@ func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
 	require.Equal(t, 3, weekly().DeployTotal,
 		"the Aug-31 week must still count its August deployment after a September tick")
 }
+
+// TestOneUnattributableEventDoesNotWedgeTheTick pins that a single event with no
+// org namespace cannot stall ingestion.
+//
+// UpsertDeploymentFacts validates the whole slice before writing any of it and
+// returns on the first error, so one such event used to write none of the batch,
+// fail the tick, and leave the watermark unmoved -- so the same bad event was
+// re-read on every tick, forever, and no delivery data landed at all.
+func TestOneUnattributableEventDoesNotWedgeTheTick(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	good := now.Add(-20 * time.Minute)
+	bad := now.Add(-15 * time.Minute)
+
+	unenriched := deliveryEvent(ReasonDeploymentSucceeded, "rel-bad", bad, nil)
+	unenriched.Namespace = "" // collector enrichment missing
+	// Strip the payload's namespace too, so neither source can supply it.
+	unenriched.Message = strings.ReplaceAll(unenriched.Message, `"orgNamespace":"default",`, "")
+
+	source := &fakeEventsSource{events: []DeliveryEvent{
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-good", good, nil),
+		unenriched,
+	}}
+
+	a := newTestAggregator(store, incidents, source, now)
+	require.NoError(t, a.RunOnce(ctx), "one unattributable event must not fail the tick")
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: good.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.UnixMilli(),
+		Limit:   deliveryinsights.MaxQueryLimit,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 1, "the good event must still be written")
+	require.Equal(t, "rel-good", facts[0].ReleaseUID)
+
+	// The watermark must have advanced, or the bad event is re-read forever.
+	wm, err := store.Watermark(ctx, watermarkSourceEvents)
+	require.NoError(t, err)
+	require.Equal(t, now.UnixMilli(), wm, "watermark must advance past the skipped event")
+}
+
+// TestIncompleteSweepWithNoEventsHoldsPosition covers the ordering that keeps an
+// incomplete sweep from advancing past a remainder it never read.
+func TestIncompleteSweepWithNoEventsHoldsPosition(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	// Reports itself incomplete while returning nothing.
+	source := &emptyIncompleteSource{}
+	require.NoError(t, newTestAggregator(store, incidents, source, now).RunOnce(ctx))
+
+	wm, err := store.Watermark(ctx, watermarkSourceEvents)
+	require.NoError(t, err)
+	require.NotEqual(t, now.UnixMilli(), wm,
+		"an incomplete sweep with no events must not advance the watermark to tickStart")
+}
+
+type emptyIncompleteSource struct{}
+
+func (e *emptyIncompleteSource) FetchDeliveryEvents(
+	_ context.Context, _, _ int64,
+) ([]DeliveryEvent, bool, error) {
+	return nil, false, nil
+}
