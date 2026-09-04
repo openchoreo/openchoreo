@@ -76,6 +76,11 @@ gateway:
   #         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
   #         service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   #         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxx"
+  #
+  #   The chart always renders spec.infrastructure so platform identity labels
+  #   reach the kgateway proxy pods. That field needs Gateway API >= v1.2 - on
+  #   older CRDs it is pruned and the proxy pods lose plane attribution.
+  #   labels is capped at 8 entries by Gateway API, platform identity included.
   # @schema
   infrastructure:
     # @schema
@@ -178,7 +183,6 @@ gateway:
     # maximum: 65535
     # @schema
     port: 8443
-
 
   # @schema
   # type: object
@@ -418,8 +422,13 @@ clusterAgent:
 
   # @schema
   # type: string
-  # description: Logical plane identifier shared across multiple CRs connecting to the same physical plane. Defaults to Helm release name if not specified.
+  # description: |
+  #   Logical plane identifier shared across multiple CRs connecting to the same physical plane.
+  #   Defaults to Helm release name if not specified. Rendered as the openchoreo.dev/plane-id
+  #   pod label, so it must be a valid Kubernetes label value.
   # default: default
+  # pattern: "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
+  # maxLength: 63
   # @schema
   planeID: default
 

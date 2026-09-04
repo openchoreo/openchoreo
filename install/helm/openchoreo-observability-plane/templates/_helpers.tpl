@@ -143,6 +143,48 @@ openchoreo.dev/plane-id: {{ .Values.clusterAgent.planeID | default .Release.Name
 {{- end }}
 
 {{/*
+Gateway infrastructure labels
+
+The labels kgateway stamps on the proxy pods it renders from the Gateway CR.
+Platform identity wins over values-supplied labels: an operator override must
+not be able to silently mis-attribute a proxy pod to the wrong plane.
+
+Gateway API caps spec.infrastructure.labels at 8 entries. The count is checked
+in validateGatewayLabels so an overflow fails with a readable message instead
+of an opaque CRD rejection at apply time.
+
+Usage:
+  {{ include "openchoreo-observability-plane.gatewayInfrastructureLabels" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-observability-plane.gatewayInfrastructureLabels" -}}
+{{- $infra := .Values.gateway.infrastructure | default dict -}}
+{{- $platform := include "openchoreo-observability-plane.platformIdentityLabels" . | fromYaml -}}
+{{- toYaml (merge (dict) $platform ($infra.labels | default dict)) -}}
+{{- end }}
+
+{{/*
+Gateway infrastructure label count validation
+
+Usage:
+  {{ include "openchoreo-observability-plane.validateGatewayLabels" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-observability-plane.validateGatewayLabels" -}}
+{{- if .Values.gateway.enabled -}}
+{{- $labels := include "openchoreo-observability-plane.gatewayInfrastructureLabels" . | fromYaml -}}
+{{- if gt (len $labels) 8 -}}
+  {{- $platform := include "openchoreo-observability-plane.platformIdentityLabels" . | fromYaml -}}
+  {{- fail (printf "gateway.infrastructure.labels renders %d entries once the %d platform identity label(s) are merged in, but Gateway API caps spec.infrastructure.labels at 8. Remove %d label(s) from gateway.infrastructure.labels." (len $labels) (len $platform) (sub (len $labels) 8)) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-observability-plane.clusterAgent.name" -}}

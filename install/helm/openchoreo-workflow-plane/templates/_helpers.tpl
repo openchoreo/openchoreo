@@ -193,3 +193,36 @@ Parameters:
 {{- end -}}
 {{- printf "%s:%s" $repo (.image.tag | default .context.Chart.AppVersion) -}}
 {{- end }}
+
+{{/*
+Argo Workflows platform identity validation
+
+The argo-workflows subchart carries platform identity through its own
+commonLabels. Helm does not template subchart values, so those labels cannot
+read clusterAgent.planeID and have to repeat it literally. Fail the render
+when the two drift apart rather than let Argo pods report a plane-id that no
+workflow plane actually has.
+
+Usage:
+  {{ include "openchoreo-workflow-plane.validatePlatformIdentity" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-workflow-plane.validatePlatformIdentity" -}}
+{{- $errors := list -}}
+{{- $argo := index .Values "argo-workflows" | default (dict) -}}
+{{- $argoLabels := index $argo "commonLabels" | default (dict) -}}
+{{- $planeID := .Values.clusterAgent.planeID | default .Release.Name -}}
+{{- $argoPlaneID := index $argoLabels "openchoreo.dev/plane-id" | default "" -}}
+{{- if ne $argoPlaneID $planeID -}}
+  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane-id"] is %q but clusterAgent.planeID resolves to %q - set both to the same value` $argoPlaneID $planeID) -}}
+{{- end -}}
+{{- $argoPlane := index $argoLabels "openchoreo.dev/plane" | default "" -}}
+{{- if ne $argoPlane "workflowplane" -}}
+  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane"] is %q but must be "workflowplane"` $argoPlane) -}}
+{{- end -}}
+{{- if gt (len $errors) 0 -}}
+  {{- fail (printf "Argo Workflows platform identity labels are inconsistent. Without them the observability plane cannot attribute Argo pods to this workflow plane:\n  - %s" (join "\n  - " $errors)) -}}
+{{- end -}}
+{{- end }}

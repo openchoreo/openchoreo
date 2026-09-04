@@ -11,9 +11,10 @@
             "type": "string"
           },
           "default": {
-            "openchoreo.dev/plane": "workflowplane"
+            "openchoreo.dev/plane": "workflowplane",
+            "openchoreo.dev/plane-id": "default"
           },
-          "description": "Labels applied to all Argo Workflows resources, pod templates included.\nCarries platform identity for system-component observability. Subchart\nvalues are not templated, so plane-id cannot be derived from\nclusterAgent.planeID here - set openchoreo.dev/plane-id explicitly when\nmore than one workflow plane shares a cluster.\n",
+          "description": "Labels applied to all Argo Workflows resources, pod templates included.\nCarries platform identity for system-component observability.\n\nSubchart values are not templated, therefore plane-id should be repeated\nin argo-workflows.commonLabels to match clusterAgent.planeID.\nThe chart fails the render when the two disagree.\n",
           "required": [],
           "title": "commonLabels",
           "type": "object"
@@ -227,7 +228,9 @@
         },
         "planeID": {
           "default": "default",
-          "description": "Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.",
+          "description": "Logical plane identifier. Shared across multiple CRs connecting to the same physical plane\nfor multi-tenancy. Rendered as the openchoreo.dev/plane-id pod label, so it must be a valid\nKubernetes label value.\n",
+          "maxLength": 63,
+          "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
           "title": "planeID",
           "type": "string"
         },

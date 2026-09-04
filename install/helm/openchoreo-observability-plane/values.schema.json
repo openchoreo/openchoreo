@@ -82,7 +82,9 @@
         },
         "planeID": {
           "default": "default",
-          "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified.\n",
+          "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified. Rendered as the openchoreo.dev/plane-id\npod label, so it must be a valid Kubernetes label value.\n",
+          "maxLength": 63,
+          "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
           "title": "planeID",
           "type": "string"
         },
@@ -1184,7 +1186,7 @@
         },
         "infrastructure": {
           "additionalProperties": true,
-          "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"",
+          "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"\n\nThe chart always renders spec.infrastructure so platform identity labels\nreach the kgateway proxy pods. That field needs Gateway API \u003e= v1.2 - on\nolder CRDs it is pruned and the proxy pods lose plane attribution.\nlabels is capped at 8 entries by Gateway API, platform identity included.",
           "required": [],
           "title": "infrastructure",
           "type": "object"
