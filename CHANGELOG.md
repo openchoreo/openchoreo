@@ -2,6 +2,13 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.5
+
+Changes since [v1.2.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.4).
+
+### Enhancements
+- **(Observer)** Observer now authorises the user against  OpenChoreo entity information returned in span attributes from the span details API  ([#4642](https://github.com/openchoreo/openchoreo/pull/4642))
+
 ## v1.2.4
 
 Changes since [v1.2.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.3).
