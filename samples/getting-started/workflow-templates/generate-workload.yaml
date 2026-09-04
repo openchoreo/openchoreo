@@ -5,6 +5,18 @@ metadata:
 spec:
   templates:
     - name: generate-workload-cr
+      # oauth-client-assertion-file expects a projected identity token whose audience
+      # matches the federated credential on the identity provider. Getting that token
+      # into the pod is platform specific:
+      #   AKS     - annotate the pod's ServiceAccount with azure.workload.identity/client-id
+      #             and uncomment the label below. The webhook then injects the token at
+      #             /var/run/secrets/azure/tokens/azure-identity-token
+      #   EKS/GKE - IRSA and GKE Workload Identity mint tokens for their own cloud APIs,
+      #             so add a projected serviceAccountToken volume with the audience the
+      #             identity provider expects
+      # metadata:
+      #   labels:
+      #     azure.workload.identity/use: "true"
       inputs:
         parameters:
           - name: image
@@ -21,6 +33,11 @@ spec:
           - name: oauth-client-secret
             default: "openchoreo-workload-publisher-secret"
           - name: oauth-scope
+            default: ""
+          # Path to a projected identity token, presented to the token endpoint as an
+          # RFC 7523 client assertion instead of oauth-client-secret. Leave empty to
+          # authenticate with the client secret.
+          - name: oauth-client-assertion-file
             default: ""
           # --- OpenChoreo API Server Configuration ---
           # Update these when the API server URL or host changes.
@@ -63,6 +80,8 @@ spec:
             value: '{{inputs.parameters.oauth-client-secret}}'
           - name: OAUTH_SCOPE
             value: '{{inputs.parameters.oauth-scope}}'
+          - name: CLIENT_ASSERTION_FILE
+            value: '{{inputs.parameters.oauth-client-assertion-file}}'
           - name: API_URL
             value: '{{inputs.parameters.api-server-url}}'
         command:
@@ -135,20 +154,30 @@ spec:
 
             # --- Step 3: Get OAuth token ---
             echo ">> Requesting OAuth token from ${OAUTH_URL}"
-            if [ -n "${OAUTH_SCOPE}" ]; then
-              TOKEN_RESPONSE=$(curl -sk --fail-with-body \
-                -X POST "${OAUTH_URL}" \
-                --data-urlencode "grant_type=client_credentials" \
-                --data-urlencode "client_id=${CLIENT_ID}" \
-                --data-urlencode "client_secret=${CLIENT_SECRET}" \
-                --data-urlencode "scope=${OAUTH_SCOPE}")
+
+            set -- -X POST "${OAUTH_URL}" \
+                   --data-urlencode "grant_type=client_credentials" \
+                   --data-urlencode "client_id=${CLIENT_ID}"
+
+            if [ -n "${CLIENT_ASSERTION_FILE}" ]; then
+              if [ ! -s "${CLIENT_ASSERTION_FILE}" ]; then
+                echo ">> Client assertion file ${CLIENT_ASSERTION_FILE} is missing or empty"
+                exit 1
+              fi
+              # Read here rather than earlier: workload identity platforms rotate the
+              # projected token in place, so a value read at pod start can be stale.
+              set -- "$@" \
+                --data-urlencode "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
+                --data-urlencode "client_assertion=$(cat "${CLIENT_ASSERTION_FILE}")"
             else
-              TOKEN_RESPONSE=$(curl -sk --fail-with-body \
-                -X POST "${OAUTH_URL}" \
-                --data-urlencode "grant_type=client_credentials" \
-                --data-urlencode "client_id=${CLIENT_ID}" \
-                --data-urlencode "client_secret=${CLIENT_SECRET}")
+              set -- "$@" --data-urlencode "client_secret=${CLIENT_SECRET}"
             fi
+
+            if [ -n "${OAUTH_SCOPE}" ]; then
+              set -- "$@" --data-urlencode "scope=${OAUTH_SCOPE}"
+            fi
+
+            TOKEN_RESPONSE=$(curl -sk --fail-with-body "$@")
 
             ACCESS_TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 

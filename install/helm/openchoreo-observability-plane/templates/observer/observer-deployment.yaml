@@ -1,5 +1,9 @@
-{{- if not .Values.observer.secretName }}
-{{- fail "observer.secretName is required. Create a Secret with keys matching the Observer's expected env vars (UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql), then set observer.secretName." }}
+{{- $needsSecret := true }}
+{{- if and .Values.observer.oauthClientAssertionFile (ne (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") }}
+{{- $needsSecret = false }}
+{{- end }}
+{{- if and $needsSecret (not .Values.observer.secretName) }}
+{{- fail "observer.secretName is required. Create a Secret with keys matching the Observer's expected env vars (UID_RESOLVER_OAUTH_CLIENT_SECRET, unless observer.oauthClientAssertionFile is set; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql), then set observer.secretName." }}
 {{- end }}
 {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") (gt (.Values.observer.replicas | int) 1) }}
 {{- fail "observer.replicas must be 1 when observer.alertStoreBackend=sqlite (ReadWriteOnce PVC). Set observer.replicas=1 or use observer.alertStoreBackend=postgresql." }}
@@ -23,6 +27,9 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/observer/observer-config.yaml") . | sha256sum }}
       labels:
+        {{- with .Values.observer.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
     spec:
       serviceAccountName: observer
@@ -67,8 +74,10 @@ spec:
           containerPort: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 }}{{ else }}8081{{ end }}
           protocol: TCP
         envFrom:
+        {{- if .Values.observer.secretName }}
         - secretRef:
             name: {{ .Values.observer.secretName }}
+        {{- end }}
         - configMapRef:
             name: observer-config
         {{- if .Values.observer.extraEnvs }}

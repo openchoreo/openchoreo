@@ -964,6 +964,12 @@
           "additionalProperties": false,
           "description": "OAuth2 client credentials configuration for FinOps agent authentication",
           "properties": {
+            "clientAssertionFile": {
+              "default": "",
+              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, OAUTH_CLIENT_SECRET is not required.",
+              "title": "clientAssertionFile",
+              "type": "string"
+            },
             "clientId": {
               "default": "openchoreo-finops-agent",
               "description": "OAuth2 client ID registered with the IDP",
@@ -998,6 +1004,16 @@
           "description": "OpenCost MCP Server URL",
           "title": "opencostMcpServerUrl",
           "type": "string"
+        },
+        "podLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels to add to FinOps agent pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection",
+          "required": [],
+          "title": "podLabels",
+          "type": "object"
         },
         "remediationEnabled": {
           "default": false,
@@ -1075,7 +1091,7 @@
         },
         "secretName": {
           "default": "finops-agent",
-          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
           "title": "secretName",
           "type": "string"
         },
@@ -1105,6 +1121,37 @@
           },
           "required": [],
           "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the FinOps agent",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the FinOps agent service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": false,
+              "description": "Create a dedicated service account for the FinOps agent and run the pod as it. Required for workload identity, which binds the projected identity token to a specific service account. When false, the pod uses the namespace default service account.",
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "",
+              "description": "Name of the service account. Defaults to finops-agent when create is true. Set together with create=false to run the pod as an externally managed service account.",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
           "type": "object"
         },
         "sqliteStorageSize": {
@@ -1527,6 +1574,12 @@
           "title": "nodeSelector",
           "type": "object"
         },
+        "oauthClientAssertionFile": {
+          "default": "",
+          "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, UID_RESOLVER_OAUTH_CLIENT_SECRET is not required.",
+          "title": "oauthClientAssertionFile",
+          "type": "string"
+        },
         "oauthClientId": {
           "default": "openchoreo-observer-resource-reader-client",
           "description": "OAuth2 client ID used by the Observer when calling the control plane API",
@@ -1538,6 +1591,16 @@
           "description": "Optional OAuth2 scope to request in the client credentials token request",
           "title": "oauthScope",
           "type": "string"
+        },
+        "podLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels to add to Observer pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection",
+          "required": [],
+          "title": "podLabels",
+          "type": "object"
         },
         "replicas": {
           "default": 1,
@@ -1599,7 +1662,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
+          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET, unless oauthClientAssertionFile is set; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
           "title": "secretName",
           "type": "string"
         },
@@ -1688,6 +1751,25 @@
           },
           "required": [],
           "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the Observer",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the Observer service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
           "type": "object"
         },
         "tolerations": {
@@ -1907,6 +1989,12 @@
           "additionalProperties": false,
           "description": "OAuth2 client credentials configuration for RCA agent authentication",
           "properties": {
+            "clientAssertionFile": {
+              "default": "",
+              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, OAUTH_CLIENT_SECRET is not required.",
+              "title": "clientAssertionFile",
+              "type": "string"
+            },
             "clientId": {
               "default": "openchoreo-rca-agent",
               "description": "OAuth2 client ID registered with the IDP",
@@ -1935,6 +2023,16 @@
           "description": "OpenChoreo API base URL used by rca-agent",
           "title": "openchoreoApiUrl",
           "type": "string"
+        },
+        "podLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels to add to RCA agent pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection",
+          "required": [],
+          "title": "podLabels",
+          "type": "object"
         },
         "remedAgent": {
           "default": true,
@@ -2012,7 +2110,7 @@
         },
         "secretName": {
           "default": "rca-agent-secret",
-          "description": "Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
           "title": "secretName",
           "type": "string"
         },
@@ -2042,6 +2140,37 @@
           },
           "required": [],
           "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the RCA agent",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the RCA agent service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": false,
+              "description": "Create a dedicated service account for the RCA agent and run the pod as it. Required for workload identity, which binds the projected identity token to a specific service account. When false, the pod uses the namespace default service account.",
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "",
+              "description": "Name of the service account. Defaults to rca-agent when create is true. Set together with create=false to run the pod as an externally managed service account.",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
           "type": "object"
         },
         "sqliteStorageSize": {

@@ -120,8 +120,13 @@ type UIDResolverConfig struct {
 	OAuthTokenURL string `koanf:"oauth.token.url"`
 	// OAuthClientID is the OAuth2 client ID for authentication
 	OAuthClientID string `koanf:"oauth.client.id"`
-	// OAuthClientSecret is the OAuth2 client secret for authentication
+	// OAuthClientSecret is the OAuth2 client secret for authentication.
+	// Ignored when OAuthClientAssertionFile is set.
 	OAuthClientSecret string `koanf:"oauth.client.secret"`
+	// OAuthClientAssertionFile is the path to a file holding a JWT client assertion
+	// (RFC 7523) presented instead of a client secret. Set this to authenticate with a
+	// platform-projected identity token, such as Azure Workload Identity or EKS IRSA.
+	OAuthClientAssertionFile string `koanf:"oauth.client.assertion.file"`
 	// OAuthScope is the optional OAuth2 scope to request in the token request
 	OAuthScope string `koanf:"oauth.scope"`
 	// TLSInsecureSkipVerify skips TLS certificate verification (for development)
@@ -168,51 +173,52 @@ func Load() (*Config, error) {
 
 	// Define environment variable mappings
 	envMappings := map[string]string{
-		"SERVER_PORT":                           "server.port",
-		"SERVER_INTERNAL_PORT":                  "server.internal.port",
-		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
-		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
-		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
-		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
-		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
-		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
-		"AUTHZ_SERVICE_URL":                     "authz.service.url",
-		"AUTHZ_TIMEOUT":                         "authz.timeout",
-		"AUTHZ_TLS_INSECURE_SKIP_VERIFY":        "authz.tls.insecure.skip.verify",
-		"LOGGING_MAX_LOG_LIMIT":                 "logging.max.log.limit",
-		"LOGGING_DEFAULT_LOG_LIMIT":             "logging.default.log.limit",
-		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":       "logging.default.build.log.limit",
-		"LOGGING_MAX_LOG_LINES_PER_FILE":        "logging.max.log.lines.per.file",
-		"RCA_SERVICE_URL":                       "alerting.rca.service.url",
-		"AI_RCA_ENABLED":                        "alerting.ai.rca.enabled",
-		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
-		"ALERT_STORE_BACKEND":                   "alerting.alert.store.backend",
-		"ALERT_STORE_DSN":                       "alerting.alert.store.dsn",
-		"ALERT_SUPPRESSION_WINDOW":              "alerting.alert.suppression.window",
-		"FINOPS_AGENT_URL":                      "alerting.finops.agent.url",
-		"FINOPS_AGENT_ENABLED":                  "alerting.finops.agent.enabled",
-		"LOG_LEVEL":                             "loglevel",
-		"PORT":                                  "server.port",           // Common alias
-		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
-		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
-		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
-		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"LOGS_ADAPTER_URL":                      "adapters.logs.adapter.url",
-		"LOGS_ADAPTER_TIMEOUT":                  "adapters.logs.adapter.timeout",
-		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
-		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
-		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
-		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
-		"FINOPS_ADAPTER_URL":                    "adapters.finops.adapter.url",
-		"FINOPS_ADAPTER_TIMEOUT":                "adapters.finops.adapter.timeout",
-		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
-		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
-		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
-		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
-		"UID_RESOLVER_OAUTH_SCOPE":              "uid_resolver.oauth.scope",
-		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
-		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
-		"UID_RESOLVER_MAX_AUTH_RETRY":           "uid_resolver.max.auth.retry",
+		"SERVER_PORT":                              "server.port",
+		"SERVER_INTERNAL_PORT":                     "server.internal.port",
+		"SERVER_READ_TIMEOUT":                      "server.read.timeout",
+		"SERVER_WRITE_TIMEOUT":                     "server.write.timeout",
+		"SERVER_SHUTDOWN_TIMEOUT":                  "server.shutdown.timeout",
+		"AUTH_JWT_SECRET":                          "auth.jwt.secret",
+		"AUTH_ENABLE_AUTH":                         "auth.enable.auth",
+		"AUTH_REQUIRED_ROLE":                       "auth.required.role",
+		"AUTHZ_SERVICE_URL":                        "authz.service.url",
+		"AUTHZ_TIMEOUT":                            "authz.timeout",
+		"AUTHZ_TLS_INSECURE_SKIP_VERIFY":           "authz.tls.insecure.skip.verify",
+		"LOGGING_MAX_LOG_LIMIT":                    "logging.max.log.limit",
+		"LOGGING_DEFAULT_LOG_LIMIT":                "logging.default.log.limit",
+		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":          "logging.default.build.log.limit",
+		"LOGGING_MAX_LOG_LINES_PER_FILE":           "logging.max.log.lines.per.file",
+		"RCA_SERVICE_URL":                          "alerting.rca.service.url",
+		"AI_RCA_ENABLED":                           "alerting.ai.rca.enabled",
+		"OBSERVABILITY_NAMESPACE":                  "alerting.observability.namespace",
+		"ALERT_STORE_BACKEND":                      "alerting.alert.store.backend",
+		"ALERT_STORE_DSN":                          "alerting.alert.store.dsn",
+		"ALERT_SUPPRESSION_WINDOW":                 "alerting.alert.suppression.window",
+		"FINOPS_AGENT_URL":                         "alerting.finops.agent.url",
+		"FINOPS_AGENT_ENABLED":                     "alerting.finops.agent.enabled",
+		"LOG_LEVEL":                                "loglevel",
+		"PORT":                                     "server.port",           // Common alias
+		"INTERNAL_PORT":                            "server.internal.port",  // Common alias
+		"JWT_SECRET":                               "auth.jwt.secret",       // Common alias
+		"ENABLE_AUTH":                              "auth.enable.auth",      // Common alias
+		"MAX_LOG_LIMIT":                            "logging.max.log.limit", // Common alias
+		"LOGS_ADAPTER_URL":                         "adapters.logs.adapter.url",
+		"LOGS_ADAPTER_TIMEOUT":                     "adapters.logs.adapter.timeout",
+		"TRACING_ADAPTER_URL":                      "adapters.tracing.adapter.url",
+		"TRACING_ADAPTER_TIMEOUT":                  "adapters.tracing.adapter.timeout",
+		"METRICS_ADAPTER_URL":                      "adapters.metrics.adapter.url",
+		"METRICS_ADAPTER_TIMEOUT":                  "adapters.metrics.adapter.timeout",
+		"FINOPS_ADAPTER_URL":                       "adapters.finops.adapter.url",
+		"FINOPS_ADAPTER_TIMEOUT":                   "adapters.finops.adapter.timeout",
+		"UID_RESOLVER_OPENCHOREO_API_URL":          "uid_resolver.openchoreo.api.url",
+		"UID_RESOLVER_OAUTH_TOKEN_URL":             "uid_resolver.oauth.token.url",
+		"UID_RESOLVER_OAUTH_CLIENT_ID":             "uid_resolver.oauth.client.id",
+		"UID_RESOLVER_OAUTH_CLIENT_SECRET":         "uid_resolver.oauth.client.secret",
+		"UID_RESOLVER_OAUTH_CLIENT_ASSERTION_FILE": "uid_resolver.oauth.client.assertion.file",
+		"UID_RESOLVER_OAUTH_SCOPE":                 "uid_resolver.oauth.scope",
+		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY":    "uid_resolver.tls.insecure.skip.verify",
+		"UID_RESOLVER_TIMEOUT":                     "uid_resolver.timeout",
+		"UID_RESOLVER_MAX_AUTH_RETRY":              "uid_resolver.max.auth.retry",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -378,8 +384,8 @@ func (c *Config) validate() error {
 	if c.UIDResolver.OAuthClientID == "" {
 		return fmt.Errorf("uid resolver oauth client ID is required")
 	}
-	if c.UIDResolver.OAuthClientSecret == "" {
-		return fmt.Errorf("uid resolver oauth client secret is required")
+	if c.UIDResolver.OAuthClientSecret == "" && c.UIDResolver.OAuthClientAssertionFile == "" {
+		return fmt.Errorf("uid resolver oauth client secret or client assertion file is required")
 	}
 	if c.UIDResolver.Timeout <= 0 {
 		return fmt.Errorf("uid resolver timeout must be positive")

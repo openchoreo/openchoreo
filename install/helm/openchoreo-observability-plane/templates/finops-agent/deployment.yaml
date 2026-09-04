@@ -1,6 +1,6 @@
 {{- if .Values.finOpsAgent.enabled }}
 {{- if not .Values.finOpsAgent.secretName }}
-{{- fail "finOpsAgent.secretName is required when finOpsAgent is enabled. Create a Secret with keys matching the FinOps agent's expected env vars (LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set finOpsAgent.secretName." }}
+{{- fail "finOpsAgent.secretName is required when finOpsAgent is enabled. Create a Secret with keys matching the FinOps agent's expected env vars (LLM_API_KEY, OAUTH_CLIENT_SECRET unless finOpsAgent.oauth.clientAssertionFile is set, and optionally SQL_BACKEND_URI), then set finOpsAgent.secretName." }}
 {{- end }}
 {{- if not .Values.finOpsAgent.opencostMcpServerUrl }}
 {{- fail "finOpsAgent.opencostMcpServerUrl is required when finOpsAgent is enabled. Set it to the OpenCost MCP Server URL (e.g. http://opencost.openchoreo-observability-plane.svc.cluster.local:8081)." }}
@@ -34,8 +34,15 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/finops-agent/config-map.yaml") . | sha256sum }}
         checksum/observer-auth-config: {{ include (print $.Template.BasePath "/observer/observer-auth-configmap.yaml") . | sha256sum }}
       labels:
+        {{- with .Values.finOpsAgent.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "finops-agent") | nindent 8 }}
     spec:
+      {{- $saName := .Values.finOpsAgent.serviceAccount.name | default (ternary "finops-agent" "" .Values.finOpsAgent.serviceAccount.create) }}
+      {{- if $saName }}
+      serviceAccountName: {{ $saName }}
+      {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
