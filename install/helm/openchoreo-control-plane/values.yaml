@@ -4175,6 +4175,15 @@ gateway:
   #   reach the kgateway proxy pods. That field needs Gateway API >= v1.2 - on
   #   older CRDs it is pruned and the proxy pods lose plane attribution.
   #   labels is capped at 8 entries by Gateway API, platform identity included.
+  # properties:
+  #   labels:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
+  #   annotations:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
   # @schema
   infrastructure: {}
 

@@ -424,8 +424,8 @@ clusterAgent:
   # type: string
   # description: |
   #   Logical plane identifier shared across multiple CRs connecting to the same physical plane.
-  #   Defaults to Helm release name if not specified. Rendered as the openchoreo.dev/plane-id
-  #   pod label, so it must be a valid Kubernetes label value.
+  #   Ships as the literal "default"; falls back to Helm release name if set as "". Rendered as
+  #   the openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.
   # default: default
   # pattern: "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
   # maxLength: 63

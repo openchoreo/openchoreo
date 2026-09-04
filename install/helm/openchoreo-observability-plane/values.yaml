@@ -772,8 +772,8 @@ clusterAgent:
   # type: string
   # description: |
   #   Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.
-  #   Defaults to Helm release name if not specified. Rendered as the openchoreo.dev/plane-id
-  #   pod label, so it must be a valid Kubernetes label value.
+  #   Ships as the literal "default"; falls back to Helm release name if set as "". Rendered as
+  #   the openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.
   # default: default
   # pattern: "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
   # maxLength: 63
@@ -1150,6 +1150,15 @@ gateway:
   #   reach the kgateway proxy pods. That field needs Gateway API >= v1.2 - on
   #   older CRDs it is pruned and the proxy pods lose plane attribution.
   #   labels is capped at 8 entries by Gateway API, platform identity included.
+  # properties:
+  #   labels:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
+  #   annotations:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
   # @schema
   infrastructure: {}
 

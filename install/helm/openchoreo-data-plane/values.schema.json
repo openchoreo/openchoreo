@@ -149,7 +149,7 @@
         },
         "planeID": {
           "default": "default",
-          "description": "Logical plane identifier shared across multiple CRs connecting to the same physical plane.\nDefaults to Helm release name if not specified. Rendered as the openchoreo.dev/plane-id\npod label, so it must be a valid Kubernetes label value.\n",
+          "description": "Logical plane identifier shared across multiple CRs connecting to the same physical plane.\nShips as the literal \"default\"; falls back to Helm release name if set as \"\". Rendered as\nthe openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.\n",
           "maxLength": 63,
           "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
           "title": "planeID",

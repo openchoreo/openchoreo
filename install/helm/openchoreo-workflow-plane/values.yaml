@@ -51,8 +51,13 @@ argo-workflows:
   #   Carries platform identity for system-component observability.
   #
   #   Subchart values are not templated, therefore plane-id should be repeated
-  #   in argo-workflows.commonLabels to match clusterAgent.planeID.
-  #   The chart fails the render when the two disagree.
+  #   here to match clusterAgent.planeID. The chart fails the render when both
+  #   are set and disagree.
+  #
+  #   A release upgraded with --reuse-values keeps its old commonLabels map and
+  #   never gains keys the chart added later, so the check is skipped rather
+  #   than blocking the upgrade. Such a release renders Argo pods without a
+  #   plane-id; set this label explicitly to restore their attribution.
   # properties: {}
   # additionalProperties:
   #   type: string
@@ -223,8 +228,9 @@ clusterAgent:
   # type: string
   # description: |
   #   Logical plane identifier. Shared across multiple CRs connecting to the same physical plane
-  #   for multi-tenancy. Rendered as the openchoreo.dev/plane-id pod label, so it must be a valid
-  #   Kubernetes label value.
+  #   for multi-tenancy. Ships as the literal "default"; falls back to Helm release name if set as "".
+  #   Rendered as the openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.
+  #   Set argo-workflows.commonLabels["openchoreo.dev/plane-id"] to match.
   # default: default
   # pattern: "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
   # maxLength: 63

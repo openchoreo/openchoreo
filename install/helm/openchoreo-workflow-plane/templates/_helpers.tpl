@@ -203,6 +203,14 @@ read clusterAgent.planeID and have to repeat it literally. Fail the render
 when the two drift apart rather than let Argo pods report a plane-id that no
 workflow plane actually has.
 
+Both sides have to be set for the comparison to mean anything:
+  - an absent Argo label is a release upgraded with --reuse-values, which keeps
+    the old commonLabels map and never merges in keys the chart added later
+  - an empty planeID selects the .Release.Name fallback, which a static
+    subchart value cannot express
+Failing either case would block the upgrade without telling the operator
+anything they could act on, so both are skipped.
+
 Usage:
   {{ include "openchoreo-workflow-plane.validatePlatformIdentity" . }}
 
@@ -213,13 +221,13 @@ Parameters:
 {{- $errors := list -}}
 {{- $argo := index .Values "argo-workflows" | default (dict) -}}
 {{- $argoLabels := index $argo "commonLabels" | default (dict) -}}
-{{- $planeID := .Values.clusterAgent.planeID | default .Release.Name -}}
+{{- $planeID := .Values.clusterAgent.planeID | default "" -}}
 {{- $argoPlaneID := index $argoLabels "openchoreo.dev/plane-id" | default "" -}}
-{{- if ne $argoPlaneID $planeID -}}
-  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane-id"] is %q but clusterAgent.planeID resolves to %q - set both to the same value` $argoPlaneID $planeID) -}}
+{{- if and $argoPlaneID $planeID (ne $argoPlaneID $planeID) -}}
+  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane-id"] is %q but clusterAgent.planeID is %q - set both to the same value` $argoPlaneID $planeID) -}}
 {{- end -}}
 {{- $argoPlane := index $argoLabels "openchoreo.dev/plane" | default "" -}}
-{{- if ne $argoPlane "workflowplane" -}}
+{{- if and $argoPlane (ne $argoPlane "workflowplane") -}}
   {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane"] is %q but must be "workflowplane"` $argoPlane) -}}
 {{- end -}}
 {{- if gt (len $errors) 0 -}}
