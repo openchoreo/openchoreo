@@ -52,6 +52,16 @@ const (
 	// LabelKeyRenderedReleaseNamespace tracks the namespace of the rendered release that manages a resource.
 	LabelKeyRenderedReleaseNamespace = "openchoreo.dev/rendered-release-namespace"
 
+	// LabelKeyComponentReleaseName records the ComponentRelease a RenderedRelease was
+	// rendered from. The renderedrelease controller uses it to resolve release-scoped
+	// context (delivery events, commit provenance).
+	LabelKeyComponentReleaseName = "openchoreo.dev/component-release-name"
+
+	// LabelKeyComponentReleaseUID records the UID of that ComponentRelease. Because a
+	// ComponentRelease is immutable and every release is a new object, this UID is the
+	// per-rollout identity used by delivery lifecycle events.
+	LabelKeyComponentReleaseUID = "openchoreo.dev/component-release-uid"
+
 	// LabelKeyNotificationChannelName identifies a notification channel resource (ConfigMap/Secret)
 	// created by the observabilityalertsnotificationchannel controller.
 	LabelKeyNotificationChannelName = "openchoreo.dev/notification-channel-name"
@@ -85,6 +95,18 @@ const (
 	// where the first route match is a specific operation rather than the endpoint base. When absent,
 	// the controller falls back to the first route match path (the prefix-routing convention).
 	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
+
+	// AnnotationKeyCommit records the VCS commit SHA a rendered primary workload
+	// resource was built from. The renderedrelease controller reads it back into
+	// delivery lifecycle events so a consumer can measure lead time from the commit.
+	// Nothing stamps it yet -- workload commit provenance is a separate change -- so
+	// delivery events currently carry an empty commit, which they tolerate.
+	AnnotationKeyCommit = "openchoreo.dev/commit"
+
+	// AnnotationKeyCommitAuthoredAt records when that commit was authored, as
+	// RFC3339. Authored time, not commit or build time, is what lead time measures
+	// from. Same as above: read here, stamped by a later change.
+	AnnotationKeyCommitAuthoredAt = "openchoreo.dev/commit-authored-at"
 
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels
