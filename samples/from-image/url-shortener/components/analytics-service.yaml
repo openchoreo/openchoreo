@@ -29,24 +29,20 @@ spec:
   dependencies:
     endpoints:
       - project: url-shortener
-        component: snip-postgres
-        name: tcp
-        visibility: project
-        envBindings:
-          address: _
-      - project: url-shortener
         component: snip-redis
         name: tcp
         visibility: project
         envBindings:
           address: REDIS_ADDR
+    resources:
+      - ref: snip-postgres
+        envBindings:
+          url: POSTGRES_DSN
   container:
     image: ghcr.io/openchoreo/samples/snip-analytics-service:latest
     env:
       - key: PORT
         value: "8081"
-      - key: POSTGRES_DSN
-        value: "postgres://postgres:postgres@snip-postgres:5432/urlshortener?sslmode=disable"
       - key: OTEL_ENABLED
         value: "true"
       - key: OTEL_EXPORTER_ENDPOINT
