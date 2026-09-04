@@ -562,3 +562,60 @@ func TestSuccessiveFailureEpisodesStayDistinct(t *testing.T) {
 			"duration must cover the outage only, not the healthy interval between episodes")
 	}
 }
+
+// TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole pins that a weekly bucket
+// beginning in the previous month is not rebuilt from a partial fact set.
+//
+// recomputeRollups used to snap the fact read to the *monthly* boundary of the
+// earliest touched moment, but BuildRollups emits daily, weekly and monthly
+// buckets. 2026-09-01 is a Tuesday, so its week starts Mon 2026-08-31: a tick
+// touching Sep 1 read only September's facts and then replaced the Aug-31 weekly
+// bucket -- UpsertRollups replaces, never increments -- with a count covering
+// September alone. This fires on essentially every tick during the first days of
+// any month whose 1st is not a Monday, and the wrong value persists.
+func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+
+	aug31 := time.Date(2026, 8, 31, 10, 0, 0, 0, time.UTC) // Monday, week start
+	sep01 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)  // Tuesday, same week
+	weekStartMs := deliveryinsights.BucketStartMs(deliveryinsights.GranularityWeekly, sep01.UnixMilli())
+	require.Equal(t,
+		time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC).UnixMilli(), weekStartMs,
+		"fixture assumes the week containing Sep 1 starts Aug 31")
+
+	source := &fakeEventsSource{events: []DeliveryEvent{
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-aug31", aug31, nil),
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-sep01", sep01, nil),
+	}}
+
+	// First tick folds both deployments and builds the week correctly.
+	require.NoError(t, newTestAggregator(store, incidents, source,
+		sep01.Add(time.Hour)).RunOnce(ctx))
+	weekly := func() deliveryinsights.MetricRollup {
+		got, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
+			ScopeType:   deliveryinsights.ScopeTypeComponent,
+			ScopeUID:    "checkout-api",
+			Granularity: deliveryinsights.GranularityWeekly,
+			StartMs:     weekStartMs,
+			EndMs:       weekStartMs + 1,
+		})
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		return got[0]
+	}
+	require.Equal(t, 2, weekly().DeployTotal, "both deployments fall in the Aug-31 week")
+
+	// A later tick that touches only September must not shrink that week. The
+	// September-only event is new, so the recompute is driven by a Sep 1 moment.
+	source.events = append(source.events,
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-sep02",
+			time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC), nil))
+	require.NoError(t, newTestAggregator(store, incidents, source,
+		time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC)).RunOnce(ctx))
+
+	require.Equal(t, 3, weekly().DeployTotal,
+		"the Aug-31 week must still count its August deployment after a September tick")
+}

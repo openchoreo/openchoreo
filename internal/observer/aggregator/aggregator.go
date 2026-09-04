@@ -343,13 +343,21 @@ func (a *Aggregator) recomputeRollups(ctx context.Context, touchedMs []int64, ti
 			minTouched = ms
 		}
 	}
-	// Snap to the widest bucket boundary containing the earliest touched moment,
-	// so the monthly bucket it falls in is fully recomputed.
-	startMs := deliveryinsights.BucketStartMs(deliveryinsights.GranularityMonthly, minTouched)
+	// BuildRollups emits daily, weekly and monthly buckets, so the read has to cover
+	// every bucket it will rebuild. Snapping to the monthly boundary is not enough: a
+	// week that starts in the previous month (any month whose 1st is not a Monday)
+	// would be rebuilt from a partial fact set, and UpsertRollups replaces rather
+	// than increments, so the undercount persists.
+	//
+	// Read from the weekly boundary of the month start -- the earliest start of any
+	// bucket that can contain minTouched -- then discard the buckets that boundary
+	// still leaves partially covered.
+	monthStartMs := deliveryinsights.BucketStartMs(deliveryinsights.GranularityMonthly, minTouched)
+	readStartMs := deliveryinsights.BucketStartMs(deliveryinsights.GranularityWeekly, monthStartMs)
 	endMs := tickStart.UnixMilli() + 1
 
 	factQuery := deliveryinsights.FactQuery{
-		StartMs: startMs,
+		StartMs: readStartMs,
 		EndMs:   endMs,
 		Limit:   rollupFactLimit,
 		// Deployment moment ascending keeps the read deterministic.
@@ -360,16 +368,42 @@ func (a *Aggregator) recomputeRollups(ctx context.Context, touchedMs []int64, ti
 		return err
 	}
 	if total > len(facts) {
-		a.logger.Warn("Rollup recompute fact read truncated — rollups may lag until volume drops",
-			"total", total, "read", len(facts))
+		// Writing anyway would replace correct buckets with undercounted ones, and the
+		// next tick truncates identically, so the wrong values would persist rather
+		// than lag. Stale-but-correct beats fresh-but-wrong for a metrics store.
+		a.logger.Error("Rollup recompute fact read truncated — skipping this recompute to "+
+			"avoid overwriting rollups with undercounted values",
+			"total", total, "read", len(facts), "limit", rollupFactLimit)
+		return nil
 	}
 	recoveries, err := a.store.QueryRecoveryFacts(ctx, factQuery)
 	if err != nil {
 		return err
 	}
+	// QueryRecoveryFacts reports no total, so hitting the cap is the only signal
+	// available. It cannot distinguish "exactly at the cap" from "truncated", and it
+	// errs toward skipping, which is the safe direction: the alternative is writing
+	// undercounted MTTR rollups that the next tick reproduces identically.
+	if len(recoveries) >= rollupFactLimit {
+		a.logger.Error("Rollup recompute recovery read hit its row limit — skipping this "+
+			"recompute to avoid overwriting MTTR rollups with undercounted values",
+			"read", len(recoveries), "limit", rollupFactLimit)
+		return nil
+	}
 
 	rollups := deliveryinsights.BuildRollups(facts, recoveries, tickStart.UnixMilli())
-	return a.store.UpsertRollups(ctx, rollups)
+
+	// A bucket starting at or after readStartMs is fully covered by the read, which
+	// runs to tickStart. One starting before it is not -- the monthly bucket of the
+	// previous month, reached only because a straddling week pulled the read back --
+	// so it must not be written.
+	covered := rollups[:0]
+	for _, r := range rollups {
+		if r.BucketStartMs >= readStartMs {
+			covered = append(covered, r)
+		}
+	}
+	return a.store.UpsertRollups(ctx, covered)
 }
 
 // rollupFactLimit bounds one recompute read; matches the store's max query limit.
