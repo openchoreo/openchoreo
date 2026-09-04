@@ -81,6 +81,12 @@ type checkoutResult struct {
 	commitSHA        string // contents of the commit-sha output parameter file
 	commitAuthoredAt string // contents of the commit-authored-at output parameter file
 	sourceBranch     string // contents of the source-branch output parameter file
+	// sourceBranchWritten records whether the source-branch file exists, which an
+	// empty sourceBranch cannot distinguish: the script must always write the file
+	// (it is declared as an Argo output parameter path), and the commit path writes
+	// it empty. Without this, asserting an empty branch also passes when the write
+	// is gone entirely.
+	sourceBranchWritten bool
 }
 
 // runCheckout prepares an isolated environment and runs the checkout script.
@@ -166,6 +172,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	}
 	if data, rerr := os.ReadFile(sourceBranchFile); rerr == nil {
 		res.sourceBranch = string(data)
+		res.sourceBranchWritten = true
 	}
 
 	if data, rerr := os.ReadFile(gitCalls); rerr == nil {
@@ -585,6 +592,8 @@ func TestCheckoutSourceBranchProvenance(t *testing.T) {
 			branch: "feature-x",
 		})
 		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.True(t, res.sourceBranchWritten,
+			"checkout must write the source-branch output parameter file")
 		require.Equal(t, "feature-x", res.sourceBranch,
 			"a branch checkout must report the branch it actually cloned")
 	})
@@ -596,6 +605,11 @@ func TestCheckoutSourceBranchProvenance(t *testing.T) {
 			commit: "1234567890abcdef",
 		})
 		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		// Existence first: an absent file also reads as an empty branch, so the
+		// assertion below would pass if the script stopped writing it.
+		require.True(t, res.sourceBranchWritten,
+			"the commit path must still write the source-branch output parameter file, "+
+				"empty rather than absent")
 		require.Empty(t, res.sourceBranch,
 			"a commit-pinned checkout never uses the branch parameter, so it must not "+
 				"report feature-x as this build's branch")
