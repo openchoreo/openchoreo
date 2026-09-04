@@ -210,22 +210,12 @@ func main() {
 		}
 	}()
 
-	deliveryInsightsStore, err := deliveryinsights.New(
-		cfg.Insights.StoreBackend,
-		cfg.Insights.StoreDSN,
-		logger.With("component", "delivery-insights-store"),
-	)
+	deliveryInsightsStore, closeDeliveryInsightsStore, err := newDeliveryInsightsStore(
+		cfg, logger.With("component", "delivery-insights-store"))
 	if err != nil {
-		log.Fatalf("Failed to initialize delivery insights store: %v", err)
+		log.Fatalf("%v", err)
 	}
-	if err := deliveryInsightsStore.Initialize(context.Background()); err != nil {
-		log.Fatalf("Failed to initialize delivery insights store schema: %v", err)
-	}
-	defer func() {
-		if closeErr := deliveryInsightsStore.Close(); closeErr != nil {
-			logger.Error("Failed to close delivery insights store", "error", closeErr)
-		}
-	}()
+	defer closeDeliveryInsightsStore()
 
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
@@ -244,16 +234,7 @@ func main() {
 		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
-	// Initialize the delivery insights (DORA metrics) query service. The passthrough
-	// resolver is a development affordance for querying seeded dummy data without a
-	// control plane to resolve scope names against.
-	var insightsScopeResolver service.ScopeUIDResolver = uidResolver
-	if cfg.Insights.UIDResolution == "passthrough" {
-		logger.Warn("Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
-		insightsScopeResolver = service.NewPassthroughUIDResolver()
-	}
-	insightsService := service.NewInsightsService(
-		deliveryInsightsStore, insightsScopeResolver, logger.With("component", "insights-service"))
+	insightsService := newInsightsService(cfg, deliveryInsightsStore, uidResolver, logger)
 
 	// Wrap services with authorization checks.
 	// Both the API handler and MCP handler share the same authz-wrapped instances
@@ -483,6 +464,45 @@ func main() {
 
 	wg.Wait()
 	logger.Info("Server shutdown complete")
+}
+
+// newDeliveryInsightsStore opens the delivery insights store and applies its
+// migrations, returning the store and the function that closes it. The caller
+// defers that function; keeping it out of main means the store's three failure
+// branches do not sit in main's control flow.
+func newDeliveryInsightsStore(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (deliveryinsights.Store, func(), error) {
+	store, err := deliveryinsights.New(cfg.Insights.StoreBackend, cfg.Insights.StoreDSN, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize delivery insights store: %w", err)
+	}
+	if err := store.Initialize(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize delivery insights store schema: %w", err)
+	}
+	return store, func() {
+		if closeErr := store.Close(); closeErr != nil {
+			logger.Error("Failed to close delivery insights store", "error", closeErr)
+		}
+	}, nil
+}
+
+// newInsightsService builds the delivery insights (DORA metrics) query service.
+// The passthrough resolver is a development affordance for querying seeded dummy
+// data without a control plane to resolve scope names against.
+func newInsightsService(
+	cfg *config.Config,
+	store deliveryinsights.Store,
+	uidResolver service.ScopeUIDResolver,
+	logger *slog.Logger,
+) *service.DoraInsightsService {
+	resolver := uidResolver
+	if cfg.Insights.UIDResolution == "passthrough" {
+		logger.Warn("Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
+		resolver = service.NewPassthroughUIDResolver()
+	}
+	return service.NewInsightsService(store, resolver, logger.With("component", "insights-service"))
 }
 
 // startDoraAggregator starts the DORA aggregator, which folds incidents and delivery
