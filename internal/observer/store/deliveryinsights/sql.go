@@ -20,7 +20,7 @@ import (
 const (
 	initializeTimeout = 30 * time.Second
 	defaultQueryLimit = 100
-	maxQueryLimit     = 10000
+	maxQueryLimit     = MaxQueryLimit
 	sortOrderAsc      = "ASC"
 	sortOrderDesc     = "DESC"
 )

@@ -133,6 +133,11 @@ func (rs resolvedInsightsScope) factQuery(startMs, endMs int64) deliveryinsights
 		EnvironmentUID: rs.environmentUID,
 		StartMs:        startMs,
 		EndMs:          endMs,
+		// Explicit: an unset Limit is the paging default (100 rows, oldest first),
+		// which for lead-time and MTTR is a biased sample rather than a small one --
+		// the percentiles would be computed over the earliest 100 deployments in the
+		// window while CountDeployments stayed exact, so the two disagreed.
+		Limit: deliveryinsights.MaxQueryLimit,
 	}
 }
 

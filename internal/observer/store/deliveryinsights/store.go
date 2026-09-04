@@ -38,6 +38,12 @@ const (
 	RecoverySourceHealth   = "health"
 )
 
+// MaxQueryLimit is the largest row count any fact query will return. Callers that
+// compute a statistic over the whole window -- as opposed to showing a page of rows
+// -- must pass it explicitly: FactQuery.Limit of 0 means "a page", not "everything",
+// and silently yields the 100 oldest rows.
+const MaxQueryLimit = 10000
+
 // Rollup scope types.
 const (
 	ScopeTypeOrg       = "org"
