@@ -75,6 +75,13 @@ const (
 	// network access to user workloads. Used in NetworkPolicy rules to allow ingress from system components.
 	LabelKeySystemComponent = "openchoreo.dev/system-component"
 
+	// LabelKeyPlane and LabelKeyPlaneID attribute a platform (system component) pod to the
+	// OpenChoreo plane that owns it, for platform observability. Stamped by the plane Helm
+	// charts on pod templates.
+	// LabelKeyPlaneID is omitted on the control plane, which is a singleton.
+	LabelKeyPlane   = "openchoreo.dev/plane"
+	LabelKeyPlaneID = "openchoreo.dev/plane-id"
+
 	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"

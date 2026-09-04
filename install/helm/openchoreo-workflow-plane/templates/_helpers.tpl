@@ -123,6 +123,26 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
+Platform identity labels
+Attribution labels for platform components observability. They let the
+observability plane tell which OpenChoreo plane a log record came from.
+
+MUST be applied to pod templates ONLY - never to spec.selector.matchLabels or a
+Service's spec.selector. Selectors are immutable, so a label that reaches one
+makes `helm upgrade` fail on an existing install instead of adding the label.
+
+Usage:
+  {{ include "openchoreo-workflow-plane.platformIdentityLabels" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-workflow-plane.platformIdentityLabels" -}}
+openchoreo.dev/plane: workflowplane
+openchoreo.dev/plane-id: {{ .Values.clusterAgent.planeID | default .Release.Name | quote }}
+{{- end }}
+
+{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-workflow-plane.clusterAgent.name" -}}
@@ -174,3 +194,43 @@ Parameters:
 {{- printf "%s:%s" $repo (.image.tag | default .context.Chart.AppVersion) -}}
 {{- end }}
 
+{{/*
+Argo Workflows platform identity validation
+
+The argo-workflows subchart carries platform identity through its own
+commonLabels. Helm does not template subchart values, so those labels cannot
+read clusterAgent.planeID and have to repeat it literally. Fail the render
+when the two drift apart rather than let Argo pods report a plane-id that no
+workflow plane actually has.
+
+Both sides have to be set for the comparison to mean anything:
+  - an absent Argo label is a release upgraded with --reuse-values, which keeps
+    the old commonLabels map and never merges in keys the chart added later
+  - an empty planeID selects the .Release.Name fallback, which a static
+    subchart value cannot express
+Failing either case would block the upgrade without telling the operator
+anything they could act on, so both are skipped.
+
+Usage:
+  {{ include "openchoreo-workflow-plane.validatePlatformIdentity" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-workflow-plane.validatePlatformIdentity" -}}
+{{- $errors := list -}}
+{{- $argo := index .Values "argo-workflows" | default (dict) -}}
+{{- $argoLabels := index $argo "commonLabels" | default (dict) -}}
+{{- $planeID := .Values.clusterAgent.planeID | default "" -}}
+{{- $argoPlaneID := index $argoLabels "openchoreo.dev/plane-id" | default "" -}}
+{{- if and $argoPlaneID $planeID (ne $argoPlaneID $planeID) -}}
+  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane-id"] is %q but clusterAgent.planeID is %q - set both to the same value` $argoPlaneID $planeID) -}}
+{{- end -}}
+{{- $argoPlane := index $argoLabels "openchoreo.dev/plane" | default "" -}}
+{{- if and $argoPlane (ne $argoPlane "workflowplane") -}}
+  {{- $errors = append $errors (printf `argo-workflows.commonLabels["openchoreo.dev/plane"] is %q but must be "workflowplane"` $argoPlane) -}}
+{{- end -}}
+{{- if gt (len $errors) 0 -}}
+  {{- fail (printf "Argo Workflows platform identity labels are inconsistent. Without them the observability plane cannot attribute Argo pods to this workflow plane:\n  - %s" (join "\n  - " $errors)) -}}
+{{- end -}}
+{{- end }}
