@@ -32,7 +32,7 @@ type ComponentRef struct {
 // stable identifier the client references when opening a stream.
 type Target struct {
 	Key   string `json:"key"`
-	Proto string `json:"proto"` // "tcp" for v1
+	Proto string `json:"proto"` // currently always "tcp"
 	Host  string `json:"host"`
 	Port  int    `json:"port"`
 
@@ -44,6 +44,38 @@ type Target struct {
 	AgentNamespace string `json:"agentNamespace,omitempty"`
 }
 
+// Source kinds a SecretGrant may name. The kind is signed alongside the object name so
+// a ConfigMap read can never be satisfied from a Secret, or the reverse.
+const (
+	SourceKindSecret    = "Secret"
+	SourceKindConfigMap = "ConfigMap"
+)
+
+// SecretGrant authorizes one read of one key from one Secret or ConfigMap in the
+// provider's data-plane namespace. Like Target, it is resolved and signed at resolve
+// time — where the caller's identity and the authorization policy are in scope — so the
+// remote-agent never takes an object name from the client. Unlike Target it carries no
+// address: the agent reads through the Kubernetes API of its own cluster.
+//
+// Values are deliberately absent. Only the coordinates travel through the control
+// plane; the value itself is read in the data plane and returned to occ over the
+// tunnel, so secret material never enters a control-plane response.
+type SecretGrant struct {
+	// Key is the stable identifier occ references when opening a fetch stream, in the
+	// "sec/<ref>/<output>" space produced by SecretGrantKey.
+	Key string `json:"key"`
+	// AgentNamespace is the data-plane namespace of the remote-agent that may serve this
+	// grant. The agent refuses a grant routed elsewhere, exactly as it does for a dial
+	// target, so a grant cannot be replayed against another project's agent.
+	AgentNamespace string `json:"agentNamespace,omitempty"`
+	// SourceKind is SourceKindSecret or SourceKindConfigMap.
+	SourceKind string `json:"sourceKind"`
+	// SourceName is the Secret/ConfigMap name in AgentNamespace.
+	SourceName string `json:"sourceName"`
+	// SourceKey is the key within that object's data.
+	SourceKey string `json:"sourceKey"`
+}
+
 // CapabilityClaims are the custom claims of the remote-connect capability JWT. The
 // registered claims carry iss/sub/aud/exp/iat/jti.
 type CapabilityClaims struct {
@@ -52,6 +84,10 @@ type CapabilityClaims struct {
 	Component ComponentRef `json:"component"`
 	Env       string       `json:"env"`
 	Targets   []Target     `json:"targets"`
+	// Secrets authorizes reads of secret- and configmap-backed resource outputs. Empty
+	// for a capability that only tunnels, and for any capability minted while
+	// remote_connect.secrets_enabled is off.
+	Secrets []SecretGrant `json:"secrets,omitempty"`
 }
 
 // TargetByKey returns the authorized target with the given key, if present.
@@ -64,12 +100,32 @@ func (c *CapabilityClaims) TargetByKey(key string) (Target, bool) {
 	return Target{}, false
 }
 
+// SecretByKey returns the authorized secret grant with the given key, if present. It
+// is deliberately a separate lookup from TargetByKey: a key resolves in exactly one of
+// the two spaces, and the caller must not be able to satisfy a fetch from the dial
+// table or a dial from the fetch table.
+func (c *CapabilityClaims) SecretByKey(key string) (SecretGrant, bool) {
+	for _, g := range c.Secrets {
+		if g.Key == key {
+			return g, true
+		}
+	}
+	return SecretGrant{}, false
+}
+
 // HasAgentNamespace reports whether any target is served by the given data-plane
 // namespace. The heartbeat path uses it so an agent may only refresh the liveness of a
 // namespace its capability actually references (it cannot keep arbitrary agents alive).
 func (c *CapabilityClaims) HasAgentNamespace(ns string) bool {
 	for _, t := range c.Targets {
 		if t.AgentNamespace == ns {
+			return true
+		}
+	}
+	// Secret grants count too: a capability whose only work is fetching values still
+	// keeps a live session against that agent, and must be able to refresh it.
+	for _, g := range c.Secrets {
+		if g.AgentNamespace == ns {
 			return true
 		}
 	}

@@ -109,6 +109,95 @@ spec:
                       ClusterResourceType source will lose them; revisit this field then. Mirrors
                       the ComponentReleaseComponentType precedent.
                     properties:
+                      endpoints:
+                        description: |-
+                          Endpoints declares the dialable network endpoints of this resource type.
+                          Consumers may redirect the env bindings of a declared endpoint to a different
+                          address, so an address that must always be used as published -- an externally
+                          served admin UI, for example -- must not be declared here.
+                        items:
+                          description: |-
+                            ResourceTypeEndpoint declares one dialable network endpoint of a resource type.
+                            The address is declared in one of two ways, and both halves must use the same one:
+                            as the outputs that carry them (HostFrom and PortFrom), or literally (Host and Port)
+                            for types that do not publish the address as outputs at all. Most types name outputs
+                            and need nothing else.
+                          properties:
+                            host:
+                              description: |-
+                                Host supplies the hostname to dial for a type that publishes no host output of
+                                its own -- one whose only output is a composed connection string. A ${...} CEL
+                                expression evaluated against the same context as outputs, so it only suits an
+                                address knowable at render time: a service DNS name, or an applied resource's
+                                status field. Takes precedence over HostFrom when both are set.
+
+                                An endpoint declared this way has no output binding to redirect, so a consumer
+                                re-points it inside a composed value instead. Set Port alongside it, never
+                                PortFrom.
+                              maxLength: 512
+                              type: string
+                            hostFrom:
+                              description: |-
+                                HostFrom is the name of the output carrying this endpoint's hostname. Naming it
+                                is what lets a consumer redirect the env bindings of that output along with the
+                                endpoint. Several endpoints may share one host output.
+
+                                The output may be reference-backed (a Secret or ConfigMap key), which is how a
+                                provisioner-backed resource publishes an address it only learns after
+                                provisioning; the endpoint then resolves without a dialable address, since the
+                                control plane does not read those values. Omit HostFrom only when no output
+                                carries the host on its own -- a type publishing only a composed connection URL,
+                                say -- and set Host instead.
+
+                                HostFrom and PortFrom are set together or not at all: a consumer redirects an
+                                endpoint by rewriting the env bindings of its named outputs, so naming one half
+                                without the other would leave that other binding on the in-cluster value.
+                              minLength: 1
+                              type: string
+                            name:
+                              description: |-
+                                Name uniquely identifies this endpoint within the resource type. It becomes a
+                                segment of the remote-connect target key, so it is restricted to a DNS-1123 label:
+                                a name carrying a "/" would make two distinct endpoints share one key.
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            port:
+                              description: |-
+                                Port supplies the TCP port to dial, under the same rules as Host. A string
+                                rather than an integer so it can be a ${...} expression, matching every other
+                                templated field on this type; it must render to a number in 1-65535, which is
+                                checked at admission for a literal and at resolve time for an expression. Quote
+                                it even when it is a literal -- port: "6379".
+                              maxLength: 512
+                              type: string
+                            portFrom:
+                              description: |-
+                                PortFrom is the name of the output carrying this endpoint's TCP port. Two
+                                endpoints of the same resource type must not share a port output, because one
+                                env var cannot carry a redirected address for both. Omit it -- and set Port
+                                instead -- only when no output carries the port on its own, which also means
+                                HostFrom must be left unset and Host set alongside.
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-validations:
+                          - message: host must come from hostFrom or host, and port
+                              from portFrom or port
+                            rule: (has(self.hostFrom) || has(self.host)) && (has(self.portFrom)
+                              || has(self.port))
+                          - message: 'hostFrom and portFrom must be set together:
+                              name outputs for both halves of the address, or declare
+                              both inline with host and port'
+                            rule: has(self.hostFrom) == has(self.portFrom)
+                        maxItems: 10
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       environmentConfigs:
                         description: |-
                           EnvironmentConfigs defines the per-env schema.

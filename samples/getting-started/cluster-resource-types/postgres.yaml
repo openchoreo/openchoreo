@@ -55,6 +55,11 @@ spec:
 
   retainPolicy: Delete
 
+  endpoints:
+    - name: client
+      hostFrom: host
+      portFrom: port
+
   outputs:
     - name: host
       value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"

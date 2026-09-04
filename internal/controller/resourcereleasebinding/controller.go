@@ -206,8 +206,8 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, nil
 	}
 
-	r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
-	return ctrl.Result{}, nil
+	retryAfter := r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
+	return ctrl.Result{RequeueAfter: retryAfter}, nil
 }
 
 // renderAndEmit drives the pipeline against the snapshot and writes the

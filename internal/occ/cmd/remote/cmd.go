@@ -25,6 +25,7 @@ import (
 func NewRemoteCmd() *cobra.Command {
 	var (
 		printEnv  bool
+		noSecrets bool
 		localArgs []string
 	)
 
@@ -36,7 +37,12 @@ func NewRemoteCmd() *cobra.Command {
 			"those listeners — so the app runs locally against the environment's real upstreams.\n\n" +
 			"When multiple workload files are given and one declares an endpoint dependency on " +
 			"another workload's own component, that dependency is wired directly to a local " +
-			"host:port instead of being tunneled — see --local.",
+			"host:port instead of being tunneled — see --local.\n\n" +
+			"Values a dependency publishes through a Secret or ConfigMap are read in the data " +
+			"plane and returned over the tunnel, so they never pass through the control plane. " +
+			"They are placed in the subshell's environment (or, for file bindings, in a " +
+			"session-scoped directory removed on exit) and never printed. Use --no-secrets to " +
+			"skip fetching them.",
 		Example: "  occ remote comp1/workload.yaml --env development\n" +
 			"  occ remote comp1/workload.yaml comp2/workload.yaml --env development\n" +
 			"  occ remote comp1/workload.yaml comp2/workload.yaml --local comp2=127.0.0.1:9091 --env development",
@@ -62,12 +68,16 @@ func NewRemoteCmd() *cobra.Command {
 				Environment:    flags.GetEnvironment(cmd),
 				LocalOverrides: overrides,
 				PrintEnv:       printEnv,
+				NoSecrets:      noSecrets,
 			}, cmd.OutOrStdout())
 		},
 	}
 
 	cmd.Flags().BoolVar(&printEnv, "print-env", false,
 		"Print resolved env bindings and hold tunnels open instead of spawning a subshell")
+	cmd.Flags().BoolVar(&noSecrets, "no-secrets", false,
+		"Do not fetch secret- or configmap-backed dependency values; report them as "+
+			"unresolved instead, so no credential enters the local process")
 	cmd.Flags().StringArrayVar(&localArgs, "local", nil,
 		"Override the local host:port for a cross-linked dependency's provider component "+
 			"(component=host:port), e.g. --local comp2=127.0.0.1:9091. Repeatable. Defaults to "+

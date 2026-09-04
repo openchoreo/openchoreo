@@ -17,17 +17,20 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,6 +67,43 @@ const (
 	certRenewBefore = 30 * 24 * time.Hour
 )
 
+// maxAgentReadNames caps how many object names one agent's Role may name. RBAC has no
+// label selectors, so the list is the only way to keep the grant from covering the whole
+// namespace — but it must not grow without bound either. Past the cap, provisioning
+// fails rather than silently widening the grant to the namespace.
+const maxAgentReadNames = 128
+
+// agentReadSet is the set of Secret and ConfigMap names one remote-agent must be able to
+// read for the sessions it is serving. It becomes the resourceNames of the agent's Role,
+// which is what keeps a compromised agent from reading objects no session asked for.
+type agentReadSet struct {
+	secrets    []string
+	configMaps []string
+}
+
+func (a *agentReadSet) add(kind, name string) {
+	if a == nil || name == "" {
+		return
+	}
+	switch kind {
+	case remoteconnect.SourceKindSecret:
+		a.secrets = appendUnique(a.secrets, name)
+	case remoteconnect.SourceKindConfigMap:
+		a.configMaps = appendUnique(a.configMaps, name)
+	}
+}
+
+func (a *agentReadSet) empty() bool {
+	return a == nil || (len(a.secrets) == 0 && len(a.configMaps) == 0)
+}
+
+func appendUnique(dst []string, v string) []string {
+	if slices.Contains(dst, v) {
+		return dst
+	}
+	return append(dst, v)
+}
+
 // agentEndpointInfo is what a provisioned remote-agent exposes to occ.
 type agentEndpointInfo struct {
 	endpoint   string // host:port occ dials
@@ -97,11 +137,14 @@ func (p *remoteAgentProvisioner) agentSNI(dpNamespace string) string {
 }
 
 // ensureAgent applies the remote-agent resources (Deployment + ClusterIP Service + cert
-// Secret) into dpNamespace via dpClient (a proxy client to the data plane) and returns
-// the endpoint occ should dial: the shared SNI router's address, plus this agent's SNI
-// + cert. It is idempotent: repeated calls refresh the last-used annotation and reuse
-// the existing cert Secret.
-func (p *remoteAgentProvisioner) ensureAgent(ctx context.Context, dpClient client.Client, dpNamespace string) (*agentEndpointInfo, error) {
+// Secret, plus the read RBAC when reads is non-empty) into dpNamespace via dpClient (a
+// proxy client to the data plane) and returns the endpoint occ should dial: the shared
+// SNI router's address, plus this agent's SNI + cert. It is idempotent: repeated calls
+// refresh the last-used annotation and reuse the existing cert Secret.
+//
+// reads names the Secrets/ConfigMaps this resolve authorized reads of; nil means the
+// session only tunnels and the agent needs no Kubernetes access.
+func (p *remoteAgentProvisioner) ensureAgent(ctx context.Context, dpClient client.Client, dpNamespace string, reads *agentReadSet) (*agentEndpointInfo, error) {
 	if p.cfg.EntrypointAddress == "" {
 		return nil, fmt.Errorf("remote_connect.entrypoint_address is not configured")
 	}
@@ -110,6 +153,11 @@ func (p *remoteAgentProvisioner) ensureAgent(ctx context.Context, dpClient clien
 	certPEM, err := p.ensureCertSecret(ctx, dpClient, dpNamespace, sni)
 	if err != nil {
 		return nil, fmt.Errorf("ensure remote-agent cert: %w", err)
+	}
+	// RBAC before the Deployment: the pod must never come up able to serve a fetch it
+	// has no permission for, which would surface as a puzzling mid-session denial.
+	if err := p.ensureReadRBAC(ctx, dpClient, dpNamespace, reads); err != nil {
+		return nil, fmt.Errorf("ensure remote-agent read rbac: %w", err)
 	}
 	if err := p.applyDeployment(ctx, dpClient, dpNamespace, certPEM); err != nil {
 		return nil, fmt.Errorf("apply remote-agent deployment: %w", err)
@@ -186,6 +234,145 @@ func (p *remoteAgentProvisioner) storedCert(ctx context.Context, dpClient client
 		return "", fmt.Errorf("remote-agent cert secret in %s has no %s", ns, corev1.TLSCertKey)
 	}
 	return string(cert), nil
+}
+
+// mergeReadRole adds reads to the agent's Role, keeping the names already granted.
+//
+// Rules carries no listType marker, so a write replaces the whole rule set. The
+// read-modify-write therefore retries, re-reading and re-merging on each attempt rather
+// than reapplying a stale set. AlreadyExists is retried alongside Conflict: two resolves
+// racing the first create leave the loser holding a Role it has not merged into.
+func (p *remoteAgentProvisioner) mergeReadRole(ctx context.Context, dpClient client.Client, ns string, reads *agentReadSet) error {
+	retryable := func(err error) bool {
+		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+	}
+	return retry.OnError(retry.DefaultRetry, retryable, func() error {
+		secrets, configMaps := reads.secrets, reads.configMaps
+
+		existing := &rbacv1.Role{}
+		getErr := dpClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: remoteAgentName}, existing)
+		if getErr != nil && client.IgnoreNotFound(getErr) != nil {
+			return fmt.Errorf("read existing role: %w", getErr)
+		}
+		if getErr == nil {
+			for _, rule := range existing.Rules {
+				for _, res := range rule.Resources {
+					for _, name := range rule.ResourceNames {
+						switch res {
+						case "secrets":
+							secrets = appendUnique(secrets, name)
+						case "configmaps":
+							configMaps = appendUnique(configMaps, name)
+						}
+					}
+				}
+			}
+		}
+
+		if len(secrets)+len(configMaps) > maxAgentReadNames {
+			return fmt.Errorf("remote-agent in %s would need read access to %d objects, over the %d limit",
+				ns, len(secrets)+len(configMaps), maxAgentReadNames)
+		}
+
+		// Sorted so an unchanged set produces a byte-identical Role and the write is a no-op.
+		slices.Sort(secrets)
+		slices.Sort(configMaps)
+
+		var rules []rbacv1.PolicyRule
+		if len(secrets) > 0 {
+			rules = append(rules, rbacv1.PolicyRule{
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				Verbs:         []string{"get"},
+				ResourceNames: secrets,
+			})
+		}
+		if len(configMaps) > 0 {
+			rules = append(rules, rbacv1.PolicyRule{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				Verbs:         []string{"get"},
+				ResourceNames: configMaps,
+			})
+		}
+
+		if getErr != nil {
+			role := &rbacv1.Role{ObjectMeta: p.objectMeta(ns), Rules: rules}
+			if err := dpClient.Create(ctx, role); err != nil {
+				return fmt.Errorf("create role: %w", err)
+			}
+			return nil
+		}
+
+		// Written through the read object, so its resourceVersion is the precondition.
+		existing.Rules = rules
+		if existing.Labels == nil {
+			existing.Labels = p.labelSet()
+		}
+		// Stamped on every merge; the reaper drops the Role once no read refreshes it.
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		existing.Annotations[lastUsedAnnotation] = p.now().UTC().Format(time.RFC3339)
+		if err := dpClient.Update(ctx, existing); err != nil {
+			return fmt.Errorf("update role: %w", err)
+		}
+		return nil
+	})
+}
+
+// ensureReadRBAC applies the agent's ServiceAccount, and the Role/RoleBinding that let
+// it read exactly the objects reads names, and nothing else. The ServiceAccount is
+// applied whether or not there is anything to read: the Deployment names it.
+//
+// The Role is namespace-scoped and restricted with resourceNames. That restriction is
+// the containment: without it, `get` on secrets would cover every Secret in the
+// project+env namespace, which is far more than any one session needs. The rules
+// deliberately grant only `get` — resourceNames does not constrain `list` or `watch`, so
+// granting either would silently restore namespace-wide read.
+//
+// The name list is additive across the agent's life rather than replaced per resolve.
+// Replacing it would let a new session revoke a concurrent session's grant in the same
+// namespace, which the affected developer would see as a secret that mysteriously
+// stopped resolving. The Role is deleted with the agent, but any activity refreshes the
+// agent's liveness, so under continuous use the name list is not bounded by a session.
+func (p *remoteAgentProvisioner) ensureReadRBAC(ctx context.Context, dpClient client.Client, ns string, reads *agentReadSet) error {
+	sa := &corev1.ServiceAccount{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "ServiceAccount"},
+		ObjectMeta: p.objectMeta(ns),
+	}
+	if err := dpClient.Patch(ctx, sa, client.Apply, client.ForceOwnership, client.FieldOwner(remoteAgentFieldOwner)); err != nil {
+		return fmt.Errorf("apply service account: %w", err)
+	}
+
+	if reads.empty() {
+		// No Role needed. An existing one is left for concurrent sessions; the reaper
+		// removes it with the agent.
+		return nil
+	}
+
+	if err := p.mergeReadRole(ctx, dpClient, ns, reads); err != nil {
+		return err
+	}
+
+	binding := &rbacv1.RoleBinding{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "RoleBinding"},
+		ObjectMeta: p.objectMeta(ns),
+		Subjects: []rbacv1.Subject{{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      remoteAgentName,
+			Namespace: ns,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "Role",
+			Name:     remoteAgentName,
+		},
+	}
+	if err := dpClient.Patch(ctx, binding, client.Apply, client.ForceOwnership, client.FieldOwner(remoteAgentFieldOwner)); err != nil {
+		return fmt.Errorf("apply role binding: %w", err)
+	}
+	return nil
 }
 
 func (p *remoteAgentProvisioner) applyDeployment(ctx context.Context, dpClient client.Client, ns string, certPEM string) error {
@@ -276,8 +463,10 @@ func (p *remoteAgentProvisioner) applyDeployment(ctx context.Context, dpClient c
 						FSGroup:        ptr.To(int64(1000)),
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
-					// The agent never calls the Kubernetes API.
-					AutomountServiceAccountToken: ptr.To(false),
+					// The agent reads the Secrets/ConfigMaps a session's grants name, via
+					// a Role restricted to exactly those object names (ensureReadRBAC).
+					ServiceAccountName:           remoteAgentName,
+					AutomountServiceAccountToken: ptr.To(true),
 					Volumes: []corev1.Volume{{
 						Name:         "certs",
 						VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: remoteAgentName}},
@@ -316,14 +505,26 @@ func (p *remoteAgentProvisioner) applyService(ctx context.Context, dpClient clie
 // touchLastUsed refreshes the remote-agent's last-used annotation so the reaper keeps it
 // alive while sessions are active. It is a merge patch (not server-side apply) so it
 // only updates the annotation and leaves the rest of the object untouched.
-func (p *remoteAgentProvisioner) touchLastUsed(ctx context.Context, dpClient client.Client, ns string) error {
-	patch := fmt.Sprintf(`{"metadata":{"annotations":{%q:%q}}}`,
-		lastUsedAnnotation, p.now().UTC().Format(time.RFC3339))
+func (p *remoteAgentProvisioner) touchLastUsed(ctx context.Context, dpClient client.Client, ns string, readsSecret bool) error {
+	patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf(
+		`{"metadata":{"annotations":{%q:%q}}}`,
+		lastUsedAnnotation, p.now().UTC().Format(time.RFC3339))))
 	dep := &appsv1.Deployment{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{Name: remoteAgentName, Namespace: ns},
 	}
-	return dpClient.Patch(ctx, dep, client.RawPatch(types.MergePatchType, []byte(patch)))
+	if err := dpClient.Patch(ctx, dep, patch); err != nil {
+		return err
+	}
+	if !readsSecret {
+		// Only a read keeps the read Role alive.
+		return nil
+	}
+	role := &rbacv1.Role{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "Role"},
+		ObjectMeta: metav1.ObjectMeta{Name: remoteAgentName, Namespace: ns},
+	}
+	return client.IgnoreNotFound(dpClient.Patch(ctx, role, patch))
 }
 
 func (p *remoteAgentProvisioner) objectMeta(ns string) metav1.ObjectMeta {

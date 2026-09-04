@@ -84,6 +84,14 @@ type ResourceReleaseBindingStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	Outputs []ResolvedResourceOutput `json:"outputs,omitempty"`
+
+	// Endpoints holds the resolved dialable endpoints for this binding's
+	// environment, one per endpoint declared on the referenced ResourceType.
+	// Populated by the binding controller alongside Outputs.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Endpoints []ResolvedResourceEndpoint `json:"endpoints,omitempty"`
 }
 
 // ResolvedResourceOutput is a single resolved output value populated by the
@@ -113,6 +121,40 @@ type ResolvedResourceOutput struct {
 	// ConfigMapKeyRef is the resolved {name, key} reference to a DP-side ConfigMap.
 	// +optional
 	ConfigMapKeyRef *ConfigMapKeyRef `json:"configMapKeyRef,omitempty"`
+}
+
+// ResolvedResourceEndpoint is a single dialable endpoint resolved by the binding
+// controller from a ResourceType endpoint declaration.
+type ResolvedResourceEndpoint struct {
+	// Name matches the endpoint name declared on the referenced ResourceType.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Host is the resolved hostname or IP to dial. Empty when the address is published
+	// only through a Secret, which the control plane does not read: the endpoint is
+	// still declared, but there is no address to dial.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
+
+	// Port is the resolved TCP port to dial, empty under the same conditions as Host.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
+
+	// HostFrom is the output name this endpoint's host came from, carried through so
+	// a consumer can tell which of its env bindings represent this host. Empty when
+	// no output represents the host on its own -- a resource type publishing only a
+	// composed connection URL.
+	// +optional
+	HostFrom string `json:"hostFrom,omitempty"`
+
+	// PortFrom is the output name this endpoint's port came from, empty under the
+	// same conditions as HostFrom.
+	// +optional
+	PortFrom string `json:"portFrom,omitempty"`
 }
 
 // +kubebuilder:object:root=true

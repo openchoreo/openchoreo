@@ -28,6 +28,17 @@ type RemoteConnectConfig struct {
 	Issuer string `koanf:"issuer"`
 	// TTLSeconds is the capability lifetime in seconds.
 	TTLSeconds int `koanf:"ttl_seconds"`
+	// SecretTTLSeconds is the capability lifetime when the capability carries secret
+	// grants. Authorization is decided once, at resolve, and frozen into the capability
+	// — the per-stream authorize callback re-checks nothing — so this is the whole
+	// revocation window for a credential read, and is worth setting shorter than the
+	// dial TTL. Zero falls back to TTLSeconds.
+	SecretTTLSeconds int `koanf:"secret_ttl_seconds"`
+	// SecretsEnabled allows resolve to sign secret grants at all. An operator kill
+	// switch independent of policy: with it off, no capability authorizes reading a
+	// value, whatever roles grant, and `occ remote` behaves as it did before secret
+	// resolution existed.
+	SecretsEnabled bool `koanf:"secrets_enabled"`
 
 	// AgentImage is the container image used for the provisioned remote-agent Deployment.
 	AgentImage string `koanf:"agent_image"`
@@ -61,12 +72,29 @@ func RemoteConnectDefaults() RemoteConnectConfig {
 		Issuer:                "openchoreo-control-plane",
 		KeyID:                 "remote-connect-1",
 		TTLSeconds:            1800, // 30 minutes
+		SecretTTLSeconds:      600,  // 10 minutes: a credential read gets a tighter freeze
+		SecretsEnabled:        true,
 		AgentImage:            "ghcr.io/openchoreo/remote-agent:latest",
 		AgentListenPort:       8443,
 		SNISuffix:             "remote-connect",
 		ReaperIntervalSeconds: 300,  // 5 minutes
 		ReaperTTLSeconds:      1800, // 30 minutes idle
 	}
+}
+
+// CapabilityTTL returns the capability lifetime to use for a capability, tightened to
+// SecretTTLSeconds when it carries secret grants.
+func (c *RemoteConnectConfig) CapabilityTTL(withSecrets bool) time.Duration {
+	if withSecrets && c.SecretTTLSeconds > 0 {
+		return time.Duration(c.SecretTTLSeconds) * time.Second
+	}
+	return time.Duration(c.TTLSeconds) * time.Second
+}
+
+// GrantTTL returns how long the agent's read Role may go unread before the reaper
+// removes it. A session reads once at startup, so the capability lifetime bounds it.
+func (c *RemoteConnectConfig) GrantTTL() time.Duration {
+	return c.CapabilityTTL(true)
 }
 
 // ReaperInterval returns ReaperIntervalSeconds as a Duration.
@@ -101,6 +129,17 @@ func (c *RemoteConnectConfig) Validate(path *coreconfig.Path) coreconfig.Validat
 	// would mint already-expired capabilities. Reject at startup rather than crashing.
 	if err := coreconfig.MustBeGreaterThan(path.Child("ttl_seconds"), c.TTLSeconds, 0); err != nil {
 		errs = append(errs, err)
+	}
+	// Zero means "fall back to ttl_seconds"; negative would mint already-expired
+	// secret-bearing capabilities.
+	if c.SecretTTLSeconds < 0 {
+		errs = append(errs, coreconfig.MustBeGreaterThan(path.Child("secret_ttl_seconds"), c.SecretTTLSeconds, -1))
+	}
+	// A secret-bearing capability is meant to live no longer than a dial-only one, and
+	// it also bounds the agent's read grant. A larger value inverts both.
+	if c.SecretTTLSeconds > 0 && c.TTLSeconds > 0 && c.SecretTTLSeconds > c.TTLSeconds {
+		errs = append(errs, coreconfig.MustBeInRange(
+			path.Child("secret_ttl_seconds"), c.SecretTTLSeconds, 1, c.TTLSeconds))
 	}
 	if err := coreconfig.MustBeGreaterThan(path.Child("reaper_interval_seconds"), c.ReaperIntervalSeconds, 0); err != nil {
 		errs = append(errs, err)

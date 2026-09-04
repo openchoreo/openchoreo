@@ -22,6 +22,10 @@ type ConnectParams struct {
 	// PrintEnv, when set, prints the resolved env bindings and holds the tunnels open
 	// instead of spawning a subshell.
 	PrintEnv bool
+	// NoSecrets skips fetching secret- and configmap-backed values over the tunnel, so
+	// no credential enters the local process. Those bindings are reported as omitted
+	// instead, which is how `occ remote` behaved before value resolution existed.
+	NoSecrets bool
 }
 
 // LocalTarget is a local host:port a cross-linked dependency should point at directly.
