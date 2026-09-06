@@ -19,7 +19,7 @@
                   "description": "Maximum resources the controller can consume",
                   "properties": {
                     "cpu": {
-                      "default": "500m",
+                      "default": "200m",
                       "description": "CPU limit for the controller",
                       "title": "cpu",
                       "type": "string"

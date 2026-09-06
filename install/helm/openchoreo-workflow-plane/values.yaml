@@ -71,9 +71,9 @@ argo-workflows:
         # @schema
         # type: string
         # description: CPU limit for the controller
-        # default: 500m
+        # default: 200m
         # @schema
-        cpu: 500m
+        cpu: 200m
       # @schema
       # type: object
       # additionalProperties: true
