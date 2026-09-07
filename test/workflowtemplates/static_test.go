@@ -370,6 +370,57 @@ func TestGenerateWorkload_SharedContract(t *testing.T) {
 	}
 }
 
+// TestGenerateWorkload_SourceProvenance guards the WorkloadSource wiring: the
+// occ invocation must forward the resolved commit metadata so
+// commit/commitAuthoredAt land on the Workload without any manual flags.
+func TestGenerateWorkload_SourceProvenance(t *testing.T) {
+	for _, file := range []string{"generate-workload.yaml", "generate-workload-k3d.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			for _, name := range []string{"source-commit", "source-branch", "source-repository", "source-authored-at"} {
+				requireEqualContract(t, inputParamDefault(t, file, name), "",
+					"generate-workload-cr must expose "+name+" as an optional input parameter")
+			}
+
+			env := envForTemplate(t, file, "generate-workload-cr")
+			requireEnvContains(t, env, "SOURCE_COMMIT", "source-commit",
+				"generate-workload-cr must receive source-commit through container env")
+			requireEnvContains(t, env, "SOURCE_BRANCH", "source-branch",
+				"generate-workload-cr must receive source-branch through container env")
+			requireEnvContains(t, env, "SOURCE_REPOSITORY", "source-repository",
+				"generate-workload-cr must receive source-repository through container env")
+			requireEnvContains(t, env, "SOURCE_AUTHORED_AT", "source-authored-at",
+				"generate-workload-cr must receive source-authored-at through container env")
+
+			s := scriptForTemplate(t, file, "generate-workload-cr")
+			requireContains(t, s,
+				`--source-commit "${SOURCE_COMMIT}"`,
+				`--source-branch "${SOURCE_BRANCH}"`,
+				`--source-repository "${SOURCE_REPOSITORY}"`,
+				`--source-authored-at "${SOURCE_AUTHORED_AT}"`,
+			)
+			// Both the source-descriptor and default-generated occ invocations must
+			// forward every provenance flag, not just one invocation and not just the
+			// commit: dropping any one of the four silently degrades Lead Time.
+			for _, flag := range []string{
+				`--source-commit "${SOURCE_COMMIT}"`,
+				`--source-branch "${SOURCE_BRANCH}"`,
+				`--source-repository "${SOURCE_REPOSITORY}"`,
+				`--source-authored-at "${SOURCE_AUTHORED_AT}"`,
+			} {
+				requireEqualContract(t, strings.Count(s, flag), 2,
+					"both occ workload create invocations (source-descriptor and default) must forward "+flag)
+			}
+
+			// The 409 path merges into an existing Workload; provenance must travel with
+			// the image or the previous build's commit stays attached to the new one.
+			requireContains(t, s,
+				`NEW_SOURCE=$(jq -c '.spec.source // null' "${WORKLOAD_JSON}")`,
+				`.spec.source = $src`,
+			)
+		})
+	}
+}
+
 func TestGenerateWorkload_Cloud(t *testing.T) {
 	// The oauth URL lives in the parameter defaults, not the script body.
 	requireEqualContract(t, inputParamDefault(t, "generate-workload.yaml", "oauth-token-url"),

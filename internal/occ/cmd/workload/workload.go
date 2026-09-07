@@ -110,6 +110,16 @@ func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.C
 			}
 			existing := typedWorkload.Workload
 			existing.Spec.Container.Image = params.ImageURL
+			// Source describes the provenance of the image in Container, so it is
+			// replaced alongside it. With no --source-* flags it is cleared rather
+			// than kept: the previous value describes the image being replaced, and
+			// attributing this build to a commit it was not made from is worse than
+			// recording no provenance at all.
+			source, err := synth.SourceFromParams(synthParams)
+			if err != nil {
+				return err
+			}
+			existing.Spec.Source = source
 			workloadCR = existing
 		}
 	}
@@ -222,15 +232,19 @@ func (w *Workload) Delete(params DeleteParams) error {
 // toSynthParams converts CreateParams to synth.CreateWorkloadParams.
 func toSynthParams(p CreateParams) synth.CreateWorkloadParams {
 	return synth.CreateWorkloadParams{
-		FilePath:      p.FilePath,
-		NamespaceName: p.NamespaceName,
-		ProjectName:   p.ProjectName,
-		ComponentName: p.ComponentName,
-		ImageURL:      p.ImageURL,
-		OutputPath:    p.OutputPath,
-		DryRun:        p.DryRun,
-		Mode:          p.Mode,
-		RootDir:       p.RootDir,
+		FilePath:         p.FilePath,
+		NamespaceName:    p.NamespaceName,
+		ProjectName:      p.ProjectName,
+		ComponentName:    p.ComponentName,
+		ImageURL:         p.ImageURL,
+		OutputPath:       p.OutputPath,
+		DryRun:           p.DryRun,
+		Mode:             p.Mode,
+		RootDir:          p.RootDir,
+		SourceCommit:     p.SourceCommit,
+		SourceBranch:     p.SourceBranch,
+		SourceRepository: p.SourceRepository,
+		SourceAuthoredAt: p.SourceAuthoredAt,
 	}
 }
 

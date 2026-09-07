@@ -288,12 +288,6 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 		return nil, err
 	}
 
-	workloadTemplateSpec := openchoreov1alpha1.WorkloadTemplateSpec{
-		Container:    workload.Spec.Container,
-		Endpoints:    workload.Spec.Endpoints,
-		Dependencies: workload.Spec.Dependencies,
-	}
-
 	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
 		Component: component,
 		ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
@@ -303,7 +297,7 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 		},
 		Traits:        traits,
 		ClusterTraits: clusterTraits,
-		Workload:      &workloadTemplateSpec,
+		Workload:      &workload.Spec.WorkloadTemplateSpec,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)

@@ -5,6 +5,8 @@ package workload
 
 import (
 	"context"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -314,4 +316,31 @@ func TestGetWorkloadSchema(t *testing.T) {
 			assert.Equal(t, "string", binding.AdditionalProperties.Schema.Type)
 		}
 	})
+}
+
+// TestWorkloadSpecSchemaCoversEveryField is a drift guard. workloadSpecSchema is
+// hand-written, and it is what GetWorkloadSchema advertises -- so a field added
+// to WorkloadTemplateSpec but not to the schema is invisible to every consumer
+// that discovers the workload shape from it, MCP included, with nothing failing
+// to say so.
+//
+// That has already happened: `source` was added to the spec and this schema was
+// not updated, so commit provenance could not be set through the advertised
+// shape at all. This fails instead of letting the next field go the same way.
+func TestWorkloadSpecSchemaCoversEveryField(t *testing.T) {
+	schema := workloadSpecSchema()
+	specType := reflect.TypeOf(openchoreov1alpha1.WorkloadTemplateSpec{})
+
+	for i := range specType.NumField() {
+		field := specType.Field(i)
+		name := strings.Split(field.Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		_, ok := schema.Properties[name]
+		assert.Truef(t, ok,
+			"WorkloadTemplateSpec.%s is serialized as %q but workloadSpecSchema does not "+
+				"describe it, so no consumer reading the advertised schema can set it",
+			field.Name, name)
+	}
 }

@@ -36,10 +36,13 @@ case "$1" in
   rev-parse)
     echo "abcdef1234567890abcdef1234567890abcdef12"
     ;;
+  show)
+    echo "2026-01-15T10:30:00+00:00"
+    ;;
   config|fetch|checkout)
     ;;
   *)
-    echo "unexpected git subcommand: $1 (expected clone/config/fetch/checkout/rev-parse)" >&2
+    echo "unexpected git subcommand: $1 (expected clone/config/fetch/checkout/rev-parse/show)" >&2
     exit 127
     ;;
 esac
@@ -68,13 +71,25 @@ type checkoutInput struct {
 }
 
 type checkoutResult struct {
-	exitCode  int
-	output    string
-	gitCalls  []string
-	cloneRepo string // the repo URL passed to `git clone`, after transformation
-	root      string
-	askpass   string // path to the GIT_ASKPASS helper the script wrote
-	secretDir string // the mounted git-secret dir the helper reads from
+	exitCode         int
+	output           string
+	gitCalls         []string
+	cloneRepo        string // the repo URL passed to `git clone`, after transformation
+	root             string
+	askpass          string // path to the GIT_ASKPASS helper the script wrote
+	secretDir        string // the mounted git-secret dir the helper reads from
+	commitSHA        string // contents of the commit-sha output parameter file
+	commitAuthoredAt string // contents of the commit-authored-at output parameter file
+	sourceBranch     string // contents of the source-branch output parameter file
+	// gitRevision is the git-revision output parameter. `cut` leaves a trailing
+	// newline on it, here and on main, so compare it trimmed.
+	gitRevision string
+	// sourceBranchWritten records whether the source-branch file exists, which an
+	// empty sourceBranch cannot distinguish: the script must always write the file
+	// (it is declared as an Argo output parameter path), and the commit path writes
+	// it empty. Without this, asserting an empty branch also passes when the write
+	// is gone entirely.
+	sourceBranchWritten bool
 }
 
 // runCheckout prepares an isolated environment and runs the checkout script.
@@ -90,6 +105,9 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	secretDir := filepath.Join(root, "git-secret")
 	stubDir := filepath.Join(root, "bin")
 	revFile := filepath.Join(root, "git-revision.txt")
+	commitSHAFile := filepath.Join(root, "commit-sha.txt")
+	commitAuthoredAtFile := filepath.Join(root, "commit-authored-at.txt")
+	sourceBranchFile := filepath.Join(root, "source-branch.txt")
 	gitCalls := filepath.Join(root, "git-calls.log")
 	askpass := filepath.Join(root, "git-askpass.sh")
 	require.NoError(t, os.MkdirAll(home, 0o755))
@@ -119,6 +137,9 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		"/mnt/vol/source", source,
 		"/tmp/git-revision.txt", revFile,
 		"/tmp/git-askpass.sh", askpass,
+		"/tmp/commit-sha.txt", commitSHAFile,
+		"/tmp/commit-authored-at.txt", commitAuthoredAtFile,
+		"/tmp/source-branch.txt", sourceBranchFile,
 	}
 	script = strings.NewReplacer(replacements...).Replace(script)
 
@@ -144,6 +165,20 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		} else {
 			res.exitCode = -1
 		}
+	}
+
+	if data, rerr := os.ReadFile(commitSHAFile); rerr == nil {
+		res.commitSHA = string(data)
+	}
+	if data, rerr := os.ReadFile(commitAuthoredAtFile); rerr == nil {
+		res.commitAuthoredAt = string(data)
+	}
+	if data, rerr := os.ReadFile(sourceBranchFile); rerr == nil {
+		res.sourceBranch = string(data)
+		res.sourceBranchWritten = true
+	}
+	if data, rerr := os.ReadFile(revFile); rerr == nil {
+		res.gitRevision = string(data)
 	}
 
 	if data, rerr := os.ReadFile(gitCalls); rerr == nil {
@@ -480,6 +515,32 @@ func TestCheckout_ByCommit_UsesNoCheckoutCloneAndFetch(t *testing.T) {
 		"commit checkout should report the checked out commit")
 }
 
+// --- WorkloadSource provenance outputs (scenario 23) ---
+
+func TestCheckout_ByBranch_EmitsCommitProvenance(t *testing.T) {
+	res := runCheckout(t, checkoutInput{
+		repo:   "https://github.com/org/repo.git",
+		branch: "feature-x",
+	})
+	requireCheckoutSuccess(t, res, "Branch checkout should succeed so commit provenance outputs are written")
+	requireEqualContract(t, res.commitSHA, "abcdef1234567890abcdef1234567890abcdef12",
+		"branch checkout must write the full resolved commit SHA to commit-sha.txt")
+	requireEqualContract(t, res.commitAuthoredAt, "2026-01-15T10:30:00+00:00",
+		"branch checkout must write the commit author timestamp to commit-authored-at.txt")
+}
+
+func TestCheckout_ByCommit_EmitsCommitProvenance(t *testing.T) {
+	res := runCheckout(t, checkoutInput{
+		repo:   "https://github.com/org/repo.git",
+		commit: "1234567890abcdef",
+	})
+	requireCheckoutSuccess(t, res, "Commit checkout should succeed so commit provenance outputs are written")
+	requireEqualContract(t, res.commitSHA, "abcdef1234567890abcdef1234567890abcdef12",
+		"commit checkout must canonicalize the requested commit via rev-parse before writing commit-sha.txt")
+	requireEqualContract(t, res.commitAuthoredAt, "2026-01-15T10:30:00+00:00",
+		"commit checkout must write the commit author timestamp to commit-authored-at.txt")
+}
+
 func hasCall(calls []string, prefix string) bool {
 	for _, c := range calls {
 		if strings.HasPrefix(c, prefix) {
@@ -523,4 +584,74 @@ func normalizeCheckoutPath(res checkoutResult, s string) string {
 		return s
 	}
 	return strings.ReplaceAll(s, res.root, "$TEST_ROOT")
+}
+
+// TestCheckoutSourceBranchProvenance pins which branch a build is attributed to.
+// A commit-pinned run checks out a detached commit and never consults the branch
+// parameter, so reporting the requested branch would claim the build came from a
+// branch that was never checked out -- and a commit can belong to any number of
+// branches, so there is no correct value to report.
+func TestCheckoutSourceBranchProvenance(t *testing.T) {
+	t.Run("branch checkout records the branch it cloned", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "feature-x",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.True(t, res.sourceBranchWritten,
+			"checkout must write the source-branch output parameter file")
+		require.Equal(t, "feature-x", res.sourceBranch,
+			"a branch checkout must report the branch it actually cloned")
+	})
+
+	t.Run("commit checkout records no branch", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "feature-x",
+			commit: "1234567890abcdef",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		// Existence first: an absent file also reads as an empty branch, so the
+		// assertion below would pass if the script stopped writing it.
+		require.True(t, res.sourceBranchWritten,
+			"the commit path must still write the source-branch output parameter file, "+
+				"empty rather than absent")
+		require.Empty(t, res.sourceBranch,
+			"a commit-pinned checkout never uses the branch parameter, so it must not "+
+				"report feature-x as this build's branch")
+		require.NotEmpty(t, res.commitSHA,
+			"commit provenance must still be recorded on the commit path")
+	})
+}
+
+// TestCheckoutGitRevisionUnchanged pins the git-revision output, which is a
+// pre-existing contract this PR must not disturb: it is interpolated into the
+// published image tag as ${IMAGE_TAG}-${GIT_REVISION}. On the commit path it is
+// derived from the requested $COMMIT, not from the canonicalized rev-parse SHA
+// added for provenance -- deriving it from the latter would change the image tag
+// of every commit-pinned build whose input is a tag or a short SHA.
+func TestCheckoutGitRevisionUnchanged(t *testing.T) {
+	t.Run("commit path derives the revision from the requested commit", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "main",
+			commit: "1234567890abcdef",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Equal(t, "12345678", strings.TrimSpace(res.gitRevision),
+			"git-revision feeds the image tag and must stay derived from the requested commit")
+		// The canonicalized SHA is still resolved, but only for provenance.
+		require.Equal(t, "abcdef1234567890abcdef1234567890abcdef12", res.commitSHA,
+			"commit-sha carries the canonicalized SHA, separately from git-revision")
+	})
+
+	t.Run("branch path derives the revision from the resolved head", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "main",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Equal(t, "abcdef12", strings.TrimSpace(res.gitRevision),
+			"the branch path has no requested commit, so the resolved head is the revision")
+	})
 }

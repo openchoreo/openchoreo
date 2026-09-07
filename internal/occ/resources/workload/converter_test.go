@@ -7,10 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
@@ -124,7 +126,8 @@ func TestCreateBaseWorkload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := createBaseWorkload(tt.workloadName, tt.params)
+			w, err := createBaseWorkload(tt.workloadName, tt.params)
+			require.NoError(t, err)
 			require.NotNil(t, w)
 			assert.Equal(t, "openchoreo.dev/v1alpha1", w.APIVersion)
 			assert.Equal(t, "Workload", w.Kind)
@@ -138,6 +141,80 @@ func TestCreateBaseWorkload(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateBaseWorkload_WithSource(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName:    "test-ns",
+		ProjectName:      "test-project",
+		ComponentName:    "test-component",
+		ImageURL:         "gcr.io/test/image:v1",
+		SourceCommit:     "7f01217e694993f0e12cbc74f104ba1a97e6048b",
+		SourceBranch:     "main",
+		SourceRepository: "https://github.com/my-org/my-repo",
+		SourceAuthoredAt: "2026-07-20T06:12:14Z",
+	}
+
+	w, err := createBaseWorkload("my-workload", params)
+	require.NoError(t, err)
+	require.NotNil(t, w.Spec.Source)
+	assert.Equal(t, "7f01217e694993f0e12cbc74f104ba1a97e6048b", w.Spec.Source.Commit)
+	assert.Equal(t, "main", w.Spec.Source.Branch)
+	assert.Equal(t, "https://github.com/my-org/my-repo", w.Spec.Source.Repository)
+	require.NotNil(t, w.Spec.Source.AuthoredAt)
+	assert.True(t, w.Spec.Source.AuthoredAt.Time.Equal(time.Date(2026, 7, 20, 6, 12, 14, 0, time.UTC)))
+
+	// The in-memory object is not what reaches the API server: the CI templates
+	// serialize this to YAML, convert it to JSON and POST it. Assert provenance
+	// survives that path, since a marshaling regression would silently drop the
+	// commit and leave Lead Time for Changes unavailable.
+	out, err := ConvertWorkloadCRToYAML(w)
+	require.NoError(t, err)
+
+	// sigs.k8s.io/yaml round-trips through JSON, so these are json tags.
+	var serialized struct {
+		Spec struct {
+			Source struct {
+				Commit     string `json:"commit"`
+				Branch     string `json:"branch"`
+				Repository string `json:"repository"`
+				AuthoredAt string `json:"authoredAt"`
+			} `json:"source"`
+		} `json:"spec"`
+	}
+	require.NoError(t, yaml.Unmarshal(out, &serialized))
+	assert.Equal(t, "7f01217e694993f0e12cbc74f104ba1a97e6048b", serialized.Spec.Source.Commit)
+	assert.Equal(t, "main", serialized.Spec.Source.Branch)
+	assert.Equal(t, "https://github.com/my-org/my-repo", serialized.Spec.Source.Repository)
+	assert.Equal(t, "2026-07-20T06:12:14Z", serialized.Spec.Source.AuthoredAt)
+}
+
+func TestCreateBaseWorkload_NoSourceFields(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName: "test-ns",
+		ProjectName:   "test-project",
+		ComponentName: "test-component",
+		ImageURL:      "gcr.io/test/image:v1",
+	}
+
+	w, err := createBaseWorkload("my-workload", params)
+	require.NoError(t, err)
+	assert.Nil(t, w.Spec.Source)
+}
+
+func TestCreateBaseWorkload_InvalidSourceAuthoredAt(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName:    "test-ns",
+		ProjectName:      "test-project",
+		ComponentName:    "test-component",
+		ImageURL:         "gcr.io/test/image:v1",
+		SourceAuthoredAt: "not-a-timestamp",
+	}
+
+	_, err := createBaseWorkload("my-workload", params)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source-authored-at")
+}
+
 func TestAddDependenciesFromDescriptor(t *testing.T) {
 	baseWorkload := func() *openchoreov1alpha1.Workload {
 		return &openchoreov1alpha1.Workload{
@@ -1274,4 +1351,55 @@ spec:
 			testutil.AssertYAMLEquals(t, tt.wantYAML, string(yamlBytes))
 		})
 	}
+}
+
+// TestSourceFromParams pins the contract the filesystem-mode path depends on.
+// When `occ workload create` reuses a workload file that already exists it
+// replaces Spec.Source with whatever this returns, so nil is what clears stale
+// provenance: the previous value describes the image being replaced, and
+// attributing a build to a commit it was not made from is worse than recording
+// none.
+func TestSourceFromParams(t *testing.T) {
+	t.Run("no flags yields nil, which clears any previous provenance", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{ImageURL: "gcr.io/test/image:v2"})
+		require.NoError(t, err)
+		assert.Nil(t, source,
+			"an image replaced without --source-* flags has unknown provenance, not the old one")
+	})
+
+	t.Run("all flags are carried", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+			SourceBranch:     "release-1.3",
+			SourceRepository: "https://github.com/acme/widgets",
+			SourceAuthoredAt: "2026-08-30T09:15:00Z",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, source)
+		assert.Equal(t, "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4", source.Commit)
+		assert.Equal(t, "release-1.3", source.Branch)
+		assert.Equal(t, "https://github.com/acme/widgets", source.Repository)
+		require.NotNil(t, source.AuthoredAt)
+		assert.True(t, source.AuthoredAt.Time.Equal(time.Date(2026, 8, 30, 9, 15, 0, 0, time.UTC)))
+	})
+
+	t.Run("a commit without an authored time is still recorded", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit: "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, source,
+			"a commit alone is still useful provenance; only lead time needs the authored time")
+		assert.Nil(t, source.AuthoredAt)
+	})
+
+	t.Run("a non-RFC3339 authored time is rejected", func(t *testing.T) {
+		_, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+			SourceAuthoredAt: "30-08-2026",
+		})
+		require.Error(t, err,
+			"a silently unparsed timestamp would leave lead time wrong rather than absent")
+		assert.Contains(t, err.Error(), "must be RFC3339")
+	})
 }

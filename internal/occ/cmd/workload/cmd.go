@@ -44,25 +44,45 @@ Examples:
 
   # Create workload and save to file
   occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
-    --component product-catalog --image myimage:latest --output-path workload-cr.yaml`,
+    --component product-catalog --image myimage:latest --output-path workload-cr.yaml
+
+  # Create workload with commit provenance, for Delivery Insights' Lead Time for Changes
+  occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
+    --component product-catalog --image myimage:latest \
+    --source-commit $(git rev-parse HEAD) --source-branch main \
+    --source-repository https://github.com/my-org/my-repo \
+    --source-authored-at $(git show -s --format=%aI HEAD)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			descriptor, _ := cmd.Flags().GetString("descriptor")
 			image, _ := cmd.Flags().GetString("image")
+			sourceCommit, _ := cmd.Flags().GetString("source-commit")
+			sourceBranch, _ := cmd.Flags().GetString("source-branch")
+			sourceRepository, _ := cmd.Flags().GetString("source-repository")
+			sourceAuthoredAt, _ := cmd.Flags().GetString("source-authored-at")
 			return New(nil).Create(CreateParams{
-				FilePath:      descriptor,
-				NamespaceName: flags.GetNamespace(cmd),
-				ProjectName:   flags.GetProject(cmd),
-				ComponentName: flags.GetComponent(cmd),
-				ImageURL:      image,
-				OutputPath:    flags.GetOutputPath(cmd),
-				DryRun:        flags.GetDryRun(cmd),
-				Mode:          flags.GetMode(cmd),
-				RootDir:       flags.GetRootDir(cmd),
+				FilePath:         descriptor,
+				NamespaceName:    flags.GetNamespace(cmd),
+				ProjectName:      flags.GetProject(cmd),
+				ComponentName:    flags.GetComponent(cmd),
+				ImageURL:         image,
+				OutputPath:       flags.GetOutputPath(cmd),
+				DryRun:           flags.GetDryRun(cmd),
+				Mode:             flags.GetMode(cmd),
+				RootDir:          flags.GetRootDir(cmd),
+				SourceCommit:     sourceCommit,
+				SourceBranch:     sourceBranch,
+				SourceRepository: sourceRepository,
+				SourceAuthoredAt: sourceAuthoredAt,
 			})
 		},
 	}
 	cmd.Flags().String("image", "", "Name of the Docker image (e.g., product-catalog:latest)")
 	cmd.Flags().String("descriptor", "", "Path to the workload descriptor file (e.g., workload.yaml)")
+	cmd.Flags().String("source-commit", "", "VCS commit SHA the image was built from (optional)")
+	cmd.Flags().String("source-branch", "", "VCS branch the commit was built from (optional)")
+	cmd.Flags().String("source-repository", "", "VCS repository URL the commit belongs to (optional)")
+	cmd.Flags().String("source-authored-at", "",
+		"RFC3339 commit author timestamp, e.g. from 'git show -s --format=%aI <sha>' (optional)")
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
