@@ -90,6 +90,14 @@ type deliveryContext struct {
 	// environment the release is bound to. The pair is unique and stable.
 	rolloutID            string
 	componentReleaseName string
+	// orgNamespace is the control-plane namespace the rollout belongs to, taken
+	// from the RenderedRelease itself rather than from a label on the rendered
+	// resource. The store requires it, and the label is not guaranteed: it is
+	// injected through MetadataContext.Labels, which not every render path
+	// populates, so reading it off the resource could marshal an empty value that
+	// `omitempty` then drops from the payload entirely. The object's own namespace
+	// is the same value and always set.
+	orgNamespace string
 	// componentReleaseUID is the labeled UID of that ComponentRelease. Provenance
 	// is only trusted when the fetched object's UID matches it: the fetch is by
 	// name, and a reused name would otherwise pair this rollout's identity with a
@@ -151,6 +159,7 @@ func deliveryContextFor(release *openchoreov1alpha1.RenderedRelease, desiredReso
 	return &deliveryContext{
 		rolloutID:            fmt.Sprintf("%s.%s", crUID, release.UID),
 		componentReleaseName: crName,
+		orgNamespace:         release.Namespace,
 		componentReleaseUID:  crUID,
 		primary:              primary,
 	}
@@ -399,11 +408,23 @@ func (r *Reconciler) markDeliveryApplyFailure(
 		return before != release.Status.Delivery
 	}
 	now := metav1.Now()
+
+	// A failure on the first apply attempt would otherwise be the rollout's first
+	// event, and the Started for it would only be emitted once an apply finally
+	// succeeded -- after the Failed, breaking the phase order a consumer folds on.
+	// Started goes out first, and if it cannot, the failure waits for the retry.
+	if d.StartedAt == nil {
+		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", 0); err != nil {
+			return before != release.Status.Delivery
+		}
+		d.StartedAt = &now
+	}
+
 	episode := d.FailureEpisode + 1
 	if err := r.emitDeliveryEvent(
 		ctx, planeClient, dc, reasonDeploymentFailed, failureReasonApplyFailed,
 		episode); err != nil {
-		return before != release.Status.Delivery
+		return true // the Started marker above still needs persisting
 	}
 	d.FailedAt = &now
 	d.FailureEpisode = episode
@@ -504,7 +525,7 @@ func (r *Reconciler) emitDeliveryEvent(
 	payload := deliveryEventPayload{
 		RenderedReleaseUID:   dc.rolloutID,
 		ComponentReleaseName: dc.componentReleaseName,
-		OrgNamespace:         dc.primary.GetLabels()[labels.LabelKeyNamespaceName],
+		OrgNamespace:         dc.orgNamespace,
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
@@ -560,8 +581,9 @@ func (r *Reconciler) emitDeliveryEvent(
 			// Emitted by a previous reconcile whose status update was lost.
 			return nil
 		}
-		logger.Error(err, "Failed to emit delivery event", "reason", reason, "event", name)
-		return err
+		// Not logged here: the caller returns this to the reconcile boundary, which
+		// reports it, so logging would duplicate the record for every failure.
+		return fmt.Errorf("failed to create %s delivery event %q: %w", reason, name, err)
 	}
 
 	logger.Info("Emitted delivery event", "reason", reason, "event", name, "rolloutID", dc.rolloutID)

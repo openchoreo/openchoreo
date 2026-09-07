@@ -189,6 +189,8 @@ spec:
                   Delivery tracks which delivery lifecycle events have been emitted for the
                   current rollout, so each phase is emitted exactly once per rollout even
                   though the emitted Events themselves are garbage-collected by Kubernetes.
+                  Only set for component-owned releases; a RenderedRelease owned by a Project
+                  or a Resource emits no delivery events and leaves this unset.
                 properties:
                   failedAt:
                     description: |-
