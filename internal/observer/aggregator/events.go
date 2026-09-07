@@ -57,7 +57,7 @@ type EventsSource interface {
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
-	OrgNamespace         string `json:"orgNamespace"`
+	NamespaceName        string `json:"namespaceName"`
 	ProjectUID           string `json:"projectUid"`
 	ComponentUID         string `json:"componentUid"`
 	EnvironmentUID       string `json:"environmentUid"`
@@ -198,26 +198,26 @@ func (a *Aggregator) foldEvent(
 	}
 
 	// The payload is authoritative; collector enrichment is the fallback for events
-	// emitted before orgNamespace was carried in the message.
+	// emitted before namespaceName was carried in the message.
 	//
 	// Skipping here rather than letting the store reject the fact is the point:
 	// UpsertDeploymentFacts validates the whole slice before writing any of it and
 	// returns on the first error, so one event missing this field wrote none of the
 	// batch, failed the tick, and left the watermark unmoved -- re-reading the same
 	// bad event on every tick, forever.
-	orgNamespace := payload.OrgNamespace
-	if orgNamespace == "" {
-		orgNamespace = event.Namespace
+	namespaceName := payload.NamespaceName
+	if namespaceName == "" {
+		namespaceName = event.Namespace
 	}
-	if orgNamespace == "" {
-		a.logger.Warn("Skipping delivery event with no org namespace; it cannot be attributed",
+	if namespaceName == "" {
+		a.logger.Warn("Skipping delivery event with no namespace; it cannot be attributed",
 			"reason", event.Reason, "renderedReleaseUid", payload.RenderedReleaseUID)
 		return nil, nil, false
 	}
 
 	fact := deliveryinsights.DeploymentFact{
 		ReleaseUID:       payload.RenderedReleaseUID,
-		OrgNamespace:     orgNamespace,
+		OrgNamespace:     namespaceName,
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
 		EnvironmentUID:   payload.EnvironmentUID,
@@ -253,7 +253,7 @@ func (a *Aggregator) foldEvent(
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
 			ID:               healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
-			OrgNamespace:     orgNamespace,
+			OrgNamespace:     namespaceName,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
@@ -266,7 +266,7 @@ func (a *Aggregator) foldEvent(
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
 			ID:             healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
-			OrgNamespace:   orgNamespace,
+			OrgNamespace:   namespaceName,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,

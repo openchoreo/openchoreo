@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package renderedrelease
+package releasebinding
 
 import (
 	"context"
@@ -9,13 +9,12 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -30,16 +29,40 @@ const (
 	testComponentReleaseUID  = "cr-uid-7"
 )
 
+func makeDeliveryBinding() *openchoreov1alpha1.ReleaseBinding {
+	return &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "checkout-service-dev",
+			Namespace: "acme",
+			UID:       types.UID("rb-uid-1"),
+		},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ReleaseBindingOwner{
+				ProjectName:   "shop",
+				ComponentName: "checkout-service",
+			},
+			Environment: "dev",
+			ReleaseName: testComponentReleaseName,
+		},
+	}
+}
+
+func makeDeliveryComponentRelease() *openchoreov1alpha1.ComponentRelease {
+	return &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testComponentReleaseName,
+			Namespace: "acme",
+			UID:       types.UID(testComponentReleaseUID),
+		},
+	}
+}
+
 func makeDeliveryRelease() *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "checkout-service-dev",
 			Namespace: "acme",
 			UID:       types.UID("rr-uid-1"),
-			Labels: map[string]string{
-				labels.LabelKeyComponentReleaseName: testComponentReleaseName,
-				labels.LabelKeyComponentReleaseUID:  testComponentReleaseUID,
-			},
 		},
 		Spec: openchoreov1alpha1.RenderedReleaseSpec{
 			Owner: openchoreov1alpha1.RenderedReleaseOwner{
@@ -47,7 +70,7 @@ func makeDeliveryRelease() *openchoreov1alpha1.RenderedRelease {
 				ComponentName: "checkout-service",
 			},
 			EnvironmentName: "dev",
-			TargetPlane:     targetPlaneDataPlane,
+			TargetPlane:     "dataplane",
 		},
 	}
 }
@@ -82,10 +105,10 @@ func listDeliveryEvents(t *testing.T, cl client.Client) []corev1.Event {
 
 // mustReconcileDelivery runs a delivery reconcile that is expected to succeed.
 func mustReconcileDelivery(t *testing.T, r *Reconciler, ctx context.Context, cl client.Client,
-	release *openchoreov1alpha1.RenderedRelease, dc *deliveryContext,
+	binding *openchoreov1alpha1.ReleaseBinding, dc *deliveryContext,
 	statuses []openchoreov1alpha1.RenderedManifestStatus) {
 	t.Helper()
-	if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err != nil {
+	if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses); err != nil {
 		t.Fatalf("reconcileDeliveryEvents returned %v, want nil", err)
 	}
 }
@@ -105,18 +128,26 @@ func findEventByReason(events []corev1.Event, reason string) *corev1.Event {
 
 func TestDeliveryContextFor(t *testing.T) {
 	deployment := makeDeliveryDeployment()
+	desired := []*unstructured.Unstructured{deployment}
 
-	t.Run("resolves context for component data-plane release", func(t *testing.T) {
-		dc := deliveryContextFor(makeDeliveryRelease(), []*unstructured.Unstructured{deployment})
+	t.Run("resolves context for a component data-plane release", func(t *testing.T) {
+		dc := deliveryContextFor(
+			makeDeliveryBinding(), makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
 		if dc == nil {
 			t.Fatal("expected delivery context, got nil")
 		}
+		// The rollout identity pairs the immutable ComponentRelease UID with the
+		// RenderedRelease UID: neither alone identifies one rollout of one
+		// component into one environment.
 		wantRollout := testComponentReleaseUID + ".rr-uid-1"
 		if dc.rolloutID != wantRollout {
 			t.Errorf("rolloutID = %q, want %q", dc.rolloutID, wantRollout)
 		}
 		if dc.componentReleaseName != testComponentReleaseName {
 			t.Errorf("componentReleaseName = %q, want %q", dc.componentReleaseName, testComponentReleaseName)
+		}
+		if dc.namespaceName != "acme" {
+			t.Errorf("namespaceName = %q, want the binding's namespace %q", dc.namespaceName, "acme")
 		}
 		if dc.primary != deployment {
 			t.Error("expected primary to be the deployment")
@@ -126,40 +157,39 @@ func TestDeliveryContextFor(t *testing.T) {
 	t.Run("nil for observability plane releases", func(t *testing.T) {
 		release := makeDeliveryRelease()
 		release.Spec.TargetPlane = targetPlaneObservabilityPlane
-		if dc := deliveryContextFor(release, []*unstructured.Unstructured{deployment}); dc != nil {
-			t.Error("expected nil context for observability plane")
+		if dc := deliveryContextFor(
+			makeDeliveryBinding(), makeDeliveryComponentRelease(), release, desired); dc != nil {
+			t.Error("the observability plane carries no deployable workload")
 		}
 	})
 
-	t.Run("nil for non-component owners", func(t *testing.T) {
+	t.Run("nil before the RenderedRelease exists", func(t *testing.T) {
 		release := makeDeliveryRelease()
-		release.Spec.Owner.ComponentName = ""
-		if dc := deliveryContextFor(release, []*unstructured.Unstructured{deployment}); dc != nil {
-			t.Error("expected nil context for project-level release")
+		release.UID = ""
+		if dc := deliveryContextFor(
+			makeDeliveryBinding(), makeDeliveryComponentRelease(), release, desired); dc != nil {
+			t.Error("without a RenderedRelease UID there is no rollout identity to key on")
 		}
 	})
 
-	t.Run("nil when ComponentRelease labels are not stamped", func(t *testing.T) {
-		release := makeDeliveryRelease()
-		release.Labels = nil
-		if dc := deliveryContextFor(release, []*unstructured.Unstructured{deployment}); dc != nil {
-			t.Error("expected nil context without ComponentRelease labels")
+	t.Run("nil without a ComponentRelease", func(t *testing.T) {
+		if dc := deliveryContextFor(
+			makeDeliveryBinding(), nil, makeDeliveryRelease(), desired); dc != nil {
+			t.Error("expected nil context when the ComponentRelease is not resolved")
 		}
 	})
 
-	t.Run("nil without a primary workload resource", func(t *testing.T) {
+	t.Run("nil when the render produced no primary workload", func(t *testing.T) {
 		configMap := &unstructured.Unstructured{}
 		configMap.SetAPIVersion("v1")
 		configMap.SetKind("ConfigMap")
-		if dc := deliveryContextFor(makeDeliveryRelease(), []*unstructured.Unstructured{configMap}); dc != nil {
-			t.Error("expected nil context without a workload resource")
+		if dc := deliveryContextFor(
+			makeDeliveryBinding(), makeDeliveryComponentRelease(), makeDeliveryRelease(),
+			[]*unstructured.Unstructured{configMap}); dc != nil {
+			t.Error("a release with no Deployment/StatefulSet/CronJob has no deployment to report")
 		}
 	})
 }
-
-// ─────────────────────────────────────────────────────────────
-// summarizeHealth
-// ─────────────────────────────────────────────────────────────
 
 func TestSummarizeHealth(t *testing.T) {
 	t.Run("empty statuses are not healthy", func(t *testing.T) {
@@ -212,13 +242,15 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 
 	t.Run("progressing rollout emits Started only", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
 		statuses := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
 		}
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 1 {
@@ -257,24 +289,26 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 			t.Errorf("payload phase = %q, want Started", payload.Phase)
 		}
 
-		if release.Status.Delivery == nil || release.Status.Delivery.StartedAt == nil {
+		if binding.Status.Delivery == nil || binding.Status.Delivery.StartedAt == nil {
 			t.Error("expected StartedAt marker to be set")
 		}
-		if release.Status.Delivery.SucceededAt != nil {
+		if binding.Status.Delivery.SucceededAt != nil {
 			t.Error("SucceededAt must not be set while progressing")
 		}
 	})
 
 	t.Run("healthy rollout emits Succeeded once", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		statuses := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, statuses)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 2 {
@@ -283,7 +317,7 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 		if findEventByReason(events, reasonDeploymentSucceeded) == nil {
 			t.Fatal("expected DeploymentSucceeded event")
 		}
-		if release.Status.Delivery.SucceededAt == nil {
+		if binding.Status.Delivery.SucceededAt == nil {
 			t.Error("expected SucceededAt marker to be set")
 		}
 	})
@@ -297,15 +331,17 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 
 	t.Run("degraded rollout emits Failed then Recovered on heal", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
 		degraded := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
 		}
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, degraded)
 		// Second degraded reconcile must not duplicate the open episode.
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, degraded)
 
 		events := listDeliveryEvents(t, cl)
 		failed := findEventByReason(events, reasonDeploymentFailed)
@@ -335,7 +371,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		healthy := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, healthy)
 
 		events = listDeliveryEvents(t, cl)
 		if findEventByReason(events, reasonDeploymentRecovered) == nil {
@@ -344,29 +380,33 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		if findEventByReason(events, reasonDeploymentSucceeded) == nil {
 			t.Fatal("expected DeploymentSucceeded event after heal")
 		}
-		if !release.Status.Delivery.RecoveredAt.After(release.Status.Delivery.FailedAt.Time) &&
-			!release.Status.Delivery.RecoveredAt.Equal(release.Status.Delivery.FailedAt) {
+		if !binding.Status.Delivery.RecoveredAt.After(binding.Status.Delivery.FailedAt.Time) &&
+			!binding.Status.Delivery.RecoveredAt.Equal(binding.Status.Delivery.FailedAt) {
 			t.Error("RecoveredAt must not be before FailedAt")
 		}
 	})
 
 	t.Run("new rollout resets markers and emits again", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		healthy := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, healthy)
 
-		// New ComponentRelease bound: rollout identity changes.
-		release.Labels[labels.LabelKeyComponentReleaseUID] = "cr-uid-8"
-		release.Labels[labels.LabelKeyComponentReleaseName] = "checkout-service-8"
-		dc2 := deliveryContextFor(release, desired)
-		mustReconcileDelivery(t, r, ctx, cl, release, dc2, healthy)
+		// A new ComponentRelease is bound: the rollout identity changes, since it
+		// pairs that release's UID with the RenderedRelease's.
+		nextRelease := makeDeliveryComponentRelease()
+		nextRelease.Name = "checkout-service-8"
+		nextRelease.UID = types.UID("cr-uid-8")
+		dc2 := deliveryContextFor(binding, nextRelease, release, desired)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc2, healthy)
 
-		if release.Status.Delivery.RolloutID != "cr-uid-8.rr-uid-1" {
-			t.Errorf("RolloutID = %q, want cr-uid-8.rr-uid-1", release.Status.Delivery.RolloutID)
+		if binding.Status.Delivery.RolloutID != "cr-uid-8.rr-uid-1" {
+			t.Errorf("RolloutID = %q, want cr-uid-8.rr-uid-1", binding.Status.Delivery.RolloutID)
 		}
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 4 {
@@ -379,8 +419,10 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 	// AlreadyExists could not collapse it and the aggregator would fold the episode twice.
 	t.Run("episode names come from the counter, not the clock", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		degraded := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
 		}
@@ -388,8 +430,8 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
-		if got := release.Status.Delivery.FailureEpisode; got != 1 {
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, degraded)
+		if got := binding.Status.Delivery.FailureEpisode; got != 1 {
 			t.Fatalf("FailureEpisode = %d, want 1 for the first episode", got)
 		}
 		failed := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed)
@@ -399,17 +441,17 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 
 		// The status update is lost, so the next reconcile must derive the same episode
 		// number and collapse rather than open a second episode.
-		release.Status.Delivery = nil
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
+		binding.Status.Delivery = nil
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, degraded)
 		if got := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); got != 1 {
 			t.Errorf("Failed events = %d, want 1 (re-emission must collapse)", got)
 		}
-		if got := release.Status.Delivery.FailureEpisode; got != 1 {
+		if got := binding.Status.Delivery.FailureEpisode; got != 1 {
 			t.Errorf("FailureEpisode = %d, want the counter restored to 1", got)
 		}
 
 		// Heal: the recovery closes episode 1 and carries its number.
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, healthy)
 		recovered := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentRecovered)
 		if recovered == nil || !strings.HasSuffix(recovered.Name, "-e1") {
 			t.Fatalf("Recovered event name = %q, want the -e1 suffix of the episode it closes",
@@ -417,8 +459,8 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		}
 
 		// A second failure opens episode 2 with its own name.
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
-		if got := release.Status.Delivery.FailureEpisode; got != 2 {
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, degraded)
+		if got := binding.Status.Delivery.FailureEpisode; got != 2 {
 			t.Errorf("FailureEpisode = %d, want 2 for a new episode", got)
 		}
 		if got := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); got != 2 {
@@ -428,22 +470,24 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 
 	t.Run("pre-existing event is treated as emitted", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		statuses := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
 		}
 
 		// Emit once, then wipe the marker as if the status update was lost.
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
-		release.Status.Delivery = nil
-		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, statuses)
+		binding.Status.Delivery = nil
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 1 {
 			t.Fatalf("expected AlreadyExists to collapse duplicate Started, got %d events", len(events))
 		}
-		if release.Status.Delivery == nil || release.Status.Delivery.StartedAt == nil {
+		if binding.Status.Delivery == nil || binding.Status.Delivery.StartedAt == nil {
 			t.Error("expected StartedAt marker to be restored")
 		}
 	})
@@ -461,13 +505,15 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 
 	t.Run("emits Failed with ApplyFailed reason once per episode", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
-		if changed := r.markDeliveryApplyFailure(ctx, cl, release, dc); !changed {
+		if changed := r.markDeliveryApplyFailure(ctx, cl, binding, dc); !changed {
 			t.Error("expected first apply failure to change delivery status")
 		}
-		if changed := r.markDeliveryApplyFailure(ctx, cl, release, dc); changed {
+		if changed := r.markDeliveryApplyFailure(ctx, cl, binding, dc); changed {
 			t.Error("expected repeated apply failure to be a no-op")
 		}
 
@@ -495,8 +541,10 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 	})
 
 	t.Run("does not emit Failed when Started cannot be written", func(t *testing.T) {
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		startedName := deliveryEventName(dc, reasonDeploymentStarted, "")
 
 		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
@@ -509,26 +557,28 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 			},
 		}).Build()
 
-		r.markDeliveryApplyFailure(ctx, cl, release, dc)
+		r.markDeliveryApplyFailure(ctx, cl, binding, dc)
 
 		if events := listDeliveryEvents(t, cl); len(events) != 0 {
 			t.Fatalf("Failed must wait for the retry when Started could not be written, got %d event(s)", len(events))
 		}
-		if d := release.Status.Delivery; d.FailedAt != nil {
+		if d := binding.Status.Delivery; d.FailedAt != nil {
 			t.Error("FailedAt must not be set when no Failed event was written")
 		}
 	})
 
 	t.Run("already-started rollout emits only Failed", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
-		mustReconcileDelivery(t, r, ctx, cl, release, dc,
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc,
 			[]openchoreov1alpha1.RenderedManifestStatus{
 				manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
 			})
-		r.markDeliveryApplyFailure(ctx, cl, release, dc)
+		r.markDeliveryApplyFailure(ctx, cl, binding, dc)
 
 		events := listDeliveryEvents(t, cl)
 		if countEventsByReason(events, reasonDeploymentStarted) != 1 {
@@ -537,6 +587,50 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 		}
 		if countEventsByReason(events, reasonDeploymentFailed) != 1 {
 			t.Error("expected the apply failure to emit DeploymentFailed")
+		}
+	})
+}
+
+// TestDeliveryPayloadNamespaceName pins where namespaceName comes from. The store
+// requires it, and `omitempty` means an empty value disappears from the payload
+// rather than arriving blank -- so it must not depend on a label the render path
+// may not have injected.
+func TestDeliveryPayloadNamespaceName(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	t.Run("carried even when the rendered resource has no namespace label", func(t *testing.T) {
+		deployment := makeDeliveryDeployment()
+		withoutLabel := deployment.DeepCopy()
+		lbls := withoutLabel.GetLabels()
+		delete(lbls, labels.LabelKeyNamespaceName)
+		withoutLabel.SetLabels(lbls)
+
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		release := makeDeliveryRelease()
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, []*unstructured.Unstructured{withoutLabel})
+		if dc == nil {
+			t.Fatal("expected a delivery context")
+		}
+
+		mustReconcileDelivery(t, r, ctx, cl, binding, dc,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
+			})
+
+		started := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentStarted)
+		if started == nil {
+			t.Fatal("expected a DeploymentStarted event")
+		}
+		var payload deliveryEventPayload
+		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
+			t.Fatalf("unmarshal payload: %v", err)
+		}
+		if payload.NamespaceName != binding.Namespace {
+			t.Errorf("namespaceName = %q, want the binding namespace %q",
+				payload.NamespaceName, binding.Namespace)
 		}
 	})
 }
@@ -585,8 +679,10 @@ func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
 	}
 
 	t.Run("failed Started defers Succeeded to the retry", func(t *testing.T) {
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		startedName := deliveryEventName(dc, reasonDeploymentStarted, "")
 
 		failed := false
@@ -596,7 +692,7 @@ func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses)
 		if err == nil {
 			t.Fatal("expected the Started emission failure to be returned so the reconcile requeues")
 		}
@@ -605,13 +701,13 @@ func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
 			t.Fatalf("expected no events after a failed Started, got %d (%s)",
 				len(events), events[0].Reason)
 		}
-		if d := release.Status.Delivery; d.StartedAt != nil || d.SucceededAt != nil {
+		if d := binding.Status.Delivery; d.StartedAt != nil || d.SucceededAt != nil {
 			t.Errorf("no markers should be set after a failed Started: startedAt=%v succeededAt=%v",
 				d.StartedAt, d.SucceededAt)
 		}
 
 		// The retry emits both phases, in order.
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err != nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses); err != nil {
 			t.Fatalf("retry returned %v, want nil", err)
 		}
 		events := listDeliveryEvents(t, cl)
@@ -627,8 +723,10 @@ func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
 	})
 
 	t.Run("failed Succeeded leaves Started recorded and does not mark success", func(t *testing.T) {
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		succeededName := deliveryEventName(dc, reasonDeploymentSucceeded, "")
 
 		failed := false
@@ -638,10 +736,10 @@ func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err == nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses); err == nil {
 			t.Fatal("expected the Succeeded emission failure to be returned")
 		}
-		if d := release.Status.Delivery; d.StartedAt == nil {
+		if d := binding.Status.Delivery; d.StartedAt == nil {
 			t.Error("Started succeeded, so its marker must be kept for the retry")
 		} else if d.SucceededAt != nil {
 			t.Error("SucceededAt must not be set when the event was not written")
@@ -669,13 +767,15 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 
 	t.Run("recovers an episode whose marker was lost before the healthy transition", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil); err != nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, degraded); err != nil {
 			t.Fatalf("degraded reconcile: %v", err)
 		}
-		if release.Status.Delivery.FailedAt == nil {
+		if binding.Status.Delivery.FailedAt == nil {
 			t.Fatal("expected a DeploymentFailed marker after the degraded reconcile")
 		}
 		failedEvent := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed)
@@ -685,10 +785,10 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 
 		// The status write carrying FailedAt/FailureEpisode is lost; the Event
 		// itself already reached the data plane and survives.
-		release.Status.Delivery.FailedAt = nil
-		release.Status.Delivery.FailureEpisode = 0
+		binding.Status.Delivery.FailedAt = nil
+		binding.Status.Delivery.FailureEpisode = 0
 
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, healthy); err != nil {
 			t.Fatalf("healthy reconcile: %v", err)
 		}
 
@@ -700,7 +800,7 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 			t.Error("expected DeploymentSucceeded on the healthy transition")
 		}
 
-		d := release.Status.Delivery
+		d := binding.Status.Delivery
 		if d.FailureEpisode != 1 {
 			t.Errorf("failureEpisode = %d, want the restored episode 1", d.FailureEpisode)
 		}
@@ -720,17 +820,19 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 
 	t.Run("recovered event closes the episode exactly once", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil); err != nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, degraded); err != nil {
 			t.Fatalf("degraded reconcile: %v", err)
 		}
-		release.Status.Delivery.FailedAt = nil
-		release.Status.Delivery.FailureEpisode = 0
+		binding.Status.Delivery.FailedAt = nil
+		binding.Status.Delivery.FailureEpisode = 0
 
 		for i := range 3 {
-			if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+			if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, healthy); err != nil {
 				t.Fatalf("healthy reconcile %d: %v", i, err)
 			}
 		}
@@ -748,10 +850,12 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 
 	t.Run("healthy rollout with no failure history emits no recovery", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 
-		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+		if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, healthy); err != nil {
 			t.Fatalf("healthy reconcile: %v", err)
 		}
 
@@ -759,7 +863,7 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 		if findEventByReason(events, reasonDeploymentRecovered) != nil {
 			t.Error("a rollout that never failed must not emit DeploymentRecovered")
 		}
-		if d := release.Status.Delivery; d.FailedAt != nil || d.FailureEpisode != 0 {
+		if d := binding.Status.Delivery; d.FailedAt != nil || d.FailureEpisode != 0 {
 			t.Errorf("no failure markers expected: failedAt=%v episode=%d", d.FailedAt, d.FailureEpisode)
 		}
 	})
@@ -779,8 +883,8 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 
 	t.Run("no delivery context is a no-op", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		release := makeDeliveryRelease()
-		if err := r.emitDeliveryEvents(ctx, cl, release, nil, statuses, nil); err != nil {
+		binding := makeDeliveryBinding()
+		if err := r.emitDeliveryEvents(ctx, cl, binding, nil, statuses); err != nil {
 			t.Fatalf("emitDeliveryEvents with no context returned %v, want nil", err)
 		}
 		if events := listDeliveryEvents(t, cl); len(events) != 0 {
@@ -789,8 +893,10 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 	})
 
 	t.Run("emission failure is wrapped with the rollout and still unwraps", func(t *testing.T) {
+		binding := makeDeliveryBinding()
 		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
+		componentRelease := makeDeliveryComponentRelease()
+		dc := deliveryContextFor(binding, componentRelease, release, desired)
 		inner := apierrors.NewInternalError(errors.New("data plane unavailable"))
 
 		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
@@ -803,7 +909,7 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 			},
 		}).Build()
 
-		err := r.emitDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		err := r.emitDeliveryEvents(ctx, cl, binding, dc, statuses)
 		if err == nil {
 			t.Fatal("expected an error from a failed emission")
 		}
@@ -816,167 +922,105 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 	})
 }
 
-// TestDeliveryProvenanceReachesPayload is the end-to-end assertion the provenance
-// chain was missing: the commit recorded on the Workload must arrive in the emitted
-// event payload, which is what the aggregator turns into Lead Time for Changes.
+// TestDeliveryReachesAFixedPoint guards against a reconcile loop.
 //
-// It failed before resolveDeliveryProvenance existed, because the commit was read
-// from the rendered resource's annotations and the render pipeline never puts them
-// there (postProcessResources injects Metadata.Labels only). Every hop was covered
-// by a test up to the Workload CR, and nothing covered the last one.
-func TestDeliveryProvenanceReachesPayload(t *testing.T) {
-	ctx := context.Background()
-	desired := []*unstructured.Unstructured{makeDeliveryDeployment()}
-	authored := metav1.Date(2026, 8, 30, 9, 15, 0, 0, time.UTC)
-
-	scheme := runtime.NewScheme()
-	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("failed to add scheme: %v", err)
-	}
-
-	newReconciler := func(objs ...client.Object) (*Reconciler, client.Client) {
-		cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-		return &Reconciler{Client: cpClient}, fake.NewClientBuilder().Build()
-	}
-
-	componentReleaseWithUID := func(
-		uid string, source *openchoreov1alpha1.WorkloadSource,
-	) *openchoreov1alpha1.ComponentRelease {
-		return &openchoreov1alpha1.ComponentRelease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testComponentReleaseName,
-				Namespace: "acme",
-				UID:       types.UID(uid),
-			},
-			Spec: openchoreov1alpha1.ComponentReleaseSpec{
-				Workload: openchoreov1alpha1.WorkloadTemplateSpec{Source: source},
-			},
-		}
-	}
-	componentRelease := func(source *openchoreov1alpha1.WorkloadSource) *openchoreov1alpha1.ComponentRelease {
-		return componentReleaseWithUID(testComponentReleaseUID, source)
-	}
-
-	t.Run("commit and authored time reach the payload", func(t *testing.T) {
-		r, planeClient := newReconciler(componentRelease(&openchoreov1alpha1.WorkloadSource{
-			Commit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
-			Branch:     "main",
-			AuthoredAt: &authored,
-		}))
-		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
-		r.resolveDeliveryProvenance(ctx, release, dc)
-
-		statuses := []openchoreov1alpha1.RenderedManifestStatus{
-			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
-		}
-		mustReconcileDelivery(t, r, ctx, planeClient, release, dc, statuses)
-
-		events := listDeliveryEvents(t, planeClient)
-		started := findEventByReason(events, reasonDeploymentStarted)
-		if started == nil {
-			t.Fatal("expected DeploymentStarted event")
-		}
-		var payload deliveryEventPayload
-		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
-			t.Fatalf("failed to decode payload: %v", err)
-		}
-		if payload.Commit != "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4" {
-			t.Errorf("payload commit = %q, want the Workload's commit", payload.Commit)
-		}
-		if payload.CommitAuthoredAt != "2026-08-30T09:15:00Z" {
-			t.Errorf("payload commitAuthoredAt = %q, want 2026-08-30T09:15:00Z", payload.CommitAuthoredAt)
-		}
-	})
-
-	t.Run("a missing ComponentRelease degrades instead of failing the rollout", func(t *testing.T) {
-		r, planeClient := newReconciler() // no ComponentRelease in the control plane
-		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
-		r.resolveDeliveryProvenance(ctx, release, dc)
-
-		if dc.commit != "" {
-			t.Errorf("commit = %q, want empty when the ComponentRelease is absent", dc.commit)
-		}
-		statuses := []openchoreov1alpha1.RenderedManifestStatus{
-			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
-		}
-		// Emission must still happen: provenance only feeds lead time.
-		mustReconcileDelivery(t, r, ctx, planeClient, release, dc, statuses)
-		if findEventByReason(listDeliveryEvents(t, planeClient), reasonDeploymentStarted) == nil {
-			t.Error("expected DeploymentStarted even without provenance")
-		}
-	})
-
-	t.Run("a reused ComponentRelease name does not lend its commit to this rollout", func(t *testing.T) {
-		// Same name, different object: the rollout identity comes from the labeled
-		// UID, so pairing it with this commit would measure lead time from a commit
-		// the rollout never deployed.
-		r, _ := newReconciler(componentReleaseWithUID("cr-uid-REPLACED",
-			&openchoreov1alpha1.WorkloadSource{
-				Commit:     "beefbeefbeefbeefbeefbeefbeefbeefbeefbeef",
-				AuthoredAt: &authored,
-			}))
-		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
-		r.resolveDeliveryProvenance(ctx, release, dc)
-
-		if dc.commit != "" || dc.commitAuthoredAt != "" {
-			t.Errorf("commit=%q authoredAt=%q, want both empty on UID mismatch",
-				dc.commit, dc.commitAuthoredAt)
-		}
-	})
-
-	t.Run("a Workload with no Source leaves the commit empty", func(t *testing.T) {
-		r, _ := newReconciler(componentRelease(nil))
-		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, desired)
-		r.resolveDeliveryProvenance(ctx, release, dc)
-
-		if dc.commit != "" || dc.commitAuthoredAt != "" {
-			t.Errorf("commit=%q authoredAt=%q, want both empty", dc.commit, dc.commitAuthoredAt)
-		}
-	})
-}
-
-// TestDeliveryPayloadOrgNamespace pins where orgNamespace comes from. The store
-// requires it, and `omitempty` means an empty value disappears from the payload
-// rather than arriving blank -- so it must not depend on a label the render path
-// may not have injected.
-func TestDeliveryPayloadOrgNamespace(t *testing.T) {
+// Reconcile's deferred status update writes ReleaseBinding.status whenever it
+// differs from the copy taken at entry, and the controller watches
+// ReleaseBinding with no generation predicate -- so a status write re-triggers a
+// reconcile. Delivery therefore has to converge: if a second reconcile over the
+// same health produced any status difference, each write would trigger the next
+// and the controller would spin forever.
+//
+// This asserts the fixed point directly, for each phase transition, by comparing
+// the status before and after a repeat reconcile.
+func TestDeliveryReachesAFixedPoint(t *testing.T) {
 	ctx := context.Background()
 	r := &Reconciler{}
+	desired := []*unstructured.Unstructured{makeDeliveryDeployment()}
 
-	t.Run("carried even when the rendered resource has no namespace label", func(t *testing.T) {
-		deployment := makeDeliveryDeployment()
-		withoutLabel := deployment.DeepCopy()
-		lbls := withoutLabel.GetLabels()
-		delete(lbls, labels.LabelKeyNamespaceName)
-		withoutLabel.SetLabels(lbls)
+	healthy := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+	degraded := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
+	}
 
+	// settle reconciles until the status stops changing, and fails if it never
+	// does. The bound is deliberately small: each phase should need one reconcile
+	// to act and one to observe no further work.
+	settle := func(t *testing.T, cl client.Client, binding *openchoreov1alpha1.ReleaseBinding,
+		dc *deliveryContext, statuses []openchoreov1alpha1.RenderedManifestStatus) int {
+		t.Helper()
+		for i := 1; i <= 10; i++ {
+			before := binding.Status.DeepCopy()
+			if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses); err != nil {
+				t.Fatalf("reconcile %d: %v", i, err)
+			}
+			if apiequality.Semantic.DeepEqual(*before, binding.Status) {
+				return i
+			}
+		}
+		t.Fatal("delivery status never stopped changing: the deferred status update " +
+			"would write on every reconcile, and each write re-triggers one")
+		return 0
+	}
+
+	t.Run("a healthy rollout settles", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		release := makeDeliveryRelease()
-		dc := deliveryContextFor(release, []*unstructured.Unstructured{withoutLabel})
-		if dc == nil {
-			t.Fatal("expected a delivery context")
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		if n := settle(t, cl, binding, dc, healthy); n > 2 {
+			t.Errorf("took %d reconciles to settle; expected the second to be a no-op", n)
+		}
+		events := listDeliveryEvents(t, cl)
+		if countEventsByReason(events, reasonDeploymentStarted) != 1 ||
+			countEventsByReason(events, reasonDeploymentSucceeded) != 1 {
+			t.Errorf("expected exactly one Started and one Succeeded, got %d events", len(events))
+		}
+	})
+
+	t.Run("failure then recovery settles at each step", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		settle(t, cl, binding, dc, degraded)
+		settle(t, cl, binding, dc, healthy)
+		// And staying healthy afterwards must produce nothing further.
+		if n := settle(t, cl, binding, dc, healthy); n != 1 {
+			t.Errorf("a settled healthy rollout changed status again after %d reconciles", n)
 		}
 
-		mustReconcileDelivery(t, r, ctx, cl, release, dc,
-			[]openchoreov1alpha1.RenderedManifestStatus{
-				manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
-			})
+		events := listDeliveryEvents(t, cl)
+		for reason, want := range map[string]int{
+			reasonDeploymentStarted:   1,
+			reasonDeploymentFailed:    1,
+			reasonDeploymentSucceeded: 1,
+			reasonDeploymentRecovered: 1,
+		} {
+			if got := countEventsByReason(events, reason); got != want {
+				t.Errorf("%s emitted %d times, want %d", reason, got, want)
+			}
+		}
+	})
 
-		started := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentStarted)
-		if started == nil {
-			t.Fatal("expected a DeploymentStarted event")
+	t.Run("a repeated apply failure settles", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		for i := range 5 {
+			before := binding.Status.DeepCopy()
+			changed := r.markDeliveryApplyFailure(ctx, cl, binding, dc)
+			settled := apiequality.Semantic.DeepEqual(*before, binding.Status)
+			if i > 0 && (changed || !settled) {
+				t.Fatalf("apply failure %d still reported a change; it must be a no-op "+
+					"while the episode is open, or the reconcile writes forever", i)
+			}
 		}
-		var payload deliveryEventPayload
-		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
-			t.Fatalf("unmarshal payload: %v", err)
-		}
-		if payload.OrgNamespace != release.Namespace {
-			t.Errorf("orgNamespace = %q, want the release namespace %q",
-				payload.OrgNamespace, release.Namespace)
+		if n := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); n != 1 {
+			t.Errorf("emitted %d DeploymentFailed for one open episode, want 1", n)
 		}
 	})
 }

@@ -638,8 +638,13 @@ func TestOneUnattributableEventDoesNotWedgeTheTick(t *testing.T) {
 
 	unenriched := deliveryEvent(ReasonDeploymentSucceeded, "rel-bad", bad, nil)
 	unenriched.Namespace = "" // collector enrichment missing
-	// Strip the payload's namespace too, so neither source can supply it.
-	unenriched.Message = strings.ReplaceAll(unenriched.Message, `"orgNamespace":"default",`, "")
+	// deliveryEvent's payload carries no namespace key, so clearing the enrichment
+	// above leaves neither source able to supply one -- which is the case under
+	// test. Asserted rather than assumed: this previously stripped a key by string
+	// match, and the helper had stopped emitting it, so the replacement was a no-op
+	// and the test passed while relying on something it did not check.
+	require.NotContains(t, unenriched.Message, "namespaceName",
+		"the payload must carry no namespace for this event to be unattributable")
 
 	source := &fakeEventsSource{events: []DeliveryEvent{
 		deliveryEvent(ReasonDeploymentSucceeded, "rel-good", good, nil),

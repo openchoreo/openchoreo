@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package renderedrelease
+package releasebinding
 
 import (
 	"context"
@@ -17,13 +17,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -37,7 +36,7 @@ const (
 	reasonDeploymentRecovered = "DeploymentRecovered"
 
 	// deliveryReportingController identifies this controller as the event author.
-	deliveryReportingController = "openchoreo.dev/renderedrelease-controller"
+	deliveryReportingController = "openchoreo.dev/releasebinding-controller"
 
 	// failureReasonApplyFailed marks a rollout that never reached the data plane.
 	failureReasonApplyFailed = "ApplyFailed"
@@ -45,7 +44,16 @@ const (
 	// more specific reason.
 	failureReasonDegraded = "Degraded"
 
-	cronJobKind = "CronJob"
+	// controllerName identifies this controller as the event's reporting instance.
+	controllerName = "releasebinding-controller"
+
+	// targetPlaneObservabilityPlane marks a RenderedRelease bound for the
+	// observability plane, which carries no deployable workload.
+	targetPlaneObservabilityPlane = "observabilityplane"
+
+	deploymentKind  = "Deployment"
+	statefulSetKind = "StatefulSet"
+	cronJobKind     = "CronJob"
 
 	// reasonProgressDeadlineExceeded is the Deployment Progressing condition
 	// reason for a rollout that never became available.
@@ -58,15 +66,21 @@ const (
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
-	// OrgNamespace is the control-plane namespace the rollout belongs to. It is in
-	// the payload for the same reason the UIDs are: a Kubernetes Event does not
-	// inherit the involved object's labels, so anything the consumer needs has to
-	// travel in the message. It is the one field the store requires, and depending
-	// on collector enrichment for it meant an un-enriched event could not be folded.
-	OrgNamespace     string `json:"orgNamespace,omitempty"`
-	ProjectUID       string `json:"projectUid,omitempty"`
-	ComponentUID     string `json:"componentUid,omitempty"`
-	EnvironmentUID   string `json:"environmentUid,omitempty"`
+	// NamespaceName is the OpenChoreo namespace the rollout belongs to -- the
+	// control-plane namespace, not the data-plane namespace the involved object
+	// lives in. It is in the payload for the same reason the UIDs are: a
+	// Kubernetes Event does not inherit the involved object's labels, so anything
+	// a consumer needs has to travel in the message. It is the one field the store
+	// requires, and depending on collector enrichment for it meant an un-enriched
+	// event could not be folded.
+	NamespaceName  string `json:"namespaceName,omitempty"`
+	ProjectUID     string `json:"projectUid,omitempty"`
+	ComponentUID   string `json:"componentUid,omitempty"`
+	EnvironmentUID string `json:"environmentUid,omitempty"`
+	// Commit and CommitAuthoredAt are the rollout's commit provenance, read from
+	// the owning ComponentRelease. Absent when the workload carries no source, in
+	// which case Lead Time for Changes reports unavailable for this rollout while
+	// the other three metrics compute normally.
 	Commit           string `json:"commit,omitempty"`
 	CommitAuthoredAt string `json:"commitAuthoredAt,omitempty"`
 	Phase            string `json:"phase"`
@@ -90,34 +104,27 @@ type deliveryContext struct {
 	// environment the release is bound to. The pair is unique and stable.
 	rolloutID            string
 	componentReleaseName string
-	// orgNamespace is the control-plane namespace the rollout belongs to, taken
-	// from the RenderedRelease itself rather than from a label on the rendered
-	// resource. The store requires it, and the label is not guaranteed: it is
-	// injected through MetadataContext.Labels, which not every render path
-	// populates, so reading it off the resource could marshal an empty value that
-	// `omitempty` then drops from the payload entirely. The object's own namespace
-	// is the same value and always set.
-	orgNamespace string
-	// componentReleaseUID is the labeled UID of that ComponentRelease. Provenance
-	// is only trusted when the fetched object's UID matches it: the fetch is by
-	// name, and a reused name would otherwise pair this rollout's identity with a
-	// different object's commit.
-	componentReleaseUID string
-	// primary is the desired primary workload resource (Deployment, StatefulSet,
-	// or CronJob) the events anchor to as involvedObject.
-	primary *unstructured.Unstructured
-	// commit and commitAuthoredAt are the rollout's commit provenance, read from
-	// the owning ComponentRelease by resolveDeliveryProvenance.
+	// namespaceName is the OpenChoreo namespace the rollout belongs to, taken from
+	// the ReleaseBinding itself rather than from a label on the rendered resource.
+	// The store requires it, and the label is not guaranteed: it is injected
+	// through MetadataContext.Labels, which not every render path populates, so
+	// reading it off the resource could marshal an empty value that `omitempty`
+	// then drops from the payload entirely. The object's own namespace is the same
+	// value and always set.
+	namespaceName string
+	// commit and commitAuthoredAt are the rollout's commit provenance, taken from
+	// the ComponentRelease this controller already holds.
 	//
 	// They are NOT read off `primary`: the render pipeline injects
 	// MetadataContext.Labels onto every resource but never its Annotations (see
 	// postProcessResources, which calls addLabels only), so a commit placed in the
-	// metadata context never reaches a rendered resource. The UID fields below do
-	// come from labels, which is why those work. Reading the ComponentRelease
-	// directly also drops a round-trip: the release is already identified by
-	// LabelKeyComponentReleaseName.
+	// metadata context never reaches a rendered resource. The UID fields above do
+	// come from labels, which is why those work.
 	commit           string
 	commitAuthoredAt string
+	// primary is the desired primary workload resource (Deployment, StatefulSet,
+	// or CronJob) the events anchor to as involvedObject.
+	primary *unstructured.Unstructured
 }
 
 // primaryWorkloadGVKs are the resource kinds whose health defines rollout
@@ -128,20 +135,102 @@ var primaryWorkloadGVKs = map[schema.GroupVersionKind]bool{
 	{Group: "batch", Version: "v1", Kind: cronJobKind}:          true,
 }
 
-// deliveryContextFor resolves the delivery context, or nil when this release
-// does not participate in delivery events (non-component owners, observability
-// plane, no workload resource, or the ComponentRelease labels are not stamped
-// yet by the releasebinding controller).
-func deliveryContextFor(release *openchoreov1alpha1.RenderedRelease, desiredResources []*unstructured.Unstructured) *deliveryContext {
-	if release.Spec.TargetPlane == targetPlaneObservabilityPlane {
+// reconcileDelivery emits the delivery lifecycle events implied by the rollout's
+// current health, or nothing for a rollout that does not participate (see
+// deliveryContextFor).
+//
+// Health comes from the RenderedRelease this binding owns. Because the binding
+// Owns() that object, a status change there reconciles the binding, so this runs
+// against the freshly observed evaluation rather than having to watch the data
+// plane itself. Markers are set on the binding's own status and persisted by the
+// deferred status update in Reconcile, so an event and the record that it was
+// emitted are written together.
+func (r *Reconciler) reconcileDelivery(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	renderedRelease *openchoreov1alpha1.RenderedRelease,
+	resources []map[string]any,
+	applyFailed bool,
+) error {
+	dc := deliveryContextFor(releaseBinding, componentRelease, renderedRelease, asUnstructured(resources))
+	if dc == nil {
 		return nil
 	}
-	if release.Spec.Owner.ComponentName == "" {
+
+	planeClient, err := r.getDPClient(ctx, releaseBinding.Namespace, releaseBinding.Spec.Environment)
+	if err != nil {
+		// Delivery events are a metric, not part of making the deployment work.
+		// This controller does not otherwise need a plane client, so a plane it
+		// cannot reach -- or an install with no provider configured -- must not
+		// fail the rollout. Nothing is recorded, so the next reconcile retries.
+		log.FromContext(ctx).V(1).Info("Skipping delivery events: no data plane client",
+			"environment", releaseBinding.Spec.Environment, "error", err.Error())
 		return nil
 	}
-	crName := release.Labels[labels.LabelKeyComponentReleaseName]
-	crUID := release.Labels[labels.LabelKeyComponentReleaseUID]
-	if crName == "" || crUID == "" {
+
+	// An apply failure means the rollout never reached the plane, so there is no
+	// resource health to summarize -- report the failure directly.
+	if applyFailed {
+		r.markDeliveryApplyFailure(ctx, planeClient, releaseBinding, dc)
+		return nil
+	}
+
+	return r.emitDeliveryEvents(ctx, planeClient, releaseBinding, dc, renderedRelease.Status.Resources)
+}
+
+// asUnstructured views the rendered resource maps as unstructured objects, which
+// is what the primary-workload lookup needs. It does not copy the maps.
+func asUnstructured(resources []map[string]any) []*unstructured.Unstructured {
+	out := make([]*unstructured.Unstructured, 0, len(resources))
+	for _, obj := range resources {
+		out = append(out, &unstructured.Unstructured{Object: obj})
+	}
+	return out
+}
+
+// getDPClient resolves a client for the data plane backing an environment. The
+// delivery events are created in that plane, alongside the workload they
+// describe, so they are collected by the same event pipeline as any other
+// Kubernetes event.
+func (r *Reconciler) getDPClient(
+	ctx context.Context, namespaceName, environmentName string,
+) (client.Client, error) {
+	env := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: namespaceName}, env); err != nil {
+		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
+	}
+
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
+	}
+
+	dpClient, err := dataPlaneResult.GetK8sClient(r.PlaneClientProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataPlaneResult.GetName(), err)
+	}
+
+	return dpClient, nil
+}
+
+// deliveryContextFor resolves the delivery context, or nil when this rollout does
+// not participate in delivery events: the RenderedRelease has not been created
+// yet, it targets the observability plane, or the render produced no primary
+// workload resource whose health defines a deployment.
+//
+// The ComponentRelease name and UID come from the object itself rather than from
+// labels on the RenderedRelease, since this controller holds both.
+func deliveryContextFor(
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	renderedRelease *openchoreov1alpha1.RenderedRelease,
+	desiredResources []*unstructured.Unstructured,
+) *deliveryContext {
+	if componentRelease == nil || renderedRelease == nil || renderedRelease.UID == "" {
+		return nil
+	}
+	if renderedRelease.Spec.TargetPlane == targetPlaneObservabilityPlane {
 		return nil
 	}
 
@@ -156,22 +245,37 @@ func deliveryContextFor(release *openchoreov1alpha1.RenderedRelease, desiredReso
 		return nil
 	}
 
-	return &deliveryContext{
-		rolloutID:            fmt.Sprintf("%s.%s", crUID, release.UID),
-		componentReleaseName: crName,
-		orgNamespace:         release.Namespace,
-		componentReleaseUID:  crUID,
+	dc := &deliveryContext{
+		rolloutID:            fmt.Sprintf("%s.%s", componentRelease.UID, renderedRelease.UID),
+		componentReleaseName: componentRelease.Name,
+		namespaceName:        releaseBinding.Namespace,
 		primary:              primary,
 	}
+
+	// Provenance comes straight off the ComponentRelease this controller already
+	// fetched. The renderedrelease version had to Get it by name from a label and
+	// guard the result's UID, because a name deleted and recreated would otherwise
+	// pair a different object's commit with this rollout. Holding the object
+	// removes both the round trip and the hazard.
+	if source := componentRelease.Spec.Workload.Source; source != nil {
+		dc.commit = source.Commit
+		if source.AuthoredAt != nil {
+			dc.commitAuthoredAt = source.AuthoredAt.UTC().Format(time.RFC3339)
+		}
+	}
+
+	return dc
 }
 
-// deliveryState returns the release's delivery markers for the current rollout,
+// deliveryState returns the binding's delivery markers for the current rollout,
 // resetting them when the rollout identity changed.
-func deliveryState(release *openchoreov1alpha1.RenderedRelease, dc *deliveryContext) *openchoreov1alpha1.DeliveryStatus {
-	if release.Status.Delivery == nil || release.Status.Delivery.RolloutID != dc.rolloutID {
-		release.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: dc.rolloutID}
+func deliveryState(
+	releaseBinding *openchoreov1alpha1.ReleaseBinding, dc *deliveryContext,
+) *openchoreov1alpha1.DeliveryStatus {
+	if releaseBinding.Status.Delivery == nil || releaseBinding.Status.Delivery.RolloutID != dc.rolloutID {
+		releaseBinding.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: dc.rolloutID}
 	}
-	return release.Status.Delivery
+	return releaseBinding.Status.Delivery
 }
 
 // hasOpenFailureEpisode reports whether a DeploymentFailed was emitted without
@@ -183,55 +287,6 @@ func hasOpenFailureEpisode(d *openchoreov1alpha1.DeliveryStatus) bool {
 	return d.RecoveredAt == nil || d.RecoveredAt.Time.Before(d.FailedAt.Time)
 }
 
-// resolveDeliveryProvenance fills the rollout's commit provenance from the owning
-// ComponentRelease, which holds the embedded Workload and therefore its Source.
-//
-// Provenance is best-effort on purpose. It feeds Lead Time for Changes only, so a
-// ComponentRelease that has been deleted or is not yet readable must not fail the
-// reconcile and block the rollout; the events are still emitted, just without a
-// commit, which the aggregator already tolerates (it leaves LeadTimeMs unset).
-func (r *Reconciler) resolveDeliveryProvenance(
-	ctx context.Context,
-	release *openchoreov1alpha1.RenderedRelease,
-	dc *deliveryContext,
-) {
-	if dc == nil {
-		return
-	}
-	logger := log.FromContext(ctx)
-
-	componentRelease := &openchoreov1alpha1.ComponentRelease{}
-	key := types.NamespacedName{
-		Name:      dc.componentReleaseName,
-		Namespace: release.Namespace,
-	}
-	if err := r.Get(ctx, key, componentRelease); err != nil {
-		logger.V(1).Info("Delivery provenance unavailable; lead time will not be computed for this rollout",
-			"componentRelease", key.String(), "error", err.Error())
-		return
-	}
-
-	// The fetch is by name but the rollout is identified by UID, so a name that has
-	// been deleted and recreated would otherwise attach the replacement's commit to
-	// this rollout. Mismatched provenance is worse than none: lead time would be
-	// measured from a commit this rollout never deployed.
-	if string(componentRelease.UID) != dc.componentReleaseUID {
-		logger.V(1).Info("ComponentRelease UID does not match the rollout's; ignoring provenance",
-			"componentRelease", key.String(),
-			"fetchedUID", string(componentRelease.UID), "rolloutUID", dc.componentReleaseUID)
-		return
-	}
-
-	source := componentRelease.Spec.Workload.Source
-	if source == nil {
-		return
-	}
-	dc.commit = source.Commit
-	if source.AuthoredAt != nil {
-		dc.commitAuthoredAt = source.AuthoredAt.UTC().Format(time.RFC3339)
-	}
-}
-
 // emitDeliveryEvents runs the delivery lifecycle emission for releases that have
 // one (component workloads on the data plane); it is a no-op otherwise. Returns
 // the first emission failure, wrapped with the rollout it belongs to, so the
@@ -239,15 +294,14 @@ func (r *Reconciler) resolveDeliveryProvenance(
 func (r *Reconciler) emitDeliveryEvents(
 	ctx context.Context,
 	planeClient client.Client,
-	release *openchoreov1alpha1.RenderedRelease,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	dc *deliveryContext,
 	resourceStatuses []openchoreov1alpha1.RenderedManifestStatus,
-	liveResources []*unstructured.Unstructured,
 ) error {
 	if dc == nil {
 		return nil
 	}
-	if err := r.reconcileDeliveryEvents(ctx, planeClient, release, dc, resourceStatuses, liveResources); err != nil {
+	if err := r.reconcileDeliveryEvents(ctx, planeClient, releaseBinding, dc, resourceStatuses); err != nil {
 		// Wrapped rather than logged here: controller-runtime already reports the
 		// error at the reconcile boundary, so logging it too would report the same
 		// failure twice. The rollout identity is what that report otherwise lacks.
@@ -271,12 +325,11 @@ func (r *Reconciler) emitDeliveryEvents(
 func (r *Reconciler) reconcileDeliveryEvents(
 	ctx context.Context,
 	planeClient client.Client,
-	release *openchoreov1alpha1.RenderedRelease,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	dc *deliveryContext,
 	resourceStatuses []openchoreov1alpha1.RenderedManifestStatus,
-	liveResources []*unstructured.Unstructured,
 ) error {
-	d := deliveryState(release, dc)
+	d := deliveryState(releaseBinding, dc)
 	now := metav1.Now()
 
 	if d.StartedAt == nil {
@@ -298,7 +351,7 @@ func (r *Reconciler) reconcileDeliveryEvents(
 
 	switch {
 	case degradedID != "" && !openEpisode:
-		reason := degradedFailureReason(degradedID, liveResources)
+		reason := degradedFailureReason(resourceStatuses, degradedID)
 		episode := d.FailureEpisode + 1
 		if err := r.emitDeliveryEvent(
 			ctx, planeClient, dc, reasonDeploymentFailed, reason, episode); err != nil {
@@ -399,13 +452,13 @@ func deliveryEventName(dc *deliveryContext, reason, nameSuffix string) string {
 func (r *Reconciler) markDeliveryApplyFailure(
 	ctx context.Context,
 	planeClient client.Client,
-	release *openchoreov1alpha1.RenderedRelease,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	dc *deliveryContext,
 ) bool {
-	before := release.Status.Delivery
-	d := deliveryState(release, dc)
+	before := releaseBinding.Status.Delivery
+	d := deliveryState(releaseBinding, dc)
 	if hasOpenFailureEpisode(d) {
-		return before != release.Status.Delivery
+		return before != releaseBinding.Status.Delivery
 	}
 	now := metav1.Now()
 
@@ -415,7 +468,7 @@ func (r *Reconciler) markDeliveryApplyFailure(
 	// Started goes out first, and if it cannot, the failure waits for the retry.
 	if d.StartedAt == nil {
 		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", 0); err != nil {
-			return before != release.Status.Delivery
+			return before != releaseBinding.Status.Delivery
 		}
 		d.StartedAt = &now
 	}
@@ -457,41 +510,44 @@ func summarizeHealth(statuses []openchoreov1alpha1.RenderedManifestStatus) (allH
 
 // degradedFailureReason inspects the live resource behind a degraded status and
 // maps it to a coarse failure reason for the event payload.
-func degradedFailureReason(resourceID string, liveResources []*unstructured.Unstructured) string {
-	var live *unstructured.Unstructured
-	for _, obj := range liveResources {
-		if obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID] == resourceID {
-			live = obj
+func degradedFailureReason(
+	statuses []openchoreov1alpha1.RenderedManifestStatus, resourceID string,
+) string {
+	var rs *openchoreov1alpha1.RenderedManifestStatus
+	for i := range statuses {
+		if statuses[i].ID == resourceID {
+			rs = &statuses[i]
 			break
 		}
 	}
-	if live == nil {
+	if rs == nil || rs.Status == nil {
 		return failureReasonDegraded
 	}
 
-	gvk := live.GroupVersionKind()
 	switch {
-	case gvk.Group == appsAPIGroup && gvk.Kind == deploymentKind:
-		var deployment appsv1.Deployment
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(live.Object, &deployment); err != nil {
+	case rs.Group == appsAPIGroup && rs.Kind == deploymentKind:
+		var st appsv1.DeploymentStatus
+		if err := json.Unmarshal(rs.Status.Raw, &st); err != nil {
 			return failureReasonDegraded
 		}
-		_, progressingCond, replicaFailCond := extractDeploymentConditions(deployment.Status.Conditions)
-		if progressingCond != nil && progressingCond.Reason == reasonProgressDeadlineExceeded {
-			return reasonProgressDeadlineExceeded
+		for i := range st.Conditions {
+			c := st.Conditions[i]
+			if c.Type == appsv1.DeploymentProgressing && c.Reason == reasonProgressDeadlineExceeded {
+				return reasonProgressDeadlineExceeded
+			}
+			if c.Type == appsv1.DeploymentReplicaFailure && c.Status == corev1.ConditionTrue {
+				return "DeploymentReplicaFailure"
+			}
 		}
-		if replicaFailCond != nil && replicaFailCond.Status == corev1.ConditionTrue {
-			return "DeploymentReplicaFailure"
-		}
-	case gvk.Group == "" && gvk.Kind == "Pod":
-		var pod corev1.Pod
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(live.Object, &pod); err != nil {
+	case rs.Group == "" && rs.Kind == "Pod":
+		var st corev1.PodStatus
+		if err := json.Unmarshal(rs.Status.Raw, &st); err != nil {
 			return failureReasonDegraded
 		}
-		if pod.Status.Phase == corev1.PodFailed {
+		if st.Phase == corev1.PodFailed {
 			return "PodFailed"
 		}
-		for _, cs := range pod.Status.ContainerStatuses {
+		for _, cs := range st.ContainerStatuses {
 			if cs.State.Waiting != nil && cs.State.Waiting.Reason != "" {
 				return cs.State.Waiting.Reason
 			}
@@ -525,7 +581,7 @@ func (r *Reconciler) emitDeliveryEvent(
 	payload := deliveryEventPayload{
 		RenderedReleaseUID:   dc.rolloutID,
 		ComponentReleaseName: dc.componentReleaseName,
-		OrgNamespace:         dc.orgNamespace,
+		NamespaceName:        dc.namespaceName,
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
@@ -573,7 +629,7 @@ func (r *Reconciler) emitDeliveryEvent(
 		Count:               1,
 		Source:              corev1.EventSource{Component: deliveryReportingController},
 		ReportingController: deliveryReportingController,
-		ReportingInstance:   ControllerName,
+		ReportingInstance:   controllerName,
 	}
 
 	if err := planeClient.Create(ctx, event); err != nil {
