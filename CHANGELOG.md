@@ -9,6 +9,9 @@ Changes since [v1.2.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 ### Enhancements
 - **(Observer)** Observer now authorises the user using OpenChoreo entity information, returned in span attributes from the span details API ([#4642](https://github.com/openchoreo/openchoreo/pull/4642))
 
+### Bug Fixes
+- **(API)** WorkflowRun updates now authorize using the ownership and workflow reference stored on the existing resource instead of values supplied in the update request. ([#4596](https://github.com/openchoreo/openchoreo/pull/4596))
+
 ## v1.2.4
 
 Changes since [v1.2.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.3).
