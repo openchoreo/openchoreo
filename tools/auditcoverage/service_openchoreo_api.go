@@ -50,16 +50,16 @@ type boundRow struct {
 // resource identity, mirroring the REST table's column. The two halves come
 // from different places: resource.name is seeded from the call's raw arguments
 // by mcpaudit's middleware before the handler runs (so it survives a denial),
-// while resource.id can only ever come from the handler recording the persisted
+// while resource.uid can only ever come from the handler recording the persisted
 // object — see mcphandlers.setAuditResource. A binding with no ResourceArg has no
 // argument naming the resource at all, so both fields wait on the handler.
 func mcpResourceIdentity(resourceArg string) string {
 	if resourceArg == "" {
 		return "handler-supplied on success (the call carries no argument naming this resource); " +
-			"no name or id on a denied/failed call"
+			"no name or uid on a denied/failed call"
 	}
 	return fmt.Sprintf(
-		"name from the `%s` argument, available even on denial; id added by the handler on success",
+		"name from the `%s` argument, available even on denial; uid added by the handler on success",
 		resourceArg,
 	)
 }

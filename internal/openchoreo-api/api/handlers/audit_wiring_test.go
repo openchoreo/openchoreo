@@ -107,13 +107,13 @@ func TestAuditMiddlewareWired(t *testing.T) {
 	resource, ok := record["resource"].(map[string]any)
 	require.True(t, ok, "resource must be populated")
 	assert.Equal(t, "project", resource["type"])
-	assert.NotEmpty(t, resource["id"], "resource.id must carry the K8s UID, not just the mutable name")
+	assert.NotEmpty(t, resource["uid"], "resource.uid must carry the K8s UID, not just the mutable name")
 }
 
 // TestAuditMiddlewareWired_ProjectCRUD locks in the update/delete coverage added
 // alongside create for Project: it drives all three mutating operations on the same
 // project through the production chain and checks each event's action/resource
-// shape, including that resource.id (the K8s UID) survives a rename via update but
+// shape, including that resource.uid survives a rename via update but
 // is unavailable on delete because ProjectService.DeleteProject returns only an
 // error, not the deleted object.
 func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
@@ -156,18 +156,18 @@ func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	deleteResource := records[2]["resource"].(map[string]any)
 
 	assert.Equal(t, "crud-test-proj", createResource["name"])
-	assert.NotEmpty(t, createResource["id"], "create must carry the K8s UID")
+	assert.NotEmpty(t, createResource["uid"], "create must carry the K8s UID")
 	assert.Equal(t, testNS, createResource["namespace"],
 		"a create's SetResource call must not drop the namespace the pre-handler seed already had")
 
 	assert.Equal(t, "crud-test-proj", updateResource["name"])
-	assert.Equal(t, createResource["id"], updateResource["id"],
+	assert.Equal(t, createResource["uid"], updateResource["uid"],
 		"the UID must be stable across an update even though the name did not change")
 	assert.Equal(t, testNS, updateResource["namespace"],
 		"an update's SetResource call must not drop the namespace the pre-handler seed already had")
 
 	assert.Equal(t, "crud-test-proj", deleteResource["name"])
-	assert.NotContains(t, deleteResource, "id",
+	assert.NotContains(t, deleteResource, "uid",
 		"DeleteProject returns no object, so no UID is available to record")
 	assert.Equal(t, testNS, deleteResource["namespace"],
 		"namespace must be recorded even without a UID, so identically-named projects in different namespaces stay distinguishable")

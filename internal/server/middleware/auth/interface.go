@@ -10,7 +10,9 @@ import (
 
 // SubjectContext contains the authenticated subject's type and entitlements
 type SubjectContext struct {
-	ID                string   // Unique identifier for the subject
+	ID                string   // Unique identifier for the subject, unique only within Issuer
+	Issuer            string   // Identity provider that issued the credential
+	SessionID         string   // Provider-side session the credential belongs to, if it names one
 	Type              string   // Type of subject (user, service_account, etc.)
 	EntitlementClaim  string   // The claim name used for entitlements (e.g., "groups", "scopes")
 	EntitlementValues []string // The entitlement values extracted from the claim

@@ -100,8 +100,8 @@ func TestLogEvent_ResourceTypeIndependentOfResource(t *testing.T) {
 	if resource["type"] != "project" {
 		t.Errorf("resource.type = %v, want project", resource["type"])
 	}
-	if _, ok := resource["id"]; ok {
-		t.Errorf("resource.id = %v, want absent", resource["id"])
+	if _, ok := resource["uid"]; ok {
+		t.Errorf("resource.uid = %v, want absent", resource["uid"])
 	}
 	if _, ok := resource["name"]; ok {
 		t.Errorf("resource.name = %v, want absent", resource["name"])
@@ -121,7 +121,7 @@ func TestLogEvent_IncludesHierarchy(t *testing.T) {
 		Category:     CategoryManagement,
 		Result:       ResultSuccess,
 		ResourceType: "workload",
-		Resource:     &Resource{Namespace: "ns-1", ID: "uid-1", Name: "wl-1"},
+		Resource:     &Resource{Namespace: "ns-1", UID: "uid-1", Name: "wl-1"},
 		Hierarchy:    Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1", Resource: "wl-1"},
 	})
 

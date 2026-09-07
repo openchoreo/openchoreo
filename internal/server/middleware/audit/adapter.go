@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -50,13 +51,51 @@ func ExtractActor(ctx context.Context) Actor {
 		actorID = subjectCtx.ID
 	}
 
-	actor := Actor{Type: actorType, ID: actorID}
+	// SessionID is empty whenever the IdP issues no sid claim, which OIDC
+	// leaves optional.
+	actor := Actor{
+		Type:      actorType,
+		ID:        actorID,
+		Issuer:    subjectCtx.Issuer,
+		SessionID: subjectCtx.SessionID,
+	}
 	// Omit the entry entirely when there's no entitlement claim, rather than
 	// recording an empty-keyed one that would log a spurious "entitlements":{"":null}.
 	if subjectCtx.EntitlementClaim != "" {
 		actor.Entitlements = map[string][]string{subjectCtx.EntitlementClaim: subjectCtx.EntitlementValues}
 	}
 	return actor
+}
+
+// newUUID returns a UUID v7, falling back to v4 if v7 generation fails.
+func newUUID() string {
+	if id, err := uuid.NewV7(); err == nil {
+		return id.String()
+	}
+	return uuid.New().String()
+}
+
+// NewRequestInfo captures the facts an audit event needs from a request as it
+// arrives. Pass nil for httpInfo on a surface with no request line.
+func NewRequestInfo(httpInfo *HTTPInfo) RequestInfo {
+	return RequestInfo{
+		AuditID:   newUUID(),
+		EventTime: time.Now(),
+		HTTP:      httpInfo,
+	}
+}
+
+// HTTPInfoFromRequest records r's request line: the decoded path, query string
+// excluded.
+//
+// Decoded (URL.Path, not EscapedPath) so it agrees with r.PathValue, which the
+// resource group is seeded from. Not length-capped: bounding client input
+// belongs in validation or MaxHeaderBytes, not here.
+func HTTPInfoFromRequest(r *http.Request) *HTTPInfo {
+	return &HTTPInfo{
+		Method: r.Method,
+		Path:   r.URL.Path,
+	}
 }
 
 // requestIDRejections counts inbound X-Request-ID headers rejected for not
@@ -93,10 +132,7 @@ func RequestIDFromHeader(h http.Header) string {
 		}
 		requestIDRejections.Add(1)
 	}
-	if id, err := uuid.NewV7(); err == nil {
-		return id.String()
-	}
-	return uuid.New().String() // fallback if v7 generation fails
+	return newUUID()
 }
 
 // SourceIPFromHeader extracts the client IP from proxy headers
@@ -152,6 +188,7 @@ func EmitFromContext(
 		Result:    result,
 		Resource:  auditData.Resource,
 		Hierarchy: auditData.Hierarchy,
+		Request:   auditData.Request,
 		RequestID: RequestIDFromHeader(header),
 		SourceIP:  sourceIP,
 		Metadata:  auditData.Metadata,

@@ -80,7 +80,7 @@ func (h *Handler) CreateSecretReference(
 		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*created)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *Handler) UpdateSecretReference(
 		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*updated)
 	if err != nil {

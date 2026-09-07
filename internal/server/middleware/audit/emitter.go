@@ -6,7 +6,6 @@ package audit
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -30,9 +29,13 @@ type Emitter struct {
 }
 
 // NewEmitter creates an Emitter from an immutable policy set and one or more
-// sinks. serviceName identifies the emitting process (e.g. "openchoreo-api")
-// and is stamped onto every event by buildEvent, once, rather than by each
-// sink — so multiple sinks can't disagree about one event's identity.
+// sinks. serviceName is published as the event's "producer" and is stamped by
+// buildEvent, once, rather than by each sink — so multiple sinks can't
+// disagree about one event's identity.
+//
+// It must match the deployed workload's name ("openchoreo-api", "observer"),
+// not the API it serves ("observer-api"): routing and indexing downstream key
+// on this value, as do tools/auditgen and tools/auditcoverage.
 //
 // policies must not be nil: Emit calls policies.Resolve on every event, so a
 // nil PolicySet would return an error.
@@ -65,10 +68,12 @@ func (e *Emitter) Emit(_ context.Context, op *Operation, env Envelope) {
 }
 
 // buildEvent maps an Operation and Envelope into the Event every surface
-// emits, stamping EventID, Timestamp, and Service exactly once here. Both
-// REST and MCP build their own Envelope and hand it to Emit, which calls this
-// same function, so the two surfaces can't drift into differently-shaped
-// events.
+// emits, stamping EventID and Producer exactly once here. Both REST and MCP
+// build their own Envelope and hand it to Emit, which calls this same
+// function, so the two surfaces can't drift into differently-shaped events.
+//
+// It reads no clock: this runs after the handler returned, so a timestamp here
+// would report the response's completion. See RequestInfo.
 func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 	eventID, err := uuid.NewV7()
 	eventIDStr := eventID.String()
@@ -78,12 +83,14 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 	}
 
 	event := &Event{
+		AuditID:   env.Request.AuditID,
 		EventID:   eventIDStr,
-		Timestamp: time.Now(),
-		Service:   serviceName,
+		EventTime: env.Request.EventTime,
+		Producer:  serviceName,
 		Actor:     env.Actor,
 		Result:    env.Result,
 		Origin:    env.Origin,
+		HTTP:      env.Request.HTTP,
 		Resource:  withHierarchyNamespaceFallback(env.Resource, env.Hierarchy),
 		Hierarchy: env.Hierarchy,
 		RequestID: env.RequestID,

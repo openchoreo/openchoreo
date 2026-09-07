@@ -5,11 +5,49 @@ package audit
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 )
+
+// TestHTTPInfoFromRequest_RecordsPathWithoutQuery guards both halves of the
+// recorded request line: real path values rather than a route pattern, and no
+// query string.
+func TestHTTPInfoFromRequest_RecordsPathWithoutQuery(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPut,
+		"/api/v1/namespaces/ns-1/projects/p1?dryRun=true&opaque=zzz", nil)
+
+	got := HTTPInfoFromRequest(r)
+
+	if got.Method != http.MethodPut {
+		t.Errorf("Method = %q, want %q", got.Method, http.MethodPut)
+	}
+	if want := "/api/v1/namespaces/ns-1/projects/p1"; got.Path != want {
+		t.Errorf("Path = %q, want %q — the query string must not reach the record", got.Path, want)
+	}
+	if strings.Contains(got.Path, "opaque") {
+		t.Errorf("Path = %q carried a query parameter into the record", got.Path)
+	}
+}
+
+// TestNewRequestInfo_StampsDistinctAuditIDs guards that AuditID identifies an
+// operation, not the process: two requests sharing one would group unrelated
+// operations together.
+func TestNewRequestInfo_StampsDistinctAuditIDs(t *testing.T) {
+	first, second := NewRequestInfo(nil), NewRequestInfo(nil)
+
+	if first.AuditID == "" {
+		t.Fatal("AuditID is empty, want a stamped UUID")
+	}
+	if first.AuditID == second.AuditID {
+		t.Errorf("both requests got AuditID %q, want distinct values", first.AuditID)
+	}
+	if first.EventTime.IsZero() {
+		t.Error("EventTime is zero, want the arrival time stamped at entry")
+	}
+}
 
 func TestRequestIDFromHeader(t *testing.T) {
 	h := http.Header{}

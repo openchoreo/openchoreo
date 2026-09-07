@@ -54,7 +54,11 @@ func newAuditMiddleware(
 			// time regardless (see buildEvent).
 			resourceName := argFromParsed(args, binding.ResourceArg)
 			namespaceName := argFromParsed(args, "namespace_name")
-			ctx, auditData := audit.NewAuditContext(ctx, &audit.Resource{Namespace: namespaceName, Name: resourceName})
+			// nil HTTPInfo: one HTTP request can carry several tools/calls, so
+			// the transport's method and path describe none of them.
+			ctx, auditData := audit.NewAuditContext(
+				ctx, &audit.Resource{Namespace: namespaceName, Name: resourceName}, audit.NewRequestInfo(nil),
+			)
 
 			// Seed the hierarchy from the same namespace_name/project_name/
 			// component_name/resource_name convention callToolScope uses

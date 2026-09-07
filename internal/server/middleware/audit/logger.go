@@ -12,9 +12,9 @@ import (
 )
 
 // Logger handles emitting audit log events using structured logging. It is a
-// pure reader of Event — EventID/Timestamp/Service are stamped once by
-// buildEvent (emitter.go), not here, so a second sink can't see a different
-// identity for the same event (see Emitter's doc comment).
+// pure reader of Event — EventID/Producer are stamped by buildEvent and
+// EventTime by the surface adapter, never here, so a second sink can't see a
+// different identity for the same event (see Emitter's doc comment).
 type Logger struct {
 	slogger *slog.Logger
 }
@@ -95,6 +95,7 @@ func (l *Logger) LogEvent(event *Event) {
 // the map[string]any metadata fields, which could hold a non-marshalable value.
 func (l *Logger) logRenderFailure(event *Event, err error) {
 	l.slogger.Error("AUDIT-LOG-RENDER-FAILED",
+		slog.String("schema_version", SchemaVersion),
 		slog.String("event_id", event.EventID),
 		slog.String("action", event.Action),
 		slog.String("result", string(event.Result)),

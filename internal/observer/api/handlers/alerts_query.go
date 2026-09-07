@@ -190,7 +190,7 @@ func (h *Handler) UpdateIncident(
 	// wholesale, so this call must carry everything worth keeping. No
 	// SetHierarchy: CheckAuthorization already records that in the shared
 	// authz path, including on denials.
-	audit.SetResource(ctx, &audit.Resource{ID: id, Name: id})
+	audit.SetResource(ctx, &audit.Resource{UID: id, Name: id})
 
 	return gen.UpdateIncident200JSONResponse(*resp), nil
 }
