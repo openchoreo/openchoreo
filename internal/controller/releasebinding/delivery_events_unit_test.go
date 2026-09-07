@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -917,6 +918,109 @@ func TestEmitDeliveryEventsWrapsError(t *testing.T) {
 		}
 		if !errors.Is(err, inner) {
 			t.Errorf("wrapped error must still unwrap to the data plane failure, got %v", err)
+		}
+	})
+}
+
+// TestDeliveryReachesAFixedPoint guards against a reconcile loop.
+//
+// Reconcile's deferred status update writes ReleaseBinding.status whenever it
+// differs from the copy taken at entry, and the controller watches
+// ReleaseBinding with no generation predicate -- so a status write re-triggers a
+// reconcile. Delivery therefore has to converge: if a second reconcile over the
+// same health produced any status difference, each write would trigger the next
+// and the controller would spin forever.
+//
+// This asserts the fixed point directly, for each phase transition, by comparing
+// the status before and after a repeat reconcile.
+func TestDeliveryReachesAFixedPoint(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	desired := []*unstructured.Unstructured{makeDeliveryDeployment()}
+
+	healthy := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+	degraded := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
+	}
+
+	// settle reconciles until the status stops changing, and fails if it never
+	// does. The bound is deliberately small: each phase should need one reconcile
+	// to act and one to observe no further work.
+	settle := func(t *testing.T, cl client.Client, binding *openchoreov1alpha1.ReleaseBinding,
+		dc *deliveryContext, statuses []openchoreov1alpha1.RenderedManifestStatus) int {
+		t.Helper()
+		for i := 1; i <= 10; i++ {
+			before := binding.Status.DeepCopy()
+			if err := r.reconcileDeliveryEvents(ctx, cl, binding, dc, statuses); err != nil {
+				t.Fatalf("reconcile %d: %v", i, err)
+			}
+			if apiequality.Semantic.DeepEqual(*before, binding.Status) {
+				return i
+			}
+		}
+		t.Fatal("delivery status never stopped changing: the deferred status update " +
+			"would write on every reconcile, and each write re-triggers one")
+		return 0
+	}
+
+	t.Run("a healthy rollout settles", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		if n := settle(t, cl, binding, dc, healthy); n > 2 {
+			t.Errorf("took %d reconciles to settle; expected the second to be a no-op", n)
+		}
+		events := listDeliveryEvents(t, cl)
+		if countEventsByReason(events, reasonDeploymentStarted) != 1 ||
+			countEventsByReason(events, reasonDeploymentSucceeded) != 1 {
+			t.Errorf("expected exactly one Started and one Succeeded, got %d events", len(events))
+		}
+	})
+
+	t.Run("failure then recovery settles at each step", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		settle(t, cl, binding, dc, degraded)
+		settle(t, cl, binding, dc, healthy)
+		// And staying healthy afterwards must produce nothing further.
+		if n := settle(t, cl, binding, dc, healthy); n != 1 {
+			t.Errorf("a settled healthy rollout changed status again after %d reconciles", n)
+		}
+
+		events := listDeliveryEvents(t, cl)
+		for reason, want := range map[string]int{
+			reasonDeploymentStarted:   1,
+			reasonDeploymentFailed:    1,
+			reasonDeploymentSucceeded: 1,
+			reasonDeploymentRecovered: 1,
+		} {
+			if got := countEventsByReason(events, reason); got != want {
+				t.Errorf("%s emitted %d times, want %d", reason, got, want)
+			}
+		}
+	})
+
+	t.Run("a repeated apply failure settles", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		binding := makeDeliveryBinding()
+		dc := deliveryContextFor(binding, makeDeliveryComponentRelease(), makeDeliveryRelease(), desired)
+
+		for i := range 5 {
+			before := binding.Status.DeepCopy()
+			changed := r.markDeliveryApplyFailure(ctx, cl, binding, dc)
+			settled := apiequality.Semantic.DeepEqual(*before, binding.Status)
+			if i > 0 && (changed || !settled) {
+				t.Fatalf("apply failure %d still reported a change; it must be a no-op "+
+					"while the episode is open, or the reconcile writes forever", i)
+			}
+		}
+		if n := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); n != 1 {
+			t.Errorf("emitted %d DeploymentFailed for one open episode, want 1", n)
 		}
 	})
 }
