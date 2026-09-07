@@ -110,6 +110,16 @@ func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.C
 			}
 			existing := typedWorkload.Workload
 			existing.Spec.Container.Image = params.ImageURL
+			// Source describes the provenance of the image in Container, so it is
+			// replaced alongside it. With no --source-* flags it is cleared rather
+			// than kept: the previous value describes the image being replaced, and
+			// attributing this build to a commit it was not made from is worse than
+			// recording no provenance at all.
+			source, err := synth.SourceFromParams(synthParams)
+			if err != nil {
+				return err
+			}
+			existing.Spec.Source = source
 			workloadCR = existing
 		}
 	}

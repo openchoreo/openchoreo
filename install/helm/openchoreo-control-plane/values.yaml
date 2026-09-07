@@ -361,8 +361,8 @@ controllerManager:
     port: 8080
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -1731,7 +1731,7 @@ openchoreoApi:
                 claim: groups
                 value: admins
               effect: allow
-            
+
             # Developer mapping - grants developers group developer access
             - name: developer-binding
               kind: ClusterAuthzRoleBinding
@@ -2164,8 +2164,8 @@ openchoreoApi:
     port: 8080
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -2630,8 +2630,8 @@ backstage:
     port: 7007
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -3467,9 +3467,6 @@ backstage:
 # description: Cluster Gateway configuration - manages WebSocket connections from cluster agents
 # @schema
 clusterGateway:
-  # type: string
-  # description: Name of the cluster gateway deployment
-  # default: cluster-gateway
   # @schema
   # type: string
   # description: Name of the cluster gateway deployment
@@ -3477,10 +3474,6 @@ clusterGateway:
   # @schema
   name: cluster-gateway
 
-  # type: integer
-  # description: Number of cluster gateway replicas. Values above 1 require the gateway mesh (clusterGateway.mesh.enabled), which replicates the connection registry across replicas and forwards requests between them.
-  # minimum: 1
-  # default: 1
   # @schema
   # type: integer
   # description: Number of cluster gateway replicas. Values above 1 require the gateway mesh (clusterGateway.mesh.enabled), which replicates the connection registry across replicas and forwards requests between them.
@@ -3489,35 +3482,24 @@ clusterGateway:
   # @schema
   replicas: 1
 
-  # type: object
-  # description: Container image configuration
   # @schema
   # type: object
   # additionalProperties: true
   # description: Container image configuration
   # @schema
   image:
-    # type: string
-    # description: Docker image repository
-    # default: ghcr.io/openchoreo/cluster-gateway
     # @schema
     # type: string
     # description: Docker image repository
     # default: ghcr.io/openchoreo/cluster-gateway
     # @schema
     repository: ghcr.io/openchoreo/cluster-gateway
-    # type: string
-    # description: Image tag. If empty, uses Chart.AppVersion
-    # default: ""
     # @schema
     # type: string
     # description: Image tag. If empty, uses Chart.AppVersion
     # default: ""
     # @schema
     tag: ""
-    # description: Image pull policy
-    # enum: [Always, IfNotPresent, Never]
-    # default: IfNotPresent
     # @schema
     # description: Image pull policy
     # enum: [Always, IfNotPresent, Never]
@@ -3525,9 +3507,6 @@ clusterGateway:
     # @schema
     pullPolicy: IfNotPresent
 
-  # type: integer
-  # description: WebSocket port for agent connections
-  # default: 8443
   # @schema
   # type: integer
   # description: WebSocket port for agent connections
@@ -3535,9 +3514,6 @@ clusterGateway:
   # @schema
   port: 8443
 
-  # type: string
-  # description: Heartbeat interval for agent connections
-  # default: 30s
   # @schema
   # type: string
   # description: Heartbeat interval for agent connections
@@ -3545,9 +3521,6 @@ clusterGateway:
   # @schema
   heartbeatInterval: 30s
 
-  # type: string
-  # description: Heartbeat timeout for agent connections
-  # default: 90s
   # @schema
   # type: string
   # description: Heartbeat timeout for agent connections
@@ -3555,17 +3528,12 @@ clusterGateway:
   # @schema
   heartbeatTimeout: 90s
 
-  # type: object
-  # description: Gateway mesh fabric configuration. The mesh replicates the agent connection registry across gateway replicas and forwards requests between them, allowing the gateway to scale horizontally behind an ordinary Service.
   # @schema
   # type: object
   # additionalProperties: false
   # description: Gateway mesh fabric configuration. The mesh replicates the agent connection registry across gateway replicas and forwards requests between them, allowing the gateway to scale horizontally behind an ordinary Service.
   # @schema
   mesh:
-    # type: boolean
-    # description: Enable the gateway mesh fabric. Required for replicas > 1. Peers discover each other via the headless mesh Service's EndpointSlices; links are secured with mTLS using the gateway serving certificate.
-    # default: false
     # @schema
     # type: boolean
     # description: Enable the gateway mesh fabric. Required for replicas > 1. Peers discover each other via the headless mesh Service's EndpointSlices; links are secured with mTLS using the gateway serving certificate.
@@ -3573,9 +3541,6 @@ clusterGateway:
     # @schema
     enabled: false
 
-    # type: integer
-    # description: Gateway-to-gateway mesh listener port
-    # default: 8445
     # @schema
     # type: integer
     # description: Gateway-to-gateway mesh listener port
@@ -3640,9 +3605,6 @@ clusterGateway:
     # @schema
     failureThreshold: 2
 
-  # description: Log level
-  # enum: [debug, info, warn, error]
-  # default: info
   # @schema
   # description: Log level
   # enum: [debug, info, warn, error]
@@ -3650,60 +3612,42 @@ clusterGateway:
   # @schema
   logLevel: info
 
-  # type: object
-  # description: Resource requests and limits
   # @schema
   # type: object
   # additionalProperties: true
   # description: Resource requests and limits
   # @schema
   resources:
-    # type: object
-    # description: Resource requests
     # @schema
     # type: object
     # additionalProperties: true
     # description: Resource requests
     # @schema
     requests:
-      # type: string
-      # description: CPU request
-      # default: 100m
       # @schema
       # type: string
       # description: CPU request
       # default: 100m
       # @schema
       cpu: "100m"
-      # type: string
-      # description: Memory request
-      # default: 64Mi
       # @schema
       # type: string
       # description: Memory request
       # default: 64Mi
       # @schema
       memory: "64Mi"
-    # type: object
-    # description: Resource limits
     # @schema
     # type: object
     # additionalProperties: true
     # description: Resource limits
     # @schema
     limits:
-      # type: string
-      # description: CPU limit
-      # default: 500m
       # @schema
       # type: string
       # description: CPU limit
       # default: 500m
       # @schema
       cpu: "500m"
-      # type: string
-      # description: Memory limit
-      # default: 256Mi
       # @schema
       # type: string
       # description: Memory limit
@@ -3711,37 +3655,24 @@ clusterGateway:
       # @schema
       memory: "256Mi"
 
-  # type: object
-  # description: Service account configuration
   # @schema
   # type: object
   # additionalProperties: true
   # description: Service account configuration
   # @schema
   serviceAccount:
-    # type: boolean
-    # description: Create a service account
-    # default: true
     # @schema
     # type: boolean
     # description: Create a service account
     # default: true
     # @schema
     create: true
-    # type: string
-    # description: Service account name
-    # default: cluster-gateway
     # @schema
     # type: string
     # description: Service account name
     # default: cluster-gateway
     # @schema
     name: cluster-gateway
-    # type: object
-    # description: Service account annotations
-    # additionalProperties:
-    #   type: string
-    # default: {}
     # @schema
     # type: object
     # description: Service account annotations
@@ -3751,35 +3682,24 @@ clusterGateway:
     # @schema
     annotations: {}
 
-  # type: object
-  # description: Priority class configuration
   # @schema
   # type: object
   # additionalProperties: true
   # description: Priority class configuration
   # @schema
   priorityClass:
-    # type: boolean
-    # description: Create a priority class
-    # default: false
     # @schema
     # type: boolean
     # description: Create a priority class
     # default: false
     # @schema
     create: false
-    # type: string
-    # description: Priority class name
-    # default: cluster-gateway
     # @schema
     # type: string
     # description: Priority class name
     # default: cluster-gateway
     # @schema
     name: cluster-gateway
-    # type: integer
-    # description: Priority class value
-    # default: 900000
     # @schema
     # type: integer
     # description: Priority class value
@@ -3787,76 +3707,52 @@ clusterGateway:
     # @schema
     value: 900000
 
-  # type: object
-  # description: Kubernetes service configuration
   # @schema
   # type: object
   # additionalProperties: true
   # description: Kubernetes service configuration
   # @schema
   service:
-    # description: Service type
-    # enum: [ClusterIP, NodePort, LoadBalancer]
-    # default: ClusterIP
     # @schema
     # description: Service type
     # enum: [ClusterIP, NodePort, LoadBalancer]
     # default: ClusterIP
     # @schema
     type: ClusterIP
-    # type: integer
-    # description: Service port
-    # default: 8443
     # @schema
     # type: integer
     # description: Service port
     # default: 8443
     # @schema
     port: 8443
-    # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
-    # type: [string, "null"]
-        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
     # @schema
     # type: [string, "null"]
-        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
-        # @schema
+    # description: LoadBalancer IP (only used if service.type is LoadBalancer)
+    # @schema
     loadBalancerIP: null
-    # type: [string, "null"]
-        # description: Cluster IP (set to None for headless service)
     # @schema
     # type: [string, "null"]
-        # description: Cluster IP (set to None for headless service)
-        # @schema
+    # description: Cluster IP (set to None for headless service)
+    # @schema
     clusterIP: null
 
-  # type: object
-  # description: TLSRoute configuration for Gateway API
   # @schema
   # type: object
   # additionalProperties: true
   # description: TLSRoute configuration for Gateway API
   # @schema
   tlsRoute:
-    # type: boolean
-    # description: Enable TLSRoute for cluster gateway
-    # default: false
     # @schema
     # type: boolean
     # description: Enable TLSRoute for cluster gateway
     # default: false
     # @schema
     enabled: false
-    # type: array
-    # description: Hostnames for TLSRoute
-    # items:
-    #   type: object
-    # default: []
     # @schema
     # type: array
     # description: Hostnames for TLSRoute
@@ -3866,26 +3762,18 @@ clusterGateway:
     # @schema
     hosts: []
 
-  # type: object
-  # description: TLS configuration using cert-manager
   # @schema
   # type: object
   # additionalProperties: true
   # description: TLS configuration using cert-manager
   # @schema
   tls:
-    # type: boolean
-    # description: "Deprecated: has no effect. The cluster gateway has no plaintext listener - it always loads a serving certificate - so TLS resources are created unconditionally. MIGRATION: if you previously set this to false and supplied the certificate secret yourself, set clusterGateway.tls.existingSecret to that secret name instead. Otherwise cert-manager now issues into clusterGateway.tls.secretName and will overwrite a secret of that name that you created by hand. Will be removed in a future release."
-    # default: true
     # @schema
     # type: boolean
     # description: "Deprecated: has no effect. The cluster gateway has no plaintext listener - it always loads a serving certificate - so TLS resources are created unconditionally. MIGRATION: if you previously set this to false and supplied the certificate secret yourself, set clusterGateway.tls.existingSecret to that secret name instead. Otherwise cert-manager now issues into clusterGateway.tls.secretName and will overwrite a secret of that name that you created by hand. Will be removed in a future release."
     # default: true
     # @schema
     enabled: true
-    # type: string
-    # description: TLS secret name
-    # default: cluster-gateway-tls
     # @schema
     # type: string
     # description: TLS secret name
@@ -3904,36 +3792,24 @@ clusterGateway:
     # default: false
     # @schema
     skipClientCertVerify: false
-    # type: object
-    # description: cert-manager issuer reference
     # @schema
     # type: object
     # additionalProperties: true
     # description: cert-manager issuer reference
     # @schema
     issuerRef:
-      # description: Issuer kind
-      # enum: [Issuer, ClusterIssuer]
-      # default: Issuer
       # @schema
       # description: Issuer kind
       # enum: [Issuer, ClusterIssuer]
       # default: Issuer
       # @schema
       kind: Issuer
-      # type: string
-      # description: Issuer name
-      # default: cluster-gateway-selfsigned-issuer
       # @schema
       # type: string
       # description: Issuer name
       # default: cluster-gateway-selfsigned-issuer
       # @schema
       name: cluster-gateway-selfsigned-issuer
-    # type: array
-    # description: DNS names for the certificate
-    # items:
-    #   type: string
     # @schema
     # type: array
     # description: DNS names for the certificate
@@ -3943,18 +3819,12 @@ clusterGateway:
     dnsNames:
       - cluster-gateway.openchoreo-control-plane.svc
       - cluster-gateway.openchoreo-control-plane.svc.cluster.local
-    # type: string
-    # description: Certificate validity duration (90 days)
-    # default: 2160h
     # @schema
     # type: string
     # description: Certificate validity duration (90 days)
     # default: 2160h
     # @schema
     duration: 2160h
-    # type: string
-    # description: Certificate renewal threshold (15 days before expiry)
-    # default: 360h
     # @schema
     # type: string
     # description: Certificate renewal threshold (15 days before expiry)
@@ -4010,35 +3880,24 @@ clusterGateway:
     # @schema
     forwardedHeaderName: X-Forwarded-Client-Cert
 
-  # type: object
-  # description: Pod security context
   # @schema
   # type: object
   # additionalProperties: true
   # description: Pod security context
   # @schema
   podSecurityContext:
-    # type: boolean
-    # description: Run as non-root user
-    # default: true
     # @schema
     # type: boolean
     # description: Run as non-root user
     # default: true
     # @schema
     runAsNonRoot: true
-    # type: integer
-    # description: User ID
-    # default: 1000
     # @schema
     # type: integer
     # description: User ID
     # default: 1000
     # @schema
     runAsUser: 1000
-    # type: integer
-    # description: Filesystem group
-    # default: 1000
     # @schema
     # type: integer
     # description: Filesystem group
@@ -4046,35 +3905,24 @@ clusterGateway:
     # @schema
     fsGroup: 1000
 
-  # type: object
-  # description: Container security context
   # @schema
   # type: object
   # additionalProperties: true
   # description: Container security context
   # @schema
   securityContext:
-    # type: boolean
-    # description: Prevent privilege escalation
-    # default: false
     # @schema
     # type: boolean
     # description: Prevent privilege escalation
     # default: false
     # @schema
     allowPrivilegeEscalation: false
-    # type: object
-    # description: Linux capabilities
     # @schema
     # type: object
     # additionalProperties: true
     # description: Linux capabilities
     # @schema
     capabilities:
-      # type: array
-      # description: Capabilities to drop
-      # items:
-      #   type: string
       # @schema
       # type: array
       # description: Capabilities to drop
@@ -4083,9 +3931,6 @@ clusterGateway:
       # @schema
       drop:
         - ALL
-    # type: boolean
-    # description: Read-only root filesystem
-    # default: true
     # @schema
     # type: boolean
     # description: Read-only root filesystem
@@ -4093,11 +3938,6 @@ clusterGateway:
     # @schema
     readOnlyRootFilesystem: true
 
-  # type: object
-  # description: Node selector
-  # additionalProperties:
-  #   type: string
-  # default: {}
   # @schema
   # type: object
   # description: Node selector
@@ -4107,11 +3947,6 @@ clusterGateway:
   # @schema
   nodeSelector: {}
 
-  # type: array
-  # description: Tolerations
-  # items:
-  #   type: object
-  # default: []
   # @schema
   # type: array
   # description: Tolerations
@@ -4121,9 +3956,6 @@ clusterGateway:
   # @schema
   tolerations: []
 
-  # type: object
-  # description: Affinity rules
-  # default: {}
   # @schema
   # type: object
   # additionalProperties: true
@@ -4174,6 +4006,20 @@ gateway:
   #         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
   #         service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   #         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxx"
+  #
+  #   The chart always renders spec.infrastructure so platform identity labels
+  #   reach the kgateway proxy pods. That field needs Gateway API >= v1.2 - on
+  #   older CRDs it is pruned and the proxy pods lose plane attribution.
+  #   labels is capped at 8 entries by Gateway API, platform identity included.
+  # properties:
+  #   labels:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
+  #   annotations:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
   # @schema
   infrastructure: {}
 

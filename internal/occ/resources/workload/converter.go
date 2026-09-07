@@ -195,7 +195,7 @@ func validateConversionParams(params CreateWorkloadParams) error {
 
 // createBaseWorkload creates the basic workload structure with common fields
 func createBaseWorkload(workloadName string, params CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
-	source, err := sourceFromParams(params)
+	source, err := SourceFromParams(params)
 	if err != nil {
 		return nil, err
 	}
@@ -226,10 +226,10 @@ func createBaseWorkload(workloadName string, params CreateWorkloadParams) (*open
 	return workload, nil
 }
 
-// sourceFromParams builds the workload's commit provenance from CLI flags, or
+// SourceFromParams builds the workload's commit provenance from CLI flags, or
 // nil when none were given (Source is optional: DF/CFR/MTTR compute without
 // it; only Lead Time for Changes needs it).
-func sourceFromParams(params CreateWorkloadParams) (*openchoreov1alpha1.WorkloadSource, error) {
+func SourceFromParams(params CreateWorkloadParams) (*openchoreov1alpha1.WorkloadSource, error) {
 	if params.SourceCommit == "" && params.SourceBranch == "" &&
 		params.SourceRepository == "" && params.SourceAuthoredAt == "" {
 		return nil, nil

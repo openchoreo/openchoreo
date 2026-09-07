@@ -1,16 +1,6 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-import json
-from collections.abc import Callable
-
-import httpx
-from langchain_core.tools import BaseTool, StructuredTool
-from pydantic import BaseModel, Field
-
-from src.clients.openchoreo_api import get
-
-
 class Tool(str):
     active_form: str | None
     server: str
@@ -60,6 +50,9 @@ class TOOLS:
     LIST_COMPONENTS = Tool(
         "list_components", server=OPENCHOREO, active_form="Loading components..."
     )
+    GET_COMPONENT = Tool(
+        "get_component", server=OPENCHOREO, active_form="Fetching component..."
+    )
     PATCH_RELEASEBINDING = Tool(
         "patch_releasebinding", server=OPENCHOREO, active_form="Patching release binding..."
     )
@@ -75,15 +68,21 @@ class TOOLS:
         active_form="Fetching release schema...",
     )
     CREATE_WORKLOAD = Tool("create_workload", server=OPENCHOREO, active_form="Creating workload...")
-    GET_COMPONENT_WORKLOADS = Tool(
-        "get_component_workloads",
-        server=OPENCHOREO,
-        active_form="Fetching component workloads...",
+    LIST_WORKLOADS = Tool(
+        "list_workloads", server=OPENCHOREO, active_form="Loading workloads..."
+    )
+    GET_WORKLOAD = Tool(
+        "get_workload", server=OPENCHOREO, active_form="Fetching workload..."
     )
     LIST_RELEASE_BINDINGS = Tool(
         "list_release_bindings",
         server=OPENCHOREO,
         active_form="Loading release bindings...",
+    )
+    GET_RELEASE_BINDING = Tool(
+        "get_release_binding",
+        server=OPENCHOREO,
+        active_form="Fetching release binding...",
     )
     LIST_RESOURCE_RELEASE_BINDINGS = Tool(
         "list_resource_release_bindings",
@@ -94,11 +93,6 @@ class TOOLS:
         "get_resource_release_binding",
         server=OPENCHOREO,
         active_form="Fetching resource release binding...",
-    )
-    LIST_COMPONENT_TRAITS = Tool(
-        "list_component_traits",
-        server=OPENCHOREO,
-        active_form="Loading component traits...",
     )
     GET_TRAIT_SCHEMA = Tool(
         "get_trait_schema",
@@ -119,191 +113,3 @@ TOOL_ACTIVE_FORMS: dict[str, str] = {
     for v in vars(TOOLS).values()
     if isinstance(v, Tool) and v.active_form is not None
 }
-
-
-class _ListReleaseBindingsInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    component: str = Field(..., description="Component name to filter by")
-
-
-class _GetComponentWorkloadsInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    project: str = Field(..., description="Project name")
-    component: str = Field(..., description="Component name")
-
-
-class _GetComponentReleaseSchemaInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    component: str = Field(..., description="Component name")
-
-
-class _ListComponentTraitsInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    component: str = Field(..., description="Component name")
-
-
-class _ListComponentsInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    project: str = Field(..., description="Project name")
-
-
-class _ListResourceReleaseBindingsInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    resource: str | None = Field(
-        default=None, description="Optional Resource name to filter bindings by"
-    )
-
-
-class _GetResourceReleaseBindingInput(BaseModel):
-    namespace: str = Field(..., description="Namespace name")
-    name: str = Field(..., description="ResourceReleaseBinding name")
-
-
-def create_list_release_bindings_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, component: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/releasebindings",
-            auth,
-            params={"component": component},
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="list_release_bindings",
-        description=(
-            "List release bindings for a component. Returns the full binding spec "
-            "including current workloadOverrides, traitEnvironmentConfigs, and "
-            "componentTypeEnvironmentConfigs."
-        ),
-        args_schema=_ListReleaseBindingsInput,
-    )
-
-
-def create_get_component_workloads_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, project: str, component: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/workloads",
-            auth,
-            params={"project": project, "component": component},
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="get_component_workloads",
-        description="Get workloads for a component including container specs, env vars, and endpoints.",
-        args_schema=_GetComponentWorkloadsInput,
-    )
-
-
-def create_get_component_release_schema_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, component: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/components/{component}/schema",
-            auth,
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="get_component_release_schema",
-        description=(
-            "Get the JSON Schema for a component's trait and componentType overrides. "
-            "Source of truth for valid override fields."
-        ),
-        args_schema=_GetComponentReleaseSchemaInput,
-    )
-
-
-def create_list_component_traits_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, component: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/components/{component}",
-            auth,
-        )
-        traits = result.get("spec", {}).get("traits", [])
-        return json.dumps(traits)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="list_component_traits",
-        description="List traits attached to a component with their base parameter values.",
-        args_schema=_ListComponentTraitsInput,
-    )
-
-
-def create_list_components_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, project: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/components",
-            auth,
-            params={"project": project},
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="list_components",
-        description="List components in a project.",
-        args_schema=_ListComponentsInput,
-    )
-
-
-def create_list_resource_release_bindings_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, resource: str | None = None) -> str:
-        params = {"resource": resource} if resource else None
-        result = await get(
-            f"/namespaces/{namespace}/resourcereleasebindings",
-            auth,
-            params=params,
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="list_resource_release_bindings",
-        description=(
-            "List ResourceReleaseBindings in a namespace. A Resource (e.g. a managed "
-            "Postgres from a ClusterResourceType) is bound to an environment via a "
-            "ResourceReleaseBinding, whose spec.resourceTypeEnvironmentConfigs holds the "
-            "per-environment overrides. PREFER omitting `resource` to list all bindings in "
-            "the namespace, then match the one whose spec.owner.resourceName equals the "
-            "Resource ref you are looking for — the optional `resource` filter must be the "
-            "exact Resource name (NOT the binding name, which is usually <resource>-<env>) "
-            "or it returns nothing."
-        ),
-        args_schema=_ListResourceReleaseBindingsInput,
-    )
-
-
-def create_get_resource_release_binding_tool(auth: httpx.Auth) -> StructuredTool:
-    async def _run(namespace: str, name: str) -> str:
-        result = await get(
-            f"/namespaces/{namespace}/resourcereleasebindings/{name}",
-            auth,
-        )
-        return json.dumps(result)
-
-    return StructuredTool.from_function(
-        coroutine=_run,
-        name="get_resource_release_binding",
-        description=(
-            "Get a ResourceReleaseBinding by name, including its current "
-            "spec.resourceTypeEnvironmentConfigs (the overridable fields defined by the "
-            "backing ClusterResourceType/ResourceType). Source of truth for what is "
-            "currently configured on a Resource in an environment."
-        ),
-        args_schema=_GetResourceReleaseBindingInput,
-    )
-
-
-ALL_TOOL_FACTORIES: list[Callable[..., BaseTool]] = [
-    create_list_release_bindings_tool,
-    create_get_component_workloads_tool,
-    create_get_component_release_schema_tool,
-    create_list_component_traits_tool,
-    create_list_components_tool,
-    create_list_resource_release_bindings_tool,
-    create_get_resource_release_binding_tool,
-]

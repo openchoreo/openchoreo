@@ -362,15 +362,33 @@ spec:
                     format: date-time
                     type: string
                   branch:
-                    description: Branch is the VCS branch the commit was built from.
+                    description: |-
+                      Branch is the VCS branch the commit was built from. Absent for a build pinned
+                      to a commit, which is not made from any particular branch. Not pattern-checked:
+                      git ref names permit a wide character set, and rejecting a valid one would
+                      block a deployment for a metadata field.
+                    maxLength: 255
+                    minLength: 1
                     type: string
                   commit:
-                    description: Commit is the VCS commit SHA the running image was
-                      built from.
+                    description: |-
+                      Commit is the VCS commit SHA the running image was built from. Constrained to
+                      hex so that a tag or branch name passed here is rejected rather than recorded
+                      as a commit -- an easy mistake to make when --source-branch sits next to it,
+                      and one that produces provenance pointing at nothing. A prefix is accepted
+                      because external CI often has only a short SHA; native CI canonicalizes to the
+                      full 40.
+                    maxLength: 40
+                    minLength: 7
+                    pattern: ^[0-9a-fA-F]+$
                     type: string
                   repository:
-                    description: Repository is the VCS repository URL the commit belongs
-                      to.
+                    description: |-
+                      Repository is the VCS repository URL the commit belongs to. Bounded but not
+                      format-checked, since both https and scp-style SSH forms
+                      (git@host:org/repo.git) are legitimate here.
+                    maxLength: 2048
+                    minLength: 1
                     type: string
                 type: object
             required:

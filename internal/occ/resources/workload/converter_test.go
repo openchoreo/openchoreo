@@ -1352,3 +1352,54 @@ spec:
 		})
 	}
 }
+
+// TestSourceFromParams pins the contract the filesystem-mode path depends on.
+// When `occ workload create` reuses a workload file that already exists it
+// replaces Spec.Source with whatever this returns, so nil is what clears stale
+// provenance: the previous value describes the image being replaced, and
+// attributing a build to a commit it was not made from is worse than recording
+// none.
+func TestSourceFromParams(t *testing.T) {
+	t.Run("no flags yields nil, which clears any previous provenance", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{ImageURL: "gcr.io/test/image:v2"})
+		require.NoError(t, err)
+		assert.Nil(t, source,
+			"an image replaced without --source-* flags has unknown provenance, not the old one")
+	})
+
+	t.Run("all flags are carried", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+			SourceBranch:     "release-1.3",
+			SourceRepository: "https://github.com/acme/widgets",
+			SourceAuthoredAt: "2026-08-30T09:15:00Z",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, source)
+		assert.Equal(t, "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4", source.Commit)
+		assert.Equal(t, "release-1.3", source.Branch)
+		assert.Equal(t, "https://github.com/acme/widgets", source.Repository)
+		require.NotNil(t, source.AuthoredAt)
+		assert.True(t, source.AuthoredAt.Time.Equal(time.Date(2026, 8, 30, 9, 15, 0, 0, time.UTC)))
+	})
+
+	t.Run("a commit without an authored time is still recorded", func(t *testing.T) {
+		source, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit: "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, source,
+			"a commit alone is still useful provenance; only lead time needs the authored time")
+		assert.Nil(t, source.AuthoredAt)
+	})
+
+	t.Run("a non-RFC3339 authored time is rejected", func(t *testing.T) {
+		_, err := SourceFromParams(CreateWorkloadParams{
+			SourceCommit:     "9f2c1ab4d5e6f70819a2b3c4d5e6f70819a2b3c4",
+			SourceAuthoredAt: "30-08-2026",
+		})
+		require.Error(t, err,
+			"a silently unparsed timestamp would leave lead time wrong rather than absent")
+		assert.Contains(t, err.Error(), "must be RFC3339")
+	})
+}

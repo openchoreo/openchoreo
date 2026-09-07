@@ -10,6 +10,7 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -103,6 +104,17 @@ func CheckAuthorization(
 	hierarchy authzcore.ResourceHierarchy,
 	authzCtx authzcore.Context,
 ) error {
+	// Recorded before the pdp == nil check below, so a denial, a PDP error,
+	// and an authz-disabled deployment all produce an audit event carrying
+	// the hierarchy the decision was made on. Mirrors openchoreo-api's
+	// AuthzChecker.Check; a no-op when the request has no audit context.
+	audit.SetHierarchy(ctx, audit.Hierarchy{
+		Namespace: hierarchy.Namespace,
+		Project:   hierarchy.Project,
+		Component: hierarchy.Component,
+		Resource:  hierarchy.Resource,
+	})
+
 	if pdp == nil {
 		logger.Debug("Authorization disabled, skipping check")
 		return nil

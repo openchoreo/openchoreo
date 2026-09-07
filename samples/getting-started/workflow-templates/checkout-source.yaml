@@ -150,8 +150,11 @@ spec:
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
                 git checkout "$COMMIT"
+                # git-revision keeps feeding the image tag, so it stays derived from
+                # the requested $COMMIT exactly as before. COMMIT_SHA below is the
+                # canonicalized SHA and is only used for provenance.
+                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
                 COMMIT_SHA=$(git rev-parse HEAD)
-                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
                 # Detached checkout of one commit: the branch parameter was never
                 # used, and a commit can live on any number of branches, so there
                 # is no branch to attribute this build to.

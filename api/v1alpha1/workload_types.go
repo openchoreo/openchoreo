@@ -259,16 +259,33 @@ type WorkloadResourceDependency struct {
 // from real deployments. Optional: DF/CFR/MTTR compute without it; Lead Time reports
 // unavailable when absent.
 type WorkloadSource struct {
-	// Commit is the VCS commit SHA the running image was built from.
+	// Commit is the VCS commit SHA the running image was built from. Constrained to
+	// hex so that a tag or branch name passed here is rejected rather than recorded
+	// as a commit -- an easy mistake to make when --source-branch sits next to it,
+	// and one that produces provenance pointing at nothing. A prefix is accepted
+	// because external CI often has only a short SHA; native CI canonicalizes to the
+	// full 40.
 	// +optional
+	// +kubebuilder:validation:MinLength=7
+	// +kubebuilder:validation:MaxLength=40
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]+$`
 	Commit string `json:"commit,omitempty"`
 
-	// Branch is the VCS branch the commit was built from.
+	// Branch is the VCS branch the commit was built from. Absent for a build pinned
+	// to a commit, which is not made from any particular branch. Not pattern-checked:
+	// git ref names permit a wide character set, and rejecting a valid one would
+	// block a deployment for a metadata field.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
 	Branch string `json:"branch,omitempty"`
 
-	// Repository is the VCS repository URL the commit belongs to.
+	// Repository is the VCS repository URL the commit belongs to. Bounded but not
+	// format-checked, since both https and scp-style SSH forms
+	// (git@host:org/repo.git) are legitimate here.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
 	Repository string `json:"repository,omitempty"`
 
 	// AuthoredAt is when the commit was authored, not when it was committed or

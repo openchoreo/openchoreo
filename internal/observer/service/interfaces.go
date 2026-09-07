@@ -59,6 +59,12 @@ type IncidentsQuerier interface {
 // IncidentsUpdater is the interface for updating incidents.
 type IncidentsUpdater interface {
 	UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error)
+	// IncidentScope returns the namespace, project and component an incident
+	// belongs to. It exists for the authorization wrapper: IncidentPutRequest
+	// names no scope, so authorizing against the incident's real hierarchy
+	// requires reading the stored incident first. Returns
+	// incidententry.ErrIncidentNotFound for an unknown ID.
+	IncidentScope(ctx context.Context, incidentID string) (namespace, project, component string, err error)
 }
 
 // AlertIncidentService is a composite interface combining alert query, incident query,

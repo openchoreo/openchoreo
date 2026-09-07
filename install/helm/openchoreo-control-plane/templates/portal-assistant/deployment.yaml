@@ -26,6 +26,7 @@ spec:
       labels:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: portal-assistant
+        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.portalAssistant.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}

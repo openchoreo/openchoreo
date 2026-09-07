@@ -81,6 +81,9 @@ type checkoutResult struct {
 	commitSHA        string // contents of the commit-sha output parameter file
 	commitAuthoredAt string // contents of the commit-authored-at output parameter file
 	sourceBranch     string // contents of the source-branch output parameter file
+	// gitRevision is the git-revision output parameter. `cut` leaves a trailing
+	// newline on it, here and on main, so compare it trimmed.
+	gitRevision string
 	// sourceBranchWritten records whether the source-branch file exists, which an
 	// empty sourceBranch cannot distinguish: the script must always write the file
 	// (it is declared as an Argo output parameter path), and the commit path writes
@@ -173,6 +176,9 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	if data, rerr := os.ReadFile(sourceBranchFile); rerr == nil {
 		res.sourceBranch = string(data)
 		res.sourceBranchWritten = true
+	}
+	if data, rerr := os.ReadFile(revFile); rerr == nil {
+		res.gitRevision = string(data)
 	}
 
 	if data, rerr := os.ReadFile(gitCalls); rerr == nil {
@@ -615,5 +621,37 @@ func TestCheckoutSourceBranchProvenance(t *testing.T) {
 				"report feature-x as this build's branch")
 		require.NotEmpty(t, res.commitSHA,
 			"commit provenance must still be recorded on the commit path")
+	})
+}
+
+// TestCheckoutGitRevisionUnchanged pins the git-revision output, which is a
+// pre-existing contract this PR must not disturb: it is interpolated into the
+// published image tag as ${IMAGE_TAG}-${GIT_REVISION}. On the commit path it is
+// derived from the requested $COMMIT, not from the canonicalized rev-parse SHA
+// added for provenance -- deriving it from the latter would change the image tag
+// of every commit-pinned build whose input is a tag or a short SHA.
+func TestCheckoutGitRevisionUnchanged(t *testing.T) {
+	t.Run("commit path derives the revision from the requested commit", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "main",
+			commit: "1234567890abcdef",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Equal(t, "12345678", strings.TrimSpace(res.gitRevision),
+			"git-revision feeds the image tag and must stay derived from the requested commit")
+		// The canonicalized SHA is still resolved, but only for provenance.
+		require.Equal(t, "abcdef1234567890abcdef1234567890abcdef12", res.commitSHA,
+			"commit-sha carries the canonicalized SHA, separately from git-revision")
+	})
+
+	t.Run("branch path derives the revision from the resolved head", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "main",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Equal(t, "abcdef12", strings.TrimSpace(res.gitRevision),
+			"the branch path has no requested commit, so the resolved head is the revision")
 	})
 }

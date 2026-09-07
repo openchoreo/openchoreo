@@ -1,29 +1,16 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the tool registry: tool metadata and OpenChoreo tool factories."""
-
-import json
-from unittest.mock import AsyncMock, patch
-
-import httpx
-import pytest
+"""Tests for the tool registry metadata."""
 
 from src.agent.tool_registry import (
-    ALL_TOOL_FACTORIES,
     OBSERVABILITY,
     OBSERVABILITY_TOOLS,
     OPENCHOREO,
     OPENCHOREO_TOOLS,
     TOOL_ACTIVE_FORMS,
     TOOLS,
-    create_get_resource_release_binding_tool,
-    create_list_components_tool,
-    create_list_release_bindings_tool,
-    create_list_resource_release_bindings_tool,
 )
-
-AUTH = httpx.BasicAuth("user", "pass")
 
 
 def test_tool_is_str_with_metadata():
@@ -44,75 +31,18 @@ def test_active_forms_only_include_tools_with_forms():
     assert all(v is not None for v in TOOL_ACTIVE_FORMS.values())
 
 
-def test_all_tool_factories_are_callables():
-    assert create_list_components_tool in ALL_TOOL_FACTORIES
-    assert create_list_resource_release_bindings_tool in ALL_TOOL_FACTORIES
-    assert create_get_resource_release_binding_tool in ALL_TOOL_FACTORIES
-    assert len(ALL_TOOL_FACTORIES) == 7
+def test_native_mcp_discovery_tools_are_grouped_as_openchoreo():
+    expected = {
+        TOOLS.LIST_COMPONENTS,
+        TOOLS.GET_COMPONENT,
+        TOOLS.LIST_WORKLOADS,
+        TOOLS.GET_WORKLOAD,
+        TOOLS.LIST_RELEASE_BINDINGS,
+        TOOLS.GET_RELEASE_BINDING,
+        TOOLS.GET_COMPONENT_RELEASE,
+        TOOLS.GET_COMPONENT_RELEASE_SCHEMA,
+        TOOLS.LIST_RESOURCE_RELEASE_BINDINGS,
+        TOOLS.GET_RESOURCE_RELEASE_BINDING,
+    }
 
-
-@pytest.mark.asyncio
-async def test_list_components_factory_builds_tool_and_calls_api():
-    tool = create_list_components_tool(AUTH)
-    assert tool.name == "list_components"
-
-    get_mock = AsyncMock(return_value={"items": ["a"]})
-    with patch("src.agent.tool_registry.get", get_mock):
-        out = await tool.coroutine(namespace="ns", project="p")
-
-    assert json.loads(out) == {"items": ["a"]}
-    assert get_mock.await_args.args[0] == "/namespaces/ns/components"
-    assert get_mock.await_args.kwargs["params"] == {"project": "p"}
-
-
-@pytest.mark.asyncio
-async def test_list_release_bindings_factory_filters_by_component():
-    tool = create_list_release_bindings_tool(AUTH)
-    assert tool.name == "list_release_bindings"
-
-    get_mock = AsyncMock(return_value={"items": []})
-    with patch("src.agent.tool_registry.get", get_mock):
-        await tool.coroutine(namespace="ns", component="c")
-
-    assert get_mock.await_args.args[0] == "/namespaces/ns/releasebindings"
-    assert get_mock.await_args.kwargs["params"] == {"component": "c"}
-
-
-@pytest.mark.asyncio
-async def test_list_resource_release_bindings_factory_filters_by_resource():
-    tool = create_list_resource_release_bindings_tool(AUTH)
-    assert tool.name == "list_resource_release_bindings"
-
-    get_mock = AsyncMock(return_value={"items": []})
-    with patch("src.agent.tool_registry.get", get_mock):
-        await tool.coroutine(namespace="ns", resource="snip-postgres")
-
-    assert get_mock.await_args.args[0] == "/namespaces/ns/resourcereleasebindings"
-    assert get_mock.await_args.kwargs["params"] == {"resource": "snip-postgres"}
-
-
-@pytest.mark.asyncio
-async def test_list_resource_release_bindings_factory_omits_empty_filter():
-    tool = create_list_resource_release_bindings_tool(AUTH)
-
-    get_mock = AsyncMock(return_value={"items": []})
-    with patch("src.agent.tool_registry.get", get_mock):
-        await tool.coroutine(namespace="ns")
-
-    assert get_mock.await_args.kwargs["params"] is None
-
-
-@pytest.mark.asyncio
-async def test_get_resource_release_binding_factory_builds_path():
-    tool = create_get_resource_release_binding_tool(AUTH)
-    assert tool.name == "get_resource_release_binding"
-
-    get_mock = AsyncMock(return_value={"metadata": {"name": "snip-postgres-development"}})
-    with patch("src.agent.tool_registry.get", get_mock):
-        out = await tool.coroutine(namespace="ns", name="snip-postgres-development")
-
-    assert json.loads(out) == {"metadata": {"name": "snip-postgres-development"}}
-    assert (
-        get_mock.await_args.args[0]
-        == "/namespaces/ns/resourcereleasebindings/snip-postgres-development"
-    )
+    assert expected <= OPENCHOREO_TOOLS

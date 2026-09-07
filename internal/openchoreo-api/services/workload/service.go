@@ -489,6 +489,34 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 				Description:          "Network endpoints for port exposure. Keys are endpoint names.",
 				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &endpointSchema},
 			},
+			"source": {
+				Type: objectType,
+				Description: "Commit provenance of the image in container. Optional: a workload " +
+					"deploys and is counted without it, but Lead Time for Changes cannot be " +
+					"measured for the rollout unless at least commit and authoredAt are set.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"commit": {
+						Type:        stringType,
+						Description: "Full VCS commit SHA the image was built from.",
+					},
+					"branch": {
+						Type: stringType,
+						Description: "Branch the commit was built from. Omitted for a build pinned to " +
+							"a commit, which is not made from any particular branch.",
+					},
+					"repository": {
+						Type:        stringType,
+						Description: "URL of the repository the commit came from.",
+					},
+					"authoredAt": {
+						Type:   stringType,
+						Format: "date-time",
+						Description: "RFC3339 time the commit was authored -- not built or deployed. " +
+							"Lead Time for Changes measures from this, so a build time here " +
+							"under-reports it.",
+					},
+				},
+			},
 			"dependencies": {
 				Type:        objectType,
 				Description: "Dependencies on other components' endpoints and on project-bound Resources.",

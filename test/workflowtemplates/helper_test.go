@@ -6,6 +6,7 @@ package workflowtemplates
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,13 +34,16 @@ type workflowTemplate struct {
 	} `yaml:"spec"`
 }
 
+// inputParameter is one entry of an Argo template's inputs.parameters.
+type inputParameter struct {
+	Name    string `yaml:"name"`
+	Default string `yaml:"default"`
+}
+
 type workflowTemplateStep struct {
 	Name   string `yaml:"name"`
 	Inputs struct {
-		Parameters []struct {
-			Name    string `yaml:"name"`
-			Default string `yaml:"default"`
-		} `yaml:"parameters"`
+		Parameters []inputParameter `yaml:"parameters"`
 	} `yaml:"inputs"`
 	Container struct {
 		Image        string   `yaml:"image"`
@@ -245,14 +249,10 @@ func inputParamDefault(t *testing.T, filename, paramName string) string {
 	t.Helper()
 	wt := loadTemplate(t, filename)
 	require.NotEmpty(t, wt.Spec.Templates, "template %s has no spec.templates", filename)
-	for _, p := range wt.Spec.Templates[0].Inputs.Parameters {
-		if p.Name == paramName {
-			return p.Default
-		}
-	}
-	require.FailNowf(t, "input parameter not found",
-		"template %s has no input parameter %q", filename, paramName)
-	return ""
+	params := wt.Spec.Templates[0].Inputs.Parameters
+	i := slices.IndexFunc(params, func(p inputParameter) bool { return p.Name == paramName })
+	require.NotEqualf(t, -1, i, "template %s has no input parameter %q", filename, paramName)
+	return params[i].Default
 }
 
 // secretVolumeOptional reports whether the named secret volume exists and is

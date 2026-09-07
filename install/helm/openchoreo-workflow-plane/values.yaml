@@ -46,6 +46,29 @@ argo-workflows:
 
   # @schema
   # type: object
+  # description: |
+  #   Labels applied to all Argo Workflows resources, pod templates included.
+  #   Carries platform identity for system-component observability.
+  #
+  #   Subchart values are not templated, therefore plane-id should be repeated
+  #   here to match clusterAgent.planeID. The chart fails the render when both
+  #   are set and disagree.
+  #
+  #   A release upgraded with --reuse-values keeps its old commonLabels map and
+  #   never gains keys the chart added later, so the check is skipped rather
+  #   than blocking the upgrade. Such a release renders Argo pods without a
+  #   plane-id; set this label explicitly to restore their attribution.
+  # properties: {}
+  # additionalProperties:
+  #   type: string
+  # default: {"openchoreo.dev/plane": "workflowplane", "openchoreo.dev/plane-id": "default"}
+  # @schema
+  commonLabels:
+    openchoreo.dev/plane: workflowplane
+    openchoreo.dev/plane-id: default
+
+  # @schema
+  # type: object
   # additionalProperties: true
   # description: Argo Workflows controller configuration
   # @schema
@@ -203,8 +226,14 @@ clusterAgent:
 
   # @schema
   # type: string
-  # description: Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.
+  # description: |
+  #   Logical plane identifier. Shared across multiple CRs connecting to the same physical plane
+  #   for multi-tenancy. Ships as the literal "default"; falls back to Helm release name if set as "".
+  #   Rendered as the openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.
+  #   Set argo-workflows.commonLabels["openchoreo.dev/plane-id"] to match.
   # default: default
+  # pattern: "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
+  # maxLength: 63
   # @schema
   planeID: default
 
