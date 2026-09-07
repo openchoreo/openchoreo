@@ -209,7 +209,7 @@ func TestPipeline_Render(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -736,7 +736,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -953,7 +953,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1102,7 +1102,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1174,7 +1174,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1240,7 +1240,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1290,7 +1290,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1331,7 +1331,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1376,7 +1376,7 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1417,7 +1417,7 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1512,7 +1512,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			_, err := p.Render(tt.input)
+			_, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1606,7 +1606,7 @@ func TestPipeline_Render_DifferentResourceTypes(t *testing.T) {
 			}
 
 			p := NewPipeline()
-			output, err := p.Render(input)
+			output, err := p.Render(t.Context(), input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1685,7 +1685,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1716,7 +1716,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1746,7 +1746,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1788,7 +1788,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1889,7 +1889,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1980,7 +1980,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2054,7 +2054,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2121,7 +2121,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2172,7 +2172,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

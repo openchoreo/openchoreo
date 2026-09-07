@@ -19,7 +19,9 @@ const (
 )
 
 const (
-	ReasonWorkflowPending               controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowPending controller.ConditionReason = "WorkflowPending"
+
+	ReasonWorkflowRenderingFailed       controller.ConditionReason = "WorkflowRenderingFailed"
 	ReasonWorkflowRunning               controller.ConditionReason = "WorkflowRunning"
 	ReasonWorkflowSucceeded             controller.ConditionReason = "WorkflowSucceeded"
 	ReasonWorkflowFailed                controller.ConditionReason = "WorkflowFailed"
@@ -170,4 +172,23 @@ func setComponentValidationFailedCondition(workflowRun *openchoreov1alpha1.Workf
 		Message:            message,
 		ObservedGeneration: workflowRun.Generation,
 	})
+}
+
+// setWorkflowRenderingFailedCondition records a failure to render the workflow - either
+// while resolving externalRefs or in the pipeline itself. WorkflowCompleted stays False
+// (nothing was submitted, so the run has not finished) with the render error as the
+// message; WorkflowFailed is deliberately untouched because that condition is
+// True-on-failure and reserved for a run that actually executed.
+//
+// Unlike its neighbors here, this one builds the condition through controller.NewCondition:
+// a render error quotes tenant-authored template text, and that builder is where the message
+// bound lives. The other setters carry API errors of their own making and keep the literal.
+func setWorkflowRenderingFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, err error) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, controller.NewCondition(
+		ConditionWorkflowCompleted,
+		metav1.ConditionFalse,
+		ReasonWorkflowRenderingFailed,
+		"Failed to render workflow: "+err.Error(),
+		workflowRun.Generation,
+	))
 }

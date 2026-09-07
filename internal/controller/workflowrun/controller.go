@@ -27,6 +27,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 // Reconciler reconciles a WorkflowRun object
@@ -39,6 +40,10 @@ type Reconciler struct {
 	// This enables CEL environment caching across different workflow runs and reconciliations.
 	Pipeline   *workflowpipeline.Pipeline
 	GatewayURL string
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -208,6 +213,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// Seed one cost budget for this reconcile, before externalRef name evaluation, so
+	// those renders and the pipeline render below share a single pool. The budget is an
+	// inert context value carrying no deadline, so it rides ctx and the cluster reads
+	// interleaved with rendering are unaffected.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+
 	renderInput := &workflowpipeline.RenderInput{
 		WorkflowRun: workflowRun,
 		Workflow:    workflow,
@@ -237,16 +248,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			logger.Error(err, "failed to resolve externalRefs",
 				"workflow", workflow.Name,
 				"workflowRun", workflowRun.Name)
-			return ctrl.Result{Requeue: true}, nil
+			return renderFailureResult(workflowRun, err), nil
 		}
 
 		renderInput.Context.ExternalRefs = externalRefs
 	}
 
-	output, err := r.Pipeline.Render(renderInput)
+	output, err := r.Pipeline.Render(ctx, renderInput)
 	if err != nil {
 		logger.Error(err, "failed to render workflow")
-		return ctrl.Result{Requeue: true}, nil
+		return renderFailureResult(workflowRun, err), nil
 	}
 
 	runResNamespace, err := extractRunResourceNamespace(output.Resource)
@@ -467,6 +478,14 @@ func (r *Reconciler) getWorkflowPlaneClient(workflowPlaneResult *controller.Work
 	return wpClient, nil
 }
 
+// renderFailureResult records a render failure - from either entry point, externalRef
+// name evaluation or the pipeline itself - on the object, so an operator can see why
+// nothing was submitted, and requeues the way this reconciler always has.
+func renderFailureResult(workflowRun *openchoreodevv1alpha1.WorkflowRun, err error) ctrl.Result {
+	setWorkflowRenderingFailedCondition(workflowRun, err)
+	return ctrl.Result{Requeue: true}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.K8sClientMgr == nil {
@@ -474,7 +493,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if r.Pipeline == nil {
-		r.Pipeline = workflowpipeline.NewPipeline()
+		r.Pipeline = workflowpipeline.NewPipeline(
+			workflowpipeline.WithCostLimit(r.CELCostLimit),
+		)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"maps"
+	"math"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
@@ -14,11 +15,69 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/ext"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
 
 	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
+
+// maxListsRangeSize bounds lists.range so a single call cannot materialize more than
+// ~maxListsRangeSize x 24B of slice memory. Set to 10_000 because cel-go's cost model is
+// a poor proxy for CPU once a list grows past ~10k elements: a measured
+// lists.range(10000).map(...) costs 150k and runs in 85ms, while the same expression at
+// 100k costs 1.5M and runs in 6.4s — 10x the cost for 75x the time. No sample uses
+// lists.range, so the tightening costs nothing in practice.
+//
+// This closes one route to a huge list, not all of them: split() on a large
+// tenant-supplied string is another, and is unaffected by this cap
+// (v.split(",").map(...) over an 800KB value burns ~9.7s before the cost limit fires).
+// The per-expression cost limit therefore bounds memory, not wall-clock. The control for
+// the residual routes is the cumulative reconcile budget.
+const maxListsRangeSize int64 = 10_000
+
+// boundedListsRange re-declares lists.range with a size ceiling.
+//
+// On main this is ext.Lists(ext.ListsMaxRangeSize(...)), but that option landed in cel-go
+// v0.29. This release line is pinned to cel-go v0.22.1 because k8s.io/apiserver v0.32.3
+// requires it, and cel-go's v0.22.1 genRange is unbounded: lists.range(50_000_000) boxes
+// fifty million ints before cel-go's cost tracker charges anything, so the per-expression
+// cost limit never fires. Re-declaring the same overload ID with a checked binding
+// replaces cel-go's, which is why this option must come after ext.Lists().
+//
+// The message matches upstream's, so the size cap behaves identically across release
+// lines: a plain evaluation error, not a sentinel. The rest of the overload does not.
+// cel-go from v0.29 rejects a negative size outright, while the binding below clamps the
+// allocation and returns an empty list, so a template computing a negative size renders
+// here and fails there.
+//
+// The check has to happen here rather than in the cost tracker: cel-go charges lists.range
+// only once it returns, so by the time the cost limit could fire the whole slice is already
+// resident. That makes this cap load-bearing against memory exhaustion, not a convenience.
+// The tracker in ext_overload_costs.go charges the range afterwards, which is what bounds
+// how many capped ranges one expression may build.
+func boundedListsRange() cel.EnvOption {
+	return cel.Function("lists.range",
+		cel.Overload("lists_range",
+			[]*cel.Type{cel.IntType}, cel.ListType(cel.IntType),
+			cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+				n, ok := args[0].(types.Int)
+				if !ok {
+					return types.MaybeNoSuchOverloadErr(args[0])
+				}
+				if int64(n) > maxListsRangeSize {
+					return types.NewErr("lists.range: size %d exceeds maximum allowed (%d)", int64(n), maxListsRangeSize)
+				}
+				out := make([]ref.Val, 0, max(int64(n), 0))
+				for i := types.Int(0); i < n; i++ {
+					out = append(out, i)
+				}
+				return types.DefaultTypeAdapter.NativeToValue(out)
+			}),
+		),
+	)
+}
 
 // BaseCELExtensions returns the CEL extensions used across OpenChoreo.
 // This includes optional types, common utility extensions for strings, encoding,
@@ -30,6 +89,7 @@ func BaseCELExtensions() []cel.EnvOption {
 		ext.Encoders(),
 		ext.Math(),
 		ext.Lists(),
+		boundedListsRange(),
 		ext.Sets(),
 		ext.TwoVarComprehensions(),
 	}
@@ -193,6 +253,10 @@ func (o *omitCELValue) Value() interface{} {
 //	oc_hash("test")  -> "4fdcca5d"  # Same input, same output
 //
 // All custom functions use the "oc_" prefix to avoid potential conflicts with upstream CEL-go.
+//
+// Any new oc_* function that does size-proportional work must also get a CallCost case in
+// customFunctionCostEstimator below; otherwise cel-go meters it at a flat one cost unit and
+// the per-expression limit and reconcile budget stay blind to whatever it traverses.
 func CustomFunctions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Macros(generateNameMacro, dnslabelMacro, mergeMacro),
@@ -443,3 +507,135 @@ var mergeMacro = cel.GlobalVarArgMacro("oc_merge",
 			return result, nil
 		}
 	})
+
+// customFunctionCostEstimator charges runtime cost for the oc_* functions registered by
+// CustomFunctions.
+//
+// cel-go charges one cost unit for any overload it does not recognize, so without this
+// estimator every oc_* call is metered as O(1) no matter how much data it walks. That makes
+// the per-expression cost limit and the reconcile budget blind to the one class of work a
+// template author fully controls: `${oc_hash(hugeParameter)}` repeated across a large
+// template traverses gigabytes while spending a handful of cost units.
+//
+// Each case below charges for the input the function actually traverses, using cel-go's own
+// conventions so a custom call and an equivalent built-in call cost the same order of
+// magnitude:
+//
+//   - String traversal is charged at common.StringTraversalCostFactor (0.1 per byte), the
+//     same factor cel-go applies to startsWith, string conversion, and concatenation.
+//   - Map traversal is charged one unit per entry, the same convention cel-go applies to
+//     list containment (`in`).
+//
+// Dispatch is by function name rather than overload ID. Template inputs are declared as
+// cel.DynType, so the checker cannot always pick a single overload for a function that
+// declares more than one — oc_generate_name and oc_dns_label each declare a string and a
+// list form — and an overload-keyed tracker silently misses those calls. The function name
+// is always known, and the argument's own type tells the two forms apart.
+//
+// oc_omit takes no arguments and does no proportional work, so it falls through to cel-go's
+// default cost of one.
+//
+// On this branch the estimator carries a second job. cel-go v0.22.1 ships no runtime cost
+// trackers for its own strings, lists and encoders extensions — later releases do — so those
+// overloads are metered as O(1) too, and the trackers for them live in ext_overload_costs.go
+// behind extOverloadCost. That half must be dropped on the first bump past v0.24; see that
+// file for why a partial bump is the awkward case.
+type customFunctionCostEstimator struct{}
+
+// CallCost implements interpreter.ActualCostEstimator. A nil return means "no estimate",
+// which falls back to cel-go's O(1) default — the blind spot this exists to close — so
+// every function handled here returns a real cost.
+func (customFunctionCostEstimator) CallCost(function, overloadID string, args []ref.Val, result ref.Val) *uint64 {
+	cost := uint64(1)
+
+	// Arguments are read through argAt for the same reason the ext trackers do: this runs
+	// inside cel-go's cost observer, where an index out of range panics the reconcile rather
+	// than failing the render. The checker enforces arity for these overloads today, so a
+	// zero-argument call is not reachable from a template; nothing here should depend on it.
+	switch function {
+	case "oc_hash":
+		cost = saturatingAdd(cost, traversalCost(stringBytes(argAt(args, 0))))
+
+	case "oc_generate_name", "oc_dns_label":
+		cost = saturatingAdd(cost, nameInputCost(argAt(args, 0)))
+
+	case "oc_merge":
+		for _, arg := range args {
+			cost = saturatingAdd(cost, collectionSize(arg))
+		}
+
+	default:
+		return extOverloadCost(function, overloadID, args, result)
+	}
+
+	return &cost
+}
+
+// CustomFunctionCostOptions returns the program options that install the estimator.
+//
+// cel.CostTracking feeds the same cost tracker that cel.CostLimit bounds, so a breach
+// interrupts evaluation exactly as a built-in overload's cost would.
+func CustomFunctionCostOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{cel.CostTracking(customFunctionCostEstimator{})}
+}
+
+// traversalCost converts a byte count into cost units at cel-go's string traversal factor.
+func traversalCost(size uint64) uint64 {
+	return scaledCost(size, common.StringTraversalCostFactor)
+}
+
+// Lists cost by both entry count and bytes: even empty strings require iteration and allocation.
+func nameInputCost(val ref.Val) uint64 {
+	if lister, ok := val.(traits.Lister); ok {
+		n := collectionLen(lister)
+		var bytes uint64
+		for i := int64(0); i < n; i++ {
+			bytes = saturatingAdd(bytes, stringBytes(lister.Get(types.Int(i))))
+		}
+		return saturatingAdd(collectionSize(lister), traversalCost(bytes))
+	}
+	return traversalCost(stringBytes(val))
+}
+
+// CEL's string size is a rune count; these functions traverse bytes, so use the native string.
+func stringBytes(val ref.Val) uint64 {
+	if val == nil {
+		return 0
+	}
+	s, _ := val.Value().(string)
+	return uint64(len(s))
+}
+
+func collectionSize(val ref.Val) uint64 {
+	n := collectionLen(val)
+	if n < 0 {
+		return 0
+	}
+	return uint64(n)
+}
+
+// collectionLen reports a collection's entry count as CEL's own int64 size, so it indexes a
+// Lister without a further conversion. Anything that cannot be sized reports -1, which reads
+// as an empty collection to both the loop above and collectionSize.
+func collectionLen(val ref.Val) int64 {
+	sz, ok := val.(traits.Sizer)
+	if !ok {
+		return -1
+	}
+	n, ok := sz.Size().(types.Int)
+	if !ok {
+		return -1
+	}
+	return int64(n)
+}
+
+// saturatingAdd adds two costs without wrapping. A wrapped total would read as a tiny cost
+// and let the very evaluation the guard exists to stop run unmetered.
+func saturatingAdd(a, b uint64) uint64 {
+	if a > math.MaxUint64-b {
+		return math.MaxUint64
+	}
+	return a + b
+}
+
+var _ interpreter.ActualCostEstimator = customFunctionCostEstimator{}
