@@ -20,6 +20,8 @@ var RESTExemptions = map[string]string{
 		"no real actor to record.",
 
 	"QueryAlerts":          "A read expressed as POST, not a state-modifying action.",
+	"QueryDoraDeployments": "A read expressed as POST, not a state-modifying action.",
+	"QueryDoraMetrics":     "A read expressed as POST, not a state-modifying action.",
 	"QueryEvents":          "A read expressed as POST, not a state-modifying action.",
 	"QueryIncidents":       "A read expressed as POST, not a state-modifying action.",
 	"QueryLogs":            "A read expressed as POST, not a state-modifying action.",
@@ -54,4 +56,5 @@ var MCPToolNames = map[string]bool{
 	"query_incidents":        true,
 	"query_costs":            true,
 	"query_recommendations":  true,
+	"query_dora_metrics":     true,
 }

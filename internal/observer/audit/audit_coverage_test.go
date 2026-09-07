@@ -112,10 +112,14 @@ func TestAuditCoverage(t *testing.T) {
 	// Pins the total so a spec change is forced through a deliberate update
 	// here rather than silently shifting the audited/exempted split.
 	//
-	// 13 = 9 public (14 less health, the OAuth metadata GET, both FinOps GETs
+	// 15 = 11 public (16 less health, the OAuth metadata GET, both FinOps GETs
 	// and the span-details GET) + 4 internal (5 less the getAlertRule GET).
+	//
+	// The two Delivery Insights reads take it from 13 to 15. Both are POSTs
+	// ending in /query, so both are exempted rather than audited, for the same
+	// reason as the nine query operations that preceded them.
 	t.Run("total operation count is pinned", func(t *testing.T) {
-		const wantTotal = 13
+		const wantTotal = 15
 		if len(restOperationIDs) != wantTotal {
 			t.Errorf("len(stateModifyingOperationIDs) = %d, want %d", len(restOperationIDs), wantTotal)
 		}

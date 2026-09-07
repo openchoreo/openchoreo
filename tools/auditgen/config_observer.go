@@ -15,10 +15,12 @@ import "github.com/openchoreo/openchoreo/tools/internal/auditgen"
 // openapi/observer-api.yaml deliberately not audited — see
 // internal/observer/audit/exemptions.go for each reason.
 //
-// All nine are reads expressed as POST. QuerySpanDetailsForTrace is POST to
+// All eleven are reads expressed as POST. QuerySpanDetailsForTrace is POST to
 // carry a request body; every other path ends in /query.
 var observerPublicExcludedOperationIDs = map[string]bool{
 	"QueryAlerts":              true,
+	"QueryDoraDeployments":     true,
+	"QueryDoraMetrics":         true,
 	"QueryEvents":              true,
 	"QueryIncidents":           true,
 	"QueryLogs":                true,
