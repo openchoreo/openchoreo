@@ -65,12 +65,14 @@ const (
 type deliveryEventPayload struct {
 	RenderedReleaseUID   string `json:"renderedReleaseUid"`
 	ComponentReleaseName string `json:"componentReleaseName"`
-	// OrgNamespace is the control-plane namespace the rollout belongs to. It is in
-	// the payload for the same reason the UIDs are: a Kubernetes Event does not
-	// inherit the involved object's labels, so anything the consumer needs has to
-	// travel in the message. It is the one field the store requires, and depending
-	// on collector enrichment for it meant an un-enriched event could not be folded.
-	OrgNamespace   string `json:"orgNamespace,omitempty"`
+	// NamespaceName is the OpenChoreo namespace the rollout belongs to -- the
+	// control-plane namespace, not the data-plane namespace the involved object
+	// lives in. It is in the payload for the same reason the UIDs are: a
+	// Kubernetes Event does not inherit the involved object's labels, so anything
+	// a consumer needs has to travel in the message. It is the one field the store
+	// requires, and depending on collector enrichment for it meant an un-enriched
+	// event could not be folded.
+	NamespaceName  string `json:"namespaceName,omitempty"`
 	ProjectUID     string `json:"projectUid,omitempty"`
 	ComponentUID   string `json:"componentUid,omitempty"`
 	EnvironmentUID string `json:"environmentUid,omitempty"`
@@ -95,14 +97,14 @@ type deliveryContext struct {
 	// environment the release is bound to. The pair is unique and stable.
 	rolloutID            string
 	componentReleaseName string
-	// orgNamespace is the control-plane namespace the rollout belongs to, taken
-	// from the RenderedRelease itself rather than from a label on the rendered
-	// resource. The store requires it, and the label is not guaranteed: it is
-	// injected through MetadataContext.Labels, which not every render path
-	// populates, so reading it off the resource could marshal an empty value that
-	// `omitempty` then drops from the payload entirely. The object's own namespace
-	// is the same value and always set.
-	orgNamespace string
+	// namespaceName is the OpenChoreo namespace the rollout belongs to, taken from
+	// the ReleaseBinding itself rather than from a label on the rendered resource.
+	// The store requires it, and the label is not guaranteed: it is injected
+	// through MetadataContext.Labels, which not every render path populates, so
+	// reading it off the resource could marshal an empty value that `omitempty`
+	// then drops from the payload entirely. The object's own namespace is the same
+	// value and always set.
+	namespaceName string
 	// primary is the desired primary workload resource (Deployment, StatefulSet,
 	// or CronJob) the events anchor to as involvedObject.
 	primary *unstructured.Unstructured
@@ -229,7 +231,7 @@ func deliveryContextFor(
 	return &deliveryContext{
 		rolloutID:            fmt.Sprintf("%s.%s", componentRelease.UID, renderedRelease.UID),
 		componentReleaseName: componentRelease.Name,
-		orgNamespace:         releaseBinding.Namespace,
+		namespaceName:        releaseBinding.Namespace,
 		primary:              primary,
 	}
 }
@@ -548,7 +550,7 @@ func (r *Reconciler) emitDeliveryEvent(
 	payload := deliveryEventPayload{
 		RenderedReleaseUID:   dc.rolloutID,
 		ComponentReleaseName: dc.componentReleaseName,
-		OrgNamespace:         dc.orgNamespace,
+		NamespaceName:        dc.namespaceName,
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],

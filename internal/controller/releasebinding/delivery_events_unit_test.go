@@ -145,8 +145,8 @@ func TestDeliveryContextFor(t *testing.T) {
 		if dc.componentReleaseName != testComponentReleaseName {
 			t.Errorf("componentReleaseName = %q, want %q", dc.componentReleaseName, testComponentReleaseName)
 		}
-		if dc.orgNamespace != "acme" {
-			t.Errorf("orgNamespace = %q, want the binding's namespace %q", dc.orgNamespace, "acme")
+		if dc.namespaceName != "acme" {
+			t.Errorf("namespaceName = %q, want the binding's namespace %q", dc.namespaceName, "acme")
 		}
 		if dc.primary != deployment {
 			t.Error("expected primary to be the deployment")
@@ -590,11 +590,11 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 	})
 }
 
-// TestDeliveryPayloadOrgNamespace pins where orgNamespace comes from. The store
+// TestDeliveryPayloadNamespaceName pins where namespaceName comes from. The store
 // requires it, and `omitempty` means an empty value disappears from the payload
 // rather than arriving blank -- so it must not depend on a label the render path
 // may not have injected.
-func TestDeliveryPayloadOrgNamespace(t *testing.T) {
+func TestDeliveryPayloadNamespaceName(t *testing.T) {
 	ctx := context.Background()
 	r := &Reconciler{}
 
@@ -627,9 +627,9 @@ func TestDeliveryPayloadOrgNamespace(t *testing.T) {
 		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
 			t.Fatalf("unmarshal payload: %v", err)
 		}
-		if payload.OrgNamespace != binding.Namespace {
-			t.Errorf("orgNamespace = %q, want the release namespace %q",
-				payload.OrgNamespace, binding.Namespace)
+		if payload.NamespaceName != binding.Namespace {
+			t.Errorf("namespaceName = %q, want the binding namespace %q",
+				payload.NamespaceName, binding.Namespace)
 		}
 	})
 }
