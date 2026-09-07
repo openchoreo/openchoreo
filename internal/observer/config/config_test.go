@@ -227,6 +227,24 @@ const uidResolutionResolver = "resolver"
 // observer.replicas > 1 while it is enabled, and defaulting it on would fail the
 // render of an existing scaled deployment that never opted in.
 func TestInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
+	// Load() reads the process environment, and anyone working on this feature is
+	// likely to have INSIGHTS_* set in their shell -- which would make this assert
+	// their environment rather than the defaults. Load() skips empty values, so
+	// setting each to "" neutralizes it; t.Setenv restores the originals.
+	for _, key := range []string{
+		"INSIGHTS_STORE_BACKEND",
+		"INSIGHTS_STORE_DSN",
+		"INSIGHTS_UID_RESOLUTION",
+		"INSIGHTS_AGGREGATION_ENABLED",
+		"INSIGHTS_AGGREGATION_INTERVAL",
+		"INSIGHTS_AGGREGATION_OVERLAP",
+		"INSIGHTS_EVENTS_SOURCE_ENABLED",
+		"INSIGHTS_ATTRIBUTION_WINDOW",
+		"INSIGHTS_INCIDENT_LOOKBACK",
+	} {
+		t.Setenv(key, "")
+	}
+
 	cfg, err := Load()
 	require.NoError(t, err)
 
@@ -373,6 +391,21 @@ func TestValidateInsightsAggregation(t *testing.T) {
 		err := c.validateInsights()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insights.aggregation.incident.lookback must be positive")
+	})
+
+	t.Run("passthrough stays accepted", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.Insights.UIDResolution = "passthrough"
+		require.NoError(t, c.validateInsights(),
+			"passthrough serves seeded data without a control plane and must remain valid")
+		assert.Equal(t, "passthrough", c.Insights.UIDResolution)
+	})
+
+	t.Run("an empty uid resolution mode normalises to resolver", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.Insights.UIDResolution = "  "
+		require.NoError(t, c.validateInsights())
+		assert.Equal(t, uidResolutionResolver, c.Insights.UIDResolution)
 	})
 
 	t.Run("an unknown uid resolution mode is rejected", func(t *testing.T) {
