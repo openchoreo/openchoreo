@@ -469,16 +469,114 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 			t.Error("expected repeated apply failure to be a no-op")
 		}
 
+		// Started accompanies the failure: a rollout whose first apply fails must
+		// not report Failed as its opening event, or a consumer folding these in
+		// order sees the failure before the rollout it belongs to began.
 		events := listDeliveryEvents(t, cl)
-		if len(events) != 1 {
-			t.Fatalf("expected 1 event, got %d", len(events))
+		if len(events) != 2 {
+			t.Fatalf("expected Started and Failed, got %d", len(events))
+		}
+		if countEventsByReason(events, reasonDeploymentStarted) != 1 {
+			t.Error("expected exactly one DeploymentStarted alongside the apply failure")
+		}
+		failed := findEventByReason(events, reasonDeploymentFailed)
+		if failed == nil {
+			t.Fatal("expected a DeploymentFailed event")
 		}
 		var payload deliveryEventPayload
-		if err := json.Unmarshal([]byte(events[0].Message), &payload); err != nil {
+		if err := json.Unmarshal([]byte(failed.Message), &payload); err != nil {
 			t.Fatalf("unmarshal payload: %v", err)
 		}
 		if payload.FailureReason != failureReasonApplyFailed {
 			t.Errorf("failureReason = %q, want %q", payload.FailureReason, failureReasonApplyFailed)
+		}
+	})
+
+	t.Run("does not emit Failed when Started cannot be written", func(t *testing.T) {
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		startedName := deliveryEventName(dc, reasonDeploymentStarted, "")
+
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object,
+				opts ...client.CreateOption) error {
+				if e, ok := obj.(*corev1.Event); ok && e.Name == startedName {
+					return apierrors.NewInternalError(errors.New("data plane unavailable"))
+				}
+				return c.Create(ctx, obj, opts...)
+			},
+		}).Build()
+
+		r.markDeliveryApplyFailure(ctx, cl, release, dc)
+
+		if events := listDeliveryEvents(t, cl); len(events) != 0 {
+			t.Fatalf("Failed must wait for the retry when Started could not be written, got %d event(s)", len(events))
+		}
+		if d := release.Status.Delivery; d.FailedAt != nil {
+			t.Error("FailedAt must not be set when no Failed event was written")
+		}
+	})
+
+	t.Run("already-started rollout emits only Failed", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+
+		mustReconcileDelivery(t, r, ctx, cl, release, dc,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
+			})
+		r.markDeliveryApplyFailure(ctx, cl, release, dc)
+
+		events := listDeliveryEvents(t, cl)
+		if countEventsByReason(events, reasonDeploymentStarted) != 1 {
+			t.Errorf("expected Started to stay at one emission, got %d",
+				countEventsByReason(events, reasonDeploymentStarted))
+		}
+		if countEventsByReason(events, reasonDeploymentFailed) != 1 {
+			t.Error("expected the apply failure to emit DeploymentFailed")
+		}
+	})
+}
+
+// TestDeliveryPayloadOrgNamespace pins where orgNamespace comes from. The store
+// requires it, and `omitempty` means an empty value disappears from the payload
+// rather than arriving blank -- so it must not depend on a label the render path
+// may not have injected.
+func TestDeliveryPayloadOrgNamespace(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	t.Run("carried even when the rendered resource has no namespace label", func(t *testing.T) {
+		deployment := makeDeliveryDeployment()
+		withoutLabel := deployment.DeepCopy()
+		lbls := withoutLabel.GetLabels()
+		delete(lbls, labels.LabelKeyNamespaceName)
+		withoutLabel.SetLabels(lbls)
+
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, []*unstructured.Unstructured{withoutLabel})
+		if dc == nil {
+			t.Fatal("expected a delivery context")
+		}
+
+		mustReconcileDelivery(t, r, ctx, cl, release, dc,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
+			})
+
+		started := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentStarted)
+		if started == nil {
+			t.Fatal("expected a DeploymentStarted event")
+		}
+		var payload deliveryEventPayload
+		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
+			t.Fatalf("unmarshal payload: %v", err)
+		}
+		if payload.OrgNamespace != release.Namespace {
+			t.Errorf("orgNamespace = %q, want the release namespace %q",
+				payload.OrgNamespace, release.Namespace)
 		}
 	})
 }
