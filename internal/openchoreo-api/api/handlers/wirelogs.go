@@ -133,10 +133,21 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	checkReq := wirelogsCheckRequest(namespace, environment, project, component)
+
 	// The middleware's pre-handler seed can't fill resource.namespace for
 	// this route (its path parameter isn't "namespaceName"), so set it here
 	// — after validation, so a malformed value never reaches the record.
-	audit.SetResource(r.Context(), &audit.Resource{Namespace: namespace, Name: environment})
+	//
+	// The environment is this route's scope rather than the target object's
+	// name, so it goes in the hierarchy. Taken from the check request so both
+	// carry one value, and written before the ownership 403 below, which is a
+	// denial that never reaches the check that would otherwise record it.
+	audit.SetResource(r.Context(), &audit.Resource{Namespace: namespace})
+	audit.SetHierarchy(r.Context(), audit.Hierarchy{
+		Namespace:   namespace,
+		Environment: checkReq.Context.Resource.Environment,
+	})
 
 	ctx := r.Context()
 	logger := h.logger.With(
@@ -169,7 +180,7 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.authzChecker.Check(ctx, wirelogsCheckRequest(namespace, environment, project, component)); err != nil {
+	if err := h.authzChecker.Check(ctx, checkReq); err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			http.Error(w, "you do not have permission to view wirelogs for this scope", http.StatusForbidden)
 			return

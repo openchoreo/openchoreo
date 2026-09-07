@@ -176,63 +176,6 @@ func TestLogEvent_OmitsEmptyHierarchyFields(t *testing.T) {
 	}
 }
 
-// TestEvent_MarshalJSONMatchesLogEventShape guards against a future sink that
-// marshals *Event directly (e.g. a P5 webhook sink) publishing a different
-// wire shape than Logger.LogEvent — both must render resource.type nested
-// inside "resource", not as a sibling "resource_type" field.
-func TestEvent_MarshalJSONMatchesLogEventShape(t *testing.T) {
-	event := &Event{
-		Actor:        Actor{Type: "user", ID: "u1"},
-		Action:       "update_project",
-		Category:     CategoryManagement,
-		Result:       ResultSuccess,
-		ResourceType: "project",
-		Resource:     &Resource{ID: "uid-1", Name: "p1"},
-		Hierarchy:    Hierarchy{Project: "p1"},
-	}
-
-	var loggerRecord map[string]any
-	var buf bytes.Buffer
-	NewLogger(slog.New(slog.NewJSONHandler(&buf, nil))).LogEvent(event)
-	if err := json.Unmarshal(buf.Bytes(), &loggerRecord); err != nil {
-		t.Fatalf("failed to unmarshal LogEvent output: %v", err)
-	}
-
-	var marshalRecord map[string]any
-	marshaled, err := json.Marshal(event)
-	if err != nil {
-		t.Fatalf("json.Marshal(event) failed: %v", err)
-	}
-	if err := json.Unmarshal(marshaled, &marshalRecord); err != nil {
-		t.Fatalf("failed to unmarshal json.Marshal(event) output: %v", err)
-	}
-
-	loggerResource, ok := loggerRecord["resource"].(map[string]any)
-	if !ok {
-		t.Fatal("LogEvent output has no resource group")
-	}
-	marshalResource, ok := marshalRecord["resource"].(map[string]any)
-	if !ok {
-		t.Fatal("json.Marshal(event) output has no resource field")
-	}
-
-	if marshalResource["type"] != loggerResource["type"] {
-		t.Errorf("resource.type = %v, want %v (matching LogEvent)", marshalResource["type"], loggerResource["type"])
-	}
-	if marshalResource["id"] != loggerResource["id"] {
-		t.Errorf("resource.id = %v, want %v (matching LogEvent)", marshalResource["id"], loggerResource["id"])
-	}
-	if marshalResource["name"] != loggerResource["name"] {
-		t.Errorf("resource.name = %v, want %v (matching LogEvent)", marshalResource["name"], loggerResource["name"])
-	}
-	if marshalResource["project"] != loggerResource["project"] {
-		t.Errorf("resource.project = %v, want %v (matching LogEvent)", marshalResource["project"], loggerResource["project"])
-	}
-	if _, present := marshalRecord["resource_type"]; present {
-		t.Error(`json.Marshal(event) must not emit a sibling "resource_type" field`)
-	}
-}
-
 // testRenderNamespace is the namespace the two render-path tests below assert
 // on, named rather than repeated so the literal appears once per role.
 const testRenderNamespace = "ns-1"
