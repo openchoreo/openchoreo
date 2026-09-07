@@ -4,6 +4,9 @@
 {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") (gt (.Values.observer.replicas | int) 1) }}
 {{- fail "observer.replicas must be 1 when observer.alertStoreBackend=sqlite (ReadWriteOnce PVC). Set observer.replicas=1 or use observer.alertStoreBackend=postgresql." }}
 {{- end }}
+{{- if and .Values.observer.insights.aggregationEnabled (gt (.Values.observer.replicas | int) 1) }}
+{{- fail "observer.replicas must be 1 when observer.insights.aggregationEnabled=true. The DORA aggregator has no leader election, so every replica would tick against the same shared watermarks: a replica whose sweep hit the page cap stores a resume position that another replica, seeing a complete sweep, overwrites - silently skipping the unread remainder. Set observer.replicas=1, or observer.insights.aggregationEnabled=false on the extra replicas' release." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
