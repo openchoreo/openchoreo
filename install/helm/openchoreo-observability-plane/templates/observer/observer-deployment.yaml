@@ -24,6 +24,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/observer/observer-config.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
+        {{- include "openchoreo-observability-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: observer
       {{- with .Values.global.imagePullSecrets }}

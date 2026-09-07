@@ -15,6 +15,7 @@ spec:
     metadata:
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 8 }}
+        {{- include "openchoreo-observability-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ .Values.controllerManager.name }}
       {{- with .Values.global.imagePullSecrets }}

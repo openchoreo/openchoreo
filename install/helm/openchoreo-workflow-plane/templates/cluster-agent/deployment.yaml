@@ -20,6 +20,7 @@ spec:
         app: cluster-agent
         app.kubernetes.io/component: cluster-agent
         {{- include "openchoreo-workflow-plane.selectorLabels" . | nindent 8 }}
+        {{- include "openchoreo-workflow-plane.platformIdentityLabels" . | nindent 8 }}
       {{- with .Values.clusterAgent.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

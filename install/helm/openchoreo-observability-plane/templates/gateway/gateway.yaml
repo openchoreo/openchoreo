@@ -10,10 +10,18 @@ metadata:
   {{- end }}
 spec:
   gatewayClassName: {{ .Values.gateway.gatewayClassName | default "kgateway" }}
-  {{- with .Values.gateway.infrastructure }}
+  {{- /*
+  kgateway renders the proxy pods from this Gateway, so chart label helpers never
+  reach them - platform identity has to travel via spec.infrastructure.labels.
+  Platform identity labels win over values-supplied ones.
+  */}}
+  {{- $infra := .Values.gateway.infrastructure | default dict }}
   infrastructure:
+    {{- with omit $infra "labels" }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    labels:
+      {{- include "openchoreo-observability-plane.gatewayInfrastructureLabels" . | nindent 6 }}
   listeners:
     - name: http
       protocol: HTTP

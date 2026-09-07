@@ -23,6 +23,7 @@ spec:
       labels:
         app.kubernetes.io/component: api-server
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
       annotations:
         # Trigger pod restart when config changes
         checksum/config: {{ include (print $.Template.BasePath "/openchoreo-api/configmap.yaml") . | sha256sum }}

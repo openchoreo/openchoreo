@@ -361,8 +361,8 @@ controllerManager:
     port: 8080
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -1728,7 +1728,7 @@ openchoreoApi:
                 claim: groups
                 value: admins
               effect: allow
-            
+
             # Developer mapping - grants developers group developer access
             - name: developer-binding
               kind: ClusterAuthzRoleBinding
@@ -2161,8 +2161,8 @@ openchoreoApi:
     port: 8080
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -2627,8 +2627,8 @@ backstage:
     port: 7007
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
 
   # @schema
@@ -3811,25 +3811,25 @@ clusterGateway:
     # @schema
     port: 8443
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
+    # description: NodePort (only used if service.type is NodePort)
     # @schema
     # type: [integer, "null"]
-        # description: NodePort (only used if service.type is NodePort)
-        # @schema
+    # description: NodePort (only used if service.type is NodePort)
+    # @schema
     nodePort: null
     # type: [string, "null"]
-        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
+    # description: LoadBalancer IP (only used if service.type is LoadBalancer)
     # @schema
     # type: [string, "null"]
-        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
-        # @schema
+    # description: LoadBalancer IP (only used if service.type is LoadBalancer)
+    # @schema
     loadBalancerIP: null
     # type: [string, "null"]
-        # description: Cluster IP (set to None for headless service)
+    # description: Cluster IP (set to None for headless service)
     # @schema
     # type: [string, "null"]
-        # description: Cluster IP (set to None for headless service)
-        # @schema
+    # description: Cluster IP (set to None for headless service)
+    # @schema
     clusterIP: null
 
   # type: object
@@ -4171,6 +4171,20 @@ gateway:
   #         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
   #         service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   #         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxx"
+  #
+  #   The chart always renders spec.infrastructure so platform identity labels
+  #   reach the kgateway proxy pods. That field needs Gateway API >= v1.2 - on
+  #   older CRDs it is pruned and the proxy pods lose plane attribution.
+  #   labels is capped at 8 entries by Gateway API, platform identity included.
+  # properties:
+  #   labels:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
+  #   annotations:
+  #     type: object
+  #     additionalProperties:
+  #       type: string
   # @schema
   infrastructure: {}
 
