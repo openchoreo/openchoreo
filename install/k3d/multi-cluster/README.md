@@ -197,7 +197,7 @@ install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets --kube-context k
 
 This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth, seeds placeholder development secrets, and creates a `ClusterSecretStore` named `default`.
 
-To use a different secret backend, skip this and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/provider/).
+To use a different secret backend, skip this and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/api/clustersecretstore/).
 
 ### Install Data Plane
 
@@ -470,7 +470,7 @@ install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets --kube-context k
 
 This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth, seeds placeholder development secrets, and creates a `ClusterSecretStore` named `default`.
 
-To use a different secret backend, skip this and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/provider/).
+To use a different secret backend, skip this and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/api/clustersecretstore/).
 
 ### Observability Plane Secrets
 
