@@ -381,7 +381,7 @@ func getDefaults() map[string]interface{} {
 			"store.backend":                     "",
 			"store.dsn":                         "",
 			"uid.resolution":                    "resolver",
-			"aggregation.enabled":               true,
+			"aggregation.enabled":               false,
 			"aggregation.interval":              "5m",
 			"aggregation.overlap":               "10m",
 			"aggregation.attribution.window":    "24h",
