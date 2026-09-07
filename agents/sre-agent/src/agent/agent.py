@@ -257,7 +257,7 @@ async def stream_chat(
         yield emit(
             {
                 "type": "error",
-                "message": f"An error occured (request_id: {request_id_context.get()})",
+                "message": f"An error occurred (request_id: {request_id_context.get()})",
             }
         )
 
