@@ -61,6 +61,8 @@ type RenderedReleaseStatus struct {
 	// Delivery tracks which delivery lifecycle events have been emitted for the
 	// current rollout, so each phase is emitted exactly once per rollout even
 	// though the emitted Events themselves are garbage-collected by Kubernetes.
+	// Only set for component-owned releases; a RenderedRelease owned by a Project
+	// or a Resource emits no delivery events and leaves this unset.
 	// +optional
 	Delivery *DeliveryStatus `json:"delivery,omitempty"`
 }
@@ -68,6 +70,9 @@ type RenderedReleaseStatus struct {
 // DeliveryStatus records delivery lifecycle event emission markers for one rollout.
 // A rollout is one ComponentRelease rolled out through this RenderedRelease; when
 // RolloutID changes, all markers reset.
+//
+// A rollout is therefore only defined for a component-owned RenderedRelease, which
+// is why this is unset on releases owned by a Project or a Resource.
 type DeliveryStatus struct {
 	// RolloutID identifies the rollout the markers below refer to.
 	RolloutID string `json:"rolloutId"`
