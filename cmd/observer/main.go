@@ -469,8 +469,26 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 
+	shutdownServers(shutdownCtx, server, internalServer, backgroundWG, logger)
+	logger.Info("Server shutdown complete")
+}
+
+// shutdownServers drains both HTTP servers and the background workers under one
+// deadline. Split out of main so its four failure branches do not sit in main's
+// control flow.
+//
+// Background workers are drained alongside server shutdown rather than before
+// it, and bounded by the same timeout: an in-flight aggregator tick must not
+// hold the process past the deadline, or the pod is SIGKILLed before
+// connections drain.
+func shutdownServers(
+	shutdownCtx context.Context,
+	server, internalServer *http.Server,
+	backgroundWG *sync.WaitGroup,
+	logger *slog.Logger,
+) {
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -486,10 +504,6 @@ func main() {
 		}
 	}()
 
-	// Drain background workers alongside server shutdown rather than before it, and
-	// bound the wait by the same timeout: an in-flight aggregator tick must not hold
-	// the process past the deadline, or the pod is SIGKILLed before connections drain.
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if !waitForGroup(shutdownCtx, backgroundWG) {
@@ -498,7 +512,6 @@ func main() {
 	}()
 
 	wg.Wait()
-	logger.Info("Server shutdown complete")
 }
 
 // newDeliveryInsightsStore opens the delivery insights store and applies its
