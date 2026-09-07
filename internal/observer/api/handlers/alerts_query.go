@@ -12,6 +12,7 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // QueryAlerts handles POST /api/v1alpha1/alerts/query
@@ -182,6 +183,14 @@ func (h *Handler) UpdateIncident(
 		return gen.UpdateIncident500JSONResponse(errorPayload(gen.InternalServerError,
 			"UPDATE_INCIDENT_FAILED", "failed to update incident")), nil
 	}
+
+	// Placed after the failure checks so a failed update doesn't stamp a
+	// resource onto its audit event. Uses id (the validated path parameter)
+	// rather than resp.IncidentId, and SetResource replaces the Resource
+	// wholesale, so this call must carry everything worth keeping. No
+	// SetHierarchy: CheckAuthorization already records that in the shared
+	// authz path, including on denials.
+	audit.SetResource(ctx, &audit.Resource{ID: id, Name: id})
 
 	return gen.UpdateIncident200JSONResponse(*resp), nil
 }

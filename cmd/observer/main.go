@@ -17,9 +17,11 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
+	observeraudit "github.com/openchoreo/openchoreo/internal/observer/audit"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -30,8 +32,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
@@ -254,9 +258,19 @@ func main() {
 	// ===== Initialize Middlewares =====
 
 	// Global middlewares - applied to the non-spec routes below. The generated
-	// routes get their own composed chain from apihandler.ObserverMiddlewares.
-	loggerMiddleware := observermiddleware.Logger(logger)
+	// routes get their own composed chain from apihandler.ObserverMiddlewares
+	// and apihandler.InternalMiddlewares.
+	loggerMiddleware := apilogger.Middleware(logger)
 	recoveryMiddleware := observermiddleware.Recovery(logger)
+
+	// One Emitter shared across all three surfaces, so one policy applies to
+	// every one of them. The middlewares that consume it are built inside the
+	// composers, mirroring openchoreo-api's OpenAPIMiddlewares.
+	auditEmitter, err := initAuditEmitter(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize audit", "error", err)
+		os.Exit(1)
+	}
 
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(cfg, logger)
@@ -289,10 +303,19 @@ func main() {
 	}
 	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
 
-	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
-	mcpMiddleware := initMCPMiddleware(logger)
-	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", newMCPServer)
+	// MCP endpoint. Ordering lives in apihandler.MCPMiddlewares, matching the
+	// two generated-route composers — main.go supplies dependencies only.
+	mcpMiddlewares, err := apihandler.MCPMiddlewares(apihandler.MCPMiddlewareOptions{
+		Auth401:      initMCPMiddleware(logger),
+		JWTAuth:      jwtAuth,
+		AuditEmitter: auditEmitter,
+		AuditEnabled: cfg.Audit.Enabled,
+	})
+	if err != nil {
+		logger.Error("Failed to build MCP middlewares", "error", err)
+		os.Exit(1)
+	}
+	routes.Group(mcpMiddlewares...).Handle("/mcp", newMCPServer)
 
 	// ===== Public API routes (port 9097) =====
 	//
@@ -309,6 +332,8 @@ func main() {
 	observerMiddlewares, err := apihandler.ObserverMiddlewares(apihandler.ObserverMiddlewareOptions{
 		Logger:         publicAPILogger,
 		AuthMiddleware: authMiddleware,
+		AuditEmitter:   auditEmitter,
+		AuditEnabled:   cfg.Audit.Enabled,
 	})
 	if err != nil {
 		logger.Error("Failed to build observer middlewares", "error", err)
@@ -364,11 +389,21 @@ func main() {
 		},
 	)
 
+	// Middleware ordering lives in apihandler.InternalMiddlewares; main.go
+	// supplies dependencies only.
+	internalMiddlewares, err := apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
+		Logger:       internalAPILogger,
+		AuditEmitter: auditEmitter,
+		AuditEnabled: cfg.Audit.Enabled,
+	})
+	if err != nil {
+		logger.Error("Failed to build internal middlewares", "error", err)
+		os.Exit(1)
+	}
+
 	internalHTTPHandler := internalgen.HandlerWithOptions(internalStrictHandler, internalgen.StdHTTPServerOptions{
-		BaseRouter: internalMux,
-		Middlewares: apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
-			Logger: internalAPILogger,
-		}),
+		BaseRouter:       internalMux,
+		Middlewares:      internalMiddlewares,
 		ErrorHandlerFunc: apihandler.ParamBindingErrorHandler(internalAPILogger),
 	})
 
@@ -526,6 +561,36 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 }
 
 // initMCPMiddleware initializes the MCP middleware that adds WWW-Authenticate header to 401 responses
+// initAuditEmitter validates the generated audit table against the specs
+// observer actually serves, then builds the single Emitter every surface
+// shares.
+//
+// The partition check comes first and is fatal: OperationsIn filters the table
+// per spec, so an operation matching neither spec would be dropped from both
+// ports and silently never audited. Failing at startup matches how the
+// middleware composers treat a nil emitter or an unresolvable
+// RESTResourceParam.
+func initAuditEmitter(cfg *config.Config, logger *slog.Logger) (*audit.Emitter, error) {
+	publicSwagger, err := gen.GetSwagger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load public OpenAPI spec: %w", err)
+	}
+	internalSwagger, err := internalgen.GetSwagger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load internal OpenAPI spec: %w", err)
+	}
+	if err := observeraudit.VerifyOperationsPartition(publicSwagger, internalSwagger); err != nil {
+		return nil, err
+	}
+
+	auditPolicies, err := cfg.Audit.BuildPolicySet(
+		auditconfig.NewVocabulary(observeraudit.GetOperations()), cfg.Auth.KnownActorTypes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to build audit policy set: %w", err)
+	}
+	return audit.NewEmitter("observer", auditPolicies, audit.NewLogger(logger))
+}
+
 func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	// Get observer base URL from environment variables
 	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")

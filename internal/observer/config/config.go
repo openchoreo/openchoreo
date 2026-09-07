@@ -4,16 +4,25 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"gopkg.in/yaml.v3"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
+	coreconfig "github.com/openchoreo/openchoreo/internal/config"
+	observeraudit "github.com/openchoreo/openchoreo/internal/observer/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
@@ -32,6 +41,11 @@ type Config struct {
 	UIDResolver UIDResolverConfig `koanf:"uid_resolver"`
 	CORS        CORSConfig        `koanf:"cors"`
 	LogLevel    string            `koanf:"loglevel"`
+	// Audit defines audit logging settings. Loaded from the audit: key of the
+	// same supplementary YAML file auth.subject_types comes from — see
+	// loadAuditConfig — since audit.policies is a nested list the flat
+	// env-var mapping below can't represent.
+	Audit auditconfig.AuditConfig `koanf:"-"`
 }
 
 // AdaptersConfig holds adapter configuration
@@ -278,12 +292,50 @@ func Load() (*Config, error) {
 		subject.SortByPriority(cfg.Auth.SubjectTypes)
 	}
 
+	if err := loadAuditConfig(authConfigPath, &cfg.Audit); err != nil {
+		return nil, fmt.Errorf("failed to load audit config: %w", err)
+	}
+
 	// Validate configuration
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// loadAuditConfig seeds auditCfg with its defaults, then decodes an audit:
+// top-level key from path over it — a missing file or key leaves auditCfg at
+// its defaults (enabled, publish everything).
+//
+// Uses koanf rather than the yaml.Unmarshal the auth section uses: koanf's
+// mapstructure decode matches the koanf tag literally, where yaml.v3's
+// default field matching would mangle actor_types to "actortypes". ErrorUnused
+// rejects a typo'd match selector instead of silently matching everything.
+func loadAuditConfig(path string, auditCfg *auditconfig.AuditConfig) error {
+	*auditCfg = auditconfig.AuditDefaults()
+
+	// Only an absent file falls back to defaults. Any other stat failure — a
+	// permission error, an IO fault — is reported: swallowing it would make a
+	// real policy file that cannot be read indistinguishable from no file at
+	// all, silently dropping the operator's policies and running on defaults.
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to stat audit config file %q: %w", path, err)
+	}
+
+	ak := koanf.New(".")
+	if err := ak.Load(file.Provider(path), koanfyaml.Parser()); err != nil {
+		return fmt.Errorf("failed to read audit config file: %w", err)
+	}
+	return ak.UnmarshalWithConf("audit", auditCfg, koanf.UnmarshalConf{
+		DecoderConfig: &mapstructure.DecoderConfig{
+			WeaklyTypedInput: true,
+			ErrorUnused:      true,
+		},
+	})
 }
 
 // getDefaults returns the default configuration values
@@ -434,5 +486,29 @@ func (c *Config) validate() error {
 		return fmt.Errorf("FinOps adapter timeout must be positive")
 	}
 
+	vocab := auditconfig.NewVocabulary(observeraudit.GetOperations())
+	if errs := c.Audit.Validate(coreconfig.NewPath("audit"), vocab, c.Auth.KnownActorTypes()); len(errs) > 0 {
+		return errs
+	}
+
 	return nil
+}
+
+// KnownActorTypes returns every actor.Type value audit.ExtractActor can
+// produce for observer: "anonymous", "user" (ExtractActor's fallback when no
+// Type is configured), and each distinct Type across configured subject
+// types. Validates audit.policies[].match.actor_types against this same set,
+// so a typo there doesn't silently produce a selector that never matches.
+func (c *AuthConfig) KnownActorTypes() []string {
+	types := []string{"anonymous", "user"}
+	seen := map[string]bool{"anonymous": true, "user": true}
+	var extra []string
+	for _, st := range c.SubjectTypes {
+		if st.Type != "" && !seen[st.Type] {
+			seen[st.Type] = true
+			extra = append(extra, st.Type)
+		}
+	}
+	sort.Strings(extra)
+	return append(types, extra...)
 }

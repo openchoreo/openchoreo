@@ -57,6 +57,7 @@ func TestObserverMiddlewaresLeaveHealthPublic(t *testing.T) {
 	mws, err := ObserverMiddlewares(ObserverMiddlewareOptions{
 		Logger:         logger,
 		AuthMiddleware: auth.OpenAPIAuth(rejectAll, gen.BearerAuthScopes),
+		AuditEmitter:   noopAuditEmitter(t),
 	})
 	require.NoError(t, err)
 
@@ -93,18 +94,40 @@ func TestObserverMiddlewaresLeaveHealthPublic(t *testing.T) {
 func TestObserverMiddlewaresRequireAuthMiddleware(t *testing.T) {
 	t.Parallel()
 
-	_, err := ObserverMiddlewares(ObserverMiddlewareOptions{Logger: noopLogger()})
+	_, err := ObserverMiddlewares(ObserverMiddlewareOptions{
+		Logger:       noopLogger(),
+		AuditEmitter: noopAuditEmitter(t),
+	})
 	require.Error(t, err)
 }
 
+// TestMiddlewareComposersRequireAuditEmitter guards the other construction
+// precondition: a nil emitter would otherwise reach audit.Emitter.Emit and
+// panic on the first request rather than at startup, which is exactly the
+// failure mode returning an error from the composers exists to prevent.
+func TestMiddlewareComposersRequireAuditEmitter(t *testing.T) {
+	t.Parallel()
+
+	passthrough := func(next http.Handler) http.Handler { return next }
+
+	_, err := ObserverMiddlewares(ObserverMiddlewareOptions{
+		Logger:         noopLogger(),
+		AuthMiddleware: passthrough,
+	})
+	require.Error(t, err, "ObserverMiddlewares must reject a nil AuditEmitter")
+
+	_, err = InternalMiddlewares(InternalMiddlewareOptions{Logger: noopLogger()})
+	require.Error(t, err, "InternalMiddlewares must reject a nil AuditEmitter")
+}
+
 // TestInternalMiddlewareOrdering drives the real composer and pins the ordering
-// that InternalMiddlewares claims: logger → recovery → handler.
+// that InternalMiddlewares claims: logger → recovery → audit → handler.
 //
 // This is worth a test rather than a comment because the ordering is *inverted*
 // relative to the rest of the codebase. middleware.Chain treats the first entry
 // as outermost. oapi-codegen applies its slice in the opposite direction — it
 // wraps in order, so the LAST entry ends up outermost — which is why
-// InternalMiddlewares returns {recovery, logger}.
+// InternalMiddlewares returns {audit, recovery, logger}.
 //
 // "Correcting" that slice to the intuitive logger-first order would put recovery
 // outside logger, and a panicking handler would then unwind past the logger
@@ -121,8 +144,14 @@ func TestInternalMiddlewareOrdering(t *testing.T) {
 		panic("boom")
 	})
 
+	middlewares, err := InternalMiddlewares(InternalMiddlewareOptions{
+		Logger:       logger,
+		AuditEmitter: noopAuditEmitter(t),
+	})
+	require.NoError(t, err)
+
 	var wrapped http.Handler = panicking
-	for _, mw := range InternalMiddlewares(InternalMiddlewareOptions{Logger: logger}) {
+	for _, mw := range middlewares {
 		wrapped = mw(wrapped)
 	}
 
@@ -136,13 +165,13 @@ func TestInternalMiddlewareOrdering(t *testing.T) {
 	// only to show recovery ran.
 	require.Contains(t, logs.String(), "Panic recovered")
 
-	// The discriminating assertion. Logger emits "HTTP request" *after* calling
-	// next, so that line survives a panicking handler only when logger is
-	// OUTSIDE recovery: recovery absorbs the panic and returns normally, and
-	// control then unwinds back through logger. With recovery outermost the
-	// panic unwinds straight past logger and the request vanishes from the
-	// access log while still returning a 500.
-	assert.Contains(t, logs.String(), "HTTP request",
+	// The discriminating assertion. The shared access logger emits its
+	// "ACCESS-LOG" line *after* calling next, so that line survives a panicking
+	// handler only when logger is OUTSIDE recovery: recovery absorbs the panic
+	// and returns normally, and control then unwinds back through logger. With
+	// recovery outermost the panic unwinds straight past logger and the request
+	// vanishes from the access log while still returning a 500.
+	assert.Contains(t, logs.String(), "ACCESS-LOG",
 		"logger must sit outside recovery, so a panicking request is still access-logged")
 }
 
@@ -165,9 +194,15 @@ func TestInternalMiddlewaresAppliedByGeneratedRouter(t *testing.T) {
 		},
 	)
 
+	middlewares, err := InternalMiddlewares(InternalMiddlewareOptions{
+		Logger:       logger,
+		AuditEmitter: noopAuditEmitter(t),
+	})
+	require.NoError(t, err)
+
 	srv := internalgen.HandlerWithOptions(strict, internalgen.StdHTTPServerOptions{
 		BaseRouter:       http.NewServeMux(),
-		Middlewares:      InternalMiddlewares(InternalMiddlewareOptions{Logger: logger}),
+		Middlewares:      middlewares,
 		ErrorHandlerFunc: ParamBindingErrorHandler(logger),
 	})
 
@@ -177,7 +212,7 @@ func TestInternalMiddlewaresAppliedByGeneratedRouter(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code,
 		"recovery must be attached to the generated routes")
-	assert.Contains(t, logs.String(), "HTTP request",
+	assert.Contains(t, logs.String(), "ACCESS-LOG",
 		"logger must be attached to the generated routes, outside recovery")
 }
 

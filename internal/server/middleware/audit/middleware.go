@@ -14,8 +14,9 @@ import (
 // Middleware handles audit logging for HTTP requests. It is service-agnostic:
 // patternMap is built from the caller's own Operations and its own OpenAPI
 // spec (see BuildPatternMap), so any REST service can construct one of these
-// from its own data. openchoreo-api is the only one that does today —
-// observer has its own unrelated NewHTTPServer and no audit middleware.
+// from its own data. openchoreo-api and observer both do — observer builds
+// two, one per generated spec it serves, sharing a single Emitter so one
+// configured policy applies across both of its ports.
 type Middleware struct {
 	logger     *slog.Logger // pre-flight "should never happen" logging only, see Handler
 	patternMap map[string]*Operation
