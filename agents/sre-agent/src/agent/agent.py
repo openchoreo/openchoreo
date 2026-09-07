@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -25,13 +25,10 @@ from src.agent.middleware import (
 )
 from src.agent.stream_parser import ChatResponseParser
 from src.agent.tool_registry import (
-    ALL_TOOL_FACTORIES,
     OBSERVABILITY_TOOLS,
     OPENCHOREO_TOOLS,
     TOOL_ACTIVE_FORMS,
     TOOLS,
-    create_get_resource_release_binding_tool,
-    create_list_resource_release_bindings_tool,
 )
 from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
@@ -56,7 +53,6 @@ class Agent:
         response_format: type[BaseModel],
         recursion_limit: int,
         use_summarization: bool = False,
-        tool_factories: list[Callable[..., BaseTool]] | None = None,
     ):
         self.template = template
         self.tools = tools
@@ -65,7 +61,6 @@ class Agent:
         self.model = get_model()
         self._middleware_classes = middleware
         self._use_summarization = use_summarization
-        self._tool_factories = tool_factories or []
 
     async def create(
         self,
@@ -80,9 +75,6 @@ class Agent:
             all_tools = await mcp_client.get_tools()
             tools = [t for t in all_tools if t.name in self.tools]
             logger.debug("Filtered to %d MCP tools: %s", len(tools), [t.name for t in tools])
-
-        for factory in self._tool_factories:
-            tools.append(factory(auth))
 
         logger.debug("Total tools: %d — %s", len(tools), [t.name for t in tools])
 
@@ -124,16 +116,12 @@ RCA_AGENT = Agent(
         TOOLS.QUERY_TRACES,
         TOOLS.QUERY_TRACE_SPANS,
         TOOLS.LIST_COMPONENTS,
+        TOOLS.LIST_RELEASE_BINDINGS,
+        TOOLS.GET_RELEASE_BINDING,
         TOOLS.GET_COMPONENT_RELEASE,
+        TOOLS.LIST_RESOURCE_RELEASE_BINDINGS,
+        TOOLS.GET_RESOURCE_RELEASE_BINDING,
     },
-    # Resource-dependency inspection: a Component may depend on a Resource
-    # (e.g. Postgres) whose pods aren't observable as a component, so telemetry
-    # alone can't explain its failures. These let the agent read the Resource's
-    # ResourceReleaseBinding config to spot misconfiguration (e.g. starved memory).
-    tool_factories=[
-        create_list_resource_release_bindings_tool,
-        create_get_resource_release_binding_tool,
-    ],
     middleware=[
         LoggingMiddleware,
         ToolErrorHandlerMiddleware,
@@ -147,8 +135,18 @@ RCA_AGENT = Agent(
 
 REMED_AGENT = Agent(
     template="prompts/remed_agent_prompt.j2",
-    tools=set(),
-    tool_factories=ALL_TOOL_FACTORIES,
+    tools={
+        TOOLS.LIST_COMPONENTS,
+        TOOLS.GET_COMPONENT,
+        TOOLS.LIST_WORKLOADS,
+        TOOLS.GET_WORKLOAD,
+        TOOLS.LIST_RELEASE_BINDINGS,
+        TOOLS.GET_RELEASE_BINDING,
+        TOOLS.GET_COMPONENT_RELEASE,
+        TOOLS.GET_COMPONENT_RELEASE_SCHEMA,
+        TOOLS.LIST_RESOURCE_RELEASE_BINDINGS,
+        TOOLS.GET_RESOURCE_RELEASE_BINDING,
+    },
     middleware=[
         LoggingMiddleware,
         ToolErrorHandlerMiddleware,

@@ -55,7 +55,7 @@ def _make_tool(name: str):
     return SimpleNamespace(name=name)
 
 
-def test_rca_prompt_requires_environment_match_for_resource_binding_selection():
+def test_rca_prompt_scopes_resource_binding_selection():
     rendered = tm.render(
         "prompts/rca_agent_prompt.j2",
         {
@@ -64,7 +64,7 @@ def test_rca_prompt_requires_environment_match_for_resource_binding_selection():
             "scope": _make_scope("staging"),
         },
     )
-    assert "spec.environment" in rendered
+    assert "`resource_name`" in rendered
     assert "staging" in rendered
 
 
@@ -84,13 +84,15 @@ def test_rca_prompt_reflects_different_scoped_environments():
     assert "development" not in prod
 
 
-def test_remed_prompt_requires_environment_match_for_resource_binding_selection():
+def test_remed_prompt_scopes_resource_binding_selection():
     rendered = tm.render(
         "prompts/remed_agent_prompt.j2",
         {"tools": [], "scope": _make_scope("staging")},
     )
-    assert "spec.environment" in rendered
-    assert "staging" in rendered
+    assert (
+        "Call with `namespace_name` and the exact `resource_name` from the ComponentRelease dependency. "
+        "Select the summary whose `environment` is `staging`."
+    ) in rendered
 
 
 def test_remed_prompt_separates_schema_source_by_target_kind():

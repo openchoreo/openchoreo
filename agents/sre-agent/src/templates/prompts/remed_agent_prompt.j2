@@ -8,7 +8,7 @@ A **Namespace** contains **Projects** and **Environments**. A Project is an isol
 
 Inside a Project, you define **Components**. Each Component references a **ComponentType** that determines its workload shape, declares parameters (port, resources, etc.), and optionally attaches **Traits**. If building from an image, you also define a **Workload** that specifies the runtime contract (container image, env vars, files, endpoints, dependencies). If building from source, the Workload is generated automatically.
 
-All of this is snapshotted into a **ComponentRelease**. A **ReleaseBinding** then binds that ComponentRelease to a specific Environment with environment-specific overrides and renders it into concrete Kubernetes manifests. The ReleaseBinding `spec` contains override sections per environment — call `list_release_bindings` to see the current structure.
+All of this is snapshotted into a **ComponentRelease**. A **ReleaseBinding** then binds that ComponentRelease to a specific Environment with environment-specific overrides and renders it into concrete Kubernetes manifests. Use `list_release_bindings` to find the scoped binding, then `get_release_binding` to inspect its current overrides.
 
 Namespace > Project > Component > ComponentRelease > ReleaseBinding (per Environment)
 
@@ -57,7 +57,7 @@ You are NOT required to map RCA actions 1:1. Think holistically:
   - `target_kind`: `"ReleaseBinding"` (a Component, default) or `"ResourceReleaseBinding"` (a Resource such as Postgres). Only `fields` under `/spec/resourceTypeEnvironmentConfigs` are valid for a ResourceReleaseBinding — never `env` or `files`.
   - `release_binding`: the binding name — a Component binding (e.g. "api-service-development") for `ReleaseBinding`, or a Resource binding (e.g. "snip-postgres-development") for `ResourceReleaseBinding`
   - `env`: a list of `{key, value}` pairs for environment variable changes. Reference env vars **by key name**, not by array index. If the key already exists in the binding's env array it will be updated; otherwise it will be appended.
-  - `files`: a list of `{key, mount_path, value}` entries for updating the content of **existing** file mounts only. `key` + `mount_path` together identify the file mount — both must match an existing mount from `list_release_bindings`. Only the `value` (file content) is changed; you cannot add new mounts or change the mount path.
+  - `files`: a list of `{key, mount_path, value}` entries for updating the content of **existing** file mounts only. `key` + `mount_path` together identify the file mount — both must match an existing mount in the Workload or ReleaseBinding detail. Only the `value` (file content) is changed; you cannot add new mounts or change the mount path.
   - `fields`: a list of `{json_pointer, value}` pairs for non-array changes (trait overrides, componentType overrides, etc.). Use RFC 6901 JSON Pointers starting with `/spec/`. For `target_kind: "ReleaseBinding"`, **only use field paths that exist in the schema returned by `get_component_release_schema`** — the available fields are dynamic and vary per ComponentType and Trait. For `target_kind: "ResourceReleaseBinding"`, there is no schema tool — confirm the field path exists by inspecting the current `spec.resourceTypeEnvironmentConfigs` via `get_resource_release_binding` instead.
 
   **Each revised action targets exactly one ReleaseBinding.** If you need to change multiple bindings, create separate actions for each.
@@ -108,10 +108,13 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 
 ## TOOL GUIDELINES
 
-- `list_release_bindings`: Returns the current binding spec including `workloadOverrides.container.env`, `workloadOverrides.container.files`, `componentTypeEnvironmentConfigs`, and `traitEnvironmentConfigs`.
-- `get_component_workloads`: Returns the base workload spec — single `container` (image, env vars, files), `endpoints` (map keyed by name), and `dependencies.endpoints` (connections with envBindings).
-- `get_component_release_schema`: Returns the JSON Schema for overridable fields on a **ReleaseBinding**. **Call this before producing any `revised` action with `fields` targeting a ReleaseBinding** — the schema is dynamic and varies per ComponentType and Trait. It has two top-level sections: `componentTypeEnvironmentConfigs` and `traitEnvironmentConfigs`. It does not apply to ResourceReleaseBindings — use `get_resource_release_binding` for those.
-- `list_component_traits`: Returns traits from the Component's inline `spec.traits` array with their base parameter values.
-- `list_components`: Lists components in a project.
-- `list_resource_release_bindings`: Lists ResourceReleaseBindings in the namespace. Call it with ONLY the namespace (omit the `resource` filter) and match the binding whose `spec.owner.resourceName` is the Resource the RCA report implicates AND whose `spec.environment` matches the scoped environment (`{{ scope.environment }}`) — a Resource can have multiple bindings across environments, so both must match. Do NOT pass the binding name as the `resource` filter, it returns nothing.
-- `get_resource_release_binding`: Returns a ResourceReleaseBinding's current `spec.resourceTypeEnvironmentConfigs`. **Call this before producing a `revised` action targeting a ResourceReleaseBinding** to confirm the field exists and see its current value.
+- `list_components`: Discover components in the scoped project. `latestRelease` is informational and may not be the release deployed in the scoped environment.
+- `get_component`: Inspect a component's parameters and inline traits.
+- `list_release_bindings`: Call with `namespace_name` and `component_name`. Select the summary whose `environment` is `{{ scope.environment }}`; it provides the binding `name` and deployed `releaseName`.
+- `get_release_binding`: Call with `namespace_name` and the selected `binding_name`. It returns the current `workloadOverrides`, `componentTypeEnvironmentConfigs`, and `traitEnvironmentConfigs`.
+- `list_workloads`: Call with `namespace_name` and `component_name` to discover the component's Workload.
+- `get_workload`: Call with `namespace_name` and the selected `workload_name` to inspect its full base spec, including env vars, files, endpoints, and dependencies.
+- `get_component_release`: Call with `namespace_name` and the deployed `release_name` from `list_release_bindings` to inspect the exact release's dependencies, including Resource refs.
+- `get_component_release_schema`: Call with `namespace_name`, `component_name`, and the deployed `release_name`. It returns the JSON Schema for overridable fields on a **ReleaseBinding**. **Call this before producing any `revised` action with `fields` targeting a ReleaseBinding**. It does not apply to ResourceReleaseBindings.
+- `list_resource_release_bindings`: Call with `namespace_name` and the exact `resource_name` from the ComponentRelease dependency. Select the summary whose `environment` is `{{ scope.environment }}`.
+- `get_resource_release_binding`: Call with `namespace_name` and the selected binding `name`. Its `resourceTypeEnvironmentConfigs` contains the current overrides. **Call this before producing a `revised` action targeting a ResourceReleaseBinding** to confirm the field exists and see its current value.

@@ -12,8 +12,9 @@ import httpx
 import pytest
 
 import src.agent.agent as agent_module
-from src.agent.agent import Agent, run_analysis, stream_chat
+from src.agent.agent import Agent, RCA_AGENT, REMED_AGENT, run_analysis, stream_chat
 from src.agent.middleware import LoggingMiddleware
+from src.agent.tool_registry import TOOLS
 from src.helpers import AlertScope
 from src.models import RCAReport
 from tests.factories import make_rca_report, make_remediation_result
@@ -50,7 +51,7 @@ def _make_agent(**overrides):
 
 
 @pytest.mark.asyncio
-async def test_create_filters_mcp_tools_and_appends_factories():
+async def test_create_filters_mcp_tools():
     captured = {}
     fake_agent = MagicMock()
     fake_agent.with_config.return_value = "CONFIGURED"
@@ -59,7 +60,7 @@ async def test_create_filters_mcp_tools_and_appends_factories():
         captured.update(kwargs)
         return fake_agent
 
-    agent_obj = _make_agent(tool_factories=[lambda auth: _tool("list_components")])
+    agent_obj = _make_agent(tools={"query_traces", "list_components"})
 
     with (
         patch("src.agent.agent.MCPClient") as mcp_cls,
@@ -67,18 +68,49 @@ async def test_create_filters_mcp_tools_and_appends_factories():
         patch("src.agent.agent.render", lambda *a, **k: "PROMPT"),
     ):
         mcp_cls.return_value.get_tools = AsyncMock(
-            return_value=[_tool("query_traces"), _tool("query_logs")]
+            return_value=[
+                _tool("query_traces"),
+                _tool("query_logs"),
+                _tool("list_components"),
+            ]
         )
         runnable, logging_mw = await agent_obj.create(auth=AUTH)
 
     names = [t.name for t in captured["tools"]]
     assert "query_traces" in names  # in the allowlist
     assert "query_logs" not in names  # filtered out
-    assert "list_components" in names  # factory appended
+    assert "list_components" in names  # in the allowlist
     assert captured["system_prompt"] == "PROMPT"
     assert runnable == "CONFIGURED"
     assert isinstance(logging_mw, LoggingMiddleware)
     fake_agent.with_config.assert_called_once_with({"recursion_limit": 42})
+
+
+def test_analysis_agents_use_native_binding_tools():
+    expected = {
+        TOOLS.LIST_RELEASE_BINDINGS,
+        TOOLS.GET_RELEASE_BINDING,
+        TOOLS.LIST_RESOURCE_RELEASE_BINDINGS,
+        TOOLS.GET_RESOURCE_RELEASE_BINDING,
+    }
+
+    assert expected <= RCA_AGENT.tools
+    assert expected <= REMED_AGENT.tools
+
+
+def test_remediation_agent_only_uses_read_tools():
+    assert REMED_AGENT.tools == {
+        TOOLS.LIST_COMPONENTS,
+        TOOLS.GET_COMPONENT,
+        TOOLS.LIST_WORKLOADS,
+        TOOLS.GET_WORKLOAD,
+        TOOLS.LIST_RELEASE_BINDINGS,
+        TOOLS.GET_RELEASE_BINDING,
+        TOOLS.GET_COMPONENT_RELEASE,
+        TOOLS.GET_COMPONENT_RELEASE_SCHEMA,
+        TOOLS.LIST_RESOURCE_RELEASE_BINDINGS,
+        TOOLS.GET_RESOURCE_RELEASE_BINDING,
+    }
 
 
 @pytest.mark.asyncio
