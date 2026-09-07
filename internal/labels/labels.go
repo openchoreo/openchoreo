@@ -96,18 +96,6 @@ const (
 	// the controller falls back to the first route match path (the prefix-routing convention).
 	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
 
-	// AnnotationKeyCommit records the VCS commit SHA a rendered primary workload
-	// resource was built from. The renderedrelease controller reads it back into
-	// delivery lifecycle events so a consumer can measure lead time from the commit.
-	// Nothing stamps it yet -- workload commit provenance is a separate change -- so
-	// delivery events currently carry an empty commit, which they tolerate.
-	AnnotationKeyCommit = "openchoreo.dev/commit"
-
-	// AnnotationKeyCommitAuthoredAt records when that commit was authored, as
-	// RFC3339. Authored time, not commit or build time, is what lead time measures
-	// from. Same as above: read here, stamped by a later change.
-	AnnotationKeyCommitAuthoredAt = "openchoreo.dev/commit-authored-at"
-
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"

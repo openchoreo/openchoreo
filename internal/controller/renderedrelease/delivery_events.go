@@ -58,21 +58,20 @@ type deliveryEventPayload struct {
 	ComponentReleaseName string `json:"componentReleaseName"`
 	// OrgNamespace is the control-plane namespace the rollout belongs to. It is in
 	// the payload for the same reason the UIDs are: a Kubernetes Event does not
-	// inherit the involved object's labels, so anything a consumer needs has to
-	// travel in the message rather than depend on collector enrichment.
-	OrgNamespace     string `json:"orgNamespace,omitempty"`
-	ProjectUID       string `json:"projectUid,omitempty"`
-	ComponentUID     string `json:"componentUid,omitempty"`
-	EnvironmentUID   string `json:"environmentUid,omitempty"`
-	Commit           string `json:"commit,omitempty"`
-	CommitAuthoredAt string `json:"commitAuthoredAt,omitempty"`
-	Phase            string `json:"phase"`
-	FailureReason    string `json:"failureReason,omitempty"`
+	// inherit the involved object's labels, so anything the consumer needs has to
+	// travel in the message. It is the one field the store requires, and depending
+	// on collector enrichment for it meant an un-enriched event could not be folded.
+	OrgNamespace   string `json:"orgNamespace,omitempty"`
+	ProjectUID     string `json:"projectUid,omitempty"`
+	ComponentUID   string `json:"componentUid,omitempty"`
+	EnvironmentUID string `json:"environmentUid,omitempty"`
+	Phase          string `json:"phase"`
+	FailureReason  string `json:"failureReason,omitempty"`
 	// FailureEpisode identifies which failure->recovery cycle of this rollout the
-	// event belongs to. The episode is already distinguished in the event *name*
-	// (-e1, -e2); a consumer that keys on the rollout alone would merge successive
-	// cycles into one, so it travels in the payload too. Carried on Failed and
-	// Recovered; zero on Started and Succeeded.
+	// event belongs to. The emitter already distinguishes episodes -- it suffixes
+	// event names -e1, -e2 -- but a consumer keying a recovery on the rollout alone
+	// merges them, and the merged duration then spans the healthy interval between
+	// them. Carried on Failed and Recovered; zero on Started and Succeeded.
 	FailureEpisode int32 `json:"failureEpisode,omitempty"`
 }
 
@@ -438,8 +437,6 @@ func (r *Reconciler) emitDeliveryEvent(
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
-		Commit:               dc.primary.GetAnnotations()[labels.AnnotationKeyCommit],
-		CommitAuthoredAt:     dc.primary.GetAnnotations()[labels.AnnotationKeyCommitAuthoredAt],
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
 		FailureEpisode:       episode,
