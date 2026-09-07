@@ -206,7 +206,7 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 		return getStatefulSetHealth
 	case gvk.Group == "" && gvk.Kind == "Pod":
 		return getPodHealth
-	case gvk.Group == "batch" && gvk.Kind == cronJobKind:
+	case gvk.Group == batchAPIGroup && gvk.Kind == cronJobKind:
 		return getCronJobHealth
 		// TODO: Add gateway http route health check, and other resources as needed
 	}

@@ -33,14 +33,16 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
-	appsAPIGroup   = "apps"
-	deploymentKind = "Deployment"
-	cronJobKind    = "CronJob"
+	appsAPIGroup    = "apps"
+	deploymentKind  = "Deployment"
+	statefulSetKind = "StatefulSet"
+
+	batchAPIGroup = "batch"
+	cronJobKind   = "CronJob"
 
 	// reasonProgressDeadlineExceeded is the Deployment Progressing condition reason
 	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
 	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
-	statefulSetKind                = "StatefulSet"
 
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
