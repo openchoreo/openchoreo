@@ -33,9 +33,14 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
-	appsAPIGroup    = "apps"
-	deploymentKind  = "Deployment"
-	statefulSetKind = "StatefulSet"
+	appsAPIGroup   = "apps"
+	deploymentKind = "Deployment"
+	cronJobKind    = "CronJob"
+
+	// reasonProgressDeadlineExceeded is the Deployment Progressing condition reason
+	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
+	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
+	statefulSetKind                = "StatefulSet"
 
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
@@ -143,8 +148,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	deliveryCtx := deliveryContextFor(release, desiredResources)
-
 	// PHASE 1: Apply desired resources to the target plane
 	// This ensures all resources in the spec are created/updated with proper tracking labels
 	if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
@@ -153,9 +156,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
 			controller.ConditionReason(ReasonApplyFailed),
 			fmt.Sprintf("Failed to apply resources to target plane: %v", err))
-		if deliveryCtx != nil && r.markDeliveryApplyFailure(ctx, planeClient, release, deliveryCtx) {
-			changed = true
-		}
 		if changed {
 			if statusErr := r.Status().Update(ctx, release); statusErr != nil {
 				logger.Error(statusErr, "Failed to update Release status with apply error")
@@ -196,22 +196,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// share one health evaluation
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
-	// Emit delivery lifecycle events implied by the health transition (component
-	// workloads on the data plane only). Emission markers live in status and are
-	// persisted by the status update below. A failure stops the remaining phases
-	// so they cannot be emitted out of order; it is surfaced after the status
-	// update so the markers that did succeed are not re-emitted on the retry.
-	deliveryErr := r.emitDeliveryEvents(ctx, planeClient, release, deliveryCtx, resourceStatuses, liveResources)
-
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses)
-	if err == nil {
-		// Surface the emission failure only after the markers that did succeed are
-		// persisted, so the retry resumes at the phase that failed.
-		err = deliveryErr
-	}
-	if err != nil || statusUpdated {
+	if statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil || statusUpdated {
 		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}
