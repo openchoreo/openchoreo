@@ -1490,7 +1490,7 @@
           "description": "Delivery Insights (DORA metrics).",
           "properties": {
             "aggregationEnabled": {
-              "default": true,
+              "default": false,
               "description": "Run the DORA aggregator in the Observer process. It has no leader election, so exactly one replica may run it; the chart refuses replicas \u003e 1 while this is enabled.",
               "title": "aggregationEnabled",
               "type": "boolean"
