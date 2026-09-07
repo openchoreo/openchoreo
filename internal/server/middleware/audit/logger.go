@@ -131,6 +131,12 @@ func decodeObjectAttrs(dec *json.Decoder) ([]any, error) {
 				if err != nil {
 					return nil, err
 				}
+				if len(group) == 0 {
+					// slog.JSONHandler drops an empty group, which would lose
+					// the field the marshaled form still carries.
+					attrs = append(attrs, slog.Any(key, map[string]any{}))
+					continue
+				}
 				attrs = append(attrs, slog.Group(key, group...))
 			case '[':
 				arr, err := decodeArray(dec)

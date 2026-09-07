@@ -12,17 +12,17 @@ import (
 	"time"
 )
 
-// goldenTime is the fixed Timestamp most golden cases use, so the rendered
-// bytes don't depend on the clock.
-var goldenTime = time.Date(2026, 9, 7, 12, 30, 45, 0, time.UTC)
+// fixedTime is the Timestamp most cases use, so the rendered bytes don't
+// depend on the clock.
+var fixedTime = time.Date(2026, 9, 7, 12, 30, 45, 0, time.UTC)
 
 // logLinePrefix is what slog's JSONHandler puts before the event's own fields.
 const logLinePrefix = `{"level":"INFO","msg":"AUDIT-LOG",`
 
-// newGoldenLogger returns a Logger writing to buf with slog's handler-stamped
+// newRecordLogger returns a Logger writing to buf with slog's handler-stamped
 // "time" attr removed — it is the wall clock at emission, so it would defeat
 // any byte comparison. The event's own pinned "timestamp" is the one asserted.
-func newGoldenLogger(buf *bytes.Buffer) *Logger {
+func newRecordLogger(buf *bytes.Buffer) *Logger {
 	return NewLogger(slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if len(groups) == 0 && a.Key == slog.TimeKey {
@@ -33,22 +33,22 @@ func newGoldenLogger(buf *bytes.Buffer) *Logger {
 	})))
 }
 
-type goldenCase struct {
+type recordCase struct {
 	name  string
 	event *Event
 	want  string
 }
 
-// goldenCases covers the branches the render takes: every field populated, a
+// recordCases covers the branches the render takes: every field populated, a
 // nil Resource carrying only a hierarchy, a rejection that resolved no
 // operation, sub-second timestamps, and both metadata groups.
-func goldenCases() []goldenCase {
-	return []goldenCase{
+func recordCases() []recordCase {
+	return []recordCase{
 		{
 			name: "full event",
 			event: &Event{
 				EventID:   "01920000-0000-7000-8000-000000000001",
-				Timestamp: goldenTime,
+				Timestamp: fixedTime,
 				Actor: Actor{
 					Type:         "user",
 					ID:           "user@example.com",
@@ -65,7 +65,7 @@ func goldenCases() []goldenCase {
 				RequestID:    "11111111-1111-4111-8111-111111111111",
 				SourceIP:     "10.0.0.1",
 				Service:      "openchoreo-api",
-				Metadata:     map[string]any{"note": "golden"},
+				Metadata:     map[string]any{"note": "n1"},
 			},
 			want: logLinePrefix + `"event_id":"01920000-0000-7000-8000-000000000001",` +
 				`"timestamp":"2026-09-07T12:30:45Z",` +
@@ -75,13 +75,13 @@ func goldenCases() []goldenCase {
 				`"service":"openchoreo-api","origin":"api","operation_id":"UpdateReleaseBinding",` +
 				`"resource":{"type":"releasebindings","namespace":"ns-1","environment":"ns-1/production",` +
 				`"project":"p1","component":"c1","id":"uid-1","name":"rb-1"},` +
-				`"metadata":{"note":"golden"}}` + "\n",
+				`"metadata":{"note":"n1"}}` + "\n",
 		},
 		{
 			name: "nil resource with hierarchy",
 			event: &Event{
 				EventID:      "01920000-0000-7000-8000-000000000002",
-				Timestamp:    goldenTime,
+				Timestamp:    fixedTime,
 				Actor:        Actor{Type: "user", ID: "u1"},
 				Action:       "update_project",
 				Category:     CategoryManagement,
@@ -106,7 +106,7 @@ func goldenCases() []goldenCase {
 			name: "unauthenticated with no operation",
 			event: &Event{
 				EventID:   "01920000-0000-7000-8000-000000000003",
-				Timestamp: goldenTime,
+				Timestamp: fixedTime,
 				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
 				Result:    ResultUnauthenticated,
 				RequestID: "33333333-3333-4333-8333-333333333333",
@@ -143,7 +143,7 @@ func goldenCases() []goldenCase {
 			name: "resource metadata group",
 			event: &Event{
 				EventID:      "01920000-0000-7000-8000-000000000004",
-				Timestamp:    goldenTime,
+				Timestamp:    fixedTime,
 				Actor:        Actor{Type: "service_account", ID: "sa-1"},
 				Action:       "create_secret",
 				Category:     CategoryAuthorization,
@@ -170,10 +170,32 @@ func goldenCases() []goldenCase {
 				`"metadata":{"kind":"opaque"}}}` + "\n",
 		},
 		{
+			name: "empty nested object survives",
+			event: &Event{
+				EventID:   "01920000-0000-7000-8000-000000000007",
+				Timestamp: fixedTime,
+				Actor:     Actor{Type: "user", ID: "u1"},
+				Action:    "create_project",
+				Category:  CategoryManagement,
+				Result:    ResultSuccess,
+				RequestID: "77777777-7777-4777-8777-777777777777",
+				SourceIP:  "10.0.0.7",
+				Service:   "openchoreo-api",
+				// slog.JSONHandler omits an empty group, so a nested {} has to
+				// be rendered as a value to stay in the record.
+				Metadata: map[string]any{"empty": map[string]any{}, "keep": "v"},
+			},
+			want: logLinePrefix + `"event_id":"01920000-0000-7000-8000-000000000007",` +
+				`"timestamp":"2026-09-07T12:30:45Z","actor":{"type":"user","id":"u1"},` +
+				`"action":"create_project","category":"management","result":"success",` +
+				`"request_id":"77777777-7777-4777-8777-777777777777","source_ip":"10.0.0.7",` +
+				`"service":"openchoreo-api","metadata":{"empty":{},"keep":"v"}}` + "\n",
+		},
+		{
 			name: "multi-key maps are ordered",
 			event: &Event{
 				EventID:   "01920000-0000-7000-8000-000000000006",
-				Timestamp: goldenTime,
+				Timestamp: fixedTime,
 				Actor: Actor{
 					Type: "user",
 					ID:   "u1",
@@ -199,15 +221,15 @@ func goldenCases() []goldenCase {
 	}
 }
 
-// TestRenderGolden pins the exact bytes Logger.LogEvent publishes. A diff here
-// is a change to the audit record downstream consumers read as a contract.
-// Compared as bytes, not as an unmarshalled map, because field order is part
-// of what this guards.
-func TestRenderGolden(t *testing.T) {
-	for _, tc := range goldenCases() {
+// TestPublishedRecordShape pins the exact bytes Logger.LogEvent publishes. A
+// diff here is a change to the audit record downstream consumers read as a
+// contract. Compared as bytes, not as an unmarshalled map, because field order
+// is part of what this guards.
+func TestPublishedRecordShape(t *testing.T) {
+	for _, tc := range recordCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			newGoldenLogger(&buf).LogEvent(tc.event)
+			newRecordLogger(&buf).LogEvent(tc.event)
 			if got := buf.String(); got != tc.want {
 				t.Errorf("published record changed:\n got: %s\nwant: %s", got, tc.want)
 			}
@@ -215,11 +237,11 @@ func TestRenderGolden(t *testing.T) {
 	}
 }
 
-// TestRenderGolden_MarshalJSONIsTheSameDefinition asserts json.Marshal(event)
+// TestPublishedRecordShape_MarshalJSONAgrees asserts json.Marshal(event)
 // publishes the same fields in the same order as the log stream, so a sink
 // that marshals an *Event and the log stream stay one wire shape.
-func TestRenderGolden_MarshalJSONIsTheSameDefinition(t *testing.T) {
-	for _, tc := range goldenCases() {
+func TestPublishedRecordShape_MarshalJSONAgrees(t *testing.T) {
+	for _, tc := range recordCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			marshaled, err := json.Marshal(tc.event)
 			if err != nil {
@@ -239,7 +261,7 @@ func TestRenderGolden_MarshalJSONIsTheSameDefinition(t *testing.T) {
 // be marshaled still produces a record rather than vanishing.
 func TestLogEvent_RenderFailureIsReported(t *testing.T) {
 	var buf bytes.Buffer
-	newGoldenLogger(&buf).LogEvent(&Event{
+	newRecordLogger(&buf).LogEvent(&Event{
 		EventID:  "01920000-0000-7000-8000-00000000000f",
 		Action:   "create_project",
 		Result:   ResultSuccess,
