@@ -5,6 +5,7 @@
 package workflowpipeline
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -19,16 +20,37 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// NewPipeline creates a new workflow rendering pipeline.
-func NewPipeline() *Pipeline {
-	return &Pipeline{
-		templateEngine: template.NewEngine(),
+// Option is a function that configures a Pipeline.
+type Option func(*Pipeline)
+
+// WithCostLimit sets the maximum accumulated cost for a single CEL expression
+// evaluated by this pipeline's template engine. Zero selects the engine's
+// built-in safe default; it never means unlimited.
+func WithCostLimit(limit uint64) Option {
+	return func(p *Pipeline) {
+		p.celCostLimit = limit
 	}
+}
+
+// NewPipeline creates a new workflow rendering pipeline.
+func NewPipeline(opts ...Option) *Pipeline {
+	p := &Pipeline{}
+	for _, opt := range opts {
+		opt(p)
+	}
+	// Guarded so a future engine-injecting Option (as the component pipeline has for
+	// benchmarking) is not silently overwritten here.
+	if p.templateEngine == nil {
+		p.templateEngine = template.NewEngineWithOptions(
+			template.WithCostLimit(p.celCostLimit),
+		)
+	}
+	return p
 }
 
 // Render orchestrates the complete workflow rendering process.
 // It validates input, builds CEL context, renders the template, and validates output.
-func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
+func (p *Pipeline) Render(ctx context.Context, input *RenderInput) (*RenderOutput, error) {
 	if err := p.validateInput(input); err != nil {
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
@@ -42,7 +64,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build CEL context: %w", err)
 	}
 
-	resource, err := p.renderTemplate(input.Workflow.Spec.RunTemplate, celContext)
+	resource, err := p.renderTemplate(ctx, input.Workflow.Spec.RunTemplate, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
@@ -52,7 +74,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	}
 
 	// Render additional resources if defined
-	resources, err := p.renderResources(input.Workflow.Spec.Resources, celContext)
+	resources, err := p.renderResources(ctx, input.Workflow.Spec.Resources, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render resources: %w", err)
 	}
@@ -90,13 +112,17 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 }
 
 // renderTemplate renders the workflow template with CEL context and post-processes the result.
-func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[string]any) (map[string]any, error) {
+func (p *Pipeline) renderTemplate(
+	ctx context.Context,
+	tmpl *runtime.RawExtension,
+	celContext map[string]any,
+) (map[string]any, error) {
 	templateData, err := rawExtensionToMap(tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse runTemplate: %w", err)
 	}
 
-	rendered, err := p.templateEngine.Render(templateData, celContext)
+	rendered, err := p.templateEngine.Render(ctx, templateData, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render workflow resource: %w", err)
 	}
@@ -117,7 +143,11 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 // All rendered resources are forced into the enforced workflow namespace (metadata.namespace)
 // regardless of what the template specifies. This prevents workflow authors from deploying
 // resources into arbitrary namespaces.
-func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celContext map[string]any) ([]RenderedResource, error) {
+func (p *Pipeline) renderResources(
+	ctx context.Context,
+	resources []v1alpha1.WorkflowResource,
+	celContext map[string]any,
+) ([]RenderedResource, error) {
 	if len(resources) == 0 {
 		return nil, nil
 	}
@@ -130,7 +160,7 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 	renderedResources := make([]RenderedResource, 0, len(resources))
 	for _, res := range resources {
 		// Check if resource should be included based on includeWhen condition
-		include, err := p.shouldIncludeResource(res.IncludeWhen, celContext)
+		include, err := p.shouldIncludeResource(ctx, res.IncludeWhen, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate includeWhen for resource %q: %w", res.ID, err)
 		}
@@ -138,7 +168,7 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 			continue
 		}
 
-		rendered, err := p.renderTemplate(res.Template, celContext)
+		rendered, err := p.renderTemplate(ctx, res.Template, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render resource %q: %w", res.ID, err)
 		}
@@ -167,12 +197,12 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 
 // shouldIncludeResource evaluates the includeWhen expression to determine if a resource should be rendered.
 // Returns true if includeWhen is empty (default behavior - resource is always created).
-func (p *Pipeline) shouldIncludeResource(includeWhen string, context map[string]any) (bool, error) {
+func (p *Pipeline) shouldIncludeResource(ctx context.Context, includeWhen string, celContext map[string]any) (bool, error) {
 	if includeWhen == "" {
 		return true, nil
 	}
 
-	result, err := p.templateEngine.Render(includeWhen, context)
+	result, err := p.templateEngine.Render(ctx, includeWhen, celContext)
 	if err != nil {
 		return false, err
 	}

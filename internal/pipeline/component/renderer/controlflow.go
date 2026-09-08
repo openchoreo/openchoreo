@@ -4,9 +4,10 @@
 package renderer
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"maps"
-	"strings"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/template"
@@ -19,12 +20,12 @@ import (
 //   - true if includeWhen evaluates to true
 //   - false if includeWhen evaluates to false
 //   - error for evaluation failures (including missing data)
-func ShouldInclude(engine *template.Engine, includeWhen string, context map[string]any) (bool, error) {
+func ShouldInclude(ctx context.Context, engine *template.Engine, includeWhen string, celContext map[string]any) (bool, error) {
 	if includeWhen == "" {
 		return true, nil
 	}
 
-	result, err := engine.Render(includeWhen, context)
+	result, err := engine.Render(ctx, includeWhen, celContext)
 	if err != nil {
 		return false, err
 	}
@@ -48,17 +49,18 @@ func ShouldInclude(engine *template.Engine, includeWhen string, context map[stri
 // If varName is empty, "item" is used as the default variable name.
 // Returns error if forEach evaluation fails or conversion fails.
 func EvalForEach(
+	ctx context.Context,
 	engine *template.Engine,
 	forEach string,
 	varName string,
-	context map[string]any,
+	celContext map[string]any,
 ) ([]map[string]any, error) {
-	result, err := engine.Render(forEach, context)
+	result, err := engine.Render(ctx, forEach, celContext)
 	if err != nil {
 		return nil, err
 	}
 
-	items, err := ToIterableItems(result)
+	items, err := ToIterableItems(ctx, result)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func EvalForEach(
 
 	contexts := make([]map[string]any, len(items))
 	for i, item := range items {
-		itemContext := maps.Clone(context)
+		itemContext := maps.Clone(celContext)
 		itemContext[varName] = item
 		contexts[i] = itemContext
 	}
@@ -77,43 +79,43 @@ func EvalForEach(
 }
 
 // EvaluateValidationRules evaluates a list of CEL-based validation rules against the given context.
-// All rules are evaluated (no short-circuiting) and all failures are collected into a single error.
+// Every rule is evaluated and all failures are collected into a single joined error; the sole
+// exception is an aborted render — an exhausted cost budget or a cancelled context — which stops
+// the loop, because every remaining rule would fail the same way.
 // Returns nil if there are no rules or all rules pass.
 //
-// Error messages include rule index and rule text for easy identification.
+// Error messages include rule index and rule text for easy identification. Evaluation failures
+// are wrapped rather than stringified, so a caller can classify a cost or deadline breach with
+// errors.Is through the aggregate.
 // The returned error does not include a "validation failed:" prefix — callers add their own context.
-func EvaluateValidationRules(engine *template.Engine, rules []v1alpha1.ValidationRule, context map[string]any) error {
+func EvaluateValidationRules(
+	ctx context.Context,
+	engine *template.Engine,
+	rules []v1alpha1.ValidationRule,
+	celContext map[string]any,
+) error {
 	if len(rules) == 0 {
 		return nil
 	}
-	var errs []string
+	var errs []error
 	for i, rule := range rules {
-		ruleRef := truncateRule(rule.Rule, 120)
-		result, err := engine.Render(rule.Rule, context)
+		ruleRef := template.TruncateTo(rule.Rule, 120)
+		result, err := engine.Render(ctx, rule.Rule, celContext)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("rule[%d] %q evaluation error: %v", i, ruleRef, err))
+			errs = append(errs, fmt.Errorf("rule[%d] %q evaluation error: %w", i, ruleRef, err))
+			if template.IsRenderAborted(err) {
+				break
+			}
 			continue
 		}
 		boolResult, ok := result.(bool)
 		if !ok {
-			errs = append(errs, fmt.Sprintf("rule[%d] %q must evaluate to boolean, got %T", i, ruleRef, result))
+			errs = append(errs, fmt.Errorf("rule[%d] %q must evaluate to boolean, got %T", i, ruleRef, result))
 			continue
 		}
 		if !boolResult {
-			errs = append(errs, fmt.Sprintf("rule[%d] %q evaluated to false: %s", i, ruleRef, rule.Message))
+			errs = append(errs, fmt.Errorf("rule[%d] %q evaluated to false: %s", i, ruleRef, rule.Message))
 		}
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-// truncateRule returns the rule string truncated to maxLen runes.
-func truncateRule(rule string, maxLen int) string {
-	runes := []rune(rule)
-	if len(runes) <= maxLen {
-		return rule
-	}
-	return string(runes[:maxLen]) + "..."
+	return errors.Join(errs...)
 }

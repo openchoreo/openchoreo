@@ -60,8 +60,6 @@ import (
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
-	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
-	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
@@ -113,6 +111,7 @@ func setupControlPlaneControllers(
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
 	gwTLS gatewayClient.TLSConfig,
+	celCostLimit uint64,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -183,16 +182,28 @@ func setupControlPlaneControllers(
 		&resourcetype.Reconciler{Client: c, Scheme: s},
 		&resource.Reconciler{Client: c, Scheme: s},
 		&resourcerelease.Reconciler{Client: c, Scheme: s},
-		&resourcereleasebinding.Reconciler{Client: c, Scheme: s},
-		&releasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
-		&renderedrelease.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&resourcereleasebinding.Reconciler{
+			Client:       c,
+			Scheme:       s,
+			CELCostLimit: celCostLimit,
+		},
+		&releasebinding.Reconciler{
+			Client:       c,
+			Scheme:       s,
+			CELCostLimit: celCostLimit,
+		},
+		&renderedrelease.Reconciler{
+			Client:              c,
+			PlaneClientProvider: planeClientProvider,
+			Scheme:              s,
+		},
 		&workflow.Reconciler{Client: c, Scheme: s},
 		&clusterworkflow.Reconciler{Client: c, Scheme: s},
 		&workflowrun.Reconciler{
 			Client:              c,
 			Scheme:              s,
 			PlaneClientProvider: planeClientProvider,
-			Pipeline:            workflowpipeline.NewPipeline(),
+			CELCostLimit:        celCostLimit,
 		},
 		&workflowplane.Reconciler{
 			Client:        c,
@@ -258,7 +269,13 @@ func main() {
 	var clusterGatewayClientKey string
 	var clusterGatewayInsecure bool
 	var deploymentPlane string
+	var celCostLimit uint64
 	var tlsOpts []func(*tls.Config)
+	// Environment defaults are resolved before the flags are declared, so a malformed value
+	// is reported after flag.Parse rather than silently replaced by the built-in default.
+	// A bad environment value fails startup even when the matching flag is also passed: the
+	// operator's intent is ambiguous, and guessing is what this rejects.
+	celCostLimitDefault, celCostLimitEnvErr := getEnvUint("CEL_COST_LIMIT", 0)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -287,6 +304,9 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
 		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
+	flag.Uint64Var(&celCostLimit, "cel-cost-limit", celCostLimitDefault,
+		"Maximum accumulated cost for a single CEL template expression. 0 uses the built-in safe default. "+
+			"Defaults to the CEL_COST_LIMIT environment variable when set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -297,6 +317,11 @@ func main() {
 
 	if deploymentPlane != deploymentPlaneControlPlane && deploymentPlane != deploymentPlaneObservabilityPlane {
 		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
+		os.Exit(1)
+	}
+
+	if celCostLimitEnvErr != nil {
+		setupLog.Error(celCostLimitEnvErr, "invalid CEL_COST_LIMIT")
 		os.Exit(1)
 	}
 
@@ -400,7 +425,7 @@ func main() {
 			ClientCertFile:     clusterGatewayClientCert,
 			ClientKeyFile:      clusterGatewayClientKey,
 			InsecureSkipVerify: clusterGatewayInsecure,
-		})
+		}, celCostLimit)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -488,4 +513,20 @@ func getEnvBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return parsed
+}
+
+// getEnvUint retrieves an unsigned integer environment variable, returning a default if
+// unset and an error if malformed. A malformed value is rejected rather than ignored: an
+// operator who set a cost limit and got the default instead would be running with a bound
+// they never chose and no way to notice.
+func getEnvUint(key string, defaultValue uint64) (uint64, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s=%q: %w", key, value, err)
+	}
+	return parsed, nil
 }

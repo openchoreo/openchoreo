@@ -13,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 // This file contains the types and functions to manage the conditions in the Kubernetes objects.
@@ -39,14 +41,24 @@ type ConditionedObject interface {
 	SetConditions(conditions []metav1.Condition)
 }
 
+// maxConditionMessageLen bounds what any condition message may carry. Render errors reach
+// a condition verbatim and quote tenant-authored input, so each layer that builds one is
+// expected to bound the fragments it names; this is the backstop for the layer that
+// forgets. The API server caps a condition message at 32768 bytes and rejects invalid
+// UTF-8, and a rejected status write replaces the paced render requeue with a hot backoff -
+// so the bound sits well below the cap, leaving room for the rest of the status object
+// while staying far larger than any message worth reading.
+const maxConditionMessageLen = 8192
+
 // NewCondition creates a new condition with the last transition time set to the current time.
+// The message is bounded (see maxConditionMessageLen); a message that fits is untouched.
 func NewCondition(conditionType ConditionType, status metav1.ConditionStatus, reason ConditionReason,
 	message string, observedGeneration int64) metav1.Condition {
 	return metav1.Condition{
 		Type:               string(conditionType),
 		Status:             status,
 		Reason:             string(reason),
-		Message:            message,
+		Message:            template.TruncateTo(message, maxConditionMessageLen),
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: observedGeneration,
 	}

@@ -14,6 +14,10 @@ import (
 // (controller, webhook, future CLI) instantiate one Pipeline and reuse it.
 type Pipeline struct {
 	templateEngine *template.Engine
+
+	// celCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	celCostLimit uint64
 }
 
 // RenderInput carries everything RenderManifests, ResolveOutputs, and
