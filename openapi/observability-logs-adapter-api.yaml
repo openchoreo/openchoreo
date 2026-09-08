@@ -143,12 +143,15 @@ paths:
         ignoring the omission and running a broader query than the caller asked
         for.
 
-        3. An unscoped sweep MUST be authorized as an installation-wide read
-        rather than a scoped one, and MUST filter to the requested `reasons`.
+        3. An unscoped sweep MUST filter to the requested `reasons`, and MUST
+        NOT be widened by any scope inferred from the request.
 
 
         Clients MUST treat a 400 on an unscoped sweep as "capability
-        unavailable" and fall back rather than retrying.
+        unavailable" and fall back rather than retrying. This API carries no
+        end-user identity, so an adapter cannot authorize the caller; a client
+        that serves unscoped results onward is responsible for authorizing its
+        own consumers.
       operationId: queryEvents
       requestBody:
         required: true
