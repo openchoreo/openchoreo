@@ -473,6 +473,29 @@ func getDefaults() map[string]interface{} {
 // validateInsightsStore normalizes the delivery insights store backend and DSN. The
 // insights store defaults to sharing the alert store database so that
 // incident↔deployment attribution stays a local SQL join.
+// validateAlertStore normalizes the alert store backend and fills in its default
+// DSN. Split out of validate to keep that function under the complexity limit.
+func (c *Config) validateAlertStore() error {
+	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
+	switch c.Alerting.AlertStoreBackend {
+	case "", storeBackendSQLite:
+		c.Alerting.AlertStoreBackend = storeBackendSQLite
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
+		}
+		// The insights store shares this file by default, so both handles need to
+		// wait on each other's write lock rather than failing with SQLITE_BUSY.
+		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
+	case storeBackendPostgreSQL:
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
+		}
+	default:
+		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	return nil
+}
+
 func (c *Config) validateInsightsStore() error {
 	c.Insights.StoreBackend = strings.ToLower(strings.TrimSpace(c.Insights.StoreBackend))
 	if c.Insights.StoreBackend == "" {
@@ -586,24 +609,9 @@ func (c *Config) validate() error {
 		return fmt.Errorf("uid resolver max.auth.retry must be non-negative")
 	}
 
-	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
-	switch c.Alerting.AlertStoreBackend {
-	case "", storeBackendSQLite:
-		c.Alerting.AlertStoreBackend = storeBackendSQLite
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
-		}
-		// The insights store shares this file by default, so both handles need to
-		// wait on each other's write lock rather than failing with SQLITE_BUSY.
-		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
-	case storeBackendPostgreSQL:
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
-		}
-	default:
-		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	if err := c.validateAlertStore(); err != nil {
+		return err
 	}
-
 	if err := c.validateInsightsStore(); err != nil {
 		return err
 	}
