@@ -17,19 +17,51 @@ type AuthorizeRequest struct {
 	Key string `json:"key"`
 }
 
-// AuthorizeResponse is the control plane's reply: the concrete host:port the agent
-// should net.Dial for the requested key. Only returned when the capability is valid
-// and the key is one of its signed targets; otherwise the endpoint returns a non-2xx
-// status and the agent refuses the stream.
+// Authorize response kinds. Kind discriminates what the agent should do with the
+// answer, and is load-bearing rather than descriptive: without it a fetch key that
+// somehow resolved in the dial table would open a TCP connection to an arbitrary host
+// instead of reading a value — a confused deputy with the agent as the deputy. The
+// agent must reject any response whose kind disagrees with the key space it asked in.
+const (
+	// AuthorizeKindTCP means dial Host:Port and pipe bytes. It is the zero value on the
+	// wire so an agent older than the fetch protocol keeps working unchanged.
+	AuthorizeKindTCP = "tcp"
+	// AuthorizeKindSecret means read Secret.SourceKey from Secret.SourceName in the
+	// agent's own namespace and return the value on the stream.
+	AuthorizeKindSecret = "secret"
+)
+
+// AuthorizeResponse is the control plane's reply for one stream: either the concrete
+// host:port the agent should net.Dial, or the coordinates of the value it should read.
+// Only returned when the capability is valid and the key is one of its signed
+// targets/grants; otherwise the endpoint returns a non-2xx status and the agent refuses
+// the stream.
 type AuthorizeResponse struct {
-	Host  string `json:"host"`
-	Port  int    `json:"port"`
-	Proto string `json:"proto"` // "tcp" for v1
+	// Kind is AuthorizeKindTCP or AuthorizeKindSecret. Empty means AuthorizeKindTCP.
+	Kind string `json:"kind,omitempty"`
+
+	// Host/Port/Proto are set for AuthorizeKindTCP.
+	Host  string `json:"host,omitempty"`
+	Port  int    `json:"port,omitempty"`
+	Proto string `json:"proto,omitempty"` // currently always "tcp"
 	// AgentNamespace is the data-plane namespace the capability designated to serve this
-	// target. The agent refuses a target routed to a namespace other than its own, so the
-	// "dial from the provider's own namespace" invariant is enforced by the agent rather
+	// target or grant. The agent refuses one routed to a namespace other than its own, so
+	// the "act from the provider's own namespace" invariant is enforced by the agent rather
 	// than trusted from the client's choice of which agent to open the stream against.
 	AgentNamespace string `json:"agentNamespace,omitempty"`
+
+	// Secret is set for AuthorizeKindSecret. It never carries a value — only where the
+	// agent should read one.
+	Secret *SecretGrant `json:"secret,omitempty"`
+}
+
+// ResolvedKind returns the response's kind, defaulting an empty Kind to
+// AuthorizeKindTCP so a control plane older than the fetch protocol reads correctly.
+func (r *AuthorizeResponse) ResolvedKind() string {
+	if r.Kind == "" {
+		return AuthorizeKindTCP
+	}
+	return r.Kind
 }
 
 // AuthorizePath is the control-plane route the remote-agent calls to authorize a stream.

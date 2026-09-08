@@ -16,12 +16,16 @@ import (
 type ReleaseSpec struct {
 	ResourceType openchoreov1alpha1.ResourceReleaseResourceType `json:"resourceType"`
 	Parameters   *runtime.RawExtension                          `json:"parameters,omitempty"`
+
+	// LocalDevAddresses is the raw annotation, hashed alongside the spec so an edit to
+	// the declarations cuts a new release.
+	LocalDevAddresses string `json:"localDevAddresses,omitempty"`
 }
 
 // computeReleaseHash returns a deterministic hash for a ReleaseSpec. Same
 // underlying algorithm as component.ComputeReleaseHash, with a value receiver
 // since the spec is small, never mutated, and "no spec" is not a meaningful
 // state at any caller.
-func computeReleaseHash(spec ReleaseSpec, collisionCount *int32) string {
-	return hash.ComputeHash(spec, collisionCount)
+func computeReleaseHash(spec ReleaseSpec) string {
+	return hash.ComputeHash(spec, nil)
 }

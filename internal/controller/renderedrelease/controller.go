@@ -33,14 +33,16 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
-	appsAPIGroup   = "apps"
-	deploymentKind = "Deployment"
-	cronJobKind    = "CronJob"
+	appsAPIGroup    = "apps"
+	deploymentKind  = "Deployment"
+	statefulSetKind = "StatefulSet"
+
+	batchAPIGroup = "batch"
+	cronJobKind   = "CronJob"
 
 	// reasonProgressDeadlineExceeded is the Deployment Progressing condition reason
 	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
 	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
-	statefulSetKind                = "StatefulSet"
 
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
@@ -192,8 +194,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Build the resource statuses before the status update so both read one
-	// health evaluation.
+	// Build the resource statuses first so delivery events and the status update
+	// share one health evaluation
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)

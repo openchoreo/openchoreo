@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -77,14 +76,8 @@ type deliveryEventPayload struct {
 	ProjectUID     string `json:"projectUid,omitempty"`
 	ComponentUID   string `json:"componentUid,omitempty"`
 	EnvironmentUID string `json:"environmentUid,omitempty"`
-	// Commit and CommitAuthoredAt are the rollout's commit provenance, read from
-	// the owning ComponentRelease. Absent when the workload carries no source, in
-	// which case Lead Time for Changes reports unavailable for this rollout while
-	// the other three metrics compute normally.
-	Commit           string `json:"commit,omitempty"`
-	CommitAuthoredAt string `json:"commitAuthoredAt,omitempty"`
-	Phase            string `json:"phase"`
-	FailureReason    string `json:"failureReason,omitempty"`
+	Phase          string `json:"phase"`
+	FailureReason  string `json:"failureReason,omitempty"`
 	// FailureEpisode identifies which failure->recovery cycle of this rollout the
 	// event belongs to. The emitter already distinguishes episodes -- it suffixes
 	// event names -e1, -e2 -- but a consumer keying a recovery on the rollout alone
@@ -112,16 +105,6 @@ type deliveryContext struct {
 	// then drops from the payload entirely. The object's own namespace is the same
 	// value and always set.
 	namespaceName string
-	// commit and commitAuthoredAt are the rollout's commit provenance, taken from
-	// the ComponentRelease this controller already holds.
-	//
-	// They are NOT read off `primary`: the render pipeline injects
-	// MetadataContext.Labels onto every resource but never its Annotations (see
-	// postProcessResources, which calls addLabels only), so a commit placed in the
-	// metadata context never reaches a rendered resource. The UID fields above do
-	// come from labels, which is why those work.
-	commit           string
-	commitAuthoredAt string
 	// primary is the desired primary workload resource (Deployment, StatefulSet,
 	// or CronJob) the events anchor to as involvedObject.
 	primary *unstructured.Unstructured
@@ -245,26 +228,12 @@ func deliveryContextFor(
 		return nil
 	}
 
-	dc := &deliveryContext{
+	return &deliveryContext{
 		rolloutID:            fmt.Sprintf("%s.%s", componentRelease.UID, renderedRelease.UID),
 		componentReleaseName: componentRelease.Name,
 		namespaceName:        releaseBinding.Namespace,
 		primary:              primary,
 	}
-
-	// Provenance comes straight off the ComponentRelease this controller already
-	// fetched. The renderedrelease version had to Get it by name from a label and
-	// guard the result's UID, because a name deleted and recreated would otherwise
-	// pair a different object's commit with this rollout. Holding the object
-	// removes both the round trip and the hazard.
-	if source := componentRelease.Spec.Workload.Source; source != nil {
-		dc.commit = source.Commit
-		if source.AuthoredAt != nil {
-			dc.commitAuthoredAt = source.AuthoredAt.UTC().Format(time.RFC3339)
-		}
-	}
-
-	return dc
 }
 
 // deliveryState returns the binding's delivery markers for the current rollout,
@@ -585,8 +554,6 @@ func (r *Reconciler) emitDeliveryEvent(
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
-		Commit:               dc.commit,
-		CommitAuthoredAt:     dc.commitAuthoredAt,
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
 		FailureEpisode:       episode,

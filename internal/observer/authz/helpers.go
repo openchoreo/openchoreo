@@ -108,11 +108,17 @@ func CheckAuthorization(
 	// and an authz-disabled deployment all produce an audit event carrying
 	// the hierarchy the decision was made on. Mirrors openchoreo-api's
 	// AuthzChecker.Check; a no-op when the request has no audit context.
+	//
+	// Environment is read from the ABAC attributes for the same reason as
+	// there. It records nothing today: every observer operation supplying one
+	// is a read, and reads are unaudited. Wired anyway so an audited
+	// operation that becomes environment-scoped needs no change here.
 	audit.SetHierarchy(ctx, audit.Hierarchy{
-		Namespace: hierarchy.Namespace,
-		Project:   hierarchy.Project,
-		Component: hierarchy.Component,
-		Resource:  hierarchy.Resource,
+		Namespace:   hierarchy.Namespace,
+		Environment: authzCtx.Resource.Environment,
+		Project:     hierarchy.Project,
+		Component:   hierarchy.Component,
+		Resource:    hierarchy.Resource,
 	})
 
 	if pdp == nil {

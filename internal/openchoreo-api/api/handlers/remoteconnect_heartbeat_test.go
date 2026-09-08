@@ -22,7 +22,7 @@ func signTestCapabilityTTL(t *testing.T, priv ed25519.PrivateKey, targets []remo
 	t.Helper()
 	signer := &capabilitySigner{privKey: priv, keyID: "k1", issuer: "cp", ttl: ttl}
 	cap, err := signer.sign("user:alice", defaultPlaneName,
-		remoteconnect.ComponentRef{Project: "doclet", Name: "doc"}, "development", targets)
+		remoteconnect.ComponentRef{Project: "doclet", Name: "doc"}, "development", targets, nil)
 	if err != nil {
 		t.Fatalf("sign capability: %v", err)
 	}
