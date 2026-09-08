@@ -21,6 +21,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -205,7 +206,7 @@ func TestRemoteKeyFor(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := remoteKeyFor(testNamespace, tt.secretType, testSecretName); got != tt.want {
+			if got := remoteKeyFor(config.DefaultRemoteKeyPrefix, testNamespace, tt.secretType, testSecretName); got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
@@ -248,7 +249,7 @@ func TestBuildK8sSecret(t *testing.T) {
 }
 
 func TestBuildPushSecret(t *testing.T) {
-	ps := buildPushSecret(testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store",
+	ps := buildPushSecret(config.DefaultRemoteKeyPrefix, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store",
 		corev1.SecretTypeOpaque, []string{"a", "b"})
 
 	if ps.GetAPIVersion() != pushSecretAPIVersion {
@@ -301,7 +302,7 @@ func TestBuildPushSecret(t *testing.T) {
 }
 
 func TestBuildSecretReference(t *testing.T) {
-	ref := buildSecretReference(testNamespace, testSecretName, corev1.SecretTypeBasicAuth,
+	ref := buildSecretReference(config.DefaultRemoteKeyPrefix, testNamespace, testSecretName, corev1.SecretTypeBasicAuth,
 		openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
 		[]string{"password", "username"},
 		map[string]string{"team": testLabelValue})
@@ -351,7 +352,7 @@ func TestResolvePlane_WorkflowPlane(t *testing.T) {
 	targetClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	info, err := svc.resolvePlane(context.Background(), testNamespace, planeKindWorkflowPlane, "wp1")
 	if err != nil {
@@ -381,7 +382,7 @@ func TestResolvePlane_ClusterDataPlane(t *testing.T) {
 	targetClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	mockProvider.EXPECT().ClusterDataPlaneClient(cdp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	info, err := svc.resolvePlane(context.Background(), testNamespace, planeKindClusterDataPlane, "cdp1")
 	if err != nil {
@@ -395,7 +396,7 @@ func TestResolvePlane_ClusterDataPlane(t *testing.T) {
 func TestResolvePlane_NotFound(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	for _, kind := range []string{
 		planeKindWorkflowPlane, planeKindClusterWorkflowPlane,
@@ -414,7 +415,7 @@ func TestResolvePlane_NoSecretStore(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "wp1", Namespace: testNamespace},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.resolvePlane(context.Background(), testNamespace, planeKindWorkflowPlane, "wp1")
 	if !errors.Is(err, ErrSecretStoreNotConfigured) {
@@ -423,7 +424,7 @@ func TestResolvePlane_NoSecretStore(t *testing.T) {
 }
 
 func TestResolvePlane_InvalidKind(t *testing.T) {
-	svc := &secretService{logger: newTestLogger()}
+	svc := &secretService{logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 	_, err := svc.resolvePlane(context.Background(), testNamespace, "Bogus", "x")
 	if !isValidationError(err) {
 		t.Errorf("expected validation error, got %v", err)
@@ -436,7 +437,7 @@ func TestEnsureNamespaceExists_AlreadyExists(t *testing.T) {
 	scheme := newTestScheme(t)
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "openchoreo-kv-ns1"}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ns).Build()
-	svc := &secretService{logger: newTestLogger()}
+	svc := &secretService{logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	if err := svc.ensureNamespaceExists(context.Background(), k8sClient, "openchoreo-kv-ns1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -446,7 +447,7 @@ func TestEnsureNamespaceExists_AlreadyExists(t *testing.T) {
 func TestEnsureNamespaceExists_CreatesNew(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{logger: newTestLogger()}
+	svc := &secretService{logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	if err := svc.ensureNamespaceExists(context.Background(), k8sClient, "openchoreo-kv-ns1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -465,7 +466,7 @@ func TestCreateSecret_AlreadyExists(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: testNamespace},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.CreateSecret(context.Background(), testNamespace, &CreateSecretParams{
 		SecretName:  testSecretName,
@@ -481,7 +482,7 @@ func TestCreateSecret_AlreadyExists(t *testing.T) {
 func TestCreateSecret_ValidationErrors(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	cases := []struct {
 		name string
@@ -537,7 +538,7 @@ func TestCreateSecret_ValidationErrors(t *testing.T) {
 func TestCreateSecret_PlaneNotFound(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.CreateSecret(context.Background(), testNamespace, &CreateSecretParams{
 		SecretName:  testSecretName,
@@ -555,7 +556,7 @@ func TestCreateSecret_PlaneNotFound(t *testing.T) {
 func TestDeleteSecret_NotFound(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	err := svc.DeleteSecret(context.Background(), testNamespace, "missing")
 	if !errors.Is(err, ErrSecretNotFound) {
@@ -572,7 +573,7 @@ func TestDeleteSecret_NoTargetPlane(t *testing.T) {
 		},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(legacy).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	err := svc.DeleteSecret(context.Background(), testNamespace, "legacy")
 	if !errors.Is(err, ErrSecretNotFound) {
@@ -594,7 +595,7 @@ func TestDeleteSecret_PlaneNotFound(t *testing.T) {
 		},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ref).Build()
-	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	err := svc.DeleteSecret(context.Background(), testNamespace, testSecretName)
 	if !errors.Is(err, ErrPlaneNotFound) {
@@ -654,7 +655,7 @@ func TestCreateSecret_Success(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	info, err := svc.CreateSecret(context.Background(), testNamespace, &CreateSecretParams{
 		SecretName:  testSecretName,
@@ -727,7 +728,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	if err := svc.DeleteSecret(context.Background(), testNamespace, testSecretName); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -753,7 +754,7 @@ func managedRef(name string, secretType corev1.SecretType, keys []string) *openc
 		dataSources = append(dataSources, openchoreov1alpha1.SecretDataSource{
 			SecretKey: k,
 			RemoteRef: openchoreov1alpha1.RemoteReference{
-				Key: remoteKeyFor(testNamespace, secretType, name), Property: k,
+				Key: remoteKeyFor(config.DefaultRemoteKeyPrefix, testNamespace, secretType, name), Property: k,
 			},
 		})
 	}
@@ -799,7 +800,7 @@ func TestGetSecret_Success(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	got, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
 	if err != nil {
@@ -819,7 +820,7 @@ func TestGetSecret_Success(t *testing.T) {
 func TestGetSecret_NotFound_Missing(t *testing.T) {
 	scheme := newTestScheme(t)
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
 	if !errors.Is(err, ErrSecretNotFound) {
@@ -838,7 +839,7 @@ func TestGetSecret_NotFound_UnmanagedRef(t *testing.T) {
 		},
 	}
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(unmanaged).Build()
-	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
 	if !errors.Is(err, ErrSecretNotFound) {
@@ -858,7 +859,7 @@ func TestGetSecret_NotFound_TargetPlaneSecretMissing(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
 	if !errors.Is(err, ErrSecretNotFound) {
@@ -890,7 +891,7 @@ func TestListSecrets_FiltersManagedByLabel(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	result, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{})
 	if err != nil {
@@ -916,7 +917,7 @@ func TestListSecrets_SkipsMissingTargetSecret(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	result, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{})
 	if err != nil {
@@ -941,7 +942,7 @@ func TestUpdateSecret_Success_SameKeys(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	got, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data: map[string]string{"a": "1", "b": "2"},
@@ -980,7 +981,7 @@ func TestUpdateSecret_Success_KeysChanged(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data: map[string]string{"a": "1", "c": "3"},
@@ -1011,7 +1012,7 @@ func TestUpdateSecret_LabelsApplied(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data:   map[string]string{"a": "1", "b": "2"},
@@ -1045,7 +1046,7 @@ func TestUpdateSecret_LabelsReplacedAndManagedByPreserved(t *testing.T) {
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
-	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data:   map[string]string{"a": "1", "b": "2"},
@@ -1073,7 +1074,7 @@ func TestUpdateSecret_InvalidLabel(t *testing.T) {
 	wp := newWorkflowPlane()
 	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
-	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data:   map[string]string{"a": "1", "b": "2"},
@@ -1130,7 +1131,7 @@ func TestMergeManagedLabels(t *testing.T) {
 func TestUpdateSecret_NotFound(t *testing.T) {
 	scheme := newTestScheme(t)
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		Data: map[string]string{"k": "v"},
@@ -1145,7 +1146,7 @@ func TestUpdateSecret_ValidationFailure(t *testing.T) {
 	wp := newWorkflowPlane()
 	ref := managedRef(testSecretName, corev1.SecretTypeBasicAuth, []string{"password", "username"})
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
-	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger(), remoteKeyPrefix: config.DefaultRemoteKeyPrefix}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
 		// Missing required password key for basic-auth.
@@ -1153,5 +1154,84 @@ func TestUpdateSecret_ValidationFailure(t *testing.T) {
 	})
 	if !isValidationError(err) {
 		t.Errorf("expected ValidationError, got %v", err)
+	}
+}
+
+func TestRemoteKeyForPrefixes(t *testing.T) {
+	tests := []struct {
+		name   string
+		prefix string
+		want   string
+	}{
+		{"default prefix", config.DefaultRemoteKeyPrefix, "secret/ns1/generic/my-secret"},
+		{"empty prefix drops segment", "", "ns1/generic/my-secret"},
+		{"custom prefix", "openchoreo", "openchoreo/ns1/generic/my-secret"},
+		{"nested prefix", "oc/secrets", "oc/secrets/ns1/generic/my-secret"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := remoteKeyFor(tt.prefix, testNamespace, corev1.SecretTypeOpaque, testSecretName); got != tt.want {
+				t.Errorf("remoteKeyFor(%q) = %q, want %q", tt.prefix, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBuildersHonorEmptyPrefix pins the fix for the duplicate-entry bug: with an
+// empty prefix the PushSecret and the SecretReference must agree on a key that
+// carries no leading segment, so the key cannot collide with the KV mount name.
+func TestBuildersHonorEmptyPrefix(t *testing.T) {
+	const wantKey = "ns1/generic/my-secret"
+
+	ps := buildPushSecret("", testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store",
+		corev1.SecretTypeOpaque, []string{"a"})
+	spec, ok := ps.Object["spec"].(map[string]any)
+	if !ok {
+		t.Fatal("spec is not a map")
+	}
+	matches, ok := spec["data"].([]map[string]any)
+	if !ok || len(matches) != 1 {
+		t.Fatalf("data = %#v", spec["data"])
+	}
+	match := matches[0]["match"].(map[string]any)
+	remoteRef := match["remoteRef"].(map[string]any)
+	if remoteRef["remoteKey"] != wantKey {
+		t.Errorf("PushSecret remoteKey = %v, want %q", remoteRef["remoteKey"], wantKey)
+	}
+
+	ref := buildSecretReference("", testNamespace, testSecretName, corev1.SecretTypeOpaque,
+		openchoreov1alpha1.TargetPlaneRef{Kind: planeKindDataPlane, Name: "dp1"}, []string{"a"}, nil)
+	if len(ref.Spec.Data) != 1 {
+		t.Fatalf("data sources = %d", len(ref.Spec.Data))
+	}
+	if ref.Spec.Data[0].RemoteRef.Key != wantKey {
+		t.Errorf("SecretReference key = %q, want %q", ref.Spec.Data[0].RemoteRef.Key, wantKey)
+	}
+}
+
+// TestNewServiceNormalizesPrefix checks that stray slashes in the configured
+// prefix cannot produce empty or doubled segments in the key.
+func TestNewServiceNormalizesPrefix(t *testing.T) {
+	tests := []struct {
+		configured string
+		want       string
+	}{
+		{"secret", "secret/ns1/generic/my-secret"},
+		{"/secret/", "secret/ns1/generic/my-secret"},
+		{"team//prod", "team/prod/ns1/generic/my-secret"},
+		{"//team///prod//", "team/prod/ns1/generic/my-secret"},
+		{"", "ns1/generic/my-secret"},
+		{"/", "ns1/generic/my-secret"},
+	}
+	for _, tt := range tests {
+		cfg := config.SecretManagementConfig{Enabled: true, RemoteKeyPrefix: tt.configured}
+		svc, ok := NewService(nil, nil, cfg, newTestLogger()).(*secretService)
+		if !ok {
+			t.Fatal("NewService did not return *secretService")
+		}
+		got := remoteKeyFor(svc.remoteKeyPrefix, testNamespace, corev1.SecretTypeOpaque, testSecretName)
+		if got != tt.want {
+			t.Errorf("prefix %q: key = %q, want %q", tt.configured, got, tt.want)
+		}
 	}
 }
