@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -160,13 +161,13 @@ func withTestSubject(next http.Handler) http.Handler {
 	})
 }
 
-func newAuditTestEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
+func newAuditTestEmitter(t *testing.T, sink io.Writer) *audit.Emitter {
 	t.Helper()
 	policies, errs := audit.NewPolicySet(coreconfig.NewPath("audit"), audit.Settings{Publish: true}, nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected policy validation errors: %v", errs)
 	}
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(sink))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -226,8 +227,7 @@ func auditRecordsFromLog(t *testing.T, buf *bytes.Buffer) []map[string]any {
 func TestNewHTTPServer_AuditWired(t *testing.T) {
 	t.Run("success emits one record with the handler's resource UID", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger := slog.New(slog.NewJSONHandler(&buf, nil))
-		emitter := newAuditTestEmitter(t, logger)
+		emitter := newAuditTestEmitter(t, &buf)
 
 		toolsets := &tools.Toolsets{
 			ProjectToolset: &fakeCreateProjectWithUID{},
@@ -284,8 +284,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 
 	t.Run("PDP denial emits result=denied, distinguishable from failure", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger := slog.New(slog.NewJSONHandler(&buf, nil))
-		emitter := newAuditTestEmitter(t, logger)
+		emitter := newAuditTestEmitter(t, &buf)
 
 		toolsets := &tools.Toolsets{
 			ProjectToolset: &fakeProjectToolset{},
@@ -341,8 +340,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 
 	t.Run("environment binding resolves independently of the project binding", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger := slog.New(slog.NewJSONHandler(&buf, nil))
-		emitter := newAuditTestEmitter(t, logger)
+		emitter := newAuditTestEmitter(t, &buf)
 
 		toolsets := &tools.Toolsets{
 			PEToolset: &fakePEToolset{},
@@ -397,8 +395,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 // bound tool call must still succeed but produce zero AUDIT-LOG records.
 func TestNewHTTPServer_AuditDisabled(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newAuditTestEmitter(t, logger)
+	emitter := newAuditTestEmitter(t, &buf)
 
 	toolsets := &tools.Toolsets{
 		ProjectToolset: &fakeCreateProjectWithUID{},

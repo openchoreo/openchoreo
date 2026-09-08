@@ -83,7 +83,7 @@ func TestAuditMiddlewareWired(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := projectsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{ProjectService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "audit-test-proj"},
@@ -123,7 +123,7 @@ func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := projectsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{ProjectService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	createBody, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "crud-test-proj"},
@@ -194,7 +194,7 @@ func TestAuditMiddlewareWired_TraitCRUD(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := traitsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{TraitService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	createBody, _ := json.Marshal(gen.Trait{
 		Metadata: gen.ObjectMeta{Name: "crud-test-trait"},
@@ -291,7 +291,7 @@ func TestAuditMiddlewareWired_AllOperations(t *testing.T) {
 		DataPlaneService:   dataPlaneSvc,
 		EnvironmentService: envSvc,
 	}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	type opRequest struct {
 		action string
@@ -345,7 +345,7 @@ func TestAuditMiddlewareWired_DeniedRequestCarriesResource(t *testing.T) {
 		Return(nil, services.ErrForbidden)
 
 	services := &handlerservices.Services{ProjectService: projectSvc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{Metadata: gen.ObjectMeta{Name: "denied-proj"}})
 	_, rec := doRequest(t, handler, http.MethodPut,
@@ -390,7 +390,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 	auditCfg := config.AuditDefaults()
 	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	require.NoError(t, err)
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(&buf))
 	require.NoError(t, err)
 
 	h := &Handler{services: &handlerservices.Services{}, logger: logger}
@@ -433,7 +433,7 @@ func TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce(t *testi
 		Run(func(context.Context, string, *openchoreov1alpha1.Project) { panic("handler blew up") })
 
 	services := &handlerservices.Services{ProjectService: projectSvc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{Metadata: gen.ObjectMeta{Name: "panic-proj"}})
 

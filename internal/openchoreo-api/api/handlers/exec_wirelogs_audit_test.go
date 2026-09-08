@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -15,14 +16,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
-func newTestAuditEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
+func newTestAuditEmitter(t *testing.T, sink io.Writer) *audit.Emitter {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
 	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error building policy set: %v", err)
 	}
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(sink))
 	if err != nil {
 		t.Fatalf("unexpected error building emitter: %v", err)
 	}
@@ -61,7 +62,7 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			logger := slog.New(slog.NewJSONHandler(&buf, nil))
-			emitter := newTestAuditEmitter(t, logger)
+			emitter := newTestAuditEmitter(t, &buf)
 			mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -107,7 +108,7 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -142,7 +143,7 @@ func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 func TestFindFlusher_SeesThroughAuditWrapper(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -176,7 +177,7 @@ func TestFindFlusher_SeesThroughAuditWrapper(t *testing.T) {
 func TestExecWirelogsAuditMiddleware_ResolvesBothRoutes(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -230,7 +231,7 @@ func TestExecWirelogsAuditMiddleware_ResolvesBothRoutes(t *testing.T) {
 func TestExecHandler_SetsResourceNameFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -270,7 +271,7 @@ func TestExecHandler_SetsResourceNameFromParsedPath(t *testing.T) {
 func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -317,7 +318,7 @@ func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 func TestWirelogsHandler_MalformedNamespaceNotAudited(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

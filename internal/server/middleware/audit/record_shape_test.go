@@ -6,7 +6,6 @@ package audit
 import (
 	"bytes"
 	"encoding/json"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -19,18 +18,20 @@ var fixedTime = time.Date(2026, 9, 7, 12, 30, 45, 0, time.UTC)
 // logLinePrefix is what slog's JSONHandler puts before the event's own fields.
 const logLinePrefix = `{"level":"INFO","msg":"AUDIT-LOG",`
 
-// newRecordLogger returns a Logger writing to buf with slog's handler-stamped
-// "time" attr removed — it is the wall clock at emission, so it would defeat
-// any byte comparison. The event's own pinned "event_time" is the one asserted.
-func newRecordLogger(buf *bytes.Buffer) *Logger {
-	return NewLogger(slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			if len(groups) == 0 && a.Key == slog.TimeKey {
-				return slog.Attr{}
-			}
-			return a
-		},
-	})))
+// stripTimeAttr removes slog's handler-stamped "time" attr, the wall clock at
+// emission, which would defeat a byte comparison; the event's own pinned
+// "event_time" is the one asserted. Stripping here rather than with a
+// ReplaceAttr hook keeps NewLogger free of a test-only option.
+func stripTimeAttr(line string) string {
+	const timeKey = `{"time":"`
+	if !strings.HasPrefix(line, timeKey) {
+		return line
+	}
+	end := strings.Index(line, `","level":`)
+	if end < 0 {
+		return line
+	}
+	return "{" + line[end+2:]
 }
 
 type recordCase struct {
@@ -276,8 +277,8 @@ func TestPublishedRecordShape(t *testing.T) {
 	for _, tc := range recordCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			newRecordLogger(&buf).LogEvent(tc.event)
-			if got := buf.String(); got != tc.want {
+			NewLogger(&buf).LogEvent(tc.event)
+			if got := stripTimeAttr(buf.String()); got != tc.want {
 				t.Errorf("published record changed:\n got: %s\nwant: %s", got, tc.want)
 			}
 		})
@@ -308,7 +309,7 @@ func TestPublishedRecordShape_MarshalJSONAgrees(t *testing.T) {
 // be marshaled still produces a record rather than vanishing.
 func TestLogEvent_RenderFailureIsReported(t *testing.T) {
 	var buf bytes.Buffer
-	newRecordLogger(&buf).LogEvent(&Event{
+	NewLogger(&buf).LogEvent(&Event{
 		EventID:  "01920000-0000-7000-8000-00000000000f",
 		Action:   "create_project",
 		Result:   ResultSuccess,

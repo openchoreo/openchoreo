@@ -5,9 +5,9 @@ package audit
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"testing"
 )
 
@@ -17,7 +17,7 @@ import (
 // silently dropped both fields regardless of what Emit passed in.
 func TestLogEvent_IncludesOriginAndOperationID(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+	logger := NewLogger(&buf)
 
 	logger.LogEvent(&Event{
 		Actor:       Actor{Type: "user", ID: "u1"},
@@ -47,7 +47,7 @@ func TestLogEvent_IncludesOriginAndOperationID(t *testing.T) {
 // omitted rather than rendered as an empty string.
 func TestLogEvent_OmitsEmptyOriginAndOperationID(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+	logger := NewLogger(&buf)
 
 	logger.LogEvent(&Event{
 		Actor:    Actor{Type: "user", ID: "u1"},
@@ -77,7 +77,7 @@ func TestLogEvent_OmitsEmptyOriginAndOperationID(t *testing.T) {
 // there isn't one.
 func TestLogEvent_ResourceTypeIndependentOfResource(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+	logger := NewLogger(&buf)
 
 	logger.LogEvent(&Event{
 		Actor:        Actor{Type: "user", ID: "u1"},
@@ -113,7 +113,7 @@ func TestLogEvent_ResourceTypeIndependentOfResource(t *testing.T) {
 // the "resource" group.
 func TestLogEvent_IncludesHierarchy(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+	logger := NewLogger(&buf)
 
 	logger.LogEvent(&Event{
 		Actor:        Actor{Type: "user", ID: "u1"},
@@ -150,7 +150,7 @@ func TestLogEvent_IncludesHierarchy(t *testing.T) {
 // "project"/"component"/"resource" keys.
 func TestLogEvent_OmitsEmptyHierarchyFields(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+	logger := NewLogger(&buf)
 
 	logger.LogEvent(&Event{
 		Actor:        Actor{Type: "user", ID: "u1"},
@@ -202,7 +202,7 @@ func TestRenderPaths_NamespaceFromHierarchyWithNilResource(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	NewLogger(slog.New(slog.NewJSONHandler(&buf, nil))).LogEvent(event)
+	NewLogger(&buf).LogEvent(event)
 	var loggerRecord map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &loggerRecord); err != nil {
 		t.Fatalf("failed to unmarshal LogEvent output: %v", err)
@@ -255,7 +255,7 @@ func TestRenderPaths_ResourceNamespaceOverridesHierarchy(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	NewLogger(slog.New(slog.NewJSONHandler(&buf, nil))).LogEvent(event)
+	NewLogger(&buf).LogEvent(event)
 	var loggerRecord map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &loggerRecord); err != nil {
 		t.Fatalf("failed to unmarshal LogEvent output: %v", err)
@@ -285,71 +285,37 @@ func TestRenderPaths_ResourceNamespaceOverridesHierarchy(t *testing.T) {
 	}
 }
 
-// TestForceLevelHandler_WithAttrsAndWithGroupPreserveForce guards against the
-// always-enabled override silently disappearing through .WithAttrs/.WithGroup
-// — slog.Handler's embedding means those methods, left unimplemented, would
-// return the *inner* handler directly, dropping the force. Unreachable via
-// LogEvent today (it never derives a logger), but a landmine for the next
-// caller that does.
-func TestForceLevelHandler_WithAttrsAndWithGroupPreserveForce(t *testing.T) {
-	newBase := func(buf *bytes.Buffer) slog.Handler {
-		return slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelError})
-	}
+// TestLogEvent_PublishesJSONRegardlessOfAppLogging pins what a collector
+// depends on: a JSON record carrying the AUDIT-LOG marker, whatever format or
+// level the application logger uses. The app logger here is a text handler at
+// LevelError — observer's LOG_LEVEL=debug shape.
+func TestLogEvent_PublishesJSONRegardlessOfAppLogging(t *testing.T) {
+	var appBuf, auditBuf bytes.Buffer
+	appLogger := slog.New(slog.NewTextHandler(&appBuf, &slog.HandlerOptions{Level: slog.LevelError}))
+	appLogger.Error("an application error")
 
-	t.Run("WithAttrs", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := &forceLevelHandler{Handler: newBase(&buf)}
-		derived := h.WithAttrs([]slog.Attr{slog.String("k", "v")})
-
-		if !derived.Enabled(context.Background(), slog.LevelInfo) {
-			t.Fatal("expected the WithAttrs-derived handler to still report Enabled=true below the wrapped handler's minimum level")
-		}
-		slog.New(derived).Info("test message")
-		if buf.Len() == 0 {
-			t.Fatal("expected a record via the WithAttrs-derived handler despite LevelError, got none")
-		}
-	})
-
-	t.Run("WithGroup", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := &forceLevelHandler{Handler: newBase(&buf)}
-		derived := h.WithGroup("g")
-
-		if !derived.Enabled(context.Background(), slog.LevelInfo) {
-			t.Fatal("expected the WithGroup-derived handler to still report Enabled=true below the wrapped handler's minimum level")
-		}
-		slog.New(derived).Info("test message")
-		if buf.Len() == 0 {
-			t.Fatal("expected a record via the WithGroup-derived handler despite LevelError, got none")
-		}
-	})
-}
-
-// TestLogEvent_NotGatedByAppLogLevel guards against audit events being
-// silently dropped when the application logger is configured with a level
-// above Info (e.g. logging.level: warn in Helm values). audit.enabled must be
-// the only kill switch for audit output.
-func TestLogEvent_NotGatedByAppLogLevel(t *testing.T) {
-	var buf bytes.Buffer
-	appLogger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelError}))
-	logger := NewLogger(appLogger)
-
-	logger.LogEvent(&Event{
+	NewLogger(&auditBuf).LogEvent(&Event{
 		Actor:    Actor{Type: "user", ID: "u1"},
 		Action:   "create_project",
 		Category: CategoryManagement,
 		Result:   ResultSuccess,
 	})
 
-	if buf.Len() == 0 {
-		t.Fatal("expected audit record to be emitted despite app logger's LevelError filter, got no output")
+	if auditBuf.Len() == 0 {
+		t.Fatal("expected an audit record, got no output")
 	}
 
 	var record map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &record); err != nil {
-		t.Fatalf("failed to unmarshal log line: %v", err)
+	if err := json.Unmarshal(auditBuf.Bytes(), &record); err != nil {
+		t.Fatalf("audit record is not JSON: %v\nline: %s", err, auditBuf.String())
+	}
+	if record["msg"] != "AUDIT-LOG" {
+		t.Errorf("msg = %v, want AUDIT-LOG — collectors route on this field", record["msg"])
 	}
 	if record["action"] != "create_project" {
 		t.Errorf("action = %v, want create_project", record["action"])
+	}
+	if strings.Contains(auditBuf.String(), "an application error") {
+		t.Error("audit output must not share a destination with the application logger")
 	}
 }
