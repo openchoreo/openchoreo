@@ -113,8 +113,8 @@ func TestAuditMiddlewareWired(t *testing.T) {
 // TestAuditMiddlewareWired_ProjectCRUD locks in the update/delete coverage added
 // alongside create for Project: it drives all three mutating operations on the same
 // project through the production chain and checks each event's action/resource
-// shape, including that resource.uid survives a rename via update but
-// is unavailable on delete because ProjectService.DeleteProject returns only an
+// shape, including that resource.uid stays stable across an update but is
+// unavailable on delete because ProjectService.DeleteProject returns only an
 // error, not the deleted object.
 func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	var buf bytes.Buffer

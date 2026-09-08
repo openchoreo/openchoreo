@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -53,10 +54,21 @@ type boundRow struct {
 // while resource.uid can only ever come from the handler recording the persisted
 // object — see mcphandlers.setAuditResource. A binding with no ResourceArg has no
 // argument naming the resource at all, so both fields wait on the handler.
-func mcpResourceIdentity(resourceArg string) string {
+//
+// A delete tool never reports a uid: its handler is named Delete*, which falls
+// outside the Create/Update/Patch rule that requires a setAuditResource call
+// (see mcphandlers' TestMCPHandlers_WritesCallSetResource), because the service
+// method returns only an error and there is no object to read one from.
+func mcpResourceIdentity(toolName, resourceArg string) string {
 	if resourceArg == "" {
 		return "handler-supplied on success (the call carries no argument naming this resource); " +
 			"no name or uid on a denied/failed call"
+	}
+	if strings.HasPrefix(toolName, "delete_") {
+		return fmt.Sprintf(
+			"name from the `%s` argument, available even on denial; no uid (the service call returns no object)",
+			resourceArg,
+		)
 	}
 	return fmt.Sprintf(
 		"name from the `%s` argument, available even on denial; uid added by the handler on success",
@@ -74,7 +86,7 @@ func renderMCPSection(perms map[string]tools.ToolPermission, bindings map[audit.
 			scope:    key.Scope,
 			opID:     b.Operation.ID,
 			action:   b.Operation.Action,
-			identity: mcpResourceIdentity(b.ResourceArg),
+			identity: mcpResourceIdentity(key.ToolName, b.ResourceArg),
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
