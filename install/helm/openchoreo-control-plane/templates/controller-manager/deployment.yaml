@@ -56,6 +56,11 @@ spec:
         - --cluster-gateway-client-cert={{ .Values.controllerManager.clusterGateway.tls.clientCertPath }}
         - --cluster-gateway-client-key={{ .Values.controllerManager.clusterGateway.tls.clientKeyPath }}
         {{- end }}
+        {{- if .Values.controllerManager.manager.celCostLimit }}
+        {{- /* int64: Helm decodes values.yaml numbers as float64, so a bare render emits
+               2e+06, which the controller's uint64 flag parser rejects at startup. */}}
+        - --cel-cost-limit={{ int64 .Values.controllerManager.manager.celCostLimit }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}

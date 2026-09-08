@@ -33,6 +33,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -48,6 +49,10 @@ type Reconciler struct {
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
 	Pipeline *componentpipeline.Pipeline
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -455,7 +460,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	// Render resources using the shared pipeline instance
-	renderOutput, err := r.Pipeline.Render(renderInput)
+	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
+	// value carrying no deadline, so nothing else in the reconcile is affected by it.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+
+	renderOutput, err := r.Pipeline.Render(ctx, renderInput)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to render resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
@@ -1304,6 +1313,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Setup field index for connection targets (reads from status.connectionTargets)
 	if err := r.setupConnectionTargetsIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup connection targets index: %w", err)
+	}
+
+	// The pipeline carries the CEL cost limit, so a reconciler wired up here rather than
+	// injected from cmd/main.go must still get one.
+	if r.Pipeline == nil {
+		r.Pipeline = componentpipeline.NewPipeline(componentpipeline.WithCostLimit(r.CELCostLimit))
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

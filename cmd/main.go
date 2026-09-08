@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 
 	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
@@ -96,6 +97,7 @@ func setupControlPlaneControllers(
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
 	gwTLS gatewayClient.TLSConfig,
+	celCostLimit uint64,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -224,9 +226,12 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(
+			componentpipeline.WithCostLimit(celCostLimit),
+		),
+		CELCostLimit: celCostLimit,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -259,7 +264,10 @@ func setupControlPlaneControllers(
 		K8sClientMgr: k8sClientMgr,
 		Scheme:       mgr.GetScheme(),
 		GatewayURL:   clusterGatewayURL,
-		Pipeline:     workflowpipeline.NewPipeline(),
+		Pipeline: workflowpipeline.NewPipeline(
+			workflowpipeline.WithCostLimit(celCostLimit),
+		),
+		CELCostLimit: celCostLimit,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -337,6 +345,7 @@ func main() {
 	var clusterGatewayClientCert string
 	var clusterGatewayClientKey string
 	var deploymentPlane string
+	var celCostLimit uint64
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -364,8 +373,22 @@ func main() {
 	opts := zap.Options{
 		Development: true,
 	}
+	// The environment default is resolved before the flag is declared, so a malformed value
+	// is reported after flag.Parse rather than silently replaced by the built-in default:
+	// an operator who set a cost limit and got the default instead would be running with a
+	// bound they did not choose.
+	celCostLimitDefault, celCostLimitEnvErr := getEnvUint("CEL_COST_LIMIT", 0)
+	flag.Uint64Var(&celCostLimit, "cel-cost-limit", celCostLimitDefault,
+		"Maximum accumulated cost for a single CEL template expression. 0 uses the built-in safe default. "+
+			"Defaults to the CEL_COST_LIMIT environment variable when set.")
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if celCostLimitEnvErr != nil {
+		setupLog.Error(celCostLimitEnvErr, "invalid CEL_COST_LIMIT")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -485,7 +508,7 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, gwTLS)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, gwTLS, celCostLimit)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -594,6 +617,22 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// getEnvUint retrieves an unsigned integer environment variable, returning a default if
+// unset. An unparseable value is an error rather than a silent fallback: an operator who
+// set a cost limit and got the default instead would be running with a bound they did not
+// choose.
+func getEnvUint(key string, defaultValue uint64) (uint64, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s=%q: %w", key, value, err)
+	}
+	return parsed, nil
 }
 
 // getEnv retrieves an environment variable value, returning a default if not set

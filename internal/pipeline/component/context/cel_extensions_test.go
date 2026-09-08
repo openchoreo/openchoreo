@@ -188,7 +188,7 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -211,7 +211,7 @@ func TestToConfigFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - configurations is the expected receiver
-	_, err := engine.Render(`${configurations.toConfigFileList()}`, map[string]any{
+	_, err := engine.Render(t.Context(), `${configurations.toConfigFileList()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -223,7 +223,7 @@ func TestToConfigFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	}
 
 	// This should fail - "other" is not a valid receiver for the macro
-	_, err = engine.Render(`${other.toConfigFileList()}`, map[string]any{
+	_, err = engine.Render(t.Context(), `${other.toConfigFileList()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -235,7 +235,7 @@ func TestToConfigFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	}
 
 	// Field access should not be affected by the macro
-	result, err := engine.Render(`${parameters.configFiles.map(f, f.name)}`, map[string]any{
+	result, err := engine.Render(t.Context(), `${parameters.configFiles.map(f, f.name)}`, map[string]any{
 		"parameters": map[string]any{
 			"configFiles": []any{
 				map[string]any{"name": "a.yaml"},
@@ -274,7 +274,7 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(configurations.toConfigFileList())}`, inputs)
+		result, err := engine.Render(t.Context(), `${size(configurations.toConfigFileList())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -284,7 +284,7 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toConfigFileList().map(f, f.name)}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toConfigFileList().map(f, f.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -297,7 +297,7 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("list concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toConfigFileList() + [{"name": "inline.yaml", "mountPath": "/inline.yaml"}]}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toConfigFileList() + [{"name": "inline.yaml", "mountPath": "/inline.yaml"}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -505,7 +505,7 @@ func TestConfigurationsToSecretFileListMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -528,7 +528,7 @@ func TestToSecretFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - configurations is the expected receiver
-	_, err := engine.Render(`${configurations.toSecretFileList()}`, map[string]any{
+	_, err := engine.Render(t.Context(), `${configurations.toSecretFileList()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -540,7 +540,7 @@ func TestToSecretFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	}
 
 	// This should fail - "other" is not a valid receiver for the macro
-	_, err = engine.Render(`${other.toSecretFileList()}`, map[string]any{
+	_, err = engine.Render(t.Context(), `${other.toSecretFileList()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -580,7 +580,7 @@ func TestToSecretFileListCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(configurations.toSecretFileList())}`, inputs)
+		result, err := engine.Render(t.Context(), `${size(configurations.toSecretFileList())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -590,7 +590,7 @@ func TestToSecretFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toSecretFileList().map(f, f.name)}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toSecretFileList().map(f, f.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -603,7 +603,7 @@ func TestToSecretFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("list concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toSecretFileList() + [{"name": "inline.secret", "mountPath": "/inline.secret"}]}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toSecretFileList() + [{"name": "inline.secret", "mountPath": "/inline.secret"}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -773,7 +773,7 @@ func TestContainerConfigEnvFromMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -794,7 +794,7 @@ func TestEnvFromMacroValidation(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - accessing container config from configurations
-	_, err := engine.Render(`${configurations.toContainerEnvFrom()}`, map[string]any{
+	_, err := engine.Render(t.Context(), `${configurations.toContainerEnvFrom()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -809,7 +809,7 @@ func TestEnvFromMacroValidation(t *testing.T) {
 	}
 
 	// toContainerEnvFrom only works on configurations, not arbitrary variables
-	_, err = engine.Render(`${someVar.toContainerEnvFrom()}`, map[string]any{
+	_, err = engine.Render(t.Context(), `${someVar.toContainerEnvFrom()}`, map[string]any{
 		"metadata": map[string]any{
 			"componentName":   "app",
 			"environmentName": "dev",
@@ -847,7 +847,7 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(configurations.toContainerEnvFrom())}`, inputs)
+		result, err := engine.Render(t.Context(), `${size(configurations.toContainerEnvFrom())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -857,7 +857,7 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation to extract names", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toContainerEnvFrom().map(e, has(e.configMapRef) ? e.configMapRef.name : e.secretRef.name)}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toContainerEnvFrom().map(e, has(e.configMapRef) ? e.configMapRef.name : e.secretRef.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -868,7 +868,7 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toContainerEnvFrom() + [{"configMapRef": {"name": "extra-config"}}]}`, inputs)
+		result, err := engine.Render(t.Context(), `${configurations.toContainerEnvFrom() + [{"configMapRef": {"name": "extra-config"}}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -994,7 +994,7 @@ func TestConnectionsContextData(t *testing.T) {
 			},
 		}
 
-		result, err := engine.Render(`${dependencies.toContainerEnvs()}`, inputs)
+		result, err := engine.Render(t.Context(), `${dependencies.toContainerEnvs()}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1064,7 +1064,7 @@ func TestContainerConfigVolumeMountsMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1146,7 +1146,7 @@ func TestConfigurationsToVolumesMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1250,7 +1250,7 @@ func TestConfigurationsToConfigEnvsByContainerMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1374,7 +1374,7 @@ func TestConfigurationsToSecretEnvsByContainerMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1722,7 +1722,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			result, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1794,7 +1794,7 @@ func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			_, err := engine.Render(t.Context(), "${"+tt.expr+"}", tt.inputs)
 			if err == nil {
 				t.Fatal("expected error but got none")
 			}
@@ -1809,7 +1809,7 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - workload.endpoints is the expected receiver
-	_, err := engine.Render(`${workload.toServicePorts()}`, map[string]any{
+	_, err := engine.Render(t.Context(), `${workload.toServicePorts()}`, map[string]any{
 		"workload": map[string]any{
 			"endpoints": map[string]any{},
 		},
@@ -1819,7 +1819,7 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	}
 
 	// This should fail - "other" is not a valid receiver for the macro
-	_, err = engine.Render(`${other.toServicePorts()}`, map[string]any{
+	_, err = engine.Render(t.Context(), `${other.toServicePorts()}`, map[string]any{
 		"other": map[string]any{
 			"endpoints": map[string]any{},
 		},
@@ -1829,7 +1829,7 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	}
 
 	// This should fail - direct call on non-endpoints field
-	_, err = engine.Render(`${workload.containers.toServicePorts()}`, map[string]any{
+	_, err = engine.Render(t.Context(), `${workload.containers.toServicePorts()}`, map[string]any{
 		"workload": map[string]any{
 			"containers": map[string]any{},
 		},
@@ -1858,7 +1858,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(workload.toServicePorts())}`, inputs)
+		result, err := engine.Render(t.Context(), `${size(workload.toServicePorts())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1868,7 +1868,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation to extract port names", func(t *testing.T) {
-		result, err := engine.Render(`${workload.toServicePorts().map(p, p.name)}`, inputs)
+		result, err := engine.Render(t.Context(), `${workload.toServicePorts().map(p, p.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1881,7 +1881,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation to extract port numbers", func(t *testing.T) {
-		result, err := engine.Render(`${workload.toServicePorts().map(p, p.port)}`, inputs)
+		result, err := engine.Render(t.Context(), `${workload.toServicePorts().map(p, p.port)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1908,7 +1908,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 				},
 			},
 		}
-		result, err := engine.Render(`${workload.toServicePorts().filter(p, p.protocol == "UDP")}`, udpInputs)
+		result, err := engine.Render(t.Context(), `${workload.toServicePorts().filter(p, p.protocol == "UDP")}`, udpInputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1921,7 +1921,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("list concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${workload.toServicePorts() + [{"name": "admin", "port": 9999, "targetPort": 9999, "protocol": "TCP"}]}`, inputs)
+		result, err := engine.Render(t.Context(), `${workload.toServicePorts() + [{"name": "admin", "port": 9999, "targetPort": 9999, "protocol": "TCP"}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
