@@ -4,7 +4,10 @@
 package audit
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 )
 
@@ -53,92 +56,175 @@ func NewLogger(slogger *slog.Logger) *Logger {
 	return &Logger{slogger: slog.New(&forceLevelHandler{Handler: slogger.Handler()})}
 }
 
-// LogEvent emits an audit log event using slog
+// LogEvent emits an audit log event using slog. The attrs are derived from
+// Event.MarshalJSON's output rather than built by hand, so the log stream and
+// a sink that marshals the same *Event cannot publish different shapes.
 func (l *Logger) LogEvent(event *Event) {
-	attrs := []any{
-		slog.String("event_id", event.EventID),
-		slog.Time("timestamp", event.Timestamp),
+	payload, err := json.Marshal(event)
+	if err != nil {
+		l.logRenderFailure(event, err)
+		return
 	}
 
-	actorAttrs := []any{
-		slog.String("type", event.Actor.Type),
-		slog.String("id", event.Actor.ID),
-	}
-	if len(event.Actor.Entitlements) > 0 {
-		entitlementAttrs := make([]any, 0, len(event.Actor.Entitlements))
-		for k, v := range event.Actor.Entitlements {
-			entitlementAttrs = append(entitlementAttrs, slog.Any(k, v))
-		}
-		actorAttrs = append(actorAttrs, slog.Group("entitlements", entitlementAttrs...))
-	}
-	attrs = append(attrs, slog.Group("actor", actorAttrs...))
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	// Numbers stay json.Number so a value round-trips to the same bytes it
+	// marshaled from, rather than through float64.
+	dec.UseNumber()
 
-	attrs = append(attrs,
-		slog.String("action", event.Action),
-		slog.String("category", string(event.Category)),
-		slog.String("result", string(event.Result)),
-		slog.String("request_id", event.RequestID),
-		slog.String("source_ip", event.SourceIP),
-		slog.String("service", event.Service),
-	)
-	if event.Origin != "" {
-		attrs = append(attrs, slog.String("origin", string(event.Origin)))
+	tok, err := dec.Token()
+	if err != nil {
+		l.logRenderFailure(event, err)
+		return
 	}
-	if event.OperationID != "" {
-		attrs = append(attrs, slog.String("operation_id", event.OperationID))
+	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
+		l.logRenderFailure(event, fmt.Errorf("expected a JSON object, got %v", tok))
+		return
 	}
 
-	if event.ResourceType != "" || event.Resource != nil || event.Hierarchy != (Hierarchy{}) {
-		var resourceAttrs []any
-		if event.ResourceType != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("type", event.ResourceType))
-		}
-		// Same precedence as Event.MarshalJSON and buildEvent's
-		// withHierarchyNamespaceFallback: the hierarchy's namespace unless
-		// the Resource carries one of its own. Keeping the two render paths
-		// identical here is what TestEvent_MarshalJSONMatchesLogEventShape
-		// guards.
-		namespace := event.Hierarchy.Namespace
-		if event.Resource != nil && event.Resource.Namespace != "" {
-			namespace = event.Resource.Namespace
-		}
-		if namespace != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("namespace", namespace))
-		}
-		if event.Hierarchy.Project != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("project", event.Hierarchy.Project))
-		}
-		if event.Hierarchy.Component != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("component", event.Hierarchy.Component))
-		}
-		if event.Hierarchy.Resource != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("resource", event.Hierarchy.Resource))
-		}
-		if event.Resource != nil {
-			if event.Resource.ID != "" {
-				resourceAttrs = append(resourceAttrs, slog.String("id", event.Resource.ID))
-			}
-			if event.Resource.Name != "" {
-				resourceAttrs = append(resourceAttrs, slog.String("name", event.Resource.Name))
-			}
-			if len(event.Resource.Metadata) > 0 {
-				metadataAttrs := make([]any, 0, len(event.Resource.Metadata))
-				for k, v := range event.Resource.Metadata {
-					metadataAttrs = append(metadataAttrs, slog.Any(k, v))
-				}
-				resourceAttrs = append(resourceAttrs, slog.Group("metadata", metadataAttrs...))
-			}
-		}
-		attrs = append(attrs, slog.Group("resource", resourceAttrs...))
-	}
-
-	if len(event.Metadata) > 0 {
-		metadataAttrs := make([]any, 0, len(event.Metadata))
-		for k, v := range event.Metadata {
-			metadataAttrs = append(metadataAttrs, slog.Any(k, v))
-		}
-		attrs = append(attrs, slog.Group("metadata", metadataAttrs...))
+	attrs, err := decodeObjectAttrs(dec)
+	if err != nil {
+		l.logRenderFailure(event, err)
+		return
 	}
 
 	l.slogger.Info("AUDIT-LOG", attrs...)
+}
+
+// logRenderFailure publishes an audit event's identity when its body cannot be
+// rendered, rather than dropping the record silently. Reachable only through
+// the map[string]any metadata fields, which could hold a non-marshalable value.
+func (l *Logger) logRenderFailure(event *Event, err error) {
+	l.slogger.Error("AUDIT-LOG-RENDER-FAILED",
+		slog.String("event_id", event.EventID),
+		slog.String("action", event.Action),
+		slog.String("result", string(event.Result)),
+		slog.String("error", err.Error()),
+	)
+}
+
+// decodeObjectAttrs reads key/value pairs up to the object's closing brace as
+// slog attrs, nested objects becoming slog.Group. A decoder rather than a
+// map[string]any because map iteration would lose field order.
+func decodeObjectAttrs(dec *json.Decoder) ([]any, error) {
+	var attrs []any
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := tok.(json.Delim); ok && delim == '}' {
+			return attrs, nil
+		}
+		key, ok := tok.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected an object key, got %v", tok)
+		}
+
+		valTok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := valTok.(json.Delim); ok {
+			switch delim {
+			case '{':
+				group, err := decodeObjectAttrs(dec)
+				if err != nil {
+					return nil, err
+				}
+				if len(group) == 0 {
+					// slog.JSONHandler drops an empty group, which would lose
+					// the field the marshaled form still carries.
+					attrs = append(attrs, slog.Any(key, map[string]any{}))
+					continue
+				}
+				attrs = append(attrs, slog.Group(key, group...))
+			case '[':
+				arr, err := decodeArray(dec)
+				if err != nil {
+					return nil, err
+				}
+				attrs = append(attrs, slog.Any(key, arr))
+			default:
+				return nil, fmt.Errorf("unexpected delimiter %v for key %q", delim, key)
+			}
+			continue
+		}
+		attrs = append(attrs, slog.Any(key, valTok))
+	}
+}
+
+// decodeArray reads array elements up to the closing bracket as plain Go
+// values; an array has no keys to group by.
+func decodeArray(dec *json.Decoder) ([]any, error) {
+	items := []any{}
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := tok.(json.Delim); ok {
+			switch delim {
+			case ']':
+				return items, nil
+			case '{':
+				obj, err := decodeObjectMap(dec)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, obj)
+				continue
+			case '[':
+				nested, err := decodeArray(dec)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, nested)
+				continue
+			}
+		}
+		items = append(items, tok)
+	}
+}
+
+// decodeObjectMap reads an object nested inside an array into a map.
+func decodeObjectMap(dec *json.Decoder) (map[string]any, error) {
+	out := map[string]any{}
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := tok.(json.Delim); ok && delim == '}' {
+			return out, nil
+		}
+		key, ok := tok.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected an object key, got %v", tok)
+		}
+
+		valTok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := valTok.(json.Delim); ok {
+			switch delim {
+			case '{':
+				nested, err := decodeObjectMap(dec)
+				if err != nil {
+					return nil, err
+				}
+				out[key] = nested
+			case '[':
+				arr, err := decodeArray(dec)
+				if err != nil {
+					return nil, err
+				}
+				out[key] = arr
+			default:
+				return nil, fmt.Errorf("unexpected delimiter %v for key %q", delim, key)
+			}
+			continue
+		}
+		out[key] = valTok
+	}
 }

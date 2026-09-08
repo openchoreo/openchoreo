@@ -17,6 +17,7 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	coremocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -423,6 +424,71 @@ func TestCheckAuthorization_DecisionDenied(t *testing.T) {
 		authzcore.Context{},
 	)
 	assert.ErrorIs(t, err, ErrAuthzForbidden)
+}
+
+// TestCheckAuthorization_RecordsEnvironmentRegardlessOfDecision guards that an
+// environment-scoped observer operation reaches the audit record with the same
+// dual-scoped value the decision used, whatever the decision was. No audited
+// observer operation supplies one yet, so this is what keeps the wiring honest
+// until one does.
+func TestCheckAuthorization_RecordsEnvironmentRegardlessOfDecision(t *testing.T) {
+	const env = "acme/production"
+
+	tests := []struct {
+		name     string
+		decision *authzcore.Decision
+		evalErr  error
+	}{
+		{name: "allow", decision: &authzcore.Decision{Decision: true}},
+		{name: "deny", decision: &authzcore.Decision{Decision: false}},
+		{name: "pdp error", evalErr: fmt.Errorf("pdp unavailable")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockPDP := coremocks.NewMockPDP(t)
+			mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+				Return(tt.decision, tt.evalErr)
+
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{})
+			_ = CheckAuthorization(
+				ctx,
+				noopLogger(),
+				mockPDP,
+				ActionViewLogs,
+				ResourceTypeComponent,
+				"api",
+				authzcore.ResourceHierarchy{Namespace: "acme", Component: "api"},
+				authzcore.Context{Resource: authzcore.ResourceAttribute{Environment: env}},
+			)
+
+			want := audit.Hierarchy{Namespace: "acme", Environment: env, Component: "api"}
+			assert.Equal(t, want, auditData.Hierarchy)
+		})
+	}
+}
+
+// TestCheckAuthorization_NoEnvironmentAttributeRecordsNone covers observer's
+// current operations, none of which pass an environment.
+func TestCheckAuthorization_NoEnvironmentAttributeRecordsNone(t *testing.T) {
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authzcore.Decision{Decision: true}, nil)
+
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{})
+	err := CheckAuthorization(
+		ctx,
+		noopLogger(),
+		mockPDP,
+		ActionViewLogs,
+		ResourceTypeComponent,
+		"api",
+		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzcore.Context{},
+	)
+
+	require.NoError(t, err)
+	assert.Empty(t, auditData.Hierarchy.Environment)
 }
 
 func TestCheckAuthorization_BuildsCorrectRequest(t *testing.T) {
