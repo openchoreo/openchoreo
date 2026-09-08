@@ -83,7 +83,6 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 	}
 
 	event := &Event{
-		AuditID:   env.Request.AuditID,
 		EventID:   eventIDStr,
 		EventTime: env.Request.EventTime,
 		Producer:  serviceName,

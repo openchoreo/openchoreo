@@ -32,19 +32,10 @@ func TestHTTPInfoFromRequest_RecordsPathWithoutQuery(t *testing.T) {
 	}
 }
 
-// TestNewRequestInfo_StampsDistinctAuditIDs guards that AuditID identifies an
-// operation, not the process: two requests sharing one would group unrelated
-// operations together.
-func TestNewRequestInfo_StampsDistinctAuditIDs(t *testing.T) {
-	first, second := NewRequestInfo(nil), NewRequestInfo(nil)
-
-	if first.AuditID == "" {
-		t.Fatal("AuditID is empty, want a stamped UUID")
-	}
-	if first.AuditID == second.AuditID {
-		t.Errorf("both requests got AuditID %q, want distinct values", first.AuditID)
-	}
-	if first.EventTime.IsZero() {
+// TestNewRequestInfo_StampsArrivalTime guards the capture that cannot happen
+// later: emission runs after the handler returns.
+func TestNewRequestInfo_StampsArrivalTime(t *testing.T) {
+	if got := NewRequestInfo(nil); got.EventTime.IsZero() {
 		t.Error("EventTime is zero, want the arrival time stamped at entry")
 	}
 }

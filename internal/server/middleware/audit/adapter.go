@@ -79,7 +79,6 @@ func newUUID() string {
 // arrives. Pass nil for httpInfo on a surface with no request line.
 func NewRequestInfo(httpInfo *HTTPInfo) RequestInfo {
 	return RequestInfo{
-		AuditID:   newUUID(),
 		EventTime: time.Now(),
 		HTTP:      httpInfo,
 	}

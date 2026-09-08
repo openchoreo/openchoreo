@@ -110,10 +110,6 @@ type HTTPInfo struct {
 // handler returns, so a timestamp taken there is the response's completion —
 // minutes late for a handler that hijacks the connection.
 type RequestInfo struct {
-	// AuditID identifies the audited operation; EventID identifies one record
-	// of it. Not RequestID, which a client can repeat across requests and
-	// which already spans several operations on MCP.
-	AuditID string
 	// EventTime is when the audit adapter received the request — after token
 	// validation on an authenticated request, since Middleware sits inside
 	// auth. The gap from socket-accept belongs to the access log.
@@ -124,14 +120,13 @@ type RequestInfo struct {
 
 // Event represents a complete audit log event
 type Event struct {
-	AuditID      string
 	EventID      string // Unique identifier for this record (UUID v7)
 	EventTime    time.Time
 	Actor        Actor
 	Action       string // Semantic action name (e.g., "create_project")
 	Category     Category
 	Origin       Origin // Surface that produced the event: api | mcp
-	OperationID  string // OpenAPI operationId, e.g. "CreateProject"
+	OperationID  string // Canonical operation identifier, e.g. "CreateProject"
 	HTTP         *HTTPInfo
 	ResourceType string
 	Resource     *Resource // Target resource (can be nil for non-resource actions)
@@ -148,7 +143,6 @@ type Event struct {
 // alike — reordering these fields changes the record consumers receive.
 type eventJSON struct {
 	SchemaVersion string         `json:"schema_version"`
-	AuditID       string         `json:"audit_id"`
 	EventID       string         `json:"event_id"`
 	EventTime     time.Time      `json:"event_time"`
 	Actor         Actor          `json:"actor"`
@@ -189,7 +183,6 @@ type resourceJSON struct {
 func (e Event) MarshalJSON() ([]byte, error) {
 	return json.Marshal(eventJSON{
 		SchemaVersion: SchemaVersion,
-		AuditID:       e.AuditID,
 		EventID:       e.EventID,
 		EventTime:     e.EventTime,
 		Actor:         e.Actor,

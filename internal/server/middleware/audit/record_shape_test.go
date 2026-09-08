@@ -48,7 +48,6 @@ func recordCases() []recordCase {
 		{
 			name: "full event",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a1",
 				EventID:   "01920000-0000-7000-8000-000000000001",
 				EventTime: fixedTime,
 				Actor: Actor{
@@ -73,7 +72,6 @@ func recordCases() []recordCase {
 				Metadata:     map[string]any{"note": "n1"},
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000001",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"user@example.com",` +
@@ -90,7 +88,6 @@ func recordCases() []recordCase {
 		{
 			name: "mcp tool call omits the http group",
 			event: &Event{
-				AuditID:      "01920000-0000-7000-8000-0000000000a2",
 				EventID:      "01920000-0000-7000-8000-000000000002",
 				EventTime:    fixedTime,
 				Actor:        Actor{Type: "user", ID: "u1"},
@@ -108,7 +105,6 @@ func recordCases() []recordCase {
 				Producer:     "openchoreo-api",
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a2",` +
 				`"event_id":"01920000-0000-7000-8000-000000000002",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -120,7 +116,6 @@ func recordCases() []recordCase {
 		{
 			name: "unauthenticated with no operation",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a3",
 				EventID:   "01920000-0000-7000-8000-000000000003",
 				EventTime: fixedTime,
 				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
@@ -134,7 +129,6 @@ func recordCases() []recordCase {
 			},
 			// No "resource" at all: nothing resource-shaped was resolved.
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a3",` +
 				`"event_id":"01920000-0000-7000-8000-000000000003",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"anonymous","id":"anonymous"},` +
@@ -148,7 +142,6 @@ func recordCases() []recordCase {
 			// pin that http's presence is not derivable from origin.
 			name: "mcp rejection at the http boundary carries the http group",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a8",
 				EventID:   "01920000-0000-7000-8000-000000000008",
 				EventTime: fixedTime,
 				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
@@ -160,7 +153,6 @@ func recordCases() []recordCase {
 				HTTP:      &HTTPInfo{Method: "POST", Path: "/mcp"},
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a8",` +
 				`"event_id":"01920000-0000-7000-8000-000000000008",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"anonymous","id":"anonymous"},` +
@@ -172,7 +164,6 @@ func recordCases() []recordCase {
 		{
 			name: "sub-second timestamp",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a5",
 				EventID:   "01920000-0000-7000-8000-000000000005",
 				EventTime: time.Date(2026, 9, 7, 12, 30, 45, 123456789, time.UTC),
 				Actor:     Actor{Type: "user", ID: "u1"},
@@ -184,7 +175,6 @@ func recordCases() []recordCase {
 				Producer:  "openchoreo-api",
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a5",` +
 				`"event_id":"01920000-0000-7000-8000-000000000005",` +
 				`"event_time":"2026-09-07T12:30:45.123456789Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -195,7 +185,6 @@ func recordCases() []recordCase {
 		{
 			name: "resource metadata group",
 			event: &Event{
-				AuditID:      "01920000-0000-7000-8000-0000000000a4",
 				EventID:      "01920000-0000-7000-8000-000000000004",
 				EventTime:    fixedTime,
 				Actor:        Actor{Type: "service_account", ID: "sa-1"},
@@ -215,7 +204,6 @@ func recordCases() []recordCase {
 				Producer:  "observer",
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a4",` +
 				`"event_id":"01920000-0000-7000-8000-000000000004",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"service_account","id":"sa-1"},` +
@@ -228,7 +216,6 @@ func recordCases() []recordCase {
 		{
 			name: "empty nested object survives",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a7",
 				EventID:   "01920000-0000-7000-8000-000000000007",
 				EventTime: fixedTime,
 				Actor:     Actor{Type: "user", ID: "u1"},
@@ -243,7 +230,6 @@ func recordCases() []recordCase {
 				Metadata: map[string]any{"empty": map[string]any{}, "keep": "v"},
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a7",` +
 				`"event_id":"01920000-0000-7000-8000-000000000007",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -254,7 +240,6 @@ func recordCases() []recordCase {
 		{
 			name: "multi-key maps are ordered",
 			event: &Event{
-				AuditID:   "01920000-0000-7000-8000-0000000000a6",
 				EventID:   "01920000-0000-7000-8000-000000000006",
 				EventTime: fixedTime,
 				Actor: Actor{
@@ -273,7 +258,6 @@ func recordCases() []recordCase {
 				Metadata:  map[string]any{"z": 1, "a": 2},
 			},
 			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"audit_id":"01920000-0000-7000-8000-0000000000a6",` +
 				`"event_id":"01920000-0000-7000-8000-000000000006",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1","entitlements":{"groups":["dev"],"roles":["admin"]}},` +

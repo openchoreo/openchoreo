@@ -108,7 +108,6 @@ func TestBuildEvent_TakesEntryCapturedFactsFromEnvelope(t *testing.T) {
 	env := Envelope{
 		Origin: OriginAPI, Result: ResultSuccess,
 		Request: RequestInfo{
-			AuditID:   "01920000-0000-7000-8000-0000000000ff",
 			EventTime: entryTime,
 			HTTP:      &HTTPInfo{Method: "POST", Path: "/api/v1/namespaces/ns-1/projects"},
 		},
@@ -119,11 +118,8 @@ func TestBuildEvent_TakesEntryCapturedFactsFromEnvelope(t *testing.T) {
 	if !event.EventTime.Equal(entryTime) {
 		t.Errorf("EventTime = %v, want the entry-captured %v", event.EventTime, entryTime)
 	}
-	if event.AuditID != env.Request.AuditID {
-		t.Errorf("AuditID = %q, want %q", event.AuditID, env.Request.AuditID)
-	}
-	if event.AuditID == event.EventID {
-		t.Error("AuditID must not be reused as EventID: one identifies the operation, the other this record")
+	if event.EventID == "" {
+		t.Error("EventID is empty, want a stamped UUID")
 	}
 	if event.HTTP != env.Request.HTTP {
 		t.Errorf("HTTP = %+v, want the entry-captured request line", event.HTTP)
