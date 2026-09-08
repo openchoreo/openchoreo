@@ -221,14 +221,14 @@ func TestValidate(t *testing.T) {
 // seeded-data shortcut.
 const uidResolutionResolver = "resolver"
 
-// TestInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
+// TestDeliveryInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
 // not mention Delivery Insights gets it disabled. Aggregation in particular must
 // default off: the aggregator has no leader election, so the chart refuses
 // observer.replicas > 1 while it is enabled, and defaulting it on would fail the
 // render of an existing scaled deployment that never opted in.
-func TestInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
+func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	// Load() reads the process environment, and anyone working on this feature is
-	// likely to have INSIGHTS_* set in their shell -- which would make this assert
+	// likely to have DELIVERY_INSIGHTS_* set in their shell -- which would make this assert
 	// their environment rather than the defaults. Load() skips empty values, so
 	// setting each to "" neutralizes it; t.Setenv restores the originals.
 	for _, key := range []string{
@@ -256,7 +256,7 @@ func TestInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 		"passthrough is a seeded-data shortcut and must not be the default")
 }
 
-func TestValidateInsightsStore(t *testing.T) {
+func TestValidateDeliveryInsightsStore(t *testing.T) {
 	// newConfig returns a config whose only interesting fields are the store ones,
 	// with aggregation off so validation stops after the store checks.
 	newConfig := func(alertBackend, alertDSN, deliveryInsightsBackend, deliveryInsightsDSN string) *Config {
@@ -338,7 +338,7 @@ func TestEnsureSQLiteBusyTimeout(t *testing.T) {
 	}
 }
 
-func TestValidateInsightsAggregation(t *testing.T) {
+func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 	newConfig := func(interval, overlap time.Duration) *Config {
 		c := &Config{}
 		c.Alerting.AlertStoreBackend = "sqlite"
