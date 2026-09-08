@@ -1491,7 +1491,7 @@
           "properties": {
             "aggregationEnabled": {
               "default": false,
-              "description": "Run the DORA aggregator in the Observer process. It has no leader election, so exactly one replica may run it; the chart refuses replicas \u003e 1 while this is enabled.",
+              "description": "Run the DORA aggregator in the Observer process. It is a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. It governs aggregation only - the read API is served by every replica either way, though with no aggregator running there are no facts for it to return. The aggregator has no leader election, so exactly one replica may run it and the chart refuses replicas \u003e 1 while it is enabled; a multi-replica Observer therefore cannot collect Delivery Insights data until leader election is added.",
               "title": "aggregationEnabled",
               "type": "boolean"
             },
