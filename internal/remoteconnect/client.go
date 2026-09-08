@@ -98,6 +98,36 @@ func (c *TunnelClient) OpenStream(key string) (net.Conn, error) {
 	return stream, nil
 }
 
+// Fetch opens a stream for a value-fetch key and returns the value the remote-agent read
+// from its own namespace. Unlike OpenStream this consumes the whole exchange: a fetch
+// stream carries exactly one reply and is closed here, so no byte pipe is handed back.
+//
+// The value is returned to the caller and never logged, written to disk by this package,
+// or included in an error — an error mentioning the value would put secret material into
+// occ's terminal output.
+func (c *TunnelClient) Fetch(key string) ([]byte, error) {
+	if !IsSecretGrantKey(key) {
+		return nil, fmt.Errorf("remoteconnect: %q is not a value-fetch key", key)
+	}
+	stream, err := c.session.OpenStream()
+	if err != nil {
+		return nil, fmt.Errorf("remoteconnect: open stream: %w", err)
+	}
+	defer stream.Close()
+
+	if err := WriteMessage(stream, StreamOpen{Key: key}); err != nil {
+		return nil, err
+	}
+	var res SecretResult
+	if err := ReadMessage(stream, &res); err != nil {
+		return nil, err
+	}
+	if !res.OK {
+		return nil, fmt.Errorf("%s", res.Error)
+	}
+	return res.Value, nil
+}
+
 // Close tears down the session and underlying connection.
 func (c *TunnelClient) Close() error {
 	if c.session != nil {

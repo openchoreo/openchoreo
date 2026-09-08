@@ -1414,6 +1414,8 @@ openchoreoApi:
                 - "resource:create"
                 - "resource:update"
                 - "resource:delete"
+                - "resource:connect"
+                - "resource:read-secrets"
                 - "resourcerelease:view"
                 - "resourcerelease:create"
                 - "projectrelease:view"
@@ -1531,6 +1533,8 @@ openchoreoApi:
                 - "resource:create"
                 - "resource:update"
                 - "resource:delete"
+                - "resource:connect"
+                - "resource:read-secrets"
                 - "resourcerelease:view"
                 - "resourcerelease:create"
                 - "resourcerelease:delete"
@@ -1959,6 +1963,31 @@ openchoreoApi:
       # default: 1800
       # @schema
       ttlSeconds: 1800
+      # @schema
+      # type: integer
+      # description: |
+      #   Capability lifetime when the capability authorizes reading secret- or
+      #   configmap-backed dependency values. Authorization is decided once, at resolve,
+      #   and the per-stream authorize callback re-checks nothing — so this is the entire
+      #   revocation window for a credential read, and is meant to be shorter than
+      #   ttlSeconds. A value above ttlSeconds is rejected at startup. 0 falls back to
+      #   ttlSeconds.
+      # default: 600
+      # minimum: 0
+      # @schema
+      secretTtlSeconds: 600
+      # @schema
+      # type: boolean
+      # description: |
+      #   Allow `occ remote` to resolve secret- and configmap-backed dependency values.
+      #   The remote-agent reads them in the data plane and returns them over the tunnel, so
+      #   they never pass through openchoreo-api. Reading a secret additionally requires
+      #   the resource:read-secrets action, so this is an operator kill switch independent
+      #   of role configuration: with it off, no capability authorizes a read whatever the
+      #   roles grant.
+      # default: true
+      # @schema
+      secretsEnabled: true
       # @schema
       # description: Container image for the provisioned remote-agent Deployment
       # @schema

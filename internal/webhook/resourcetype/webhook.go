@@ -48,7 +48,10 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	}
 	resourcetypelog.Info("Validation for ResourceType upon creation", "name", rt.GetName())
 
-	if errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec")); len(errs) > 0 {
+	errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec"))
+	errs = append(errs, resourcevalidation.ValidateLocalDevAddressesAnnotation(
+		rt.Annotations, rt.Spec.Outputs, field.NewPath("metadata", "annotations"))...)
+	if len(errs) > 0 {
 		return nil, apierrors.NewInvalid(rt.GroupVersionKind().GroupKind(), rt.GetName(), errs)
 	}
 	return nil, nil
@@ -67,7 +70,10 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 	resourcetypelog.Info("Validation for ResourceType upon update", "name", rt.GetName())
 
-	if errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec")); len(errs) > 0 {
+	errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec"))
+	errs = append(errs, resourcevalidation.ValidateLocalDevAddressesAnnotation(
+		rt.Annotations, rt.Spec.Outputs, field.NewPath("metadata", "annotations"))...)
+	if len(errs) > 0 {
 		return nil, apierrors.NewInvalid(rt.GroupVersionKind().GroupKind(), rt.GetName(), errs)
 	}
 	return nil, nil

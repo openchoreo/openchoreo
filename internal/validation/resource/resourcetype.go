@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 	"github.com/openchoreo/openchoreo/internal/template"
 	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 )
@@ -113,12 +114,57 @@ func validateResourceTypeSpecCommon(
 	}
 
 	outputsPath := basePath.Child("outputs")
+	declaredOutputs := make(map[string]bool, len(outputs))
 	for i := range outputs {
 		allErrs = append(allErrs, validateResourceOutput(
 			&outputs[i], appliedEnv, declaredIDs, outputsPath.Index(i),
 		)...)
+		if outputs[i].Name != "" {
+			declaredOutputs[outputs[i].Name] = true
+		}
 	}
 
+	return allErrs
+}
+
+// ValidateLocalDevAddressesAnnotation checks that the annotation on a
+// (Cluster)ResourceType, or on a ResourceRelease cut from one, parses and names only
+// declared outputs. basePath is the object's annotations path.
+func ValidateLocalDevAddressesAnnotation(
+	annotations map[string]string,
+	outputs []v1alpha1.ResourceTypeOutput,
+	basePath *field.Path,
+) field.ErrorList {
+	value, ok := annotations[localdevaddresses.AnnotationKey]
+	if !ok {
+		return nil
+	}
+	path := basePath.Key(localdevaddresses.AnnotationKey)
+
+	decls, err := localdevaddresses.Parse(value)
+	if err != nil {
+		return field.ErrorList{field.Invalid(path, value, err.Error())}
+	}
+
+	declaredOutputs := make(map[string]bool, len(outputs))
+	for i := range outputs {
+		if outputs[i].Name != "" {
+			declaredOutputs[outputs[i].Name] = true
+		}
+	}
+
+	var allErrs field.ErrorList
+	for i := range decls {
+		d := &decls[i]
+		if !declaredOutputs[d.HostOutput] {
+			allErrs = append(allErrs, field.Invalid(path, value,
+				fmt.Sprintf("endpoint %q: host output %q is not declared in spec.outputs", d.Name, d.HostOutput)))
+		}
+		if !declaredOutputs[d.PortOutput] {
+			allErrs = append(allErrs, field.Invalid(path, value,
+				fmt.Sprintf("endpoint %q: port output %q is not declared in spec.outputs", d.Name, d.PortOutput)))
+		}
+	}
 	return allErrs
 }
 

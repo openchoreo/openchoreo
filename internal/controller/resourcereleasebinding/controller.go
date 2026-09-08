@@ -26,6 +26,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
@@ -206,8 +207,8 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, nil
 	}
 
-	r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
-	return ctrl.Result{}, nil
+	retryAfter := r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
+	return ctrl.Result{RequeueAfter: retryAfter}, nil
 }
 
 // renderAndEmit drives the pipeline against the snapshot and writes the
@@ -348,12 +349,18 @@ func convertEntriesToManifests(entries []resourcepipeline.RenderedEntry) ([]open
 
 // buildResourceTypeFromRelease rehydrates a ResourceType view from the
 // snapshot. Name is a placeholder; the pipeline does not consume it.
-// Mirrors releasebinding.buildComponentTypeFromRelease.
+// Mirrors releasebinding.buildComponentTypeFromRelease. The local-dev-addresses
+// annotation comes across so the pipeline resolves what the release was cut with.
 func buildResourceTypeFromRelease(release *openchoreov1alpha1.ResourceRelease) *openchoreov1alpha1.ResourceType {
+	var annotations map[string]string
+	if value, ok := release.Annotations[localdevaddresses.AnnotationKey]; ok {
+		annotations = map[string]string{localdevaddresses.AnnotationKey: value}
+	}
 	return &openchoreov1alpha1.ResourceType{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "from-release",
-			Namespace: release.Namespace,
+			Name:        "from-release",
+			Namespace:   release.Namespace,
+			Annotations: annotations,
 		},
 		Spec: release.Spec.ResourceType.Spec,
 	}

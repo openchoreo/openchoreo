@@ -44,6 +44,11 @@ type Server struct {
 
 	// dialer dials upstream dependency targets. Overridable in tests.
 	dialer func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	// values reads authorized Secret/ConfigMap keys from the agent's own namespace. Nil
+	// when the agent has no Kubernetes identity — tunnels still work and fetches are
+	// refused, rather than the whole agent failing to start.
+	values valueReader
 }
 
 // sessionTracker records the capability of each live tunnel session. Its count drives
@@ -91,6 +96,22 @@ func New(cfg Config, log *slog.Logger) (*Server, error) {
 		return nil, err
 	}
 	srv := NewServer(cfg, auth, log)
+	// Value reads need a Kubernetes identity and the agent's own namespace. A missing one
+	// is a warning, not a failure: an agent that can only tunnel is still useful, and the
+	// fetch path reports "this agent cannot read values" per stream.
+	if cfg.Namespace != "" {
+		reader, rerr := newK8sValueReader(cfg.Namespace)
+		if rerr != nil {
+			log.Warn("remote-agent value reads disabled (no usable Kubernetes client); "+
+				"secret- and configmap-backed bindings will not resolve",
+				"namespace", cfg.Namespace, "error", rerr)
+		} else {
+			srv.values = reader
+		}
+	} else {
+		log.Warn("remote-agent value reads disabled (no namespace configured); " +
+			"secret- and configmap-backed bindings will not resolve")
+	}
 	// Heartbeats need both an endpoint and the agent's own namespace to name itself.
 	if cfg.HeartbeatURL != "" && cfg.Namespace != "" {
 		srv.hb = auth

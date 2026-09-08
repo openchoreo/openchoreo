@@ -1,0 +1,40 @@
+# The caller. Its greeter dependencies live in other projects and are tunnelled;
+# its dependency on `db-api` is cross-linked to 127.0.0.1:4000 when both workload
+# files are passed to the same `occ remote` invocation.
+#
+# `occ remote` reads this file from disk and only looks at spec.dependencies — the
+# component does not need to exist in OpenChoreo and this sample never deploys it,
+# so container.image is a placeholder for whatever you build locally.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: web-app
+  namespace: default
+spec:
+  owner:
+    componentName: web-app
+    projectName: default
+  dependencies:
+    endpoints:
+      - project: greeter
+        component: greeter-service
+        name: http
+        visibility: namespace
+        envBindings:
+          address: HTTP_SERVICE_URL
+      - project: grpc-demo
+        component: grpc-greeter
+        name: grpc
+        visibility: namespace
+        envBindings:
+          address: GRPC_SERVICE_URL
+      - project: default
+        component: db-api
+        name: http
+        visibility: project
+        envBindings:
+          address: DB_API_URL
+  container:
+    # Placeholder — this image does not exist. Nothing pulls it: `occ remote` never
+    # deploys the workload. Replace it with your own if you deploy this component.
+    image: my-registry.example.com/web-app:latest
