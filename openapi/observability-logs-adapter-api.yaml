@@ -139,7 +139,7 @@ paths:
         its own.
 
         2. Unscoped sweeps are an OPTIONAL capability. An adapter that does not
-        implement them MUST reject an unscoped request with 400, rather than
+        implement them MUST reject an unscoped request with 501, rather than
         ignoring the omission and running a broader query than the caller asked
         for.
 
@@ -147,11 +147,15 @@ paths:
         NOT be widened by any scope inferred from the request.
 
 
-        Clients MUST treat a 400 on an unscoped sweep as "capability
-        unavailable" and fall back rather than retrying. This API carries no
-        end-user identity, so an adapter cannot authorize the caller; a client
-        that serves unscoped results onward is responsible for authorizing its
-        own consumers.
+        Clients MUST treat a 501 on an unscoped sweep as "capability
+        unavailable" and fall back rather than retrying. A 400 always means the
+        request itself was rejected and MUST NOT be read as an unsupported
+        capability.
+
+
+        This API carries no end-user identity, so an adapter cannot authorize
+        the caller; a client that serves unscoped results onward is responsible
+        for authorizing its own consumers.
       operationId: queryEvents
       requestBody:
         required: true
@@ -185,12 +189,6 @@ paths:
                     title: "badRequest"
                     errorCode: ""
                     message: "searchScope is required unless reasons is set for an unscoped sweep"
-                unscopedNotSupported:
-                  summary: Adapter does not implement unscoped sweeps
-                  value:
-                    title: "badRequest"
-                    errorCode: ""
-                    message: "this adapter does not support unscoped event queries; set searchScope"
         "401":
           description: Unauthorized
           content:
@@ -227,10 +225,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "notImplemented"
-                errorCode: ""
-                message: "Events query is not implemented by this adapter"
+              examples:
+                eventsNotImplemented:
+                  summary: Adapter implements no events query at all
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "Events query is not implemented by this adapter"
+                unscopedNotSupported:
+                  summary: Adapter implements scoped queries but not unscoped sweeps
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "this adapter does not support unscoped event queries; set searchScope"
 
   /api/v1alpha1/alerts/rules:
     post:
