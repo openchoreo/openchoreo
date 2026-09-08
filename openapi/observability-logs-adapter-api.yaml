@@ -591,10 +591,12 @@ components:
           minItems: 1
           maxItems: 32
           description: >
-            Optional server-side filter on the event reason field (terms match).
-            Used by machine consumers such as the delivery insights aggregator
-            to sweep specific controller-emitted events (e.g. DeploymentSucceeded).
-            Bounded because the value feeds a backend terms filter.
+            Optional server-side filter on the event reason field. The adapter
+            returns only events whose reason exactly matches one of the supplied
+            values. Used by machine consumers such as the delivery insights
+            aggregator to sweep specific controller-emitted events
+            (e.g. DeploymentSucceeded). The list is bounded so that the filter
+            stays cheap for the adapter to evaluate.
         searchAfter:
           type: string
           description: >
