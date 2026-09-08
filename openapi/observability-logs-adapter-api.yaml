@@ -124,7 +124,8 @@ paths:
         - Events
       summary: Query events
       description: >
-        Query Kubernetes events from the observer service.
+        Query Kubernetes events from the logging backend. This endpoint is
+        served by the adapter; the Observer is the client.
 
 
         `searchScope` is optional, but omitting it is legal only together with
@@ -237,7 +238,7 @@ paths:
                   value:
                     title: "notImplemented"
                     errorCode: ""
-                    message: "this adapter does not support unscoped event queries; set searchScope"
+                    message: "Unscoped event queries are not supported by this adapter; set searchScope"
 
   /api/v1alpha1/alerts/rules:
     post:
