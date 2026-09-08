@@ -119,7 +119,8 @@ func fetchBindings(
 	store *fileStore,
 	localAddrs map[string][]addrSwap,
 	noSecrets bool,
-) {
+) []string {
+	var materialized []string
 	for _, rb := range resp.Resources {
 		refKey := remoteconnect.ResourceRefKey(rb.Ref)
 
@@ -181,9 +182,11 @@ func fetchBindings(
 				fmt.Fprintf(out, "  ! %s: %s not provisioned (%v)\n", refKey, mountPath, werr)
 				continue
 			}
+			materialized = append(materialized, mountPath)
 			fmt.Fprintf(out, "  %-28s %s -> %s\n", refKey, mountPath, local)
 		}
 	}
+	return materialized
 }
 
 // fetchOne routes a fetch key to the agent the resolve designated for it. The key's
@@ -222,7 +225,7 @@ func tunnelForAgent(agentTunnels map[string]tunnel, agentID string) (tunnel, err
 // something that merely mentioned the path. Anything the exact rule cannot reach is
 // reported instead, so the developer points the app at the file themselves rather than
 // silently getting the cluster's path.
-func repointFilePaths(overrides map[string]string, out io.Writer, store *fileStore) {
+func repointFilePaths(overrides map[string]string, out io.Writer, store *fileStore, materialized []string) {
 	if len(store.paths) == 0 {
 		return
 	}
@@ -236,7 +239,9 @@ func repointFilePaths(overrides map[string]string, out io.Writer, store *fileSto
 		repointed[overrides[envVar]] = true
 		overrides[envVar] = local
 	}
-	for _, mountPath := range slices.Sorted(maps.Keys(store.paths)) {
+	paths := slices.Clone(materialized)
+	slices.Sort(paths)
+	for _, mountPath := range slices.Compact(paths) {
 		if repointed[mountPath] {
 			continue
 		}
