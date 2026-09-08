@@ -64,20 +64,6 @@ const (
 	Synced AlertingRuleSyncResponseStatus = "synced"
 )
 
-// Defines values for ClusterLogsQueryRequestLogLevels.
-const (
-	ClusterLogsQueryRequestLogLevelsDEBUG ClusterLogsQueryRequestLogLevels = "DEBUG"
-	ClusterLogsQueryRequestLogLevelsERROR ClusterLogsQueryRequestLogLevels = "ERROR"
-	ClusterLogsQueryRequestLogLevelsINFO  ClusterLogsQueryRequestLogLevels = "INFO"
-	ClusterLogsQueryRequestLogLevelsWARN  ClusterLogsQueryRequestLogLevels = "WARN"
-)
-
-// Defines values for ClusterLogsQueryRequestSortOrder.
-const (
-	ClusterLogsQueryRequestSortOrderAsc  ClusterLogsQueryRequestSortOrder = "asc"
-	ClusterLogsQueryRequestSortOrderDesc ClusterLogsQueryRequestSortOrder = "desc"
-)
-
 // Defines values for ErrorResponseTitle.
 const (
 	BadRequest          ErrorResponseTitle = "badRequest"
@@ -105,8 +91,22 @@ const (
 
 // Defines values for LogsQueryRequestSortOrder.
 const (
-	Asc  LogsQueryRequestSortOrder = "asc"
-	Desc LogsQueryRequestSortOrder = "desc"
+	LogsQueryRequestSortOrderAsc  LogsQueryRequestSortOrder = "asc"
+	LogsQueryRequestSortOrderDesc LogsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for PlatformLogsQueryRequestLogLevels.
+const (
+	PlatformLogsQueryRequestLogLevelsDEBUG PlatformLogsQueryRequestLogLevels = "DEBUG"
+	PlatformLogsQueryRequestLogLevelsERROR PlatformLogsQueryRequestLogLevels = "ERROR"
+	PlatformLogsQueryRequestLogLevelsINFO  PlatformLogsQueryRequestLogLevels = "INFO"
+	PlatformLogsQueryRequestLogLevelsWARN  PlatformLogsQueryRequestLogLevels = "WARN"
+)
+
+// Defines values for PlatformLogsQueryRequestSortOrder.
+const (
+	Asc  PlatformLogsQueryRequestSortOrder = "asc"
+	Desc PlatformLogsQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -236,82 +236,6 @@ type AlertingRuleSyncResponseAction string
 
 // AlertingRuleSyncResponseStatus The status of the alert rule
 type AlertingRuleSyncResponseStatus string
-
-// ClusterLog defines model for ClusterLog.
-type ClusterLog struct {
-	ClusterInstance *string `json:"clusterInstance,omitempty"`
-	ContainerImage  *string `json:"containerImage,omitempty"`
-	ContainerName   *string `json:"containerName,omitempty"`
-
-	// Labels Pod labels carried on the record, as the backend stores them, with any
-	// backend-specific key mangling already undone by the adapter.
-	Labels *map[string]string `json:"labels,omitempty"`
-
-	// Level Log severity. Derived from the message text where the backend does not supply
-	// one; omitted when it cannot be determined.
-	Level *string `json:"level,omitempty"`
-
-	// Log The log message
-	Log           *string `json:"log,omitempty"`
-	NamespaceName *string `json:"namespaceName,omitempty"`
-
-	// NodeName Node the pod was scheduled on.
-	NodeName *string `json:"nodeName,omitempty"`
-	PodIp    *string `json:"podIp,omitempty"`
-	PodName  *string `json:"podName,omitempty"`
-
-	// Timestamp The timestamp of the log entry
-	Timestamp *time.Time `json:"timestamp,omitempty"`
-}
-
-// ClusterLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
-// AND with each other. An absent field is not a filter.
-type ClusterLogsQueryRequest struct {
-	// ClusterInstance Clusters the records were collected from, as stamped by the collector
-	ClusterInstance *[]string `json:"clusterInstance,omitempty"`
-	ContainerName   *[]string `json:"containerName,omitempty"`
-
-	// EndTime Exclusive upper bound of the log window
-	EndTime time.Time `json:"endTime"`
-
-	// Labels Pod labels every returned record must carry, ANDed. The observer parses the
-	// equality-based selector it receives and passes the resulting pairs, so the
-	// adapter does not implement selector syntax. Plane attribution arrives here.
-	Labels *map[string]string `json:"labels,omitempty"`
-
-	// Limit The maximum number of entries to return
-	Limit     *int                                `json:"limit,omitempty"`
-	LogLevels *[]ClusterLogsQueryRequestLogLevels `json:"logLevels,omitempty"`
-
-	// Namespace Kubernetes namespaces of the pods
-	Namespace    *[]string `json:"namespace,omitempty"`
-	PodName      *[]string `json:"podName,omitempty"`
-	SearchPhrase *string   `json:"searchPhrase,omitempty"`
-
-	// SortOrder Sort direction on the log timestamp
-	SortOrder *ClusterLogsQueryRequestSortOrder `json:"sortOrder,omitempty"`
-
-	// StartTime Inclusive lower bound of the log window
-	StartTime time.Time `json:"startTime"`
-}
-
-// ClusterLogsQueryRequestLogLevels defines model for ClusterLogsQueryRequest.LogLevels.
-type ClusterLogsQueryRequestLogLevels string
-
-// ClusterLogsQueryRequestSortOrder Sort direction on the log timestamp
-type ClusterLogsQueryRequestSortOrder string
-
-// ClusterLogsResponse defines model for ClusterLogsResponse.
-type ClusterLogsResponse struct {
-	// Logs The logs queried successfully
-	Logs []ClusterLog `json:"logs"`
-
-	// TookMs The time taken to query the logs in milliseconds
-	TookMs int `json:"tookMs"`
-
-	// Total The total number of matching log entries, capped at 1000
-	Total int `json:"total"`
-}
 
 // ComponentLogEntry defines model for ComponentLogEntry.
 type ComponentLogEntry struct {
@@ -517,6 +441,82 @@ type LogsQueryResponse_Logs struct {
 	union json.RawMessage
 }
 
+// PlatformLog defines model for PlatformLog.
+type PlatformLog struct {
+	ClusterInstance *string `json:"clusterInstance,omitempty"`
+	ContainerImage  *string `json:"containerImage,omitempty"`
+	ContainerName   *string `json:"containerName,omitempty"`
+
+	// Labels Pod labels carried on the record, as the backend stores them, with any
+	// backend-specific key mangling already undone by the adapter.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Level Log severity. Derived from the message text where the backend does not supply
+	// one; omitted when it cannot be determined.
+	Level *string `json:"level,omitempty"`
+
+	// Log The log message
+	Log           *string `json:"log,omitempty"`
+	NamespaceName *string `json:"namespaceName,omitempty"`
+
+	// NodeName Node the pod was scheduled on.
+	NodeName *string `json:"nodeName,omitempty"`
+	PodIp    *string `json:"podIp,omitempty"`
+	PodName  *string `json:"podName,omitempty"`
+
+	// Timestamp The timestamp of the log entry
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+}
+
+// PlatformLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
+// AND with each other. An absent field is not a filter.
+type PlatformLogsQueryRequest struct {
+	// ClusterInstance Clusters the records were collected from, as stamped by the collector
+	ClusterInstance *[]string `json:"clusterInstance,omitempty"`
+	ContainerName   *[]string `json:"containerName,omitempty"`
+
+	// EndTime Exclusive upper bound of the log window
+	EndTime time.Time `json:"endTime"`
+
+	// Labels Pod labels every returned record must carry, ANDed. The observer parses the
+	// equality-based selector it receives and passes the resulting pairs, so the
+	// adapter does not implement selector syntax. Plane attribution arrives here.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Limit The maximum number of entries to return
+	Limit     *int                                 `json:"limit,omitempty"`
+	LogLevels *[]PlatformLogsQueryRequestLogLevels `json:"logLevels,omitempty"`
+
+	// Namespace Kubernetes namespaces of the pods
+	Namespace    *[]string `json:"namespace,omitempty"`
+	PodName      *[]string `json:"podName,omitempty"`
+	SearchPhrase *string   `json:"searchPhrase,omitempty"`
+
+	// SortOrder Sort direction on the log timestamp
+	SortOrder *PlatformLogsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime Inclusive lower bound of the log window
+	StartTime time.Time `json:"startTime"`
+}
+
+// PlatformLogsQueryRequestLogLevels defines model for PlatformLogsQueryRequest.LogLevels.
+type PlatformLogsQueryRequestLogLevels string
+
+// PlatformLogsQueryRequestSortOrder Sort direction on the log timestamp
+type PlatformLogsQueryRequestSortOrder string
+
+// PlatformLogsResponse defines model for PlatformLogsResponse.
+type PlatformLogsResponse struct {
+	// Logs The logs queried successfully
+	Logs []PlatformLog `json:"logs"`
+
+	// TookMs The time taken to query the logs in milliseconds
+	TookMs int `json:"tookMs"`
+
+	// Total The total number of matching log entries, capped at 1000
+	Total int `json:"total"`
+}
+
 // WorkflowLogEntry defines model for WorkflowLogEntry.
 type WorkflowLogEntry struct {
 	// Log The log message
@@ -553,8 +553,8 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
 type HandleAlertWebhookJSONRequestBody = HandleAlertWebhookJSONBody
 
-// QueryClusterLogsJSONRequestBody defines body for QueryClusterLogs for application/json ContentType.
-type QueryClusterLogsJSONRequestBody = ClusterLogsQueryRequest
+// QueryPlatformLogsJSONRequestBody defines body for QueryPlatformLogs for application/json ContentType.
+type QueryPlatformLogsJSONRequestBody = PlatformLogsQueryRequest
 
 // AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
 func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
@@ -846,10 +846,10 @@ type ClientInterface interface {
 
 	HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// QueryClusterLogsWithBody request with any body
-	QueryClusterLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// QueryPlatformLogsWithBody request with any body
+	QueryPlatformLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	QueryClusterLogs(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	QueryPlatformLogs(ctx context.Context, body QueryPlatformLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -999,8 +999,8 @@ func (c *Client) HandleAlertWebhook(ctx context.Context, body HandleAlertWebhook
 	return c.Client.Do(req)
 }
 
-func (c *Client) QueryClusterLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryClusterLogsRequestWithBody(c.Server, contentType, body)
+func (c *Client) QueryPlatformLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryPlatformLogsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1011,8 +1011,8 @@ func (c *Client) QueryClusterLogsWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) QueryClusterLogs(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryClusterLogsRequest(c.Server, body)
+func (c *Client) QueryPlatformLogs(ctx context.Context, body QueryPlatformLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryPlatformLogsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1310,19 +1310,19 @@ func NewHandleAlertWebhookRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
-// NewQueryClusterLogsRequest calls the generic QueryClusterLogs builder with application/json body
-func NewQueryClusterLogsRequest(server string, body QueryClusterLogsJSONRequestBody) (*http.Request, error) {
+// NewQueryPlatformLogsRequest calls the generic QueryPlatformLogs builder with application/json body
+func NewQueryPlatformLogsRequest(server string, body QueryPlatformLogsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewQueryClusterLogsRequestWithBody(server, "application/json", bodyReader)
+	return NewQueryPlatformLogsRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewQueryClusterLogsRequestWithBody generates requests for QueryClusterLogs with any type of body
-func NewQueryClusterLogsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewQueryPlatformLogsRequestWithBody generates requests for QueryPlatformLogs with any type of body
+func NewQueryPlatformLogsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1330,7 +1330,7 @@ func NewQueryClusterLogsRequestWithBody(server string, contentType string, body 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1alpha1/cluster-logs/query")
+	operationPath := fmt.Sprintf("/api/v1alpha1/platform-logs/query")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1451,10 +1451,10 @@ type ClientWithResponsesInterface interface {
 
 	HandleAlertWebhookWithResponse(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
 
-	// QueryClusterLogsWithBodyWithResponse request with any body
-	QueryClusterLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error)
+	// QueryPlatformLogsWithBodyWithResponse request with any body
+	QueryPlatformLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryPlatformLogsResp, error)
 
-	QueryClusterLogsWithResponse(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error)
+	QueryPlatformLogsWithResponse(ctx context.Context, body QueryPlatformLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryPlatformLogsResp, error)
 
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResp, error)
@@ -1637,10 +1637,10 @@ func (r HandleAlertWebhookResp) StatusCode() int {
 	return 0
 }
 
-type QueryClusterLogsResp struct {
+type QueryPlatformLogsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ClusterLogsResponse
+	JSON200      *PlatformLogsResponse
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
@@ -1649,7 +1649,7 @@ type QueryClusterLogsResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r QueryClusterLogsResp) Status() string {
+func (r QueryPlatformLogsResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1657,7 +1657,7 @@ func (r QueryClusterLogsResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r QueryClusterLogsResp) StatusCode() int {
+func (r QueryPlatformLogsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1795,21 +1795,21 @@ func (c *ClientWithResponses) HandleAlertWebhookWithResponse(ctx context.Context
 	return ParseHandleAlertWebhookResp(rsp)
 }
 
-// QueryClusterLogsWithBodyWithResponse request with arbitrary body returning *QueryClusterLogsResp
-func (c *ClientWithResponses) QueryClusterLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error) {
-	rsp, err := c.QueryClusterLogsWithBody(ctx, contentType, body, reqEditors...)
+// QueryPlatformLogsWithBodyWithResponse request with arbitrary body returning *QueryPlatformLogsResp
+func (c *ClientWithResponses) QueryPlatformLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryPlatformLogsResp, error) {
+	rsp, err := c.QueryPlatformLogsWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseQueryClusterLogsResp(rsp)
+	return ParseQueryPlatformLogsResp(rsp)
 }
 
-func (c *ClientWithResponses) QueryClusterLogsWithResponse(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error) {
-	rsp, err := c.QueryClusterLogs(ctx, body, reqEditors...)
+func (c *ClientWithResponses) QueryPlatformLogsWithResponse(ctx context.Context, body QueryPlatformLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryPlatformLogsResp, error) {
+	rsp, err := c.QueryPlatformLogs(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseQueryClusterLogsResp(rsp)
+	return ParseQueryPlatformLogsResp(rsp)
 }
 
 // HealthWithResponse request returning *HealthResp
@@ -2164,22 +2164,22 @@ func ParseHandleAlertWebhookResp(rsp *http.Response) (*HandleAlertWebhookResp, e
 	return response, nil
 }
 
-// ParseQueryClusterLogsResp parses an HTTP response from a QueryClusterLogsWithResponse call
-func ParseQueryClusterLogsResp(rsp *http.Response) (*QueryClusterLogsResp, error) {
+// ParseQueryPlatformLogsResp parses an HTTP response from a QueryPlatformLogsWithResponse call
+func ParseQueryPlatformLogsResp(rsp *http.Response) (*QueryPlatformLogsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &QueryClusterLogsResp{
+	response := &QueryPlatformLogsResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ClusterLogsResponse
+		var dest PlatformLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -213,14 +213,14 @@ func ValidateAndSetLimit(limit *int) error {
 	return nil
 }
 
-// Caps on the cluster logs query string. A query string has length limits a request
+// Caps on the platform logs query string. A query string has length limits a request
 // body would not, so an over-long value is rejected rather than truncated. These mirror
-// the maxItems/maxLength declared on the ClusterLogs* parameters in the OpenAPI spec.
+// the maxItems/maxLength declared on the PlatformLogs* parameters in the OpenAPI spec.
 const (
-	maxClusterLogsFilterItems  = 20
-	maxClusterLogsValueLength  = 253
-	maxClusterLogsSelectorLen  = 256
-	maxClusterLogsSearchLength = 256
+	maxPlatformLogsFilterItems  = 20
+	maxPlatformLogsValueLength  = 253
+	maxPlatformLogsSelectorLen  = 256
+	maxPlatformLogsSearchLength = 256
 )
 
 // ParseLabelSelector parses an equality-based Kubernetes label selector - the syntax
@@ -231,8 +231,8 @@ func ParseLabelSelector(selector string) (map[string]string, error) {
 	if selector == "" {
 		return nil, nil
 	}
-	if len(selector) > maxClusterLogsSelectorLen {
-		return nil, fmt.Errorf("labels selector cannot exceed %d characters", maxClusterLogsSelectorLen)
+	if len(selector) > maxPlatformLogsSelectorLen {
+		return nil, fmt.Errorf("labels selector cannot exceed %d characters", maxPlatformLogsSelectorLen)
 	}
 
 	labels := make(map[string]string)
@@ -262,9 +262,9 @@ func ParseLabelSelector(selector string) (map[string]string, error) {
 	return labels, nil
 }
 
-// ValidateClusterLogsQueryRequest validates the ClusterLogsQueryRequest and applies
+// ValidatePlatformLogsQueryRequest validates the PlatformLogsQueryRequest and applies
 // defaults for limit and sort order.
-func ValidateClusterLogsQueryRequest(req *types.ClusterLogsQueryRequest) error {
+func ValidatePlatformLogsQueryRequest(req *types.PlatformLogsQueryRequest) error {
 	if req == nil {
 		return fmt.Errorf("request is required")
 	}
@@ -276,13 +276,13 @@ func ValidateClusterLogsQueryRequest(req *types.ClusterLogsQueryRequest) error {
 		"containerName":   req.ContainerNames,
 	}
 	for name, values := range filters {
-		if err := validateClusterLogsFilter(name, values); err != nil {
+		if err := validatePlatformLogsFilter(name, values); err != nil {
 			return err
 		}
 	}
 
-	if len(req.SearchPhrase) > maxClusterLogsSearchLength {
-		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxClusterLogsSearchLength)
+	if len(req.SearchPhrase) > maxPlatformLogsSearchLength {
+		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxPlatformLogsSearchLength)
 	}
 
 	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
@@ -297,14 +297,14 @@ func ValidateClusterLogsQueryRequest(req *types.ClusterLogsQueryRequest) error {
 	return ValidateAndSetSortOrder(&req.SortOrder)
 }
 
-func validateClusterLogsFilter(name string, values []string) error {
-	if len(values) > maxClusterLogsFilterItems {
-		return fmt.Errorf("%s cannot have more than %d values", name, maxClusterLogsFilterItems)
+func validatePlatformLogsFilter(name string, values []string) error {
+	if len(values) > maxPlatformLogsFilterItems {
+		return fmt.Errorf("%s cannot have more than %d values", name, maxPlatformLogsFilterItems)
 	}
 	seen := make(map[string]struct{}, len(values))
 	for _, v := range values {
-		if len(v) > maxClusterLogsValueLength {
-			return fmt.Errorf("%s values cannot exceed %d characters", name, maxClusterLogsValueLength)
+		if len(v) > maxPlatformLogsValueLength {
+			return fmt.Errorf("%s values cannot exceed %d characters", name, maxPlatformLogsValueLength)
 		}
 		if _, dup := seen[v]; dup {
 			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)

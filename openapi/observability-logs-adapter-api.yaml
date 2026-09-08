@@ -118,29 +118,29 @@ paths:
                 errorCode: "OBS-V1-L-29"
                 message: ""
 
-  /api/v1alpha1/cluster-logs/query:
+  /api/v1alpha1/platform-logs/query:
     post:
       tags:
         - Logs
-      summary: Query cluster-wide pod logs
+      summary: Query platform logs
       description: |
         Query logs by raw Kubernetes coordinates, with no project/component/environment
-        correlation. Backs `GET /api/v1alpha1/cluster-logs` on the observer.
+        correlation. Backs `GET /api/v1alpha1/platform-logs` on the observer.
 
-      operationId: queryClusterLogs
+      operationId: queryPlatformLogs
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ClusterLogsQueryRequest"
+              $ref: "#/components/schemas/PlatformLogsQueryRequest"
       responses:
         "200":
-          description: Cluster logs retrieved successfully
+          description: Platform logs retrieved successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClusterLogsResponse"
+                $ref: "#/components/schemas/PlatformLogsResponse"
         "400":
           description: Invalid request
           content:
@@ -174,7 +174,7 @@ paths:
               example:
                 title: "notImplemented"
                 errorCode: ""
-                message: "cluster logs are not supported by this adapter"
+                message: "platform logs are not supported by this adapter"
 
   /api/v1/events/query:
     post:
@@ -577,7 +577,7 @@ components:
           description: The time taken to query the logs in milliseconds
 
     # Cluster log schemas
-    ClusterLogsQueryRequest:
+    PlatformLogsQueryRequest:
       type: object
       description: |
         A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
@@ -644,7 +644,7 @@ components:
           type: string
       required: [startTime, endTime]
 
-    ClusterLog:
+    PlatformLog:
       type: object
       properties:
         timestamp:
@@ -682,14 +682,14 @@ components:
             Pod labels carried on the record, as the backend stores them, with any
             backend-specific key mangling already undone by the adapter.
 
-    ClusterLogsResponse:
+    PlatformLogsResponse:
       type: object
       properties:
         logs:
           type: array
           description: The logs queried successfully
           items:
-            $ref: "#/components/schemas/ClusterLog"
+            $ref: "#/components/schemas/PlatformLog"
         total:
           type: integer
           description: The total number of matching log entries, capped at 1000

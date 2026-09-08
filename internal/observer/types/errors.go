@@ -43,12 +43,12 @@ const (
 	ErrorCodeV1RuntimeTopologyResolverFailed  = "OBS-V1-RG-04"
 	ErrorCodeV1RuntimeTopologyRetrievalFailed = "OBS-V1-RG-05"
 
-	// Cluster logs API (v1alpha1) internal server error codes.
-	ErrorCodeV1ClusterLogsInternalGeneric = "OBS-V1-CL-01"
-	ErrorCodeV1ClusterLogsAuthzInternal   = "OBS-V1-CL-02"
-	ErrorCodeV1ClusterLogsServiceNotReady = "OBS-V1-CL-03"
-	ErrorCodeV1ClusterLogsRetrievalFailed = "OBS-V1-CL-04"
-	ErrorCodeV1ClusterLogsNotSupported    = "OBS-V1-CL-05"
+	// Platform logs API (v1alpha1) internal server error codes.
+	ErrorCodeV1PlatformLogsInternalGeneric = "OBS-V1-CL-01"
+	ErrorCodeV1PlatformLogsAuthzInternal   = "OBS-V1-CL-02"
+	ErrorCodeV1PlatformLogsServiceNotReady = "OBS-V1-CL-03"
+	ErrorCodeV1PlatformLogsRetrievalFailed = "OBS-V1-CL-04"
+	ErrorCodeV1PlatformLogsNotSupported    = "OBS-V1-CL-05"
 
 	// Scope resolution auth failure — shared across all APIs.
 	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"

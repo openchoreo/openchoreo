@@ -22,19 +22,19 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
-const clusterLogsWindow = "startTime=2026-08-14T16:30:00Z&endTime=2026-08-14T17:30:00Z"
+const platformLogsWindow = "startTime=2026-08-14T16:30:00Z&endTime=2026-08-14T17:30:00Z"
 
-func clusterLogsHandler(t *testing.T, svc service.ClusterLogsQuerier) *Handler {
+func platformLogsHandler(t *testing.T, svc service.PlatformLogsQuerier) *Handler {
 	t.Helper()
 	return &Handler{
-		baseHandler:        baseHandler{logger: noopLogger()},
-		clusterLogsService: svc,
+		baseHandler:         baseHandler{logger: noopLogger()},
+		platformLogsService: svc,
 	}
 }
 
-func getClusterLogs(t *testing.T, h *Handler, query string) *httptest.ResponseRecorder {
+func getPlatformLogs(t *testing.T, h *Handler, query string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/cluster-logs?"+query, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/platform-logs?"+query, nil)
 	return serve(t, h, req)
 }
 
@@ -111,81 +111,81 @@ func TestParseLabelSelector(t *testing.T) {
 
 // --- request validation ---
 
-func TestValidateClusterLogsQueryRequest_AppliesDefaults(t *testing.T) {
+func TestValidatePlatformLogsQueryRequest_AppliesDefaults(t *testing.T) {
 	t.Parallel()
 
-	req := &types.ClusterLogsQueryRequest{
+	req := &types.PlatformLogsQueryRequest{
 		StartTime: "2026-08-14T16:30:00Z",
 		EndTime:   "2026-08-14T17:30:00Z",
 	}
-	require.NoError(t, ValidateClusterLogsQueryRequest(req))
+	require.NoError(t, ValidatePlatformLogsQueryRequest(req))
 	assert.Equal(t, defaultLimit, req.Limit)
 	assert.Equal(t, defaultSortOrder, req.SortOrder)
 }
 
-func TestValidateClusterLogsQueryRequest_Rejects(t *testing.T) {
+func TestValidatePlatformLogsQueryRequest_Rejects(t *testing.T) {
 	t.Parallel()
 
-	base := func() *types.ClusterLogsQueryRequest {
-		return &types.ClusterLogsQueryRequest{
+	base := func() *types.PlatformLogsQueryRequest {
+		return &types.PlatformLogsQueryRequest{
 			StartTime: "2026-08-14T16:30:00Z",
 			EndTime:   "2026-08-14T17:30:00Z",
 		}
 	}
-	manyValues := make([]string, maxClusterLogsFilterItems+1)
+	manyValues := make([]string, maxPlatformLogsFilterItems+1)
 	for i := range manyValues {
 		manyValues[i] = fmt.Sprintf("ns-%d", i)
 	}
 
 	tests := []struct {
 		name    string
-		mutate  func(*types.ClusterLogsQueryRequest)
+		mutate  func(*types.PlatformLogsQueryRequest)
 		wantErr string
 	}{
 		{
 			name:    "too many namespaces",
-			mutate:  func(r *types.ClusterLogsQueryRequest) { r.Namespaces = manyValues },
+			mutate:  func(r *types.PlatformLogsQueryRequest) { r.Namespaces = manyValues },
 			wantErr: "cannot have more than 20 values",
 		},
 		{
 			name: "over-long pod name",
-			mutate: func(r *types.ClusterLogsQueryRequest) {
+			mutate: func(r *types.PlatformLogsQueryRequest) {
 				r.PodNames = []string{strings.Repeat("p", 254)}
 			},
 			wantErr: "cannot exceed 253 characters",
 		},
 		{
 			name: "duplicate cluster instance",
-			mutate: func(r *types.ClusterLogsQueryRequest) {
+			mutate: func(r *types.PlatformLogsQueryRequest) {
 				r.ClusterInstances = []string{"cluster1", "cluster1"}
 			},
 			wantErr: "duplicate clusterInstance",
 		},
 		{
 			name: "over-long search phrase",
-			mutate: func(r *types.ClusterLogsQueryRequest) {
+			mutate: func(r *types.PlatformLogsQueryRequest) {
 				r.SearchPhrase = strings.Repeat("x", 257)
 			},
 			wantErr: "searchPhrase cannot exceed 256 characters",
 		},
 		{
 			name:    "missing time range",
-			mutate:  func(r *types.ClusterLogsQueryRequest) { r.StartTime = "" },
+			mutate:  func(r *types.PlatformLogsQueryRequest) { r.StartTime = "" },
 			wantErr: "startTime is required",
 		},
 		{
 			name:    "time range beyond the cap",
-			mutate:  func(r *types.ClusterLogsQueryRequest) { r.EndTime = "2026-10-14T17:30:00Z" },
+			mutate:  func(r *types.PlatformLogsQueryRequest) { r.EndTime = "2026-10-14T17:30:00Z" },
 			wantErr: "cannot exceed 30 days",
 		},
 		{
 			name:    "unknown log level",
-			mutate:  func(r *types.ClusterLogsQueryRequest) { r.LogLevels = []string{"TRACE"} },
+			mutate:  func(r *types.PlatformLogsQueryRequest) { r.LogLevels = []string{"TRACE"} },
 			wantErr: "invalid log level",
 		},
 		{
 			name:    "limit above the cap",
-			mutate:  func(r *types.ClusterLogsQueryRequest) { r.Limit = 5000 },
+			mutate:  func(r *types.PlatformLogsQueryRequest) { r.Limit = 5000 },
 			wantErr: "limit cannot exceed",
 		},
 	}
@@ -195,7 +195,7 @@ func TestValidateClusterLogsQueryRequest_Rejects(t *testing.T) {
 			t.Parallel()
 			req := base()
 			tt.mutate(req)
-			err := ValidateClusterLogsQueryRequest(req)
+			err := ValidatePlatformLogsQueryRequest(req)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -204,12 +204,12 @@ func TestValidateClusterLogsQueryRequest_Rejects(t *testing.T) {
 
 // --- handler ---
 
-func TestGetClusterLogs_Success(t *testing.T) {
+func TestGetPlatformLogs_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := servicemocks.NewMockClusterLogsQuerier(t)
-	svc.EXPECT().QueryClusterLogs(mock.Anything, mock.Anything).Return(&types.ClusterLogsResponse{
-		Logs: []types.ClusterLog{{
+	svc := servicemocks.NewMockPlatformLogsQuerier(t)
+	svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).Return(&types.PlatformLogsResponse{
+		Logs: []types.PlatformLog{{
 			Timestamp:     "2026-08-14T16:31:00Z",
 			Log:           "reconcile failed",
 			Level:         "ERROR",
@@ -220,27 +220,27 @@ func TestGetClusterLogs_Success(t *testing.T) {
 		TookMs: 4,
 	}, nil)
 
-	rr := getClusterLogs(t, clusterLogsHandler(t, svc), clusterLogsWindow)
+	rr := getPlatformLogs(t, platformLogsHandler(t, svc), platformLogsWindow)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"total":1`)
 	assert.Contains(t, rr.Body.String(), "reconcile failed")
 }
 
-// TestGetClusterLogs_ParsesFilters pins the query-string contract: multi-value
+// TestGetPlatformLogs_ParsesFilters pins the query-string contract: multi-value
 // parameters are comma-separated - the spec declares style: form, explode: false, so
 // the generated binder rejects a repeated parameter with a 400 - and the label
 // selector reaches the service as parsed pairs.
-func TestGetClusterLogs_ParsesFilters(t *testing.T) {
+func TestGetPlatformLogs_ParsesFilters(t *testing.T) {
 	t.Parallel()
 
-	var got *types.ClusterLogsQueryRequest
-	svc := servicemocks.NewMockClusterLogsQuerier(t)
-	svc.EXPECT().QueryClusterLogs(mock.Anything, mock.Anything).
-		Run(func(_ context.Context, req *types.ClusterLogsQueryRequest) { got = req }).
-		Return(&types.ClusterLogsResponse{}, nil)
+	var got *types.PlatformLogsQueryRequest
+	svc := servicemocks.NewMockPlatformLogsQuerier(t)
+	svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *types.PlatformLogsQueryRequest) { got = req }).
+		Return(&types.PlatformLogsResponse{}, nil)
 
-	query := clusterLogsWindow +
+	query := platformLogsWindow +
 		"&namespace=openchoreo-control-plane,cert-manager" +
 		"&podName=pod-a,pod-b" +
 		"&clusterInstance=cluster1" +
@@ -250,7 +250,7 @@ func TestGetClusterLogs_ParsesFilters(t *testing.T) {
 		"&searchPhrase=reconcile" +
 		"&limit=25&sortOrder=asc"
 
-	rr := getClusterLogs(t, clusterLogsHandler(t, svc), query)
+	rr := getPlatformLogs(t, platformLogsHandler(t, svc), query)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	require.NotNil(t, got)
@@ -265,7 +265,7 @@ func TestGetClusterLogs_ParsesFilters(t *testing.T) {
 	assert.Equal(t, "asc", got.SortOrder)
 }
 
-func TestGetClusterLogs_BadRequests(t *testing.T) {
+func TestGetPlatformLogs_BadRequests(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -273,29 +273,29 @@ func TestGetClusterLogs_BadRequests(t *testing.T) {
 		query string
 	}{
 		{name: "missing time range", query: ""},
-		{name: "malformed label selector", query: clusterLogsWindow + "&labels=notapair"},
+		{name: "malformed label selector", query: platformLogsWindow + "&labels=notapair"},
 		{
 			// style: form, explode: false - a repeated parameter is not the contract.
 			name:  "repeated multi-value parameter",
-			query: clusterLogsWindow + "&podName=pod-a&podName=pod-b",
+			query: platformLogsWindow + "&podName=pod-a&podName=pod-b",
 		},
-		{name: "non-numeric limit", query: clusterLogsWindow + "&limit=abc"},
-		{name: "unknown log level", query: clusterLogsWindow + "&logLevels=TRACE"},
-		{name: "unknown sort order", query: clusterLogsWindow + "&sortOrder=sideways"},
+		{name: "non-numeric limit", query: platformLogsWindow + "&limit=abc"},
+		{name: "unknown log level", query: platformLogsWindow + "&logLevels=TRACE"},
+		{name: "unknown sort order", query: platformLogsWindow + "&sortOrder=sideways"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := servicemocks.NewMockClusterLogsQuerier(t)
-			rr := getClusterLogs(t, clusterLogsHandler(t, svc), tt.query)
+			svc := servicemocks.NewMockPlatformLogsQuerier(t)
+			rr := getPlatformLogs(t, platformLogsHandler(t, svc), tt.query)
 			assert.Equal(t, http.StatusBadRequest, rr.Code)
-			svc.AssertNotCalled(t, "QueryClusterLogs", mock.Anything, mock.Anything)
+			svc.AssertNotCalled(t, "QueryPlatformLogs", mock.Anything, mock.Anything)
 		})
 	}
 }
 
-func TestGetClusterLogs_ErrorMapping(t *testing.T) {
+func TestGetPlatformLogs_ErrorMapping(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -316,31 +316,31 @@ func TestGetClusterLogs_ErrorMapping(t *testing.T) {
 		},
 		{
 			name:     "adapter does not implement the endpoint",
-			err:      service.ErrClusterLogsNotSupported,
+			err:      service.ErrPlatformLogsNotSupported,
 			wantCode: http.StatusNotImplemented,
-			wantBody: types.ErrorCodeV1ClusterLogsNotSupported,
+			wantBody: types.ErrorCodeV1PlatformLogsNotSupported,
 		},
 		{
 			name:     "retrieval failure",
-			err:      fmt.Errorf("%w: boom", service.ErrClusterLogsRetrieval),
+			err:      fmt.Errorf("%w: boom", service.ErrPlatformLogsRetrieval),
 			wantCode: http.StatusInternalServerError,
-			wantBody: types.ErrorCodeV1ClusterLogsRetrievalFailed,
+			wantBody: types.ErrorCodeV1PlatformLogsRetrievalFailed,
 		},
 		{
 			name:     "unclassified failure",
 			err:      errors.New("boom"),
 			wantCode: http.StatusInternalServerError,
-			wantBody: types.ErrorCodeV1ClusterLogsInternalGeneric,
+			wantBody: types.ErrorCodeV1PlatformLogsInternalGeneric,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := servicemocks.NewMockClusterLogsQuerier(t)
-			svc.EXPECT().QueryClusterLogs(mock.Anything, mock.Anything).Return(nil, tt.err)
+			svc := servicemocks.NewMockPlatformLogsQuerier(t)
+			svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).Return(nil, tt.err)
 
-			rr := getClusterLogs(t, clusterLogsHandler(t, svc), clusterLogsWindow)
+			rr := getPlatformLogs(t, platformLogsHandler(t, svc), platformLogsWindow)
 
 			assert.Equal(t, tt.wantCode, rr.Code)
 			if tt.wantBody != "" {
@@ -350,11 +350,11 @@ func TestGetClusterLogs_ErrorMapping(t *testing.T) {
 	}
 }
 
-func TestGetClusterLogs_ServiceNotInitialized(t *testing.T) {
+func TestGetPlatformLogs_ServiceNotInitialized(t *testing.T) {
 	t.Parallel()
 
-	rr := getClusterLogs(t, clusterLogsHandler(t, nil), clusterLogsWindow)
+	rr := getPlatformLogs(t, platformLogsHandler(t, nil), platformLogsWindow)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1ClusterLogsServiceNotReady)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1PlatformLogsServiceNotReady)
 }

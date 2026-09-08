@@ -90,8 +90,8 @@ type WorkflowLogsResult struct {
 	Took       int                `json:"took"`
 }
 
-// ClusterLogsParams holds parameters for cluster log queries.
-type ClusterLogsParams struct {
+// PlatformLogsParams holds parameters for platform log queries.
+type PlatformLogsParams struct {
 	ClusterInstances []string          `json:"clusterInstances"`
 	Namespaces       []string          `json:"namespaces"`
 	PodNames         []string          `json:"podNames"`
@@ -105,8 +105,8 @@ type ClusterLogsParams struct {
 	SortOrder        string            `json:"sortOrder"`
 }
 
-// ClusterLogEntry represents a parsed cluster log record.
-type ClusterLogEntry struct {
+// PlatformLogEntry represents a parsed platform log record.
+type PlatformLogEntry struct {
 	Timestamp       time.Time         `json:"timestamp"`
 	Log             string            `json:"log"`
 	LogLevel        string            `json:"logLevel"`
@@ -120,11 +120,11 @@ type ClusterLogEntry struct {
 	Labels          map[string]string `json:"labels,omitempty"`
 }
 
-// ClusterLogsResult represents the result of a cluster log query
-type ClusterLogsResult struct {
-	Logs       []ClusterLogEntry `json:"logs"`
-	TotalCount int               `json:"totalCount"`
-	Took       int               `json:"took"`
+// PlatformLogsResult represents the result of a platform log query
+type PlatformLogsResult struct {
+	Logs       []PlatformLogEntry `json:"logs"`
+	TotalCount int                `json:"totalCount"`
+	Took       int                `json:"took"`
 }
 
 // LogsAdapter defines the interface for logs adapter implementations
@@ -138,9 +138,9 @@ type LogsAdapter interface {
 		params WorkflowLogsParams) (*WorkflowLogsResult, error)
 }
 
-// ClusterLogsAdapter defines the interface for fetching cluster logs
-type ClusterLogsAdapter interface {
-	// GetClusterLogs retrieves logs by raw Kubernetes coordinates, with no
+// PlatformLogsAdapter defines the interface for fetching platform logs
+type PlatformLogsAdapter interface {
+	// GetPlatformLogs retrieves logs by raw Kubernetes coordinates, with no
 	// project/component/environment correlation.
-	GetClusterLogs(ctx context.Context, params ClusterLogsParams) (*ClusterLogsResult, error)
+	GetPlatformLogs(ctx context.Context, params PlatformLogsParams) (*PlatformLogsResult, error)
 }

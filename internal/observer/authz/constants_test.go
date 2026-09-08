@@ -24,15 +24,15 @@ func TestActionConstantsMirrorCore(t *testing.T) {
 		observer Action
 		core     string
 	}{
-		"ActionViewLogs":        {ActionViewLogs, authzcore.ActionViewLogs},
-		"ActionViewEvents":      {ActionViewEvents, authzcore.ActionViewEvents},
-		"ActionViewTraces":      {ActionViewTraces, authzcore.ActionViewTraces},
-		"ActionViewMetrics":     {ActionViewMetrics, authzcore.ActionViewMetrics},
-		"ActionViewAlerts":      {ActionViewAlerts, authzcore.ActionViewAlerts},
-		"ActionViewIncidents":   {ActionViewIncidents, authzcore.ActionViewIncidents},
-		"ActionUpdateIncidents": {ActionUpdateIncidents, authzcore.ActionUpdateIncidents},
-		"ActionViewFinOps":      {ActionViewFinOps, authzcore.ActionViewFinOps},
-		"ActionViewClusterLogs": {ActionViewClusterLogs, authzcore.ActionViewClusterLogs},
+		"ActionViewLogs":         {ActionViewLogs, authzcore.ActionViewLogs},
+		"ActionViewEvents":       {ActionViewEvents, authzcore.ActionViewEvents},
+		"ActionViewTraces":       {ActionViewTraces, authzcore.ActionViewTraces},
+		"ActionViewMetrics":      {ActionViewMetrics, authzcore.ActionViewMetrics},
+		"ActionViewAlerts":       {ActionViewAlerts, authzcore.ActionViewAlerts},
+		"ActionViewIncidents":    {ActionViewIncidents, authzcore.ActionViewIncidents},
+		"ActionUpdateIncidents":  {ActionUpdateIncidents, authzcore.ActionUpdateIncidents},
+		"ActionViewFinOps":       {ActionViewFinOps, authzcore.ActionViewFinOps},
+		"ActionViewPlatformLogs": {ActionViewPlatformLogs, authzcore.ActionViewPlatformLogs},
 	}
 
 	for name, pair := range mirrored {
@@ -58,7 +58,7 @@ func TestActionConstantsAreRegistered(t *testing.T) {
 	for _, action := range []Action{
 		ActionViewLogs, ActionViewEvents, ActionViewTraces, ActionViewMetrics,
 		ActionViewAlerts, ActionViewIncidents, ActionUpdateIncidents,
-		ActionViewFinOps, ActionViewClusterLogs,
+		ActionViewFinOps, ActionViewPlatformLogs,
 	} {
 		assert.True(t, registered[string(action)],
 			"%q is checked by the observer but not registered in internal/authz/core", action)

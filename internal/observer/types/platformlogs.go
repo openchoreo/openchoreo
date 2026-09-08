@@ -3,10 +3,10 @@
 
 package types
 
-// ClusterLogsQueryRequest is the parsed form of the query string on
-// GET /api/v1alpha1/cluster-logs.
-// Matches the OpenAPI ClusterLogs* parameter set.
-type ClusterLogsQueryRequest struct {
+// PlatformLogsQueryRequest is the parsed form of the query string on
+// GET /api/v1alpha1/platform-logs.
+// Matches the OpenAPI PlatformLogs* parameter set.
+type PlatformLogsQueryRequest struct {
 	// Kubernetes coordinates to filter logs by (optional)
 	ClusterInstances []string `json:"clusterInstance,omitempty"`
 	Namespaces       []string `json:"namespace,omitempty"`
@@ -29,8 +29,8 @@ type ClusterLogsQueryRequest struct {
 	SortOrder string `json:"sortOrder,omitempty"` // asc or desc, default: desc
 }
 
-// ClusterLog is a single cluster log record matching the OpenAPI ClusterLog schema.
-type ClusterLog struct {
+// PlatformLog is a single platform log record matching the OpenAPI PlatformLog schema.
+type PlatformLog struct {
 	Timestamp       string            `json:"timestamp"`
 	Log             string            `json:"log"`
 	Level           string            `json:"level,omitempty"`
@@ -44,10 +44,10 @@ type ClusterLog struct {
 	Labels          map[string]string `json:"labels,omitempty"`
 }
 
-// ClusterLogsResponse is the response for GET /api/v1alpha1/cluster-logs.
-// Matches OpenAPI ClusterLogsResponse schema.
-type ClusterLogsResponse struct {
-	Logs   []ClusterLog `json:"logs"`
-	Total  int          `json:"total"`
-	TookMs int          `json:"tookMs"`
+// PlatformLogsResponse is the response for GET /api/v1alpha1/platform-logs.
+// Matches OpenAPI PlatformLogsResponse schema.
+type PlatformLogsResponse struct {
+	Logs   []PlatformLog `json:"logs"`
+	Total  int           `json:"total"`
+	TookMs int           `json:"tookMs"`
 }

@@ -225,9 +225,9 @@ func main() {
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
-	authzClusterLogsService := service.NewClusterLogsServiceWithAuthz(
-		service.NewClusterLogsService(concreteLogsAdapter, logger.With("component", "cluster-logs")),
-		authzClient, logger.With("component", "authz-cluster-logs"))
+	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
+		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
+		authzClient, logger.With("component", "authz-platform-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
 		eventsService, authzClient, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
@@ -243,7 +243,7 @@ func main() {
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		authzLogsService,
-		authzClusterLogsService,
+		authzPlatformLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,

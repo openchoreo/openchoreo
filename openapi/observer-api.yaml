@@ -385,12 +385,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  # Cluster logs endpoint
-  /api/v1alpha1/cluster-logs:
+  # Platform logs endpoint
+  /api/v1alpha1/platform-logs:
     get:
       tags:
         - Logs
-      summary: Query cluster-wide pod logs
+      summary: Query platform logs
       description: |
         Returns pod logs addressed by raw Kubernetes coordinates - cluster, namespace,
         pod, container - across everything the observability plane collects.
@@ -403,26 +403,26 @@ paths:
         `labels=openchoreo.dev/plane%3Dcontrolplane` narrows the search for logs
         from OpenChoreo control plane components. Being a label selector, its commas
         mean AND rather than OR.
-      operationId: getClusterLogs
+      operationId: getPlatformLogs
       parameters:
-        - $ref: "#/components/parameters/ClusterLogsClusterInstance"
-        - $ref: "#/components/parameters/ClusterLogsNamespace"
-        - $ref: "#/components/parameters/ClusterLogsPodName"
-        - $ref: "#/components/parameters/ClusterLogsContainerName"
-        - $ref: "#/components/parameters/ClusterLogsLabels"
-        - $ref: "#/components/parameters/ClusterLogsLogLevels"
-        - $ref: "#/components/parameters/ClusterLogsSearchPhrase"
-        - $ref: "#/components/parameters/ClusterLogsStartTime"
-        - $ref: "#/components/parameters/ClusterLogsEndTime"
-        - $ref: "#/components/parameters/ClusterLogsLimit"
-        - $ref: "#/components/parameters/ClusterLogsSortOrder"
+        - $ref: "#/components/parameters/PlatformLogsClusterInstance"
+        - $ref: "#/components/parameters/PlatformLogsNamespace"
+        - $ref: "#/components/parameters/PlatformLogsPodName"
+        - $ref: "#/components/parameters/PlatformLogsContainerName"
+        - $ref: "#/components/parameters/PlatformLogsLabels"
+        - $ref: "#/components/parameters/PlatformLogsLogLevels"
+        - $ref: "#/components/parameters/PlatformLogsSearchPhrase"
+        - $ref: "#/components/parameters/PlatformLogsStartTime"
+        - $ref: "#/components/parameters/PlatformLogsEndTime"
+        - $ref: "#/components/parameters/PlatformLogsLimit"
+        - $ref: "#/components/parameters/PlatformLogsSortOrder"
       responses:
         "200":
-          description: Cluster logs retrieved successfully.
+          description: Platform logs retrieved successfully.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClusterLogsResponse"
+                $ref: "#/components/schemas/PlatformLogsResponse"
         "400":
           description: Invalid request
           content:
@@ -450,7 +450,7 @@ paths:
         "501":
           description: |
             Not Implemented. Surfaced when the logs adapter backing this observer
-            answers the cluster logs query with a 501 of its own.
+            answers the platform logs query with a 501 of its own.
           content:
             application/json:
               schema:
@@ -458,7 +458,7 @@ paths:
               example:
                 title: "notImplemented"
                 errorCode: ""
-                message: "cluster logs are not supported by this adapter"
+                message: "platform logs are not supported by this adapter"
 
   # Runtime topology endpoint (for cell diagram with runtime observability)
   /api/v1alpha1/metrics/runtime-topology:
@@ -894,8 +894,8 @@ components:
         pattern: "^[1-9][0-9]*[hdw]$"
         example: 1d
 
-    # Cluster logs parameters
-    ClusterLogsClusterInstance:
+    # Platform logs parameters
+    PlatformLogsClusterInstance:
       name: clusterInstance
       in: query
       required: false
@@ -912,7 +912,7 @@ components:
           type: string
           maxLength: 253
         example: ["cluster1"]
-    ClusterLogsNamespace:
+    PlatformLogsNamespace:
       name: namespace
       in: query
       required: false
@@ -927,7 +927,7 @@ components:
           type: string
           maxLength: 253
         example: ["openchoreo-control-plane"]
-    ClusterLogsPodName:
+    PlatformLogsPodName:
       name: podName
       in: query
       required: false
@@ -942,7 +942,7 @@ components:
           type: string
           maxLength: 253
         example: ["controller-manager-7f58b689b5-pwsb5"]
-    ClusterLogsContainerName:
+    PlatformLogsContainerName:
       name: containerName
       in: query
       required: false
@@ -957,7 +957,7 @@ components:
           type: string
           maxLength: 253
         example: ["manager"]
-    ClusterLogsLabels:
+    PlatformLogsLabels:
       name: labels
       in: query
       required: false
@@ -970,7 +970,7 @@ components:
         type: string
         maxLength: 256
         example: openchoreo.dev/plane=controlplane
-    ClusterLogsLogLevels:
+    PlatformLogsLogLevels:
       name: logLevels
       in: query
       required: false
@@ -987,7 +987,7 @@ components:
           type: string
           enum: ["DEBUG", "INFO", "WARN", "ERROR"]
         example: ["ERROR", "WARN"]
-    ClusterLogsSearchPhrase:
+    PlatformLogsSearchPhrase:
       name: searchPhrase
       in: query
       required: false
@@ -998,7 +998,7 @@ components:
         type: string
         maxLength: 256
         example: reconcile failed
-    ClusterLogsStartTime:
+    PlatformLogsStartTime:
       name: startTime
       in: query
       required: true
@@ -1007,7 +1007,7 @@ components:
         type: string
         format: date-time
         example: "2026-08-14T16:30:00Z"
-    ClusterLogsEndTime:
+    PlatformLogsEndTime:
       name: endTime
       in: query
       required: true
@@ -1018,7 +1018,7 @@ components:
         type: string
         format: date-time
         example: "2026-08-14T17:30:00Z"
-    ClusterLogsLimit:
+    PlatformLogsLimit:
       name: limit
       in: query
       required: false
@@ -1028,7 +1028,7 @@ components:
         minimum: 1
         maximum: 1000
         default: 100
-    ClusterLogsSortOrder:
+    PlatformLogsSortOrder:
       name: sortOrder
       in: query
       required: false
@@ -1186,7 +1186,7 @@ components:
           description: The time taken to query the logs in milliseconds
 
     # Cluster log schemas
-    ClusterLog:
+    PlatformLog:
       type: object
       description: |
         A single log record: the message plus the physical coordinates, pod metadata and
@@ -1233,7 +1233,7 @@ components:
             Pod labels carried on the record. Returned as well as filtered on: `labels`
             narrows the query, and this shows what else is on the pod.
 
-    ClusterLogsResponse:
+    PlatformLogsResponse:
       type: object
       required:
         - tookMs
@@ -1244,7 +1244,7 @@ components:
           type: array
           description: Log entries matching the query.
           items:
-            $ref: "#/components/schemas/ClusterLog"
+            $ref: "#/components/schemas/PlatformLog"
         total:
           type: integer
           format: int64

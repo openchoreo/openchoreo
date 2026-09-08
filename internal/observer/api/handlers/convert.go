@@ -112,9 +112,9 @@ func toTypesRecommendationQuery(
 	}
 }
 
-// toTypesClusterLogsQuery maps the generated query parameters onto the internal request.
-func toTypesClusterLogsQuery(src gen.GetClusterLogsParams) (*types.ClusterLogsQueryRequest, error) {
-	dst := &types.ClusterLogsQueryRequest{
+// toTypesPlatformLogsQuery maps the generated query parameters onto the internal request.
+func toTypesPlatformLogsQuery(src gen.GetPlatformLogsParams) (*types.PlatformLogsQueryRequest, error) {
+	dst := &types.PlatformLogsQueryRequest{
 		StartTime: rfc3339OrEmpty(src.StartTime),
 		EndTime:   rfc3339OrEmpty(src.EndTime),
 	}

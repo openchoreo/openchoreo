@@ -14,27 +14,27 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
-// ErrClusterLogsRetrieval wraps a failure to reach or read from the logs adapter.
-var ErrClusterLogsRetrieval = errors.New("cluster logs retrieval failed")
+// ErrPlatformLogsRetrieval wraps a failure to reach or read from the logs adapter.
+var ErrPlatformLogsRetrieval = errors.New("platform logs retrieval failed")
 
-// ClusterLogsService serves cluster logs queries from /api/v1alpha1/cluster-logs.
-type ClusterLogsService struct {
-	adapter observability.ClusterLogsAdapter
+// PlatformLogsService serves platform logs queries from /api/v1alpha1/platform-logs.
+type PlatformLogsService struct {
+	adapter observability.PlatformLogsAdapter
 	logger  *slog.Logger
 }
 
-var _ ClusterLogsQuerier = (*ClusterLogsService)(nil)
+var _ PlatformLogsQuerier = (*PlatformLogsService)(nil)
 
-// NewClusterLogsService creates a ClusterLogsService.
-func NewClusterLogsService(adapter observability.ClusterLogsAdapter, logger *slog.Logger) *ClusterLogsService {
-	return &ClusterLogsService{adapter: adapter, logger: logger}
+// NewPlatformLogsService creates a PlatformLogsService.
+func NewPlatformLogsService(adapter observability.PlatformLogsAdapter, logger *slog.Logger) *PlatformLogsService {
+	return &PlatformLogsService{adapter: adapter, logger: logger}
 }
 
-// QueryClusterLogs retrieves cluster logs matching the request.
-func (s *ClusterLogsService) QueryClusterLogs(
+// QueryPlatformLogs retrieves platform logs matching the request.
+func (s *PlatformLogsService) QueryPlatformLogs(
 	ctx context.Context,
-	req *types.ClusterLogsQueryRequest,
-) (*types.ClusterLogsResponse, error) {
+	req *types.PlatformLogsQueryRequest,
+) (*types.PlatformLogsResponse, error) {
 	startTime, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse start time: %w", err)
@@ -44,7 +44,7 @@ func (s *ClusterLogsService) QueryClusterLogs(
 		return nil, fmt.Errorf("failed to parse end time: %w", err)
 	}
 
-	result, err := s.adapter.GetClusterLogs(ctx, observability.ClusterLogsParams{
+	result, err := s.adapter.GetPlatformLogs(ctx, observability.PlatformLogsParams{
 		ClusterInstances: req.ClusterInstances,
 		Namespaces:       req.Namespaces,
 		PodNames:         req.PodNames,
@@ -58,16 +58,16 @@ func (s *ClusterLogsService) QueryClusterLogs(
 		SortOrder:        req.SortOrder,
 	})
 	if err != nil {
-		if errors.Is(err, ErrClusterLogsNotSupported) {
+		if errors.Is(err, ErrPlatformLogsNotSupported) {
 			return nil, err
 		}
-		s.logger.Error("Failed to retrieve cluster logs", "error", err)
-		return nil, fmt.Errorf("%w: %w", ErrClusterLogsRetrieval, err)
+		s.logger.Error("Failed to retrieve platform logs", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrPlatformLogsRetrieval, err)
 	}
 
-	logs := make([]types.ClusterLog, 0, len(result.Logs))
+	logs := make([]types.PlatformLog, 0, len(result.Logs))
 	for _, l := range result.Logs {
-		logs = append(logs, types.ClusterLog{
+		logs = append(logs, types.PlatformLog{
 			Timestamp:       l.Timestamp.UTC().Format(time.RFC3339Nano),
 			Log:             l.Log,
 			Level:           l.LogLevel,
@@ -82,7 +82,7 @@ func (s *ClusterLogsService) QueryClusterLogs(
 		})
 	}
 
-	return &types.ClusterLogsResponse{
+	return &types.PlatformLogsResponse{
 		Logs:   logs,
 		Total:  result.TotalCount,
 		TookMs: result.Took,

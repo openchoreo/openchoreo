@@ -103,6 +103,6 @@ func (resp apiResponse) VisitGetRecommendationsResponse(w http.ResponseWriter) e
 	return resp.write(w)
 }
 
-func (resp apiResponse) VisitGetClusterLogsResponse(w http.ResponseWriter) error {
+func (resp apiResponse) VisitGetPlatformLogsResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }

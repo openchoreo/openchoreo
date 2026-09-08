@@ -18,16 +18,16 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
-func newTestClusterLogsAdapter(t *testing.T, baseURL string) *LogsAdapter {
+func newTestPlatformLogsAdapter(t *testing.T, baseURL string) *LogsAdapter {
 	t.Helper()
 	adapter, err := NewLogsAdapter(LogsAdapterConfig{BaseURL: baseURL, Timeout: 30 * time.Second})
 	require.NoError(t, err)
 	return adapter
 }
 
-// clusterLogsServer stands in for a logs module. It records the request the
+// platformLogsServer stands in for a logs module. It records the request the
 // adapter sent and replies with the given status and body.
-func clusterLogsServer(t *testing.T, status int, body any, capturedBody *map[string]any,
+func platformLogsServer(t *testing.T, status int, body any, capturedBody *map[string]any,
 	capturedMethod, capturedPath *string,
 ) *httptest.Server {
 	t.Helper()
@@ -49,15 +49,15 @@ func clusterLogsServer(t *testing.T, status int, body any, capturedBody *map[str
 	}))
 }
 
-// TestLogsAdapter_GetClusterLogs_RequestContract pins what the observer puts on
+// TestLogsAdapter_GetPlatformLogs_RequestContract pins what the observer puts on
 // the wire: the POST path from the adapter contract, and every filter mapped onto
 // the body fields the spec declares.
-func TestLogsAdapter_GetClusterLogs_RequestContract(t *testing.T) {
+func TestLogsAdapter_GetPlatformLogs_RequestContract(t *testing.T) {
 	t.Parallel()
 
 	var gotBody map[string]any
 	var gotMethod, gotPath string
-	server := clusterLogsServer(t, http.StatusOK,
+	server := platformLogsServer(t, http.StatusOK,
 		map[string]any{"logs": []any{}, "total": 0, "tookMs": 1},
 		&gotBody, &gotMethod, &gotPath)
 	defer server.Close()
@@ -65,8 +65,8 @@ func TestLogsAdapter_GetClusterLogs_RequestContract(t *testing.T) {
 	start := time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC)
 
-	_, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-		observability.ClusterLogsParams{
+	_, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
 			ClusterInstances: []string{"cluster1"},
 			Namespaces:       []string{"openchoreo-control-plane", "cert-manager"},
 			PodNames:         []string{"controller-manager-7f58b689b5-pwsb5"},
@@ -82,7 +82,7 @@ func TestLogsAdapter_GetClusterLogs_RequestContract(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, http.MethodPost, gotMethod)
-	assert.Equal(t, "/api/v1alpha1/cluster-logs/query", gotPath)
+	assert.Equal(t, "/api/v1alpha1/platform-logs/query", gotPath)
 
 	assert.Equal(t, []any{"cluster1"}, gotBody["clusterInstance"])
 	assert.Equal(t, []any{"openchoreo-control-plane", "cert-manager"}, gotBody["namespace"])
@@ -97,18 +97,18 @@ func TestLogsAdapter_GetClusterLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, end.Format(time.RFC3339), gotBody["endTime"])
 }
 
-// TestLogsAdapter_GetClusterLogs_OmitsEmptyFilters pins that an absent filter is
+// TestLogsAdapter_GetPlatformLogs_OmitsEmptyFilters pins that an absent filter is
 // not sent as an empty value - the contract treats a missing field as "no filter".
-func TestLogsAdapter_GetClusterLogs_OmitsEmptyFilters(t *testing.T) {
+func TestLogsAdapter_GetPlatformLogs_OmitsEmptyFilters(t *testing.T) {
 	t.Parallel()
 
 	var gotBody map[string]any
-	server := clusterLogsServer(t, http.StatusOK,
+	server := platformLogsServer(t, http.StatusOK,
 		map[string]any{"logs": []any{}, "total": 0, "tookMs": 0}, &gotBody, nil, nil)
 	defer server.Close()
 
-	_, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-		observability.ClusterLogsParams{
+	_, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
 			StartTime: time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
 			EndTime:   time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
 		})
@@ -124,13 +124,13 @@ func TestLogsAdapter_GetClusterLogs_OmitsEmptyFilters(t *testing.T) {
 	assert.Contains(t, gotBody, "endTime")
 }
 
-// TestLogsAdapter_GetClusterLogs_MapsResponse pins the record mapping, including
+// TestLogsAdapter_GetPlatformLogs_MapsResponse pins the record mapping, including
 // the pod metadata and labels the contract returns alongside the coordinates.
-func TestLogsAdapter_GetClusterLogs_MapsResponse(t *testing.T) {
+func TestLogsAdapter_GetPlatformLogs_MapsResponse(t *testing.T) {
 	t.Parallel()
 
 	ts := time.Date(2026, 8, 14, 16, 31, 0, 0, time.UTC)
-	server := clusterLogsServer(t, http.StatusOK, map[string]any{
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
 		"logs": []map[string]any{{
 			"timestamp":       ts.Format(time.RFC3339),
 			"log":             "reconcile failed",
@@ -149,8 +149,8 @@ func TestLogsAdapter_GetClusterLogs_MapsResponse(t *testing.T) {
 	}, nil, nil, nil)
 	defer server.Close()
 
-	result, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-		observability.ClusterLogsParams{
+	result, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
 			StartTime: ts.Add(-time.Hour),
 			EndTime:   ts.Add(time.Hour),
 		})
@@ -159,7 +159,7 @@ func TestLogsAdapter_GetClusterLogs_MapsResponse(t *testing.T) {
 
 	assert.Equal(t, 1, result.TotalCount)
 	assert.Equal(t, 4, result.Took)
-	assert.Equal(t, observability.ClusterLogEntry{
+	assert.Equal(t, observability.PlatformLogEntry{
 		Timestamp:       ts,
 		Log:             "reconcile failed",
 		LogLevel:        "ERROR",
@@ -174,20 +174,20 @@ func TestLogsAdapter_GetClusterLogs_MapsResponse(t *testing.T) {
 	}, result.Logs[0])
 }
 
-// TestLogsAdapter_GetClusterLogs_OmittedRecordFields pins the deref helpers: a
+// TestLogsAdapter_GetPlatformLogs_OmittedRecordFields pins the deref helpers: a
 // record with only the required fields maps to zero values, not a panic.
-func TestLogsAdapter_GetClusterLogs_OmittedRecordFields(t *testing.T) {
+func TestLogsAdapter_GetPlatformLogs_OmittedRecordFields(t *testing.T) {
 	t.Parallel()
 
-	server := clusterLogsServer(t, http.StatusOK, map[string]any{
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
 		"logs":   []map[string]any{{"log": "bare record"}},
 		"total":  1,
 		"tookMs": 0,
 	}, nil, nil, nil)
 	defer server.Close()
 
-	result, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-		observability.ClusterLogsParams{
+	result, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
 			StartTime: time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
 			EndTime:   time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
 		})
@@ -203,47 +203,47 @@ func TestLogsAdapter_GetClusterLogs_OmittedRecordFields(t *testing.T) {
 	assert.Nil(t, got.Labels)
 }
 
-// TestLogsAdapter_GetClusterLogs_NotImplemented pins the 501 mapping. A module
+// TestLogsAdapter_GetPlatformLogs_NotImplemented pins the 501 mapping. A module
 // that has not adopted the endpoint is a deployment fact, not a failure, so it
-// surfaces as ErrClusterLogsNotSupported for the handler to turn into a 501.
-func TestLogsAdapter_GetClusterLogs_NotImplemented(t *testing.T) {
+// surfaces as ErrPlatformLogsNotSupported for the handler to turn into a 501.
+func TestLogsAdapter_GetPlatformLogs_NotImplemented(t *testing.T) {
 	t.Parallel()
 
-	server := clusterLogsServer(t, http.StatusNotImplemented, map[string]any{
+	server := platformLogsServer(t, http.StatusNotImplemented, map[string]any{
 		"title":     "notImplemented",
 		"errorCode": "",
-		"message":   "cluster logs are not supported by this adapter",
+		"message":   "platform logs are not supported by this adapter",
 	}, nil, nil, nil)
 	defer server.Close()
 
-	_, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-		observability.ClusterLogsParams{
+	_, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
 			StartTime: time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
 			EndTime:   time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
 		})
-	require.ErrorIs(t, err, ErrClusterLogsNotSupported)
+	require.ErrorIs(t, err, ErrPlatformLogsNotSupported)
 }
 
-// TestLogsAdapter_GetClusterLogs_UpstreamErrors pins that any other non-200 is a
+// TestLogsAdapter_GetPlatformLogs_UpstreamErrors pins that any other non-200 is a
 // failure carrying the status, distinct from the 501 case above.
-func TestLogsAdapter_GetClusterLogs_UpstreamErrors(t *testing.T) {
+func TestLogsAdapter_GetPlatformLogs_UpstreamErrors(t *testing.T) {
 	t.Parallel()
 
 	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError, http.StatusBadGateway} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			t.Parallel()
 
-			server := clusterLogsServer(t, status,
+			server := platformLogsServer(t, status,
 				map[string]any{"title": "error", "message": "upstream said no"}, nil, nil, nil)
 			defer server.Close()
 
-			_, err := newTestClusterLogsAdapter(t, server.URL).GetClusterLogs(context.Background(),
-				observability.ClusterLogsParams{
+			_, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+				observability.PlatformLogsParams{
 					StartTime: time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
 					EndTime:   time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
 				})
 			require.Error(t, err)
-			assert.NotErrorIs(t, err, ErrClusterLogsNotSupported)
+			assert.NotErrorIs(t, err, ErrPlatformLogsNotSupported)
 			assert.Contains(t, err.Error(), strconv.Itoa(status))
 			assert.Contains(t, err.Error(), "upstream said no")
 		})

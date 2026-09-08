@@ -139,7 +139,7 @@ packages:
     interfaces:
       HealthChecker:
       LogsQuerier:
-      ClusterLogsQuerier:
+      PlatformLogsQuerier:
       EventsQuerier:
       MetricsQuerier:
       TracesQuerier:

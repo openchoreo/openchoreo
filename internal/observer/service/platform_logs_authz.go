@@ -12,29 +12,29 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
-// clusterLogsServiceWithAuthz wraps a ClusterLogsQuerier and adds authorization checks.
+// platformLogsServiceWithAuthz wraps a PlatformLogsQuerier and adds authorization checks.
 // Both the HTTP handlers and the MCP handler should use this via
-// NewClusterLogsServiceWithAuthz.
-type clusterLogsServiceWithAuthz struct {
-	internal ClusterLogsQuerier
+// NewPlatformLogsServiceWithAuthz.
+type platformLogsServiceWithAuthz struct {
+	internal PlatformLogsQuerier
 	pdp      authzcore.PDP
 	logger   *slog.Logger
 }
 
-var _ ClusterLogsQuerier = (*clusterLogsServiceWithAuthz)(nil)
+var _ PlatformLogsQuerier = (*platformLogsServiceWithAuthz)(nil)
 
-// NewClusterLogsServiceWithAuthz wraps the provided ClusterLogsQuerier with
+// NewPlatformLogsServiceWithAuthz wraps the provided PlatformLogsQuerier with
 // authorization checks.
-func NewClusterLogsServiceWithAuthz(
-	s ClusterLogsQuerier, pdp authzcore.PDP, logger *slog.Logger,
-) ClusterLogsQuerier {
-	return &clusterLogsServiceWithAuthz{internal: s, pdp: pdp, logger: logger}
+func NewPlatformLogsServiceWithAuthz(
+	s PlatformLogsQuerier, pdp authzcore.PDP, logger *slog.Logger,
+) PlatformLogsQuerier {
+	return &platformLogsServiceWithAuthz{internal: s, pdp: pdp, logger: logger}
 }
 
-func (s *clusterLogsServiceWithAuthz) QueryClusterLogs(
+func (s *platformLogsServiceWithAuthz) QueryPlatformLogs(
 	ctx context.Context,
-	req *types.ClusterLogsQueryRequest,
-) (*types.ClusterLogsResponse, error) {
+	req *types.PlatformLogsQueryRequest,
+) (*types.PlatformLogsResponse, error) {
 	// An empty hierarchy is the cluster scope: resourceHierarchyToPath maps it to "*",
 	// which only a cluster-scoped binding can satisfy. Deliberately not derived from
 	// anything in the request - the query's namespaces are Kubernetes namespaces of
@@ -42,11 +42,11 @@ func (s *clusterLogsServiceWithAuthz) QueryClusterLogs(
 	// would hand out access on a name collision.
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
-		observerAuthz.ActionViewClusterLogs,
-		observerAuthz.ResourceTypeCluster, "", authzcore.ResourceHierarchy{},
+		observerAuthz.ActionViewPlatformLogs,
+		observerAuthz.ResourceTypePlatform, "", authzcore.ResourceHierarchy{},
 		authzcore.Context{},
 	); err != nil {
 		return nil, err
 	}
-	return s.internal.QueryClusterLogs(ctx, req)
+	return s.internal.QueryPlatformLogs(ctx, req)
 }
