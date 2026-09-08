@@ -479,7 +479,7 @@ func (c *Config) validateDeliveryInsightsStore() error {
 	if strings.TrimSpace(c.DeliveryInsights.StoreDSN) == "" {
 		if c.DeliveryInsights.StoreBackend != c.Alerting.AlertStoreBackend {
 			return fmt.Errorf(
-				"deliveryinsights.store.dsn is required when insights.store.backend differs from alert.store.backend")
+				"deliveryinsights.store.dsn is required when deliveryinsights.store.backend differs from alert.store.backend")
 		}
 		c.DeliveryInsights.StoreDSN = c.Alerting.AlertStoreDSN
 	}
