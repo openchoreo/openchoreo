@@ -34,7 +34,7 @@ func TestFetchDeliveryEvents(t *testing.T) {
 					{
 						"timestamp": time.UnixMilli(1000).UTC().Format(time.RFC3339Nano),
 						"reason":    aggregator.ReasonDeploymentSucceeded,
-						"message":   `{"renderedReleaseUid":"u1"}`,
+						"message":   `{"rolloutId":"u1"}`,
 						"metadata": map[string]any{
 							"namespaceName":   "acme",
 							"projectName":     "shop",
@@ -87,7 +87,7 @@ func TestFetchDeliveryEvents(t *testing.T) {
 		if e.Namespace != "acme" || e.ProjectName != "shop" || e.ComponentName != "checkout" || e.EnvironmentName != "dev" {
 			t.Errorf("metadata mapping wrong: %+v", e)
 		}
-		if e.Message != `{"renderedReleaseUid":"u1"}` {
+		if e.Message != `{"rolloutId":"u1"}` {
 			t.Errorf("message = %q", e.Message)
 		}
 	})

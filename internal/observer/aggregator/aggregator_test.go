@@ -229,7 +229,7 @@ func (f *fakeEventsSource) FetchDeliveryEvents(
 
 func deliveryEvent(reason, releaseUID string, ts time.Time, extra map[string]string) DeliveryEvent {
 	payload := map[string]string{
-		"renderedReleaseUid":   releaseUID,
+		"rolloutId":            releaseUID,
 		"componentReleaseName": "checkout-api-7",
 		"projectUid":           "checkout",
 		"componentUid":         "checkout-api",
@@ -363,7 +363,7 @@ func TestRunOnceSkipsMalformedEvents(t *testing.T) {
 		{Reason: ReasonDeploymentSucceeded, TimestampMs: now.Add(-time.Hour).UnixMilli(),
 			Namespace: "default", Message: "not json"},
 		{Reason: "SomethingElse", TimestampMs: now.Add(-time.Hour).UnixMilli(),
-			Namespace: "default", Message: `{"renderedReleaseUid":"rel-x"}`},
+			Namespace: "default", Message: `{"rolloutId":"rel-x"}`},
 	}}
 
 	agg := newTestAggregator(store, incidents, source, now)

@@ -55,7 +55,11 @@ type EventsSource interface {
 // message — everything the aggregator needs, independent of collector enrichment
 // (Kubernetes Events do not inherit the involved object's labels).
 type deliveryEventPayload struct {
-	RenderedReleaseUID   string `json:"renderedReleaseUid"`
+	// RolloutID identifies one rollout as "<componentReleaseUID>.<renderedReleaseUID>".
+	// The emitter calls it rolloutId because it is not a RenderedRelease UID on its
+	// own: the same RenderedRelease is reused across ComponentReleases, so only the
+	// pair distinguishes rollouts. The store column it feeds is still release_uid.
+	RolloutID            string `json:"rolloutId"`
 	ComponentReleaseName string `json:"componentReleaseName"`
 	NamespaceName        string `json:"namespaceName"`
 	ProjectUID           string `json:"projectUid"`
@@ -191,7 +195,7 @@ func (a *Aggregator) foldEvent(
 ) (*deliveryinsights.DeploymentFact, *deliveryinsights.RecoveryFact, bool) {
 	var payload deliveryEventPayload
 	if err := json.Unmarshal([]byte(event.Message), &payload); err != nil ||
-		payload.RenderedReleaseUID == "" {
+		payload.RolloutID == "" {
 		a.logger.Warn("Skipping delivery event with invalid payload",
 			"reason", event.Reason, "namespace", event.Namespace)
 		return nil, nil, false
@@ -211,12 +215,12 @@ func (a *Aggregator) foldEvent(
 	}
 	if namespaceName == "" {
 		a.logger.Warn("Skipping delivery event with no namespace; it cannot be attributed",
-			"reason", event.Reason, "renderedReleaseUid", payload.RenderedReleaseUID)
+			"reason", event.Reason, "rolloutId", payload.RolloutID)
 		return nil, nil, false
 	}
 
 	fact := deliveryinsights.DeploymentFact{
-		ReleaseUID:       payload.RenderedReleaseUID,
+		ReleaseUID:       payload.RolloutID,
 		OrgNamespace:     namespaceName,
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
@@ -252,12 +256,12 @@ func (a *Aggregator) foldEvent(
 		fact.StartedMs = &eventMs
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
-			ID:               healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
+			ID:               healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
 			OrgNamespace:     namespaceName,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
-			ReleaseUID:       payload.RenderedReleaseUID,
+			ReleaseUID:       payload.RolloutID,
 			Source:           deliveryinsights.RecoverySourceHealth,
 			FailureStartedMs: eventMs,
 			UpdatedAtMs:      tickStart.UnixMilli(),
@@ -265,12 +269,12 @@ func (a *Aggregator) foldEvent(
 	case ReasonDeploymentRecovered:
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
-			ID:             healthRecoveryID(payload.RenderedReleaseUID, payload.FailureEpisode),
+			ID:             healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
 			OrgNamespace:   namespaceName,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,
-			ReleaseUID:     payload.RenderedReleaseUID,
+			ReleaseUID:     payload.RolloutID,
 			Source:         deliveryinsights.RecoverySourceHealth,
 			// On merge the store keeps the existing row's failure start (from the
 			// Failed event) and derives duration from it; this value only lands
