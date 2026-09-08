@@ -491,10 +491,11 @@ func TestHasResurrectableWorkload(t *testing.T) {
 
 func TestGetHealthCheckFunc(t *testing.T) {
 	tests := []struct {
-		name        string
-		gvk         schema.GroupVersionKind
-		wantNonNil  bool
-		wantUnknown bool // if true, the result fn should be getUnknownResourceHealth
+		name             string
+		gvk              schema.GroupVersionKind
+		wantNonNil       bool
+		wantUnknown      bool // if true, the result fn should be getUnknownResourceHealth
+		wantHelmDispatch bool // if true, the result fn should be getHelmReleaseHealth
 	}{
 		{
 			name:       "apps/Deployment",
@@ -517,9 +518,10 @@ func TestGetHealthCheckFunc(t *testing.T) {
 			wantNonNil: true,
 		},
 		{
-			name:       "helm.toolkit.fluxcd.io/HelmRelease",
-			gvk:        schema.GroupVersionKind{Group: fluxHelmAPIGroup, Version: "v2", Kind: helmReleaseKind},
-			wantNonNil: true,
+			name:             "helm.toolkit.fluxcd.io/HelmRelease",
+			gvk:              schema.GroupVersionKind{Group: fluxHelmAPIGroup, Version: "v2", Kind: helmReleaseKind},
+			wantNonNil:       true,
+			wantHelmDispatch: true,
 		},
 		{
 			name:        "unknown resource returns non-nil health function",
@@ -552,6 +554,25 @@ func TestGetHealthCheckFunc(t *testing.T) {
 				}
 				if health != openchoreov1alpha1.HealthStatusHealthy {
 					t.Errorf("unknown resource health: expected Healthy, got %s", health)
+				}
+			}
+
+			if tt.wantHelmDispatch && fn != nil {
+				// Dispatched function should behave like getHelmReleaseHealth, not
+				// getUnknownResourceHealth (which would also report Healthy here).
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(tt.gvk)
+				if err := unstructured.SetNestedSlice(obj.Object, []interface{}{
+					map[string]interface{}{"type": "Ready", "status": "False"},
+				}, "status", "conditions"); err != nil {
+					t.Fatalf("failed to set conditions: %v", err)
+				}
+				health, err := fn(obj)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if health != openchoreov1alpha1.HealthStatusDegraded {
+					t.Errorf("HelmRelease with Ready=False: expected Degraded, got %s", health)
 				}
 			}
 		})
