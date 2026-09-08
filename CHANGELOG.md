@@ -6,6 +6,10 @@ All notable changes to OpenChoreo are documented in this file.
 
 Changes since [v1.1.6](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.6).
 
+### Security
+
+- **(Controller)** CEL evaluation in ComponentType and Trait templates is now bounded by a per-expression cost limit and a per-reconcile cost budget, so a runaway expression can no longer consume unbounded controller time. ([#4567](https://github.com/openchoreo/openchoreo/pull/4567))
+
 ### Enhancements
 
 - **(Observer)** In the span details API, observer now authorises the user using OpenChoreo entity information, returned in span attributes ([#4642](https://github.com/openchoreo/openchoreo/pull/4642))
