@@ -646,6 +646,9 @@ components:
 
     PlatformLog:
       type: object
+      required:
+        - timestamp
+        - log
       properties:
         timestamp:
           type: string

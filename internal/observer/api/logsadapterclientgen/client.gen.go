@@ -456,7 +456,7 @@ type PlatformLog struct {
 	Level *string `json:"level,omitempty"`
 
 	// Log The log message
-	Log           *string `json:"log,omitempty"`
+	Log           string  `json:"log"`
 	NamespaceName *string `json:"namespaceName,omitempty"`
 
 	// NodeName Node the pod was scheduled on.
@@ -465,7 +465,7 @@ type PlatformLog struct {
 	PodName  *string `json:"podName,omitempty"`
 
 	// Timestamp The timestamp of the log entry
-	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // PlatformLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields

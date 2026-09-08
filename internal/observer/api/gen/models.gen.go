@@ -728,7 +728,7 @@ type PlatformLog struct {
 
 	// Log The log message. Named `log` rather than `message` to match ComponentLogEntry
 	// and WorkflowLogEntry.
-	Log *string `json:"log,omitempty"`
+	Log string `json:"log"`
 
 	// NamespaceName Kubernetes namespace of the pod that produced the log.
 	NamespaceName *string `json:"namespaceName,omitempty"`
@@ -741,7 +741,7 @@ type PlatformLog struct {
 	PodName *string `json:"podName,omitempty"`
 
 	// Timestamp Timestamp of the log entry in UTC.
-	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // PlatformLogsResponse defines model for PlatformLogsResponse.

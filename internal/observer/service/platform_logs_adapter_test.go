@@ -175,7 +175,12 @@ func TestLogsAdapter_GetPlatformLogs_MapsResponse(t *testing.T) {
 }
 
 // TestLogsAdapter_GetPlatformLogs_OmittedRecordFields pins the deref helpers: a
-// record with only the required fields maps to zero values, not a panic.
+// record missing optional fields maps to zero values, not a panic.
+//
+// timestamp and log are required by the contract, so a record without them is a
+// module bug rather than a legitimate state. The adapter passes through whatever
+// arrived - it does not police the contract on the module's behalf, since a
+// visibly wrong value is easier to notice and fix than a silently dropped record.
 func TestLogsAdapter_GetPlatformLogs_OmittedRecordFields(t *testing.T) {
 	t.Parallel()
 

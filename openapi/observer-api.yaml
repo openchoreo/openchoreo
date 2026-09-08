@@ -1191,6 +1191,9 @@ components:
       description: |
         A single log record: the message plus the physical coordinates, pod metadata and
         pod labels of whatever produced it.
+      required:
+        - timestamp
+        - log
       properties:
         timestamp:
           type: string

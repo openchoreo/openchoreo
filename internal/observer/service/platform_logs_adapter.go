@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
 	"github.com/openchoreo/openchoreo/pkg/observability"
@@ -80,8 +79,8 @@ func (p *LogsAdapter) GetPlatformLogs(
 	logs := make([]observability.PlatformLogEntry, 0, len(resp.JSON200.Logs))
 	for _, l := range resp.JSON200.Logs {
 		logs = append(logs, observability.PlatformLogEntry{
-			Timestamp:       derefTime(l.Timestamp),
-			Log:             deref(l.Log),
+			Timestamp:       l.Timestamp,
+			Log:             l.Log,
 			LogLevel:        deref(l.Level),
 			ClusterInstance: deref(l.ClusterInstance),
 			NamespaceName:   deref(l.NamespaceName),
@@ -111,13 +110,6 @@ func setIfNotEmpty(dst **[]string, values []string) {
 func deref(ptr *string) string {
 	if ptr == nil {
 		return ""
-	}
-	return *ptr
-}
-
-func derefTime(ptr *time.Time) time.Time {
-	if ptr == nil {
-		return time.Time{}
 	}
 	return *ptr
 }
