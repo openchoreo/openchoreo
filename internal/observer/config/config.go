@@ -135,7 +135,14 @@ type InsightsConfig struct {
 	// "passthrough" treats names as UIDs directly — a development/demo affordance
 	// for querying seeded dummy data without a control plane.
 	UIDResolution string `koanf:"uid.resolution"`
-	// AggregationEnabled runs the DORA aggregator in the observer process.
+	// AggregationEnabled runs the DORA aggregator in the observer process: the
+	// background loop that folds delivery lifecycle events into the durable facts
+	// and rollups the insights API reads. Reads are served whether or not it runs;
+	// this only controls whether new facts are derived.
+	//
+	// The loop has no leader election, so exactly one replica may have this on --
+	// concurrent sweeps share watermarks and would overwrite each other's resume
+	// positions. The chart enforces that; nothing here does.
 	AggregationEnabled bool `koanf:"aggregation.enabled"`
 	// AggregationInterval is the aggregator tick interval.
 	AggregationInterval time.Duration `koanf:"aggregation.interval"`
