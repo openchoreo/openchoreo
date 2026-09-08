@@ -1069,6 +1069,7 @@ kind: ClusterResourceType
 metadata:
   name: postgres
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster PostgreSQL database backed by a single-replica StatefulSet.
       Storage defaults to ephemeral (emptyDir), for demonstration purposes
@@ -1489,6 +1490,7 @@ kind: ClusterResourceType
 metadata:
   name: valkey
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster Valkey cache (Redis-protocol-compatible) backed by a
       single-replica StatefulSet. In-memory only; data is lost on pod restart.
@@ -1743,6 +1745,7 @@ kind: ClusterResourceType
 metadata:
   name: nats
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster NATS Core pub/sub server (no JetStream) backed by a
       single-replica Deployment. Stateless and in-memory; for demonstration
@@ -2072,6 +2075,14 @@ spec:
                       value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
                       value: "{{workflow.parameters.workflowrun-name}}"
+                    - name: source-commit
+                      value: "{{steps.checkout-source.outputs.parameters.commit-sha}}"
+                    - name: source-branch
+                      value: "{{steps.checkout-source.outputs.parameters.source-branch}}"
+                    - name: source-repository
+                      value: "{{workflow.parameters.git-repo}}"
+                    - name: source-authored-at
+                      value: "{{steps.checkout-source.outputs.parameters.commit-authored-at}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2280,6 +2291,14 @@ spec:
                       value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
                       value: "{{workflow.parameters.workflowrun-name}}"
+                    - name: source-commit
+                      value: "{{steps.checkout-source.outputs.parameters.commit-sha}}"
+                    - name: source-branch
+                      value: "{{steps.checkout-source.outputs.parameters.source-branch}}"
+                    - name: source-repository
+                      value: "{{workflow.parameters.git-repo}}"
+                    - name: source-authored-at
+                      value: "{{steps.checkout-source.outputs.parameters.commit-authored-at}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2490,6 +2509,14 @@ spec:
                       value: '{{steps.publish-image.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
+                    - name: source-commit
+                      value: '{{steps.checkout-source.outputs.parameters.commit-sha}}'
+                    - name: source-branch
+                      value: '{{steps.checkout-source.outputs.parameters.source-branch}}'
+                    - name: source-repository
+                      value: '{{workflow.parameters.git-repo}}'
+                    - name: source-authored-at
+                      value: '{{steps.checkout-source.outputs.parameters.commit-authored-at}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2735,6 +2762,14 @@ spec:
                       value: '{{steps.publish-image.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
+                    - name: source-commit
+                      value: '{{steps.checkout-source.outputs.parameters.commit-sha}}'
+                    - name: source-branch
+                      value: '{{steps.checkout-source.outputs.parameters.source-branch}}'
+                    - name: source-repository
+                      value: '{{workflow.parameters.git-repo}}'
+                    - name: source-authored-at
+                      value: '{{steps.checkout-source.outputs.parameters.commit-authored-at}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace

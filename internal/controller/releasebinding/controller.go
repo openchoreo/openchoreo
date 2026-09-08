@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -74,6 +75,10 @@ var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// PlaneClientProvider resolves a data-plane client, used to emit delivery
+	// lifecycle events into the plane the workload actually runs in.
+	PlaneClientProvider kubernetesClient.PlaneClientProvider
 
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
@@ -639,10 +644,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		dataPlaneRelease.Labels = map[string]string{
-			labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
-			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
-			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
-			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
+			labels.LabelKeyNamespaceName:        releaseBinding.Namespace,
+			labels.LabelKeyProjectName:          releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:        releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName:      releaseBinding.Spec.Environment,
+			labels.LabelKeyComponentReleaseName: componentRelease.Name,
+			labels.LabelKeyComponentReleaseUID:  string(componentRelease.UID),
 		}
 
 		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {
@@ -749,6 +756,10 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
+		if err := r.reconcileDelivery(
+			ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, true); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -767,6 +778,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Evaluate resource readiness from dataplane Release status (with component for workload type)
 	if err := r.setResourcesReadyStatus(ctx, releaseBinding, dataPlaneRelease, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
+	}
+
+	if err := r.reconcileDelivery(
+		ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, false); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

@@ -92,6 +92,8 @@ data:
       key_id: {{ .keyId | quote }}
       issuer: {{ .issuer | quote }}
       ttl_seconds: {{ .ttlSeconds }}
+      secret_ttl_seconds: {{ .secretTtlSeconds }}
+      secrets_enabled: {{ .secretsEnabled }}
       agent_image: "{{ include "openchoreo-control-plane.image" (dict "context" $ "image" .agentImage) }}"
       agent_listen_port: {{ .agentListenPort }}
       entrypoint_address: {{ .entrypointAddress | quote }}

@@ -3,6 +3,7 @@ kind: ClusterResourceType
 metadata:
   name: valkey
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster Valkey cache (Redis-protocol-compatible) backed by a
       single-replica StatefulSet. In-memory only; data is lost on pod restart.

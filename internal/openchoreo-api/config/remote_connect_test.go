@@ -36,6 +36,11 @@ func TestRemoteConnectValidateRejectsUnusableNumbers(t *testing.T) {
 		{"zero capability ttl", func(c *RemoteConnectConfig) { c.TTLSeconds = 0 }, "ttl_seconds"},
 		{"zero agent port", func(c *RemoteConnectConfig) { c.AgentListenPort = 0 }, "agent_listen_port"},
 		{"agent port out of range", func(c *RemoteConnectConfig) { c.AgentListenPort = 70000 }, "agent_listen_port"},
+		// A secret-bearing capability outliving a dial-only one inverts the tighter
+		// freeze it exists for, and lengthens the agent's read grant with it.
+		{"secret ttl over capability ttl", func(c *RemoteConnectConfig) {
+			c.TTLSeconds, c.SecretTTLSeconds = 600, 1800
+		}, "secret_ttl_seconds"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -80,5 +85,19 @@ func TestRemoteConnectDefaultsAreUsable(t *testing.T) {
 	}
 	if d.ReaperTTL() <= 0 {
 		t.Errorf("default reaper TTL = %v, must be positive", d.ReaperTTL())
+	}
+}
+
+// Zero means "fall back to ttl_seconds", and an equal value is the tightest freeze an
+// operator can ask for without disabling the distinction.
+func TestRemoteConnectValidateAcceptsSecretTTLAtOrBelowCapabilityTTL(t *testing.T) {
+	for name, secret := range map[string]int{"zero": 0, "equal": 1800, "below": 600} {
+		t.Run(name, func(t *testing.T) {
+			c := validRemoteConnect()
+			c.TTLSeconds, c.SecretTTLSeconds = 1800, secret
+			if errs := c.Validate(coreconfig.NewPath("remote_connect")); len(errs) != 0 {
+				t.Fatalf("secret_ttl_seconds=%d should be accepted, got %v", secret, errs.Error())
+			}
+		})
 	}
 }

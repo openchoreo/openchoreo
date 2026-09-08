@@ -37,6 +37,13 @@ const (
 	deploymentKind  = "Deployment"
 	statefulSetKind = "StatefulSet"
 
+	batchAPIGroup = "batch"
+	cronJobKind   = "CronJob"
+
+	// reasonProgressDeadlineExceeded is the Deployment Progressing condition reason
+	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
+	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
+
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
 	ConditionResourcesApplied = "ResourcesApplied"
@@ -63,6 +70,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=events,verbs=create
 // +kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -186,9 +194,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Build the resource statuses first so delivery events and the status update
+	// share one health evaluation
+	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
+
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if statusUpdated, err := r.updateStatus(ctx, old, release, desiredResources, liveResources); err != nil || statusUpdated {
+	if statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil || statusUpdated {
 		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}

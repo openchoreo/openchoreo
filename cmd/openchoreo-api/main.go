@@ -21,6 +21,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/authz"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -203,7 +204,8 @@ func main() {
 	// a policy applies identically regardless of which one produced the event.
 	// cfg.Validate() (above) already ran the same conversion and would have
 	// failed startup on an invalid policy; a non-nil error here is defensive.
-	auditPolicies, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	auditVocab := auditconfig.NewVocabulary(apiaudit.GetOperations())
+	auditPolicies, err := cfg.Audit.BuildPolicySet(auditVocab, cfg.Security.KnownActorTypes())
 	if err != nil {
 		logger.Error("Failed to build audit policy set", slog.Any("error", err))
 		os.Exit(1)
@@ -284,8 +286,12 @@ func main() {
 		// Heartbeat: the remote-agent's periodic liveness callback while it has live
 		// sessions. Also unauthenticated at the middleware layer — the presented
 		// capability is the credential (verified, expiry tolerated, inside the handler).
+		// A heartbeat keeps the agent alive but is not a read.
 		heartbeatHandler := openapihandlers.NewRemoteConnectHeartbeatHandler(
-			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+			remoteConnectHandler.VerifyKey(),
+			func(ctx context.Context, namespace, env, dpNamespace string) error {
+				return remoteConnectHandler.TouchAgent(ctx, namespace, env, dpNamespace, false)
+			}, logger)
 		baseMux.Handle("POST "+remoteconnect.HeartbeatPath, heartbeatHandler)
 		logger.Info("Remote-connect resolve + authorize + heartbeat endpoints registered",
 			"resolve", "/api/v1/remote-connect:resolve",

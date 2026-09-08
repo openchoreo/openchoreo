@@ -58,6 +58,8 @@ type AgentConfig struct {
 	StreamOpenTimeout time.Duration `koanf:"stream_open_timeout"`
 	// DialTimeout bounds dialing an upstream dependency target.
 	DialTimeout time.Duration `koanf:"dial_timeout"`
+	// ReadTimeout bounds a single Secret/ConfigMap read against the Kubernetes API.
+	ReadTimeout time.Duration `koanf:"read_timeout"`
 }
 
 // AuthorizeConfig configures the per-stream authorization call to the control plane.
@@ -113,6 +115,7 @@ func AgentDefaults() AgentConfig {
 		HandshakeTimeout:     remoteagent.DefaultHandshakeTimeout,
 		StreamOpenTimeout:    remoteagent.DefaultStreamOpenTimeout,
 		DialTimeout:          remoteagent.DefaultDialTimeout,
+		ReadTimeout:          remoteagent.DefaultReadTimeout,
 	}
 }
 
@@ -215,6 +218,9 @@ func (c *AgentConfig) Validate(path *coreconfig.Path) coreconfig.ValidationError
 	if err := coreconfig.MustBeGreaterThan(path.Child("dial_timeout"), c.DialTimeout, time.Duration(0)); err != nil {
 		errs = append(errs, err)
 	}
+	if err := coreconfig.MustBeGreaterThan(path.Child("read_timeout"), c.ReadTimeout, time.Duration(0)); err != nil {
+		errs = append(errs, err)
+	}
 
 	return errs
 }
@@ -284,6 +290,7 @@ func (c *Config) ToAgentConfig() remoteagent.Config {
 		StreamOpenTimeout:           c.Agent.StreamOpenTimeout,
 		AuthorizeTimeout:            c.Authorize.Timeout,
 		DialTimeout:                 c.Agent.DialTimeout,
+		ReadTimeout:                 c.Agent.ReadTimeout,
 		MaxStreamsPerSession:        c.Agent.MaxStreamsPerSession,
 	}
 }

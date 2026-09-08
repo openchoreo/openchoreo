@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 )
 
 // rawTemplate marshals a Go map into a runtime.RawExtension for use as a
@@ -421,4 +422,68 @@ func hasErrorContaining(errs field.ErrorList, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestValidateLocalDevAddressesAnnotation(t *testing.T) {
+	outputs := []v1alpha1.ResourceTypeOutput{
+		{Name: "host", Value: "h"},
+		{Name: "port", Value: "6379"},
+		{Name: "adminPort", Value: "8222"},
+	}
+	annotationsPath := field.NewPath("metadata", "annotations")
+	validate := func(value string) field.ErrorList {
+		return ValidateLocalDevAddressesAnnotation(
+			map[string]string{localdevaddresses.AnnotationKey: value}, outputs, annotationsPath)
+	}
+
+	t.Run("accepts_distinct_port_outputs", func(t *testing.T) {
+		require.Empty(t, validate("database=outputs.host:outputs.port,admin=outputs.host:outputs.adminPort"))
+	})
+
+	// An absent annotation is a resource type with nothing to dial, not an omission.
+	t.Run("absent_annotation_is_valid", func(t *testing.T) {
+		require.Empty(t, ValidateLocalDevAddressesAnnotation(nil, outputs, annotationsPath))
+		require.Empty(t, ValidateLocalDevAddressesAnnotation(
+			map[string]string{"openchoreo.dev/description": "unrelated"}, outputs, annotationsPath))
+	})
+
+	// A typo in an output name would otherwise surface as a dependency with no address,
+	// long after the type was published.
+	t.Run("rejects_undeclared_host_output", func(t *testing.T) {
+		errs := validate("database=outputs.nope:outputs.port")
+		require.Len(t, errs, 1)
+		require.Equal(t, "metadata.annotations[openchoreo.dev/local-dev-addresses]", errs[0].Field)
+		require.Contains(t, errs[0].Detail, `host output "nope" is not declared`)
+	})
+
+	t.Run("rejects_undeclared_port_output", func(t *testing.T) {
+		errs := validate("database=outputs.host:outputs.nope")
+		require.Len(t, errs, 1)
+		require.Contains(t, errs[0].Detail, `port output "nope" is not declared`)
+	})
+
+	// One env var cannot carry a redirected address for two addresses.
+	t.Run("rejects_shared_port_output", func(t *testing.T) {
+		errs := validate("writer=outputs.host:outputs.port,reader=outputs.host:outputs.port")
+		require.Len(t, errs, 1)
+		require.Equal(t, "metadata.annotations[openchoreo.dev/local-dev-addresses]", errs[0].Field)
+		require.Contains(t, errs[0].Detail, `already used by address "writer"`)
+	})
+
+	// A malformed value is reported as one error against the annotation: the parse
+	// failed, so there are no per-endpoint findings to report under it.
+	t.Run("rejects_malformed_value", func(t *testing.T) {
+		for _, value := range []string{"database", "database=outputs.host", "database=host:port", "database=outputs.host:outputs.port,"} {
+			errs := validate(value)
+			require.Len(t, errs, 1, "value %q", value)
+			require.Equal(t, "metadata.annotations[openchoreo.dev/local-dev-addresses]", errs[0].Field)
+		}
+	})
+
+	// Both halves of an address may be missing from outputs; each is reported, so an
+	// author fixes the declaration in one pass.
+	t.Run("reports_both_halves", func(t *testing.T) {
+		errs := validate("database=outputs.noHost:outputs.noPort")
+		require.Len(t, errs, 2)
+	})
 }

@@ -14,6 +14,14 @@ type CreateParams struct {
 	DryRun        bool
 	Mode          string // Operational mode: "api-server" or "file-system"
 	RootDir       string // Root directory path for file-system mode
+
+	// SourceCommit, SourceBranch, SourceRepository, and SourceAuthoredAt record
+	// the VCS commit this image was built from, enabling Delivery Insights' Lead
+	// Time for Changes metric. Optional.
+	SourceCommit     string
+	SourceBranch     string
+	SourceRepository string
+	SourceAuthoredAt string
 }
 
 func (p CreateParams) GetNamespace() string { return p.NamespaceName }

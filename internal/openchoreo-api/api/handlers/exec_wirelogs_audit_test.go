@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
@@ -17,7 +18,7 @@ import (
 func newTestAuditEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet(nil)
+	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error building policy set: %v", err)
 	}
@@ -295,8 +296,13 @@ func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 	if resource["namespace"] != "ns-a" {
 		t.Errorf("resource.namespace = %v, want %q", resource["namespace"], "ns-a")
 	}
-	if resource["name"] != "dev-a" {
-		t.Errorf("resource.name = %v, want %q", resource["name"], "dev-a")
+	// The route's scope belongs in resource.environment, not resource.name,
+	// and carries the dual-scoped identifier authorization uses.
+	if resource["environment"] != "ns-a/dev-a" {
+		t.Errorf("resource.environment = %v, want %q", resource["environment"], "ns-a/dev-a")
+	}
+	if _, present := resource["name"]; present {
+		t.Errorf("resource.name = %v, want absent", resource["name"])
 	}
 }
 

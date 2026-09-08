@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
@@ -387,7 +388,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet(nil)
+	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	require.NoError(t, err)
 	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
 	require.NoError(t, err)

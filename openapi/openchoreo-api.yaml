@@ -12300,6 +12300,36 @@ components:
               maxItems: 50
               items:
                 $ref: '#/components/schemas/WorkloadResourceDependency'
+        source:
+          $ref: '#/components/schemas/WorkloadSource'
+
+    WorkloadSource:
+      type: object
+      description: |
+        Commit provenance of the image in container. Populated by the producer
+        (native CI's push-workload step, or an external CI calling this API or occ
+        directly) alongside the image, enabling Delivery Insights to compute Lead
+        Time for Changes from real deployments. Optional: DF/CFR/MTTR compute
+        without it; Lead Time reports unavailable when absent.
+      properties:
+        commit:
+          type: string
+          description: VCS commit SHA the running image was built from
+          example: 7f01217e694993f0e12cbc74f104ba1a97e6048b
+        branch:
+          type: string
+          description: VCS branch the commit was built from
+          example: main
+        repository:
+          type: string
+          description: VCS repository URL the commit belongs to
+          example: https://github.com/my-org/my-repo
+        authoredAt:
+          type: string
+          format: date-time
+          description: |
+            When the commit was authored, not when it was committed or built.
+            This is the timestamp Lead Time for Changes measures from.
 
     WorkloadStatus:
       type: object
