@@ -7,6 +7,7 @@ type Action string
 
 const (
 	ActionViewLogs             Action = "logs:view"
+	ActionViewClusterLogs      Action = "clusterlogs:view"
 	ActionViewEvents           Action = "events:view"
 	ActionViewTraces           Action = "traces:view"
 	ActionViewMetrics          Action = "metrics:view"
@@ -15,7 +16,6 @@ const (
 	ActionUpdateIncidents      Action = "incidents:update"
 	ActionViewDeliveryInsights Action = "deliveryinsights:view"
 	ActionViewFinOps           Action = "finops:view"
-	ActionViewClusterLogs      Action = "clusterlogs:view"
 )
 
 type ResourceType string

@@ -258,6 +258,11 @@ const (
 	// Logs actions
 	ActionViewLogs = "logs:view"
 
+	// Cluster logs actions
+	// this reads every log the observability plane holds, user workload logs included.
+	// log:view expected to follow as logs.apps and logs.workflows in future.
+	ActionViewClusterLogs = "logs.cluster:view"
+
 	// Events actions
 	ActionViewEvents = "events:view"
 
@@ -290,11 +295,6 @@ const (
 
 	// Delivery insights (DORA metrics) actions
 	ActionViewDeliveryInsights = "deliveryinsights:view"
-
-	// Cluster logs observability actions.
-	// Cluster-scoped: cluster logs are not owned by any namespace or project,
-	// this reads every log the observability plane holds, user workload logs included.
-	ActionViewClusterLogs = "clusterlogs:view"
 )
 
 // Action represents a system action with metadata
