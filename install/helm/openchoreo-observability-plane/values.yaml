@@ -393,7 +393,7 @@ observer:
   replicas: 1
 
   # Delivery Insights (DORA metrics).
-  insights:
+  deliveryInsights:
     # @schema
     # type: boolean
     # description: Run the DORA aggregator in the Observer process. It has no leader election, so exactly one replica may run it; the chart refuses replicas > 1 while this is enabled.

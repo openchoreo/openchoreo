@@ -522,7 +522,7 @@ func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (deliveryinsights.Store, func(), error) {
-	store, err := deliveryinsights.New(cfg.Insights.StoreBackend, cfg.Insights.StoreDSN, logger)
+	store, err := deliveryinsights.New(cfg.DeliveryInsights.StoreBackend, cfg.DeliveryInsights.StoreDSN, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize delivery insights store: %w", err)
 	}
@@ -546,8 +546,8 @@ func newInsightsService(
 	logger *slog.Logger,
 ) *service.DoraInsightsService {
 	resolver := uidResolver
-	if cfg.Insights.UIDResolution == "passthrough" {
-		logger.Warn("Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
+	if cfg.DeliveryInsights.UIDResolution == "passthrough" {
+		logger.Warn("Delivery Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
 		resolver = service.NewPassthroughUIDResolver()
 	}
 	return service.NewInsightsService(store, resolver, logger.With("component", "insights-service"))
@@ -565,15 +565,15 @@ func startDoraAggregator(
 	logger *slog.Logger,
 ) *sync.WaitGroup {
 	var wg sync.WaitGroup
-	if !cfg.Insights.AggregationEnabled {
-		logger.Info("DORA aggregator is disabled (INSIGHTS_AGGREGATION_ENABLED=false)")
+	if !cfg.DeliveryInsights.AggregationEnabled {
+		logger.Info("DORA aggregator is disabled (DELIVERY_INSIGHTS_AGGREGATION_ENABLED=false)")
 		return &wg
 	}
 
 	// The events source needs a logs adapter with the reasons filter and
 	// searchAfter pagination; keep it opt-in until the deployed adapter has them.
 	var eventsSource aggregator.EventsSource
-	if cfg.Insights.EventsSourceEnabled {
+	if cfg.DeliveryInsights.EventsSourceEnabled {
 		eventsSource = logsAdapter
 	}
 
@@ -582,10 +582,10 @@ func startDoraAggregator(
 		incidents,
 		eventsSource,
 		aggregator.Config{
-			Interval:          cfg.Insights.AggregationInterval,
-			Overlap:           cfg.Insights.AggregationOverlap,
-			AttributionWindow: cfg.Insights.AttributionWindow,
-			IncidentLookback:  cfg.Insights.IncidentLookback,
+			Interval:          cfg.DeliveryInsights.AggregationInterval,
+			Overlap:           cfg.DeliveryInsights.AggregationOverlap,
+			AttributionWindow: cfg.DeliveryInsights.AttributionWindow,
+			IncidentLookback:  cfg.DeliveryInsights.IncidentLookback,
 		},
 		logger.With("component", "dora-aggregator"),
 	)
