@@ -222,10 +222,10 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 			applyResourceBindings(overrides, out, resp, localAddrs)
 			// After the tunnels: a fetched value travels over one, so this cannot run
 			// before they are up.
-			fetchBindings(overrides, sensitive, out, resp, agentTunnels, files, localAddrs, p.NoSecrets)
+			materialized := fetchBindings(overrides, sensitive, out, resp, agentTunnels, files, localAddrs, p.NoSecrets)
 			// After both merges: an env var naming a mount path may have come from
 			// StaticEnv or from a fetch, so the repoint must see the finished map.
-			repointFilePaths(overrides, out, files)
+			repointFilePaths(overrides, out, files, materialized)
 			for _, u := range resp.Unconnectable {
 				fmt.Fprintf(out, "  ! %s: %s\n", u.Ref, u.Reason)
 			}
