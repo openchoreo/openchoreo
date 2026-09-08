@@ -282,7 +282,7 @@ const (
 	ActionViewFinOps = "finops:view"
 
 	// Delivery insights (DORA metrics) actions
-	ActionViewInsights = "insights:view"
+	ActionViewDeliveryInsights = "deliveryinsights:view"
 )
 
 // Action represents a system action with metadata
@@ -554,7 +554,7 @@ var systemActions = []Action{
 
 	// Delivery insights (DORA metrics). Queried at namespace, project and component
 	// scope, so the lowest level it is evaluated at is the component.
-	{Name: ActionViewInsights, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionViewDeliveryInsights, LowestScope: ScopeComponent, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

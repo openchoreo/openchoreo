@@ -13,7 +13,7 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 )
 
-// insightsServiceWithAuthz wraps an InsightsService and checks the insights:view
+// insightsServiceWithAuthz wraps an InsightsService and checks the deliveryinsights:view
 // permission for the requested scope before delegating. Both the HTTP handlers and any
 // MCP handler should use this via NewInsightsServiceWithAuthz.
 type insightsServiceWithAuthz struct {
@@ -62,7 +62,7 @@ func (s *insightsServiceWithAuthz) checkScope(ctx context.Context, scope gen.Com
 	)
 	return observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
-		observerAuthz.ActionViewInsights,
+		observerAuthz.ActionViewDeliveryInsights,
 		resourceType, resourceName, hierarchy,
 		authzcore.Context{},
 	)
