@@ -2,6 +2,21 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.6
+Changes since [v1.0.5](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.5).
+
+### Security
+
+- **(Controller)** CEL evaluation in ComponentType and Trait templates is now bounded by a per-expression cost limit and a per-reconcile cost budget, so a runaway expression can no longer consume unbounded controller time. ([#4567](https://github.com/openchoreo/openchoreo/pull/4567))
+
+### Enhancements
+
+- **(Observer)** In the span details API, observer now authorises the user using OpenChoreo entity information, returned in span attributes. ([#4642](https://github.com/openchoreo/openchoreo/pull/4642))
+
+### Bug Fixes
+
+- **(API)** WorkflowRun updates now authorize using the ownership and workflow reference stored on the existing resource instead of values supplied in the update request. ([#4596](https://github.com/openchoreo/openchoreo/pull/4596))
+
 ## v1.0.5
 Changes since [v1.0.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.4).
 
