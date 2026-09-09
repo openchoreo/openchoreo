@@ -144,12 +144,19 @@ type DeliveryInsightsConfig struct {
 	// Empty inherits the alert store DSN so all observer stores share one database,
 	// which keeps incident↔deployment attribution a local SQL join.
 	StoreDSN string `koanf:"store.dsn"`
-	// UIDResolution controls how insights search-scope names are translated to the
+	// UIDResolution controls how Delivery Insights search-scope names are translated to
 	// UIDs the store is keyed by. "resolver" (default) resolves via openchoreo-api;
 	// "passthrough" treats names as UIDs directly — a development/demo affordance
 	// for querying seeded dummy data without a control plane.
 	UIDResolution string `koanf:"uid.resolution"`
-	// AggregationEnabled runs the DORA aggregator in the observer process.
+	// AggregationEnabled runs the DORA aggregator in the observer process: the
+	// background loop that folds delivery lifecycle events into the durable facts
+	// and rollups the Delivery Insights API reads. Reads are served whether or not it
+	// runs; this only controls whether new facts are derived.
+	//
+	// The loop has no leader election, so exactly one replica may have this on --
+	// concurrent sweeps share watermarks and would overwrite each other's resume
+	// positions. The chart enforces that; nothing here does.
 	AggregationEnabled bool `koanf:"aggregation.enabled"`
 	// AggregationInterval is the aggregator tick interval.
 	AggregationInterval time.Duration `koanf:"aggregation.interval"`
@@ -463,9 +470,32 @@ func getDefaults() map[string]interface{} {
 	}
 }
 
-// validateDeliveryInsightsStore normalizes the delivery insights store backend and DSN. The
-// insights store defaults to sharing the alert store database so that
+// validateDeliveryInsightsStore normalizes the delivery insights store backend and
+// DSN. The store defaults to sharing the alert store database so that
 // incident↔deployment attribution stays a local SQL join.
+// validateAlertStore normalizes the alert store backend and fills in its default
+// DSN. Split out of validate to keep that function under the complexity limit.
+func (c *Config) validateAlertStore() error {
+	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
+	switch c.Alerting.AlertStoreBackend {
+	case "", storeBackendSQLite:
+		c.Alerting.AlertStoreBackend = storeBackendSQLite
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
+		}
+		// The delivery insights store shares this file by default, so both handles need
+		// wait on each other's write lock rather than failing with SQLITE_BUSY.
+		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
+	case storeBackendPostgreSQL:
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
+		}
+	default:
+		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	return nil
+}
+
 func (c *Config) validateDeliveryInsightsStore() error {
 	c.DeliveryInsights.StoreBackend = strings.ToLower(strings.TrimSpace(c.DeliveryInsights.StoreBackend))
 	if c.DeliveryInsights.StoreBackend == "" {
@@ -490,7 +520,7 @@ func (c *Config) validateDeliveryInsightsStore() error {
 }
 
 // sqliteBusyTimeoutMs is how long a SQLite writer waits for a competing writer's lock
-// before giving up with SQLITE_BUSY. By default the insights store and the alert store
+// before giving up with SQLITE_BUSY. By default the delivery insights store and the alert store
 // open separate handles to the same file, and SQLite permits only one writer at a time,
 // so without a busy timeout a write from either handle can fail outright.
 const sqliteBusyTimeoutMs = 5000
@@ -589,24 +619,9 @@ func (c *Config) validate() error {
 		return err
 	}
 
-	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
-	switch c.Alerting.AlertStoreBackend {
-	case "", storeBackendSQLite:
-		c.Alerting.AlertStoreBackend = storeBackendSQLite
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
-		}
-		// The insights store shares this file by default, so both handles need to
-		// wait on each other's write lock rather than failing with SQLITE_BUSY.
-		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
-	case storeBackendPostgreSQL:
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
-		}
-	default:
-		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	if err := c.validateAlertStore(); err != nil {
+		return err
 	}
-
 	if err := c.validateDeliveryInsightsStore(); err != nil {
 		return err
 	}

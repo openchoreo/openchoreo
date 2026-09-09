@@ -112,7 +112,7 @@ func (h *Handler) CreateNamespace(
 		return gen.CreateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*created)
 	if err != nil {
@@ -162,7 +162,7 @@ func (h *Handler) UpdateNamespace(
 		return gen.UpdateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*updated)
 	if err != nil {

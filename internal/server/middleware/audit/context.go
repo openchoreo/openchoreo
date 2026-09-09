@@ -8,10 +8,12 @@ import (
 )
 
 // NewAuditContext returns a copy of ctx carrying a fresh audit data
-// container pre-populated with resource, plus the container itself so the
-// caller can read back whatever SetResource later wrote into it.
-func NewAuditContext(ctx context.Context, resource *Resource) (context.Context, *AuditData) {
-	data := &AuditData{Resource: resource}
+// container pre-populated with resource and req, plus the container itself so
+// the caller can read back whatever SetResource later wrote into it.
+//
+// Call it at the adapter's entry, not at emit time — see RequestInfo.
+func NewAuditContext(ctx context.Context, resource *Resource, req RequestInfo) (context.Context, *AuditData) {
+	data := &AuditData{Resource: resource, Request: req}
 	return context.WithValue(ctx, auditDataKey, data), data
 }
 

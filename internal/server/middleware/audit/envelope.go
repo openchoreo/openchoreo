@@ -12,6 +12,7 @@ type Envelope struct {
 	Result    Result
 	Resource  *Resource
 	Hierarchy Hierarchy
+	Request   RequestInfo
 	RequestID string
 	SourceIP  string
 	Metadata  map[string]any

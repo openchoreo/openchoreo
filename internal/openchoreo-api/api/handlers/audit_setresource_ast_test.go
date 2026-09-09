@@ -62,7 +62,7 @@ func TestHandlers_BodyCarriedCreatesCallSetResource(t *testing.T) {
 // resource's UID is only ever known once the update actually succeeds — the
 // handler has to call audit.SetResource itself to add it. Without this
 // test, an update handler can be added (or edited) without that call, and
-// its audit events would silently carry no resource.id. This is the mirror
+// its audit events would silently carry no resource.uid. This is the mirror
 // of TestHandlers_BodyCarriedCreatesCallSetResource for the update_* verb
 // rather than the no-RESTResourceParam shape, so such a handler fails here
 // instead of shipping silently UID-less.

@@ -105,7 +105,7 @@ func updateIncidentRequest() *http.Request {
 //   - actor.id must be the subject's ID, not "anonymous" — proving audit sits
 //     inside auth, since outside it every event would emit as anonymous with
 //     nothing failing.
-//   - resource.id must be the incident ID — proving the strict handler's ctx
+//   - resource.uid must be the incident ID — proving the strict handler's ctx
 //     descends from the one the audit middleware seeded.
 func TestUpdateIncidentAuditEvent(t *testing.T) {
 	t.Parallel()
@@ -135,7 +135,7 @@ func TestUpdateIncidentAuditEvent(t *testing.T) {
 
 	resource, ok := event["resource"].(map[string]any)
 	require.True(t, ok, "event must carry a resource group")
-	assert.Equal(t, testIncidentID, resource["id"],
+	assert.Equal(t, testIncidentID, resource["uid"],
 		"SetResource must reach the audit middleware's context via the strict handler's ctx")
 
 	// Hierarchy is rendered into the same resource group as namespace/project/
@@ -151,9 +151,9 @@ func TestUpdateIncidentAuditEvent(t *testing.T) {
 // maps to (see TestUpdateIncidentAuditEventOnDenial).
 //
 // Resource identity still arrives, seeded from the path by the middleware
-// before the handler runs — as resource.name, not resource.id: the pre-call
+// before the handler runs — as resource.name, not resource.uid: the pre-call
 // seed sets only Namespace and Name, and the handler's SetResource (which
-// fills id) never runs when the update fails.
+// fills the UID) never runs when the update fails.
 func TestUpdateIncidentAuditEventOnFailure(t *testing.T) {
 	t.Parallel()
 

@@ -288,7 +288,7 @@ func main() {
 	// One Emitter shared across all three surfaces, so one policy applies to
 	// every one of them. The middlewares that consume it are built inside the
 	// composers, mirroring openchoreo-api's OpenAPIMiddlewares.
-	auditEmitter, err := initAuditEmitter(cfg, logger)
+	auditEmitter, err := initAuditEmitter(cfg)
 	if err != nil {
 		logger.Error("Failed to initialize audit", "error", err)
 		os.Exit(1)
@@ -720,7 +720,7 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 // ports and silently never audited. Failing at startup matches how the
 // middleware composers treat a nil emitter or an unresolvable
 // RESTResourceParam.
-func initAuditEmitter(cfg *config.Config, logger *slog.Logger) (*audit.Emitter, error) {
+func initAuditEmitter(cfg *config.Config) (*audit.Emitter, error) {
 	publicSwagger, err := gen.GetSwagger()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load public OpenAPI spec: %w", err)
@@ -738,7 +738,7 @@ func initAuditEmitter(cfg *config.Config, logger *slog.Logger) (*audit.Emitter, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to build audit policy set: %w", err)
 	}
-	return audit.NewEmitter("observer", auditPolicies, audit.NewLogger(logger))
+	return audit.NewEmitter("observer", auditPolicies, audit.NewLogger(os.Stdout))
 }
 
 func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {

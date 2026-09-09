@@ -57,6 +57,10 @@ func NewUnauthenticatedMiddleware(emitter *Emitter, origin Origin, enabled bool)
 			ctx, marker := withEmittedMarker(r.Context())
 			r = r.WithContext(ctx)
 
+			// Captured here, not in the deferred emit below: that runs once the
+			// response is complete.
+			reqInfo := NewRequestInfo(HTTPInfoFromRequest(r))
+
 			defer func() {
 				p := recover()
 				if marker.emitted {
@@ -73,7 +77,7 @@ func NewUnauthenticatedMiddleware(emitter *Emitter, origin Origin, enabled bool)
 					return
 				}
 
-				_, auditData := NewAuditContext(r.Context(), nil)
+				_, auditData := NewAuditContext(r.Context(), nil, reqInfo)
 				EmitFromContext(r.Context(), emitter, nil, origin, result, auditData, r.Header, r.RemoteAddr)
 
 				if p != nil {

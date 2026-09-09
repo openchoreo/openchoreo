@@ -110,6 +110,45 @@ func TestExtractActor(t *testing.T) {
 	}
 }
 
+// TestExtractActor_CarriesIssuerAndSession guards that the identity's
+// namespace travels with it: without iss, the same sub from two IdPs is
+// indistinguishable.
+func TestExtractActor_CarriesIssuerAndSession(t *testing.T) {
+	const issuer, sessionID = "https://idp.example.com/oauth2/token", "b3f1c2d4"
+	ctx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+		ID:        "user-123",
+		Issuer:    issuer,
+		SessionID: sessionID,
+		Type:      "user",
+	})
+
+	actor := ExtractActor(ctx)
+
+	if actor.Issuer != issuer {
+		t.Errorf("Issuer = %q, want %q", actor.Issuer, issuer)
+	}
+	if actor.SessionID != sessionID {
+		t.Errorf("SessionID = %q, want %q", actor.SessionID, sessionID)
+	}
+}
+
+// TestExtractActor_OmitsAbsentIssuerAndSession covers an anonymous actor and
+// an authenticated one whose IdP issues no sid, which OIDC leaves optional.
+func TestExtractActor_OmitsAbsentIssuerAndSession(t *testing.T) {
+	if actor := ExtractActor(context.Background()); actor.Issuer != "" || actor.SessionID != "" {
+		t.Errorf("anonymous actor = %+v, want no issuer or session", actor)
+	}
+
+	ctx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+		ID:     "user-123",
+		Issuer: "https://idp.example.com/oauth2/token",
+		Type:   "user",
+	})
+	if actor := ExtractActor(ctx); actor.SessionID != "" {
+		t.Errorf("SessionID = %q, want empty when the IdP issued no sid", actor.SessionID)
+	}
+}
+
 // TestMiddleware_Handler_EmitsOnPanic guards against a panicking handler
 // producing zero audit events. The panic must still propagate afterward —
 // this only closes the audit gap, it doesn't change failure behavior.

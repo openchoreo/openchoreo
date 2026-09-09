@@ -1,0 +1,46 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: config-bundle
+  annotations:
+    openchoreo.dev/description: >-
+      Platform-managed configuration bundle: a ConfigMap-backed settings
+      document meant to be mounted as a file by the consuming workload.
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        settings:
+          type: string
+          default: "{}"
+          description: >-
+            The settings document published as the `settings` output. Any
+            text; YAML and JSON are the usual choices. Mounted as a file by
+            the consumer, so it is not constrained to what fits in an env var.
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: settings
+      configMapKeyRef:
+        name: "${metadata.name}-settings"
+        key: settings.yaml
+    # The mount path this type expects `settings` to be file-bound to. Published
+    # as a plain value so a consumer can bind it to whichever env var its app
+    # reads a config-file path from.
+    - name: settingsPath
+      value: /etc/config-bundle/settings.yaml
+
+  resources:
+    - id: settings
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-settings
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        data:
+          settings.yaml: |
+            ${parameters.settings}

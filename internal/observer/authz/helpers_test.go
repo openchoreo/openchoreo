@@ -450,7 +450,7 @@ func TestCheckAuthorization_RecordsEnvironmentRegardlessOfDecision(t *testing.T)
 			mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
 				Return(tt.decision, tt.evalErr)
 
-			ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{})
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{}, audit.RequestInfo{})
 			_ = CheckAuthorization(
 				ctx,
 				noopLogger(),
@@ -475,7 +475,7 @@ func TestCheckAuthorization_NoEnvironmentAttributeRecordsNone(t *testing.T) {
 	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
 		Return(&authzcore.Decision{Decision: true}, nil)
 
-	ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{})
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(), &audit.Resource{}, audit.RequestInfo{})
 	err := CheckAuthorization(
 		ctx,
 		noopLogger(),

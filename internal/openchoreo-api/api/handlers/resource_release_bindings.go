@@ -86,7 +86,7 @@ func (h *Handler) CreateResourceReleaseBinding(
 		return gen.CreateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genRB, err := convert[openchoreov1alpha1.ResourceReleaseBinding, gen.ResourceReleaseBinding](*created)
 	if err != nil {
@@ -161,7 +161,7 @@ func (h *Handler) UpdateResourceReleaseBinding(
 		return gen.UpdateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genRB, err := convert[openchoreov1alpha1.ResourceReleaseBinding, gen.ResourceReleaseBinding](*updated)
 	if err != nil {

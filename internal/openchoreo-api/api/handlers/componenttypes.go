@@ -80,7 +80,7 @@ func (h *Handler) CreateComponentType(
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*created)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *Handler) UpdateComponentType(
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*updated)
 	if err != nil {

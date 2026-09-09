@@ -83,7 +83,7 @@ func TestAuditMiddlewareWired(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := projectsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{ProjectService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "audit-test-proj"},
@@ -107,14 +107,14 @@ func TestAuditMiddlewareWired(t *testing.T) {
 	resource, ok := record["resource"].(map[string]any)
 	require.True(t, ok, "resource must be populated")
 	assert.Equal(t, "project", resource["type"])
-	assert.NotEmpty(t, resource["id"], "resource.id must carry the K8s UID, not just the mutable name")
+	assert.NotEmpty(t, resource["uid"], "resource.uid must carry the K8s UID, not just the mutable name")
 }
 
 // TestAuditMiddlewareWired_ProjectCRUD locks in the update/delete coverage added
 // alongside create for Project: it drives all three mutating operations on the same
 // project through the production chain and checks each event's action/resource
-// shape, including that resource.id (the K8s UID) survives a rename via update but
-// is unavailable on delete because ProjectService.DeleteProject returns only an
+// shape, including that resource.uid stays stable across an update but is
+// unavailable on delete because ProjectService.DeleteProject returns only an
 // error, not the deleted object.
 func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	var buf bytes.Buffer
@@ -123,7 +123,7 @@ func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := projectsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{ProjectService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	createBody, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "crud-test-proj"},
@@ -156,18 +156,18 @@ func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	deleteResource := records[2]["resource"].(map[string]any)
 
 	assert.Equal(t, "crud-test-proj", createResource["name"])
-	assert.NotEmpty(t, createResource["id"], "create must carry the K8s UID")
+	assert.NotEmpty(t, createResource["uid"], "create must carry the K8s UID")
 	assert.Equal(t, testNS, createResource["namespace"],
 		"a create's SetResource call must not drop the namespace the pre-handler seed already had")
 
 	assert.Equal(t, "crud-test-proj", updateResource["name"])
-	assert.Equal(t, createResource["id"], updateResource["id"],
+	assert.Equal(t, createResource["uid"], updateResource["uid"],
 		"the UID must be stable across an update even though the name did not change")
 	assert.Equal(t, testNS, updateResource["namespace"],
 		"an update's SetResource call must not drop the namespace the pre-handler seed already had")
 
 	assert.Equal(t, "crud-test-proj", deleteResource["name"])
-	assert.NotContains(t, deleteResource, "id",
+	assert.NotContains(t, deleteResource, "uid",
 		"DeleteProject returns no object, so no UID is available to record")
 	assert.Equal(t, testNS, deleteResource["namespace"],
 		"namespace must be recorded even without a UID, so identically-named projects in different namespaces stay distinguishable")
@@ -194,7 +194,7 @@ func TestAuditMiddlewareWired_TraitCRUD(t *testing.T) {
 	fc := uidAssigningClient(t)
 	svc := traitsvc.NewServiceWithAuthz(fc, &allowAllPDP{}, logger)
 	services := &handlerservices.Services{TraitService: svc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	createBody, _ := json.Marshal(gen.Trait{
 		Metadata: gen.ObjectMeta{Name: "crud-test-trait"},
@@ -291,7 +291,7 @@ func TestAuditMiddlewareWired_AllOperations(t *testing.T) {
 		DataPlaneService:   dataPlaneSvc,
 		EnvironmentService: envSvc,
 	}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	type opRequest struct {
 		action string
@@ -345,7 +345,7 @@ func TestAuditMiddlewareWired_DeniedRequestCarriesResource(t *testing.T) {
 		Return(nil, services.ErrForbidden)
 
 	services := &handlerservices.Services{ProjectService: projectSvc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{Metadata: gen.ObjectMeta{Name: "denied-proj"}})
 	_, rec := doRequest(t, handler, http.MethodPut,
@@ -390,7 +390,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 	auditCfg := config.AuditDefaults()
 	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	require.NoError(t, err)
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(&buf))
 	require.NoError(t, err)
 
 	h := &Handler{services: &handlerservices.Services{}, logger: logger}
@@ -433,7 +433,7 @@ func TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce(t *testi
 		Run(func(context.Context, string, *openchoreov1alpha1.Project) { panic("handler blew up") })
 
 	services := &handlerservices.Services{ProjectService: projectSvc}
-	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+	handler := newTestHTTPHandlerWithLogger(t, services, logger, &buf)
 
 	body, _ := json.Marshal(gen.Project{Metadata: gen.ObjectMeta{Name: "panic-proj"}})
 

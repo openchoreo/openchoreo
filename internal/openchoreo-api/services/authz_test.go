@@ -133,7 +133,7 @@ func TestCheck_RecordsHierarchyRegardlessOfDecision(t *testing.T) {
 			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(tt.decision, tt.evalErr)
 			checker := newTestChecker(pdp)
 
-			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 			_ = checker.Check(ctx, testCheckRequest())
 
 			want := audit.Hierarchy{Namespace: "ns-1", Project: "my-project"}
@@ -172,7 +172,7 @@ func TestCheck_RecordsEnvironmentRegardlessOfDecision(t *testing.T) {
 				},
 			}
 
-			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 			_ = checker.Check(ctx, req)
 
 			want := audit.Hierarchy{Namespace: "ns-1", Environment: "ns-1/production", Project: "my-project"}
@@ -190,7 +190,7 @@ func TestCheck_NoEnvironmentAttributeRecordsNone(t *testing.T) {
 		Return(&authz.Decision{Decision: true, Context: &authz.DecisionContext{}}, nil)
 	checker := newTestChecker(pdp)
 
-	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 	_ = checker.Check(ctx, testCheckRequest())
 
 	require.Empty(t, auditData.Hierarchy.Environment)
@@ -206,7 +206,7 @@ func TestBatchCheck_DoesNotRecordHierarchy(t *testing.T) {
 		Return(&authz.BatchEvaluateResponse{Decisions: []authz.Decision{{Decision: true}}}, nil)
 	checker := newTestChecker(pdp)
 
-	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 	_, err := checker.BatchCheck(ctx, []CheckRequest{testCheckRequest()})
 	require.NoError(t, err)
 

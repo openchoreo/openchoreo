@@ -5,6 +5,7 @@
 This sample is self-contained: it seeds the providers in the cluster and then runs `occ remote` against two workloads that consume them. Both consumer files are `Workload`s on their own — `occ remote` reads them from disk and only looks at what they declare, so neither component has to exist in OpenChoreo and neither is deployed here.
 
 - **Resource dependency** — `workloads/db-api-workload.yaml` consumes a `local-dev-postgres` Resource: an in-cluster Postgres provisioned from the `postgres` ClusterResourceType that ships with the getting-started samples. Tunnelled, and its ConfigMap- and Secret-backed outputs are resolved over that tunnel.
+- **File bindings** — `db-api` also consumes a `local-dev-config-bundle` Resource, provisioned from the `config-bundle` ClusterResourceType in this directory. It publishes a settings document meant to be **mounted as a file** rather than set as an env var. It has nothing to dial, so nothing is tunnelled for it; the tunnel exists purely to read that document, which `occ remote` writes to a session directory on your machine.
 - **Endpoint dependency** — `workloads/web-app-workload.yaml` consumes an HTTP endpoint (`greeter-service` in the `greeter` project) and a gRPC endpoint (`grpc-greeter` in the `grpc-demo` project). The two providers live in **separate projects** to exercise cross-project dependencies. Tunnelled.
 - **Local-to-local dependency** — `web-app` also depends on `db-api`, which you are running yourself. Because both workload files are passed to the same `occ remote`, that one is wired straight to `127.0.0.1:4000` instead of being tunnelled.
 
@@ -16,8 +17,12 @@ local-development/
 ├── postgres/                                      # resource-dependency provider
 │   ├── resource.yaml
 │   └── binding-development.yaml
+├── config-bundle/                                 # file-binding provider (nothing to dial)
+│   ├── type.yaml                                  #   the ClusterResourceType itself
+│   ├── resource.yaml
+│   └── binding-development.yaml
 └── workloads/                                     # the consumers you run with `occ remote` (Workload only)
-    ├── db-api-workload.yaml                       # resource dep → local-dev-postgres; serves http:4000
+    ├── db-api-workload.yaml                       # resource deps → local-dev-postgres (env), local-dev-config-bundle (files); serves http:4000
     └── web-app-workload.yaml                      # endpoint deps → greeter, grpc-greeter, db-api
 ```
 
@@ -30,7 +35,7 @@ No key or certificate setup is required. The capability signing key is generated
 
 ## What you can tunnel
 
-`occ remote` resolves **each dependency separately** and tunnels the ones your role may reach: `component:connect` covering an endpoint dependency's component, or `resource:connect` covering a resource dependency's Resource. Resolving a resource's Secret-backed output values additionally needs `resource:read-secrets` — a tunnel to a database and the credential that opens it are separate grants.
+`occ remote` resolves **each dependency separately** and tunnels the ones your role may reach: `component:connect` covering an endpoint dependency's component, or `resource:connect` covering a resource dependency's Resource. Resolving a resource's Secret-backed output values additionally needs `resource:read-secrets` — a tunnel to a database and the credential that opens it are separate grants. A file binding is authorized by the same rule as an env binding, on the output's source and not on the binding's shape: a ConfigMap-backed file rides on `resource:connect`, a Secret-backed one needs `resource:read-secrets` too.
 
 Nothing is checked about the component you are running. It does **not** need to exist in OpenChoreo, so you can tunnel dependencies for a component before its first deploy, and try new dependencies before committing them. Access is decided per dependency, by role — endpoint visibility governs traffic between deployed workloads and does not restrict `occ remote`.
 
@@ -46,10 +51,11 @@ Grants are per dependency, bound to that dependency or to a scope above it (its 
 |---|---|
 | `greeter-service`, `grpc-greeter` (endpoints) | `component:connect` |
 | `local-dev-postgres` (resource) | `resource:connect`, plus `resource:read-secrets` for its `password` output |
+| `local-dev-config-bundle` (resource) | `resource:connect` only — its `settings` output is ConfigMap-backed, so reading it needs no `resource:read-secrets` |
 
 The built-in `developer` role grants all three actions on a stock install.
 
-See the [Local Development guide](https://openchoreo.dev/docs/next/developer-guide/dependencies/local-development) for the full walkthrough.
+See the [Local Development guide](https://openchoreo.dev/docs/next/developer-guide/local-development) for the full walkthrough.
 
 ## 1. Seed the endpoint-dependency providers
 
@@ -84,7 +90,26 @@ kubectl wait --for=condition=Ready resourcereleasebinding/local-dev-postgres-dev
 
 The type declares a `client` address through its `openchoreo.dev/local-dev-addresses` annotation (`client=outputs.host:outputs.port`), which is what makes this Resource tunnellable — `occ remote` opens one listener per declared address.
 
-## 3. Run `occ remote`
+## 3. Seed the file-binding provider
+
+`local-dev-config-bundle` carries configuration rather than a service. The `config-bundle` ClusterResourceType provisions a single ConfigMap holding a settings document, and publishes it as an output the consumer mounts as a file — alongside the mount path it expects that file at. Apply the type, the Resource and its development binding the same way:
+
+```bash
+kubectl apply -f samples/local-development/config-bundle/type.yaml
+kubectl apply -f samples/local-development/config-bundle/resource.yaml
+kubectl apply -f samples/local-development/config-bundle/binding-development.yaml
+
+kubectl wait --for=jsonpath='{.status.latestRelease.name}' \
+  resource/local-dev-config-bundle -n default --timeout=60s
+release=$(kubectl get resource local-dev-config-bundle -n default -o jsonpath='{.status.latestRelease.name}')
+kubectl patch resourcereleasebinding local-dev-config-bundle-development -n default \
+  --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
+kubectl wait --for=condition=Ready resourcereleasebinding/local-dev-config-bundle-development -n default
+```
+
+This type declares **no** `openchoreo.dev/local-dev-addresses` annotation, because there is nothing to dial. That is not an error: a resource with no address yields no listener, and `occ remote` still opens a tunnel to the data plane to read its values.
+
+## 4. Run `occ remote`
 
 Pass both workloads to one invocation:
 
@@ -94,9 +119,9 @@ occ remote samples/local-development/workloads/db-api-workload.yaml \
   --namespace default --env development
 ```
 
-Three of the four dependencies are tunnelled and one is not:
+Three of the five dependencies are tunnelled, one is cross-linked locally, and one has nothing to dial:
 
-| Env var | Dependency | Resolved to |
+| Binding | Dependency | Resolved to |
 |---|---|---|
 | `DB_HOST` / `DB_PORT` | `local-dev-postgres` (resource) | tunnel → `127.0.0.1:<port>` |
 | `DB_NAME` / `DB_USER` | `local-dev-postgres`, ConfigMap-backed outputs | read in the data plane, over the tunnel |
@@ -104,6 +129,8 @@ Three of the four dependencies are tunnelled and one is not:
 | `HTTP_SERVICE_URL` | `greeter-service` in project `greeter` | tunnel → `127.0.0.1:<port>` |
 | `GRPC_SERVICE_URL` | `grpc-greeter` in project `grpc-demo` | tunnel → `127.0.0.1:<port>` |
 | `DB_API_URL` | `db-api`, the other workload in this invocation | `http://127.0.0.1:4000` — no tunnel |
+| `/etc/config-bundle/settings.yaml` | `local-dev-config-bundle`, ConfigMap-backed output | a file in the session directory |
+| `APP_SETTINGS_FILE` | `local-dev-config-bundle`, plain-value output holding a mount path | rewritten to the local file above |
 
 `DB_API_URL` is the local-to-local case: `occ remote` sees that the dependency names a component it was handed a workload file for, and points the binding at where you are running it rather than at the environment. The port comes from that workload's declared endpoint (`http`, `4000`); pass `--local db-api=127.0.0.1:9000` to point it somewhere else. Exit the subshell to tear every tunnel down.
 
@@ -119,6 +146,31 @@ They are set in the subshell, so your app has all five bindings complete — the
 
 The type also publishes a `url` output — a full connection string, Secret-backed, with `host:5432` embedded in its text. This workload does not bind it, but a workload that did would get it fetched *and* re-pointed at the local listener, so the URL works from your machine rather than naming an address it cannot resolve.
 
-> A resource dependency's `ResourceReleaseBinding` must live in the **same project** as the consuming component's `owner.projectName` (no cross-project resource dependencies yet) — which is why `local-dev-postgres` and `db-api` are both owned by `default`.
+## File bindings
 
-See the [Local Development guide](https://openchoreo.dev/docs/next/developer-guide/dependencies/local-development) for the full walkthrough and `--print-env`.
+`fileBindings` maps an output name to a **mount path** rather than an env var. A deployed component gets a volume mount; `occ remote` writes the value to a session-scoped directory instead and removes it when the session ends.
+
+```yaml
+      - ref: local-dev-config-bundle
+        envBindings:
+          settingsPath: APP_SETTINGS_FILE
+        fileBindings:
+          settings: /etc/config-bundle/settings.yaml
+```
+
+```
+  res/local-dev-config-bundle  /etc/config-bundle/settings.yaml -> /var/folders/.../etc_config-bundle_settings.yaml-52066370
+  APP_SETTINGS_FILE            -> /var/folders/.../etc_config-bundle_settings.yaml-52066370
+```
+
+`APP_SETTINGS_FILE` was rewritten because its value is *exactly* a mount path `occ remote` materialized: the type publishes `settingsPath` as a plain value holding that path, and the workload file-binds `settings` to the same path. The match is whole-value only, never a substring — a path mentioned inside a larger value, say `JAVA_OPTS=-Dconfig=/etc/config-bundle/settings.yaml`, is left alone.
+
+When no env var's value matches, the file is still written and `occ remote` names it, leaving the wiring to you:
+
+```
+  ! no env var names /etc/config-bundle/settings.yaml; point the app at /var/folders/.../etc_config-bundle_settings.yaml-52066370 yourself
+```
+
+That is the expected outcome whenever the type publishes no path output, or its path and the workload's differ by a character.
+
+See the [Local Development guide](https://openchoreo.dev/docs/next/developer-guide/local-development) for the full walkthrough and `--print-env`.

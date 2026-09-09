@@ -115,7 +115,7 @@ func (h *Handler) CreateComponentRelease(
 		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*created)
 	if err != nil {

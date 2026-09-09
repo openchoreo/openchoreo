@@ -1485,6 +1485,7 @@ openchoreoApi:
                 - "resourcerelease:view"
                 - "projectrelease:view"
                 - "resourcereleasebinding:view"
+                - "resourcereleasebinding:update"
                 - "projectreleasebinding:view"
                 - "workflowrun:view"
                 - "workflowrun:create"

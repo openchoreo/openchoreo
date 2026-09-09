@@ -5,11 +5,40 @@ package audit
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 )
+
+// TestHTTPInfoFromRequest_RecordsPathWithoutQuery guards both halves of the
+// recorded request line: real path values rather than a route pattern, and no
+// query string.
+func TestHTTPInfoFromRequest_RecordsPathWithoutQuery(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPut,
+		"/api/v1/namespaces/ns-1/projects/p1?dryRun=true&opaque=zzz", nil)
+
+	got := HTTPInfoFromRequest(r)
+
+	if got.Method != http.MethodPut {
+		t.Errorf("Method = %q, want %q", got.Method, http.MethodPut)
+	}
+	if want := "/api/v1/namespaces/ns-1/projects/p1"; got.Path != want {
+		t.Errorf("Path = %q, want %q — the query string must not reach the record", got.Path, want)
+	}
+	if strings.Contains(got.Path, "opaque") {
+		t.Errorf("Path = %q carried a query parameter into the record", got.Path)
+	}
+}
+
+// TestNewRequestInfo_StampsArrivalTime guards the capture that cannot happen
+// later: emission runs after the handler returns.
+func TestNewRequestInfo_StampsArrivalTime(t *testing.T) {
+	if got := NewRequestInfo(nil); got.EventTime.IsZero() {
+		t.Error("EventTime is zero, want the arrival time stamped at entry")
+	}
+}
 
 func TestRequestIDFromHeader(t *testing.T) {
 	h := http.Header{}
