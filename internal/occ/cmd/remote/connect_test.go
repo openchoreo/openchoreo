@@ -351,11 +351,14 @@ func TestConnectMultiWorkloadLocalLinkOverride(t *testing.T) {
 }
 
 func TestBuildResolveRequestFromWorkloadFile(t *testing.T) {
-	wl, err := loadWorkloadFromFile(writeWorkloadFile(t))
+	wls, err := loadWorkloadsFromFile(writeWorkloadFile(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := buildResolveRequest(wl, "default", "development", nil)
+	if len(wls.workloads) != 1 {
+		t.Fatalf("got %d workloads, want 1", len(wls.workloads))
+	}
+	req := buildResolveRequest(wls.workloads[0], "default", "development", nil)
 	if req.Namespace != "default" || req.Project != "doclet" || req.Component != "doclet-document" || req.Environment != "development" {
 		t.Fatalf("unexpected identity: %+v", req)
 	}
@@ -705,10 +708,14 @@ func TestConnectEndToEndEndpointDependency(t *testing.T) {
 }
 
 func TestBuildResolveRequestIncludesEndpointDependencies(t *testing.T) {
-	wl, err := loadWorkloadFromFile(writeWorkloadFileContent(t, "workload.yaml", testEndpointWorkloadYAML))
+	wls, err := loadWorkloadsFromFile(writeWorkloadFileContent(t, "workload.yaml", testEndpointWorkloadYAML))
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(wls.workloads) != 1 {
+		t.Fatalf("got %d workloads, want 1", len(wls.workloads))
+	}
+	wl := wls.workloads[0]
 	req := buildResolveRequest(wl, "default", "development", wl.Spec.Dependencies.Endpoints)
 	if len(req.Endpoints) != 1 {
 		t.Fatalf("unexpected endpoints: %+v", req.Endpoints)
