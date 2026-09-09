@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,9 @@ var (
 	ErrResourceNotFound = errors.New("resource not found")
 	ErrScopeAuthFailed  = errors.New("observer scope resolution auth failed")
 )
+
+// clientAssertionType is the RFC 7523 assertion type for JWT client authentication.
+const clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
@@ -304,12 +308,15 @@ func (r *ResourceUIDResolver) getAccessToken(ctx context.Context) (string, error
 	return token, nil
 }
 
-// fetchAccessToken performs the OAuth2 client credentials grant
+// fetchAccessToken performs the OAuth2 client credentials grant, authenticating with
+// either a client secret or a JWT client assertion read from disk.
 func (r *ResourceUIDResolver) fetchAccessToken(ctx context.Context) (string, time.Duration, error) {
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", r.config.OAuthClientID)
-	data.Set("client_secret", r.config.OAuthClientSecret)
+	if err := r.setClientAuth(data); err != nil {
+		return "", 0, err
+	}
 	if scope := strings.TrimSpace(r.config.OAuthScope); scope != "" {
 		data.Set("scope", scope)
 	}
@@ -355,4 +362,31 @@ func (r *ResourceUIDResolver) fetchAccessToken(ctx context.Context) (string, tim
 	}
 
 	return tokenResp.AccessToken, expiresIn, nil
+}
+
+// setClientAuth adds the client authentication parameters to a token request. A configured
+// client assertion file takes precedence over the client secret.
+func (r *ResourceUIDResolver) setClientAuth(data url.Values) error {
+	assertionFile := strings.TrimSpace(r.config.OAuthClientAssertionFile)
+	if assertionFile == "" {
+		data.Set("client_secret", r.config.OAuthClientSecret)
+		return nil
+	}
+
+	// Read on every token request rather than caching: platforms that project an identity
+	// token, such as Azure Workload Identity and EKS IRSA, rotate the file in place well
+	// before the pod restarts, so a cached copy would expire.
+	raw, err := os.ReadFile(assertionFile)
+	if err != nil {
+		return fmt.Errorf("failed to read client assertion file %q: %w", assertionFile, err)
+	}
+
+	assertion := strings.TrimSpace(string(raw))
+	if assertion == "" {
+		return fmt.Errorf("client assertion file %q is empty", assertionFile)
+	}
+
+	data.Set("client_assertion_type", clientAssertionType)
+	data.Set("client_assertion", assertion)
+	return nil
 }

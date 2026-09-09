@@ -145,10 +145,14 @@ class AuthRuntime:
 
     def _require_oauth_settings(self) -> None:
         s = self._settings
-        if not all([s.oauth_token_url, s.oauth_client_id, s.oauth_client_secret]):
+        if not all([s.oauth_token_url, s.oauth_client_id]):
             raise RuntimeError(
-                "OAuth2 credentials not configured. "
-                "Set OAUTH_TOKEN_URL, OAUTH_CLIENT_ID, and OAUTH_CLIENT_SECRET."
+                "OAuth2 credentials not configured. Set OAUTH_TOKEN_URL and OAUTH_CLIENT_ID."
+            )
+        if not s.oauth_client_secret and not s.oauth_client_assertion_file:
+            raise RuntimeError(
+                "OAuth2 client authentication not configured. "
+                "Set OAUTH_CLIENT_SECRET or OAUTH_CLIENT_ASSERTION_FILE."
             )
 
     def get_oauth2_auth(self) -> OAuth2ClientCredentialsAuth:
@@ -160,6 +164,7 @@ class AuthRuntime:
             client_secret=s.oauth_client_secret,
             scope=s.oauth_scope,
             verify_ssl=s.oauth_verify_ssl,
+            client_assertion_file=s.oauth_client_assertion_file,
         )
 
     async def check_oauth2_connection(self) -> bool:
@@ -171,4 +176,5 @@ class AuthRuntime:
             client_secret=s.oauth_client_secret,
             scope=s.oauth_scope,
             verify_ssl=s.oauth_verify_ssl,
+            client_assertion_file=s.oauth_client_assertion_file,
         )

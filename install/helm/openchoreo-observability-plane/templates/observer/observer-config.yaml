@@ -35,6 +35,9 @@ data:
   {{- if .Values.observer.oauthScope }}
   UID_RESOLVER_OAUTH_SCOPE: {{ .Values.observer.oauthScope | quote }}
   {{- end }}
+  {{- if .Values.observer.oauthClientAssertionFile }}
+  UID_RESOLVER_OAUTH_CLIENT_ASSERTION_FILE: {{ .Values.observer.oauthClientAssertionFile | quote }}
+  {{- end }}
   {{- if .Values.security.oidc.authServerBaseUrl }}
   AUTH_SERVER_BASE_URL: {{ .Values.security.oidc.authServerBaseUrl | quote }}
   {{- end }}

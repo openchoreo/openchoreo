@@ -26,6 +26,7 @@ class CommonSettings(BaseSettings):
     oauth_token_url: str = ""
     oauth_client_id: str = ""
     oauth_client_secret: str = ""
+    oauth_client_assertion_file: str = ""
     oauth_scope: str = ""
 
     log_level: str = "INFO"
