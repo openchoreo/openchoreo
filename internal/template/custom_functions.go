@@ -61,6 +61,15 @@ var omitSentinel = &omitValue{}
 
 const omitErrMsg = "__OC_RENDERER_OMIT__"
 
+// IsOmitted reports whether a rendered value is the oc_omit() sentinel. RemoveOmittedFields
+// prunes the sentinel from inside maps and slices, but a whole expression can evaluate to it
+// - ${cond ? v : oc_omit()} at the top level - and a caller that marshals that value writes
+// "{}" instead of recognizing there is nothing to record.
+func IsOmitted(value any) bool {
+	v, ok := value.(*omitValue)
+	return ok && v == omitSentinel
+}
+
 // omitCELValue is a CEL value type that represents an omitted value.
 //
 // This internal type allows oc_omit() to return a valid CEL value (rather than an error)

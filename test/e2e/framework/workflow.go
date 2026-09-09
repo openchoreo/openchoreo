@@ -41,6 +41,34 @@ func AssertWorkflowTaskSucceeded(g gomega.Gomega, kubeContext, namespace, workfl
 		fmt.Sprintf(`{.status.tasks[?(@.name=="%s")].phase}`, taskName), "Succeeded")
 }
 
+// AssertWorkflowRunResult checks that the WorkflowRun recorded a declared result
+// under resultName and that its value is non-empty. This reads the values the
+// Workflow's spec.results asked the controller to surface, which is the only
+// place a consumer can read them without pod logs or the underlying Argo
+// resource. The exact value is deliberately not asserted: an image reference and
+// a git revision differ per run, and pinning them would only re-test the build.
+// Designed for use inside Eventually(func(g Gomega) { ... }).
+func AssertWorkflowRunResult(g gomega.Gomega, kubeContext, namespace, workflowRunName, resultName string) {
+	output, err := KubectlGetJsonpath(kubeContext, namespace, "workflowrun", workflowRunName,
+		fmt.Sprintf(`{.status.results[?(@.name=="%s")].value}`, resultName))
+	g.Expect(err).NotTo(gomega.HaveOccurred(),
+		fmt.Sprintf("failed to read result %q on workflowrun/%s in %s", resultName, workflowRunName, namespace))
+	g.Expect(strings.TrimSpace(output)).NotTo(gomega.BeEmpty(),
+		fmt.Sprintf("workflowrun/%s recorded no value for declared result %q; declared results: %s",
+			workflowRunName, resultName, workflowRunResultNames(kubeContext, namespace, workflowRunName)))
+}
+
+// workflowRunResultNames lists the result names present in status, so a failed
+// assertion says what the run did record rather than only what it did not.
+func workflowRunResultNames(kubeContext, namespace, workflowRunName string) string {
+	output, err := KubectlGetJsonpath(kubeContext, namespace, "workflowrun", workflowRunName,
+		`{.status.results[*].name}`)
+	if err != nil || strings.TrimSpace(output) == "" {
+		return "(none)"
+	}
+	return output
+}
+
 // AssertComponentReleasePresent checks that at least one ComponentRelease in
 // the namespace has spec.owner.componentName == component. ComponentRelease
 // has no Ready status (and no labels), so existence is the meaningful signal
