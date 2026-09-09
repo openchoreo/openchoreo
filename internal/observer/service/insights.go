@@ -27,7 +27,7 @@ type ScopeUIDResolver interface {
 
 // passthroughUIDResolver treats scope names as UIDs directly. Development affordance for
 // running against seeded dummy data without a control plane to resolve names against
-// (enabled via INSIGHTS_UID_RESOLUTION=passthrough).
+// (enabled via DELIVERY_INSIGHTS_UID_RESOLUTION=passthrough).
 type passthroughUIDResolver struct{}
 
 // NewPassthroughUIDResolver returns a resolver that echoes names back as UIDs.

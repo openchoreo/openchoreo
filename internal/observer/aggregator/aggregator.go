@@ -7,7 +7,7 @@
 // watermark, normalizes them into deployment/recovery facts, attributes incidents to
 // the deployment live at trigger time, and recomputes the metric rollups for every
 // bucket it touched. The events source is opt-in
-// (INSIGHTS_EVENTS_SOURCE_ENABLED) because it needs a logs adapter carrying the
+// (DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED) because it needs a logs adapter carrying the
 // reasons filter and searchAfter cursor; without it only the incident path runs.
 //
 // Correctness rests on the store's semantics, not on tick bookkeeping: facts
@@ -71,7 +71,7 @@ type Aggregator struct {
 	incidents incidententry.IncidentEntryStore
 	// events is nil when the deployed logs adapter lacks the reasons filter and
 	// searchAfter cursor the sweep needs, which is why it stays behind
-	// INSIGHTS_EVENTS_SOURCE_ENABLED. The events path is skipped when nil.
+	// DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED. The events path is skipped when nil.
 	events           EventsSource
 	cfg              Config
 	logger           *slog.Logger

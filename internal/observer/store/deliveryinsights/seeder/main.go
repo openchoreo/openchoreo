@@ -8,7 +8,7 @@
 // shipped in any image.
 //
 // Scope UIDs are deliberately set to the scope NAMES so the observer can serve this
-// data with INSIGHTS_UID_RESOLUTION=passthrough (no control plane needed to resolve
+// data with DELIVERY_INSIGHTS_UID_RESOLUTION=passthrough (no control plane needed to resolve
 // names to UIDs).
 //
 // Usage:

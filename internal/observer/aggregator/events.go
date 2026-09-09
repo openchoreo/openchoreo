@@ -41,7 +41,7 @@ type DeliveryEvent struct {
 // service.LogsAdapter implements it via FetchDeliveryEvents, which sweeps the event
 // index using the logs-adapter `reasons` filter and `searchAfter` cursor. A deployed
 // adapter without those extensions cannot serve the sweep, so the source stays behind
-// INSIGHTS_EVENTS_SOURCE_ENABLED; the aggregator skips the events path while nil.
+// DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED; the aggregator skips the events path while nil.
 type EventsSource interface {
 	// FetchDeliveryEvents returns delivery lifecycle events in [fromMs, toMs),
 	// ordered by timestamp ascending (phase merges assume chronological folding).
