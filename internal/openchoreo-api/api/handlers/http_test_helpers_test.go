@@ -31,7 +31,7 @@ import (
 // chain, and serialization — rather than calling handler methods directly.
 func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.Handler {
 	t.Helper()
-	return newTestHTTPHandlerWithLogger(t, services, slog.Default())
+	return newTestHTTPHandlerWithLogger(t, services, slog.Default(), io.Discard)
 }
 
 // newTestHTTPHandlerWithLogger is like newTestHTTPHandler but lets the caller supply
@@ -40,12 +40,12 @@ func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.H
 // Builds its chain via OpenAPIMiddlewares, the same constructor production uses,
 // so tests exercise the real middleware ordering rather than a hand-assembled
 // stand-in — do not rebuild the chain here instead (see #2588).
-func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger) http.Handler {
+func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger, auditSink io.Writer) http.Handler {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
 	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	require.NoError(t, err, "test audit defaults must build a valid PolicySet")
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(auditSink))
 	require.NoError(t, err, "test audit defaults must build a valid Emitter")
 
 	h := &Handler{services: services, logger: logger}

@@ -6,7 +6,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,12 +22,11 @@ func newAuditSink(t *testing.T) (*audit.Emitter, *bytes.Buffer) {
 	t.Helper()
 
 	var buf bytes.Buffer
-	sinkLogger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	policies, errs := audit.NewPolicySet(coreconfig.NewPath("audit"), audit.Settings{Publish: true}, nil)
 	require.Empty(t, errs, "default policy set must build cleanly")
 
-	emitter, err := audit.NewEmitter("observer-test", policies, audit.NewLogger(sinkLogger))
+	emitter, err := audit.NewEmitter("observer-test", policies, audit.NewLogger(&buf))
 	require.NoError(t, err)
 
 	return emitter, &buf

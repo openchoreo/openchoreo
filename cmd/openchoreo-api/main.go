@@ -210,7 +210,7 @@ func main() {
 		logger.Error("Failed to build audit policy set", slog.Any("error", err))
 		os.Exit(1)
 	}
-	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(logger))
+	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(os.Stdout))
 	if err != nil {
 		logger.Error("Failed to build audit emitter", slog.Any("error", err))
 		os.Exit(1)

@@ -5,9 +5,9 @@ package audit
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 )
 
@@ -19,46 +19,30 @@ type Logger struct {
 	slogger *slog.Logger
 }
 
-// forceLevelHandler wraps a slog.Handler so every record is treated as
-// enabled, regardless of the minimum level the wrapped handler was
-// constructed with. Audit events must not be silently dropped by the
-// application's log-level configuration (e.g. logging.level: warn), since
-// audit.enabled is meant to be the only kill switch for audit output.
-type forceLevelHandler struct {
-	slog.Handler
-}
-
-// Enabled always returns true so the wrapped handler's level filter never
-// suppresses an audit record.
-func (h *forceLevelHandler) Enabled(context.Context, slog.Level) bool {
-	return true
-}
-
-// WithAttrs and WithGroup re-wrap the result in a forceLevelHandler. Without
-// these, the embedded slog.Handler's own WithAttrs/WithGroup would return the
-// *inner* handler directly — silently dropping the always-enabled override on
-// any derived logger, the same silent-drop failure mode this handler exists
-// to close. Unreachable today (LogEvent never derives a logger via .With),
-// but left un-implemented it is a landmine for the next caller that does.
-func (h *forceLevelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &forceLevelHandler{Handler: h.Handler.WithAttrs(attrs)}
-}
-
-func (h *forceLevelHandler) WithGroup(name string) slog.Handler {
-	return &forceLevelHandler{Handler: h.Handler.WithGroup(name)}
-}
-
-// NewLogger creates a new audit logger. It reuses the given logger's handler
-// (output stream, format, and any attrs already attached, e.g. "component")
-// but forces every record through regardless of the handler's configured
-// minimum level.
-func NewLogger(slogger *slog.Logger) *Logger {
-	return &Logger{slogger: slog.New(&forceLevelHandler{Handler: slogger.Handler()})}
+// NewLogger creates an audit logger writing newline-delimited JSON to w.
+//
+// The handler is this package's own rather than the application logger's: a
+// collector parses these records, so the format is a published contract, not a
+// logging preference. audit.enabled is therefore the only kill switch — no
+// application log level applies.
+//
+// Pass the same *os.File the application logger uses (os.Stdout). slog writes
+// each record in one Write and os.File serializes writes per descriptor, so
+// two handlers on one *os.File cannot interleave; wrapping either side in a
+// buffered or separately-opened writer loses that.
+func NewLogger(w io.Writer) *Logger {
+	return &Logger{slogger: slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))}
 }
 
 // LogEvent emits an audit log event using slog. The attrs are derived from
 // Event.MarshalJSON's output rather than built by hand, so the log stream and
 // a sink that marshals the same *Event cannot publish different shapes.
+//
+// The "AUDIT-LOG" message is the collector's routing key, separating these
+// records from the process's application logs, so it is stable across schema
+// minor versions.
 func (l *Logger) LogEvent(event *Event) {
 	payload, err := json.Marshal(event)
 	if err != nil {
