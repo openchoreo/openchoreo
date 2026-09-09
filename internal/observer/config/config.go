@@ -30,17 +30,24 @@ import (
 // This matches the OpenAPI spec's maximum for the limit field.
 const MaxLimit = 1000
 
+// Supported SQL store backends for the alert/incident and delivery insights stores.
+const (
+	storeBackendSQLite     = "sqlite"
+	storeBackendPostgreSQL = "postgresql"
+)
+
 // Config holds all configuration for the logging service
 type Config struct {
-	Server      ServerConfig      `koanf:"server"`
-	Auth        AuthConfig        `koanf:"auth"`
-	Authz       AuthzConfig       `koanf:"authz"`
-	Logging     LoggingConfig     `koanf:"logging"`
-	Alerting    AlertingConfig    `koanf:"alerting"`
-	Adapters    AdaptersConfig    `koanf:"adapters"`
-	UIDResolver UIDResolverConfig `koanf:"uid_resolver"`
-	CORS        CORSConfig        `koanf:"cors"`
-	LogLevel    string            `koanf:"loglevel"`
+	Server           ServerConfig           `koanf:"server"`
+	Auth             AuthConfig             `koanf:"auth"`
+	Authz            AuthzConfig            `koanf:"authz"`
+	Logging          LoggingConfig          `koanf:"logging"`
+	Alerting         AlertingConfig         `koanf:"alerting"`
+	DeliveryInsights DeliveryInsightsConfig `koanf:"deliveryinsights"`
+	Adapters         AdaptersConfig         `koanf:"adapters"`
+	UIDResolver      UIDResolverConfig      `koanf:"uid_resolver"`
+	CORS             CORSConfig             `koanf:"cors"`
+	LogLevel         string                 `koanf:"loglevel"`
 	// Audit defines audit logging settings. Loaded from the audit: key of the
 	// same supplementary YAML file auth.subject_types comes from — see
 	// loadAuditConfig — since audit.policies is a nested list the flat
@@ -90,6 +97,9 @@ type AuthzConfig struct {
 	ServiceURL            string        `koanf:"service.url"`
 	Timeout               time.Duration `koanf:"timeout"`
 	TLSInsecureSkipVerify bool          `koanf:"tls.insecure.skip.verify"`
+	// Disabled skips all PDP authorization checks (mirrors JWT_DISABLED).
+	// Development/demo affordance only — never enable in production.
+	Disabled bool `koanf:"disabled"`
 }
 
 // LoggingConfig holds application logging configuration
@@ -123,6 +133,48 @@ type AlertingConfig struct {
 	FinOpsAgentURL string `koanf:"finops.agent.url"`
 	// FinOpsAgentEnabled controls whether FinOps agent integration is enabled.
 	FinOpsAgentEnabled bool `koanf:"finops.agent.enabled"`
+}
+
+// DeliveryInsightsConfig holds configuration for the Delivery Insights (DORA metrics) store.
+type DeliveryInsightsConfig struct {
+	// StoreBackend controls where delivery facts and metric rollups are persisted.
+	// Supported values: sqlite, postgresql. Empty inherits the alert store backend.
+	StoreBackend string `koanf:"store.backend"`
+	// StoreDSN is the SQL connection string for delivery insights storage.
+	// Empty inherits the alert store DSN so all observer stores share one database,
+	// which keeps incident↔deployment attribution a local SQL join.
+	StoreDSN string `koanf:"store.dsn"`
+	// UIDResolution controls how Delivery Insights search-scope names are translated to
+	// UIDs the store is keyed by. "resolver" (default) resolves via openchoreo-api;
+	// "passthrough" treats names as UIDs directly — a development/demo affordance
+	// for querying seeded dummy data without a control plane.
+	UIDResolution string `koanf:"uid.resolution"`
+	// AggregationEnabled runs the DORA aggregator in the observer process: the
+	// background loop that folds delivery lifecycle events into the durable facts
+	// and rollups the Delivery Insights API reads. Reads are served whether or not it
+	// runs; this only controls whether new facts are derived.
+	//
+	// The loop has no leader election, so exactly one replica may have this on --
+	// concurrent sweeps share watermarks and would overwrite each other's resume
+	// positions. The chart enforces that; nothing here does.
+	AggregationEnabled bool `koanf:"aggregation.enabled"`
+	// AggregationInterval is the aggregator tick interval.
+	AggregationInterval time.Duration `koanf:"aggregation.interval"`
+	// AggregationOverlap re-reads this much of the previous window each tick to
+	// absorb source ingest lag.
+	AggregationOverlap time.Duration `koanf:"aggregation.overlap"`
+	// AttributionWindow caps how long after a deployment an incident may trigger
+	// and still count against it (change failure attribution).
+	AttributionWindow time.Duration `koanf:"aggregation.attribution.window"`
+	// IncidentLookback is the rolling incident window rescanned every tick (late
+	// incident resolutions do not bump ingestion timestamps, so pure watermark
+	// increments would miss them).
+	IncidentLookback time.Duration `koanf:"aggregation.incident.lookback"`
+	// EventsSourceEnabled feeds the aggregator delivery lifecycle events read
+	// from the logs adapter. Requires an adapter that supports the events query
+	// reasons filter and searchAfter pagination; off by default until the
+	// deployed adapter does.
+	EventsSourceEnabled bool `koanf:"aggregation.events.source.enabled"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -182,51 +234,61 @@ func Load() (*Config, error) {
 
 	// Define environment variable mappings
 	envMappings := map[string]string{
-		"SERVER_PORT":                           "server.port",
-		"SERVER_INTERNAL_PORT":                  "server.internal.port",
-		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
-		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
-		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
-		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
-		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
-		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
-		"AUTHZ_SERVICE_URL":                     "authz.service.url",
-		"AUTHZ_TIMEOUT":                         "authz.timeout",
-		"AUTHZ_TLS_INSECURE_SKIP_VERIFY":        "authz.tls.insecure.skip.verify",
-		"LOGGING_MAX_LOG_LIMIT":                 "logging.max.log.limit",
-		"LOGGING_DEFAULT_LOG_LIMIT":             "logging.default.log.limit",
-		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":       "logging.default.build.log.limit",
-		"LOGGING_MAX_LOG_LINES_PER_FILE":        "logging.max.log.lines.per.file",
-		"RCA_SERVICE_URL":                       "alerting.rca.service.url",
-		"AI_RCA_ENABLED":                        "alerting.ai.rca.enabled",
-		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
-		"ALERT_STORE_BACKEND":                   "alerting.alert.store.backend",
-		"ALERT_STORE_DSN":                       "alerting.alert.store.dsn",
-		"ALERT_SUPPRESSION_WINDOW":              "alerting.alert.suppression.window",
-		"FINOPS_AGENT_URL":                      "alerting.finops.agent.url",
-		"FINOPS_AGENT_ENABLED":                  "alerting.finops.agent.enabled",
-		"LOG_LEVEL":                             "loglevel",
-		"PORT":                                  "server.port",           // Common alias
-		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
-		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
-		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
-		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"LOGS_ADAPTER_URL":                      "adapters.logs.adapter.url",
-		"LOGS_ADAPTER_TIMEOUT":                  "adapters.logs.adapter.timeout",
-		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
-		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
-		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
-		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
-		"FINOPS_ADAPTER_URL":                    "adapters.finops.adapter.url",
-		"FINOPS_ADAPTER_TIMEOUT":                "adapters.finops.adapter.timeout",
-		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
-		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
-		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
-		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
-		"UID_RESOLVER_OAUTH_SCOPE":              "uid_resolver.oauth.scope",
-		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
-		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
-		"UID_RESOLVER_MAX_AUTH_RETRY":           "uid_resolver.max.auth.retry",
+		"SERVER_PORT":                             "server.port",
+		"SERVER_INTERNAL_PORT":                    "server.internal.port",
+		"SERVER_READ_TIMEOUT":                     "server.read.timeout",
+		"SERVER_WRITE_TIMEOUT":                    "server.write.timeout",
+		"SERVER_SHUTDOWN_TIMEOUT":                 "server.shutdown.timeout",
+		"AUTH_JWT_SECRET":                         "auth.jwt.secret",
+		"AUTH_ENABLE_AUTH":                        "auth.enable.auth",
+		"AUTH_REQUIRED_ROLE":                      "auth.required.role",
+		"AUTHZ_SERVICE_URL":                       "authz.service.url",
+		"AUTHZ_TIMEOUT":                           "authz.timeout",
+		"AUTHZ_TLS_INSECURE_SKIP_VERIFY":          "authz.tls.insecure.skip.verify",
+		"LOGGING_MAX_LOG_LIMIT":                   "logging.max.log.limit",
+		"LOGGING_DEFAULT_LOG_LIMIT":               "logging.default.log.limit",
+		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":         "logging.default.build.log.limit",
+		"LOGGING_MAX_LOG_LINES_PER_FILE":          "logging.max.log.lines.per.file",
+		"RCA_SERVICE_URL":                         "alerting.rca.service.url",
+		"AI_RCA_ENABLED":                          "alerting.ai.rca.enabled",
+		"OBSERVABILITY_NAMESPACE":                 "alerting.observability.namespace",
+		"ALERT_STORE_BACKEND":                     "alerting.alert.store.backend",
+		"ALERT_STORE_DSN":                         "alerting.alert.store.dsn",
+		"ALERT_SUPPRESSION_WINDOW":                "alerting.alert.suppression.window",
+		"FINOPS_AGENT_URL":                        "alerting.finops.agent.url",
+		"FINOPS_AGENT_ENABLED":                    "alerting.finops.agent.enabled",
+		"DELIVERY_INSIGHTS_STORE_BACKEND":         "deliveryinsights.store.backend",
+		"DELIVERY_INSIGHTS_STORE_DSN":             "deliveryinsights.store.dsn",
+		"DELIVERY_INSIGHTS_UID_RESOLUTION":        "deliveryinsights.uid.resolution",
+		"DELIVERY_INSIGHTS_AGGREGATION_ENABLED":   "deliveryinsights.aggregation.enabled",
+		"DELIVERY_INSIGHTS_AGGREGATION_INTERVAL":  "deliveryinsights.aggregation.interval",
+		"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP":   "deliveryinsights.aggregation.overlap",
+		"DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED": "deliveryinsights.aggregation.events.source.enabled",
+		"DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW":    "deliveryinsights.aggregation.attribution.window",
+		"DELIVERY_INSIGHTS_INCIDENT_LOOKBACK":     "deliveryinsights.aggregation.incident.lookback",
+		"AUTHZ_DISABLED":                          "authz.disabled",
+		"LOG_LEVEL":                               "loglevel",
+		"PORT":                                    "server.port",           // Common alias
+		"INTERNAL_PORT":                           "server.internal.port",  // Common alias
+		"JWT_SECRET":                              "auth.jwt.secret",       // Common alias
+		"ENABLE_AUTH":                             "auth.enable.auth",      // Common alias
+		"MAX_LOG_LIMIT":                           "logging.max.log.limit", // Common alias
+		"LOGS_ADAPTER_URL":                        "adapters.logs.adapter.url",
+		"LOGS_ADAPTER_TIMEOUT":                    "adapters.logs.adapter.timeout",
+		"TRACING_ADAPTER_URL":                     "adapters.tracing.adapter.url",
+		"TRACING_ADAPTER_TIMEOUT":                 "adapters.tracing.adapter.timeout",
+		"METRICS_ADAPTER_URL":                     "adapters.metrics.adapter.url",
+		"METRICS_ADAPTER_TIMEOUT":                 "adapters.metrics.adapter.timeout",
+		"FINOPS_ADAPTER_URL":                      "adapters.finops.adapter.url",
+		"FINOPS_ADAPTER_TIMEOUT":                  "adapters.finops.adapter.timeout",
+		"UID_RESOLVER_OPENCHOREO_API_URL":         "uid_resolver.openchoreo.api.url",
+		"UID_RESOLVER_OAUTH_TOKEN_URL":            "uid_resolver.oauth.token.url",
+		"UID_RESOLVER_OAUTH_CLIENT_ID":            "uid_resolver.oauth.client.id",
+		"UID_RESOLVER_OAUTH_CLIENT_SECRET":        "uid_resolver.oauth.client.secret",
+		"UID_RESOLVER_OAUTH_SCOPE":                "uid_resolver.oauth.scope",
+		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY":   "uid_resolver.tls.insecure.skip.verify",
+		"UID_RESOLVER_TIMEOUT":                    "uid_resolver.timeout",
+		"UID_RESOLVER_MAX_AUTH_RETRY":             "uid_resolver.max.auth.retry",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -374,6 +436,17 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.url":         "http://finops-agent:8080",
 			"finops.agent.enabled":     false,
 		},
+		"deliveryinsights": map[string]interface{}{
+			"store.backend":                     "",
+			"store.dsn":                         "",
+			"uid.resolution":                    "resolver",
+			"aggregation.enabled":               false,
+			"aggregation.interval":              "5m",
+			"aggregation.overlap":               "10m",
+			"aggregation.attribution.window":    "24h",
+			"aggregation.incident.lookback":     "720h", // 30 days
+			"aggregation.events.source.enabled": false,
+		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
@@ -395,6 +468,102 @@ func getDefaults() map[string]interface{} {
 		},
 		"loglevel": "info",
 	}
+}
+
+// validateDeliveryInsightsStore normalizes the delivery insights store backend and
+// DSN. The store defaults to sharing the alert store database so that
+// incident↔deployment attribution stays a local SQL join.
+// validateAlertStore normalizes the alert store backend and fills in its default
+// DSN. Split out of validate to keep that function under the complexity limit.
+func (c *Config) validateAlertStore() error {
+	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
+	switch c.Alerting.AlertStoreBackend {
+	case "", storeBackendSQLite:
+		c.Alerting.AlertStoreBackend = storeBackendSQLite
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
+		}
+		// The delivery insights store shares this file by default, so both handles need
+		// wait on each other's write lock rather than failing with SQLITE_BUSY.
+		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
+	case storeBackendPostgreSQL:
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
+		}
+	default:
+		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	return nil
+}
+
+func (c *Config) validateDeliveryInsightsStore() error {
+	c.DeliveryInsights.StoreBackend = strings.ToLower(strings.TrimSpace(c.DeliveryInsights.StoreBackend))
+	if c.DeliveryInsights.StoreBackend == "" {
+		c.DeliveryInsights.StoreBackend = c.Alerting.AlertStoreBackend
+	}
+	switch c.DeliveryInsights.StoreBackend {
+	case storeBackendSQLite, storeBackendPostgreSQL:
+	default:
+		return fmt.Errorf("deliveryinsights.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	if strings.TrimSpace(c.DeliveryInsights.StoreDSN) == "" {
+		if c.DeliveryInsights.StoreBackend != c.Alerting.AlertStoreBackend {
+			return fmt.Errorf(
+				"deliveryinsights.store.dsn is required when deliveryinsights.store.backend differs from alert.store.backend")
+		}
+		c.DeliveryInsights.StoreDSN = c.Alerting.AlertStoreDSN
+	}
+	if c.DeliveryInsights.StoreBackend == storeBackendSQLite {
+		c.DeliveryInsights.StoreDSN = ensureSQLiteBusyTimeout(c.DeliveryInsights.StoreDSN)
+	}
+	return nil
+}
+
+// sqliteBusyTimeoutMs is how long a SQLite writer waits for a competing writer's lock
+// before giving up with SQLITE_BUSY. By default the delivery insights store and the alert store
+// open separate handles to the same file, and SQLite permits only one writer at a time,
+// so without a busy timeout a write from either handle can fail outright.
+const sqliteBusyTimeoutMs = 5000
+
+// ensureSQLiteBusyTimeout appends a busy_timeout pragma to a SQLite DSN that lacks one,
+// leaving an explicitly configured timeout untouched.
+func ensureSQLiteBusyTimeout(dsn string) string {
+	if strings.Contains(dsn, "busy_timeout") {
+		return dsn
+	}
+	separator := "?"
+	if strings.Contains(dsn, "?") {
+		separator = "&"
+	}
+	return fmt.Sprintf("%s%s_pragma=busy_timeout(%d)", dsn, separator, sqliteBusyTimeoutMs)
+}
+
+// validateDeliveryInsights normalizes and validates the delivery insights section.
+func (c *Config) validateDeliveryInsights() error {
+	c.DeliveryInsights.UIDResolution = strings.ToLower(strings.TrimSpace(c.DeliveryInsights.UIDResolution))
+	switch c.DeliveryInsights.UIDResolution {
+	case "":
+		c.DeliveryInsights.UIDResolution = "resolver"
+	case "resolver", "passthrough":
+	default:
+		return fmt.Errorf("deliveryinsights.uid.resolution must be 'resolver' or 'passthrough'")
+	}
+	if !c.DeliveryInsights.AggregationEnabled {
+		return nil
+	}
+	if c.DeliveryInsights.AggregationInterval <= 0 {
+		return fmt.Errorf("deliveryinsights.aggregation.interval must be positive")
+	}
+	if c.DeliveryInsights.AggregationOverlap < 0 {
+		return fmt.Errorf("deliveryinsights.aggregation.overlap must be non-negative")
+	}
+	if c.DeliveryInsights.AttributionWindow <= 0 {
+		return fmt.Errorf("deliveryinsights.aggregation.attribution.window must be positive")
+	}
+	if c.DeliveryInsights.IncidentLookback <= 0 {
+		return fmt.Errorf("deliveryinsights.aggregation.incident.lookback must be positive")
+	}
+	return nil
 }
 
 func (c *Config) validate() error {
@@ -440,19 +609,14 @@ func (c *Config) validate() error {
 		return fmt.Errorf("uid resolver max.auth.retry must be non-negative")
 	}
 
-	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
-	switch c.Alerting.AlertStoreBackend {
-	case "", "sqlite":
-		c.Alerting.AlertStoreBackend = "sqlite"
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
-		}
-	case "postgresql":
-		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
-			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
-		}
-	default:
-		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	if err := c.validateAlertStore(); err != nil {
+		return err
+	}
+	if err := c.validateDeliveryInsightsStore(); err != nil {
+		return err
+	}
+	if err := c.validateDeliveryInsights(); err != nil {
+		return err
 	}
 
 	// Validate and normalize MetricsAdapter configuration

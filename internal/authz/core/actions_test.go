@@ -202,3 +202,26 @@ func TestConcretePublicActions(t *testing.T) {
 		}
 	})
 }
+
+// TestActionViewDeliveryInsightsRegistered pins the Delivery Insights read action and its
+// metadata. Its scope in particular is load-bearing: the metrics are queried at
+// namespace, project and component level, so component is the lowest level a
+// policy is evaluated at. Registering it at a coarser scope would stop a
+// component-scoped grant from authorizing a component-scoped query.
+func TestActionViewDeliveryInsightsRegistered(t *testing.T) {
+	var found *Action
+	for i := range PublicActions() {
+		if PublicActions()[i].Name == ActionViewDeliveryInsights {
+			found = &PublicActions()[i]
+			break
+		}
+	}
+
+	require.NotNil(t, found, "%s must be registered as a public action", ActionViewDeliveryInsights)
+	require.Equal(t, "deliveryinsights:view", ActionViewDeliveryInsights,
+		"the action name is referenced by role grants in values.yaml and must not drift")
+	require.Equal(t, ScopeComponent, found.LowestScope,
+		"insights are queried down to component scope")
+	require.False(t, found.IsInternal,
+		"%s is granted to roles, so it must not be internal-only", ActionViewDeliveryInsights)
+}
