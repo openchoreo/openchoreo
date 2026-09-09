@@ -214,7 +214,7 @@ func (pi *PersistentIndex) saveToDisk() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal index: %w", err)
 	}
-	if err := atomicWriteFile(indexPath, indexData, 0600); err != nil {
+	if err := atomicWriteFile(indexPath, indexData); err != nil {
 		return fmt.Errorf("failed to write index file: %w", err)
 	}
 
@@ -227,7 +227,7 @@ func (pi *PersistentIndex) saveToDisk() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	if err := atomicWriteFile(metaPath, metaData, 0600); err != nil {
+	if err := atomicWriteFile(metaPath, metaData); err != nil {
 		return fmt.Errorf("failed to write metadata file: %w", err)
 	}
 

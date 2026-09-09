@@ -12,7 +12,9 @@ import (
 // atomicWriteFile writes data to path by writing a same-directory temp file
 // and renaming it into place. On Windows, the destination is removed first
 // because os.Rename cannot replace an existing file.
-func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+func atomicWriteFile(path string, data []byte) error {
+	const perm os.FileMode = 0600
+
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
 	if err != nil {

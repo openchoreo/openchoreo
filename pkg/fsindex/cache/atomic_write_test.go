@@ -17,7 +17,7 @@ func TestAtomicWriteFile_CreatesAndReplaces(t *testing.T) {
 	path := filepath.Join(dir, "index.json")
 
 	first := []byte(`{"version":1}`)
-	if err := atomicWriteFile(path, first, 0600); err != nil {
+	if err := atomicWriteFile(path, first); err != nil {
 		t.Fatalf("atomicWriteFile() first write: %v", err)
 	}
 
@@ -30,7 +30,7 @@ func TestAtomicWriteFile_CreatesAndReplaces(t *testing.T) {
 	}
 
 	second := []byte(`{"version":2,"resources":[]}`)
-	if err := atomicWriteFile(path, second, 0600); err != nil {
+	if err := atomicWriteFile(path, second); err != nil {
 		t.Fatalf("atomicWriteFile() replace: %v", err)
 	}
 
