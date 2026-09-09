@@ -1641,6 +1641,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
 		).
+		// Environment gateway settings override the DataPlane values in the render context.
+		// Watch their spec changes so an override is applied to every dependent binding.
+		Watches(
+			&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEnvironment),
+			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
 		Named("releasebinding").
 		Complete(r)
 }
