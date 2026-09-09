@@ -24,7 +24,6 @@ data:
   AI_RCA_ENABLED: {{ .Values.rca.enabled | default false | quote }}
   DELIVERY_INSIGHTS_AGGREGATION_ENABLED: {{ .Values.observer.deliveryInsights.aggregationEnabled | default false | quote }}
   DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED: {{ .Values.observer.deliveryInsights.eventsSourceEnabled | default false | quote }}
-  DELIVERY_INSIGHTS_UID_RESOLUTION: {{ .Values.observer.deliveryInsights.uidResolution | default "resolver" | quote }}
   ALERT_STORE_BACKEND: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
   ALERT_SUPPRESSION_WINDOW: {{ .Values.observer.alertSuppressionWindow | quote }}
   OBSERVER_AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
