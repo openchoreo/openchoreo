@@ -86,7 +86,7 @@ func (f *fakeCreateProjectWithUID) CreateProject(
 	created := &openchoreov1alpha1.Project{}
 	created.Name = req.Metadata.Name
 	created.UID = "uid-from-handler"
-	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, UID: string(created.UID), Name: created.Name})
 	return map[string]any{"name": created.Name}, nil
 }
 
@@ -274,8 +274,8 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		if !ok {
 			t.Fatalf("resource was not populated: %v", record)
 		}
-		if resource["id"] != "uid-from-handler" {
-			t.Errorf("resource.id = %v, want the handler-set UID, not just the placeholder name", resource["id"])
+		if resource["uid"] != "uid-from-handler" {
+			t.Errorf("resource.uid = %v, want the handler-set UID, not just the placeholder name", resource["uid"])
 		}
 		if resource["namespace"] != "test-ns" {
 			t.Errorf("resource.namespace = %v, want test-ns", resource["namespace"])
@@ -330,8 +330,8 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		if resource["name"] != "denied-project" {
 			t.Errorf("resource.name = %v, want the placeholder name from the raw call arguments", resource["name"])
 		}
-		if _, hasID := resource["id"]; hasID {
-			t.Errorf("resource.id = %v, want absent on a denied call (handler never ran to set a real UID)", resource["id"])
+		if _, hasUID := resource["uid"]; hasUID {
+			t.Errorf("resource.uid = %v, want absent on a denied call (handler never ran to set a real UID)", resource["uid"])
 		}
 		if resource["namespace"] != "test-ns" {
 			t.Errorf("resource.namespace = %v, want test-ns from the placeholder seed (handler never ran)",

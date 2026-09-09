@@ -90,7 +90,7 @@ func (h *Handler) CreateResource(
 		return gen.CreateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genR, err := convert[openchoreov1alpha1.Resource, gen.ResourceInstance](*created)
 	if err != nil {
@@ -165,7 +165,7 @@ func (h *Handler) UpdateResource(
 		return gen.UpdateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genR, err := convert[openchoreov1alpha1.Resource, gen.ResourceInstance](*updated)
 	if err != nil {

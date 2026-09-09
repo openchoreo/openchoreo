@@ -82,7 +82,7 @@ func (h *Handler) CreateClusterTrait(
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*created)
 	if err != nil {
@@ -131,7 +131,7 @@ func (h *Handler) UpdateClusterTrait(
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*updated)
 	if err != nil {

@@ -91,7 +91,7 @@ func (h *Handler) CreateSecret(
 		return mapCreateSecretError(h, err)
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(result.UID), Name: result.Name})
 
 	out, err := convert[corev1.Secret, gen.Secret](*result)
 	if err != nil {
@@ -149,7 +149,7 @@ func (h *Handler) UpdateSecret(
 		return mapUpdateSecretError(h, err)
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(result.UID), Name: result.Name})
 
 	out, err := convert[corev1.Secret, gen.Secret](*result)
 	if err != nil {

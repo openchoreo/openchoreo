@@ -87,7 +87,7 @@ func (h *Handler) CreateEnvironment(
 		return gen.CreateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*created)
 	if err != nil {
@@ -164,7 +164,7 @@ func (h *Handler) UpdateEnvironment(
 		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*updated)
 	if err != nil {

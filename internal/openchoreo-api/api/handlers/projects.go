@@ -80,7 +80,7 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*created)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *Handler) UpdateProject(
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*updated)
 	if err != nil {

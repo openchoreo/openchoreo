@@ -88,10 +88,15 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 		// Check if claims match this user type with the JWT mechanism's entitlement config
 		if matches, entitlements := detectUserTypeFromClaims(claims, jwtMechanism.Entitlement); matches {
 			// sub isn't guaranteed present — leave ID empty rather than
-			// rendering "<nil>", which would look like a real identity.
+			// rendering "<nil>", which would look like a real identity. sid is
+			// optional in OIDC, so an absent one is normal, not a failure.
 			subject, _ := claims["sub"].(string)
+			issuer, _ := claims["iss"].(string)
+			sessionID, _ := claims["sid"].(string)
 			return &auth.SubjectContext{
 				ID:                subject,
+				Issuer:            issuer,
+				SessionID:         sessionID,
 				Type:              userTypeConfig.Type,
 				EntitlementClaim:  jwtMechanism.Entitlement.Claim,
 				EntitlementValues: entitlements,

@@ -153,7 +153,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		ctx, auditData := NewAuditContext(r.Context(), &Resource{
 			Namespace: r.PathValue("namespaceName"),
 			Name:      r.PathValue(op.RESTResourceParam),
-		})
+		}, NewRequestInfo(HTTPInfoFromRequest(r)))
 
 		rw := &responseWriter{
 			ResponseWriter: w,

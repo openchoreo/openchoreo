@@ -158,6 +158,58 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 	}
 }
 
+// TestJWTDetectorResolvesIssuerAndSession covers the iss and sid claims the
+// audit record publishes. sid is optional in OIDC, so a token without one must
+// resolve to an empty SessionID rather than failing.
+func TestJWTDetectorResolvesIssuerAndSession(t *testing.T) {
+	userTypes := []subject.UserTypeConfig{
+		{
+			Type:        user,
+			DisplayName: "Human User",
+			Priority:    1,
+			AuthMechanisms: []subject.AuthMechanismConfig{
+				{
+					Type: "jwt",
+					Entitlement: subject.EntitlementConfig{
+						Claim:       "group",
+						DisplayName: "User Group",
+					},
+				},
+			},
+		},
+	}
+
+	detector, err := NewResolver(userTypes)
+	if err != nil {
+		t.Fatalf("Failed to create detector: %v", err)
+	}
+
+	const issuer, sessionID = "https://idp.example.com/oauth2/token", "b3f1c2d4"
+
+	withSession, err := detector.ResolveUserType(createTestJWT(jwt.MapClaims{
+		"group": "admin", "sub": "user-1", "iss": issuer, "sid": sessionID,
+	}))
+	if err != nil {
+		t.Fatalf("ResolveUserType() error = %v", err)
+	}
+	if withSession.Issuer != issuer {
+		t.Errorf("Issuer = %q, want %q", withSession.Issuer, issuer)
+	}
+	if withSession.SessionID != sessionID {
+		t.Errorf("SessionID = %q, want %q", withSession.SessionID, sessionID)
+	}
+
+	withoutSession, err := detector.ResolveUserType(createTestJWT(jwt.MapClaims{
+		"group": "admin", "sub": "user-1", "iss": issuer,
+	}))
+	if err != nil {
+		t.Fatalf("ResolveUserType() on a token with no sid claim: error = %v", err)
+	}
+	if withoutSession.SessionID != "" {
+		t.Errorf("SessionID = %q, want empty for a token without a sid claim", withoutSession.SessionID)
+	}
+}
+
 func TestJWTDetectorMissingSubClaim(t *testing.T) {
 	userTypes := []subject.UserTypeConfig{
 		{

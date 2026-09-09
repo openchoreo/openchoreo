@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"testing"
+	"time"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 )
@@ -93,12 +94,35 @@ func TestEmitter_StampsIdentityForEverySink(t *testing.T) {
 		if event.EventID == "" {
 			t.Errorf("%s: EventID is empty, want a stamped UUID", name)
 		}
-		if event.Timestamp.IsZero() {
-			t.Errorf("%s: Timestamp is zero, want stamped", name)
+		if event.Producer != "test-service" {
+			t.Errorf("%s: Producer = %q, want test-service", name, event.Producer)
 		}
-		if event.Service != "test-service" {
-			t.Errorf("%s: Service = %q, want test-service", name, event.Service)
-		}
+	}
+}
+
+// TestBuildEvent_TakesEntryCapturedFactsFromEnvelope guards the split between
+// what the emitter stamps and what only the adapter can know: buildEvent runs
+// after the handler returned, so it must read no clock of its own.
+func TestBuildEvent_TakesEntryCapturedFactsFromEnvelope(t *testing.T) {
+	entryTime := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	env := Envelope{
+		Origin: OriginAPI, Result: ResultSuccess,
+		Request: RequestInfo{
+			EventTime: entryTime,
+			HTTP:      &HTTPInfo{Method: "POST", Path: "/api/v1/namespaces/ns-1/projects"},
+		},
+	}
+
+	event := buildEvent(nil, env, "test-service")
+
+	if !event.EventTime.Equal(entryTime) {
+		t.Errorf("EventTime = %v, want the entry-captured %v", event.EventTime, entryTime)
+	}
+	if event.EventID == "" {
+		t.Error("EventID is empty, want a stamped UUID")
+	}
+	if event.HTTP != env.Request.HTTP {
+		t.Errorf("HTTP = %+v, want the entry-captured request line", event.HTTP)
 	}
 }
 

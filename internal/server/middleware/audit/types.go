@@ -8,10 +8,13 @@ import (
 	"time"
 )
 
-// Actor represents who performed the action
+// Actor represents who performed the action. ID is unique only within Issuer:
+// the same sub from two IdPs is two different subjects.
 type Actor struct {
 	Type         string              `json:"type"`                   // e.g., "user", "service_account", "anonymous"
-	ID           string              `json:"id"`                     // User ID, service account ID, or "anonymous"
+	ID           string              `json:"id"`                     // The token's validated sub claim, or "anonymous"
+	Issuer       string              `json:"issuer,omitempty"`       // The token's iss claim; ID's namespace
+	SessionID    string              `json:"session_id,omitempty"`   // The token's sid claim, joining this event to an IdP login
 	Entitlements map[string][]string `json:"entitlements,omitempty"` // Optional entitlements associated with the actor
 }
 
@@ -30,11 +33,15 @@ const (
 // Resource identifies the target resource of an action, as reported by a
 // handler via SetResource (or, pre-handler, by a surface adapter's seed —
 // see NewAuditContext).
+//
+// UID equals Name for a resource whose only identifier is a generated one (an
+// observer incident): omitting it instead would publish that value as "name"
+// on a denial, from the path seed, and as "uid" on success.
 type Resource struct {
-	Namespace string         `json:"namespace,omitempty"` // Namespace the resource belongs to, if namespace-scoped
-	ID        string         `json:"id,omitempty"`        // Resource identifier
-	Name      string         `json:"name,omitempty"`      // Resource name (if different from ID)
-	Metadata  map[string]any `json:"metadata,omitempty"`  // Additional resource-scoped context (optional)
+	Namespace string // Namespace the resource belongs to, if namespace-scoped
+	UID       string // Server-generated id that is never reused, absent when the operation returned no object
+	Name      string // The name the operation addresses the resource by
+	Metadata  map[string]any
 }
 
 // Hierarchy identifies where in OpenChoreo's resource tree an audited
@@ -43,8 +50,8 @@ type Resource struct {
 // this package a leaf so internal/openchoreo-api can depend on it without a
 // cycle.
 //
-// Namespace/Project/Component/Resource mirror authz.ResourceHierarchy's json
-// tags; Environment has no level there and comes from authz.Context.Resource,
+// Namespace/Project/Component/Resource mirror authz.ResourceHierarchy's
+// fields; Environment has no level there and comes from authz.Context.Resource,
 // the ABAC attributes CEL conditions evaluate against.
 //
 // Recorded here rather than merged into Resource: SetResource replaces the
@@ -55,11 +62,11 @@ type Resource struct {
 // at render time (see Event.MarshalJSON and Logger.LogEvent), that ordering
 // can't erase it.
 type Hierarchy struct {
-	Namespace   string `json:"namespace,omitempty"`
-	Environment string `json:"environment,omitempty"`
-	Project     string `json:"project,omitempty"`
-	Component   string `json:"component,omitempty"`
-	Resource    string `json:"resource,omitempty"`
+	Namespace   string
+	Environment string
+	Project     string
+	Component   string
+	Resource    string
 }
 
 // Result represents the outcome of an action
@@ -86,42 +93,70 @@ const (
 	OriginMCP Origin = "mcp"
 )
 
+// SchemaVersion is stamped on every published event as "schema_version".
+// major.minor: major on a field removal or a changed value representation,
+// minor on an addition.
+const SchemaVersion = "1.0"
+
+// HTTPInfo records the request line of an event that arrived over HTTP.
+// Absent for an MCP tools/call, which has no request line of its own.
+type HTTPInfo struct {
+	Method string `json:"method,omitempty"`
+	Path   string `json:"path,omitempty"`
+}
+
+// RequestInfo is what a surface adapter captures when it receives a request.
+// None of it survives to emit time: emission runs in a deferred call after the
+// handler returns, so a timestamp taken there is the response's completion —
+// minutes late for a handler that hijacks the connection.
+type RequestInfo struct {
+	// EventTime is when the audit adapter received the request — after token
+	// validation on an authenticated request, since Middleware sits inside
+	// auth. The gap from socket-accept belongs to the access log.
+	EventTime time.Time
+	// HTTP is the request line, nil on a surface that has none.
+	HTTP *HTTPInfo
+}
+
 // Event represents a complete audit log event
 type Event struct {
-	EventID      string         `json:"event_id"`               // Unique identifier (UUID v7)
-	Timestamp    time.Time      `json:"timestamp"`              // When the action occurred
-	Actor        Actor          `json:"actor"`                  // Who performed the action
-	Action       string         `json:"action"`                 // Semantic action name (e.g., "create_project")
-	Category     Category       `json:"category"`               // Action category
-	Origin       Origin         `json:"origin,omitempty"`       // Surface that produced the event: api | mcp
-	OperationID  string         `json:"operation_id,omitempty"` // OpenAPI operationId, e.g. "CreateProject"
-	ResourceType string         `json:"-"`
-	Resource     *Resource      `json:"resource"`           // Target resource (can be nil for non-resource actions)
-	Hierarchy    Hierarchy      `json:"-"`                  // Project/component/resource the decision was made on; folded into "resource" at render time
-	Result       Result         `json:"result"`             // Outcome
-	RequestID    string         `json:"request_id"`         // Correlation ID linking to access log
-	SourceIP     string         `json:"source_ip"`          // Client IP address
-	Service      string         `json:"service"`            // Emitting service (e.g., "openchoreo-api")
-	Metadata     map[string]any `json:"metadata,omitempty"` // Additional context (optional)
+	EventID      string // Unique identifier for this record (UUID v7)
+	EventTime    time.Time
+	Actor        Actor
+	Action       string // Semantic action name (e.g., "create_project")
+	Category     Category
+	Origin       Origin // Surface that produced the event: api | mcp
+	OperationID  string // Canonical operation identifier, e.g. "CreateProject"
+	HTTP         *HTTPInfo
+	ResourceType string
+	Resource     *Resource // Target resource (can be nil for non-resource actions)
+	Hierarchy    Hierarchy // Project/component/resource the decision was made on; folded into "resource" at render time
+	Result       Result
+	RequestID    string // Correlation ID linking to the access log line
+	SourceIP     string // Client IP address
+	Producer     string // Emitting service (e.g., "openchoreo-api")
+	Metadata     map[string]any
 }
 
 // eventJSON is the single definition of the published audit record. Field
 // order here is published order, for json.Marshal and for Logger.LogEvent
 // alike — reordering these fields changes the record consumers receive.
 type eventJSON struct {
-	EventID     string         `json:"event_id"`
-	Timestamp   time.Time      `json:"timestamp"`
-	Actor       Actor          `json:"actor"`
-	Action      string         `json:"action"`
-	Category    Category       `json:"category"`
-	Result      Result         `json:"result"`
-	RequestID   string         `json:"request_id"`
-	SourceIP    string         `json:"source_ip"`
-	Service     string         `json:"service"`
-	Origin      Origin         `json:"origin,omitempty"`
-	OperationID string         `json:"operation_id,omitempty"`
-	Resource    *resourceJSON  `json:"resource,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	SchemaVersion string         `json:"schema_version"`
+	EventID       string         `json:"event_id"`
+	EventTime     time.Time      `json:"event_time"`
+	Actor         Actor          `json:"actor"`
+	Action        string         `json:"action"`
+	Category      Category       `json:"category"`
+	Result        Result         `json:"result"`
+	RequestID     string         `json:"request_id"`
+	SourceIP      string         `json:"source_ip"`
+	Producer      string         `json:"producer"`
+	Origin        Origin         `json:"origin,omitempty"`
+	OperationID   string         `json:"operation_id,omitempty"`
+	HTTP          *HTTPInfo      `json:"http,omitempty"`
+	Resource      *resourceJSON  `json:"resource,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
 }
 
 // resourceJSON is Resource with Type merged back in, plus Hierarchy's
@@ -134,7 +169,7 @@ type resourceJSON struct {
 	Project     string         `json:"project,omitempty"`
 	Component   string         `json:"component,omitempty"`
 	Resource    string         `json:"resource,omitempty"`
-	ID          string         `json:"id,omitempty"`
+	UID         string         `json:"uid,omitempty"`
 	Name        string         `json:"name,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
@@ -147,19 +182,21 @@ type resourceJSON struct {
 // marshaled Event would publish "resource_type" as a sibling field instead.
 func (e Event) MarshalJSON() ([]byte, error) {
 	return json.Marshal(eventJSON{
-		EventID:     e.EventID,
-		Timestamp:   e.Timestamp,
-		Actor:       e.Actor,
-		Action:      e.Action,
-		Category:    e.Category,
-		Result:      e.Result,
-		RequestID:   e.RequestID,
-		SourceIP:    e.SourceIP,
-		Service:     e.Service,
-		Origin:      e.Origin,
-		OperationID: e.OperationID,
-		Resource:    e.resolvedResource(),
-		Metadata:    e.Metadata,
+		SchemaVersion: SchemaVersion,
+		EventID:       e.EventID,
+		EventTime:     e.EventTime,
+		Actor:         e.Actor,
+		Action:        e.Action,
+		Category:      e.Category,
+		Result:        e.Result,
+		RequestID:     e.RequestID,
+		SourceIP:      e.SourceIP,
+		Producer:      e.Producer,
+		Origin:        e.Origin,
+		OperationID:   e.OperationID,
+		HTTP:          e.HTTP,
+		Resource:      e.resolvedResource(),
+		Metadata:      e.Metadata,
 	})
 }
 
@@ -187,7 +224,7 @@ func (e Event) resolvedResource() *resourceJSON {
 		if e.Resource.Namespace != "" {
 			out.Namespace = e.Resource.Namespace
 		}
-		out.ID = e.Resource.ID
+		out.UID = e.Resource.UID
 		out.Name = e.Resource.Name
 		out.Metadata = e.Resource.Metadata
 	}
@@ -209,11 +246,15 @@ func (e Event) resolvedResource() *resourceJSON {
 // SetResult calls). MCP never sets it — mcpaudit.classifyResult uses the
 // tool's returned error instead, which stays available after any point in
 // the call.
+//
+// Request is the exception to "mutable": the adapter fills it once at entry
+// and nothing else writes it.
 type AuditData struct {
 	Resource  *Resource
 	Metadata  map[string]any
 	Hierarchy Hierarchy
 	Result    *Result
+	Request   RequestInfo
 }
 
 // contextKey is a type for context keys to avoid collisions

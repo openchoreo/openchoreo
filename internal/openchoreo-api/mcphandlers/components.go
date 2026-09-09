@@ -243,7 +243,7 @@ func (h *MCPHandler) CreateReleaseBinding(
 	}
 	// create_release_binding's call carries no argument naming the binding — its
 	// name is derived here from the component and environment — so this is the
-	// only source of resource.name for the event, not just of resource.id.
+	// only source of resource.name for the event, not just of resource.uid.
 	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
@@ -587,7 +587,7 @@ func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workf
 	// The run is created with GenerateName, so its name exists only once the
 	// server has assigned one — and create_workflow_run's "name" argument is the
 	// Workflow being executed, not the run. Without this the event would carry
-	// neither resource.name nor resource.id.
+	// neither resource.name nor resource.uid.
 	setAuditResource(ctx, created)
 	return mutationResult(created, "created", map[string]any{
 		"workflowName": workflowName,

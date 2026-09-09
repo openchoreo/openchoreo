@@ -78,7 +78,7 @@ func (h *Handler) CreateProjectType(
 		return gen.CreateProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genPT, err := convert[openchoreov1alpha1.ProjectType, gen.ProjectType](*created)
 	if err != nil {
@@ -153,7 +153,7 @@ func (h *Handler) UpdateProjectType(
 		return gen.UpdateProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genPT, err := convert[openchoreov1alpha1.ProjectType, gen.ProjectType](*updated)
 	if err != nil {

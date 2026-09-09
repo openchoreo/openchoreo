@@ -80,7 +80,7 @@ func (h *Handler) CreateClusterProjectType(
 		return gen.CreateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*created)
 	if err != nil {
@@ -126,7 +126,7 @@ func (h *Handler) UpdateClusterProjectType(
 		return gen.UpdateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*updated)
 	if err != nil {
