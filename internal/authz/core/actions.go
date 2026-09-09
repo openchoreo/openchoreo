@@ -258,6 +258,14 @@ const (
 	// Logs actions
 	ActionViewLogs = "logs:view"
 
+	// Platform logs actions
+	// Cluster-scoped: reads every log the observability plane holds, user workload logs
+	// included, with no ownership check. Operator-scoped by design.
+	//
+	// Named by surface rather than by scope, like the other log actions. logs:view is
+	// expected to split into componentlogs:view and workflowrunlogs:view in a follow-up.
+	ActionViewPlatformLogs = "platformlogs:view"
+
 	// Events actions
 	ActionViewEvents = "events:view"
 
@@ -564,6 +572,9 @@ var systemActions = []Action{
 	// Delivery insights (DORA metrics). Queried at namespace, project and component
 	// scope, so the lowest level it is evaluated at is the component.
 	{Name: ActionViewDeliveryInsights, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Platform logs observability
+	{Name: ActionViewPlatformLogs, LowestScope: ScopeCluster, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

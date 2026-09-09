@@ -102,3 +102,7 @@ func (resp apiResponse) VisitGetComponentCostsResponse(w http.ResponseWriter) er
 func (resp apiResponse) VisitGetRecommendationsResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }
+
+func (resp apiResponse) VisitGetPlatformLogsResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}
