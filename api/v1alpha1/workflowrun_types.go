@@ -108,6 +108,35 @@ type WorkflowTask struct {
 	Message string `json:"message,omitempty"`
 }
 
+// WorkflowRunResult is one value a completed run produced, as declared by the Workflow's
+// spec.results.
+type WorkflowRunResult struct {
+	// Name is the result name declared on the Workflow.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Description is copied from the declaration, so a consumer reading only the run
+	// knows what the value carries.
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// Value is the recorded value. It is empty when the declaration marked the result
+	// sensitive, in which case the entry records only that the run produced it.
+	// +optional
+	Value string `json:"value,omitempty"`
+
+	// Truncated reports that the produced value was longer than the controller's per-value
+	// size cap and Value holds only its leading bytes.
+	// +optional
+	Truncated bool `json:"truncated,omitempty"`
+
+	// Sensitive mirrors the declaration, so a consumer can tell an empty value that was
+	// withheld from one that was genuinely empty.
+	// +optional
+	Sensitive bool `json:"sensitive,omitempty"`
+}
+
 // WorkflowRunStatus defines the observed state of WorkflowRun.
 type WorkflowRunStatus struct {
 	// Conditions represent the current state of the WorkflowRun resource.
@@ -132,6 +161,14 @@ type WorkflowRunStatus struct {
 	// Tasks are ordered by their execution sequence.
 	// +optional
 	Tasks []WorkflowTask `json:"tasks,omitempty"`
+
+	// Results contains the values this run produced, as declared by the Workflow's
+	// spec.results. Entries appear once the run completes; a workflow that declares no
+	// results leaves this empty.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Results []WorkflowRunResult `json:"results,omitempty"`
 
 	// StartedAt is the timestamp when this workflow run started execution.
 	// +optional

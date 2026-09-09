@@ -190,6 +190,47 @@ spec:
                   - name
                   type: object
                 type: array
+              results:
+                description: |-
+                  Results contains the values this run produced, as declared by the Workflow's
+                  spec.results. Entries appear once the run completes; a workflow that declares no
+                  results leaves this empty.
+                items:
+                  description: |-
+                    WorkflowRunResult is one value a completed run produced, as declared by the Workflow's
+                    spec.results.
+                  properties:
+                    description:
+                      description: |-
+                        Description is copied from the declaration, so a consumer reading only the run
+                        knows what the value carries.
+                      type: string
+                    name:
+                      description: Name is the result name declared on the Workflow.
+                      minLength: 1
+                      type: string
+                    sensitive:
+                      description: |-
+                        Sensitive mirrors the declaration, so a consumer can tell an empty value that was
+                        withheld from one that was genuinely empty.
+                      type: boolean
+                    truncated:
+                      description: |-
+                        Truncated reports that the produced value was longer than the controller's per-value
+                        size cap and Value holds only its leading bytes.
+                      type: boolean
+                    value:
+                      description: |-
+                        Value is the recorded value. It is empty when the declaration marked the result
+                        sensitive, in which case the entry records only that the run produced it.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               runReference:
                 description: |-
                   RunReference contains a reference to the workflow run resource that was applied to the cluster.

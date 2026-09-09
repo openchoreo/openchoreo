@@ -758,7 +758,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 		runResource := &argoproj.Workflow{}
 		runResource.Status.Phase = argoproj.WorkflowRunning
 
-		result := r.syncWorkflowRunStatus(wfr, runResource)
+		result := r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if result.RequeueAfter != 20*time.Second {
 			t.Errorf("expected RequeueAfter=20s, got %v", result.RequeueAfter)
 		}
@@ -770,7 +770,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 		runResource := &argoproj.Workflow{}
 		runResource.Status.Phase = argoproj.WorkflowSucceeded
 
-		result := r.syncWorkflowRunStatus(wfr, runResource)
+		result := r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if !result.Requeue {
 			t.Error("expected Requeue=true")
 		}
@@ -783,7 +783,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 		runResource := &argoproj.Workflow{}
 		runResource.Status.Phase = argoproj.WorkflowFailed
 
-		result := r.syncWorkflowRunStatus(wfr, runResource)
+		result := r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if result.Requeue || result.RequeueAfter > 0 {
 			t.Error("expected no requeue for failed workflow")
 		}
@@ -795,7 +795,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 		runResource := &argoproj.Workflow{}
 		runResource.Status.Phase = argoproj.WorkflowError
 
-		result := r.syncWorkflowRunStatus(wfr, runResource)
+		result := r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if result.Requeue || result.RequeueAfter > 0 {
 			t.Error("expected no requeue for error workflow")
 		}
@@ -807,7 +807,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 		runResource := &argoproj.Workflow{}
 		runResource.Status.Phase = "" // unknown
 
-		result := r.syncWorkflowRunStatus(wfr, runResource)
+		result := r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if !result.Requeue {
 			t.Error("expected Requeue=true for unknown phase")
 		}
@@ -826,7 +826,7 @@ func TestSyncWorkflowRunStatus(t *testing.T) {
 			},
 		}
 
-		r.syncWorkflowRunStatus(wfr, runResource)
+		r.syncWorkflowRunStatus(context.Background(), wfr, nil, runResource)
 		if len(wfr.Status.Tasks) != 1 {
 			t.Fatalf("expected 1 task, got %d", len(wfr.Status.Tasks))
 		}

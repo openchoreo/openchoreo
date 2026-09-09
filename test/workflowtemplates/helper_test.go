@@ -45,6 +45,9 @@ type workflowTemplateStep struct {
 	Inputs struct {
 		Parameters []inputParameter `yaml:"parameters"`
 	} `yaml:"inputs"`
+	Outputs struct {
+		Parameters []outputParameter `yaml:"parameters"`
+	} `yaml:"outputs"`
 	Container struct {
 		Image        string   `yaml:"image"`
 		Args         []string `yaml:"args"`
@@ -62,6 +65,12 @@ type workflowTemplateStep struct {
 			Optional   *bool  `yaml:"optional"`
 		} `yaml:"secret"`
 	} `yaml:"volumes"`
+}
+
+// outputParameter is one entry of an Argo template's outputs.parameters - the values a
+// WorkflowRun result can name through valueFrom.taskResult.
+type outputParameter struct {
+	Name string `yaml:"name"`
 }
 
 type envVar struct {
@@ -100,7 +109,23 @@ type clusterWorkflow struct {
 		} `yaml:"runTemplate"`
 		ExternalRefs []externalRef      `yaml:"externalRefs"`
 		Resources    []workflowResource `yaml:"resources"`
+		Results      []workflowResult   `yaml:"results"`
 	} `yaml:"spec"`
+}
+
+// workflowResult mirrors WorkflowSpec.results: the values a run of the workflow surfaces
+// into WorkflowRunStatus.results.
+type workflowResult struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Sensitive   bool   `yaml:"sensitive"`
+	ValueFrom   struct {
+		TaskResult *struct {
+			Task   string `yaml:"task"`
+			Result string `yaml:"result"`
+		} `yaml:"taskResult"`
+		Expression string `yaml:"expression"`
+	} `yaml:"valueFrom"`
 }
 
 type externalRef struct {

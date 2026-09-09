@@ -50,6 +50,13 @@ type ClusterWorkflowSpec struct {
 	// +listMapKey=id
 	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
 
+	// Results declares the values a run of this workflow surfaces into
+	// WorkflowRunStatus.Results once it completes.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Results []WorkflowResult `json:"results,omitempty"`
+
 	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$`
