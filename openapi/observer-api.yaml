@@ -416,6 +416,7 @@ paths:
         - $ref: "#/components/parameters/PlatformLogsEndTime"
         - $ref: "#/components/parameters/PlatformLogsLimit"
         - $ref: "#/components/parameters/PlatformLogsSortOrder"
+        - $ref: "#/components/parameters/PlatformLogsIncludeFacets"
       responses:
         "200":
           description: Platform logs retrieved successfully.
@@ -1037,6 +1038,21 @@ components:
         type: string
         enum: [asc, desc]
         default: desc
+    PlatformLogsIncludeFacets:
+      name: includeFacets
+      in: query
+      required: false
+      description: |
+        Return the coordinate values available under this query alongside the page of
+        logs, so a client can populate its filter pickers from the whole matching set
+        rather than from the entries it happens to have paged in.
+
+        Opt-in because it costs an aggregation pass on top of the search. A client
+        paginating should request it on the first page only: the facets describe the
+        query, not the page, and do not change as pages are walked.
+      schema:
+        type: boolean
+        default: false
 
   schemas:
     # Request schemas for logs
@@ -1258,6 +1274,78 @@ components:
           format: int64
           minimum: 0
           description: The time taken to query the logs in milliseconds.
+        facets:
+          $ref: "#/components/schemas/PlatformLogFacets"
+
+    PlatformLogFacets:
+      type: object
+      description: |
+        The coordinate values reachable under the current query, one list per filterable
+        coordinate. Present only when `includeFacets=true`, and omitted rather than
+        empty when the adapter backing this observer cannot compute them - a client must
+        treat an absent `facets` as "unknown", not as "nothing matches".
+
+        Each list is computed with every other filter applied **except the one it
+        describes**. That self-exclusion is what keeps the pickers usable: counting
+        `namespace` under a selected namespace would leave that namespace the only one
+        on offer, with no way back to the others. Selecting a namespace therefore still
+        narrows `podName` and `containerName`, which is the cascade a client wants,
+        while leaving `namespace` itself showing the full set of alternatives.
+
+        Keys are the query parameter names they populate, so a client can map a facet
+        onto its filter without a lookup table.
+
+        Each list is ordered by `count` descending, then `value` ascending, and holds
+        at most 200 entries. A coordinate with more distinct values than that is
+        truncated to the busiest, which is why a client should keep its pickers
+        free-text as well as selectable: a quiet pod may not be offered.
+      properties:
+        clusterInstance:
+          type: array
+          description: Values available to the `clusterInstance` filter.
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        namespace:
+          type: array
+          description: Values available to the `namespace` filter.
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        podName:
+          type: array
+          description: Values available to the `podName` filter.
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        containerName:
+          type: array
+          description: Values available to the `containerName` filter.
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+
+    PlatformLogFacetValue:
+      type: object
+      description: |
+        One value a coordinate takes under the current query, with how many entries
+        carry it.
+
+        Records on which the coordinate is absent are not represented: there is no
+        empty-string bucket, because there is no filter value that would select one.
+      required:
+        - value
+        - count
+      properties:
+        value:
+          type: string
+          description: The coordinate value, as it would be sent back as a filter.
+          example: openchoreo-control-plane
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Matching entries carrying this value, within the queried window. May be
+            approximate on high-cardinality coordinates where the backend answers from
+            a partial term count, so treat it as an ordering hint rather than a total.
+          example: 412
 
     # Request schema for events
     EventsQueryRequest:

@@ -642,6 +642,17 @@ components:
             enum: ["DEBUG", "INFO", "WARN", "ERROR"]
         searchPhrase:
           type: string
+        includeFacets:
+          type: boolean
+          default: false
+          description: |
+            Also return the coordinate values reachable under this query, so the caller
+            can populate filter pickers from the whole matching set rather than from the
+            page it received. Costs an aggregation pass on top of the search, which is
+            why it is opt-in; the observer requests it only for a first page.
+
+            An adapter that cannot compute facets answers normally and omits `facets`
+            rather than failing the query.
       required: [startTime, endTime]
 
     PlatformLog:
@@ -699,7 +710,62 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the logs in milliseconds
+        facets:
+          $ref: "#/components/schemas/PlatformLogFacets"
       required: [logs, total, tookMs]
+
+    PlatformLogFacets:
+      type: object
+      description: |
+        The coordinate values reachable under the current query, one list per filterable
+        coordinate. Returned only when the request set `includeFacets`, and omitted
+        rather than empty when this adapter cannot compute them.
+
+        Each list is computed with every other filter in the request applied **except
+        the one it describes**. Counting `namespace` under a selected namespace would
+        report that namespace alone, leaving a caller's picker with no way back to the
+        others; excluding it means selecting a namespace still narrows `podName` and
+        `containerName` while `namespace` keeps offering the alternatives.
+
+        Keys match the request field they populate. Each list is ordered by `count`
+        descending, then `value` ascending, and holds at most 200 entries.
+      properties:
+        clusterInstance:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        namespace:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        podName:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+        containerName:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformLogFacetValue"
+
+    PlatformLogFacetValue:
+      type: object
+      description: |
+        One value a coordinate takes under the current query. Records on which the
+        coordinate is absent are not represented: there is no empty-string bucket,
+        because there is no filter value that would select one.
+      required: [value, count]
+      properties:
+        value:
+          type: string
+          description: The coordinate value, as it would be sent back as a filter
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Matching entries carrying this value. May be approximate on
+            high-cardinality coordinates where the backend answers from a partial term
+            count, so it is an ordering hint rather than a total.
 
     # Request schema for events
     EventsQueryRequest:
