@@ -11,10 +11,8 @@ get_oauth2_auth = auth.get_oauth2_auth
 check_oauth2_connection = auth.check_oauth2_connection
 require_authn = auth.require_authn
 
-_report_hierarchy = hierarchy_from_query(project="project", namespace="namespace")
 require_reports_authz = auth.checker(
-    "finopsreport:view", "finopsreport", hierarchy=_report_hierarchy
-)
-require_reports_update_authz = auth.checker(
-    "finopsreport:update", "finopsreport", hierarchy=_report_hierarchy
+    "finopsreport:view",
+    "finopsreport",
+    hierarchy=hierarchy_from_query(project="project", namespace="namespace"),
 )

@@ -216,6 +216,50 @@ async def test_authorization_checker_denies_with_403():
 
 
 @pytest.mark.asyncio
+async def test_authorize_allows_and_forwards_hierarchy():
+    client = AsyncMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=True))
+    subject = _subject()
+    hierarchy = ResourceHierarchy(namespace="ns", project="proj-a")
+
+    with patch.object(auth, "get_authz_client", return_value=client):
+        result = await auth.authorize(
+            _request({"Authorization": "Bearer tok"}),
+            subject,
+            action="finopsreport:view",
+            resource_type="finopsreport",
+            hierarchy=hierarchy,
+        )
+
+    assert result is subject
+    sent_request, sent_token = client.evaluate.await_args.args
+    assert sent_request.action == "finopsreport:view"
+    assert sent_request.resource.type == "finopsreport"
+    assert sent_request.resource.hierarchy is hierarchy
+    assert sent_token == "tok"
+
+
+@pytest.mark.asyncio
+async def test_authorize_denies_with_403():
+    client = AsyncMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=False))
+
+    with (
+        patch.object(auth, "get_authz_client", return_value=client),
+        pytest.raises(HTTPException) as exc,
+    ):
+        await auth.authorize(
+            _request({"Authorization": "Bearer tok"}),
+            _subject(),
+            action="finopsreport:view",
+            resource_type="finopsreport",
+            hierarchy=ResourceHierarchy(),
+        )
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_report_hierarchy_from_query_params():
     extract = hierarchy_from_query(project="project", namespace="namespace")
     req = _request(query_params={"project": "p1", "namespace": "n1"})

@@ -5,17 +5,14 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from common.auth.authz_models import SubjectContext
 from src.api.report_routes import router as report_router
-from src.auth import (
-    require_authn,
-    require_reports_authz,
-    require_reports_update_authz,
-)
+from src.auth import require_authn, require_reports_authz, require_reports_update_authz
 from src.helpers import AlertScope
 
 SCOPE = AlertScope(
@@ -34,6 +31,7 @@ LIST_QUERY = {
     "startTime": "2026-06-01T00:00:00Z",
     "endTime": "2026-06-30T00:00:00Z",
 }
+OWN_PROJECT_QUERY = {"project": "p", "namespace": "ns"}
 
 
 def _subject():
@@ -83,19 +81,27 @@ def test_list_returns_aliased_envelope(app):
     assert call["environment_uid"] == "env-uid"
 
 
+def _report_doc(**overrides):
+    doc = {
+        "alertId": "a1",
+        "reportId": "r1",
+        "@timestamp": "2026-06-10T00:00:00+00:00",
+        "status": "completed",
+        "projectUid": "proj-uid",
+        "report": {"summary": "done"},
+    }
+    doc.update(overrides)
+    return doc
+
+
 def test_get_returns_report(app):
     backend = MagicMock()
-    backend.get_rca_report = AsyncMock(
-        return_value={
-            "alertId": "a1",
-            "reportId": "r1",
-            "@timestamp": "2026-06-10T00:00:00+00:00",
-            "status": "completed",
-            "report": {"summary": "done"},
-        }
-    )
-    with patch("src.api.report_routes.get_report_backend", return_value=backend):
-        resp = TestClient(app).get(f"{BASE}/r1")
+    backend.get_rca_report = AsyncMock(return_value=_report_doc())
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="proj-uid")),
+    ):
+        resp = TestClient(app).get(f"{BASE}/r1", params=OWN_PROJECT_QUERY)
 
     assert resp.status_code == 200
     assert resp.json()["report"] == {"summary": "done"}
@@ -105,12 +111,65 @@ def test_get_returns_404_when_missing(app):
     backend = MagicMock()
     backend.get_rca_report = AsyncMock(return_value=None)
     with patch("src.api.report_routes.get_report_backend", return_value=backend):
-        resp = TestClient(app).get(f"{BASE}/nope")
+        resp = TestClient(app).get(f"{BASE}/nope", params=OWN_PROJECT_QUERY)
     assert resp.status_code == 404
 
 
+def test_get_requires_project_and_namespace(app):
+    resp = TestClient(app).get(f"{BASE}/r1")
+    assert resp.status_code == 422
+
+
+def test_get_denied_when_claimed_project_does_not_own_the_report(app):
+    """Regression test for the cross-project BOLA: claiming a project the caller
+    is legitimately authorized on must not unlock a report that actually belongs
+    to a different project."""
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc(projectUid="uid-a"))
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="uid-b")),
+    ):
+        resp = TestClient(app).get(
+            f"{BASE}/r1", params={"project": "project-b", "namespace": "ns-b"}
+        )
+
+    assert resp.status_code == 404
+
+
+def test_get_returns_404_when_claimed_project_does_not_resolve(app):
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc())
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch(
+            "src.helpers.resolve_project_uid",
+            AsyncMock(side_effect=httpx.ConnectError("boom")),
+        ),
+    ):
+        resp = TestClient(app).get(f"{BASE}/r1", params={"project": "nope", "namespace": "nope"})
+
+    assert resp.status_code == 404
+
+
+def test_get_denied_when_coarse_authz_rejects(app):
+    app.dependency_overrides[require_reports_authz] = lambda: (_ for _ in ()).throw(
+        HTTPException(status_code=403, detail={"error": "FORBIDDEN", "message": "Access denied"})
+    )
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc())
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get(f"{BASE}/r1", params=OWN_PROJECT_QUERY)
+
+    assert resp.status_code == 403
+
+
 def test_update_rejects_overlapping_indices(app):
-    resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0], "dismissedIndices": [0]})
+    resp = TestClient(app).put(
+        f"{BASE}/r1",
+        params=OWN_PROJECT_QUERY,
+        json={"appliedIndices": [0], "dismissedIndices": [0]},
+    )
     assert resp.status_code == 400
 
 
@@ -119,6 +178,7 @@ def test_update_applies_revised_action(app):
         "reportId": "r1",
         "alertId": "a1",
         "status": "completed",
+        "projectUid": "proj-uid",
         "resource": {
             "openchoreo.dev/environment-uid": "env-uid",
             "openchoreo.dev/project-uid": "proj-uid",
@@ -135,8 +195,13 @@ def test_update_applies_revised_action(app):
     backend.get_rca_report = AsyncMock(return_value=stored)
     backend.upsert_rca_report = AsyncMock()
 
-    with patch("src.api.report_routes.get_report_backend", return_value=backend):
-        resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0]})
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="proj-uid")),
+    ):
+        resp = TestClient(app).put(
+            f"{BASE}/r1", params=OWN_PROJECT_QUERY, json={"appliedIndices": [0]}
+        )
 
     assert resp.status_code == 200
     backend.upsert_rca_report.assert_awaited_once()
@@ -146,11 +211,39 @@ def test_update_applies_revised_action(app):
     assert saved["project_uid"] == "proj-uid"
 
 
+def test_update_denied_when_claimed_project_does_not_own_the_report(app):
+    stored = {
+        "reportId": "r1",
+        "alertId": "a1",
+        "status": "completed",
+        "projectUid": "uid-a",
+        "resource": {},
+        "report": {"result": {"recommendations": {"recommended_actions": []}}},
+    }
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=stored)
+    backend.upsert_rca_report = AsyncMock()
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="uid-b")),
+    ):
+        resp = TestClient(app).put(
+            f"{BASE}/r1",
+            params={"project": "project-b", "namespace": "ns-b"},
+            json={"appliedIndices": [0]},
+        )
+
+    assert resp.status_code == 404
+    backend.upsert_rca_report.assert_not_awaited()
+
+
 def test_update_returns_404_when_report_missing(app):
     backend = MagicMock()
     backend.get_rca_report = AsyncMock(return_value=None)
     with patch("src.api.report_routes.get_report_backend", return_value=backend):
-        resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0]})
+        resp = TestClient(app).put(
+            f"{BASE}/r1", params=OWN_PROJECT_QUERY, json={"appliedIndices": [0]}
+        )
     assert resp.status_code == 404
 
 
@@ -159,6 +252,7 @@ def test_update_noop_does_not_upsert(app):
         "reportId": "r1",
         "alertId": "a1",
         "status": "completed",
+        "projectUid": "proj-uid",
         "resource": {},
         "report": {
             "result": {
@@ -172,8 +266,13 @@ def test_update_noop_does_not_upsert(app):
     backend.get_rca_report = AsyncMock(return_value=stored)
     backend.upsert_rca_report = AsyncMock()
 
-    with patch("src.api.report_routes.get_report_backend", return_value=backend):
-        resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0]})
+    with (
+        patch("src.api.report_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="proj-uid")),
+    ):
+        resp = TestClient(app).put(
+            f"{BASE}/r1", params=OWN_PROJECT_QUERY, json={"appliedIndices": [0]}
+        )
 
     assert resp.status_code == 200
     backend.upsert_rca_report.assert_not_awaited()

@@ -127,12 +127,33 @@ def test_chat_streams_when_report_exists(app):
     with (
         patch("src.api.agent_routes.get_report_backend", return_value=backend),
         patch("src.api.agent_routes.resolve_project_scope", AsyncMock(return_value=SCOPE)),
+        patch("src.api.agent_routes.verify_report_project", AsyncMock(return_value=None)),
         patch("src.api.agent_routes.stream_chat", fake_stream),
     ):
         resp = TestClient(app).post("/api/v1alpha1/rca-agent/chat", json=CHAT_BODY)
 
     assert resp.status_code == 200
     assert '"type": "done"' in resp.text
+
+
+def test_chat_denied_when_claimed_project_does_not_own_the_report(app):
+    async def _fake_authn(request: Request):
+        request.state.bearer_token = "tok"
+        return _subject()
+
+    app.dependency_overrides[require_authn] = _fake_authn
+    app.dependency_overrides[require_chat_authz] = _subject
+
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value={"reportId": "r1", "projectUid": "uid-a"})
+
+    with (
+        patch("src.api.agent_routes.get_report_backend", return_value=backend),
+        patch("src.helpers.resolve_project_uid", AsyncMock(return_value="uid-b")),
+    ):
+        resp = TestClient(app).post("/api/v1alpha1/rca-agent/chat", json=CHAT_BODY)
+
+    assert resp.status_code == 404
 
 
 def test_chat_returns_404_when_report_missing(app):

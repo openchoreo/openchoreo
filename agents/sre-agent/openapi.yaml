@@ -220,6 +220,17 @@ paths:
           required: true
           schema:
             type: string
+        - name: project
+          in: query
+          required: true
+          description: Project the caller believes the report belongs to; verified against the report's own record.
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: RCA report details
@@ -233,8 +244,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Report not found
+          description: Report not found, or the report does not belong to the given project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error - missing or invalid query parameters
           content:
             application/json:
               schema:
@@ -256,6 +279,17 @@ paths:
       parameters:
         - name: report_id
           in: path
+          required: true
+          schema:
+            type: string
+        - name: project
+          in: query
+          required: true
+          description: Project the caller believes the report belongs to; verified against the report's own record.
+          schema:
+            type: string
+        - name: namespace
+          in: query
           required: true
           schema:
             type: string
@@ -283,8 +317,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Report not found
+          description: Report not found, or the report does not belong to the given project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error - missing or invalid query parameters
           content:
             application/json:
               schema:

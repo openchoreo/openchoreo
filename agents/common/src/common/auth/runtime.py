@@ -6,7 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from common.auth import dependencies as deps
 from common.auth.authz_client import AuthzClient
@@ -19,6 +19,24 @@ from common.config import CommonSettings
 logger = logging.getLogger(__name__)
 
 HierarchyExtractor = Callable[[Request], ResourceHierarchy | Awaitable[ResourceHierarchy]]
+
+
+class MissingReportHierarchy(Exception):
+    pass
+
+
+def hierarchy_from_result(
+    result: dict[str, Any], *, id_field: str = "reportId"
+) -> ResourceHierarchy:
+    namespace = result.get("namespace")
+    project = result.get("project")
+    if not namespace or not project:
+        logger.error(
+            "Resource %s has no project/namespace on record — refusing to authorize",
+            result.get(id_field),
+        )
+        raise MissingReportHierarchy(result.get(id_field))
+    return ResourceHierarchy(namespace=namespace, project=project)
 
 
 def hierarchy_from_query(**fields: str) -> HierarchyExtractor:
@@ -142,6 +160,47 @@ class AuthRuntime:
             )
 
         return dependency
+
+    async def authorize(
+        self,
+        request: Request,
+        subject: SubjectContext,
+        *,
+        action: str,
+        resource_type: str,
+        hierarchy: ResourceHierarchy,
+    ) -> SubjectContext:
+        # Like checker(), but for callers that only know the resource's hierarchy
+        # after fetching it, rather than one extractable from the request.
+        token = getattr(request.state, "bearer_token", None) or deps.extract_bearer_token(request)
+        return await deps.enforce_authz(
+            client=self.get_authz_client(),
+            subject=subject,
+            token=token,
+            action=action,
+            resource_type=resource_type,
+            hierarchy=hierarchy,
+        )
+
+    async def authorize_result(
+        self,
+        request: Request,
+        subject: SubjectContext,
+        *,
+        action: str,
+        resource_type: str,
+        result: dict[str, Any],
+    ) -> SubjectContext:
+        # Like authorize(), but the hierarchy comes from an already-fetched resource.
+        try:
+            hierarchy = hierarchy_from_result(result)
+        except MissingReportHierarchy as e:
+            raise HTTPException(
+                status_code=403, detail={"error": "FORBIDDEN", "message": "Access denied"}
+            ) from e
+        return await self.authorize(
+            request, subject, action=action, resource_type=resource_type, hierarchy=hierarchy
+        )
 
     def _require_oauth_settings(self) -> None:
         s = self._settings

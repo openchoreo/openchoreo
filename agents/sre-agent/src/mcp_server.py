@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
+import httpx
 from fastapi import HTTPException
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -54,7 +55,12 @@ from common.auth.authz_models import (
 from src.agent import run_analysis
 from src.auth import get_authz_client, require_authn
 from src.clients import get_report_backend
-from src.helpers import resolve_component_scope, resolve_project_scope, validate_time_range
+from src.helpers import (
+    resolve_component_scope,
+    resolve_project_scope,
+    resolve_project_uid,
+    validate_time_range,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +251,7 @@ async def list_rca_reports(
     await _authorize(
         "rcareport:view",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid),
+        ResourceHierarchy(namespace=scope.namespace, project=scope.project),
     )
     report_backend = get_report_backend()
     result = await report_backend.list_rca_reports(
@@ -275,34 +281,27 @@ async def get_rca_report(
             ),
         ),
     ],
+    namespace: Annotated[str, Field(description="OpenChoreo namespace.")],
+    project: Annotated[
+        str, Field(description="Project the caller believes the report belongs to.")
+    ],
 ) -> dict[str, Any]:
     """Fetch a specific RCA report by ID."""
     report_backend = get_report_backend()
     result = await report_backend.get_rca_report(report_id)
     if not result:
         raise _MCPNotFoundError(f"RCA report not found: {report_id}")
-    # Re-authorize against the report's own project — the user might be
-    # entitled to one project's reports but not another's, and we don't
-    # want list_rca_reports to be the only gate. Single-key contract:
-    # backends MUST emit ``projectUid`` at the top level of the doc
-    # (see sql_backend._row_to_doc). A missing/empty value would mean
-    # we can't make an authz decision — fail closed with FORBIDDEN
-    # rather than degrading to "authorize against project=None" or
-    # leaking the report's existence via NOT_FOUND.
-    project_uid = result.get("projectUid")
-    if not project_uid:
-        logger.error(
-            "RCA report %s has no projectUid — refusing to authorize",
-            report_id,
-        )
-        raise _MCPAuthzError(
-            f"FORBIDDEN: report {report_id} has no project hierarchy"
-        )
     await _authorize(
         "rcareport:view",
         "rcareport",
-        ResourceHierarchy(project=project_uid),
+        ResourceHierarchy(namespace=namespace, project=project),
     )
+    try:
+        claimed_uid = await resolve_project_uid(namespace, project)
+    except httpx.HTTPError as e:
+        raise _MCPNotFoundError(f"RCA report not found: {report_id}") from e
+    if claimed_uid != result.get("projectUid"):
+        raise _MCPNotFoundError(f"RCA report not found: {report_id}")
     return {
         "alertId": result.get("alertId"),
         "reportId": result.get("reportId"),
@@ -354,7 +353,9 @@ async def analyze_runtime_state(
     await _authorize(
         "rcareport:update",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid, component=scope.component_uid),
+        ResourceHierarchy(
+            namespace=scope.namespace, project=scope.project, component=scope.component
+        ),
     )
 
     timestamp = datetime.now(timezone.utc)

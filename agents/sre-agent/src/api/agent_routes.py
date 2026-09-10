@@ -12,7 +12,7 @@ from common.auth.authz_models import SubjectContext
 from src.agent import run_analysis, stream_chat
 from src.auth import require_authn, require_chat_authz
 from src.clients import get_report_backend
-from src.helpers import resolve_component_scope, resolve_project_scope
+from src.helpers import resolve_component_scope, resolve_project_scope, verify_report_project
 from src.models import BaseModel, get_current_utc
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,8 @@ async def chat(
     )
     if not report_context:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await verify_report_project(request.namespace, request.project, report_context)
 
     scope = await resolve_project_scope(
         namespace=request.namespace,

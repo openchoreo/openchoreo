@@ -4,11 +4,11 @@
 import logging
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ConfigDict, Field, model_validator
 
 from common.auth.authz_models import SubjectContext
-from src.auth import require_authn, require_reports_authz, require_reports_update_authz
+from src.auth import auth, require_authn, require_reports_authz
 from src.clients import get_report_backend
 from src.models import BaseModel
 
@@ -92,14 +92,18 @@ async def list_finops_reports(
 )
 async def get_finops_report(
     report_id: str,
-    _auth: Annotated[SubjectContext, Depends(require_authn)] = None,
-    _authz: Annotated[SubjectContext, Depends(require_reports_authz)] = None,
+    request: Request,
+    subject: Annotated[SubjectContext, Depends(require_authn)] = None,
 ):
     report_backend = get_report_backend()
     result = await report_backend.get_report(report_id)
 
     if not result:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await auth.authorize_result(
+        request, subject, action="finopsreport:view", resource_type="finopsreport", result=result
+    )
 
     return FinOpsReportDetailed(
         reportId=result["reportId"],
@@ -133,9 +137,22 @@ class ReportUpdateRequest(BaseModel):
 async def update_report(
     report_id: str,
     body: ReportUpdateRequest,
-    _auth: Annotated[SubjectContext, Depends(require_authn)] = None,
-    _authz: Annotated[SubjectContext, Depends(require_reports_update_authz)] = None,
+    request: Request,
+    subject: Annotated[SubjectContext, Depends(require_authn)] = None,
 ):
+    report_backend = get_report_backend()
+    existing = await report_backend.get_report(report_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    await auth.authorize_result(
+        request,
+        subject,
+        action="finopsreport:update",
+        resource_type="finopsreport",
+        result=existing,
+    )
+
     logger.info(
         "Updating report %s: applied=%s dismissed=%s",
         report_id,

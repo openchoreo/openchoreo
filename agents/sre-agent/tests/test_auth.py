@@ -41,11 +41,12 @@ from src.auth import (
 from src.config import settings
 
 
-def _request(headers=None, path_params=None, body=None):
+def _request(headers=None, path_params=None, query_params=None, body=None):
     return SimpleNamespace(
         headers=headers or {},
         state=SimpleNamespace(),
         path_params=path_params or {},
+        query_params=query_params or {},
         json=AsyncMock(return_value=body or {}),
     )
 
@@ -195,7 +196,7 @@ async def test_authorization_checker_denies(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_report_checker_extracts_project_from_path(monkeypatch):
+async def test_report_checker_extracts_project_from_query(monkeypatch):
     captured = {}
 
     async def fake_eval(request, token):
@@ -208,9 +209,14 @@ async def test_report_checker_extracts_project_from_path(monkeypatch):
     checker = require_reports_authz
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
     await checker(
-        _request({"Authorization": "Bearer t"}, path_params={"project_id": "proj-9"}), subject
+        _request(
+            {"Authorization": "Bearer t"},
+            query_params={"project": "proj-9", "namespace": "ns-1"},
+        ),
+        subject,
     )
     assert captured["hierarchy"].project == "proj-9"
+    assert captured["hierarchy"].namespace == "ns-1"
 
 
 # --------------------------------------------------------- authz client

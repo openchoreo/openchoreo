@@ -4,6 +4,10 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
+
+import httpx
+from fastapi import HTTPException
 
 from src.auth import get_oauth2_auth
 from src.clients.openchoreo_api import get
@@ -68,3 +72,18 @@ async def resolve_project_scope(
         environment=environment,
         environment_uid=environment_data["metadata"]["uid"],
     )
+
+
+async def resolve_project_uid(namespace: str, project: str) -> str:
+    auth = get_oauth2_auth()
+    project_data = await get(f"/namespaces/{namespace}/projects/{project}", auth)
+    return project_data["metadata"]["uid"]
+
+
+async def verify_report_project(namespace: str, project: str, result: dict[str, Any]) -> None:
+    try:
+        claimed_uid = await resolve_project_uid(namespace, project)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=404, detail="Report not found") from None
+    if claimed_uid != result.get("projectUid"):
+        raise HTTPException(status_code=404, detail="Report not found")

@@ -10,7 +10,7 @@ from pydantic import ConfigDict, Field
 from common.auth.authz_models import SubjectContext
 from src.auth import require_authn, require_reports_authz, require_reports_update_authz
 from src.clients import get_report_backend
-from src.helpers import resolve_project_scope, validate_time_range
+from src.helpers import resolve_project_scope, validate_time_range, verify_report_project
 from src.models import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -94,6 +94,8 @@ async def list_rca_reports(
 )
 async def get_rca_report(
     report_id: str,
+    project: str,
+    namespace: str,
     _auth: Annotated[SubjectContext, Depends(require_authn)],
     _authz: Annotated[SubjectContext, Depends(require_reports_authz)],
 ):
@@ -102,6 +104,8 @@ async def get_rca_report(
 
     if not result:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await verify_report_project(namespace, project, result)
 
     return RCAReportDetailed(
         alertId=result["alertId"],
@@ -122,6 +126,8 @@ class ReportUpdateRequest(BaseModel):
 async def update_report(
     report_id: str,
     body: ReportUpdateRequest,
+    project: str,
+    namespace: str,
     _auth: Annotated[SubjectContext, Depends(require_authn)],
     _authz: Annotated[SubjectContext, Depends(require_reports_update_authz)],
 ):
@@ -132,6 +138,13 @@ async def update_report(
             detail=f"Indices cannot appear in both appliedIndices and dismissedIndices: {sorted(overlap)}",
         )
 
+    report_backend = get_report_backend()
+    stored = await report_backend.get_rca_report(report_id)
+    if not stored:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    await verify_report_project(namespace, project, stored)
+
     logger.info(
         "Updating report %s: applied=%s dismissed=%s",
         report_id,
@@ -139,7 +152,7 @@ async def update_report(
         body.dismissed_indices,
     )
     await _update_action_statuses(
-        report_id,
+        stored,
         applied=set(body.applied_indices),
         dismissed=set(body.dismissed_indices),
     )
@@ -147,14 +160,11 @@ async def update_report(
 
 
 async def _update_action_statuses(
-    report_id: str,
+    stored: dict[str, Any],
     applied: set[int],
     dismissed: set[int],
 ) -> None:
     report_backend = get_report_backend()
-    stored = await report_backend.get_rca_report(report_id)
-    if not stored:
-        raise HTTPException(status_code=404, detail="Report not found")
 
     actions = (
         stored.get("report", {})
