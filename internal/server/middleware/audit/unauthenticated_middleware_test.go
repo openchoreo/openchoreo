@@ -60,7 +60,7 @@ func chain(outer, auth func(http.Handler) http.Handler, inner *Middleware, handl
 func TestUnauthenticatedMiddleware_401NoSubjectEmits(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	outer := NewUnauthenticatedMiddleware(emitter, OriginAPI, true)
+	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
 	inner := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, true)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -96,7 +96,7 @@ func TestUnauthenticatedMiddleware_AuthenticatedRequestEmitsExactlyOnce(t *testi
 		t.Run(http.StatusText(code), func(t *testing.T) {
 			sink := &recordingSink{}
 			emitter := newTestUnauthenticatedEmitter(t, sink)
-			outer := NewUnauthenticatedMiddleware(emitter, OriginAPI, true)
+			outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
 			op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 			inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, true)
 
@@ -122,16 +122,16 @@ func TestUnauthenticatedMiddleware_AuthenticatedRequestEmitsExactlyOnce(t *testi
 // TestUnauthenticatedMiddleware_StampsOrigin guards the reason origin is a
 // parameter rather than a constant: one instance of this middleware guards
 // /mcp and another guards the REST routes, and an MCP token rejection
-// recorded as origin: api would be indistinguishable from a REST one — which
+// recorded as surface: rest would be indistinguishable from a REST one — which
 // is the only selector, alongside results, that can reach these events at
 // all (they carry a nil Operation, so every operation-derived selector
 // short-circuits).
-func TestUnauthenticatedMiddleware_StampsOrigin(t *testing.T) {
-	for _, origin := range []Origin{OriginAPI, OriginMCP} {
-		t.Run(string(origin), func(t *testing.T) {
+func TestUnauthenticatedMiddleware_StampsSurface(t *testing.T) {
+	for _, surface := range []Surface{SurfaceREST, SurfaceMCP} {
+		t.Run(string(surface), func(t *testing.T) {
 			sink := &recordingSink{}
 			emitter := newTestUnauthenticatedEmitter(t, sink)
-			mw := NewUnauthenticatedMiddleware(emitter, origin, true)
+			mw := NewUnauthenticatedMiddleware(emitter, surface, true)
 
 			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -143,8 +143,8 @@ func TestUnauthenticatedMiddleware_StampsOrigin(t *testing.T) {
 			if len(sink.events) != 1 {
 				t.Fatalf("len(sink.events) = %d, want 1", len(sink.events))
 			}
-			if got := sink.events[0].Origin; got != origin {
-				t.Errorf("Origin = %q, want %q", got, origin)
+			if got := sink.events[0].Surface; got != surface {
+				t.Errorf("Surface = %q, want %q", got, surface)
 			}
 			if got := sink.events[0].Result; got != ResultUnauthenticated {
 				t.Errorf("Result = %q, want %q", got, ResultUnauthenticated)
@@ -158,7 +158,7 @@ func TestUnauthenticatedMiddleware_NonAuthFailuresDoNotEmit(t *testing.T) {
 	for _, code := range tests {
 		sink := &recordingSink{}
 		emitter := newTestUnauthenticatedEmitter(t, sink)
-		mw := NewUnauthenticatedMiddleware(emitter, OriginAPI, true)
+		mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
 
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(code)
@@ -177,7 +177,7 @@ func TestUnauthenticatedMiddleware_NonAuthFailuresDoNotEmit(t *testing.T) {
 func TestUnauthenticatedMiddleware_Disabled(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	mw := NewUnauthenticatedMiddleware(emitter, OriginAPI, false)
+	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, false)
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -198,7 +198,7 @@ func TestUnauthenticatedMiddleware_Disabled(t *testing.T) {
 func TestUnauthenticatedMiddleware_PanicNoAuthEmitsFailureAndRepanics(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	mw := NewUnauthenticatedMiddleware(emitter, OriginAPI, true)
+	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
 
 	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("boom")
@@ -230,7 +230,7 @@ func TestUnauthenticatedMiddleware_PanicNoAuthEmitsFailureAndRepanics(t *testing
 func TestUnauthenticatedMiddleware_PanicAfterAuthEmitsExactlyOnce(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	outer := NewUnauthenticatedMiddleware(emitter, OriginAPI, true)
+	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
 	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, true)
 

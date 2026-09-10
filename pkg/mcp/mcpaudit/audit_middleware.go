@@ -81,12 +81,12 @@ func newAuditMiddleware(
 			defer func() {
 				if p := recover(); p != nil {
 					audit.EmitFromContext(
-						ctx, emitter, op, audit.OriginMCP, audit.ResultFailure, auditData, requestHeader(req), "",
+						ctx, emitter, op, audit.SurfaceMCP, audit.ResultFailure, auditData, requestHeader(req), "",
 					)
 					panic(p)
 				}
 				audit.EmitFromContext(
-					ctx, emitter, op, audit.OriginMCP, classifyResult(res, err), auditData, requestHeader(req), "",
+					ctx, emitter, op, audit.SurfaceMCP, classifyResult(res, err), auditData, requestHeader(req), "",
 				)
 			}()
 

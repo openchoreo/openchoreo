@@ -252,9 +252,9 @@ func main() {
 		// and never calls next, so mcpaudit's own middleware — which lives
 		// inside the MCP server, below all of this — never sees a 401.
 		// Auth401Interceptor only adds a WWW-Authenticate header; it emits
-		// nothing. OriginMCP so an MCP token rejection isn't recorded as if
+		// nothing. SurfaceMCP so an MCP token rejection isn't recorded as if
 		// it had arrived over REST.
-		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.OriginMCP, cfg.Audit.Enabled)
+		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceMCP, cfg.Audit.Enabled)
 		mcpHandler := middleware.Chain(mcpLoggerMw, unauthedMCPMw, mcpAuth401Mw, jwtMiddleware)(mcpServer)
 
 		baseMux.Handle("/mcp", mcpHandler)
@@ -341,7 +341,7 @@ func main() {
 		// two routes reach the data plane — a live shell and a live traffic
 		// stream — so a rejected attempt on them is exactly the event worth
 		// recording.
-		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.OriginAPI, cfg.Audit.Enabled)
+		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceREST, cfg.Audit.Enabled)
 
 		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
 		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{
