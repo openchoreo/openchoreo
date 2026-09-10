@@ -18,7 +18,7 @@ type Selector struct {
 	Resources    []string
 	Operations   []string
 	Actions      []string
-	Origins      []Origin
+	Surfaces     []Surface
 	ActorTypes   []string
 	Actors       []string
 	Entitlements []string
@@ -56,7 +56,7 @@ type Settings struct {
 type ResolveContext struct {
 	Operation *Operation
 	Actor     Actor
-	Origin    Origin
+	Surface   Surface
 	Result    Result
 }
 
@@ -130,7 +130,7 @@ func (ps *PolicySet) Resolve(rc ResolveContext) Settings {
 
 func (s Selector) isEmpty() bool {
 	return len(s.Categories) == 0 && len(s.Resources) == 0 && len(s.Operations) == 0 &&
-		len(s.Actions) == 0 && len(s.Origins) == 0 && len(s.ActorTypes) == 0 &&
+		len(s.Actions) == 0 && len(s.Surfaces) == 0 && len(s.ActorTypes) == 0 &&
 		len(s.Actors) == 0 && len(s.Entitlements) == 0 && len(s.Results) == 0
 }
 
@@ -147,7 +147,7 @@ func (s Selector) matches(rc ResolveContext) bool {
 	if len(s.Actions) > 0 && (rc.Operation == nil || !slices.Contains(s.Actions, rc.Operation.Action)) {
 		return false
 	}
-	if len(s.Origins) > 0 && !slices.Contains(s.Origins, rc.Origin) {
+	if len(s.Surfaces) > 0 && !slices.Contains(s.Surfaces, rc.Surface) {
 		return false
 	}
 	if len(s.ActorTypes) > 0 && !slices.Contains(s.ActorTypes, rc.Actor.Type) {
@@ -194,7 +194,7 @@ func clonePolicy(p Policy) Policy {
 			Resources:    slices.Clone(p.Match.Resources),
 			Operations:   slices.Clone(p.Match.Operations),
 			Actions:      slices.Clone(p.Match.Actions),
-			Origins:      slices.Clone(p.Match.Origins),
+			Surfaces:     slices.Clone(p.Match.Surfaces),
 			ActorTypes:   slices.Clone(p.Match.ActorTypes),
 			Actors:       slices.Clone(p.Match.Actors),
 			Entitlements: slices.Clone(p.Match.Entitlements),

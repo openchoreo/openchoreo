@@ -54,7 +54,7 @@ func (e *Emitter) Emit(_ context.Context, op *Operation, env Envelope) {
 	settings := e.policies.Resolve(ResolveContext{
 		Operation: op,
 		Actor:     env.Actor,
-		Origin:    env.Origin,
+		Surface:   env.Surface,
 		Result:    env.Result,
 	})
 	if !settings.Publish {
@@ -88,12 +88,13 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 		Producer:  serviceName,
 		Actor:     env.Actor,
 		Result:    env.Result,
-		Origin:    env.Origin,
+		Surface:   env.Surface,
 		HTTP:      env.Request.HTTP,
 		Resource:  withHierarchyNamespaceFallback(env.Resource, env.Hierarchy),
 		Hierarchy: env.Hierarchy,
 		RequestID: env.RequestID,
 		SourceIP:  env.SourceIP,
+		UserAgent: env.UserAgent,
 		Metadata:  env.Metadata,
 	}
 	if op != nil {

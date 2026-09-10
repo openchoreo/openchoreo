@@ -167,7 +167,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		defer func() {
 			if p := recover(); p != nil {
 				markEmitted(ctx)
-				EmitFromContext(ctx, m.emitter, op, OriginAPI, ResultFailure, auditData, r.Header, r.RemoteAddr)
+				EmitFromContext(ctx, m.emitter, op, SurfaceREST, ResultFailure, auditData, r.Header, r.RemoteAddr)
 				panic(p)
 			}
 			// A hijacking handler (e.g. exec's WebSocket upgrade) can call
@@ -180,7 +180,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 				result = *auditData.Result
 			}
 			markEmitted(ctx)
-			EmitFromContext(ctx, m.emitter, op, OriginAPI, result, auditData, r.Header, r.RemoteAddr)
+			EmitFromContext(ctx, m.emitter, op, SurfaceREST, result, auditData, r.Header, r.RemoteAddr)
 		}()
 
 		next.ServeHTTP(rw, r.WithContext(ctx))

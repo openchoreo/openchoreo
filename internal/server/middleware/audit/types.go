@@ -85,12 +85,13 @@ const (
 	ResultUnauthenticated Result = "unauthenticated"
 )
 
-// Origin identifies which surface produced an audit event.
-type Origin string
+// Surface identifies which surface of the API a call arrived through. MCP
+// wraps the same API, so the REST value is "rest" rather than "api".
+type Surface string
 
 const (
-	OriginAPI Origin = "api"
-	OriginMCP Origin = "mcp"
+	SurfaceREST Surface = "rest"
+	SurfaceMCP  Surface = "mcp"
 )
 
 // SchemaVersion is stamped on every published event as "schema_version".
@@ -125,8 +126,8 @@ type Event struct {
 	Actor        Actor
 	Action       string // Semantic action name (e.g., "create_project")
 	Category     Category
-	Origin       Origin // Surface that produced the event: api | mcp
-	OperationID  string // Canonical operation identifier, e.g. "CreateProject"
+	Surface      Surface // Which surface of the API the call arrived through: rest | mcp
+	OperationID  string  // Canonical operation identifier, e.g. "CreateProject"
 	HTTP         *HTTPInfo
 	ResourceType string
 	Resource     *Resource // Target resource (can be nil for non-resource actions)
@@ -134,8 +135,11 @@ type Event struct {
 	Result       Result
 	RequestID    string // Correlation ID linking to the access log line
 	SourceIP     string // Client IP address
-	Producer     string // Emitting service (e.g., "openchoreo-api")
-	Metadata     map[string]any
+	// UserAgent is client-supplied and unverifiable, like SourceIP. It is the
+	// only field that separates a portal session from occ, CI or an agent.
+	UserAgent string
+	Producer  string // Emitting service (e.g., "openchoreo-api")
+	Metadata  map[string]any
 }
 
 // eventJSON is the single definition of the published audit record. Field
@@ -151,8 +155,9 @@ type eventJSON struct {
 	Result        Result         `json:"result"`
 	RequestID     string         `json:"request_id"`
 	SourceIP      string         `json:"source_ip"`
+	UserAgent     string         `json:"user_agent"`
 	Producer      string         `json:"producer"`
-	Origin        Origin         `json:"origin,omitempty"`
+	Surface       Surface        `json:"surface,omitempty"`
 	OperationID   string         `json:"operation_id,omitempty"`
 	HTTP          *HTTPInfo      `json:"http,omitempty"`
 	Resource      *resourceJSON  `json:"resource,omitempty"`
@@ -191,8 +196,9 @@ func (e Event) MarshalJSON() ([]byte, error) {
 		Result:        e.Result,
 		RequestID:     e.RequestID,
 		SourceIP:      e.SourceIP,
+		UserAgent:     e.UserAgent,
 		Producer:      e.Producer,
-		Origin:        e.Origin,
+		Surface:       e.Surface,
 		OperationID:   e.OperationID,
 		HTTP:          e.HTTP,
 		Resource:      e.resolvedResource(),
