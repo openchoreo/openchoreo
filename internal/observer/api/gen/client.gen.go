@@ -1167,6 +1167,22 @@ func NewGetPlatformLogsRequest(server string, params *GetPlatformLogsParams) (*h
 
 		}
 
+		if params.IncludeFacets != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "includeFacets", runtime.ParamLocationQuery, *params.IncludeFacets); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 

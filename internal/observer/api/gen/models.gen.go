@@ -744,8 +744,77 @@ type PlatformLog struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// PlatformLogFacetValue One value a coordinate takes under the current query, with how many entries
+// carry it.
+//
+// Records on which the coordinate is absent are not represented: there is no
+// empty-string bucket, because there is no filter value that would select one.
+type PlatformLogFacetValue struct {
+	// Count Matching entries carrying this value, within the queried window. May be
+	// approximate on high-cardinality coordinates where the backend answers from
+	// a partial term count, so treat it as an ordering hint rather than a total.
+	Count int64 `json:"count"`
+
+	// Value The coordinate value, as it would be sent back as a filter.
+	Value string `json:"value"`
+}
+
+// PlatformLogFacets The coordinate values reachable under the current query, one list per filterable
+// coordinate. Present only when `includeFacets=true`, and omitted rather than
+// empty when the adapter backing this observer cannot compute them - a client must
+// treat an absent `facets` as "unknown", not as "nothing matches".
+//
+// Each list is computed with every other filter applied **except the one it
+// describes**. That self-exclusion is what keeps the pickers usable: counting
+// `namespace` under a selected namespace would leave that namespace the only one
+// on offer, with no way back to the others. Selecting a namespace therefore still
+// narrows `podName` and `containerName`, which is the cascade a client wants,
+// while leaving `namespace` itself showing the full set of alternatives.
+//
+// Keys are the query parameter names they populate, so a client can map a facet
+// onto its filter without a lookup table.
+//
+// Each list is ordered by `count` descending, then `value` ascending, and holds
+// at most 200 entries. A coordinate with more distinct values than that is
+// truncated to the busiest, which is why a client should keep its pickers
+// free-text as well as selectable: a quiet pod may not be offered.
+type PlatformLogFacets struct {
+	// ClusterInstance Values available to the `clusterInstance` filter.
+	ClusterInstance *[]PlatformLogFacetValue `json:"clusterInstance,omitempty"`
+
+	// ContainerName Values available to the `containerName` filter.
+	ContainerName *[]PlatformLogFacetValue `json:"containerName,omitempty"`
+
+	// Namespace Values available to the `namespace` filter.
+	Namespace *[]PlatformLogFacetValue `json:"namespace,omitempty"`
+
+	// PodName Values available to the `podName` filter.
+	PodName *[]PlatformLogFacetValue `json:"podName,omitempty"`
+}
+
 // PlatformLogsResponse defines model for PlatformLogsResponse.
 type PlatformLogsResponse struct {
+	// Facets The coordinate values reachable under the current query, one list per filterable
+	// coordinate. Present only when `includeFacets=true`, and omitted rather than
+	// empty when the adapter backing this observer cannot compute them - a client must
+	// treat an absent `facets` as "unknown", not as "nothing matches".
+	//
+	// Each list is computed with every other filter applied **except the one it
+	// describes**. That self-exclusion is what keeps the pickers usable: counting
+	// `namespace` under a selected namespace would leave that namespace the only one
+	// on offer, with no way back to the others. Selecting a namespace therefore still
+	// narrows `podName` and `containerName`, which is the cascade a client wants,
+	// while leaving `namespace` itself showing the full set of alternatives.
+	//
+	// Keys are the query parameter names they populate, so a client can map a facet
+	// onto its filter without a lookup table.
+	//
+	// Each list is ordered by `count` descending, then `value` ascending, and holds
+	// at most 200 entries. A coordinate with more distinct values than that is
+	// truncated to the busiest, which is why a client should keep its pickers
+	// free-text as well as selectable: a quiet pod may not be offered.
+	Facets *PlatformLogFacets `json:"facets,omitempty"`
+
 	// Logs Log entries matching the query.
 	Logs []PlatformLog `json:"logs"`
 
@@ -1136,6 +1205,9 @@ type PlatformLogsContainerName = []string
 // PlatformLogsEndTime defines model for PlatformLogsEndTime.
 type PlatformLogsEndTime = time.Time
 
+// PlatformLogsIncludeFacets defines model for PlatformLogsIncludeFacets.
+type PlatformLogsIncludeFacets = bool
+
 // PlatformLogsLabels defines model for PlatformLogsLabels.
 type PlatformLogsLabels = string
 
@@ -1236,6 +1308,15 @@ type GetPlatformLogsParams struct {
 
 	// SortOrder Sort direction on the log timestamp.
 	SortOrder *GetPlatformLogsParamsSortOrder `form:"sortOrder,omitempty" json:"sortOrder,omitempty"`
+
+	// IncludeFacets Return the coordinate values available under this query alongside the page of
+	// logs, so a client can populate its filter pickers from the whole matching set
+	// rather than from the entries it happens to have paged in.
+	//
+	// Opt-in because it costs an aggregation pass on top of the search. A client
+	// paginating should request it on the first page only: the facets describe the
+	// query, not the page, and do not change as pages are walked.
+	IncludeFacets *PlatformLogsIncludeFacets `form:"includeFacets,omitempty" json:"includeFacets,omitempty"`
 }
 
 // GetPlatformLogsParamsLogLevels defines parameters for GetPlatformLogs.

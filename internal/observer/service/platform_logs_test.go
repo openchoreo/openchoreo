@@ -115,3 +115,83 @@ func TestPlatformLogsService_InvalidTimeRange(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse start time")
 }
+
+// facetedResult is an adapter answer carrying facets, for the pass-through tests.
+func facetedResult() *observability.PlatformLogsResult {
+	return &observability.PlatformLogsResult{
+		TotalCount: 0,
+		Took:       3,
+		Facets: &observability.PlatformLogFacets{
+			Namespaces: []observability.PlatformLogFacetValue{
+				{Value: "openchoreo-control-plane", Count: 412},
+			},
+			PodNames: []observability.PlatformLogFacetValue{
+				{Value: "controller-manager-abc", Count: 412},
+			},
+		},
+	}
+}
+
+func facetRequest(includeFacets bool) *types.PlatformLogsQueryRequest {
+	return &types.PlatformLogsQueryRequest{
+		StartTime:     "2026-08-14T16:30:00Z",
+		EndTime:       "2026-08-14T17:30:00Z",
+		IncludeFacets: includeFacets,
+	}
+}
+
+// TestPlatformLogsService_ForwardsFacetRequest pins that the opt-in reaches the
+// adapter and that what comes back is re-keyed onto the response field names the
+// client filters by.
+func TestPlatformLogsService_ForwardsFacetRequest(t *testing.T) {
+	t.Parallel()
+
+	adapter := &stubPlatformLogsAdapter{result: facetedResult()}
+	svc := NewPlatformLogsService(adapter, testLogger())
+
+	resp, err := svc.QueryPlatformLogs(context.Background(), facetRequest(true))
+	require.NoError(t, err)
+
+	assert.True(t, adapter.got.IncludeFacets)
+	require.NotNil(t, resp.Facets)
+	assert.Equal(t, []types.PlatformLogFacetValue{
+		{Value: "openchoreo-control-plane", Count: 412},
+	}, resp.Facets.Namespace)
+	assert.Equal(t, []types.PlatformLogFacetValue{
+		{Value: "controller-manager-abc", Count: 412},
+	}, resp.Facets.PodName)
+	// Coordinates the adapter said nothing about stay absent rather than empty.
+	assert.Nil(t, resp.Facets.ClusterInstance)
+	assert.Nil(t, resp.Facets.ContainerName)
+}
+
+// TestPlatformLogsService_DropsUnrequestedFacets pins that facets are answered only
+// when asked for. An adapter that aggregates unconditionally must not make every
+// caller pay to carry the result.
+func TestPlatformLogsService_DropsUnrequestedFacets(t *testing.T) {
+	t.Parallel()
+
+	adapter := &stubPlatformLogsAdapter{result: facetedResult()}
+	svc := NewPlatformLogsService(adapter, testLogger())
+
+	resp, err := svc.QueryPlatformLogs(context.Background(), facetRequest(false))
+	require.NoError(t, err)
+
+	assert.False(t, adapter.got.IncludeFacets)
+	assert.Nil(t, resp.Facets)
+}
+
+// TestPlatformLogsService_FacetsStayNilWhenUnsupported pins that an adapter which
+// cannot aggregate produces an absent facets field rather than an empty one: the
+// client has to tell "unknown" apart from "nothing matches".
+func TestPlatformLogsService_FacetsStayNilWhenUnsupported(t *testing.T) {
+	t.Parallel()
+
+	adapter := &stubPlatformLogsAdapter{result: &observability.PlatformLogsResult{Took: 1}}
+	svc := NewPlatformLogsService(adapter, testLogger())
+
+	resp, err := svc.QueryPlatformLogs(context.Background(), facetRequest(true))
+	require.NoError(t, err)
+
+	assert.Nil(t, resp.Facets)
+}

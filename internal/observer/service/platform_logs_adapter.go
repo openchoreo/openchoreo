@@ -60,6 +60,12 @@ func (p *LogsAdapter) GetPlatformLogs(
 		sortOrder := logsadapterclientgen.PlatformLogsQueryRequestSortOrder(params.SortOrder)
 		body.SortOrder = &sortOrder
 	}
+	// Sent only when true. An adapter predating the field ignores it either way,
+	// but an explicit false would still be a field it has to tolerate.
+	if params.IncludeFacets {
+		includeFacets := true
+		body.IncludeFacets = &includeFacets
+	}
 
 	resp, err := client.QueryPlatformLogsWithResponse(ctx, body)
 	if err != nil {
@@ -97,7 +103,34 @@ func (p *LogsAdapter) GetPlatformLogs(
 		Logs:       logs,
 		TotalCount: resp.JSON200.Total,
 		Took:       resp.JSON200.TookMs,
+		Facets:     toPlatformLogFacets(resp.JSON200.Facets),
 	}, nil
+}
+
+// toPlatformLogFacets maps the adapter's facets onto the internal shape. A nil
+// stays nil: an adapter that cannot compute facets omits the field, and that is
+// not the same answer as one reporting no values.
+func toPlatformLogFacets(src *logsadapterclientgen.PlatformLogFacets) *observability.PlatformLogFacets {
+	if src == nil {
+		return nil
+	}
+	return &observability.PlatformLogFacets{
+		ClusterInstances: toPlatformLogFacetValues(src.ClusterInstance),
+		Namespaces:       toPlatformLogFacetValues(src.Namespace),
+		PodNames:         toPlatformLogFacetValues(src.PodName),
+		ContainerNames:   toPlatformLogFacetValues(src.ContainerName),
+	}
+}
+
+func toPlatformLogFacetValues(src *[]logsadapterclientgen.PlatformLogFacetValue) []observability.PlatformLogFacetValue {
+	if src == nil || len(*src) == 0 {
+		return nil
+	}
+	out := make([]observability.PlatformLogFacetValue, 0, len(*src))
+	for _, v := range *src {
+		out = append(out, observability.PlatformLogFacetValue{Value: v.Value, Count: v.Count})
+	}
+	return out
 }
 
 func setIfNotEmpty(dst **[]string, values []string) {

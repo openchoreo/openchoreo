@@ -56,6 +56,7 @@ func (s *PlatformLogsService) QueryPlatformLogs(
 		LogLevels:        req.LogLevels,
 		Limit:            req.Limit,
 		SortOrder:        req.SortOrder,
+		IncludeFacets:    req.IncludeFacets,
 	})
 	if err != nil {
 		if errors.Is(err, ErrPlatformLogsNotSupported) {
@@ -82,9 +83,41 @@ func (s *PlatformLogsService) QueryPlatformLogs(
 		})
 	}
 
-	return &types.PlatformLogsResponse{
+	resp := &types.PlatformLogsResponse{
 		Logs:   logs,
 		Total:  result.TotalCount,
 		TookMs: result.Took,
-	}, nil
+	}
+	// Only ever answered when asked for. An adapter that computes facets
+	// unconditionally must not make every caller pay to carry them.
+	if req.IncludeFacets {
+		resp.Facets = toTypesPlatformLogFacets(result.Facets)
+	}
+	return resp, nil
+}
+
+// toTypesPlatformLogFacets maps the adapter's facets onto the response shape,
+// preserving nil: the caller has to tell "the adapter cannot compute these" apart
+// from "nothing matches", and only nil says the former.
+func toTypesPlatformLogFacets(src *observability.PlatformLogFacets) *types.PlatformLogFacets {
+	if src == nil {
+		return nil
+	}
+	return &types.PlatformLogFacets{
+		ClusterInstance: toTypesPlatformLogFacetValues(src.ClusterInstances),
+		Namespace:       toTypesPlatformLogFacetValues(src.Namespaces),
+		PodName:         toTypesPlatformLogFacetValues(src.PodNames),
+		ContainerName:   toTypesPlatformLogFacetValues(src.ContainerNames),
+	}
+}
+
+func toTypesPlatformLogFacetValues(src []observability.PlatformLogFacetValue) []types.PlatformLogFacetValue {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]types.PlatformLogFacetValue, 0, len(src))
+	for _, v := range src {
+		out = append(out, types.PlatformLogFacetValue{Value: v.Value, Count: v.Count})
+	}
+	return out
 }

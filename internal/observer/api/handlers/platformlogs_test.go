@@ -265,6 +265,81 @@ func TestGetPlatformLogs_ParsesFilters(t *testing.T) {
 	assert.Equal(t, "asc", got.SortOrder)
 }
 
+// TestGetPlatformLogs_IncludeFacets pins the opt-in: absent means false, so an
+// existing caller never starts paying for an aggregation it did not ask for.
+func TestGetPlatformLogs_IncludeFacets(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{name: "absent", query: platformLogsWindow, want: false},
+		{name: "true", query: platformLogsWindow + "&includeFacets=true", want: true},
+		{name: "false", query: platformLogsWindow + "&includeFacets=false", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got *types.PlatformLogsQueryRequest
+			svc := servicemocks.NewMockPlatformLogsQuerier(t)
+			svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).
+				Run(func(_ context.Context, req *types.PlatformLogsQueryRequest) { got = req }).
+				Return(&types.PlatformLogsResponse{}, nil)
+
+			rr := getPlatformLogs(t, platformLogsHandler(t, svc), tt.query)
+			require.Equal(t, http.StatusOK, rr.Code)
+
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, got.IncludeFacets)
+		})
+	}
+}
+
+// TestGetPlatformLogs_SerializesFacets pins the response shape a client reads its
+// pickers from - the keys are the filter parameter names - and that an absent
+// facets field is omitted rather than serialized as null.
+func TestGetPlatformLogs_SerializesFacets(t *testing.T) {
+	t.Parallel()
+
+	t.Run("present", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockPlatformLogsQuerier(t)
+		svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).Return(&types.PlatformLogsResponse{
+			Logs: []types.PlatformLog{},
+			Facets: &types.PlatformLogFacets{
+				Namespace: []types.PlatformLogFacetValue{
+					{Value: "openchoreo-control-plane", Count: 412},
+				},
+			},
+		}, nil)
+
+		rr := getPlatformLogs(t, platformLogsHandler(t, svc),
+			platformLogsWindow+"&includeFacets=true")
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(),
+			`"facets":{"namespace":[{"value":"openchoreo-control-plane","count":412}]}`)
+	})
+
+	t.Run("absent", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockPlatformLogsQuerier(t)
+		svc.EXPECT().QueryPlatformLogs(mock.Anything, mock.Anything).
+			Return(&types.PlatformLogsResponse{Logs: []types.PlatformLog{}}, nil)
+
+		rr := getPlatformLogs(t, platformLogsHandler(t, svc), platformLogsWindow)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		assert.NotContains(t, rr.Body.String(), "facets")
+	})
+}
+
 func TestGetPlatformLogs_BadRequests(t *testing.T) {
 	t.Parallel()
 

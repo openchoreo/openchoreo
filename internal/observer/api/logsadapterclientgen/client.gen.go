@@ -468,6 +468,38 @@ type PlatformLog struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// PlatformLogFacetValue One value a coordinate takes under the current query. Records on which the
+// coordinate is absent are not represented: there is no empty-string bucket,
+// because there is no filter value that would select one.
+type PlatformLogFacetValue struct {
+	// Count Matching entries carrying this value. May be approximate on
+	// high-cardinality coordinates where the backend answers from a partial term
+	// count, so it is an ordering hint rather than a total.
+	Count int64 `json:"count"`
+
+	// Value The coordinate value, as it would be sent back as a filter
+	Value string `json:"value"`
+}
+
+// PlatformLogFacets The coordinate values reachable under the current query, one list per filterable
+// coordinate. Returned only when the request set `includeFacets`, and omitted
+// rather than empty when this adapter cannot compute them.
+//
+// Each list is computed with every other filter in the request applied **except
+// the one it describes**. Counting `namespace` under a selected namespace would
+// report that namespace alone, leaving a caller's picker with no way back to the
+// others; excluding it means selecting a namespace still narrows `podName` and
+// `containerName` while `namespace` keeps offering the alternatives.
+//
+// Keys match the request field they populate. Each list is ordered by `count`
+// descending, then `value` ascending, and holds at most 200 entries.
+type PlatformLogFacets struct {
+	ClusterInstance *[]PlatformLogFacetValue `json:"clusterInstance,omitempty"`
+	ContainerName   *[]PlatformLogFacetValue `json:"containerName,omitempty"`
+	Namespace       *[]PlatformLogFacetValue `json:"namespace,omitempty"`
+	PodName         *[]PlatformLogFacetValue `json:"podName,omitempty"`
+}
+
 // PlatformLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
 // AND with each other. An absent field is not a filter.
 type PlatformLogsQueryRequest struct {
@@ -477,6 +509,15 @@ type PlatformLogsQueryRequest struct {
 
 	// EndTime Exclusive upper bound of the log window
 	EndTime time.Time `json:"endTime"`
+
+	// IncludeFacets Also return the coordinate values reachable under this query, so the caller
+	// can populate filter pickers from the whole matching set rather than from the
+	// page it received. Costs an aggregation pass on top of the search, which is
+	// why it is opt-in; the observer requests it only for a first page.
+	//
+	// An adapter that cannot compute facets answers normally and omits `facets`
+	// rather than failing the query.
+	IncludeFacets *bool `json:"includeFacets,omitempty"`
 
 	// Labels Pod labels every returned record must carry, ANDed. The observer parses the
 	// equality-based selector it receives and passes the resulting pairs, so the
@@ -507,6 +548,20 @@ type PlatformLogsQueryRequestSortOrder string
 
 // PlatformLogsResponse defines model for PlatformLogsResponse.
 type PlatformLogsResponse struct {
+	// Facets The coordinate values reachable under the current query, one list per filterable
+	// coordinate. Returned only when the request set `includeFacets`, and omitted
+	// rather than empty when this adapter cannot compute them.
+	//
+	// Each list is computed with every other filter in the request applied **except
+	// the one it describes**. Counting `namespace` under a selected namespace would
+	// report that namespace alone, leaving a caller's picker with no way back to the
+	// others; excluding it means selecting a namespace still narrows `podName` and
+	// `containerName` while `namespace` keeps offering the alternatives.
+	//
+	// Keys match the request field they populate. Each list is ordered by `count`
+	// descending, then `value` ascending, and holds at most 200 entries.
+	Facets *PlatformLogFacets `json:"facets,omitempty"`
+
 	// Logs The logs queried successfully
 	Logs []PlatformLog `json:"logs"`
 

@@ -117,6 +117,7 @@ func TestLogsAdapter_GetPlatformLogs_OmitsEmptyFilters(t *testing.T) {
 	for _, key := range []string{
 		"clusterInstance", "namespace", "podName", "containerName",
 		"labels", "logLevels", "searchPhrase", "limit", "sortOrder",
+		"includeFacets",
 	} {
 		assert.NotContains(t, gotBody, key, "%s should be omitted when unset", key)
 	}
@@ -253,4 +254,86 @@ func TestLogsAdapter_GetPlatformLogs_UpstreamErrors(t *testing.T) {
 			assert.Contains(t, err.Error(), "upstream said no")
 		})
 	}
+}
+
+// TestLogsAdapter_GetPlatformLogs_RequestsFacets pins that the opt-in reaches the
+// module, since nothing else would make it spend an aggregation pass.
+func TestLogsAdapter_GetPlatformLogs_RequestsFacets(t *testing.T) {
+	t.Parallel()
+
+	var gotBody map[string]any
+	server := platformLogsServer(t, http.StatusOK,
+		map[string]any{"logs": []any{}, "total": 0, "tookMs": 1}, &gotBody, nil, nil)
+	defer server.Close()
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
+			StartTime:     time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
+			EndTime:       time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
+			IncludeFacets: true,
+		})
+	require.NoError(t, err)
+
+	assert.Equal(t, true, gotBody["includeFacets"])
+}
+
+// TestLogsAdapter_GetPlatformLogs_MapsFacets pins the facet mapping, including that
+// the wire's singular keys land on the internal plural fields.
+func TestLogsAdapter_GetPlatformLogs_MapsFacets(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
+		"logs": []any{}, "total": 0, "tookMs": 3,
+		"facets": map[string]any{
+			"clusterInstance": []map[string]any{{"value": "cluster1", "count": 900}},
+			"namespace": []map[string]any{
+				{"value": "openchoreo-control-plane", "count": 412},
+				{"value": "cert-manager", "count": 88},
+			},
+			"podName":       []map[string]any{{"value": "controller-manager-abc", "count": 412}},
+			"containerName": []map[string]any{{"value": "manager", "count": 412}},
+		},
+	}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
+			StartTime:     time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
+			EndTime:       time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
+			IncludeFacets: true,
+		})
+	require.NoError(t, err)
+	require.NotNil(t, result.Facets)
+
+	assert.Equal(t, []observability.PlatformLogFacetValue{
+		{Value: "openchoreo-control-plane", Count: 412},
+		{Value: "cert-manager", Count: 88},
+	}, result.Facets.Namespaces)
+	assert.Equal(t, []observability.PlatformLogFacetValue{{Value: "cluster1", Count: 900}},
+		result.Facets.ClusterInstances)
+	assert.Equal(t, []observability.PlatformLogFacetValue{{Value: "controller-manager-abc", Count: 412}},
+		result.Facets.PodNames)
+	assert.Equal(t, []observability.PlatformLogFacetValue{{Value: "manager", Count: 412}},
+		result.Facets.ContainerNames)
+}
+
+// TestLogsAdapter_GetPlatformLogs_FacetsStayNilWhenOmitted pins the distinction the
+// contract rests on: a module that cannot aggregate omits the field, and that must
+// not arrive as an empty set, which would read as "nothing matches".
+func TestLogsAdapter_GetPlatformLogs_FacetsStayNilWhenOmitted(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK,
+		map[string]any{"logs": []any{}, "total": 0, "tookMs": 1}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).GetPlatformLogs(context.Background(),
+		observability.PlatformLogsParams{
+			StartTime:     time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
+			EndTime:       time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
+			IncludeFacets: true,
+		})
+	require.NoError(t, err)
+
+	assert.Nil(t, result.Facets)
 }

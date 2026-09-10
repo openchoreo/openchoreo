@@ -142,6 +142,9 @@ func toTypesPlatformLogsQuery(src gen.GetPlatformLogsParams) (*types.PlatformLog
 	if src.SortOrder != nil {
 		dst.SortOrder = string(*src.SortOrder)
 	}
+	if src.IncludeFacets != nil {
+		dst.IncludeFacets = *src.IncludeFacets
+	}
 	if src.Labels != nil {
 		labels, err := ParseLabelSelector(*src.Labels)
 		if err != nil {

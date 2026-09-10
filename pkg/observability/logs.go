@@ -103,6 +103,12 @@ type PlatformLogsParams struct {
 	LogLevels        []string          `json:"logLevels"`
 	Limit            int               `json:"limit"`
 	SortOrder        string            `json:"sortOrder"`
+
+	// IncludeFacets asks the adapter to aggregate the coordinate values reachable
+	// under this query alongside the page of logs. Opt-in: it costs an aggregation
+	// pass, and the answer describes the query rather than the page, so a caller
+	// paginating asks only for the first one.
+	IncludeFacets bool `json:"includeFacets"`
 }
 
 // PlatformLogEntry represents a parsed platform log record.
@@ -120,11 +126,38 @@ type PlatformLogEntry struct {
 	Labels          map[string]string `json:"labels,omitempty"`
 }
 
+// PlatformLogFacetValue is one value a coordinate takes under a query, with the
+// number of matching entries carrying it. The count may be approximate on a
+// high-cardinality coordinate, so it orders a list rather than totalling it.
+type PlatformLogFacetValue struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
+}
+
+// PlatformLogFacets are the coordinate values reachable under a query, one list per
+// filterable coordinate.
+//
+// Each list is aggregated with every filter applied except the one it describes.
+// Counting namespaces under a selected namespace would report that namespace alone
+// and leave a caller's picker with no way back to the others; excluding it means a
+// selected namespace still narrows PodNames and ContainerNames while Namespaces
+// keeps offering the alternatives.
+type PlatformLogFacets struct {
+	ClusterInstances []PlatformLogFacetValue `json:"clusterInstances"`
+	Namespaces       []PlatformLogFacetValue `json:"namespaces"`
+	PodNames         []PlatformLogFacetValue `json:"podNames"`
+	ContainerNames   []PlatformLogFacetValue `json:"containerNames"`
+}
+
 // PlatformLogsResult represents the result of a platform log query
 type PlatformLogsResult struct {
 	Logs       []PlatformLogEntry `json:"logs"`
 	TotalCount int                `json:"totalCount"`
 	Took       int                `json:"took"`
+
+	// Facets is nil unless the query asked for them and the adapter can compute
+	// them. Nil means "unknown", never "nothing matches".
+	Facets *PlatformLogFacets `json:"facets,omitempty"`
 }
 
 // LogsAdapter defines the interface for logs adapter implementations

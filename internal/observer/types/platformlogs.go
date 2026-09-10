@@ -27,6 +27,9 @@ type PlatformLogsQueryRequest struct {
 	// Pagination and sorting (optional)
 	Limit     int    `json:"limit,omitempty"`
 	SortOrder string `json:"sortOrder,omitempty"` // asc or desc, default: desc
+
+	// Also return the coordinate values reachable under this query (optional)
+	IncludeFacets bool `json:"includeFacets,omitempty"`
 }
 
 // PlatformLog is a single platform log record matching the OpenAPI PlatformLog schema.
@@ -44,10 +47,32 @@ type PlatformLog struct {
 	Labels          map[string]string `json:"labels,omitempty"`
 }
 
+// PlatformLogFacetValue is one value a coordinate takes under the query, with how
+// many matching entries carry it. Matches the OpenAPI PlatformLogFacetValue schema.
+type PlatformLogFacetValue struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
+}
+
+// PlatformLogFacets are the coordinate values reachable under the query, one list
+// per filterable coordinate. Keyed as the query parameter that consumes them, so a
+// client maps a facet onto its filter without a lookup table.
+// Matches the OpenAPI PlatformLogFacets schema.
+type PlatformLogFacets struct {
+	ClusterInstance []PlatformLogFacetValue `json:"clusterInstance,omitempty"`
+	Namespace       []PlatformLogFacetValue `json:"namespace,omitempty"`
+	PodName         []PlatformLogFacetValue `json:"podName,omitempty"`
+	ContainerName   []PlatformLogFacetValue `json:"containerName,omitempty"`
+}
+
 // PlatformLogsResponse is the response for GET /api/v1alpha1/platform-logs.
 // Matches OpenAPI PlatformLogsResponse schema.
 type PlatformLogsResponse struct {
 	Logs   []PlatformLog `json:"logs"`
 	Total  int           `json:"total"`
 	TookMs int           `json:"tookMs"`
+
+	// Facets is omitted unless the caller asked for it and the adapter could
+	// compute it. Absent means "unknown", never "nothing matches".
+	Facets *PlatformLogFacets `json:"facets,omitempty"`
 }
