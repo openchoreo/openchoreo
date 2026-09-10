@@ -89,9 +89,10 @@ func toolInputSchemaProperties(t *testing.T) map[string]map[string]bool {
 	return props
 }
 
-// stateModifyingRESTOperationIDs returns every non-GET operationId in the
-// live OpenAPI spec — the same universe tools/auditgen walks.
-func stateModifyingRESTOperationIDs(t *testing.T) map[string]bool {
+// allRESTOperationIDs returns every operationId in the live OpenAPI spec — the
+// same universe tools/auditgen walks. Reads are included: filtering them out
+// by HTTP method is what let a read go unclassified.
+func allRESTOperationIDs(t *testing.T) map[string]bool {
 	t.Helper()
 	swagger, err := gen.GetSwagger()
 	if err != nil {
@@ -100,21 +101,18 @@ func stateModifyingRESTOperationIDs(t *testing.T) map[string]bool {
 	ids := make(map[string]bool)
 	for _, path := range swagger.Paths.InMatchingOrder() {
 		item := swagger.Paths.Find(path)
-		for method, op := range item.Operations() {
-			if method == "GET" {
-				continue
-			}
+		for _, op := range item.Operations() {
 			ids[op.OperationID] = true
 		}
 	}
 	return ids
 }
 
-// TestAuditCoverage is a CI gate: every state-modifying operation on both
-// surfaces must be audited or explicitly, reasoned-ly exempted, enforced at
-// build time rather than left to drift silently.
+// TestAuditCoverage is a CI gate: every operation on both surfaces must be
+// audited or exempted with a reason — enforced at build time rather than left
+// to drift silently.
 func TestAuditCoverage(t *testing.T) {
-	restOperationIDs := stateModifyingRESTOperationIDs(t)
+	restOperationIDs := allRESTOperationIDs(t)
 	definedOps := apiaudit.GetOperations()
 	definedByID := make(map[string]audit.Operation, len(definedOps))
 	for _, op := range definedOps {
@@ -144,14 +142,15 @@ func TestAuditCoverage(t *testing.T) {
 		}
 	})
 
-	// Assertion 1: every state-modifying REST operation is defined or exempted.
+	// Assertion 1: every REST operation is defined or exempted.
 	t.Run("every REST operation is defined or exempted", func(t *testing.T) {
 		for id := range restOperationIDs {
 			_, defined := definedByID[id]
 			_, exempted := apiaudit.RESTExemptions[id]
 			if !defined && !exempted {
 				t.Errorf("operationId %q is neither audited (apiaudit.GetOperations) nor exempted "+
-					"(apiaudit.RESTExemptions) — add one or the other", id)
+					"(apiaudit.RESTExemptions) — add one or the other. A read belongs in "+
+					"RESTExemptions with a reason; it is not exempt by virtue of its HTTP method", id)
 			}
 			if defined && exempted {
 				t.Errorf("operationId %q is both audited and exempted — remove one", id)
