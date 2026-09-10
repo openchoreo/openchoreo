@@ -258,7 +258,7 @@ func TestAuthRejectionEmitsUnauthenticatedEvent(t *testing.T) {
 			"middlewares both fired for the same request")
 	event := events[0]
 
-	assert.Equal(t, "api", event["origin"], "a REST rejection must not be stamped as MCP")
+	assert.Equal(t, "rest", event["surface"], "a REST rejection must not be stamped as MCP")
 	assert.Equal(t, "unauthenticated", event["result"])
 
 	actor, ok := event["actor"].(map[string]any)
@@ -317,7 +317,7 @@ func TestMCPMiddlewaresAuditUnauthenticated(t *testing.T) {
 			"auth and never runs; two means it is nested with another instance")
 
 	event := events[0]
-	assert.Equal(t, "mcp", event["origin"],
+	assert.Equal(t, "mcp", event["surface"],
 		"an MCP rejection stamped as api would misattribute it to the REST surface")
 	assert.Equal(t, "unauthenticated", event["result"])
 }

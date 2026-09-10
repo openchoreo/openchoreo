@@ -7,6 +7,7 @@ type Action string
 
 const (
 	ActionViewLogs             Action = "logs:view"
+	ActionViewPlatformLogs     Action = "platformlogs:view"
 	ActionViewEvents           Action = "events:view"
 	ActionViewTraces           Action = "traces:view"
 	ActionViewMetrics          Action = "metrics:view"
@@ -25,4 +26,5 @@ const (
 	ResourceTypeProject     ResourceType = "project"
 	ResourceTypeNamespace   ResourceType = "namespace"
 	ResourceTypeWorkflowRun ResourceType = "workflowRun"
+	ResourceTypePlatform    ResourceType = "platform"
 )

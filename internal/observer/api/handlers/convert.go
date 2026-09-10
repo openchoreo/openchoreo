@@ -111,3 +111,43 @@ func toTypesRecommendationQuery(
 		EndTime:     rfc3339OrEmpty(params.EndTime),
 	}
 }
+
+// toTypesPlatformLogsQuery maps the generated query parameters onto the internal request.
+func toTypesPlatformLogsQuery(src gen.GetPlatformLogsParams) (*types.PlatformLogsQueryRequest, error) {
+	dst := &types.PlatformLogsQueryRequest{
+		StartTime: rfc3339OrEmpty(src.StartTime),
+		EndTime:   rfc3339OrEmpty(src.EndTime),
+	}
+	if src.ClusterInstance != nil {
+		dst.ClusterInstances = *src.ClusterInstance
+	}
+	if src.Namespace != nil {
+		dst.Namespaces = *src.Namespace
+	}
+	if src.PodName != nil {
+		dst.PodNames = *src.PodName
+	}
+	if src.ContainerName != nil {
+		dst.ContainerNames = *src.ContainerName
+	}
+	if src.LogLevels != nil {
+		dst.LogLevels = *src.LogLevels
+	}
+	if src.SearchPhrase != nil {
+		dst.SearchPhrase = *src.SearchPhrase
+	}
+	if src.Limit != nil {
+		dst.Limit = *src.Limit
+	}
+	if src.SortOrder != nil {
+		dst.SortOrder = string(*src.SortOrder)
+	}
+	if src.Labels != nil {
+		labels, err := ParseLabelSelector(*src.Labels)
+		if err != nil {
+			return nil, err
+		}
+		dst.Labels = labels
+	}
+	return dst, nil
+}

@@ -244,6 +244,13 @@ func main() {
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, pdp, logger.With("component", "authz-logs"))
+	// pdp rather than authzClient, as everywhere else here: it is the same client
+	// except when AUTHZ_DISABLED, where it is nil and CheckAuthorization skips.
+	// Passing the client directly would leave platform logs the one surface that
+	// still authorizes on a deployment that turned authorization off.
+	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
+		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
+		pdp, logger.With("component", "authz-platform-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
 		eventsService, pdp, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
@@ -261,6 +268,7 @@ func main() {
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		authzLogsService,
+		authzPlatformLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,

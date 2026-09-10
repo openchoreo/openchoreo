@@ -385,6 +385,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # Platform logs endpoint
+  /api/v1alpha1/platform-logs:
+    get:
+      tags:
+        - Logs
+      summary: Query platform logs
+      description: |
+        Returns pod logs addressed by raw Kubernetes coordinates - cluster, namespace,
+        pod, container - across everything the observability plane collects.
+        `POST /api/v1/logs/query` is the ownership-checked counterpart,
+        addressed by project, component and environment instead.
+
+        Multi-value filters OR within a parameter and AND across parameters.
+
+        `labels` selects on the pod labels each record carries - for example
+        `labels=openchoreo.dev/plane%3Dcontrolplane` narrows the search for logs
+        from OpenChoreo control plane components. Being a label selector, its commas
+        mean AND rather than OR.
+      operationId: getPlatformLogs
+      parameters:
+        - $ref: "#/components/parameters/PlatformLogsClusterInstance"
+        - $ref: "#/components/parameters/PlatformLogsNamespace"
+        - $ref: "#/components/parameters/PlatformLogsPodName"
+        - $ref: "#/components/parameters/PlatformLogsContainerName"
+        - $ref: "#/components/parameters/PlatformLogsLabels"
+        - $ref: "#/components/parameters/PlatformLogsLogLevels"
+        - $ref: "#/components/parameters/PlatformLogsSearchPhrase"
+        - $ref: "#/components/parameters/PlatformLogsStartTime"
+        - $ref: "#/components/parameters/PlatformLogsEndTime"
+        - $ref: "#/components/parameters/PlatformLogsLimit"
+        - $ref: "#/components/parameters/PlatformLogsSortOrder"
+      responses:
+        "200":
+          description: Platform logs retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformLogsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: |
+            Not Implemented. Surfaced when the logs adapter backing this observer
+            answers the platform logs query with a 501 of its own.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "platform logs are not supported by this adapter"
+
   # Runtime topology endpoint (for cell diagram with runtime observability)
   /api/v1alpha1/metrics/runtime-topology:
     post:
@@ -923,8 +998,152 @@ components:
         (hours), `d` (days), or `w` (weeks). For example `1h`, `2d`, `3w`.
       schema:
         type: string
-        pattern: '^[1-9][0-9]*[hdw]$'
+        pattern: "^[1-9][0-9]*[hdw]$"
         example: 1d
+
+    # Platform logs parameters
+    PlatformLogsClusterInstance:
+      name: clusterInstance
+      in: query
+      required: false
+      description: |
+        Clusters the records were collected from, as configured on each logs collector.
+        Comma-separated; OR within.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 20
+        uniqueItems: true
+        items:
+          type: string
+          maxLength: 253
+        example: ["cluster1"]
+    PlatformLogsNamespace:
+      name: namespace
+      in: query
+      required: false
+      description: Kubernetes namespaces of the pods. Comma-separated; OR within.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 20
+        uniqueItems: true
+        items:
+          type: string
+          maxLength: 253
+        example: ["openchoreo-control-plane"]
+    PlatformLogsPodName:
+      name: podName
+      in: query
+      required: false
+      description: Pod names. Comma-separated; OR within.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 20
+        uniqueItems: true
+        items:
+          type: string
+          maxLength: 253
+        example: ["controller-manager-7f58b689b5-pwsb5"]
+    PlatformLogsContainerName:
+      name: containerName
+      in: query
+      required: false
+      description: Container names. Comma-separated; OR within.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 20
+        uniqueItems: true
+        items:
+          type: string
+          maxLength: 253
+        example: ["manager"]
+    PlatformLogsLabels:
+      name: labels
+      in: query
+      required: false
+      description: |
+        Kubernetes label selector over the pod labels on each record. Comma means AND
+        here, matching `kubectl -l`. Equality-based selectors only (`key=value`); set-based
+        operators are not supported. This is how plane attribution is expressed, for
+        example `openchoreo.dev/plane=controlplane,app.kubernetes.io/name=openbao`.
+      schema:
+        type: string
+        maxLength: 256
+        example: openchoreo.dev/plane=controlplane
+    PlatformLogsLogLevels:
+      name: logLevels
+      in: query
+      required: false
+      description: |
+        Log severities to include. Comma-separated; OR within. Named to match
+        `LogsQueryRequest.logLevels` on the component and workflow endpoints.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 4
+        uniqueItems: true
+        items:
+          type: string
+          enum: ["DEBUG", "INFO", "WARN", "ERROR"]
+        example: ["ERROR", "WARN"]
+    PlatformLogsSearchPhrase:
+      name: searchPhrase
+      in: query
+      required: false
+      description: |
+        Text to search for within log messages. Entries not containing the phrase are
+        excluded.
+      schema:
+        type: string
+        maxLength: 256
+        example: reconcile failed
+    PlatformLogsStartTime:
+      name: startTime
+      in: query
+      required: true
+      description: Inclusive lower bound of the log window (RFC 3339, absolute UTC).
+      schema:
+        type: string
+        format: date-time
+        example: "2026-08-14T16:30:00Z"
+    PlatformLogsEndTime:
+      name: endTime
+      in: query
+      required: true
+      description: |
+        Exclusive upper bound of the log window (RFC 3339, absolute UTC). Must be strictly
+        greater than startTime.
+      schema:
+        type: string
+        format: date-time
+        example: "2026-08-14T17:30:00Z"
+    PlatformLogsLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of log entries to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    PlatformLogsSortOrder:
+      name: sortOrder
+      in: query
+      required: false
+      description: Sort direction on the log timestamp.
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
 
   schemas:
     # Request schemas for logs
@@ -1072,6 +1291,80 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the logs in milliseconds
+
+    # Cluster log schemas
+    PlatformLog:
+      type: object
+      description: |
+        A single log record: the message plus the physical coordinates, pod metadata and
+        pod labels of whatever produced it.
+      required:
+        - timestamp
+        - log
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry in UTC.
+        log:
+          type: string
+          description: |
+            The log message. Named `log` rather than `message` to match ComponentLogEntry
+            and WorkflowLogEntry.
+        level:
+          type: string
+          description: |
+            Log severity, derived from the message text by the adapter. Absent when the
+            adapter cannot determine one.
+        clusterInstance:
+          type: string
+          description: Cluster the record was collected from, stamped by the logs collector.
+        namespaceName:
+          type: string
+          description: Kubernetes namespace of the pod that produced the log.
+        podName:
+          type: string
+        containerName:
+          type: string
+        podIp:
+          type: string
+          description: IP address of the pod that produced the log.
+        nodeName:
+          type: string
+          description: Node the pod was scheduled on.
+        containerImage:
+          type: string
+          description: Image the container was running.
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Pod labels carried on the record. Returned as well as filtered on: `labels`
+            narrows the query, and this shows what else is on the pod.
+
+    PlatformLogsResponse:
+      type: object
+      required:
+        - tookMs
+        - total
+        - logs
+      properties:
+        logs:
+          type: array
+          description: Log entries matching the query.
+          items:
+            $ref: "#/components/schemas/PlatformLog"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The total number of matching log entries, capped at 1000.
+        tookMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The time taken to query the logs in milliseconds.
 
     # Request schema for events
     EventsQueryRequest:
@@ -2117,7 +2410,8 @@ components:
         Resource requests, limits, and resulting cost. Resource fields use
         Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
         millicores, `"250Mi"` for memory).
-      required: [cpuRequest, cpuLimit, memoryRequest, memoryLimit, cpuCost, memoryCost]
+      required:
+        [cpuRequest, cpuLimit, memoryRequest, memoryLimit, cpuCost, memoryCost]
       properties:
         cpuRequest:
           type: string

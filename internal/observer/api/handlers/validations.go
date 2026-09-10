@@ -213,6 +213,107 @@ func ValidateAndSetLimit(limit *int) error {
 	return nil
 }
 
+// Caps on the platform logs query string. A query string has length limits a request
+// body would not, so an over-long value is rejected rather than truncated. These mirror
+// the maxItems/maxLength declared on the PlatformLogs* parameters in the OpenAPI spec.
+const (
+	maxPlatformLogsFilterItems  = 20
+	maxPlatformLogsValueLength  = 253
+	maxPlatformLogsSelectorLen  = 256
+	maxPlatformLogsSearchLength = 256
+)
+
+// ParseLabelSelector parses an equality-based Kubernetes label selector - the syntax
+// `kubectl -l` accepts, where a comma means AND - into the pairs the adapter contract
+// takes. Set-based operators are not supported; rejecting them is better than silently
+// treating `key!=value` as a key named "key!".
+func ParseLabelSelector(selector string) (map[string]string, error) {
+	if selector == "" {
+		return nil, nil
+	}
+	if len(selector) > maxPlatformLogsSelectorLen {
+		return nil, fmt.Errorf("labels selector cannot exceed %d characters", maxPlatformLogsSelectorLen)
+	}
+
+	labels := make(map[string]string)
+	for _, term := range strings.Split(selector, ",") {
+		term = strings.TrimSpace(term)
+		if term == "" {
+			continue
+		}
+		key, value, found := strings.Cut(term, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid label selector %q; expected key=value", term)
+		}
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if key == "" {
+			return nil, fmt.Errorf("invalid label selector %q; key must not be empty", term)
+		}
+		// "!=" and "==" both survive the Cut above with a stray character on one side.
+		if strings.HasSuffix(key, "!") || strings.HasPrefix(value, "=") {
+			return nil, fmt.Errorf(
+				"invalid label selector %q; only equality selectors (key=value) are supported", term)
+		}
+		if existing, dup := labels[key]; dup && existing != value {
+			return nil, fmt.Errorf("label %q is given conflicting values; a record cannot match both", key)
+		}
+		labels[key] = value
+	}
+	return labels, nil
+}
+
+// ValidatePlatformLogsQueryRequest validates the PlatformLogsQueryRequest and applies
+// defaults for limit and sort order.
+func ValidatePlatformLogsQueryRequest(req *types.PlatformLogsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	filters := map[string][]string{
+		"clusterInstance": req.ClusterInstances,
+		"namespace":       req.Namespaces,
+		"podName":         req.PodNames,
+		"containerName":   req.ContainerNames,
+	}
+	for name, values := range filters {
+		if err := validatePlatformLogsFilter(name, values); err != nil {
+			return err
+		}
+	}
+
+	if len(req.SearchPhrase) > maxPlatformLogsSearchLength {
+		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxPlatformLogsSearchLength)
+	}
+
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if err := ValidateLogLevels(req.LogLevels); err != nil {
+		return err
+	}
+	if err := ValidateAndSetLimit(&req.Limit); err != nil {
+		return err
+	}
+	return ValidateAndSetSortOrder(&req.SortOrder)
+}
+
+func validatePlatformLogsFilter(name string, values []string) error {
+	if len(values) > maxPlatformLogsFilterItems {
+		return fmt.Errorf("%s cannot have more than %d values", name, maxPlatformLogsFilterItems)
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		if len(v) > maxPlatformLogsValueLength {
+			return fmt.Errorf("%s values cannot exceed %d characters", name, maxPlatformLogsValueLength)
+		}
+		if _, dup := seen[v]; dup {
+			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)
+		}
+		seen[v] = struct{}{}
+	}
+	return nil
+}
+
 // ValidateAndSetSortOrder validates and sets default for sort order
 func ValidateAndSetSortOrder(sortOrder *string) error {
 	if *sortOrder == "" {

@@ -171,6 +171,63 @@ func TestBuildDefinitions_MissingOperationIDErrors(t *testing.T) {
 	}
 }
 
+// TestBuildDefinitions_UnclassifiedGETErrors guards the forcing function: an
+// unlisted GET must fail generation rather than be silently skipped, which is
+// how a sensitive read would otherwise go unaudited forever.
+func TestBuildDefinitions_UnclassifiedGETErrors(t *testing.T) {
+	swagger := &openapi3.T{Paths: openapi3.NewPaths()}
+	swagger.AddOperation("/api/v1/namespaces/{namespaceName}/secrets/{secretName}", "GET",
+		&openapi3.Operation{OperationID: "GetSecret"})
+
+	_, err := BuildDefinitions(swagger, Config{})
+	if err == nil {
+		t.Fatal("BuildDefinitions() = nil error, want an error for an unclassified GET")
+	}
+	if !strings.Contains(err.Error(), "GetSecret") || !strings.Contains(err.Error(), "unclassified") {
+		t.Errorf("BuildDefinitions() error = %q, want it to name the operation and say it is unclassified",
+			err.Error())
+	}
+}
+
+// TestBuildDefinitions_DeclaredReadGETIsSkipped is the other half: an
+// exempted GET produces no definition and no error.
+func TestBuildDefinitions_DeclaredReadGETIsSkipped(t *testing.T) {
+	swagger := &openapi3.T{Paths: openapi3.NewPaths()}
+	swagger.AddOperation("/api/v1/namespaces/{namespaceName}/projects", "GET",
+		&openapi3.Operation{OperationID: "ListProjects"})
+
+	defs, err := BuildDefinitions(swagger, Config{
+		ExcludedOperationIDs: map[string]bool{"ListProjects": true},
+	})
+	if err != nil {
+		t.Fatalf("BuildDefinitions() error = %v, want a declared read to be skipped cleanly", err)
+	}
+	if len(defs) != 0 {
+		t.Errorf("BuildDefinitions() produced %d definitions, want 0 for a declared read", len(defs))
+	}
+}
+
+// TestBuildDefinitions_OverriddenGETIsAudited covers the capability the
+// blanket GET skip made impossible: an override gives a read a definition.
+func TestBuildDefinitions_OverriddenGETIsAudited(t *testing.T) {
+	swagger := &openapi3.T{Paths: openapi3.NewPaths()}
+	swagger.AddOperation("/api/v1/namespaces/{namespaceName}/secrets/{secretName}", "GET",
+		&openapi3.Operation{OperationID: "GetSecret"})
+
+	want := OperationDef{ID: "GetSecret", Action: "read_secret", ResourceType: "secrets",
+		Category: "CategoryManagement", RESTResourceParam: "secretName"}
+	defs, err := BuildDefinitions(swagger, Config{
+		ResourceCategories: map[string]string{"secrets": "CategoryManagement"},
+		Overrides:          map[string]OperationDef{"GetSecret": want},
+	})
+	if err != nil {
+		t.Fatalf("BuildDefinitions() error = %v, want an overridden GET to produce a definition", err)
+	}
+	if len(defs) != 1 || defs[0] != want {
+		t.Errorf("BuildDefinitions() = %+v, want exactly %+v", defs, want)
+	}
+}
+
 // TestBuildDefinitions_WrapsDeriveDefinitionError guards that a
 // deriveDefinition failure (here: an unknown resource kind) surfaces through
 // BuildDefinitions naming the operation and route, not just the bare

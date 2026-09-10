@@ -90,6 +90,43 @@ type WorkflowLogsResult struct {
 	Took       int                `json:"took"`
 }
 
+// PlatformLogsParams holds parameters for platform log queries.
+type PlatformLogsParams struct {
+	ClusterInstances []string          `json:"clusterInstances"`
+	Namespaces       []string          `json:"namespaces"`
+	PodNames         []string          `json:"podNames"`
+	ContainerNames   []string          `json:"containerNames"`
+	Labels           map[string]string `json:"labels"`
+	StartTime        time.Time         `json:"startTime"`
+	EndTime          time.Time         `json:"endTime"`
+	SearchPhrase     string            `json:"searchPhrase"`
+	LogLevels        []string          `json:"logLevels"`
+	Limit            int               `json:"limit"`
+	SortOrder        string            `json:"sortOrder"`
+}
+
+// PlatformLogEntry represents a parsed platform log record.
+type PlatformLogEntry struct {
+	Timestamp       time.Time         `json:"timestamp"`
+	Log             string            `json:"log"`
+	LogLevel        string            `json:"logLevel"`
+	ClusterInstance string            `json:"clusterInstance"`
+	NamespaceName   string            `json:"namespaceName"`
+	PodName         string            `json:"podName"`
+	ContainerName   string            `json:"containerName"`
+	PodIP           string            `json:"podIp"`
+	NodeName        string            `json:"nodeName"`
+	ContainerImage  string            `json:"containerImage"`
+	Labels          map[string]string `json:"labels,omitempty"`
+}
+
+// PlatformLogsResult represents the result of a platform log query
+type PlatformLogsResult struct {
+	Logs       []PlatformLogEntry `json:"logs"`
+	TotalCount int                `json:"totalCount"`
+	Took       int                `json:"took"`
+}
+
 // LogsAdapter defines the interface for logs adapter implementations
 type LogsAdapter interface {
 	// GetComponentApplicationLogs retrieves component application logs
@@ -99,4 +136,11 @@ type LogsAdapter interface {
 	// GetWorkflowLogs retrieves workflow run logs
 	GetWorkflowLogs(ctx context.Context,
 		params WorkflowLogsParams) (*WorkflowLogsResult, error)
+}
+
+// PlatformLogsAdapter defines the interface for fetching platform logs
+type PlatformLogsAdapter interface {
+	// GetPlatformLogs retrieves logs by raw Kubernetes coordinates, with no
+	// project/component/environment correlation.
+	GetPlatformLogs(ctx context.Context, params PlatformLogsParams) (*PlatformLogsResult, error)
 }

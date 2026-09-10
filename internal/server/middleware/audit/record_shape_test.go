@@ -60,7 +60,7 @@ func recordCases() []recordCase {
 				},
 				Action:       "update_release_binding",
 				Category:     CategoryManagement,
-				Origin:       OriginAPI,
+				Surface:      SurfaceREST,
 				OperationID:  "UpdateReleaseBinding",
 				HTTP:         &HTTPInfo{Method: "PUT", Path: "/api/v1/namespaces/ns-1/release-bindings/rb-1"},
 				ResourceType: "releasebindings",
@@ -80,7 +80,8 @@ func recordCases() []recordCase {
 				`"entitlements":{"groups":["dev","ops"]}},` +
 				`"action":"update_release_binding","category":"management","result":"success",` +
 				`"request_id":"11111111-1111-4111-8111-111111111111","source_ip":"10.0.0.1",` +
-				`"producer":"openchoreo-api","origin":"api","operation_id":"UpdateReleaseBinding",` +
+				`"user_agent":"",` +
+				`"producer":"openchoreo-api","surface":"rest","operation_id":"UpdateReleaseBinding",` +
 				`"http":{"method":"PUT","path":"/api/v1/namespaces/ns-1/release-bindings/rb-1"},` +
 				`"resource":{"type":"releasebindings","namespace":"ns-1","environment":"ns-1/production",` +
 				`"project":"p1","component":"c1","uid":"uid-1","name":"rb-1"},` +
@@ -94,7 +95,7 @@ func recordCases() []recordCase {
 				Actor:        Actor{Type: "user", ID: "u1"},
 				Action:       "update_project",
 				Category:     CategoryManagement,
-				Origin:       OriginMCP,
+				Surface:      SurfaceMCP,
 				OperationID:  "UpdateProject",
 				HTTP:         nil,
 				ResourceType: "projects",
@@ -111,7 +112,8 @@ func recordCases() []recordCase {
 				`"actor":{"type":"user","id":"u1"},` +
 				`"action":"update_project","category":"management","result":"denied",` +
 				`"request_id":"22222222-2222-4222-8222-222222222222","source_ip":"10.0.0.2",` +
-				`"producer":"openchoreo-api","origin":"mcp","operation_id":"UpdateProject",` +
+				`"user_agent":"",` +
+				`"producer":"openchoreo-api","surface":"mcp","operation_id":"UpdateProject",` +
 				`"resource":{"type":"projects","namespace":"ns-1","project":"p1"}}` + "\n",
 		},
 		{
@@ -135,6 +137,7 @@ func recordCases() []recordCase {
 				`"actor":{"type":"anonymous","id":"anonymous"},` +
 				`"action":"","category":"","result":"unauthenticated",` +
 				`"request_id":"33333333-3333-4333-8333-333333333333","source_ip":"10.0.0.3",` +
+				`"user_agent":"",` +
 				`"producer":"openchoreo-api",` +
 				`"http":{"method":"POST","path":"/api/v1/namespaces/ns-1/projects"}}` + "\n",
 		},
@@ -146,7 +149,7 @@ func recordCases() []recordCase {
 				EventID:   "01920000-0000-7000-8000-000000000008",
 				EventTime: fixedTime,
 				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
-				Origin:    OriginMCP,
+				Surface:   SurfaceMCP,
 				Result:    ResultUnauthenticated,
 				RequestID: "88888888-8888-4888-8888-888888888888",
 				SourceIP:  "10.0.0.8",
@@ -159,7 +162,8 @@ func recordCases() []recordCase {
 				`"actor":{"type":"anonymous","id":"anonymous"},` +
 				`"action":"","category":"","result":"unauthenticated",` +
 				`"request_id":"88888888-8888-4888-8888-888888888888","source_ip":"10.0.0.8",` +
-				`"producer":"openchoreo-api","origin":"mcp",` +
+				`"user_agent":"",` +
+				`"producer":"openchoreo-api","surface":"mcp",` +
 				`"http":{"method":"POST","path":"/mcp"}}` + "\n",
 		},
 		{
@@ -181,6 +185,7 @@ func recordCases() []recordCase {
 				`"actor":{"type":"user","id":"u1"},` +
 				`"action":"delete_project","category":"management","result":"success",` +
 				`"request_id":"55555555-5555-4555-8555-555555555555","source_ip":"10.0.0.5",` +
+				`"user_agent":"",` +
 				`"producer":"openchoreo-api"}` + "\n",
 		},
 		{
@@ -191,7 +196,7 @@ func recordCases() []recordCase {
 				Actor:        Actor{Type: "service_account", ID: "sa-1"},
 				Action:       "create_secret",
 				Category:     CategoryAuthorization,
-				Origin:       OriginAPI,
+				Surface:      SurfaceREST,
 				OperationID:  "CreateSecret",
 				ResourceType: "secrets",
 				Resource: &Resource{
@@ -210,7 +215,8 @@ func recordCases() []recordCase {
 				`"actor":{"type":"service_account","id":"sa-1"},` +
 				`"action":"create_secret","category":"authorization","result":"failure",` +
 				`"request_id":"44444444-4444-4444-8444-444444444444","source_ip":"10.0.0.4",` +
-				`"producer":"observer","origin":"api","operation_id":"CreateSecret",` +
+				`"user_agent":"",` +
+				`"producer":"observer","surface":"rest","operation_id":"CreateSecret",` +
 				`"resource":{"type":"secrets","namespace":"ns-1","name":"s1",` +
 				`"metadata":{"kind":"opaque"}}}` + "\n",
 		},
@@ -236,6 +242,7 @@ func recordCases() []recordCase {
 				`"actor":{"type":"user","id":"u1"},` +
 				`"action":"create_project","category":"management","result":"success",` +
 				`"request_id":"77777777-7777-4777-8777-777777777777","source_ip":"10.0.0.7",` +
+				`"user_agent":"",` +
 				`"producer":"openchoreo-api","metadata":{"empty":{},"keep":"v"}}` + "\n",
 		},
 		{
@@ -264,6 +271,7 @@ func recordCases() []recordCase {
 				`"actor":{"type":"user","id":"u1","entitlements":{"groups":["dev"],"roles":["admin"]}},` +
 				`"action":"create_project","category":"management","result":"success",` +
 				`"request_id":"66666666-6666-4666-8666-666666666666","source_ip":"10.0.0.6",` +
+				`"user_agent":"",` +
 				`"producer":"openchoreo-api","metadata":{"a":2,"z":1}}` + "\n",
 		},
 	}

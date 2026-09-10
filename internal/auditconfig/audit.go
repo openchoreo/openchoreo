@@ -55,7 +55,7 @@ type SelectorConfig struct {
 	Resources    []string `koanf:"resources"`
 	Operations   []string `koanf:"operations"`
 	Actions      []string `koanf:"actions"`
-	Origins      []string `koanf:"origins"`
+	Surfaces     []string `koanf:"surfaces"`
 	ActorTypes   []string `koanf:"actor_types"`
 	Actors       []string `koanf:"actors"`
 	Entitlements []string `koanf:"entitlements"`
@@ -76,8 +76,8 @@ var (
 	validCategories = []string{
 		string(audit.CategoryManagement), string(audit.CategoryAuthorization),
 	}
-	validOrigins = []string{string(audit.OriginAPI), string(audit.OriginMCP)}
-	validResults = []string{
+	validSurfaces = []string{string(audit.SurfaceREST), string(audit.SurfaceMCP)}
+	validResults  = []string{
 		string(audit.ResultSuccess), string(audit.ResultFailure),
 		string(audit.ResultDenied), string(audit.ResultUnauthenticated),
 	}
@@ -183,13 +183,13 @@ func (sc SelectorConfig) toSelector(
 		categories = append(categories, audit.Category(c))
 	}
 
-	origins := make([]audit.Origin, 0, len(sc.Origins))
-	for i, o := range sc.Origins {
-		if fe := config.MustBeOneOf(path.Child("origins").Index(i), o, validOrigins); fe != nil {
+	surfaces := make([]audit.Surface, 0, len(sc.Surfaces))
+	for i, o := range sc.Surfaces {
+		if fe := config.MustBeOneOf(path.Child("surfaces").Index(i), o, validSurfaces); fe != nil {
 			errs = append(errs, fe)
 			continue
 		}
-		origins = append(origins, audit.Origin(o))
+		surfaces = append(surfaces, audit.Surface(o))
 	}
 
 	results := make([]audit.Result, 0, len(sc.Results))
@@ -234,7 +234,7 @@ func (sc SelectorConfig) toSelector(
 		Resources:    sc.Resources,
 		Operations:   sc.Operations,
 		Actions:      sc.Actions,
-		Origins:      origins,
+		Surfaces:     surfaces,
 		ActorTypes:   sc.ActorTypes,
 		Actors:       sc.Actors,
 		Entitlements: sc.Entitlements,

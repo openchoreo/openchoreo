@@ -121,10 +121,10 @@ const (
 
 // Defines values for LogsQueryRequestLogLevels.
 const (
-	DEBUG LogsQueryRequestLogLevels = "DEBUG"
-	ERROR LogsQueryRequestLogLevels = "ERROR"
-	INFO  LogsQueryRequestLogLevels = "INFO"
-	WARN  LogsQueryRequestLogLevels = "WARN"
+	LogsQueryRequestLogLevelsDEBUG LogsQueryRequestLogLevels = "DEBUG"
+	LogsQueryRequestLogLevelsERROR LogsQueryRequestLogLevels = "ERROR"
+	LogsQueryRequestLogLevelsINFO  LogsQueryRequestLogLevels = "INFO"
+	LogsQueryRequestLogLevelsWARN  LogsQueryRequestLogLevels = "WARN"
 )
 
 // Defines values for LogsQueryRequestSortOrder.
@@ -167,8 +167,28 @@ const (
 
 // Defines values for TracesQueryRequestSortOrder.
 const (
-	Asc  TracesQueryRequestSortOrder = "asc"
-	Desc TracesQueryRequestSortOrder = "desc"
+	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
+	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
+)
+
+// Defines values for PlatformLogsSortOrder.
+const (
+	PlatformLogsSortOrderAsc  PlatformLogsSortOrder = "asc"
+	PlatformLogsSortOrderDesc PlatformLogsSortOrder = "desc"
+)
+
+// Defines values for GetPlatformLogsParamsLogLevels.
+const (
+	GetPlatformLogsParamsLogLevelsDEBUG GetPlatformLogsParamsLogLevels = "DEBUG"
+	GetPlatformLogsParamsLogLevelsERROR GetPlatformLogsParamsLogLevels = "ERROR"
+	GetPlatformLogsParamsLogLevelsINFO  GetPlatformLogsParamsLogLevels = "INFO"
+	GetPlatformLogsParamsLogLevelsWARN  GetPlatformLogsParamsLogLevels = "WARN"
+)
+
+// Defines values for GetPlatformLogsParamsSortOrder.
+const (
+	Asc  GetPlatformLogsParamsSortOrder = "asc"
+	Desc GetPlatformLogsParamsSortOrder = "desc"
 )
 
 // Alert A single fired alert.
@@ -907,6 +927,54 @@ type OAuthProtectedResourceMetadata struct {
 	ScopesSupported []string `json:"scopes_supported"`
 }
 
+// PlatformLog A single log record: the message plus the physical coordinates, pod metadata and
+// pod labels of whatever produced it.
+type PlatformLog struct {
+	// ClusterInstance Cluster the record was collected from, stamped by the logs collector.
+	ClusterInstance *string `json:"clusterInstance,omitempty"`
+
+	// ContainerImage Image the container was running.
+	ContainerImage *string `json:"containerImage,omitempty"`
+	ContainerName  *string `json:"containerName,omitempty"`
+
+	// Labels Pod labels carried on the record. Returned as well as filtered on: `labels`
+	// narrows the query, and this shows what else is on the pod.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Level Log severity, derived from the message text by the adapter. Absent when the
+	// adapter cannot determine one.
+	Level *string `json:"level,omitempty"`
+
+	// Log The log message. Named `log` rather than `message` to match ComponentLogEntry
+	// and WorkflowLogEntry.
+	Log string `json:"log"`
+
+	// NamespaceName Kubernetes namespace of the pod that produced the log.
+	NamespaceName *string `json:"namespaceName,omitempty"`
+
+	// NodeName Node the pod was scheduled on.
+	NodeName *string `json:"nodeName,omitempty"`
+
+	// PodIp IP address of the pod that produced the log.
+	PodIp   *string `json:"podIp,omitempty"`
+	PodName *string `json:"podName,omitempty"`
+
+	// Timestamp Timestamp of the log entry in UTC.
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// PlatformLogsResponse defines model for PlatformLogsResponse.
+type PlatformLogsResponse struct {
+	// Logs Log entries matching the query.
+	Logs []PlatformLog `json:"logs"`
+
+	// TookMs The time taken to query the logs in milliseconds.
+	TookMs int64 `json:"tookMs"`
+
+	// Total The total number of matching log entries, capped at 1000.
+	Total int64 `json:"total"`
+}
+
 // RecommendationResponse defines model for RecommendationResponse.
 type RecommendationResponse struct {
 	// Items One recommendation per component in scope. A single element when
@@ -1278,6 +1346,39 @@ type FinOpsProject = string
 // FinOpsStartTime defines model for FinOpsStartTime.
 type FinOpsStartTime = time.Time
 
+// PlatformLogsClusterInstance defines model for PlatformLogsClusterInstance.
+type PlatformLogsClusterInstance = []string
+
+// PlatformLogsContainerName defines model for PlatformLogsContainerName.
+type PlatformLogsContainerName = []string
+
+// PlatformLogsEndTime defines model for PlatformLogsEndTime.
+type PlatformLogsEndTime = time.Time
+
+// PlatformLogsLabels defines model for PlatformLogsLabels.
+type PlatformLogsLabels = string
+
+// PlatformLogsLimit defines model for PlatformLogsLimit.
+type PlatformLogsLimit = int
+
+// PlatformLogsLogLevels defines model for PlatformLogsLogLevels.
+type PlatformLogsLogLevels = []string
+
+// PlatformLogsNamespace defines model for PlatformLogsNamespace.
+type PlatformLogsNamespace = []string
+
+// PlatformLogsPodName defines model for PlatformLogsPodName.
+type PlatformLogsPodName = []string
+
+// PlatformLogsSearchPhrase defines model for PlatformLogsSearchPhrase.
+type PlatformLogsSearchPhrase = string
+
+// PlatformLogsSortOrder defines model for PlatformLogsSortOrder.
+type PlatformLogsSortOrder string
+
+// PlatformLogsStartTime defines model for PlatformLogsStartTime.
+type PlatformLogsStartTime = time.Time
+
 // GetComponentCostsParams defines parameters for GetComponentCosts.
 type GetComponentCostsParams struct {
 	// Project Project name. When set, narrows the response to components in this project.
@@ -1312,6 +1413,55 @@ type GetRecommendationsParams struct {
 	// EndTime Exclusive upper bound of the cost window (RFC 3339). Must be strictly greater than startTime.
 	EndTime FinOpsEndTime `form:"endTime" json:"endTime"`
 }
+
+// GetPlatformLogsParams defines parameters for GetPlatformLogs.
+type GetPlatformLogsParams struct {
+	// ClusterInstance Clusters the records were collected from, as configured on each logs collector.
+	// Comma-separated; OR within.
+	ClusterInstance *PlatformLogsClusterInstance `form:"clusterInstance,omitempty" json:"clusterInstance,omitempty"`
+
+	// Namespace Kubernetes namespaces of the pods. Comma-separated; OR within.
+	Namespace *PlatformLogsNamespace `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// PodName Pod names. Comma-separated; OR within.
+	PodName *PlatformLogsPodName `form:"podName,omitempty" json:"podName,omitempty"`
+
+	// ContainerName Container names. Comma-separated; OR within.
+	ContainerName *PlatformLogsContainerName `form:"containerName,omitempty" json:"containerName,omitempty"`
+
+	// Labels Kubernetes label selector over the pod labels on each record. Comma means AND
+	// here, matching `kubectl -l`. Equality-based selectors only (`key=value`); set-based
+	// operators are not supported. This is how plane attribution is expressed, for
+	// example `openchoreo.dev/plane=controlplane,app.kubernetes.io/name=openbao`.
+	Labels *PlatformLogsLabels `form:"labels,omitempty" json:"labels,omitempty"`
+
+	// LogLevels Log severities to include. Comma-separated; OR within. Named to match
+	// `LogsQueryRequest.logLevels` on the component and workflow endpoints.
+	LogLevels *PlatformLogsLogLevels `form:"logLevels,omitempty" json:"logLevels,omitempty"`
+
+	// SearchPhrase Text to search for within log messages. Entries not containing the phrase are
+	// excluded.
+	SearchPhrase *PlatformLogsSearchPhrase `form:"searchPhrase,omitempty" json:"searchPhrase,omitempty"`
+
+	// StartTime Inclusive lower bound of the log window (RFC 3339, absolute UTC).
+	StartTime PlatformLogsStartTime `form:"startTime" json:"startTime"`
+
+	// EndTime Exclusive upper bound of the log window (RFC 3339, absolute UTC). Must be strictly
+	// greater than startTime.
+	EndTime PlatformLogsEndTime `form:"endTime" json:"endTime"`
+
+	// Limit Maximum number of log entries to return.
+	Limit *PlatformLogsLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// SortOrder Sort direction on the log timestamp.
+	SortOrder *GetPlatformLogsParamsSortOrder `form:"sortOrder,omitempty" json:"sortOrder,omitempty"`
+}
+
+// GetPlatformLogsParamsLogLevels defines parameters for GetPlatformLogs.
+type GetPlatformLogsParamsLogLevels string
+
+// GetPlatformLogsParamsSortOrder defines parameters for GetPlatformLogs.
+type GetPlatformLogsParamsSortOrder string
 
 // QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.
 type QueryEventsJSONRequestBody = EventsQueryRequest

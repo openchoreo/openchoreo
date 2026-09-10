@@ -3,48 +3,23 @@
 
 package main
 
-import "github.com/openchoreo/openchoreo/tools/internal/auditgen"
+import (
+	observeraudit "github.com/openchoreo/openchoreo/internal/observer/audit"
+	"github.com/openchoreo/openchoreo/tools/internal/auditgen"
+)
 
 // Observer serves its operations from two generated specs, so there are two
 // configs. A shared one would fail: BuildDefinitions runs
 // checkNoOrphanCategories against a single spec, and "incidents" is
-// public-only. Splitting also keeps each exclusion list to operations its own
-// spec can actually produce — an invariant nothing else checks.
+// public-only.
 
-// observerPublicExcludedOperationIDs are state-modifying operations in
-// openapi/observer-api.yaml deliberately not audited — see
-// internal/observer/audit/exemptions.go for each reason.
+// observerExcludedOperationIDs comes from internal/observer/audit rather than
+// being restated here; the copy this replaced had already drifted, still
+// excluding QuerySpanDetailsForTrace after it left the spec.
 //
-// All eleven are reads expressed as POST. QuerySpanDetailsForTrace is POST to
-// carry a request body; every other path ends in /query.
-var observerPublicExcludedOperationIDs = map[string]bool{
-	"QueryAlerts":              true,
-	"QueryDoraDeployments":     true,
-	"QueryDoraMetrics":         true,
-	"QueryEvents":              true,
-	"QueryIncidents":           true,
-	"QueryLogs":                true,
-	"QueryMetrics":             true,
-	"QueryRuntimeTopology":     true,
-	"QuerySpanDetailsForTrace": true,
-	"QuerySpansForTrace":       true,
-	"QueryTraces":              true,
-}
-
-// observerInternalExcludedOperationIDs are the alert-rule writes and webhook
-// in openapi/observer-internal-api.yaml. All four are excluded: they run on
-// the unauthenticated internal port, so there is no actor to record.
-//
-// That is every non-GET operation the internal spec declares, so this pass
-// produces no definitions at all today. Expected, not a bug — the middleware
-// is still wired there (see handlers.InternalMiddlewares), so lifting an
-// exemption needs no wiring change.
-var observerInternalExcludedOperationIDs = map[string]bool{
-	"CreateAlertRule":    true,
-	"UpdateAlertRule":    true,
-	"DeleteAlertRule":    true,
-	"HandleAlertWebhook": true,
-}
+// Shared by both passes: an id from the other spec is inert, since exclusions
+// are only consulted for operations the spec being walked declares.
+var observerExcludedOperationIDs = excludedOperationIDs(observeraudit.RESTExemptions)
 
 // observerPublicResourceCategories maps each resource kind a non-excluded
 // public operation can target to its Category. UpdateIncident is the only such
@@ -65,7 +40,7 @@ var observerInternalResourceCategories = map[string]string{}
 func observerPublicConfig() auditgen.Config {
 	return auditgen.Config{
 		ResourceCategories:   observerPublicResourceCategories,
-		ExcludedOperationIDs: observerPublicExcludedOperationIDs,
+		ExcludedOperationIDs: observerExcludedOperationIDs,
 	}
 }
 
@@ -74,6 +49,6 @@ func observerPublicConfig() auditgen.Config {
 func observerInternalConfig() auditgen.Config {
 	return auditgen.Config{
 		ResourceCategories:   observerInternalResourceCategories,
-		ExcludedOperationIDs: observerInternalExcludedOperationIDs,
+		ExcludedOperationIDs: observerExcludedOperationIDs,
 	}
 }

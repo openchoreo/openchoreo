@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"net/http"
 	"sort"
 	"strings"
 	"text/template"
@@ -40,8 +41,9 @@ type Config struct {
 	// generation for any kind segment missing here, and checkNoOrphanCategories
 	// fails generation for any entry naming a kind no live operation uses.
 	ResourceCategories map[string]string
-	// ExcludedOperationIDs are state-modifying routes deliberately not turned
-	// into a definition — see each service's own exemptions table for why.
+	// ExcludedOperationIDs are routes deliberately not turned into a
+	// definition, reads included — see each service's RESTExemptions table.
+	// Exhaustive: an unlisted GET fails generation rather than being skipped.
 	ExcludedOperationIDs map[string]bool
 	// SingularOverrides names resource-kind segments whose singular form
 	// isn't a bare trailing-"s" strip.
@@ -55,8 +57,9 @@ type Config struct {
 	Overrides map[string]OperationDef
 }
 
-// BuildDefinitions walks every state-modifying operation in swagger and
-// derives one OperationDef per non-excluded operation, per cfg.
+// BuildDefinitions walks every operation in swagger and derives one
+// OperationDef per non-excluded operation, per cfg. Reads are excluded by
+// declaration rather than by HTTP method — see Config.ExcludedOperationIDs.
 func BuildDefinitions(swagger *openapi3.T, cfg Config) ([]OperationDef, error) {
 	var defs []OperationDef
 	usedKinds := make(map[string]bool)
@@ -64,9 +67,6 @@ func BuildDefinitions(swagger *openapi3.T, cfg Config) ([]OperationDef, error) {
 	for _, path := range swagger.Paths.InMatchingOrder() {
 		item := swagger.Paths.Find(path)
 		for method, op := range item.Operations() {
-			if method == "GET" {
-				continue
-			}
 			if op.OperationID == "" {
 				return nil, fmt.Errorf("operation %s %s has no operationId", method, path)
 			}
@@ -74,13 +74,22 @@ func BuildDefinitions(swagger *openapi3.T, cfg Config) ([]OperationDef, error) {
 				continue
 			}
 
+			// deriveDefinition has no verb for GET, so an override is the only
+			// way a read that should be audited gets a definition. Without one,
+			// an unexcluded GET is unclassified and fails rather than being
+			// silently skipped.
+			override, overridden := cfg.Overrides[op.OperationID]
+			if method == http.MethodGet && !overridden {
+				return nil, fmt.Errorf("GET %s (%s) is unclassified: declare it in the service's "+
+					"ReadOperations, exempt it in RESTExemptions with a reason, or give it an "+
+					"Overrides entry to audit it", path, op.OperationID)
+			}
+
 			kindSegment, _, _ := pathTail(path, cfg.ActionSuffixSegments)
 			usedKinds[kindSegment] = true
 
-			var def OperationDef
-			if override, ok := cfg.Overrides[op.OperationID]; ok {
-				def = override
-			} else {
+			def := override
+			if !overridden {
 				var err error
 				def, err = deriveDefinition(method, path, op.OperationID, cfg)
 				if err != nil {

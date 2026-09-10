@@ -3,32 +3,51 @@
 
 package audit
 
-// RESTExemptions maps a state-modifying observer-api REST operationId to the
-// reason it is deliberately unaudited rather than given a definition. Every
-// exemption here must carry a real reason — the coverage gate
-// (TestAuditCoverage) enforces that every state-modifying operation is
-// either defined or exempted, and that every exemption here still names a
-// real, live operation.
-var RESTExemptions = map[string]string{
-	"CreateAlertRule": "Runs on the unauthenticated internal port 8081 — no JWT middleware, " +
-		"no real actor to record.",
-	"UpdateAlertRule": "Runs on the unauthenticated internal port 8081 — no JWT middleware, " +
-		"no real actor to record.",
-	"DeleteAlertRule": "Runs on the unauthenticated internal port 8081 — no JWT middleware, " +
-		"no real actor to record.",
-	"HandleAlertWebhook": "Runs on the unauthenticated internal port 8081 — no JWT middleware, " +
-		"no real actor to record.",
+const (
+	reasonRead       = "A read; returns data without modifying state."
+	reasonReadAsPOST = "A read expressed as POST, not a state-modifying action."
+	reasonInternal   = "Runs on the unauthenticated internal port 8081 — no JWT middleware, " +
+		"no real actor to record."
+)
 
-	"QueryAlerts":          "A read expressed as POST, not a state-modifying action.",
-	"QueryDoraDeployments": "A read expressed as POST, not a state-modifying action.",
-	"QueryDoraMetrics":     "A read expressed as POST, not a state-modifying action.",
-	"QueryEvents":          "A read expressed as POST, not a state-modifying action.",
-	"QueryIncidents":       "A read expressed as POST, not a state-modifying action.",
-	"QueryLogs":            "A read expressed as POST, not a state-modifying action.",
-	"QueryMetrics":         "A read expressed as POST, not a state-modifying action.",
-	"QueryRuntimeTopology": "A read expressed as POST, not a state-modifying action.",
-	"QuerySpansForTrace":   "A read expressed as POST, not a state-modifying action.",
-	"QueryTraces":          "A read expressed as POST, not a state-modifying action.",
+// RESTExemptions maps an observer REST operationId, across both specs, to the
+// reason it is deliberately unaudited rather than given a definition.
+//
+// Exhaustive, reads included: the coverage gate (TestAuditCoverage) fails for
+// an operation that is neither defined nor listed here, so a new endpoint
+// cannot go unaudited by nobody noticing. Reads are listed rather than
+// inferred from the method because the method is not a reliable proxy either
+// way — every Query* below is a POST that reads, and a GET can be worth
+// auditing, such as reading the audit trail itself.
+var RESTExemptions = map[string]string{
+	// Internal spec — the unauthenticated port.
+	"CreateAlertRule":    reasonInternal,
+	"UpdateAlertRule":    reasonInternal,
+	"DeleteAlertRule":    reasonInternal,
+	"HandleAlertWebhook": reasonInternal,
+
+	// Public spec — reads expressed as POST, to carry a query body.
+	"QueryAlerts":          reasonReadAsPOST,
+	"QueryDoraDeployments": reasonReadAsPOST,
+	"QueryDoraMetrics":     reasonReadAsPOST,
+	"QueryEvents":          reasonReadAsPOST,
+	"QueryIncidents":       reasonReadAsPOST,
+	"QueryLogs":            reasonReadAsPOST,
+	"QueryMetrics":         reasonReadAsPOST,
+	"QueryRuntimeTopology": reasonReadAsPOST,
+	"QuerySpansForTrace":   reasonReadAsPOST,
+	"QueryTraces":          reasonReadAsPOST,
+
+	// Public spec — GET.
+	"GetComponentCosts":                 reasonRead,
+	"GetOAuthProtectedResourceMetadata": reasonRead,
+	"GetPlatformLogs":                   reasonRead,
+	"GetRecommendations":                reasonRead,
+	"GetSpanDetailsForTrace":            reasonRead,
+	"Health":                            reasonRead,
+
+	// Internal spec — GET.
+	"GetAlertRule": reasonRead,
 }
 
 // MCPToolNames pins the tool names observer's MCP server registers
