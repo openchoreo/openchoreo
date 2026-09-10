@@ -3,21 +3,18 @@
 
 package main
 
-import "github.com/openchoreo/openchoreo/tools/internal/auditgen"
+import (
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
+	"github.com/openchoreo/openchoreo/tools/internal/auditgen"
+)
 
-// apiExcludedOperationIDs are state-modifying routes deliberately not turned
-// into an OperationDef here — see internal/openchoreo-api/audit/exemptions.go
-// for the reason each is exempt rather than audited.
+// apiExcludedOperationIDs comes from internal/openchoreo-api/audit rather than
+// being restated here, so there is one place to change.
 //
-// GenerateRelease is NOT here: ComponentService.GenerateRelease calls
-// s.k8sClient.Create on a new ComponentRelease
-// (internal/openchoreo-api/services/component/service.go), so it needs a
-// real definition — apiGenerateReleaseOverride below — rather than an
-// exemption.
-var apiExcludedOperationIDs = map[string]bool{
-	"Evaluates":       true,
-	"HandleAutoBuild": true,
-}
+// GenerateRelease is not in it: ComponentService.GenerateRelease calls
+// s.k8sClient.Create on a new ComponentRelease, so it needs a real definition
+// — apiGenerateReleaseOverride below — rather than an exemption.
+var apiExcludedOperationIDs = excludedOperationIDs(apiaudit.RESTExemptions)
 
 // apiGenerateReleaseOverride replaces deriveDefinition's generic verb+resourceType
 // derivation for GenerateRelease: the path's own resource segment ("components")
