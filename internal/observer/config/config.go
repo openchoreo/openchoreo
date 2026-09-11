@@ -566,6 +566,31 @@ func (c *Config) validateDeliveryInsights() error {
 	return nil
 }
 
+// validateUIDResolver checks the UID resolver's own settings. Split out of
+// validate() to keep that function under the cyclomatic limit; these six checks
+// are one cohesive group and read better together than inline.
+func (c *Config) validateUIDResolver() error {
+	if c.UIDResolver.OpenChoreoAPIURL == "" {
+		return fmt.Errorf("uid resolver openchoreo API URL is required")
+	}
+	if c.UIDResolver.OAuthTokenURL == "" {
+		return fmt.Errorf("uid resolver oauth token URL is required")
+	}
+	if c.UIDResolver.OAuthClientID == "" {
+		return fmt.Errorf("uid resolver oauth client ID is required")
+	}
+	if c.UIDResolver.OAuthClientSecret == "" {
+		return fmt.Errorf("uid resolver oauth client secret is required")
+	}
+	if c.UIDResolver.Timeout <= 0 {
+		return fmt.Errorf("uid resolver timeout must be positive")
+	}
+	if c.UIDResolver.MaxAuthRetry < 0 {
+		return fmt.Errorf("uid resolver max.auth.retry must be non-negative")
+	}
+	return nil
+}
+
 func (c *Config) validate() error {
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)
@@ -590,23 +615,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("authz timeout must be positive")
 	}
 
-	if c.UIDResolver.OpenChoreoAPIURL == "" {
-		return fmt.Errorf("uid resolver openchoreo API URL is required")
-	}
-	if c.UIDResolver.OAuthTokenURL == "" {
-		return fmt.Errorf("uid resolver oauth token URL is required")
-	}
-	if c.UIDResolver.OAuthClientID == "" {
-		return fmt.Errorf("uid resolver oauth client ID is required")
-	}
-	if c.UIDResolver.OAuthClientSecret == "" {
-		return fmt.Errorf("uid resolver oauth client secret is required")
-	}
-	if c.UIDResolver.Timeout <= 0 {
-		return fmt.Errorf("uid resolver timeout must be positive")
-	}
-	if c.UIDResolver.MaxAuthRetry < 0 {
-		return fmt.Errorf("uid resolver max.auth.retry must be non-negative")
+	if err := c.validateUIDResolver(); err != nil {
+		return err
 	}
 
 	if err := c.validateAlertStore(); err != nil {
