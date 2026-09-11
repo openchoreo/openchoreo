@@ -4,14 +4,23 @@
 package workflowtemplates
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // A declared result names a step of the run template and an output that step's
 // ClusterWorkflowTemplate actually produces. Both halves are strings resolved at run time,
 // so a typo in either is invisible until a real build finishes and the result quietly does
 // not appear. These tests are what makes that a build failure instead.
+
+// testingSampleDir holds the custom-steps testing sample, which lives outside the
+// getting-started tree that the other helpers default to.
+const testingSampleDir = "../../samples/workflows/custom-steps/testing"
 
 // stepTemplateFile maps a ClusterWorkflowTemplate name to the file that defines it, so a
 // step's declared outputs can be looked up from the step it refers to.
@@ -23,6 +32,17 @@ var stepTemplateFile = map[string]string{
 	"gcp-buildpacks-build":      "gcp-buildpacks-build.yaml",
 	"paketo-buildpacks-build":   "paketo-buildpacks-build.yaml",
 	"generate-workload":         "generate-workload.yaml",
+	// Lives in the custom-steps testing sample rather than the getting-started tree.
+	"run-tests": "run-tests.yaml",
+}
+
+// templateDirFor returns the directory holding a step template's file. Most live in the
+// getting-started tree; the custom-steps samples bring their own.
+func templateDirFor(templateName string) string {
+	if templateName == "run-tests" {
+		return testingSampleDir
+	}
+	return templatesDir
 }
 
 // TestCIWorkflows_DeclareBuildResults pins the results the shipped builders surface. These
@@ -104,7 +124,7 @@ add it to stepTemplateFile so its outputs can be checked`,
 				result.Name, ref.Task, templateName)
 		}
 
-		outputs := declaredOutputs(t, templatesDir, file, templateName)
+		outputs := declaredOutputs(t, templateDirFor(templateName), file, templateName)
 		if !contains(outputs, ref.Result) {
 			t.Fatalf(`
 contract:
@@ -157,6 +177,81 @@ contract:
 templates in %s:
 %s`, file, inner, file, formatStringList(available))
 	return nil
+}
+
+// TestTestingSample_ResultsResolveToRealOutputs covers the custom-steps testing sample the
+// same way. It is not one of the shipped builders, so it is loaded from its own directory —
+// but it declares five results against a template in this repo, and a result naming an
+// output run-tests does not emit would be just as invisible until a real build ran.
+func TestTestingSample_ResultsResolveToRealOutputs(t *testing.T) {
+	wf := loadClusterWorkflowFromDir(t, testingSampleDir, "dockerfile-builder-tests.yaml")
+
+	outputs := declaredOutputsFromDir(t, testingSampleDir, "run-tests.yaml", "run-tests")
+
+	// tests-verdict must read the exit-code-derived outcome, not a parsed count. With the
+	// sample's defaults no JUnit report is produced, so every count is empty, and an empty
+	// count is not a pass.
+	verdict := requireResult(t, wf, "tests-verdict",
+		"the testing sample must report a verdict that holds when no report was parsed")
+	requireTaskResult(t, verdict, "run-tests", "tests-outcome",
+		"tests-verdict must read tests-outcome, which is derived from the test command's exit code")
+
+	// Every taskResult in the sample, not a hand-listed subset - a result added later must
+	// be checked too, and the ones reading the shipped build steps resolve through the same
+	// helper the builders use.
+	if len(wf.Spec.Results) == 0 {
+		t.Fatal("the testing sample declares no results")
+	}
+	assertResultsResolve(t, wf)
+
+	// assertResultsResolve only knows the getting-started templates, so the run-tests
+	// references are checked here against run-tests.yaml's own outputs.
+	checked := 0
+	for _, result := range wf.Spec.Results {
+		ref := result.ValueFrom.TaskResult
+		if ref == nil || ref.Task != "run-tests" {
+			continue
+		}
+		checked++
+		if !contains(outputs, ref.Result) {
+			t.Fatalf(`
+contract:
+  result %q reads an output that run-tests does not declare
+
+named output:
+  %s
+
+outputs declared by run-tests:
+%s`, result.Name, ref.Result, formatStringList(outputs))
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no result reads a run-tests output, so this test checked nothing")
+	}
+}
+
+// loadClusterWorkflowFromDir parses a ClusterWorkflow from any directory. loadCIWorkflow
+// is hard-wired to the getting-started tree; the custom-steps samples live elsewhere.
+func loadClusterWorkflowFromDir(t *testing.T, dir, filename string) clusterWorkflow {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, filename))
+	require.NoError(t, err, "reading ClusterWorkflow %s/%s", dir, filename)
+
+	var wf clusterWorkflow
+	require.NoError(t, yaml.Unmarshal(data, &wf), "unmarshalling ClusterWorkflow %s/%s", dir, filename)
+	return wf
+}
+
+// declaredOutputsFromDir returns the output parameter names an Argo template declares,
+// reading the template from an explicit directory.
+func declaredOutputsFromDir(t *testing.T, dir, file, templateName string) []string {
+	t.Helper()
+	step := workflowTemplateByNameFromDir(t, dir, file, templateName)
+	names := make([]string, 0, len(step.Outputs.Parameters))
+	for _, p := range step.Outputs.Parameters {
+		names = append(names, p.Name)
+	}
+	return names
 }
 
 func requireResult(t *testing.T, wf clusterWorkflow, name string, contract string) workflowResult {

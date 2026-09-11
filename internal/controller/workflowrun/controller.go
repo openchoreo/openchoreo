@@ -377,8 +377,10 @@ func (r *Reconciler) recordResults(
 	if workflow == nil || len(workflow.Spec.Results) == 0 {
 		return
 	}
-	workflowRun.Status.Results = r.resolveResults(
+	results, testReport := r.resolveResults(
 		ctx, workflowRun, workflow, workflow.Spec.Results, newArgoResultExtractor(runResource))
+	workflowRun.Status.Results = results
+	workflowRun.Status.TestReport = testReport
 }
 
 func (r *Reconciler) applyRenderedRunResource(

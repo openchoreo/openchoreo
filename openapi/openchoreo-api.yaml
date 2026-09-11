@@ -9206,7 +9206,10 @@ components:
       properties:
         name:
           type: string
-          description: Result name, and the key it appears under in WorkflowRunStatus.results.
+          description: |
+            Result name, and the key it appears under in WorkflowRunStatus.results.
+            The name "test-report" is reserved and is additionally projected into
+            WorkflowRunStatus.testReport.
           maxLength: 63
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           example: image
@@ -9594,6 +9597,13 @@ components:
           description: Values this run produced, as declared by the Workflow's spec.results. Populated once the run completes.
           items:
             $ref: '#/components/schemas/WorkflowRunResult'
+        testReport:
+          description: |
+            Parsed form of the reserved "test-report" result. Set only when a run declares
+            that result and its value parses as a test summary; the raw value stays in
+            results either way.
+          allOf:
+            - $ref: '#/components/schemas/TestReport'
         startedAt:
           type: string
           format: date-time
@@ -9624,6 +9634,55 @@ components:
         sensitive:
           type: boolean
           description: Mirrors the declaration, distinguishing a withheld value from a genuinely empty one.
+
+    TestReport:
+      type: object
+      description: |
+        Typed projection of the reserved "test-report" result. Summary values only - the
+        full report is not stored in status.
+      properties:
+        coveragePercent:
+          type: string
+          description: Line coverage as a decimal percentage between 0 and 100. A string so a value like "87.5" round-trips exactly.
+          pattern: '^(100(\.0+)?|\d{1,2}(\.\d+)?)$'
+          example: "87.5"
+        testsTotal:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Number of tests executed, including skipped ones.
+          example: 120
+        testsPassed:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 118
+        testsFailed:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+        testsSkipped:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+        testDurationSeconds:
+          type: string
+          description: How long the tests took, in seconds, as a decimal string.
+          pattern: '^\d+(\.\d+)?$'
+          example: "42.5"
+        reportFormat:
+          type: string
+          maxLength: 63
+          description: The format the step produced, so a consumer knows how to read reportArtifact.
+          example: cobertura
+        reportArtifact:
+          type: string
+          maxLength: 2048
+          description: |
+            Locates the full report when the workflow plane has somewhere to put one. Empty
+            in every shipped configuration today.
 
     WorkflowRunStatusResponse:
       type: object

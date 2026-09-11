@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -46,6 +47,10 @@ type ResultLimits struct {
 	TotalMaxBytes int
 }
 
+// ReservedTestReportResult is the result name that is additionally projected into
+// WorkflowRunStatus.TestReport. The raw value stays in Results either way.
+const ReservedTestReportResult = "test-report"
+
 // Event reasons emitted while resolving results. Extraction is best-effort by design: a
 // workflow whose results cannot be resolved has still run, and failing the reconcile would
 // retry the whole thing forever over a value nobody is blocked on. Every failure below
@@ -54,6 +59,7 @@ const (
 	reasonResultExtractionFailed = "ResultExtractionFailed"
 	reasonResultTruncated        = "ResultTruncated"
 	reasonResultsBudgetExceeded  = "ResultsBudgetExceeded"
+	reasonTestReportInvalid      = "TestReportInvalid"
 )
 
 // TaskOutputs holds one task's outputs, keyed by result name.
@@ -88,9 +94,9 @@ func (r *Reconciler) resolveResults(
 	workflow *openchoreodevv1alpha1.Workflow,
 	declarations []openchoreodevv1alpha1.WorkflowResult,
 	extractor ResultExtractor,
-) []openchoreodevv1alpha1.WorkflowRunResult {
+) ([]openchoreodevv1alpha1.WorkflowRunResult, *openchoreodevv1alpha1.TestReport) {
 	if len(declarations) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	logger := log.FromContext(ctx)
@@ -164,10 +170,10 @@ func (r *Reconciler) resolveResults(
 	}
 
 	if len(results) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	return results
+	return results, r.projectTestReport(ctx, workflowRun, results)
 }
 
 // resolveResultValue produces the raw value for one declaration, before any size cap is
@@ -296,7 +302,7 @@ func (r *Reconciler) buildResultCELContext(
 
 // resultValueToString renders an evaluated expression as the string status will hold. A
 // string is taken as-is; anything else is JSON encoded, so an expression may legitimately
-// assemble an object from several task outputs.
+// assemble an object - which is how a test-report result is built from separate outputs.
 func resultValueToString(value any) (string, error) {
 	if template.IsOmitted(value) {
 		// RemoveOmittedFields prunes the sentinel from inside maps and slices, but a whole
@@ -326,6 +332,129 @@ func truncateResultValue(value string, maxBytes int) (string, bool) {
 		return value, false
 	}
 	return template.TruncateTo(value, maxBytes), true
+}
+
+// projectTestReport parses the reserved test-report result into its typed form. A missing
+// result is not an error - most workflows have no tests - but a present one that does not
+// parse is: the author meant to publish a report and did not, so say so.
+func (r *Reconciler) projectTestReport(
+	ctx context.Context,
+	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	results []openchoreodevv1alpha1.WorkflowRunResult,
+) *openchoreodevv1alpha1.TestReport {
+	for i := range results {
+		if results[i].Name != ReservedTestReportResult {
+			continue
+		}
+		entry := &results[i]
+		switch {
+		case entry.Sensitive:
+			// Nothing was recorded to parse, and projecting would put the withheld value
+			// back into status field by field.
+			return nil
+		case entry.Truncated:
+			r.eventf(workflowRun, corev1.EventTypeWarning, reasonTestReportInvalid,
+				"the %q result was truncated, so no test report was recorded", ReservedTestReportResult)
+			return nil
+		}
+
+		if strings.TrimSpace(entry.Value) == "" {
+			// The step ran but measured nothing - run-tests emits an empty report rather
+			// than a bare "{}" when no counts or coverage were produced. That is a normal
+			// outcome for a build whose defaults parse no report, so it must not raise a
+			// warning on every such run.
+			return nil
+		}
+
+		report, err := parseTestReport(entry.Value)
+		if err != nil {
+			r.eventf(workflowRun, corev1.EventTypeWarning, reasonTestReportInvalid,
+				"the %q result was not recorded as a test report: %v", ReservedTestReportResult, err)
+			log.FromContext(ctx).V(1).Info("test-report result did not parse",
+				"workflowrun", workflowRun.Name, "reason", err.Error())
+			return nil
+		}
+		return report
+	}
+	return nil
+}
+
+// parseTestReport reads the JSON summary a test step emits. Unknown fields are rejected so a
+// typo in a report - "coverage" for "coveragePercent" - is reported rather than silently
+// dropping the number the whole feature exists to surface.
+func parseTestReport(value string) (*openchoreodevv1alpha1.TestReport, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, errors.New("the value is empty")
+	}
+
+	report := &openchoreodevv1alpha1.TestReport{}
+	decoder := json.NewDecoder(strings.NewReader(trimmed))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(report); err != nil {
+		return nil, fmt.Errorf("it is not a test report object: %w", err)
+	}
+	if decoder.More() {
+		return nil, errors.New("it holds more than one JSON value")
+	}
+	if *report == (openchoreodevv1alpha1.TestReport{}) {
+		return nil, errors.New("it holds no test report fields")
+	}
+	if err := validateTestReport(report); err != nil {
+		return nil, err
+	}
+	return report, nil
+}
+
+// Mirrors of the CRD's own validation on TestReport. Duplicating them here is deliberate.
+//
+// A parsed report is assigned to status and written by the deferred Status().Update that
+// also carries the run's terminal condition. If the API server rejects the report - and it
+// will reject a coveragePercent of "187.5", which is valid JSON and a plausible thing for a
+// miscalibrated test step to emit - the whole write fails, so the run never gets marked
+// complete and the reconcile retries forever over a value nobody is blocked on. Rejecting it
+// here keeps a bad report doing what every other extraction failure does: an Event, no
+// entry, and a run that still completes.
+//
+// Keep these in step with the +kubebuilder:validation markers on TestReport.
+var (
+	coveragePercentPattern     = regexp.MustCompile(`^(100(\.0+)?|\d{1,2}(\.\d+)?)$`)
+	testDurationSecondsPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
+)
+
+const (
+	maxReportFormatLen   = 63
+	maxReportArtifactLen = 2048
+)
+
+// validateTestReport rejects a report the API server would reject.
+func validateTestReport(report *openchoreodevv1alpha1.TestReport) error {
+	if v := report.CoveragePercent; v != "" && !coveragePercentPattern.MatchString(v) {
+		return fmt.Errorf("coveragePercent %q is not a percentage between 0 and 100", v)
+	}
+	if v := report.TestDurationSeconds; v != "" && !testDurationSecondsPattern.MatchString(v) {
+		return fmt.Errorf("testDurationSeconds %q is not a decimal number of seconds", v)
+	}
+	for _, count := range []struct {
+		field string
+		value *int32
+	}{
+		{"testsTotal", report.TestsTotal},
+		{"testsPassed", report.TestsPassed},
+		{"testsFailed", report.TestsFailed},
+		{"testsSkipped", report.TestsSkipped},
+	} {
+		if count.value != nil && *count.value < 0 {
+			return fmt.Errorf("%s is negative (%d)", count.field, *count.value)
+		}
+	}
+	if len(report.ReportFormat) > maxReportFormatLen {
+		return fmt.Errorf("reportFormat is longer than %d characters", maxReportFormatLen)
+	}
+	if len(report.ReportArtifact) > maxReportArtifactLen {
+		return fmt.Errorf("reportArtifact is longer than %d characters", maxReportArtifactLen)
+	}
+	return nil
 }
 
 // resultValueMaxBytes and resultsMaxBytes read the configured caps, falling back to the

@@ -5,11 +5,13 @@ package workflowrun
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -143,7 +145,7 @@ var _ = Describe("WorkflowRun results status schema", func() {
 		}
 	}
 
-	It("round-trips results through the API server", func() {
+	It("round-trips results and a test report through the API server", func() {
 		run := newRun()
 		Expect(k8sClient.Create(ctx, run)).To(Succeed())
 		DeferCleanup(func() { _ = k8sClient.Delete(ctx, run) })
@@ -152,6 +154,15 @@ var _ = Describe("WorkflowRun results status schema", func() {
 			{Name: "image", Description: "published image", Value: "registry.example/app:v1"},
 			{Name: "big", Value: "truncated...", Truncated: true},
 			{Name: "db-password", Sensitive: true},
+		}
+		run.Status.TestReport = &openchoreov1alpha1.TestReport{
+			CoveragePercent:     "87.5",
+			TestsTotal:          ptr.To(int32(120)),
+			TestsPassed:         ptr.To(int32(118)),
+			TestsFailed:         ptr.To(int32(1)),
+			TestsSkipped:        ptr.To(int32(1)),
+			TestDurationSeconds: "42.500",
+			ReportFormat:        "cobertura",
 		}
 		Expect(k8sClient.Status().Update(ctx, run)).To(Succeed())
 
@@ -165,6 +176,80 @@ var _ = Describe("WorkflowRun results status schema", func() {
 		// consumer can tell the run produced it without status carrying the value.
 		Expect(fetched.Status.Results[2].Sensitive).To(BeTrue())
 		Expect(fetched.Status.Results[2].Value).To(BeEmpty())
+
+		Expect(fetched.Status.TestReport).NotTo(BeNil())
+		// The decimal string survives exactly. This is why coveragePercent is not a float.
+		Expect(fetched.Status.TestReport.CoveragePercent).To(Equal("87.5"))
+		Expect(*fetched.Status.TestReport.TestsTotal).To(Equal(int32(120)))
+		Expect(fetched.Status.TestReport.ReportArtifact).To(BeEmpty())
+	})
+
+	It("rejects a coverage percentage outside 0-100", func() {
+		run := newRun()
+		Expect(k8sClient.Create(ctx, run)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, run) })
+
+		run.Status.TestReport = &openchoreov1alpha1.TestReport{CoveragePercent: "187.5"}
+		Expect(k8sClient.Status().Update(ctx, run)).NotTo(Succeed())
+	})
+
+	It("rejects a non-numeric test duration", func() {
+		run := newRun()
+		Expect(k8sClient.Create(ctx, run)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, run) })
+
+		run.Status.TestReport = &openchoreov1alpha1.TestReport{TestDurationSeconds: "42s"}
+		Expect(k8sClient.Status().Update(ctx, run)).NotTo(Succeed())
+	})
+
+	// The controller mirrors the CRD's TestReport constraints in Go (validateTestReport)
+	// so a bad report is dropped before it can fail the status write that also carries the
+	// run's terminal condition. Duplicated validation drifts, so pin the two together: every
+	// value the Go mirror rejects must be one the API server would have rejected too.
+	It("rejects exactly what the Go-side test report validation rejects", func() {
+		rejected := map[string]openchoreov1alpha1.TestReport{
+			"coverage above 100":    {CoveragePercent: "187.5"},
+			"coverage not a number": {CoveragePercent: "87.5 of statements"},
+			"coverage with percent": {CoveragePercent: "87.5%"},
+			"duration with unit":    {TestDurationSeconds: "42s"},
+			"negative count":        {TestsFailed: ptr.To(int32(-1))},
+			"format too long":       {ReportFormat: strings.Repeat("f", 64)},
+		}
+		for name, report := range rejected {
+			By("API server rejects " + name)
+			run := newRun()
+			Expect(k8sClient.Create(ctx, run)).To(Succeed())
+
+			run.Status.TestReport = report.DeepCopy()
+			Expect(k8sClient.Status().Update(ctx, run)).NotTo(Succeed(),
+				"the API server accepted %s, so validateTestReport is stricter than the CRD", name)
+
+			By("and validateTestReport rejects " + name)
+			Expect(validateTestReport(report.DeepCopy())).To(HaveOccurred(),
+				"validateTestReport accepted %s, which the API server rejects", name)
+
+			Expect(k8sClient.Delete(ctx, run)).To(Succeed())
+		}
+	})
+
+	It("accepts what the Go-side test report validation accepts", func() {
+		accepted := map[string]openchoreov1alpha1.TestReport{
+			"zero coverage":    {CoveragePercent: "0"},
+			"full coverage":    {CoveragePercent: "100"},
+			"full with zeros":  {CoveragePercent: "100.00"},
+			"integer duration": {TestDurationSeconds: "42"},
+		}
+		for name, report := range accepted {
+			run := newRun()
+			Expect(k8sClient.Create(ctx, run)).To(Succeed())
+
+			Expect(validateTestReport(report.DeepCopy())).To(Succeed(), "%s should pass the Go mirror", name)
+			run.Status.TestReport = report.DeepCopy()
+			Expect(k8sClient.Status().Update(ctx, run)).To(Succeed(),
+				"the API server rejected %s, so validateTestReport is looser than the CRD", name)
+
+			Expect(k8sClient.Delete(ctx, run)).To(Succeed())
+		}
 	})
 
 	It("rejects two status results sharing a name", func() {

@@ -137,6 +137,57 @@ type WorkflowRunResult struct {
 	Sensitive bool `json:"sensitive,omitempty"`
 }
 
+// TestReport is the typed projection of the reserved "test-report" result.
+//
+// Counts and coverage are summary values only. The full report is not stored here: the
+// workflow plane configures no artifact repository, so ReportArtifact exists for the day
+// one is configured and is empty until then.
+type TestReport struct {
+	// CoveragePercent is the line coverage the run measured, as a decimal percentage
+	// between 0 and 100. It is a string rather than a number so a value like "87.5"
+	// round-trips exactly through the API server.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(100(\.0+)?|\d{1,2}(\.\d+)?)$`
+	CoveragePercent string `json:"coveragePercent,omitempty"`
+
+	// TestsTotal is the number of tests the run executed, including skipped ones.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	TestsTotal *int32 `json:"testsTotal,omitempty"`
+
+	// TestsPassed is the number of tests that passed.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	TestsPassed *int32 `json:"testsPassed,omitempty"`
+
+	// TestsFailed is the number of tests that failed.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	TestsFailed *int32 `json:"testsFailed,omitempty"`
+
+	// TestsSkipped is the number of tests that were skipped.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	TestsSkipped *int32 `json:"testsSkipped,omitempty"`
+
+	// TestDurationSeconds is how long the tests took, in seconds, as a decimal string.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\d+(\.\d+)?$`
+	TestDurationSeconds string `json:"testDurationSeconds,omitempty"`
+
+	// ReportFormat names the format the step produced (e.g. "cobertura", "lcov",
+	// "jacoco", "go-cover"), so a consumer knows how to read ReportArtifact.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	ReportFormat string `json:"reportFormat,omitempty"`
+
+	// ReportArtifact locates the full report when the workflow plane has somewhere to put
+	// one. It is empty in every shipped configuration today.
+	// +optional
+	// +kubebuilder:validation:MaxLength=2048
+	ReportArtifact string `json:"reportArtifact,omitempty"`
+}
+
 // WorkflowRunStatus defines the observed state of WorkflowRun.
 type WorkflowRunStatus struct {
 	// Conditions represent the current state of the WorkflowRun resource.
@@ -169,6 +220,12 @@ type WorkflowRunStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	Results []WorkflowRunResult `json:"results,omitempty"`
+
+	// TestReport is the parsed form of the reserved "test-report" result. It is set only
+	// when a run declares that result and its value parses as a test summary; the raw
+	// value stays in Results either way.
+	// +optional
+	TestReport *TestReport `json:"testReport,omitempty"`
 
 	// StartedAt is the timestamp when this workflow run started execution.
 	// +optional
