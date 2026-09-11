@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 _EMPTY_GUARD_TOOLS: frozenset[str] = frozenset({
     # observer plane
     "query_component_logs",
+    "query_component_events",
     "query_workflow_logs",
+    "query_workflow_events",
     "query_alerts",
     "query_incidents",
     "query_resource_metrics",
