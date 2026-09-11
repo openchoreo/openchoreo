@@ -308,6 +308,9 @@ const (
 
 	// Delivery insights (DORA metrics) actions
 	ActionViewDeliveryInsights = "deliveryinsights:view"
+
+	// PortalAssistant actions
+	ActionInvokePortalAssistant = "portal-assistant:invoke"
 )
 
 // Action represents a system action with metadata
@@ -589,6 +592,9 @@ var systemActions = []Action{
 	// Audit trail. Cluster-scoped: a query's tenancy filters are filters, not a
 	// scope, so nothing below the cluster can satisfy it.
 	{Name: ActionViewAuditLogs, LowestScope: ScopeCluster, IsInternal: false},
+
+	// Portal assistant
+	{Name: ActionInvokePortalAssistant, LowestScope: ScopeCluster, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions
