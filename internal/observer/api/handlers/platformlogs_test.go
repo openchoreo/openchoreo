@@ -358,3 +358,204 @@ func TestGetPlatformLogs_ServiceNotInitialized(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1PlatformLogsServiceNotReady)
 }
+
+// --- filter values ---
+
+// The minimum a filter values call needs: which filter, and the window it runs under.
+const filterValuesQuery = "filter=podName&" + platformLogsWindow
+
+func getFilterValues(t *testing.T, h *Handler, query string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/platform-logs/filter-values?"+query, nil)
+	return serve(t, h, req)
+}
+
+func TestGetPlatformLogFilterValues_Success(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockPlatformLogsQuerier(t)
+	svc.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+		Return(&types.PlatformLogFilterValuesResponse{
+			Filter: "podName",
+			Values: []types.PlatformLogFilterValue{
+				{Value: "controller-manager-abc", Count: 412},
+			},
+			TotalValues:   940,
+			TotalRelation: "gte",
+			TookMs:        4,
+		}, nil)
+
+	rr := getFilterValues(t, platformLogsHandler(t, svc), filterValuesQuery)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"filter":"podName"`)
+	assert.Contains(t, rr.Body.String(), `"value":"controller-manager-abc"`)
+	assert.Contains(t, rr.Body.String(), `"count":412`)
+	assert.Contains(t, rr.Body.String(), `"totalValues":940`)
+	assert.Contains(t, rr.Body.String(), `"totalRelation":"gte"`)
+}
+
+// The record filters arrive flattened on the query string and are rebuilt into the
+// query they describe - including the named filter's own selections, which the adapter
+// excludes rather than the observer.
+func TestGetPlatformLogFilterValues_RebuildsQuery(t *testing.T) {
+	t.Parallel()
+
+	var got *types.PlatformLogFilterValuesRequest
+	svc := servicemocks.NewMockPlatformLogsQuerier(t)
+	svc.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *types.PlatformLogFilterValuesRequest) { got = req }).
+		Return(&types.PlatformLogFilterValuesResponse{}, nil)
+
+	query := filterValuesQuery +
+		"&namespace=openchoreo-control-plane,cert-manager" +
+		"&podName=already-selected" +
+		"&clusterInstance=cluster1" +
+		"&containerName=manager" +
+		"&logLevels=ERROR,WARN" +
+		"&labels=openchoreo.dev%2Fplane%3Dcontrolplane" +
+		"&searchPhrase=reconcile" +
+		"&valueSearch=controller&maxValues=50"
+
+	rr := getFilterValues(t, platformLogsHandler(t, svc), query)
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	require.NotNil(t, got)
+	assert.Equal(t, "podName", got.Filter)
+	assert.Equal(t, "controller", got.ValueSearch)
+	assert.Equal(t, 50, got.MaxValues)
+	assert.Equal(t, []string{"openchoreo-control-plane", "cert-manager"}, got.Query.Namespaces)
+	assert.Equal(t, []string{"cluster1"}, got.Query.ClusterInstances)
+	assert.Equal(t, []string{"manager"}, got.Query.ContainerNames)
+	assert.Equal(t, []string{"ERROR", "WARN"}, got.Query.LogLevels)
+	assert.Equal(t, map[string]string{"openchoreo.dev/plane": "controlplane"}, got.Query.Labels)
+	assert.Equal(t, "reconcile", got.Query.SearchPhrase)
+	assert.Equal(t, []string{"already-selected"}, got.Query.PodNames)
+}
+
+func TestGetPlatformLogFilterValues_DefaultsMaxValues(t *testing.T) {
+	t.Parallel()
+
+	var got *types.PlatformLogFilterValuesRequest
+	svc := servicemocks.NewMockPlatformLogsQuerier(t)
+	svc.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *types.PlatformLogFilterValuesRequest) { got = req }).
+		Return(&types.PlatformLogFilterValuesResponse{}, nil)
+
+	rr := getFilterValues(t, platformLogsHandler(t, svc), filterValuesQuery)
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	require.NotNil(t, got)
+	assert.Equal(t, 100, got.MaxValues)
+}
+
+func TestGetPlatformLogFilterValues_BadRequests(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		query   string
+		wantErr string
+	}{
+		{name: "no filter named", query: platformLogsWindow, wantErr: ""},
+		{name: "unknown filter", query: "filter=nodeName&" + platformLogsWindow, wantErr: ""},
+		{name: "missing window", query: "filter=podName", wantErr: ""},
+		{
+			name:    "window beyond the cap",
+			query:   "filter=podName&startTime=2026-01-01T00:00:00Z&endTime=2026-06-01T00:00:00Z",
+			wantErr: "cannot exceed 30 days",
+		},
+		{
+			name:    "maxValues above the cap",
+			query:   filterValuesQuery + "&maxValues=5000",
+			wantErr: "maxValues cannot exceed",
+		},
+		{
+			name:    "malformed label selector",
+			query:   filterValuesQuery + "&labels=notaselector",
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// No service call is expected, so an unprimed mock also asserts that.
+			svc := servicemocks.NewMockPlatformLogsQuerier(t)
+			rr := getFilterValues(t, platformLogsHandler(t, svc), tt.query)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			if tt.wantErr != "" {
+				assert.Contains(t, rr.Body.String(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetPlatformLogFilterValues_ErrorMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+		wantBody string
+	}{
+		{
+			name:     "adapter cannot aggregate",
+			err:      service.ErrPlatformLogFilterValuesNotSupported,
+			wantCode: http.StatusNotImplemented,
+			wantBody: types.ErrorCodeV1PlatformLogFilterValuesNotSupported,
+		},
+		{
+			name:     "retrieval failed",
+			err:      service.ErrPlatformLogFilterValuesRetrieval,
+			wantCode: http.StatusInternalServerError,
+			wantBody: types.ErrorCodeV1PlatformLogFilterValuesRetrievalFailed,
+		},
+		{
+			name:     "forbidden",
+			err:      observerAuthz.ErrAuthzForbidden,
+			wantCode: http.StatusForbidden,
+			wantBody: "Access denied",
+		},
+		{
+			name:     "unauthorized",
+			err:      observerAuthz.ErrAuthzUnauthorized,
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
+		},
+		{
+			name:     "unknown failure",
+			err:      errors.New("boom"),
+			wantCode: http.StatusInternalServerError,
+			wantBody: types.ErrorCodeV1PlatformLogsInternalGeneric,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := servicemocks.NewMockPlatformLogsQuerier(t)
+			svc.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+				Return(nil, tt.err)
+
+			rr := getFilterValues(t, platformLogsHandler(t, svc), filterValuesQuery)
+
+			require.Equal(t, tt.wantCode, rr.Code)
+			assert.True(t, strings.Contains(rr.Body.String(), tt.wantBody),
+				"body %q should contain %q", rr.Body.String(), tt.wantBody)
+		})
+	}
+}
+
+func TestGetPlatformLogFilterValues_ServiceNotInitialized(t *testing.T) {
+	t.Parallel()
+
+	rr := getFilterValues(t, platformLogsHandler(t, nil), filterValuesQuery)
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1PlatformLogFilterValuesServiceNotReady)
+}

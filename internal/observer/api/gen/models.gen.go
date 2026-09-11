@@ -24,12 +24,12 @@ const (
 
 // Defines values for AlertRuleConditionOperator.
 const (
-	Eq  AlertRuleConditionOperator = "eq"
-	Gt  AlertRuleConditionOperator = "gt"
-	Gte AlertRuleConditionOperator = "gte"
-	Lt  AlertRuleConditionOperator = "lt"
-	Lte AlertRuleConditionOperator = "lte"
-	Neq AlertRuleConditionOperator = "neq"
+	AlertRuleConditionOperatorEq  AlertRuleConditionOperator = "eq"
+	AlertRuleConditionOperatorGt  AlertRuleConditionOperator = "gt"
+	AlertRuleConditionOperatorGte AlertRuleConditionOperator = "gte"
+	AlertRuleConditionOperatorLt  AlertRuleConditionOperator = "lt"
+	AlertRuleConditionOperatorLte AlertRuleConditionOperator = "lte"
+	AlertRuleConditionOperatorNeq AlertRuleConditionOperator = "neq"
 )
 
 // Defines values for AlertRuleSourceType.
@@ -95,6 +95,12 @@ const (
 	MetricsQueryRequestMetricResource MetricsQueryRequestMetric = "resource"
 )
 
+// Defines values for PlatformLogFilterValuesResponseTotalRelation.
+const (
+	PlatformLogFilterValuesResponseTotalRelationEq  PlatformLogFilterValuesResponseTotalRelation = "eq"
+	PlatformLogFilterValuesResponseTotalRelationGte PlatformLogFilterValuesResponseTotalRelation = "gte"
+)
+
 // Defines values for RuntimeTopologyEdgeProtocol.
 const (
 	RuntimeTopologyEdgeProtocolHttp RuntimeTopologyEdgeProtocol = "http"
@@ -127,6 +133,14 @@ const (
 	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
 )
 
+// Defines values for PlatformLogFilterValuesFilter.
+const (
+	PlatformLogFilterValuesFilterClusterInstance PlatformLogFilterValuesFilter = "clusterInstance"
+	PlatformLogFilterValuesFilterContainerName   PlatformLogFilterValuesFilter = "containerName"
+	PlatformLogFilterValuesFilterNamespace       PlatformLogFilterValuesFilter = "namespace"
+	PlatformLogFilterValuesFilterPodName         PlatformLogFilterValuesFilter = "podName"
+)
+
 // Defines values for PlatformLogsSortOrder.
 const (
 	PlatformLogsSortOrderAsc  PlatformLogsSortOrder = "asc"
@@ -145,6 +159,22 @@ const (
 const (
 	Asc  GetPlatformLogsParamsSortOrder = "asc"
 	Desc GetPlatformLogsParamsSortOrder = "desc"
+)
+
+// Defines values for GetPlatformLogFilterValuesParamsFilter.
+const (
+	GetPlatformLogFilterValuesParamsFilterClusterInstance GetPlatformLogFilterValuesParamsFilter = "clusterInstance"
+	GetPlatformLogFilterValuesParamsFilterContainerName   GetPlatformLogFilterValuesParamsFilter = "containerName"
+	GetPlatformLogFilterValuesParamsFilterNamespace       GetPlatformLogFilterValuesParamsFilter = "namespace"
+	GetPlatformLogFilterValuesParamsFilterPodName         GetPlatformLogFilterValuesParamsFilter = "podName"
+)
+
+// Defines values for GetPlatformLogFilterValuesParamsLogLevels.
+const (
+	DEBUG GetPlatformLogFilterValuesParamsLogLevels = "DEBUG"
+	ERROR GetPlatformLogFilterValuesParamsLogLevels = "ERROR"
+	INFO  GetPlatformLogFilterValuesParamsLogLevels = "INFO"
+	WARN  GetPlatformLogFilterValuesParamsLogLevels = "WARN"
 )
 
 // Alert A single fired alert.
@@ -744,6 +774,50 @@ type PlatformLog struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// PlatformLogFilterValue One value a filter takes, with how many records carry it.
+type PlatformLogFilterValue struct {
+	// Count Matching records carrying this value, within the queried window. May be
+	// approximate on a high-cardinality filter where the backend answers from a
+	// partial term count, so treat it as an ordering hint and a sense of scale
+	// rather than a total.
+	Count int64 `json:"count"`
+
+	// Value The value, exactly as it would be sent back as a filter.
+	Value string `json:"value"`
+}
+
+// PlatformLogFilterValuesResponse defines model for PlatformLogFilterValuesResponse.
+type PlatformLogFilterValuesResponse struct {
+	// Filter The filter these values belong to, echoed from the request so a client
+	// handling several pickers can match a response to the one that asked.
+	Filter string `json:"filter"`
+
+	// TookMs The time taken to compute the values in milliseconds.
+	TookMs int64 `json:"tookMs"`
+
+	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+	// distinct values exactly is itself an expensive aggregation on a
+	// high-cardinality field, and most backends answer approximately, so a
+	// capped or estimated count is labelled rather than passed off as exact.
+	TotalRelation PlatformLogFilterValuesResponseTotalRelation `json:"totalRelation"`
+
+	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
+	// Read together with `totalRelation` - this is what lets a picker say "412
+	// more values, keep typing to narrow" rather than silently ending its list.
+	TotalValues int64 `json:"totalValues"`
+
+	// Values The distinct values, ordered by `count` descending then `value` ascending.
+	// Records on which the field is absent are not represented: no empty-string
+	// entry, because no filter value would select one.
+	Values []PlatformLogFilterValue `json:"values"`
+}
+
+// PlatformLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+// distinct values exactly is itself an expensive aggregation on a
+// high-cardinality field, and most backends answer approximately, so a
+// capped or estimated count is labelled rather than passed off as exact.
+type PlatformLogFilterValuesResponseTotalRelation string
+
 // PlatformLogsResponse defines model for PlatformLogsResponse.
 type PlatformLogsResponse struct {
 	// Logs Log entries matching the query.
@@ -1127,6 +1201,15 @@ type FinOpsProject = string
 // FinOpsStartTime defines model for FinOpsStartTime.
 type FinOpsStartTime = time.Time
 
+// PlatformLogFilterValuesFilter defines model for PlatformLogFilterValuesFilter.
+type PlatformLogFilterValuesFilter string
+
+// PlatformLogFilterValuesMaxValues defines model for PlatformLogFilterValuesMaxValues.
+type PlatformLogFilterValuesMaxValues = int
+
+// PlatformLogFilterValuesValueSearch defines model for PlatformLogFilterValuesValueSearch.
+type PlatformLogFilterValuesValueSearch = string
+
 // PlatformLogsClusterInstance defines model for PlatformLogsClusterInstance.
 type PlatformLogsClusterInstance = []string
 
@@ -1243,6 +1326,71 @@ type GetPlatformLogsParamsLogLevels string
 
 // GetPlatformLogsParamsSortOrder defines parameters for GetPlatformLogs.
 type GetPlatformLogsParamsSortOrder string
+
+// GetPlatformLogFilterValuesParams defines parameters for GetPlatformLogFilterValues.
+type GetPlatformLogFilterValuesParams struct {
+	// Filter The filter to list values for, named as the query parameter that accepts it -
+	// `podName` lists the values that filter takes.
+	//
+	// Only the coordinate filters are listed. `logLevels` is a fixed enum a client
+	// already knows, and `labels` is a selector rather than a field with values.
+	Filter GetPlatformLogFilterValuesParamsFilter `form:"filter" json:"filter"`
+
+	// StartTime Inclusive lower bound of the log window (RFC 3339, absolute UTC).
+	StartTime PlatformLogsStartTime `form:"startTime" json:"startTime"`
+
+	// EndTime Exclusive upper bound of the log window (RFC 3339, absolute UTC). Must be strictly
+	// greater than startTime.
+	EndTime PlatformLogsEndTime `form:"endTime" json:"endTime"`
+
+	// ClusterInstance Clusters the records were collected from, as configured on each logs collector.
+	// Comma-separated; OR within.
+	ClusterInstance *PlatformLogsClusterInstance `form:"clusterInstance,omitempty" json:"clusterInstance,omitempty"`
+
+	// Namespace Kubernetes namespaces of the pods. Comma-separated; OR within.
+	Namespace *PlatformLogsNamespace `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// PodName Pod names. Comma-separated; OR within.
+	PodName *PlatformLogsPodName `form:"podName,omitempty" json:"podName,omitempty"`
+
+	// ContainerName Container names. Comma-separated; OR within.
+	ContainerName *PlatformLogsContainerName `form:"containerName,omitempty" json:"containerName,omitempty"`
+
+	// Labels Kubernetes label selector over the pod labels on each record. Comma means AND
+	// here, matching `kubectl -l`. Equality-based selectors only (`key=value`); set-based
+	// operators are not supported. This is how plane attribution is expressed, for
+	// example `openchoreo.dev/plane=controlplane,app.kubernetes.io/name=openbao`.
+	Labels *PlatformLogsLabels `form:"labels,omitempty" json:"labels,omitempty"`
+
+	// LogLevels Log severities to include. Comma-separated; OR within. Named to match
+	// `LogsQueryRequest.logLevels` on the component and workflow endpoints.
+	LogLevels *PlatformLogsLogLevels `form:"logLevels,omitempty" json:"logLevels,omitempty"`
+
+	// SearchPhrase Text to search for within log messages. Entries not containing the phrase are
+	// excluded.
+	SearchPhrase *PlatformLogsSearchPhrase `form:"searchPhrase,omitempty" json:"searchPhrase,omitempty"`
+
+	// ValueSearch Return only values containing this text, case-insensitively. This is how a
+	// picker narrows as its user types, and it is what makes a high-cardinality
+	// filter usable at all: `podName` on a busy plane has more distinct values than
+	// any list should offer, and typing three characters cuts it to something
+	// choosable.
+	//
+	// Distinct from `searchPhrase`, which narrows the *records* considered. This
+	// narrows the *values* returned from those records.
+	ValueSearch *PlatformLogFilterValuesValueSearch `form:"valueSearch,omitempty" json:"valueSearch,omitempty"`
+
+	// MaxValues The maximum number of values to return, ordered by `count` descending then
+	// `value` ascending - so a truncated list holds the busiest. Named to stay
+	// distinct from `limit`, which is a record page size and has no meaning here.
+	MaxValues *PlatformLogFilterValuesMaxValues `form:"maxValues,omitempty" json:"maxValues,omitempty"`
+}
+
+// GetPlatformLogFilterValuesParamsFilter defines parameters for GetPlatformLogFilterValues.
+type GetPlatformLogFilterValuesParamsFilter string
+
+// GetPlatformLogFilterValuesParamsLogLevels defines parameters for GetPlatformLogFilterValues.
+type GetPlatformLogFilterValuesParamsLogLevels string
 
 // QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.
 type QueryEventsJSONRequestBody = EventsQueryRequest

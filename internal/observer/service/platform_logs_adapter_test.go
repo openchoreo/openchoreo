@@ -254,3 +254,160 @@ func TestLogsAdapter_GetPlatformLogs_UpstreamErrors(t *testing.T) {
 		})
 	}
 }
+
+// --- filter values ---
+
+func filterValuesParams() observability.PlatformLogFilterValuesParams {
+	return observability.PlatformLogFilterValuesParams{
+		Filter:      "podName",
+		ValueSearch: "controller",
+		MaxValues:   50,
+		Query: observability.PlatformLogsParams{
+			Namespaces:   []string{"openchoreo-control-plane"},
+			PodNames:     []string{"already-selected"},
+			Labels:       map[string]string{"openchoreo.dev/plane": "controlplane"},
+			LogLevels:    []string{"ERROR"},
+			SearchPhrase: "reconcile",
+			StartTime:    time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC),
+			EndTime:      time.Date(2026, 8, 14, 17, 30, 0, 0, time.UTC),
+		},
+	}
+}
+
+func okFilterValuesBody() map[string]any {
+	return map[string]any{
+		"filter": "podName", "values": []any{},
+		"totalValues": 0, "totalRelation": "eq", "tookMs": 1,
+	}
+}
+
+// Pins what the observer puts on the wire: the POST path from the adapter contract, and
+// the record query nested under `query` rather than flattened alongside `filter`.
+func TestLogsAdapter_GetPlatformLogFilterValues_RequestContract(t *testing.T) {
+	t.Parallel()
+
+	var gotBody map[string]any
+	var gotMethod, gotPath string
+	server := platformLogsServer(t, http.StatusOK, okFilterValuesBody(), &gotBody, &gotMethod, &gotPath)
+	defer server.Close()
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, http.MethodPost, gotMethod)
+	assert.Equal(t, "/api/v1alpha1/platform-logs/filter-values", gotPath)
+	assert.Equal(t, "podName", gotBody["filter"])
+	assert.Equal(t, "controller", gotBody["valueSearch"])
+	assert.EqualValues(t, 50, gotBody["maxValues"])
+
+	query, ok := gotBody["query"].(map[string]any)
+	require.True(t, ok, "the record query must be nested under query, got %v", gotBody)
+	assert.Equal(t, []any{"openchoreo-control-plane"}, query["namespace"])
+	assert.Equal(t, map[string]any{"openchoreo.dev/plane": "controlplane"}, query["labels"])
+	assert.Equal(t, []any{"ERROR"}, query["logLevels"])
+	assert.Equal(t, "reconcile", query["searchPhrase"])
+	assert.Equal(t, "2026-08-14T16:30:00Z", query["startTime"])
+
+	// Paging and ordering describe a page of records, of which this returns none.
+	assert.NotContains(t, query, "limit")
+	assert.NotContains(t, query, "sortOrder")
+}
+
+// The named filter's own selections are sent untouched: excluding them is the adapter's
+// job, and a doctored query would leave it unable to tell "not selected" from "excluded
+// for this call".
+func TestLogsAdapter_GetPlatformLogFilterValues_SendsNamedFilterSelections(t *testing.T) {
+	t.Parallel()
+
+	var gotBody map[string]any
+	server := platformLogsServer(t, http.StatusOK, okFilterValuesBody(), &gotBody, nil, nil)
+	defer server.Close()
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+	require.NoError(t, err)
+
+	query := gotBody["query"].(map[string]any)
+	assert.Equal(t, []any{"already-selected"}, query["podName"])
+}
+
+func TestLogsAdapter_GetPlatformLogFilterValues_OmitsUnsetOptions(t *testing.T) {
+	t.Parallel()
+
+	var gotBody map[string]any
+	server := platformLogsServer(t, http.StatusOK, okFilterValuesBody(), &gotBody, nil, nil)
+	defer server.Close()
+
+	params := filterValuesParams()
+	params.ValueSearch = ""
+	params.MaxValues = 0
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), params)
+	require.NoError(t, err)
+
+	assert.NotContains(t, gotBody, "valueSearch")
+	assert.NotContains(t, gotBody, "maxValues")
+}
+
+func TestLogsAdapter_GetPlatformLogFilterValues_MapsResponse(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
+		"filter": "podName",
+		"values": []map[string]any{
+			{"value": "controller-manager-abc", "count": 412},
+			{"value": "controller-manager-xyz", "count": 88},
+		},
+		"totalValues": 940, "totalRelation": "gte", "tookMs": 12,
+	}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, "podName", result.Filter)
+	assert.Equal(t, []observability.PlatformLogFilterValue{
+		{Value: "controller-manager-abc", Count: 412},
+		{Value: "controller-manager-xyz", Count: 88},
+	}, result.Values)
+	// A truncated list says so, rather than ending silently.
+	assert.EqualValues(t, 940, result.TotalValues)
+	assert.Equal(t, "gte", result.TotalRelation)
+	assert.Equal(t, 12, result.Took)
+}
+
+// An adapter may serve platform logs and still not be able to aggregate their fields,
+// so this 501 is its own condition rather than the platform logs one.
+func TestLogsAdapter_GetPlatformLogFilterValues_NotImplemented(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusNotImplemented, map[string]any{
+		"title":   "notImplemented",
+		"message": "platform log filter values are not supported by this adapter",
+	}, nil, nil, nil)
+	defer server.Close()
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+
+	require.ErrorIs(t, err, ErrPlatformLogFilterValuesNotSupported)
+	assert.NotErrorIs(t, err, ErrPlatformLogsNotSupported)
+}
+
+func TestLogsAdapter_GetPlatformLogFilterValues_UpstreamError(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusInternalServerError,
+		map[string]any{"title": "internalServerError"}, nil, nil, nil)
+	defer server.Close()
+
+	_, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrPlatformLogFilterValuesNotSupported)
+	assert.Contains(t, err.Error(), "500")
+}

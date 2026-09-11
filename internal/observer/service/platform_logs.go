@@ -88,3 +88,63 @@ func (s *PlatformLogsService) QueryPlatformLogs(
 		TookMs: result.Took,
 	}, nil
 }
+
+// --- filter values ---
+
+// ErrPlatformLogFilterValuesRetrieval wraps a failure to reach or read from the logs
+// adapter.
+var ErrPlatformLogFilterValuesRetrieval = errors.New("platform log filter values retrieval failed")
+
+// QueryPlatformLogFilterValues lists the values one coordinate filter can take.
+func (s *PlatformLogsService) QueryPlatformLogFilterValues(
+	ctx context.Context,
+	req *types.PlatformLogFilterValuesRequest,
+) (*types.PlatformLogFilterValuesResponse, error) {
+	startTime, err := time.Parse(time.RFC3339, req.Query.StartTime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse start time: %w", err)
+	}
+	endTime, err := time.Parse(time.RFC3339, req.Query.EndTime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse end time: %w", err)
+	}
+
+	result, err := s.adapter.GetPlatformLogFilterValues(ctx, observability.PlatformLogFilterValuesParams{
+		Query: observability.PlatformLogsParams{
+			ClusterInstances: req.Query.ClusterInstances,
+			Namespaces:       req.Query.Namespaces,
+			PodNames:         req.Query.PodNames,
+			ContainerNames:   req.Query.ContainerNames,
+			Labels:           req.Query.Labels,
+			StartTime:        startTime,
+			EndTime:          endTime,
+			SearchPhrase:     req.Query.SearchPhrase,
+			LogLevels:        req.Query.LogLevels,
+		},
+		Filter:      req.Filter,
+		ValueSearch: req.ValueSearch,
+		MaxValues:   req.MaxValues,
+	})
+	if err != nil {
+		// Passed through unwrapped so the handler can answer 501 rather than
+		// reporting a failure.
+		if errors.Is(err, ErrPlatformLogFilterValuesNotSupported) {
+			return nil, err
+		}
+		s.logger.Error("Failed to retrieve platform log filter values", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrPlatformLogFilterValuesRetrieval, err)
+	}
+
+	values := make([]types.PlatformLogFilterValue, 0, len(result.Values))
+	for _, v := range result.Values {
+		values = append(values, types.PlatformLogFilterValue{Value: v.Value, Count: v.Count})
+	}
+
+	return &types.PlatformLogFilterValuesResponse{
+		Filter:        result.Filter,
+		Values:        values,
+		TotalValues:   result.TotalValues,
+		TotalRelation: result.TotalRelation,
+		TookMs:        result.Took,
+	}, nil
+}

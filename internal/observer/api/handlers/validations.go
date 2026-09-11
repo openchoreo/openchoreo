@@ -698,3 +698,55 @@ func ValidateRecommendationQueryRequest(req *types.RecommendationQueryRequest) e
 	}
 	return nil
 }
+
+// Caps on the filter values query. maxValues is its own knob rather than reusing the
+// record limit: these are short field values, not records, and a picker with too few
+// options is worse than a slightly larger response.
+const (
+	defaultPlatformLogFilterValuesMaxValues = 100
+	maxPlatformLogFilterValuesMaxValues     = 1000
+	maxPlatformLogValueSearchLength         = 256
+)
+
+// platformLogFilterValuesFilters are the coordinates that can be listed, matching the
+// enum declared on the `filter` parameter.
+var platformLogFilterValuesFilters = map[string]bool{
+	"clusterInstance": true,
+	"namespace":       true,
+	"podName":         true,
+	"containerName":   true,
+}
+
+// ValidatePlatformLogFilterValuesRequest validates the request and applies defaults in
+// place.
+//
+// The record filters are validated exactly as the record query validates them, so a
+// query that would be rejected there is rejected here rather than reaching the adapter
+// in a shape only one of the two endpoints accepts.
+func ValidatePlatformLogFilterValuesRequest(req *types.PlatformLogFilterValuesRequest) error {
+	if !platformLogFilterValuesFilters[req.Filter] {
+		return fmt.Errorf("filter must be one of clusterInstance, namespace, podName, containerName")
+	}
+
+	// The record query carries the time window, and ValidateTimeRange caps it: an
+	// aggregation spans one index per day of that window.
+	if err := ValidatePlatformLogsQueryRequest(&req.Query); err != nil {
+		return err
+	}
+
+	if len(req.ValueSearch) > maxPlatformLogValueSearchLength {
+		return fmt.Errorf("valueSearch cannot exceed %d characters", maxPlatformLogValueSearchLength)
+	}
+
+	if req.MaxValues == 0 {
+		req.MaxValues = defaultPlatformLogFilterValuesMaxValues
+		return nil
+	}
+	if req.MaxValues < 0 {
+		return fmt.Errorf("maxValues must be a positive integer")
+	}
+	if req.MaxValues > maxPlatformLogFilterValuesMaxValues {
+		return fmt.Errorf("maxValues cannot exceed %d", maxPlatformLogFilterValuesMaxValues)
+	}
+	return nil
+}

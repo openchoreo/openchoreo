@@ -95,6 +95,20 @@ const (
 	LogsQueryRequestSortOrderDesc LogsQueryRequestSortOrder = "desc"
 )
 
+// Defines values for PlatformLogFilterValuesRequestFilter.
+const (
+	ClusterInstance PlatformLogFilterValuesRequestFilter = "clusterInstance"
+	ContainerName   PlatformLogFilterValuesRequestFilter = "containerName"
+	Namespace       PlatformLogFilterValuesRequestFilter = "namespace"
+	PodName         PlatformLogFilterValuesRequestFilter = "podName"
+)
+
+// Defines values for PlatformLogFilterValuesResponseTotalRelation.
+const (
+	Eq  PlatformLogFilterValuesResponseTotalRelation = "eq"
+	Gte PlatformLogFilterValuesResponseTotalRelation = "gte"
+)
+
 // Defines values for PlatformLogsQueryRequestLogLevels.
 const (
 	PlatformLogsQueryRequestLogLevelsDEBUG PlatformLogsQueryRequestLogLevels = "DEBUG"
@@ -468,6 +482,76 @@ type PlatformLog struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// PlatformLogFilterValue One value a filter takes, with how many records carry it.
+type PlatformLogFilterValue struct {
+	// Count Matching records carrying this value. May be approximate on a
+	// high-cardinality filter where the backend answers from a partial term
+	// count, so it is an ordering hint rather than a total.
+	Count int64 `json:"count"`
+
+	// Value The value, exactly as it would be sent back as a filter
+	Value string `json:"value"`
+}
+
+// PlatformLogFilterValuesRequest Which filter to list values for, and the query to list them under.
+//
+// `query` is a full `PlatformLogsQueryRequest`, in the same shape as a record
+// query - so the observer passes the query it already holds rather than
+// rebuilding it. Its `startTime` and `endTime` are required, so every call here
+// is scoped to a period.
+//
+// The other filters in `query` narrow which records the values are drawn from,
+// except the one named by `filter`, whose own selections are ignored.
+//
+// `query.limit` and `query.sortOrder` carry no meaning here: no records are
+// returned, so there is nothing to page or order. They are accepted and ignored
+// rather than rejected.
+type PlatformLogFilterValuesRequest struct {
+	// Filter The filter to list values for, named as the request field that accepts it.
+	Filter PlatformLogFilterValuesRequestFilter `json:"filter"`
+
+	// MaxValues The maximum number of values to return, ordered by `count` descending then
+	// `value` ascending, so a truncated list holds the busiest. Named to stay
+	// distinct from `query.limit`, which is a record page size and is ignored
+	// here.
+	MaxValues *int `json:"maxValues,omitempty"`
+
+	// Query A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
+	// AND with each other. An absent field is not a filter.
+	Query PlatformLogsQueryRequest `json:"query"`
+
+	// ValueSearch Return only values containing this text, case-insensitively. Narrows the
+	// *values* returned, where `query.searchPhrase` narrows the *records* they
+	// are drawn from.
+	ValueSearch *string `json:"valueSearch,omitempty"`
+}
+
+// PlatformLogFilterValuesRequestFilter The filter to list values for, named as the request field that accepts it.
+type PlatformLogFilterValuesRequestFilter string
+
+// PlatformLogFilterValuesResponse defines model for PlatformLogFilterValuesResponse.
+type PlatformLogFilterValuesResponse struct {
+	// Filter The filter these values belong to, echoed from the request
+	Filter string `json:"filter"`
+
+	// TookMs The time taken to compute the values in milliseconds
+	TookMs int `json:"tookMs"`
+
+	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
+	TotalRelation PlatformLogFilterValuesResponseTotalRelation `json:"totalRelation"`
+
+	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
+	TotalValues int64 `json:"totalValues"`
+
+	// Values Distinct values, ordered by `count` descending then `value` ascending.
+	// Records on which the field is absent are not represented: no empty-string
+	// entry, because no filter value would select one.
+	Values []PlatformLogFilterValue `json:"values"`
+}
+
+// PlatformLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
+type PlatformLogFilterValuesResponseTotalRelation string
+
 // PlatformLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
 // AND with each other. An absent field is not a filter.
 type PlatformLogsQueryRequest struct {
@@ -552,6 +636,9 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
 type HandleAlertWebhookJSONRequestBody = HandleAlertWebhookJSONBody
+
+// QueryPlatformLogFilterValuesJSONRequestBody defines body for QueryPlatformLogFilterValues for application/json ContentType.
+type QueryPlatformLogFilterValuesJSONRequestBody = PlatformLogFilterValuesRequest
 
 // QueryPlatformLogsJSONRequestBody defines body for QueryPlatformLogs for application/json ContentType.
 type QueryPlatformLogsJSONRequestBody = PlatformLogsQueryRequest
@@ -846,6 +933,11 @@ type ClientInterface interface {
 
 	HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryPlatformLogFilterValuesWithBody request with any body
+	QueryPlatformLogFilterValuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryPlatformLogFilterValues(ctx context.Context, body QueryPlatformLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryPlatformLogsWithBody request with any body
 	QueryPlatformLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -989,6 +1081,30 @@ func (c *Client) HandleAlertWebhookWithBody(ctx context.Context, contentType str
 
 func (c *Client) HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleAlertWebhookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryPlatformLogFilterValuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryPlatformLogFilterValuesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryPlatformLogFilterValues(ctx context.Context, body QueryPlatformLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryPlatformLogFilterValuesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1310,6 +1426,46 @@ func NewHandleAlertWebhookRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewQueryPlatformLogFilterValuesRequest calls the generic QueryPlatformLogFilterValues builder with application/json body
+func NewQueryPlatformLogFilterValuesRequest(server string, body QueryPlatformLogFilterValuesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryPlatformLogFilterValuesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryPlatformLogFilterValuesRequestWithBody generates requests for QueryPlatformLogFilterValues with any type of body
+func NewQueryPlatformLogFilterValuesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/platform-logs/filter-values")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewQueryPlatformLogsRequest calls the generic QueryPlatformLogs builder with application/json body
 func NewQueryPlatformLogsRequest(server string, body QueryPlatformLogsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1450,6 +1606,11 @@ type ClientWithResponsesInterface interface {
 	HandleAlertWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
 
 	HandleAlertWebhookWithResponse(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
+
+	// QueryPlatformLogFilterValuesWithBodyWithResponse request with any body
+	QueryPlatformLogFilterValuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryPlatformLogFilterValuesResp, error)
+
+	QueryPlatformLogFilterValuesWithResponse(ctx context.Context, body QueryPlatformLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryPlatformLogFilterValuesResp, error)
 
 	// QueryPlatformLogsWithBodyWithResponse request with any body
 	QueryPlatformLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryPlatformLogsResp, error)
@@ -1637,6 +1798,33 @@ func (r HandleAlertWebhookResp) StatusCode() int {
 	return 0
 }
 
+type QueryPlatformLogFilterValuesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PlatformLogFilterValuesResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryPlatformLogFilterValuesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryPlatformLogFilterValuesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type QueryPlatformLogsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1793,6 +1981,23 @@ func (c *ClientWithResponses) HandleAlertWebhookWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseHandleAlertWebhookResp(rsp)
+}
+
+// QueryPlatformLogFilterValuesWithBodyWithResponse request with arbitrary body returning *QueryPlatformLogFilterValuesResp
+func (c *ClientWithResponses) QueryPlatformLogFilterValuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryPlatformLogFilterValuesResp, error) {
+	rsp, err := c.QueryPlatformLogFilterValuesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryPlatformLogFilterValuesResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryPlatformLogFilterValuesWithResponse(ctx context.Context, body QueryPlatformLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryPlatformLogFilterValuesResp, error) {
+	rsp, err := c.QueryPlatformLogFilterValues(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryPlatformLogFilterValuesResp(rsp)
 }
 
 // QueryPlatformLogsWithBodyWithResponse request with arbitrary body returning *QueryPlatformLogsResp
@@ -2158,6 +2363,67 @@ func ParseHandleAlertWebhookResp(rsp *http.Response) (*HandleAlertWebhookResp, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryPlatformLogFilterValuesResp parses an HTTP response from a QueryPlatformLogFilterValuesWithResponse call
+func ParseQueryPlatformLogFilterValuesResp(rsp *http.Response) (*QueryPlatformLogFilterValuesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryPlatformLogFilterValuesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PlatformLogFilterValuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

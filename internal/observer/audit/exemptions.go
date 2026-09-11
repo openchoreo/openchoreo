@@ -39,6 +39,7 @@ var RESTExemptions = map[string]string{
 	// Public spec — GET.
 	"GetComponentCosts":                 reasonRead,
 	"GetOAuthProtectedResourceMetadata": reasonRead,
+	"GetPlatformLogFilterValues":        reasonRead,
 	"GetPlatformLogs":                   reasonRead,
 	"GetRecommendations":                reasonRead,
 	"GetSpanDetailsForTrace":            reasonRead,
