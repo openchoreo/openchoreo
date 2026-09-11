@@ -39,6 +39,7 @@ type Handler struct {
 	healthService        service.HealthChecker
 	logsService          service.LogsQuerier
 	platformLogsService  service.PlatformLogsQuerier
+	auditLogsService     service.AuditLogsQuerier
 	eventsService        service.EventsQuerier
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
@@ -52,6 +53,7 @@ func NewHandler(
 	healthService service.HealthChecker,
 	logsService service.LogsQuerier,
 	platformLogsService service.PlatformLogsQuerier,
+	auditLogsService service.AuditLogsQuerier,
 	eventsService service.EventsQuerier,
 	metricsService service.MetricsQuerier,
 	alertIncidentService service.AlertIncidentService,
@@ -65,6 +67,7 @@ func NewHandler(
 		healthService:        healthService,
 		logsService:          logsService,
 		platformLogsService:  platformLogsService,
+		auditLogsService:     auditLogsService,
 		eventsService:        eventsService,
 		metricsService:       metricsService,
 		alertIncidentService: alertIncidentService,

@@ -478,4 +478,107 @@ func TestResponsesConformToSpec(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		assertConformsToSpec(t, req, serve(t, h, req))
 	})
+
+	// The audit responses are hand-written types.* structs with a snake_case
+	// record inside a camelCase envelope, so the split is what these check.
+	t.Run("queryAuditLogs", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockAuditLogsQuerier(t)
+		svc.On("QueryAuditLogs", mock.Anything, mock.Anything).Return(&types.AuditLogsResponse{
+			Records: []types.AuditLogRecord{{
+				SchemaVersion: "1.0",
+				EventID:       "0192f3c4-5b7f-7c8b-9f3e-2a6d8b0c4e11",
+				EventTime:     "2026-06-05T03:07:12Z",
+				Actor: types.AuditLogActor{
+					Type:         "user",
+					ID:           "alice@example.com",
+					Issuer:       "https://idp.example.com",
+					SessionID:    "a3f9c1d2",
+					Entitlements: map[string][]string{"groups": {"platform-engineer"}},
+				},
+				Action:      "read_audit_log",
+				Category:    "access",
+				Result:      "success",
+				RequestID:   "9c2e5b7f-4a1d-8b4c-3e9f-8b0c2a6d4e22",
+				SourceIP:    "10.42.0.7",
+				UserAgent:   "occ/1.2.0",
+				Producer:    "observer",
+				Surface:     "rest",
+				OperationID: "QueryAuditLogs",
+				HTTP:        &types.AuditLogHTTPInfo{Method: "POST", Path: "/api/v1alpha1/audit-logs/query"},
+				Resource: &types.AuditLogResource{
+					Type:        "auditlog",
+					Namespace:   "default",
+					Environment: "default/production",
+					Project:     "storefront",
+					Component:   "checkout",
+					UID:         "2e5b7f9c-1d4a-4c8b-9f3e-0c4e2a6d8b33",
+					Name:        "checkout",
+				},
+				Collector: &types.AuditLogCollectorInfo{
+					NamespaceName: "openchoreo-observability-plane",
+					PodName:       "observer-0",
+					ContainerName: "observer",
+				},
+				Log: `{"action":"read_audit_log"}`,
+			}},
+			Total:         1,
+			TotalRelation: "eq",
+			TookMs:        7,
+			NextCursor:    "b3BhcXVl",
+			Timeline: &types.AuditLogTimeline{
+				Interval: "15m",
+				Buckets: []types.AuditLogTimelineBucket{
+					{
+						StartTime: "2026-06-05T03:00:00Z",
+						Total:     1,
+						Counts:    map[string]int64{"success": 1},
+					},
+					{StartTime: "2026-06-05T03:15:00Z", Total: 0},
+				},
+			},
+		}, nil)
+
+		h := &Handler{
+			baseHandler:      baseHandler{logger: noopLogger()},
+			auditLogsService: svc,
+		}
+
+		body := bytes.NewBufferString(
+			`{"startTime":"2026-06-05T00:00:00Z","endTime":"2026-06-05T04:00:00Z",` +
+				`"category":["access"],"includeTimeline":true,"timelineInterval":"15m"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/audit-logs/query", body)
+		req.Header.Set("Content-Type", "application/json")
+		assertConformsToSpec(t, req, serve(t, h, req))
+	})
+
+	t.Run("queryAuditLogFilterValues", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockAuditLogsQuerier(t)
+		svc.On("QueryAuditLogFilterValues", mock.Anything, mock.Anything).
+			Return(&types.AuditLogFilterValuesResponse{
+				Filter: "actor.id",
+				Values: []types.AuditLogFilterValue{
+					{Value: "alice@example.com", Count: 412},
+					{Value: "sa-ci-pipeline", Count: 17},
+				},
+				TotalValues:   128,
+				TotalRelation: "gte",
+				TookMs:        9,
+			}, nil)
+
+		h := &Handler{
+			baseHandler:      baseHandler{logger: noopLogger()},
+			auditLogsService: svc,
+		}
+
+		body := bytes.NewBufferString(
+			`{"query":{"startTime":"2026-06-05T00:00:00Z","endTime":"2026-06-05T04:00:00Z"},` +
+				`"filter":"actor.id","valueSearch":"ali","maxValues":25}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/audit-logs/filter-values", body)
+		req.Header.Set("Content-Type", "application/json")
+		assertConformsToSpec(t, req, serve(t, h, req))
+	})
 }

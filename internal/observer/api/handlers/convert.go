@@ -112,6 +112,42 @@ func toTypesRecommendationQuery(
 	}
 }
 
+// toTypesAuditLogsQuery maps the generated request onto the internal one.
+//
+// A round-trip rather than a field-by-field copy: the two types describe the
+// same schema with the same JSON keys — that is the point of naming the filters
+// after the record fields they match — so re-decoding is exact across all
+// twenty-odd filters and immune to a mapping typo in either nested group.
+//
+// The window is the exception and must be set afterwards. The generated fields
+// are time.Time with no omitempty, so an absent startTime round-trips as
+// "0001-01-01T00:00:00Z" — which parses, and would slip past the required-window
+// check. rfc3339OrEmpty maps zero to "" instead; see its doc comment.
+func toTypesAuditLogsQuery(src gen.AuditLogsQueryRequest) (*types.AuditLogsQueryRequest, error) {
+	var dst types.AuditLogsQueryRequest
+	if err := remarshalJSON(src, &dst); err != nil {
+		return nil, err
+	}
+	dst.StartTime = rfc3339OrEmpty(src.StartTime)
+	dst.EndTime = rfc3339OrEmpty(src.EndTime)
+	return &dst, nil
+}
+
+// toTypesAuditLogFilterValues maps the generated request onto the internal one,
+// for the same reason as toTypesAuditLogsQuery — including the same window
+// correction, on the nested query.
+func toTypesAuditLogFilterValues(
+	src gen.AuditLogFilterValuesRequest,
+) (*types.AuditLogFilterValuesRequest, error) {
+	var dst types.AuditLogFilterValuesRequest
+	if err := remarshalJSON(src, &dst); err != nil {
+		return nil, err
+	}
+	dst.Query.StartTime = rfc3339OrEmpty(src.Query.StartTime)
+	dst.Query.EndTime = rfc3339OrEmpty(src.Query.EndTime)
+	return &dst, nil
+}
+
 // toTypesPlatformLogsQuery maps the generated query parameters onto the internal request.
 func toTypesPlatformLogsQuery(src gen.GetPlatformLogsParams) (*types.PlatformLogsQueryRequest, error) {
 	dst := &types.PlatformLogsQueryRequest{

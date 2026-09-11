@@ -26,6 +26,16 @@ type PlatformLogsQuerier interface {
 	QueryPlatformLogs(ctx context.Context, req *types.PlatformLogsQueryRequest) (*types.PlatformLogsResponse, error)
 }
 
+// AuditLogsQuerier is the interface for querying the audit trail and the filter
+// values a picker over it is populated from. One interface because both reads
+// disclose the same content and so carry the same permission.
+type AuditLogsQuerier interface {
+	QueryAuditLogs(ctx context.Context, req *types.AuditLogsQueryRequest) (*types.AuditLogsResponse, error)
+	QueryAuditLogFilterValues(
+		ctx context.Context, req *types.AuditLogFilterValuesRequest,
+	) (*types.AuditLogFilterValuesResponse, error)
+}
+
 // EventsQuerier is the interface for querying Kubernetes events.
 type EventsQuerier interface {
 	QueryEvents(ctx context.Context, req *types.EventsQueryRequest) (*types.EventsQueryResponse, error)

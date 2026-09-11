@@ -24,6 +24,8 @@ info:
 tags:
   - name: Logs
     description: Log retrieval endpoints
+  - name: AuditLogs
+    description: Audit trail retrieval endpoints
   - name: Events
     description: Kubernetes event retrieval endpoints
   - name: FinOps
@@ -459,6 +461,193 @@ paths:
                 title: "notImplemented"
                 errorCode: ""
                 message: "platform logs are not supported by this adapter"
+
+  # Audit logs endpoint
+  /api/v1alpha1/audit-logs/query:
+    post:
+      tags:
+        - AuditLogs
+      summary: Query audit logs
+      description: |
+        Returns records from the audit trail — who did what, from where, and whether it
+        was allowed. Served from the audit destination, which has its own retention
+        independent of the log retention behind the other endpoints.
+
+        Requires `auditlogs:view`, evaluated at cluster scope. The trail discloses
+        activity across every team, so reading it is a privilege in its own right rather
+        than something a broad observability grant carries.
+
+        The tenancy fields in the body (`namespace`, `project`, `component`,
+        `environment`) narrow the result set. **They do not widen authorization**: a
+        namespace-scoped binding does not satisfy this query even when the body names
+        only that namespace. Working in a project does not confer the right to read its
+        audit trail.
+
+        Expressed as POST rather than GET to carry the filter set in a body, matching the
+        observer's other filter-body reads (`/logs/query`, `/events/query`,
+        `/traces/query` and the rest). `GET /api/v1alpha1/platform-logs` is the one
+        filter-query read on a GET; the remaining GETs are path-addressed reports.
+
+        A `501` here means the configured logs adapter does not serve audit logs — see
+        that response. It is never answered with an empty `200`, which would be
+        indistinguishable from "nothing happened".
+      operationId: queryAuditLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditLogsQueryRequest"
+      responses:
+        "200":
+          description: Audit logs retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogsResponse"
+        "400":
+          description: |
+            Invalid request. Also the response for an expired `cursor`, distinguished by
+            `errorCode` — the caller must restart the query from the first page rather
+            than treat it as the end of the trail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "badRequest"
+                errorCode: "OBS-V1-AL-06"
+                message: "The audit logs cursor has expired; restart the query"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: |
+            Not Implemented. Surfaced when the logs adapter backing this observer answers
+            the audit logs query with a 501 of its own — the adapter does not serve the
+            audit trail.
+
+            A deployment configured forward-only, publishing the trail to an external
+            SIEM and keeping no queryable copy, reaches this too: the read path is
+            disabled by configuration, and this is where that is reported rather than
+            being discovered as an empty result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "audit logs are not supported by this adapter"
+
+  # Audit log filter values endpoint
+  /api/v1alpha1/audit-logs/filter-values:
+    post:
+      tags:
+        - AuditLogs
+      summary: List the distinct values one audit log filter can take
+      description: |
+        Returns the distinct values a single filter takes across the audit trail under a
+        given query, with a count for each. This is what a filter picker is populated
+        from: the values reachable in the whole matching set, rather than only those
+        that happen to appear in the page of records a client has loaded.
+
+        **One filter per request, by design.** Answering every filter at once needs one
+        aggregation per filter rather than one in total, which on a busy trail is enough
+        load to matter on every keystroke that changes a query. Asking for the one
+        filter whose picker is open keeps the cost proportional to what the client
+        actually needs.
+
+        **`query` is honoured, except for the named filter itself.** The values returned
+        are those reachable under `query`'s other filters — so selecting a namespace
+        narrows the actions on offer — but the named filter's own selections are
+        ignored. Counting `actor.id` under a selected actor would leave that actor the
+        only value on offer, with no way back to the others; excluding it keeps the
+        picker a way to change the selection rather than a mirror of it.
+
+        **Always scoped to a time window.** `query.startTime` and `query.endTime` are
+        required, so this returns the values reachable in a period rather than across
+        the whole trail — the same window the record query would run under, which is
+        what makes a picker's values agree with the results it leads to.
+        `query.searchPhrase` is honoured for the same reason.
+
+        `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+        `query.timelineInterval` are ignored — no records are returned and there is
+        nothing to page.
+
+        Requires `auditlogs:view`, evaluated at cluster scope — the same permission as
+        the record query, because this discloses the same content. Enumerating every
+        actor, resource name and source address in the trail is a disclosure of the
+        trail even without the records attached, so a caller who cannot read the records
+        cannot read this either. As on the record query, the tenancy filters in
+        `query.resource` narrow the result and **do not widen authorization**.
+      operationId: queryAuditLogFilterValues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditLogFilterValuesRequest"
+      responses:
+        "200":
+          description: Filter values retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogFilterValuesResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: |
+            Not Implemented. Surfaced when the logs adapter backing this observer does
+            not serve audit logs, or serves the records but not this aggregation. A
+            client should treat it as "no pick list available" and fall back to
+            free-text entry on that filter, not as "this filter has no values".
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "audit log filter values are not supported by this adapter"
 
   # Runtime topology endpoint (for cell diagram with runtime observability)
   /api/v1alpha1/metrics/runtime-topology:
@@ -1258,6 +1447,817 @@ components:
           format: int64
           minimum: 0
           description: The time taken to query the logs in milliseconds.
+
+    # Request schema for audit logs
+    AuditLogsQueryRequest:
+      type: object
+      description: |
+        A filter set over the audit trail, shaped like the record it filters. Every
+        filter is named and nested exactly as the field it matches in
+        `AuditLogRecord` — `actor.id` filters `actor.id` — so a client needs no
+        translation table in either direction, and a filter picker built from the
+        record's own field paths maps onto this body mechanically.
+
+        That is why the record-derived filters keep the record's snake_case spelling
+        (`operation_id`, `request_id`, `source_ip`) while the query's own controls stay
+        camelCase (`startTime`, `searchPhrase`, `limit`, `includeTimeline`). The two
+        casings mark the two kinds of field: one names something in the trail, the
+        other names something about this request.
+
+        Multi-value fields OR within a field; fields AND with each other. An absent
+        field is not a filter.
+
+        The tenancy filters under `resource` narrow the result set and nothing else.
+        Authorization is evaluated at cluster scope before any of them is read, so
+        naming a namespace here does not entitle the caller to that namespace's trail.
+
+        Two record fields have no filter. `resource.uid` is absent on deletes and on
+        non-CRUD mutations, so filtering by it would silently exclude the operations an
+        investigation most often wants — filter by `resource.name` and read `uid` off
+        the returned record. `resource.resource`, the fourth hierarchy level, is set
+        only where it duplicates `resource.name` today, so a filter for it would be a
+        second spelling of one already here.
+      properties:
+        startTime:
+          type: string
+          description: |
+            Inclusive lower bound of the event window (RFC 3339, absolute UTC).
+
+            The window may span at most 366 days; a wider one is a `400`. Longer than
+            the log endpoints allow, because the audit trail keeps its own retention and
+            an annual review is an ordinary query — but still bounded, so page a
+            multi-year investigation a year at a time.
+          format: date-time
+          example: "2026-08-14T16:30:00Z"
+        endTime:
+          type: string
+          description: |
+            Exclusive upper bound of the event window (RFC 3339, absolute UTC). Must be
+            strictly greater than startTime, and within 366 days of it.
+          format: date-time
+          example: "2026-08-14T17:30:00Z"
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of records to return.
+        sortOrder:
+          type: string
+          description: Sort direction on the event time.
+          enum:
+            - asc
+            - desc
+          default: desc
+        cursor:
+          type: string
+          maxLength: 4096
+          description: |
+            Opaque continuation token from a previous response's `nextCursor`. Minted and
+            interpreted by the adapter behind this observer; pass it back unmodified.
+
+            Continuing with a cursor pins the ordering, so a record written mid-scroll
+            cannot shift a page boundary. A cursor eventually expires — the backend's
+            point-in-time lapses, or the indices it was minted against roll — and that
+            comes back as a `400` carrying the cursor-expired error code, not as an empty
+            page. Restart the query from the first page when it does.
+        includeTimeline:
+          type: boolean
+          default: false
+          description: |
+            Also return per-interval counts across the queried window, broken down by
+            `result`. See `AuditLogTimeline`.
+
+            No page of records can be bucketed into a timeline — a page is the newest
+            or oldest `limit` records, not a sample of the window — so a client that
+            wants a histogram has to ask for one.
+
+            Opt-in because it costs an aggregation pass on top of the search, and the
+            answer describes the query rather than the page: a client paginating should
+            request it on the first page only, since it does not change as the cursor
+            is walked.
+
+            There is deliberately no companion flag for filter values — the distinct
+            values each filter can take under the query. Those need one aggregation per
+            filter rather than one in total, which on a busy trail is enough load to
+            matter on every keystroke that changes a query. They are planned as their
+            own operation, where a client can ask for one filter's values at a time and
+            the cost is proportional to what it actually needs.
+        timelineInterval:
+          type: string
+          pattern: "^[1-9][0-9]*[mhdw]$"
+          description: |
+            Bucket width for `timeline`, in `<count><unit>` notation where unit is one
+            of `m` (minutes), `h` (hours), `d` (days) or `w` (weeks) — for example
+            `15m`, `2h`, `1d`. Extends the `<count><unit>` convention used elsewhere in
+            this spec with `m`, since a one-hour window wants minute buckets.
+
+            Ignored unless `includeTimeline` is true. Defaults to a width the adapter
+            chooses from the window when omitted.
+
+            A width that would produce more than 500 buckets is **coarsened rather than
+            rejected**, and `timeline.interval` reports what was actually used — always
+            read the width back from there rather than assuming the request was honoured.
+          example: 15m
+        actor:
+          $ref: "#/components/schemas/AuditLogsActorFilter"
+        resource:
+          $ref: "#/components/schemas/AuditLogsResourceFilter"
+        action:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Semantic action names.
+          items:
+            type: string
+            maxLength: 253
+          example: ["create_project", "delete_component"]
+        category:
+          type: array
+          uniqueItems: true
+          maxItems: 3
+          description: |
+            Event categories. A closed set: an unknown value is a `400` rather than a
+            filter that silently matches nothing.
+
+            `access` is what separates disclosure from change — reading the trail is
+            recorded under it, so filtering it out leaves only the operations that
+            altered something.
+          items:
+            type: string
+            enum: ["management", "authorization", "access"]
+          example: ["authorization"]
+        result:
+          type: array
+          uniqueItems: true
+          maxItems: 4
+          description: Outcomes. Closed, for the same reason as `category`.
+          items:
+            type: string
+            enum: ["success", "failure", "denied", "unauthenticated"]
+          example: ["denied"]
+        producer:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Emitting services.
+          items:
+            type: string
+            maxLength: 253
+          example: ["openchoreo-api"]
+        surface:
+          type: array
+          uniqueItems: true
+          maxItems: 2
+          description: |
+            Surfaces of the API the call arrived through. Closed. MCP wraps the same
+            API, so the REST value is `rest` rather than `api`.
+          items:
+            type: string
+            enum: ["rest", "mcp"]
+          example: ["rest"]
+        operation_id:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Canonical operation identifiers.
+          items:
+            type: string
+            maxLength: 253
+          example: ["CreateProject"]
+        request_id:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Correlation IDs. This is the pivot from an access log line to the audit
+            record for the same request, so it takes exact IDs rather than a prefix.
+          items:
+            type: string
+            maxLength: 253
+        event_id:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Record identifiers, for fetching known records directly.
+          items:
+            type: string
+            maxLength: 253
+        source_ip:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Client addresses. Matched exactly, not by network range — a CIDR filter is
+            not offered because the recorded value is whatever the request arrived
+            with, which behind a proxy is the proxy.
+          items:
+            type: string
+            maxLength: 253
+        user_agent:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Client identifications, matched exactly. Free-text agent strings vary by
+            version, so `searchPhrase` is usually the better tool for "anything occ"
+            — this filter is for pinning down one exact agent.
+          items:
+            type: string
+            maxLength: 512
+        searchPhrase:
+          type: string
+          maxLength: 256
+          description: Free text to match within the record.
+      required: [startTime, endTime]
+
+    AuditLogsActorFilter:
+      type: object
+      description: |
+        Filters on the record's `actor` group. Named and nested as the record is, so
+        `actor.id` here filters `actor.id` there.
+      properties:
+        id:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Subject identifiers. An `id` is unique only within an `issuer`, so on a
+            deployment with more than one identity provider this should be paired with
+            `issuer` — filtering on `id` alone would conflate two different subjects
+            that happen to share a `sub`.
+          items:
+            type: string
+            maxLength: 253
+          example: ["alice@example.com"]
+        type:
+          type: array
+          uniqueItems: true
+          maxItems: 4
+          description: Kinds of subject, e.g. `user`, `service_account`, `anonymous`.
+          items:
+            type: string
+            maxLength: 64
+          example: ["user", "service_account"]
+        issuer:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Token issuers — the namespace an `id` is unique within. On a single-issuer
+            deployment this is one value and filtering on it is redundant; on a
+            multi-issuer one it is what makes an `id` filter mean one subject.
+          items:
+            type: string
+            maxLength: 512
+        session_id:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Identity-provider session identifiers, from the token's `sid` claim. This
+            is what joins every action taken in one login into a single sequence.
+
+            Present for interactive logins and absent for client-credentials tokens,
+            since OIDC leaves `sid` optional — so a session filter selects human
+            activity and silently excludes service accounts.
+          items:
+            type: string
+            maxLength: 253
+        entitlements:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Entitlement values, e.g. a group name. Matched against the values of every
+            claim in the record's `actor.entitlements` map rather than one named claim,
+            because the claim key varies by subject kind — `groups` for a user, `sub`
+            for a service account — and a caller asking "what did everyone in
+            `platform-engineer` do" should not have to know which.
+          items:
+            type: string
+            maxLength: 253
+          example: ["platform-engineer"]
+
+    AuditLogsResourceFilter:
+      type: object
+      description: |
+        Filters on the record's `resource` group — the target of the action and the
+        point in OpenChoreo's tree the decision was authorized at. Named and nested as
+        the record is.
+
+        These are filters, not scopes: see `AuditLogsQueryRequest`.
+      properties:
+        type:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Resource kinds.
+          items:
+            type: string
+            maxLength: 253
+          example: ["project"]
+        namespace:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: OpenChoreo namespaces.
+          items:
+            type: string
+            maxLength: 253
+          example: ["default"]
+        environment:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Environments in the dual-scoped `{namespace}/{name}` form, because that is
+            how the value is stored — recorded exactly as authorization evaluated it. A
+            bare environment name will not match.
+          items:
+            type: string
+            maxLength: 507
+          example: ["default/development"]
+        project:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Projects.
+          items:
+            type: string
+            maxLength: 253
+        component:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Components.
+          items:
+            type: string
+            maxLength: 253
+        name:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Resource names, as the handler recorded them.
+          items:
+            type: string
+            maxLength: 253
+
+    AuditLogFilterValuesRequest:
+      type: object
+      description: |
+        Which filter to list values for, and the query to list them under.
+
+        `query` is a full `AuditLogsQueryRequest`, in the same shape as a record
+        query — so a client sends the query it already holds rather than rebuilding
+        it.
+
+        **The time window lives in `query`, and it is required.** `query.startTime`
+        and `query.endTime` are mandatory on `AuditLogsQueryRequest`, so every call
+        here is scoped to a period and there is no way to ask for the distinct values
+        across all of history — which on a trail with years of retention is not a
+        question any backend should be asked. Values are the ones reachable in that
+        window, exactly as the records are.
+
+        The other filters in `query` narrow which records the values are drawn from,
+        except the one named by `filter`, whose own selections are ignored.
+
+        `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+        `query.timelineInterval` carry no meaning here: no records are returned, so
+        there is nothing to page, order or bucket. They are accepted and ignored
+        rather than rejected, so a client can pass its query through untouched.
+      required:
+        - query
+        - filter
+      properties:
+        query:
+          $ref: "#/components/schemas/AuditLogsQueryRequest"
+        filter:
+          type: string
+          description: |
+            The filter to list values for, named by its path in
+            `AuditLogsQueryRequest` — `actor.id` lists the values that filter accepts.
+
+            `event_id` and `request_id` are absent: both are near-unique per record, so
+            a list of them is not something a client picks from — they are filtered by
+            an exact value the client already holds, from a log line or another record.
+            `actor.session_id` is present despite being near-unique too, because
+            `valueSearch` makes it reachable: an investigator narrowing to one session
+            has a prefix to type, which is not true of a UUID they have never seen.
+          enum:
+            - actor.id
+            - actor.type
+            - actor.issuer
+            - actor.session_id
+            - actor.entitlements
+            - resource.type
+            - resource.namespace
+            - resource.environment
+            - resource.project
+            - resource.component
+            - resource.name
+            - action
+            - category
+            - result
+            - producer
+            - surface
+            - operation_id
+            - source_ip
+            - user_agent
+          example: actor.id
+        valueSearch:
+          type: string
+          maxLength: 256
+          description: |
+            Return only values containing this text, case-insensitively. This is how a
+            picker narrows as its user types, and it is what makes a high-cardinality
+            filter usable at all: `actor.id` on a large deployment has more distinct
+            values than any list should offer, and typing three characters cuts it to
+            something choosable.
+
+            Distinct from `query.searchPhrase`, which narrows the *records* considered.
+            This narrows the *values* returned from those records.
+          example: ali
+        maxValues:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: |
+            The maximum number of values to return, ordered by `count` descending then
+            `value` ascending — so a truncated list holds the busiest values.
+
+            Named `maxValues` rather than `limit` to keep it distinct from
+            `query.limit`, which is a page size for records and is ignored here.
+
+    AuditLogFilterValuesResponse:
+      type: object
+      required:
+        - filter
+        - values
+        - totalValues
+        - totalRelation
+        - tookMs
+      properties:
+        filter:
+          type: string
+          description: |
+            The filter these values belong to, echoed from the request so a client
+            handling several pickers can match a response to the one that asked.
+        values:
+          type: array
+          description: |
+            The distinct values, ordered by `count` descending then `value` ascending.
+
+            Values on which the field is absent are not represented: there is no
+            empty-string entry, because there is no filter value that would select one.
+            A denial that resolved no operation contributes to no `resource.name` value
+            at all rather than to an empty one.
+          items:
+            $ref: "#/components/schemas/AuditLogFilterValue"
+        totalValues:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            How many distinct values match, of which at most `maxValues` were returned.
+            Read together with `totalRelation` — this is what lets a picker say "412
+            more values, keep typing to narrow" rather than silently ending its list.
+        totalRelation:
+          type: string
+          enum: [eq, gte]
+          description: |
+            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+            distinct values exactly is itself an expensive aggregation on a
+            high-cardinality field, and most backends answer approximately, so a
+            capped or estimated count is labelled rather than passed off as exact.
+        tookMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The time taken to compute the values in milliseconds.
+
+    AuditLogFilterValue:
+      type: object
+      description: One value a filter takes, with how many records carry it.
+      required:
+        - value
+        - count
+      properties:
+        value:
+          type: string
+          description: The value, exactly as it would be sent back as a filter.
+          example: alice@example.com
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Matching records carrying this value, within the queried window. May be
+            approximate on a high-cardinality filter where the backend answers from a
+            partial term count, so treat it as an ordering hint and a sense of scale —
+            never as an audit finding in its own right.
+          example: 412
+
+    # Response schemas for audit logs
+    AuditLogRecord:
+      type: object
+      description: |
+        One audit event, in the field names and nesting it was published with. Keys are
+        snake_case here while the surrounding envelope is camelCase, and that is
+        deliberate: this is the frozen, versioned record a SIEM already consumes, so a
+        response body can be compared against an exported log line key for key rather
+        than through a translation table.
+
+        `category` and `result` are plain strings rather than enums, unlike their
+        request-side counterparts: a filter is a closed input the server validates, while
+        a record's vocabulary grows with `schema_version`, and a closed enum here would
+        make an older client reject a newer record.
+      required:
+        - schema_version
+        - event_id
+        - event_time
+        - actor
+        - action
+        - category
+        - result
+      properties:
+        schema_version:
+          type: string
+          description: |
+            Schema of this record. `major.minor`; major on a field removal or a changed
+            value representation, minor on an addition.
+          example: "1.0"
+        event_id:
+          type: string
+          description: UUID v7, unique per record.
+        event_time:
+          type: string
+          format: date-time
+          description: When the audited request was received.
+        actor:
+          $ref: "#/components/schemas/AuditLogActor"
+        action:
+          type: string
+          description: Semantic action name.
+          example: create_project
+        category:
+          type: string
+          description: Event category. `management`, `authorization` or `access` at schema 1.0.
+        result:
+          type: string
+          description: |
+            Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
+            policy) or `unauthenticated` (no subject at all) at schema 1.0.
+        request_id:
+          type: string
+          description: Correlates this record with the access log line for the same request.
+        source_ip:
+          type: string
+          description: Client address the request arrived from.
+        user_agent:
+          type: string
+          description: |
+            Client-supplied and unverifiable, like `source_ip`. It is the only field
+            that separates a portal session from occ, CI or an agent, which is what
+            makes it worth recording despite being unverifiable.
+          example: occ/1.2.0
+        producer:
+          type: string
+          description: Emitting service.
+          example: openchoreo-api
+        surface:
+          type: string
+          description: |
+            Which surface of the API the call arrived through. `rest` or `mcp` at
+            schema 1.0 — MCP wraps the same API, so the REST value is not `api`.
+        operation_id:
+          type: string
+          description: Canonical operation identifier.
+          example: CreateProject
+        http:
+          $ref: "#/components/schemas/AuditLogHTTPInfo"
+        resource:
+          $ref: "#/components/schemas/AuditLogResource"
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Operation-specific detail, when the emitting handler recorded any.
+        collector:
+          $ref: "#/components/schemas/AuditLogCollectorInfo"
+        log:
+          type: string
+          description: |
+            The raw line the collector ingested, preserved alongside the parsed fields.
+            Present when the storage backend retains it. This is the ground truth a
+            parsing discrepancy is settled against.
+
+    AuditLogActor:
+      type: object
+      description: |
+        Who performed the action. `id` is unique only within `issuer` — the same `sub`
+        from two identity providers is two different subjects.
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          description: e.g. `user`, `service_account`, `anonymous`.
+        id:
+          type: string
+          description: The token's validated `sub` claim, or `anonymous`.
+        issuer:
+          type: string
+          description: The token's `iss` claim; the namespace `id` is unique within.
+        session_id:
+          type: string
+          description: |
+            The token's `sid` claim, joining this event to an identity-provider login.
+        entitlements:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Entitlements carried on the token, when the issuer supplies any.
+
+    AuditLogHTTPInfo:
+      type: object
+      description: |
+        The request line, for an event that arrived over HTTP. Absent for an MCP
+        `tools/call`, which has none.
+      properties:
+        method:
+          type: string
+        path:
+          type: string
+          description: Route path only; query strings are not recorded.
+
+    AuditLogResource:
+      type: object
+      description: |
+        The target resource, and the point in OpenChoreo's tree the decision was
+        authorized at. Absent on a rejection that resolved no operation.
+      properties:
+        type:
+          type: string
+        namespace:
+          type: string
+        environment:
+          type: string
+          description: Dual-scoped `{namespace}/{name}`, as authorization evaluated it.
+        project:
+          type: string
+        component:
+          type: string
+        resource:
+          type: string
+        uid:
+          type: string
+          description: |
+            Server-generated identifier that is never reused. Absent when the operation
+            returned no object — a delete, or a non-CRUD mutation.
+        name:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AuditLogCollectorInfo:
+      type: object
+      description: |
+        Where the record was collected from, as stamped by the collector rather than by
+        the emitting service.
+
+        Served so a client can compare it against `producer` — a record whose claimed
+        origin and collected origin disagree is worth looking at. The observer does not
+        perform that comparison or report its outcome; both values are returned and the
+        judgement is the caller's.
+      properties:
+        namespaceName:
+          type: string
+        podName:
+          type: string
+        containerName:
+          type: string
+
+    AuditLogsResponse:
+      type: object
+      required:
+        - records
+        - total
+        - totalRelation
+        - tookMs
+      properties:
+        records:
+          type: array
+          description: Audit records matching the query, in `sortOrder` of `event_time`.
+          items:
+            $ref: "#/components/schemas/AuditLogRecord"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of matching records. Read together with `totalRelation`.
+        totalRelation:
+          type: string
+          enum: [eq, gte]
+          description: |
+            Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
+            at (`gte`). Present so a capped count cannot silently claim to be exact — an
+            audit consumer reading a capped `total` as exact draws the wrong conclusion
+            about how much happened.
+        tookMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The time taken to query the audit logs in milliseconds.
+        nextCursor:
+          type: string
+          maxLength: 4096
+          description: |
+            Opaque token for the next page. Absent when this page is the last one; its
+            absence is the only end-of-results signal.
+        timeline:
+          $ref: "#/components/schemas/AuditLogTimeline"
+
+    AuditLogTimeline:
+      type: object
+      description: |
+        Per-interval counts across the queried window, broken down by `result`.
+
+        Present only when `includeTimeline=true`, and omitted rather than empty when
+        the adapter backing this observer cannot compute it — a client must treat an
+        absent `timeline` as "unknown", not as "no activity in this window".
+      required:
+        - interval
+        - buckets
+      properties:
+        interval:
+          type: string
+          pattern: "^[1-9][0-9]*[mhdw]$"
+          description: |
+            The bucket width actually used, which is not necessarily the requested
+            `timelineInterval`: a width that would exceed 500 buckets is coarsened.
+            Read the width from here, and label the chart from here.
+          example: 15m
+        buckets:
+          type: array
+          description: |
+            One entry per interval, in ascending `startTime` order regardless of the
+            query's `sortOrder` — a timeline reads left to right whichever way the
+            records are paged.
+
+            **Buckets with no records are present with zero counts, not omitted.** The
+            array covers the whole window from `startTime` to `endTime` contiguously.
+            A sparse array would let a client draw a continuous chart across a gap in
+            activity, which is the same class of mistake as answering an unimplemented
+            query with an empty `200`: it reports quiet as if it were nothing to
+            report. The final bucket may be shorter than `interval` where the window
+            does not divide evenly.
+          items:
+            $ref: "#/components/schemas/AuditLogTimelineBucket"
+
+    AuditLogTimelineBucket:
+      type: object
+      description: One interval of the timeline.
+      required:
+        - startTime
+        - total
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Inclusive lower bound of the bucket. Its width is `interval`.
+          example: "2026-09-03T20:00:00Z"
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Records in this bucket. Equals the sum of `counts` — carried separately so
+            a client can draw a total without walking the breakdown, and so a bucket
+            whose breakdown the backend could not produce still reports a height.
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 0
+          description: |
+            Records in this bucket by `result`, keyed by the value itself — `success`,
+            `failure`, `denied` and `unauthenticated` at schema 1.0. An open map rather
+            than four declared fields, so a `result` value added in a later schema
+            appears here without a spec bump.
+
+            **A result with no records in this bucket may be omitted, and an absent key
+            means zero.** A client renders the full set of results it knows about and
+            reads a missing key as 0.
+          example:
+            success: 71
+            denied: 9
+            failure: 4
 
     # Request schema for events
     EventsQueryRequest:

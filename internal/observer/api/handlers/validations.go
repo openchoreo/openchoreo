@@ -168,8 +168,15 @@ func validateWorkflowScope(scope *types.WorkflowSearchScope) error {
 	return nil
 }
 
-// ValidateTimeRange validates start and end time strings
+// ValidateTimeRange validates start and end time strings against the window cap
+// the log-backed endpoints share.
 func ValidateTimeRange(startTime, endTime string) error {
+	return ValidateTimeRangeWithMax(startTime, endTime, maxQueryTimeRange)
+}
+
+// ValidateTimeRangeWithMax validates start and end time strings against a
+// caller-supplied window cap.
+func ValidateTimeRangeWithMax(startTime, endTime string, maxRange time.Duration) error {
 	if startTime == "" {
 		return fmt.Errorf("startTime is required")
 	}
@@ -191,8 +198,8 @@ func ValidateTimeRange(startTime, endTime string) error {
 		return fmt.Errorf("endTime must be after startTime")
 	}
 
-	if parsedEnd.Sub(parsedStart) > maxQueryTimeRange {
-		return fmt.Errorf("query time range cannot exceed %d days", maxQueryTimeRange/24/time.Hour)
+	if parsedEnd.Sub(parsedStart) > maxRange {
+		return fmt.Errorf("query time range cannot exceed %d days", maxRange/24/time.Hour)
 	}
 
 	return nil
@@ -305,6 +312,171 @@ func validatePlatformLogsFilter(name string, values []string) error {
 	for _, v := range values {
 		if len(v) > maxPlatformLogsValueLength {
 			return fmt.Errorf("%s values cannot exceed %d characters", name, maxPlatformLogsValueLength)
+		}
+		if _, dup := seen[v]; dup {
+			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)
+		}
+		seen[v] = struct{}{}
+	}
+	return nil
+}
+
+const (
+	maxAuditLogsFilterItems  = 20
+	maxAuditLogsValueLength  = 512
+	maxAuditLogsSearchLength = 256
+	maxAuditLogsMaxValues    = 1000
+	// Deliberately not defaultLimit, which is a record page size.
+	defaultAuditLogsMaxValues = 100
+	// Not maxQueryTimeRange: the audit trail has its own, longer retention, and
+	// an annual compliance query is ordinary.
+	maxAuditLogsTimeRange            = 366 * 24 * time.Hour
+	auditLogsTimelineIntervalPattern = `^[1-9][0-9]*[mhdw]$`
+)
+
+var auditLogsTimelineInterval = regexp.MustCompile(auditLogsTimelineIntervalPattern)
+
+// auditLogsFilterPaths are the filters QueryAuditLogFilterValues can list
+// values for. Mirrors the `filter` enum in openapi/observer-api.yaml.
+//
+// event_id and request_id are absent deliberately: both are near-unique per
+// record, so a list of them is not something a client picks from.
+var auditLogsFilterPaths = map[string]bool{
+	"actor.id":             true,
+	"actor.type":           true,
+	"actor.issuer":         true,
+	"actor.session_id":     true,
+	"actor.entitlements":   true,
+	"resource.type":        true,
+	"resource.namespace":   true,
+	"resource.environment": true,
+	"resource.project":     true,
+	"resource.component":   true,
+	"resource.name":        true,
+	"action":               true,
+	"category":             true,
+	"result":               true,
+	"producer":             true,
+	"surface":              true,
+	"operation_id":         true,
+	"source_ip":            true,
+	"user_agent":           true,
+}
+
+var (
+	auditLogCategories = map[string]bool{"management": true, "authorization": true, "access": true}
+	auditLogResults    = map[string]bool{
+		"success": true, "failure": true, "denied": true, "unauthenticated": true,
+	}
+	auditLogSurfaces = map[string]bool{"rest": true, "mcp": true}
+)
+
+// ValidateAuditLogsQueryRequest validates the AuditLogsQueryRequest and applies
+// defaults for limit and sort order.
+func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	filters := map[string][]string{
+		"actor.id":             req.Actor.IDs,
+		"actor.type":           req.Actor.Types,
+		"actor.issuer":         req.Actor.Issuers,
+		"actor.session_id":     req.Actor.SessionIDs,
+		"actor.entitlements":   req.Actor.Entitlements,
+		"resource.type":        req.Resource.Types,
+		"resource.namespace":   req.Resource.Namespaces,
+		"resource.environment": req.Resource.Environments,
+		"resource.project":     req.Resource.Projects,
+		"resource.component":   req.Resource.Components,
+		"resource.name":        req.Resource.Names,
+		"action":               req.Actions,
+		"category":             req.Categories,
+		"result":               req.Results,
+		"producer":             req.Producers,
+		"surface":              req.Surfaces,
+		"operation_id":         req.OperationIDs,
+		"request_id":           req.RequestIDs,
+		"event_id":             req.EventIDs,
+		"source_ip":            req.SourceIPs,
+		"user_agent":           req.UserAgents,
+	}
+	for name, values := range filters {
+		if err := validateAuditLogsFilter(name, values); err != nil {
+			return err
+		}
+	}
+
+	// Checked here because the generated types are string aliases: an unknown
+	// value decodes cleanly and would match nothing.
+	closed := []struct {
+		name   string
+		values []string
+		valid  map[string]bool
+	}{
+		{"category", req.Categories, auditLogCategories},
+		{"result", req.Results, auditLogResults},
+		{"surface", req.Surfaces, auditLogSurfaces},
+	}
+	for _, c := range closed {
+		for _, v := range c.values {
+			if !c.valid[v] {
+				return fmt.Errorf("invalid %s value %q", c.name, v)
+			}
+		}
+	}
+
+	if len(req.SearchPhrase) > maxAuditLogsSearchLength {
+		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxAuditLogsSearchLength)
+	}
+	if req.TimelineInterval != "" && !auditLogsTimelineInterval.MatchString(req.TimelineInterval) {
+		return fmt.Errorf(
+			"timelineInterval must be <count><unit> where unit is m, h, d or w (e.g. 15m)")
+	}
+
+	if err := ValidateTimeRangeWithMax(req.StartTime, req.EndTime, maxAuditLogsTimeRange); err != nil {
+		return err
+	}
+	if err := ValidateAndSetLimit(&req.Limit); err != nil {
+		return err
+	}
+	return ValidateAndSetSortOrder(&req.SortOrder)
+}
+
+// ValidateAuditLogFilterValuesRequest validates the request and applies the
+// default for maxValues. The nested query is validated by the record query's
+// rules; its limit and sort order are defaulted rather than rejected, since the
+// contract ignores rather than forbids them.
+func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if !auditLogsFilterPaths[req.Filter] {
+		return fmt.Errorf("invalid filter %q", req.Filter)
+	}
+	if len(req.ValueSearch) > maxAuditLogsSearchLength {
+		return fmt.Errorf("valueSearch cannot exceed %d characters", maxAuditLogsSearchLength)
+	}
+	if req.MaxValues < 0 {
+		return fmt.Errorf("maxValues must be a positive integer")
+	}
+	if req.MaxValues > maxAuditLogsMaxValues {
+		return fmt.Errorf("maxValues cannot exceed %d", maxAuditLogsMaxValues)
+	}
+	if req.MaxValues == 0 {
+		req.MaxValues = defaultAuditLogsMaxValues
+	}
+	return ValidateAuditLogsQueryRequest(&req.Query)
+}
+
+func validateAuditLogsFilter(name string, values []string) error {
+	if len(values) > maxAuditLogsFilterItems {
+		return fmt.Errorf("%s cannot have more than %d values", name, maxAuditLogsFilterItems)
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		if len(v) > maxAuditLogsValueLength {
+			return fmt.Errorf("%s values cannot exceed %d characters", name, maxAuditLogsValueLength)
 		}
 		if _, dup := seen[v]; dup {
 			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)

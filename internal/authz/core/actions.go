@@ -266,6 +266,16 @@ const (
 	// expected to split into componentlogs:view and workflowrunlogs:view in a follow-up.
 	ActionViewPlatformLogs = "platformlogs:view"
 
+	// Audit logs actions
+	// Cluster-scoped: the trail records activity across every team, so reading it is a
+	// privilege in its own right rather than something a broad observability grant
+	// carries. A tenancy filter in a query narrows the result and never widens this.
+	//
+	// Gates both audit reads — the records and the filter values a picker over them is
+	// built from. The second enumerates actors, resource names and source addresses, so
+	// gating only the first would leave a read-around.
+	ActionViewAuditLogs = "auditlogs:view"
+
 	// Events actions
 	ActionViewEvents = "events:view"
 
@@ -575,6 +585,10 @@ var systemActions = []Action{
 
 	// Platform logs observability
 	{Name: ActionViewPlatformLogs, LowestScope: ScopeCluster, IsInternal: false},
+
+	// Audit trail. Cluster-scoped: a query's tenancy filters are filters, not a
+	// scope, so nothing below the cluster can satisfy it.
+	{Name: ActionViewAuditLogs, LowestScope: ScopeCluster, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

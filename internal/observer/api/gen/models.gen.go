@@ -24,12 +24,12 @@ const (
 
 // Defines values for AlertRuleConditionOperator.
 const (
-	Eq  AlertRuleConditionOperator = "eq"
-	Gt  AlertRuleConditionOperator = "gt"
-	Gte AlertRuleConditionOperator = "gte"
-	Lt  AlertRuleConditionOperator = "lt"
-	Lte AlertRuleConditionOperator = "lte"
-	Neq AlertRuleConditionOperator = "neq"
+	AlertRuleConditionOperatorEq  AlertRuleConditionOperator = "eq"
+	AlertRuleConditionOperatorGt  AlertRuleConditionOperator = "gt"
+	AlertRuleConditionOperatorGte AlertRuleConditionOperator = "gte"
+	AlertRuleConditionOperatorLt  AlertRuleConditionOperator = "lt"
+	AlertRuleConditionOperatorLte AlertRuleConditionOperator = "lte"
+	AlertRuleConditionOperatorNeq AlertRuleConditionOperator = "neq"
 )
 
 // Defines values for AlertRuleSourceType.
@@ -43,6 +43,68 @@ const (
 const (
 	AlertsQueryRequestSortOrderAsc  AlertsQueryRequestSortOrder = "asc"
 	AlertsQueryRequestSortOrderDesc AlertsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for AuditLogFilterValuesRequestFilter.
+const (
+	Action              AuditLogFilterValuesRequestFilter = "action"
+	ActorEntitlements   AuditLogFilterValuesRequestFilter = "actor.entitlements"
+	ActorId             AuditLogFilterValuesRequestFilter = "actor.id"
+	ActorIssuer         AuditLogFilterValuesRequestFilter = "actor.issuer"
+	ActorSessionId      AuditLogFilterValuesRequestFilter = "actor.session_id"
+	ActorType           AuditLogFilterValuesRequestFilter = "actor.type"
+	Category            AuditLogFilterValuesRequestFilter = "category"
+	OperationId         AuditLogFilterValuesRequestFilter = "operation_id"
+	Producer            AuditLogFilterValuesRequestFilter = "producer"
+	ResourceComponent   AuditLogFilterValuesRequestFilter = "resource.component"
+	ResourceEnvironment AuditLogFilterValuesRequestFilter = "resource.environment"
+	ResourceName        AuditLogFilterValuesRequestFilter = "resource.name"
+	ResourceNamespace   AuditLogFilterValuesRequestFilter = "resource.namespace"
+	ResourceProject     AuditLogFilterValuesRequestFilter = "resource.project"
+	ResourceType        AuditLogFilterValuesRequestFilter = "resource.type"
+	Result              AuditLogFilterValuesRequestFilter = "result"
+	SourceIp            AuditLogFilterValuesRequestFilter = "source_ip"
+	Surface             AuditLogFilterValuesRequestFilter = "surface"
+	UserAgent           AuditLogFilterValuesRequestFilter = "user_agent"
+)
+
+// Defines values for AuditLogFilterValuesResponseTotalRelation.
+const (
+	AuditLogFilterValuesResponseTotalRelationEq  AuditLogFilterValuesResponseTotalRelation = "eq"
+	AuditLogFilterValuesResponseTotalRelationGte AuditLogFilterValuesResponseTotalRelation = "gte"
+)
+
+// Defines values for AuditLogsQueryRequestCategory.
+const (
+	Access        AuditLogsQueryRequestCategory = "access"
+	Authorization AuditLogsQueryRequestCategory = "authorization"
+	Management    AuditLogsQueryRequestCategory = "management"
+)
+
+// Defines values for AuditLogsQueryRequestResult.
+const (
+	Denied          AuditLogsQueryRequestResult = "denied"
+	Failure         AuditLogsQueryRequestResult = "failure"
+	Success         AuditLogsQueryRequestResult = "success"
+	Unauthenticated AuditLogsQueryRequestResult = "unauthenticated"
+)
+
+// Defines values for AuditLogsQueryRequestSortOrder.
+const (
+	AuditLogsQueryRequestSortOrderAsc  AuditLogsQueryRequestSortOrder = "asc"
+	AuditLogsQueryRequestSortOrderDesc AuditLogsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for AuditLogsQueryRequestSurface.
+const (
+	Mcp  AuditLogsQueryRequestSurface = "mcp"
+	Rest AuditLogsQueryRequestSurface = "rest"
+)
+
+// Defines values for AuditLogsResponseTotalRelation.
+const (
+	Eq  AuditLogsResponseTotalRelation = "eq"
+	Gte AuditLogsResponseTotalRelation = "gte"
 )
 
 // Defines values for ErrorResponseTitle.
@@ -143,8 +205,8 @@ const (
 
 // Defines values for GetPlatformLogsParamsSortOrder.
 const (
-	Asc  GetPlatformLogsParamsSortOrder = "asc"
-	Desc GetPlatformLogsParamsSortOrder = "desc"
+	GetPlatformLogsParamsSortOrderAsc  GetPlatformLogsParamsSortOrder = "asc"
+	GetPlatformLogsParamsSortOrderDesc GetPlatformLogsParamsSortOrder = "desc"
 )
 
 // Alert A single fired alert.
@@ -257,6 +319,579 @@ type AlertsQueryResponse struct {
 	// Total The total number of alerts
 	Total *int `json:"total,omitempty"`
 }
+
+// AuditLogActor Who performed the action. `id` is unique only within `issuer` — the same `sub`
+// from two identity providers is two different subjects.
+type AuditLogActor struct {
+	// Entitlements Entitlements carried on the token, when the issuer supplies any.
+	Entitlements *map[string][]string `json:"entitlements,omitempty"`
+
+	// Id The token's validated `sub` claim, or `anonymous`.
+	Id string `json:"id"`
+
+	// Issuer The token's `iss` claim; the namespace `id` is unique within.
+	Issuer *string `json:"issuer,omitempty"`
+
+	// SessionId The token's `sid` claim, joining this event to an identity-provider login.
+	SessionId *string `json:"session_id,omitempty"`
+
+	// Type e.g. `user`, `service_account`, `anonymous`.
+	Type string `json:"type"`
+}
+
+// AuditLogCollectorInfo Where the record was collected from, as stamped by the collector rather than by
+// the emitting service.
+//
+// Served so a client can compare it against `producer` — a record whose claimed
+// origin and collected origin disagree is worth looking at. The observer does not
+// perform that comparison or report its outcome; both values are returned and the
+// judgement is the caller's.
+type AuditLogCollectorInfo struct {
+	ContainerName *string `json:"containerName,omitempty"`
+	NamespaceName *string `json:"namespaceName,omitempty"`
+	PodName       *string `json:"podName,omitempty"`
+}
+
+// AuditLogFilterValue One value a filter takes, with how many records carry it.
+type AuditLogFilterValue struct {
+	// Count Matching records carrying this value, within the queried window. May be
+	// approximate on a high-cardinality filter where the backend answers from a
+	// partial term count, so treat it as an ordering hint and a sense of scale —
+	// never as an audit finding in its own right.
+	Count int64 `json:"count"`
+
+	// Value The value, exactly as it would be sent back as a filter.
+	Value string `json:"value"`
+}
+
+// AuditLogFilterValuesRequest Which filter to list values for, and the query to list them under.
+//
+// `query` is a full `AuditLogsQueryRequest`, in the same shape as a record
+// query — so a client sends the query it already holds rather than rebuilding
+// it.
+//
+// **The time window lives in `query`, and it is required.** `query.startTime`
+// and `query.endTime` are mandatory on `AuditLogsQueryRequest`, so every call
+// here is scoped to a period and there is no way to ask for the distinct values
+// across all of history — which on a trail with years of retention is not a
+// question any backend should be asked. Values are the ones reachable in that
+// window, exactly as the records are.
+//
+// The other filters in `query` narrow which records the values are drawn from,
+// except the one named by `filter`, whose own selections are ignored.
+//
+// `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+// `query.timelineInterval` carry no meaning here: no records are returned, so
+// there is nothing to page, order or bucket. They are accepted and ignored
+// rather than rejected, so a client can pass its query through untouched.
+type AuditLogFilterValuesRequest struct {
+	// Filter The filter to list values for, named by its path in
+	// `AuditLogsQueryRequest` — `actor.id` lists the values that filter accepts.
+	//
+	// `event_id` and `request_id` are absent: both are near-unique per record, so
+	// a list of them is not something a client picks from — they are filtered by
+	// an exact value the client already holds, from a log line or another record.
+	// `actor.session_id` is present despite being near-unique too, because
+	// `valueSearch` makes it reachable: an investigator narrowing to one session
+	// has a prefix to type, which is not true of a UUID they have never seen.
+	Filter AuditLogFilterValuesRequestFilter `json:"filter"`
+
+	// MaxValues The maximum number of values to return, ordered by `count` descending then
+	// `value` ascending — so a truncated list holds the busiest values.
+	//
+	// Named `maxValues` rather than `limit` to keep it distinct from
+	// `query.limit`, which is a page size for records and is ignored here.
+	MaxValues *int `json:"maxValues,omitempty"`
+
+	// Query A filter set over the audit trail, shaped like the record it filters. Every
+	// filter is named and nested exactly as the field it matches in
+	// `AuditLogRecord` — `actor.id` filters `actor.id` — so a client needs no
+	// translation table in either direction, and a filter picker built from the
+	// record's own field paths maps onto this body mechanically.
+	//
+	// That is why the record-derived filters keep the record's snake_case spelling
+	// (`operation_id`, `request_id`, `source_ip`) while the query's own controls stay
+	// camelCase (`startTime`, `searchPhrase`, `limit`, `includeTimeline`). The two
+	// casings mark the two kinds of field: one names something in the trail, the
+	// other names something about this request.
+	//
+	// Multi-value fields OR within a field; fields AND with each other. An absent
+	// field is not a filter.
+	//
+	// The tenancy filters under `resource` narrow the result set and nothing else.
+	// Authorization is evaluated at cluster scope before any of them is read, so
+	// naming a namespace here does not entitle the caller to that namespace's trail.
+	//
+	// Two record fields have no filter. `resource.uid` is absent on deletes and on
+	// non-CRUD mutations, so filtering by it would silently exclude the operations an
+	// investigation most often wants — filter by `resource.name` and read `uid` off
+	// the returned record. `resource.resource`, the fourth hierarchy level, is set
+	// only where it duplicates `resource.name` today, so a filter for it would be a
+	// second spelling of one already here.
+	Query AuditLogsQueryRequest `json:"query"`
+
+	// ValueSearch Return only values containing this text, case-insensitively. This is how a
+	// picker narrows as its user types, and it is what makes a high-cardinality
+	// filter usable at all: `actor.id` on a large deployment has more distinct
+	// values than any list should offer, and typing three characters cuts it to
+	// something choosable.
+	//
+	// Distinct from `query.searchPhrase`, which narrows the *records* considered.
+	// This narrows the *values* returned from those records.
+	ValueSearch *string `json:"valueSearch,omitempty"`
+}
+
+// AuditLogFilterValuesRequestFilter The filter to list values for, named by its path in
+// `AuditLogsQueryRequest` — `actor.id` lists the values that filter accepts.
+//
+// `event_id` and `request_id` are absent: both are near-unique per record, so
+// a list of them is not something a client picks from — they are filtered by
+// an exact value the client already holds, from a log line or another record.
+// `actor.session_id` is present despite being near-unique too, because
+// `valueSearch` makes it reachable: an investigator narrowing to one session
+// has a prefix to type, which is not true of a UUID they have never seen.
+type AuditLogFilterValuesRequestFilter string
+
+// AuditLogFilterValuesResponse defines model for AuditLogFilterValuesResponse.
+type AuditLogFilterValuesResponse struct {
+	// Filter The filter these values belong to, echoed from the request so a client
+	// handling several pickers can match a response to the one that asked.
+	Filter string `json:"filter"`
+
+	// TookMs The time taken to compute the values in milliseconds.
+	TookMs int64 `json:"tookMs"`
+
+	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+	// distinct values exactly is itself an expensive aggregation on a
+	// high-cardinality field, and most backends answer approximately, so a
+	// capped or estimated count is labelled rather than passed off as exact.
+	TotalRelation AuditLogFilterValuesResponseTotalRelation `json:"totalRelation"`
+
+	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
+	// Read together with `totalRelation` — this is what lets a picker say "412
+	// more values, keep typing to narrow" rather than silently ending its list.
+	TotalValues int64 `json:"totalValues"`
+
+	// Values The distinct values, ordered by `count` descending then `value` ascending.
+	//
+	// Values on which the field is absent are not represented: there is no
+	// empty-string entry, because there is no filter value that would select one.
+	// A denial that resolved no operation contributes to no `resource.name` value
+	// at all rather than to an empty one.
+	Values []AuditLogFilterValue `json:"values"`
+}
+
+// AuditLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+// distinct values exactly is itself an expensive aggregation on a
+// high-cardinality field, and most backends answer approximately, so a
+// capped or estimated count is labelled rather than passed off as exact.
+type AuditLogFilterValuesResponseTotalRelation string
+
+// AuditLogHTTPInfo The request line, for an event that arrived over HTTP. Absent for an MCP
+// `tools/call`, which has none.
+type AuditLogHTTPInfo struct {
+	Method *string `json:"method,omitempty"`
+
+	// Path Route path only; query strings are not recorded.
+	Path *string `json:"path,omitempty"`
+}
+
+// AuditLogRecord One audit event, in the field names and nesting it was published with. Keys are
+// snake_case here while the surrounding envelope is camelCase, and that is
+// deliberate: this is the frozen, versioned record a SIEM already consumes, so a
+// response body can be compared against an exported log line key for key rather
+// than through a translation table.
+//
+// `category` and `result` are plain strings rather than enums, unlike their
+// request-side counterparts: a filter is a closed input the server validates, while
+// a record's vocabulary grows with `schema_version`, and a closed enum here would
+// make an older client reject a newer record.
+type AuditLogRecord struct {
+	// Action Semantic action name.
+	Action string `json:"action"`
+
+	// Actor Who performed the action. `id` is unique only within `issuer` — the same `sub`
+	// from two identity providers is two different subjects.
+	Actor AuditLogActor `json:"actor"`
+
+	// Category Event category. `management`, `authorization` or `access` at schema 1.0.
+	Category string `json:"category"`
+
+	// Collector Where the record was collected from, as stamped by the collector rather than by
+	// the emitting service.
+	//
+	// Served so a client can compare it against `producer` — a record whose claimed
+	// origin and collected origin disagree is worth looking at. The observer does not
+	// perform that comparison or report its outcome; both values are returned and the
+	// judgement is the caller's.
+	Collector *AuditLogCollectorInfo `json:"collector,omitempty"`
+
+	// EventId UUID v7, unique per record.
+	EventId string `json:"event_id"`
+
+	// EventTime When the audited request was received.
+	EventTime time.Time `json:"event_time"`
+
+	// Http The request line, for an event that arrived over HTTP. Absent for an MCP
+	// `tools/call`, which has none.
+	Http *AuditLogHTTPInfo `json:"http,omitempty"`
+
+	// Log The raw line the collector ingested, preserved alongside the parsed fields.
+	// Present when the storage backend retains it. This is the ground truth a
+	// parsing discrepancy is settled against.
+	Log *string `json:"log,omitempty"`
+
+	// Metadata Operation-specific detail, when the emitting handler recorded any.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// OperationId Canonical operation identifier.
+	OperationId *string `json:"operation_id,omitempty"`
+
+	// Producer Emitting service.
+	Producer *string `json:"producer,omitempty"`
+
+	// RequestId Correlates this record with the access log line for the same request.
+	RequestId *string `json:"request_id,omitempty"`
+
+	// Resource The target resource, and the point in OpenChoreo's tree the decision was
+	// authorized at. Absent on a rejection that resolved no operation.
+	Resource *AuditLogResource `json:"resource,omitempty"`
+
+	// Result Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
+	// policy) or `unauthenticated` (no subject at all) at schema 1.0.
+	Result string `json:"result"`
+
+	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed
+	// value representation, minor on an addition.
+	SchemaVersion string `json:"schema_version"`
+
+	// SourceIp Client address the request arrived from.
+	SourceIp *string `json:"source_ip,omitempty"`
+
+	// Surface Which surface of the API the call arrived through. `rest` or `mcp` at
+	// schema 1.0 — MCP wraps the same API, so the REST value is not `api`.
+	Surface *string `json:"surface,omitempty"`
+
+	// UserAgent Client-supplied and unverifiable, like `source_ip`. It is the only field
+	// that separates a portal session from occ, CI or an agent, which is what
+	// makes it worth recording despite being unverifiable.
+	UserAgent *string `json:"user_agent,omitempty"`
+}
+
+// AuditLogResource The target resource, and the point in OpenChoreo's tree the decision was
+// authorized at. Absent on a rejection that resolved no operation.
+type AuditLogResource struct {
+	Component *string `json:"component,omitempty"`
+
+	// Environment Dual-scoped `{namespace}/{name}`, as authorization evaluated it.
+	Environment *string                 `json:"environment,omitempty"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
+	Namespace   *string                 `json:"namespace,omitempty"`
+	Project     *string                 `json:"project,omitempty"`
+	Resource    *string                 `json:"resource,omitempty"`
+	Type        *string                 `json:"type,omitempty"`
+
+	// Uid Server-generated identifier that is never reused. Absent when the operation
+	// returned no object — a delete, or a non-CRUD mutation.
+	Uid *string `json:"uid,omitempty"`
+}
+
+// AuditLogTimeline Per-interval counts across the queried window, broken down by `result`.
+//
+// Present only when `includeTimeline=true`, and omitted rather than empty when
+// the adapter backing this observer cannot compute it — a client must treat an
+// absent `timeline` as "unknown", not as "no activity in this window".
+type AuditLogTimeline struct {
+	// Buckets One entry per interval, in ascending `startTime` order regardless of the
+	// query's `sortOrder` — a timeline reads left to right whichever way the
+	// records are paged.
+	//
+	// **Buckets with no records are present with zero counts, not omitted.** The
+	// array covers the whole window from `startTime` to `endTime` contiguously.
+	// A sparse array would let a client draw a continuous chart across a gap in
+	// activity, which is the same class of mistake as answering an unimplemented
+	// query with an empty `200`: it reports quiet as if it were nothing to
+	// report. The final bucket may be shorter than `interval` where the window
+	// does not divide evenly.
+	Buckets []AuditLogTimelineBucket `json:"buckets"`
+
+	// Interval The bucket width actually used, which is not necessarily the requested
+	// `timelineInterval`: a width that would exceed 500 buckets is coarsened.
+	// Read the width from here, and label the chart from here.
+	Interval string `json:"interval"`
+}
+
+// AuditLogTimelineBucket One interval of the timeline.
+type AuditLogTimelineBucket struct {
+	// Counts Records in this bucket by `result`, keyed by the value itself — `success`,
+	// `failure`, `denied` and `unauthenticated` at schema 1.0. An open map rather
+	// than four declared fields, so a `result` value added in a later schema
+	// appears here without a spec bump.
+	//
+	// **A result with no records in this bucket may be omitted, and an absent key
+	// means zero.** A client renders the full set of results it knows about and
+	// reads a missing key as 0.
+	Counts *map[string]int64 `json:"counts,omitempty"`
+
+	// StartTime Inclusive lower bound of the bucket. Its width is `interval`.
+	StartTime time.Time `json:"startTime"`
+
+	// Total Records in this bucket. Equals the sum of `counts` — carried separately so
+	// a client can draw a total without walking the breakdown, and so a bucket
+	// whose breakdown the backend could not produce still reports a height.
+	Total int64 `json:"total"`
+}
+
+// AuditLogsActorFilter Filters on the record's `actor` group. Named and nested as the record is, so
+// `actor.id` here filters `actor.id` there.
+type AuditLogsActorFilter struct {
+	// Entitlements Entitlement values, e.g. a group name. Matched against the values of every
+	// claim in the record's `actor.entitlements` map rather than one named claim,
+	// because the claim key varies by subject kind — `groups` for a user, `sub`
+	// for a service account — and a caller asking "what did everyone in
+	// `platform-engineer` do" should not have to know which.
+	Entitlements *[]string `json:"entitlements,omitempty"`
+
+	// Id Subject identifiers. An `id` is unique only within an `issuer`, so on a
+	// deployment with more than one identity provider this should be paired with
+	// `issuer` — filtering on `id` alone would conflate two different subjects
+	// that happen to share a `sub`.
+	Id *[]string `json:"id,omitempty"`
+
+	// Issuer Token issuers — the namespace an `id` is unique within. On a single-issuer
+	// deployment this is one value and filtering on it is redundant; on a
+	// multi-issuer one it is what makes an `id` filter mean one subject.
+	Issuer *[]string `json:"issuer,omitempty"`
+
+	// SessionId Identity-provider session identifiers, from the token's `sid` claim. This
+	// is what joins every action taken in one login into a single sequence.
+	//
+	// Present for interactive logins and absent for client-credentials tokens,
+	// since OIDC leaves `sid` optional — so a session filter selects human
+	// activity and silently excludes service accounts.
+	SessionId *[]string `json:"session_id,omitempty"`
+
+	// Type Kinds of subject, e.g. `user`, `service_account`, `anonymous`.
+	Type *[]string `json:"type,omitempty"`
+}
+
+// AuditLogsQueryRequest A filter set over the audit trail, shaped like the record it filters. Every
+// filter is named and nested exactly as the field it matches in
+// `AuditLogRecord` — `actor.id` filters `actor.id` — so a client needs no
+// translation table in either direction, and a filter picker built from the
+// record's own field paths maps onto this body mechanically.
+//
+// That is why the record-derived filters keep the record's snake_case spelling
+// (`operation_id`, `request_id`, `source_ip`) while the query's own controls stay
+// camelCase (`startTime`, `searchPhrase`, `limit`, `includeTimeline`). The two
+// casings mark the two kinds of field: one names something in the trail, the
+// other names something about this request.
+//
+// Multi-value fields OR within a field; fields AND with each other. An absent
+// field is not a filter.
+//
+// The tenancy filters under `resource` narrow the result set and nothing else.
+// Authorization is evaluated at cluster scope before any of them is read, so
+// naming a namespace here does not entitle the caller to that namespace's trail.
+//
+// Two record fields have no filter. `resource.uid` is absent on deletes and on
+// non-CRUD mutations, so filtering by it would silently exclude the operations an
+// investigation most often wants — filter by `resource.name` and read `uid` off
+// the returned record. `resource.resource`, the fourth hierarchy level, is set
+// only where it duplicates `resource.name` today, so a filter for it would be a
+// second spelling of one already here.
+type AuditLogsQueryRequest struct {
+	// Action Semantic action names.
+	Action *[]string `json:"action,omitempty"`
+
+	// Actor Filters on the record's `actor` group. Named and nested as the record is, so
+	// `actor.id` here filters `actor.id` there.
+	Actor *AuditLogsActorFilter `json:"actor,omitempty"`
+
+	// Category Event categories. A closed set: an unknown value is a `400` rather than a
+	// filter that silently matches nothing.
+	//
+	// `access` is what separates disclosure from change — reading the trail is
+	// recorded under it, so filtering it out leaves only the operations that
+	// altered something.
+	Category *[]AuditLogsQueryRequestCategory `json:"category,omitempty"`
+
+	// Cursor Opaque continuation token from a previous response's `nextCursor`. Minted and
+	// interpreted by the adapter behind this observer; pass it back unmodified.
+	//
+	// Continuing with a cursor pins the ordering, so a record written mid-scroll
+	// cannot shift a page boundary. A cursor eventually expires — the backend's
+	// point-in-time lapses, or the indices it was minted against roll — and that
+	// comes back as a `400` carrying the cursor-expired error code, not as an empty
+	// page. Restart the query from the first page when it does.
+	Cursor *string `json:"cursor,omitempty"`
+
+	// EndTime Exclusive upper bound of the event window (RFC 3339, absolute UTC). Must be
+	// strictly greater than startTime, and within 366 days of it.
+	EndTime time.Time `json:"endTime"`
+
+	// EventId Record identifiers, for fetching known records directly.
+	EventId *[]string `json:"event_id,omitempty"`
+
+	// IncludeTimeline Also return per-interval counts across the queried window, broken down by
+	// `result`. See `AuditLogTimeline`.
+	//
+	// No page of records can be bucketed into a timeline — a page is the newest
+	// or oldest `limit` records, not a sample of the window — so a client that
+	// wants a histogram has to ask for one.
+	//
+	// Opt-in because it costs an aggregation pass on top of the search, and the
+	// answer describes the query rather than the page: a client paginating should
+	// request it on the first page only, since it does not change as the cursor
+	// is walked.
+	//
+	// There is deliberately no companion flag for filter values — the distinct
+	// values each filter can take under the query. Those need one aggregation per
+	// filter rather than one in total, which on a busy trail is enough load to
+	// matter on every keystroke that changes a query. They are planned as their
+	// own operation, where a client can ask for one filter's values at a time and
+	// the cost is proportional to what it actually needs.
+	IncludeTimeline *bool `json:"includeTimeline,omitempty"`
+
+	// Limit The maximum number of records to return.
+	Limit *int `json:"limit,omitempty"`
+
+	// OperationId Canonical operation identifiers.
+	OperationId *[]string `json:"operation_id,omitempty"`
+
+	// Producer Emitting services.
+	Producer *[]string `json:"producer,omitempty"`
+
+	// RequestId Correlation IDs. This is the pivot from an access log line to the audit
+	// record for the same request, so it takes exact IDs rather than a prefix.
+	RequestId *[]string `json:"request_id,omitempty"`
+
+	// Resource Filters on the record's `resource` group — the target of the action and the
+	// point in OpenChoreo's tree the decision was authorized at. Named and nested as
+	// the record is.
+	//
+	// These are filters, not scopes: see `AuditLogsQueryRequest`.
+	Resource *AuditLogsResourceFilter `json:"resource,omitempty"`
+
+	// Result Outcomes. Closed, for the same reason as `category`.
+	Result *[]AuditLogsQueryRequestResult `json:"result,omitempty"`
+
+	// SearchPhrase Free text to match within the record.
+	SearchPhrase *string `json:"searchPhrase,omitempty"`
+
+	// SortOrder Sort direction on the event time.
+	SortOrder *AuditLogsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// SourceIp Client addresses. Matched exactly, not by network range — a CIDR filter is
+	// not offered because the recorded value is whatever the request arrived
+	// with, which behind a proxy is the proxy.
+	SourceIp *[]string `json:"source_ip,omitempty"`
+
+	// StartTime Inclusive lower bound of the event window (RFC 3339, absolute UTC).
+	//
+	// The window may span at most 366 days; a wider one is a `400`. Longer than
+	// the log endpoints allow, because the audit trail keeps its own retention and
+	// an annual review is an ordinary query — but still bounded, so page a
+	// multi-year investigation a year at a time.
+	StartTime time.Time `json:"startTime"`
+
+	// Surface Surfaces of the API the call arrived through. Closed. MCP wraps the same
+	// API, so the REST value is `rest` rather than `api`.
+	Surface *[]AuditLogsQueryRequestSurface `json:"surface,omitempty"`
+
+	// TimelineInterval Bucket width for `timeline`, in `<count><unit>` notation where unit is one
+	// of `m` (minutes), `h` (hours), `d` (days) or `w` (weeks) — for example
+	// `15m`, `2h`, `1d`. Extends the `<count><unit>` convention used elsewhere in
+	// this spec with `m`, since a one-hour window wants minute buckets.
+	//
+	// Ignored unless `includeTimeline` is true. Defaults to a width the adapter
+	// chooses from the window when omitted.
+	//
+	// A width that would produce more than 500 buckets is **coarsened rather than
+	// rejected**, and `timeline.interval` reports what was actually used — always
+	// read the width back from there rather than assuming the request was honoured.
+	TimelineInterval *string `json:"timelineInterval,omitempty"`
+
+	// UserAgent Client identifications, matched exactly. Free-text agent strings vary by
+	// version, so `searchPhrase` is usually the better tool for "anything occ"
+	// — this filter is for pinning down one exact agent.
+	UserAgent *[]string `json:"user_agent,omitempty"`
+}
+
+// AuditLogsQueryRequestCategory defines model for AuditLogsQueryRequest.Category.
+type AuditLogsQueryRequestCategory string
+
+// AuditLogsQueryRequestResult defines model for AuditLogsQueryRequest.Result.
+type AuditLogsQueryRequestResult string
+
+// AuditLogsQueryRequestSortOrder Sort direction on the event time.
+type AuditLogsQueryRequestSortOrder string
+
+// AuditLogsQueryRequestSurface defines model for AuditLogsQueryRequest.Surface.
+type AuditLogsQueryRequestSurface string
+
+// AuditLogsResourceFilter Filters on the record's `resource` group — the target of the action and the
+// point in OpenChoreo's tree the decision was authorized at. Named and nested as
+// the record is.
+//
+// These are filters, not scopes: see `AuditLogsQueryRequest`.
+type AuditLogsResourceFilter struct {
+	// Component Components.
+	Component *[]string `json:"component,omitempty"`
+
+	// Environment Environments in the dual-scoped `{namespace}/{name}` form, because that is
+	// how the value is stored — recorded exactly as authorization evaluated it. A
+	// bare environment name will not match.
+	Environment *[]string `json:"environment,omitempty"`
+
+	// Name Resource names, as the handler recorded them.
+	Name *[]string `json:"name,omitempty"`
+
+	// Namespace OpenChoreo namespaces.
+	Namespace *[]string `json:"namespace,omitempty"`
+
+	// Project Projects.
+	Project *[]string `json:"project,omitempty"`
+
+	// Type Resource kinds.
+	Type *[]string `json:"type,omitempty"`
+}
+
+// AuditLogsResponse defines model for AuditLogsResponse.
+type AuditLogsResponse struct {
+	// NextCursor Opaque token for the next page. Absent when this page is the last one; its
+	// absence is the only end-of-results signal.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
+	// Records Audit records matching the query, in `sortOrder` of `event_time`.
+	Records []AuditLogRecord `json:"records"`
+
+	// Timeline Per-interval counts across the queried window, broken down by `result`.
+	//
+	// Present only when `includeTimeline=true`, and omitted rather than empty when
+	// the adapter backing this observer cannot compute it — a client must treat an
+	// absent `timeline` as "unknown", not as "no activity in this window".
+	Timeline *AuditLogTimeline `json:"timeline,omitempty"`
+
+	// TookMs The time taken to query the audit logs in milliseconds.
+	TookMs int64 `json:"tookMs"`
+
+	// Total Number of matching records. Read together with `totalRelation`.
+	Total int64 `json:"total"`
+
+	// TotalRelation Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
+	// at (`gte`). Present so a capped count cannot silently claim to be exact — an
+	// audit consumer reading a capped `total` as exact draws the wrong conclusion
+	// about how much happened.
+	TotalRelation AuditLogsResponseTotalRelation `json:"totalRelation"`
+}
+
+// AuditLogsResponseTotalRelation Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
+// at (`gte`). Present so a capped count cannot silently claim to be exact — an
+// audit consumer reading a capped `total` as exact draws the wrong conclusion
+// about how much happened.
+type AuditLogsResponseTotalRelation string
 
 // ComponentCost defines model for ComponentCost.
 type ComponentCost struct {
@@ -1255,6 +1890,12 @@ type QueryMetricsJSONRequestBody = MetricsQueryRequest
 
 // QueryAlertsJSONRequestBody defines body for QueryAlerts for application/json ContentType.
 type QueryAlertsJSONRequestBody = AlertsQueryRequest
+
+// QueryAuditLogFilterValuesJSONRequestBody defines body for QueryAuditLogFilterValues for application/json ContentType.
+type QueryAuditLogFilterValuesJSONRequestBody = AuditLogFilterValuesRequest
+
+// QueryAuditLogsJSONRequestBody defines body for QueryAuditLogs for application/json ContentType.
+type QueryAuditLogsJSONRequestBody = AuditLogsQueryRequest
 
 // QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
 type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
