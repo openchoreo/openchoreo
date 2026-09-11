@@ -53,9 +53,8 @@ func queryFilterValues(t *testing.T, h *Handler, body string) *httptest.Response
 	return postAuditLogs(t, h, "/api/v1alpha1/audit-logs/filter-values", body)
 }
 
-// TestQueryAuditLogs_FiltersReachTheService pins the request mapping end to end:
-// the nested groups arrive nested, which is the property that lets a client use
-// the record's own field paths as filter names.
+// Pins the request mapping end to end, including that the nested groups arrive
+// nested.
 func TestQueryAuditLogs_FiltersReachTheService(t *testing.T) {
 	t.Parallel()
 
@@ -135,6 +134,34 @@ func TestQueryAuditLogs_ValidationRejects(t *testing.T) {
 	}
 }
 
+// The audit window is not bounded by the 30-day constant the log endpoints
+// share.
+func TestQueryAuditLogs_WindowCapIsAuditsOwn(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a quarter is accepted", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockAuditLogsQuerier(t)
+		svc.EXPECT().QueryAuditLogs(mock.Anything, mock.Anything).
+			Return(&types.AuditLogsResponse{TotalRelation: "eq"}, nil)
+
+		rr := queryAuditLogs(t, auditLogsHandler(t, svc),
+			`{"startTime":"2026-01-01T00:00:00Z","endTime":"2026-04-01T00:00:00Z"}`)
+		assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	})
+
+	t.Run("beyond a year is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		svc := servicemocks.NewMockAuditLogsQuerier(t)
+		rr := queryAuditLogs(t, auditLogsHandler(t, svc),
+			`{"startTime":"2024-01-01T00:00:00Z","endTime":"2026-01-01T00:00:00Z"}`)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		svc.AssertNotCalled(t, "QueryAuditLogs", mock.Anything, mock.Anything)
+	})
+}
+
 func TestQueryAuditLogFilterValues_ValidationRejects(t *testing.T) {
 	t.Parallel()
 
@@ -196,8 +223,6 @@ func TestQueryAuditLogFilterValues_Succeeds(t *testing.T) {
 	assert.Equal(t, []string{"default"}, got.Query.Resource.Namespaces)
 }
 
-// TestQueryAuditLogFilterValues_DefaultsMaxValues: the cap is maxValues, not
-// query.limit, so a caller who omits it gets a list rather than nothing.
 func TestQueryAuditLogFilterValues_DefaultsMaxValues(t *testing.T) {
 	t.Parallel()
 
@@ -278,9 +303,8 @@ func TestAuditLogs_ErrorMapping(t *testing.T) {
 	}
 }
 
-// TestAuditLogs_ServiceNotInitialized is the state commit 2 deliberately leaves
-// the endpoints in: the service type exists, main.go does not construct it, so
-// neither operation is reachable until the authz wrapper is wired.
+// The state the endpoints sit in before main.go constructs the authz-wrapped
+// service.
 func TestAuditLogs_ServiceNotInitialized(t *testing.T) {
 	t.Parallel()
 

@@ -67,10 +67,8 @@ func emptyAuditLogsResponse() map[string]any {
 	}
 }
 
-// TestLogsAdapter_GetAuditLogs_RequestContract pins what the observer puts on the
-// wire: the POST path from the adapter contract, and every filter mapped onto the
-// body field the spec declares — including the nested actor and resource groups,
-// which is where a rename would otherwise go unnoticed.
+// Pins what the observer puts on the wire: the path, and every filter mapped
+// onto the body field the spec declares.
 func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	t.Parallel()
 
@@ -125,9 +123,8 @@ func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, "15m", gotBody["timelineInterval"])
 }
 
-// TestLogsAdapter_GetAuditLogs_OmitsUnsetFilters guards the other direction: an
-// empty filter must not be sent as an empty array, which a backend could read as
-// "match nothing" rather than "no filter".
+// An empty filter must not be sent as an empty array, which a backend could
+// read as "match nothing" rather than "no filter".
 func TestLogsAdapter_GetAuditLogs_OmitsUnsetFilters(t *testing.T) {
 	t.Parallel()
 
@@ -180,7 +177,6 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 					"startTime": "2026-08-14T16:30:00Z", "total": 1,
 					"counts": map[string]any{"success": 1},
 				},
-				// An empty bucket, which the contract requires be present.
 				map[string]any{"startTime": "2026-08-14T16:45:00Z", "total": 0},
 			},
 		},
@@ -220,15 +216,13 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 	assert.Equal(t, "15m", result.Timeline.Interval)
 	require.Len(t, result.Timeline.Buckets, 2)
 	assert.Equal(t, map[string]int64{"success": 1}, result.Timeline.Buckets[0].Counts)
-	// The empty bucket survives the mapping: dropping it would let a client
-	// draw a continuous chart across a gap in activity.
+	// Dropping an empty bucket would let a client draw a continuous chart
+	// across a gap in activity.
 	assert.Equal(t, int64(0), result.Timeline.Buckets[1].Total)
 	assert.Nil(t, result.Timeline.Buckets[1].Counts)
 }
 
-// TestLogsAdapter_GetAuditLogs_NilTimelinePreserved: an adapter that cannot
-// compute a timeline omits it, and nil is not the same answer as an empty
-// bucket list.
+// Nil is not the same answer as an empty bucket list.
 func TestLogsAdapter_GetAuditLogs_NilTimelinePreserved(t *testing.T) {
 	t.Parallel()
 
@@ -353,14 +347,12 @@ func TestLogsAdapter_GetAuditLogFilterValues_MapsResponse(t *testing.T) {
 	assert.Equal(t, int64(9), result.Took)
 }
 
-// TestLogsAdapter_GetAuditLogFilterValues_NotSupportedIsItsOwnSentinel is the
-// point of having two: a module may serve records while unable to aggregate, and
-// a caller told "audit logs are unsupported" would abandon records that work.
+// A module may serve records while unable to aggregate, so the two sentinels
+// must stay distinct.
 //
-// The 501 carries a body because the contract declares one. A module answering
-// 501 with an empty body but a JSON content type fails the generated parser
-// before the status is read, and degrades to a 500 — a pre-existing property of
-// this client shared with platform logs, not specific to audit.
+// The 501 carries a body because the contract declares one. A bodyless 501 with
+// a JSON content type fails the generated parser before the status is read and
+// degrades to a 500 — pre-existing, shared with platform logs.
 func TestLogsAdapter_GetAuditLogFilterValues_NotSupportedIsItsOwnSentinel(t *testing.T) {
 	t.Parallel()
 

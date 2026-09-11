@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,8 +99,6 @@ func TestAuditLogsService_QueryAuditLogs(t *testing.T) {
 	assert.Equal(t, "next-token", resp.NextCursor)
 }
 
-// TestAuditLogsService_TimelineOnlyWhenRequested: an adapter that computes a
-// timeline unconditionally must not make every caller carry it.
 func TestAuditLogsService_TimelineOnlyWhenRequested(t *testing.T) {
 	t.Parallel()
 
@@ -149,6 +148,52 @@ func TestAuditLogsService_TimelineOnlyWhenRequested(t *testing.T) {
 	})
 }
 
+// An interval the contract's pattern rejects drops the timeline: buckets with
+// no usable width would produce a response the observer's own schema rejects.
+func TestAuditLogsService_DropsTimelineWithUnusableInterval(t *testing.T) {
+	t.Parallel()
+
+	bucket := observability.AuditLogTimelineBucket{
+		StartTime: time.Date(2026, 8, 14, 16, 30, 0, 0, time.UTC), Total: 1,
+	}
+
+	tests := []struct {
+		name     string
+		interval string
+		wantNil  bool
+	}{
+		{name: "valid", interval: "15m", wantNil: false},
+		{name: "empty", interval: "", wantNil: true},
+		{name: "unparseable unit", interval: "1month", wantNil: true},
+		{name: "zero count", interval: "0h", wantNil: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			adapter := &stubAuditLogsAdapter{queryResult: &observability.AuditLogsResult{
+				Timeline: &observability.AuditLogTimeline{
+					Interval: tt.interval,
+					Buckets:  []observability.AuditLogTimelineBucket{bucket},
+				},
+			}}
+			svc := NewAuditLogsService(adapter, testLogger())
+			req := auditLogsRequest()
+			req.IncludeTimeline = true
+
+			resp, err := svc.QueryAuditLogs(context.Background(), req)
+			require.NoError(t, err)
+			if tt.wantNil {
+				assert.Nil(t, resp.Timeline)
+				return
+			}
+			require.NotNil(t, resp.Timeline)
+			assert.Equal(t, tt.interval, resp.Timeline.Interval)
+		})
+	}
+}
+
 func TestAuditLogsService_QueryAuditLogs_TimeParsing(t *testing.T) {
 	t.Parallel()
 
@@ -167,9 +212,8 @@ func TestAuditLogsService_QueryAuditLogs_TimeParsing(t *testing.T) {
 	assert.Contains(t, err.Error(), "end time")
 }
 
-// TestAuditLogsService_SentinelPassThrough: the handler maps these onto specific
-// statuses, so wrapping them as a retrieval failure would turn a 501 or a
-// restart-the-query 400 into a 500.
+// The handler maps these sentinels onto specific statuses, so wrapping them
+// would turn a 501 or a restart-the-query 400 into a 500.
 func TestAuditLogsService_SentinelPassThrough(t *testing.T) {
 	t.Parallel()
 
@@ -210,6 +254,76 @@ func TestAuditLogsService_SentinelPassThrough(t *testing.T) {
 		_, err = svc.QueryAuditLogFilterValues(context.Background(), auditLogFilterValuesRequest())
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAuditLogsRetrieval)
+	})
+}
+
+// A module's bad value must not become an observer response that violates the
+// observer's own contract.
+func TestAuditLogsService_NormalisesAdapterTotalRelation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		reported observability.AuditLogsTotalRelation
+		want     string
+	}{
+		{name: "eq passes through", reported: observability.AuditLogsTotalEq, want: "eq"},
+		{name: "gte passes through", reported: observability.AuditLogsTotalGTE, want: "gte"},
+		{name: "unrecognized becomes gte", reported: "exact", want: "gte"},
+		{name: "empty becomes gte", reported: "", want: "gte"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			adapter := &stubAuditLogsAdapter{
+				queryResult: &observability.AuditLogsResult{TotalRelation: tt.reported},
+				valuesResult: &observability.AuditLogFilterValuesResult{
+					Filter: "actor.id", TotalRelation: tt.reported,
+				},
+			}
+			svc := NewAuditLogsService(adapter, testLogger())
+
+			resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, resp.TotalRelation)
+
+			values, err := svc.QueryAuditLogFilterValues(
+				context.Background(), auditLogFilterValuesRequest())
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, values.TotalRelation)
+		})
+	}
+}
+
+func TestAuditLogsService_DropsOversizedCursor(t *testing.T) {
+	t.Parallel()
+
+	t.Run("within the cap passes through", func(t *testing.T) {
+		t.Parallel()
+		cursor := strings.Repeat("a", maxAuditLogsCursorLength)
+		adapter := &stubAuditLogsAdapter{queryResult: &observability.AuditLogsResult{
+			TotalRelation: observability.AuditLogsTotalEq, NextCursor: cursor,
+		}}
+		svc := NewAuditLogsService(adapter, testLogger())
+
+		resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
+		require.NoError(t, err)
+		assert.Equal(t, cursor, resp.NextCursor)
+	})
+
+	t.Run("over the cap is dropped", func(t *testing.T) {
+		t.Parallel()
+		adapter := &stubAuditLogsAdapter{queryResult: &observability.AuditLogsResult{
+			TotalRelation: observability.AuditLogsTotalEq,
+			NextCursor:    strings.Repeat("a", maxAuditLogsCursorLength+1),
+		}}
+		svc := NewAuditLogsService(adapter, testLogger())
+
+		resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
+		require.NoError(t, err)
+		assert.Empty(t, resp.NextCursor)
 	})
 }
 

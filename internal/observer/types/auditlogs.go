@@ -8,22 +8,19 @@ package types
 type AuditLogsActorFilter struct {
 	IDs   []string `json:"id,omitempty"`
 	Types []string `json:"type,omitempty"`
-	// Issuers is the namespace an ID is unique within, so an ID filter is
-	// meaningful on its own only where a single issuer is configured.
+	// Issuers is the namespace an ID is unique within.
 	Issuers    []string `json:"issuer,omitempty"`
 	SessionIDs []string `json:"session_id,omitempty"`
-	// Entitlements matches the values of every claim in the record's
-	// actor.entitlements map rather than one named claim, since the claim key
-	// varies by subject kind.
+	// Entitlements matches values across every claim in the record's
+	// actor.entitlements map: the key varies by subject kind.
 	Entitlements []string `json:"entitlements,omitempty"`
 }
 
 // AuditLogsResourceFilter filters the record's resource group. Matches the
 // OpenAPI AuditLogsResourceFilter schema.
 //
-// No uid: it is absent on deletes and on non-CRUD mutations, so filtering by it
-// would exclude the operations an investigation most often wants. No resource
-// (the fourth hierarchy level): it is set only where it duplicates the name.
+// No uid: absent on deletes and non-CRUD mutations. No resource: set only where
+// it duplicates the name.
 type AuditLogsResourceFilter struct {
 	Types      []string `json:"type,omitempty"`
 	Namespaces []string `json:"namespace,omitempty"`
@@ -39,13 +36,11 @@ type AuditLogsResourceFilter struct {
 // POST /api/v1alpha1/audit-logs/query. Matches the OpenAPI
 // AuditLogsQueryRequest schema.
 //
-// Filters are named and nested as the record field they match, so a client
-// needs no translation table. That is why the record-derived filters keep the
-// record's snake_case JSON spelling while the query's own controls stay
-// camelCase — the casing marks which of the two a field is.
+// Filters are named and nested as the record field they match, so the
+// record-derived ones keep the record's snake_case while the query's own
+// controls stay camelCase.
 //
-// The filters under Resource narrow the result set and nothing else.
-// Authorization is evaluated at cluster scope before any of them is read — see
+// The filters under Resource narrow the result set and nothing else — see
 // service/audit_logs_authz.go.
 type AuditLogsQueryRequest struct {
 	// Time range for the query (required)
@@ -79,16 +74,10 @@ type AuditLogsQueryRequest struct {
 	Cursor string `json:"cursor,omitempty"`
 
 	// IncludeTimeline asks for per-interval counts across the window, which no
-	// page of records can be bucketed into. It describes the query rather than
-	// the page, so a caller paginating asks for it on the first page only.
-	//
-	// The only aggregation here. Per-filter distinct values are planned as
-	// their own operation, since one aggregation per filter rather than one in
-	// total is enough load to matter on a busy trail.
+	// page of records can be bucketed into.
 	IncludeTimeline bool `json:"includeTimeline,omitempty"`
 	// TimelineInterval is a "<count><unit>" width (m, h, d, w). Empty leaves
-	// the width to the adapter, which also coarsens anything that would exceed
-	// 500 buckets.
+	// the width to the adapter, which also coarsens past 500 buckets.
 	TimelineInterval string `json:"timelineInterval,omitempty"`
 }
 
@@ -138,11 +127,9 @@ type AuditLogCollectorInfo struct {
 // schema.
 //
 // Field names are snake_case while the surrounding response is camelCase: this
-// is the published audit record, and keeping its spelling lets a response be
-// compared against an exported log line key for key rather than through a
-// translation table. Category and Result are plain strings for the related
-// reason — their vocabulary grows with SchemaVersion, so a closed type here
-// would make an older consumer reject a newer record.
+// is the published record, so a response can be compared against an exported
+// log line key for key. Category and Result stay plain strings because their
+// vocabulary grows with SchemaVersion.
 type AuditLogRecord struct {
 	SchemaVersion string        `json:"schema_version"`
 	EventID       string        `json:"event_id"`
@@ -151,11 +138,8 @@ type AuditLogRecord struct {
 	Action        string        `json:"action"`
 	Category      string        `json:"category"`
 	Result        string        `json:"result"`
-	// RequestID, SourceIP, UserAgent and Producer carry no omitempty because
-	// the emitter writes all four unconditionally (eventJSON gives them none
-	// either). Omitting an empty one here would drop a key from a record this
-	// type claims to serve verbatim, so a response would stop matching an
-	// exported log line for a record that merely has no user agent.
+	// No omitempty: the emitter writes all four unconditionally, so omitting an
+	// empty one would drop a key from a record served verbatim.
 	RequestID   string                 `json:"request_id"`
 	SourceIP    string                 `json:"source_ip"`
 	UserAgent   string                 `json:"user_agent"`
@@ -174,17 +158,16 @@ type AuditLogRecord struct {
 type AuditLogsResponse struct {
 	Records []AuditLogRecord `json:"records"`
 	Total   int64            `json:"total"`
-	// TotalRelation is "eq" when Total is exact and "gte" when it is a lower
-	// bound the backend stopped counting at. Always populated, so a capped
-	// count cannot be read as exact.
+	// TotalRelation is "eq" when Total is exact, "gte" when it is a lower
+	// bound. Always populated.
 	TotalRelation string `json:"totalRelation"`
 	TookMs        int64  `json:"tookMs"`
 	// NextCursor is empty on the last page; its absence is the only
 	// end-of-results signal.
 	NextCursor string `json:"nextCursor,omitempty"`
 
-	// Timeline is omitted unless the caller asked for it and the adapter could
-	// compute it. Absent means "unknown", never "no activity in this window".
+	// Timeline is omitted unless asked for and computable. Absent means
+	// "unknown", never "no activity".
 	Timeline *AuditLogTimeline `json:"timeline,omitempty"`
 }
 
@@ -193,17 +176,15 @@ type AuditLogsResponse struct {
 // AuditLogFilterValuesRequest schema.
 type AuditLogFilterValuesRequest struct {
 	// Query carries the window and the filters the values are reached under.
-	// Its Limit, SortOrder, Cursor, IncludeTimeline and TimelineInterval are
-	// ignored; StartTime, EndTime and SearchPhrase are honored.
+	// Limit, SortOrder, Cursor, IncludeTimeline and TimelineInterval are
+	// ignored.
 	Query AuditLogsQueryRequest `json:"query"`
-	// Filter names the filter to list values for, by its path in the query
-	// vocabulary. The named filter's own selections in Query are ignored.
+	// Filter names the filter to list values for. Its own selections in Query
+	// are ignored.
 	Filter string `json:"filter"`
-	// ValueSearch narrows the values returned, unlike Query.SearchPhrase which
-	// narrows the records considered.
+	// ValueSearch narrows the values; Query.SearchPhrase narrows the records.
 	ValueSearch string `json:"valueSearch,omitempty"`
-	// MaxValues caps the list. Named to stay distinct from Query.Limit, which
-	// is a record page size and means nothing here.
+	// MaxValues caps the list, distinct from Query.Limit.
 	MaxValues int `json:"maxValues,omitempty"`
 }
 
@@ -218,13 +199,11 @@ type AuditLogFilterValue struct {
 // POST /api/v1alpha1/audit-logs/filter-values. Matches the OpenAPI
 // AuditLogFilterValuesResponse schema.
 type AuditLogFilterValuesResponse struct {
-	// Filter echoes the request, so a client driving several pickers can match
-	// a response to the one that asked.
+	// Filter echoes the request, for a client driving several pickers.
 	Filter string                `json:"filter"`
 	Values []AuditLogFilterValue `json:"values"`
 	// TotalValues is how many distinct values match, of which at most
-	// MaxValues were returned. TotalRelation says whether it is exact ("eq")
-	// or a lower bound ("gte").
+	// MaxValues were returned. TotalRelation says whether it is exact.
 	TotalValues   int64  `json:"totalValues"`
 	TotalRelation string `json:"totalRelation"`
 	TookMs        int64  `json:"tookMs"`
@@ -234,8 +213,8 @@ type AuditLogFilterValuesResponse struct {
 // AuditLogTimelineBucket schema.
 type AuditLogTimelineBucket struct {
 	StartTime string `json:"startTime"`
-	// Total equals the sum of Counts, carried separately so a bucket whose
-	// breakdown could not be produced still reports a height.
+	// Total equals the sum of Counts, carried separately so a bucket with no
+	// breakdown still reports a height.
 	Total int64 `json:"total"`
 	// Counts is records by result, keyed by the result value itself. A missing
 	// key means zero.
