@@ -28,6 +28,12 @@ const (
 	// CategoryAuthorization covers authorization-change operations (authzroles,
 	// authzrolebindings).
 	CategoryAuthorization Category = "authorization"
+	// CategoryAccess covers reads that disclose enough to be worth recording in
+	// their own right — reading the audit trail itself, today. Most reads are
+	// not audited at all (see each service's RESTExemptions); this category is
+	// for the ones where knowing who looked is part of the point, so an
+	// investigator can filter disclosure apart from change.
+	CategoryAccess Category = "access"
 )
 
 // Resource identifies the target resource of an action, as reported by a

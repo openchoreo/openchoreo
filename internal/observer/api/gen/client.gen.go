@@ -112,6 +112,16 @@ type ClientInterface interface {
 
 	QueryAlerts(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryAuditLogFilterValuesWithBody request with any body
+	QueryAuditLogFilterValuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryAuditLogFilterValues(ctx context.Context, body QueryAuditLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryAuditLogsWithBody request with any body
+	QueryAuditLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryAuditLogs(ctx context.Context, body QueryAuditLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetComponentCosts request
 	GetComponentCosts(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -251,6 +261,54 @@ func (c *Client) QueryAlertsWithBody(ctx context.Context, contentType string, bo
 
 func (c *Client) QueryAlerts(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryAlertsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAuditLogFilterValuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAuditLogFilterValuesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAuditLogFilterValues(ctx context.Context, body QueryAuditLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAuditLogFilterValuesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAuditLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAuditLogsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAuditLogs(ctx context.Context, body QueryAuditLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAuditLogsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -609,6 +667,86 @@ func NewQueryAlertsRequestWithBody(server string, contentType string, body io.Re
 	}
 
 	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryAuditLogFilterValuesRequest calls the generic QueryAuditLogFilterValues builder with application/json body
+func NewQueryAuditLogFilterValuesRequest(server string, body QueryAuditLogFilterValuesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryAuditLogFilterValuesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryAuditLogFilterValuesRequestWithBody generates requests for QueryAuditLogFilterValues with any type of body
+func NewQueryAuditLogFilterValuesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/audit-logs/filter-values")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryAuditLogsRequest calls the generic QueryAuditLogs builder with application/json body
+func NewQueryAuditLogsRequest(server string, body QueryAuditLogsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryAuditLogsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryAuditLogsRequestWithBody generates requests for QueryAuditLogs with any type of body
+func NewQueryAuditLogsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/audit-logs/query")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1399,6 +1537,16 @@ type ClientWithResponsesInterface interface {
 
 	QueryAlertsWithResponse(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAlertsResp, error)
 
+	// QueryAuditLogFilterValuesWithBodyWithResponse request with any body
+	QueryAuditLogFilterValuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAuditLogFilterValuesResp, error)
+
+	QueryAuditLogFilterValuesWithResponse(ctx context.Context, body QueryAuditLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAuditLogFilterValuesResp, error)
+
+	// QueryAuditLogsWithBodyWithResponse request with any body
+	QueryAuditLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAuditLogsResp, error)
+
+	QueryAuditLogsWithResponse(ctx context.Context, body QueryAuditLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAuditLogsResp, error)
+
 	// GetComponentCostsWithResponse request
 	GetComponentCostsWithResponse(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*GetComponentCostsResp, error)
 
@@ -1562,6 +1710,60 @@ func (r QueryAlertsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r QueryAlertsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryAuditLogFilterValuesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuditLogFilterValuesResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryAuditLogFilterValuesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryAuditLogFilterValuesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryAuditLogsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuditLogsResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryAuditLogsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryAuditLogsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1911,6 +2113,40 @@ func (c *ClientWithResponses) QueryAlertsWithResponse(ctx context.Context, body 
 		return nil, err
 	}
 	return ParseQueryAlertsResp(rsp)
+}
+
+// QueryAuditLogFilterValuesWithBodyWithResponse request with arbitrary body returning *QueryAuditLogFilterValuesResp
+func (c *ClientWithResponses) QueryAuditLogFilterValuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAuditLogFilterValuesResp, error) {
+	rsp, err := c.QueryAuditLogFilterValuesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAuditLogFilterValuesResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryAuditLogFilterValuesWithResponse(ctx context.Context, body QueryAuditLogFilterValuesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAuditLogFilterValuesResp, error) {
+	rsp, err := c.QueryAuditLogFilterValues(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAuditLogFilterValuesResp(rsp)
+}
+
+// QueryAuditLogsWithBodyWithResponse request with arbitrary body returning *QueryAuditLogsResp
+func (c *ClientWithResponses) QueryAuditLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAuditLogsResp, error) {
+	rsp, err := c.QueryAuditLogsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAuditLogsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryAuditLogsWithResponse(ctx context.Context, body QueryAuditLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAuditLogsResp, error) {
+	rsp, err := c.QueryAuditLogs(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAuditLogsResp(rsp)
 }
 
 // GetComponentCostsWithResponse request returning *GetComponentCostsResp
@@ -2293,6 +2529,128 @@ func ParseQueryAlertsResp(rsp *http.Response) (*QueryAlertsResp, error) {
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryAuditLogFilterValuesResp parses an HTTP response from a QueryAuditLogFilterValuesWithResponse call
+func ParseQueryAuditLogFilterValuesResp(rsp *http.Response) (*QueryAuditLogFilterValuesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryAuditLogFilterValuesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditLogFilterValuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryAuditLogsResp parses an HTTP response from a QueryAuditLogsWithResponse call
+func ParseQueryAuditLogsResp(rsp *http.Response) (*QueryAuditLogsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryAuditLogsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuditLogsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

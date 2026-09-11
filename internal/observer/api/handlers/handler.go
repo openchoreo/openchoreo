@@ -39,6 +39,7 @@ type Handler struct {
 	healthService        service.HealthChecker
 	logsService          service.LogsQuerier
 	platformLogsService  service.PlatformLogsQuerier
+	auditLogsService     service.AuditLogsQuerier
 	eventsService        service.EventsQuerier
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
