@@ -160,7 +160,6 @@ if [[ "$SEED_DEV_SECRETS" == "true" ]]; then
 
         bao kv put secret/backstage-backend-secret value='local-dev-backend-secret'
         bao kv put secret/backstage-client-secret value='backstage-portal-secret'
-        bao kv put secret/backstage-jenkins-api-key value='placeholder-not-in-use'
         bao kv put secret/backstage-github-actions-token value='placeholder-not-in-use'
         bao kv put secret/backstage-github-oauth-client-secret value='placeholder-not-in-use'
 
