@@ -41,7 +41,7 @@ var RESTExemptions = map[string]string{
 	"QueryAuditLogFilterValues": "Populates a filter picker, so it fires on every " +
 		"interaction that changes a query. Auditing it would bury QueryAuditLogs, " +
 		"which is audited and is where the disclosure is recorded. Gated on " +
-		"auditlog:view all the same.",
+		"auditlogs:view all the same.",
 
 	// Public spec — reads expressed as POST, to carry a query body.
 	"QueryAlerts":          reasonReadAsPOST,
