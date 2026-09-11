@@ -100,10 +100,11 @@ func TestAuditCoverage(t *testing.T) {
 	t.Run("every operation resolves to a category", func(t *testing.T) {
 		for _, op := range definedOps {
 			switch op.Category {
-			case coreaudit.CategoryManagement, coreaudit.CategoryAuthorization:
+			case coreaudit.CategoryManagement, coreaudit.CategoryAuthorization, coreaudit.CategoryAccess:
 			default:
-				t.Errorf("operation %q has category %q, want %q or %q",
-					op.ID, op.Category, coreaudit.CategoryManagement, coreaudit.CategoryAuthorization)
+				t.Errorf("operation %q has category %q, want one of %q, %q or %q",
+					op.ID, op.Category, coreaudit.CategoryManagement,
+					coreaudit.CategoryAuthorization, coreaudit.CategoryAccess)
 			}
 		}
 	})
@@ -111,9 +112,9 @@ func TestAuditCoverage(t *testing.T) {
 	// Pins the total so a spec change is forced through a deliberate update
 	// here rather than silently shifting the audited/exempted/read split.
 	//
-	// 21 = 16 public (7 GET + 9 non-GET) + 5 internal (1 GET + 4 non-GET).
+	// 23 = 18 public (7 GET + 11 non-GET) + 5 internal (1 GET + 4 non-GET).
 	t.Run("total operation count is pinned", func(t *testing.T) {
-		const wantTotal = 21
+		const wantTotal = 23
 		if len(restOperationIDs) != wantTotal {
 			t.Errorf("len(allOperationIDs) = %d, want %d", len(restOperationIDs), wantTotal)
 		}

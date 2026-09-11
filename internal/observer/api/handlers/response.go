@@ -26,10 +26,12 @@ import (
 //     observer never inspects the payload, so typing them would mean decoding
 //     bodies it currently proxies untouched.
 //   - QueryLogs, QueryEvents, QueryRuntimeTopology, QueryTraces,
-//     QuerySpansForTrace, GetSpanDetailsForTrace, Health and
-//     GetOAuthProtectedResourceMetadata return types.* values or ad-hoc maps
-//     rather than gen.* ones, so a generated type would need a conversion per
-//     response. QueryLogs additionally sits behind the logs oneOf union wrapper.
+//     QuerySpansForTrace, GetSpanDetailsForTrace, GetPlatformLogs,
+//     QueryAuditLogs, QueryAuditLogFilterValues, Health and
+//     GetOAuthProtectedResourceMetadata return
+//     types.* values or ad-hoc maps rather than gen.* ones, so a generated type
+//     would need a conversion per response. QueryLogs additionally sits behind
+//     the logs oneOf union wrapper.
 //
 // The remaining three operations — QueryAlerts, QueryIncidents and
 // UpdateIncident — return gen.* typed responses, so their bodies and statuses
@@ -108,5 +110,13 @@ func (resp apiResponse) VisitGetPlatformLogsResponse(w http.ResponseWriter) erro
 }
 
 func (resp apiResponse) VisitGetPlatformLogFilterValuesResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}
+
+func (resp apiResponse) VisitQueryAuditLogsResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}
+
+func (resp apiResponse) VisitQueryAuditLogFilterValuesResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }
