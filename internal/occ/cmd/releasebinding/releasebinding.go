@@ -151,7 +151,7 @@ func (r *ReleaseBinding) Generate(params GenerateParams) error {
 	}
 
 	// Get and validate deployment pipeline
-	pipelineEntry, ok := ocIndex.GetDeploymentPipeline(params.UsePipeline)
+	pipelineEntry, ok := ocIndex.GetDeploymentPipeline(namespace, params.UsePipeline)
 	if !ok {
 		return fmt.Errorf("deployment pipeline %q not found", params.UsePipeline)
 	}
