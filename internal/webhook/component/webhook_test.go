@@ -45,6 +45,46 @@ var _ = Describe("Component Webhook", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should admit a Component with a valid DNS-1035 name", func() {
+			obj.Name = "my-valid-component"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should admit a Component with a single-character lowercase name", func() {
+			obj.Name = "a"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject a Component whose name contains dots (e.g. wso2-is-7.1.0)", func() {
+			obj.Name = "wso2-is-7.1.0"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name starts with a digit", func() {
+			obj.Name = "1invalid"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name contains uppercase letters", func() {
+			obj.Name = "MyComponent"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name ends with a hyphen", func() {
+			obj.Name = "invalid-"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
 		It("should admit a Component with unique trait instance names", func() {
 			obj = componentWithTraits([]openchoreodevv1alpha1.ComponentTrait{
 				{Name: "sidecar", InstanceName: "sidecar-a"},
@@ -76,6 +116,21 @@ var _ = Describe("Component Webhook", func() {
 		It("should admit a valid update with no traits", func() {
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should admit an update with a valid DNS-1035 name", func() {
+			newObj := &openchoreodevv1alpha1.Component{}
+			newObj.Name = "valid-name-123"
+			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject an update whose name contains dots (e.g. wso2-is-7.1.0)", func() {
+			newObj := &openchoreodevv1alpha1.Component{}
+			newObj.Name = "wso2-is-7.1.0"
+			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
 		})
 
 		It("should admit an update with unique trait instance names in the new object", func() {
