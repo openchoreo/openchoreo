@@ -1,0 +1,302 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: run-tests
+spec:
+  templates:
+    - name: run-tests
+      inputs:
+        parameters:
+          - name: git-revision
+          # The image the tests run in. This step does not bundle a language runtime -
+          # it runs your command in your image, the same way the build steps do.
+          - name: test-image
+          # The command that runs the tests. It must leave a report behind at one of the
+          # paths below; anything it prints goes to the step's logs as usual.
+          - name: test-command
+          # Preferred source. If the test command writes this file, its contents are used
+          # verbatim as the test summary and nothing is parsed. Give the command full
+          # control this way when the built-in parsing does not fit your toolchain.
+          - name: summary-path
+            default: ".openchoreo/test-summary.json"
+          # Fallback sources, parsed only when summary-path is absent.
+          - name: junit-path
+            default: ""
+          - name: coverage-path
+            default: ""
+          - name: report-format
+            default: ""
+          # Whether a failing test fails the build.
+          #
+          # The summary reaches status.results either way: Argo records a step's output
+          # parameters even when its container exits non-zero, and the controller resolves
+          # results on failed runs as well as successful ones. Both were verified on a real
+          # run, so this is a straightforward choice and not a trade-off against losing data:
+          #   "true"  - a failing test fails the build. The WorkflowRun ends Failed, and its
+          #             status still carries the coverage and counts.
+          #   "false" - the step succeeds regardless, so the pipeline continues to the build
+          #             steps and a consumer gates on status.testReport.testsFailed instead.
+          - name: fail-on-test-failure
+            default: "true"
+      outputs:
+        parameters:
+          # Summary values only. The full report stays in the step's logs and in the
+          # workspace: the workflow plane configures no Argo artifact repository, so there
+          # is nowhere to put a multi-megabyte file. report-artifact is emitted from day
+          # one - and is empty in every shipped configuration - so that adding an artifact
+          # repository later is a workflow-plane change and not a schema change.
+          - name: test-report
+            valueFrom:
+              path: /tmp/test-report.json
+              default: ""
+          - name: coverage-percent
+            valueFrom:
+              path: /tmp/coverage-percent.txt
+              default: ""
+          - name: tests-total
+            valueFrom:
+              path: /tmp/tests-total.txt
+              default: ""
+          - name: tests-passed
+            valueFrom:
+              path: /tmp/tests-passed.txt
+              default: ""
+          - name: tests-failed
+            valueFrom:
+              path: /tmp/tests-failed.txt
+              default: ""
+          - name: tests-skipped
+            valueFrom:
+              path: /tmp/tests-skipped.txt
+              default: ""
+          - name: test-duration-seconds
+            valueFrom:
+              path: /tmp/test-duration-seconds.txt
+              default: ""
+          - name: report-format
+            valueFrom:
+              path: /tmp/report-format.txt
+              default: ""
+          - name: report-artifact
+            valueFrom:
+              path: /tmp/report-artifact.txt
+              default: ""
+          # Derived from the test command's exit code, not from a parsed report, so it is
+          # definitive even when no report was produced. A count-based verdict cannot be:
+          # with no JUnit report there are no counts, and an empty count is not a pass.
+          - name: tests-outcome
+            valueFrom:
+              path: /tmp/tests-outcome.txt
+              default: ""
+      container:
+        image: '{{inputs.parameters.test-image}}'
+        env:
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: TEST_COMMAND
+            value: '{{inputs.parameters.test-command}}'
+          - name: SUMMARY_PATH
+            value: '{{inputs.parameters.summary-path}}'
+          - name: JUNIT_PATH
+            value: '{{inputs.parameters.junit-path}}'
+          - name: COVERAGE_PATH
+            value: '{{inputs.parameters.coverage-path}}'
+          - name: REPORT_FORMAT
+            value: '{{inputs.parameters.report-format}}'
+          - name: FAIL_ON_TEST_FAILURE
+            value: '{{inputs.parameters.fail-on-test-failure}}'
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            # Deliberately not `set -e`: the test command is expected to fail sometimes,
+            # and everything after it exists to record why.
+            set -u
+
+            WORKDIR="/mnt/vol/source"
+            # Not `set -e`, so a failed cd would silently run the test command from the
+            # image's default directory - where it usually finds no tests, exits 0, and is
+            # reported as a pass. Refuse to run rather than produce a fictional result.
+            cd "$WORKDIR" || {
+              echo ">> Cannot enter workspace: ${WORKDIR}" >&2
+              exit 1
+            }
+
+            # Every output file is written up front. An output parameter whose file is
+            # missing falls back to its default, and a step that emitted nothing at all is
+            # indistinguishable from one that was never reached.
+            for f in coverage-percent tests-total tests-passed tests-failed \
+                     tests-skipped test-duration-seconds report-format report-artifact \
+                     tests-outcome; do
+              : > "/tmp/$f.txt"
+            done
+            : > /tmp/test-report.json
+
+            echo ">> Revision under test: ${GIT_REVISION}"
+            echo ">> Running: ${TEST_COMMAND}"
+            echo ">> ---------------------------------------------------------------"
+
+            START=$(date +%s)
+            sh -c "${TEST_COMMAND}"
+            TEST_EXIT=$?
+            END=$(date +%s)
+            WALL_SECONDS=$((END - START))
+
+            echo ">> ---------------------------------------------------------------"
+            echo ">> Test command exited ${TEST_EXIT} after ${WALL_SECONDS}s"
+
+            if [ "${TEST_EXIT}" -eq 0 ]; then
+              printf 'passed' > /tmp/tests-outcome.txt
+            else
+              printf 'failed' > /tmp/tests-outcome.txt
+            fi
+
+            # --- Path 1: the test command produced the summary itself -----------------
+            if [ -n "${SUMMARY_PATH}" ] && [ -f "${WORKDIR}/${SUMMARY_PATH}" ]; then
+              echo ">> Using the summary written by the test command: ${SUMMARY_PATH}"
+              # Collapse to one line: an output parameter is a single value, and a
+              # pretty-printed file would arrive in status with its newlines intact.
+              tr -d '\n\r' < "${WORKDIR}/${SUMMARY_PATH}" > /tmp/test-report.json
+
+            # --- Path 2: parse the reports the test command left behind ---------------
+            else
+              COVERAGE=""
+              TOTAL=""
+              FAILED=""
+              SKIPPED=""
+              PASSED=""
+              DURATION=""
+
+              if [ -n "${JUNIT_PATH}" ] && [ -f "${WORKDIR}/${JUNIT_PATH}" ]; then
+                echo ">> Parsing JUnit report: ${JUNIT_PATH}"
+                # Sums the attributes across every <testsuite> element, which gives the
+                # right totals whether or not the file has a <testsuites> wrapper.
+                set -- $(awk '
+                  function attr(s, name,   start, len) {
+                    s = " " s
+                    # XML permits either quote style. Matching only double quotes made a
+                    # single-quoted report parse as zero tests, silently. The offsets are
+                    # identical either way, since a quote is one byte.
+                    if (match(s, "[ \t\r\n]" name "=\"[^\"]*\"") ||
+                        match(s, "[ \t\r\n]" name "='"'"'[^'"'"']*'"'"'")) {
+                      start = RSTART + length(name) + 3
+                      len = RLENGTH - length(name) - 4
+                      return substr(s, start, len)
+                    }
+                    return ""
+                  }
+                  BEGIN { RS = "<"; tests = 0; failures = 0; errors = 0; skipped = 0; time = 0 }
+                  /^testsuite[ \t\r\n]/ {
+                    tests    += attr($0, "tests")    + 0
+                    failures += attr($0, "failures") + 0
+                    errors   += attr($0, "errors")   + 0
+                    skipped  += attr($0, "skipped")  + 0
+                    time     += attr($0, "time")     + 0
+                  }
+                  END { printf "%d %d %d %.3f\n", tests, failures + errors, skipped, time }
+                ' "${WORKDIR}/${JUNIT_PATH}")
+                TOTAL=$1
+                FAILED=$2
+                SKIPPED=$3
+                DURATION=$4
+                PASSED=$((TOTAL - FAILED - SKIPPED))
+                [ "${PASSED}" -lt 0 ] && PASSED=0
+              fi
+
+              if [ -n "${COVERAGE_PATH}" ] && [ -f "${WORKDIR}/${COVERAGE_PATH}" ]; then
+                echo ">> Parsing coverage report: ${COVERAGE_PATH}"
+                case "${WORKDIR}/${COVERAGE_PATH}" in
+                  *.xml)
+                    # Cobertura: the root <coverage> element carries line-rate as a
+                    # fraction.
+                    COVERAGE=$(awk '
+                      BEGIN { RS = "<" }
+                      /^coverage[ \t\r\n]/ {
+                        s = " " $0
+                        if (match(s, "[ \t\r\n]line-rate=\"[^\"]*\"") ||
+                            match(s, "[ \t\r\n]line-rate='"'"'[^'"'"']*'"'"'")) {
+                          rate = substr(s, RSTART + 12, RLENGTH - 13)
+                          printf "%.1f\n", rate * 100
+                          exit
+                        }
+                      }
+                    ' "${WORKDIR}/${COVERAGE_PATH}")
+                    ;;
+                  *)
+                    # A plain file holding just the percentage, which is the easiest thing
+                    # for a toolchain to produce:
+                    #   go tool cover -func=c.out | tail -1 | awk '{print substr($3,1,length($3)-1)}'
+                    COVERAGE=$(tr -d ' \n\r%' < "${WORKDIR}/${COVERAGE_PATH}")
+                    ;;
+                esac
+
+                # Both branches can produce a value the schema rejects: a plain file
+                # stripped wholesale, so a line like "total: (statements) 87.5%" survives as
+                # junk, or a Cobertura line-rate already expressed as a percentage, which
+                # this multiplies again into something like 8750.0. The controller drops a
+                # report it cannot store, and that would take the JUnit counts in the same
+                # report with it - so drop just the number instead.
+                if [ -n "${COVERAGE}" ] && \
+                   ! printf '%s' "${COVERAGE}" | grep -Eq '^(100(\.0+)?|[0-9]{1,2}(\.[0-9]+)?)$'; then
+                  echo ">> Ignoring an unparseable coverage value: ${COVERAGE}"
+                  COVERAGE=""
+                fi
+              fi
+
+              # Wall-clock time is only worth reporting alongside something that was
+              # actually measured. On its own it would produce a test report saying a run
+              # took four seconds and nothing else, which is noise, not a summary.
+              if [ -z "${DURATION}" ] && [ -n "${TOTAL}${COVERAGE}" ]; then
+                DURATION="${WALL_SECONDS}"
+              fi
+
+              printf '%s' "${COVERAGE}" > /tmp/coverage-percent.txt
+              printf '%s' "${TOTAL}"    > /tmp/tests-total.txt
+              printf '%s' "${PASSED}"   > /tmp/tests-passed.txt
+              printf '%s' "${FAILED}"   > /tmp/tests-failed.txt
+              printf '%s' "${SKIPPED}"  > /tmp/tests-skipped.txt
+              printf '%s' "${DURATION}" > /tmp/test-duration-seconds.txt
+              # reportFormat is a free-form parameter that ends up inside hand-built JSON
+              # below, so a quote or backslash in it would produce a document the controller
+              # cannot parse - and the whole report would be dropped over a label. Keep it to
+              # the characters a format name actually needs.
+              REPORT_FORMAT=$(printf '%s' "${REPORT_FORMAT}" | tr -cd 'A-Za-z0-9._-' | cut -c1-63)
+              printf '%s' "${REPORT_FORMAT}" > /tmp/report-format.txt
+
+              # Assembled by hand rather than with jq, which is not in most test images.
+              # Only fields that were actually measured are emitted: the controller rejects
+              # a report it cannot parse, and a zero it invented is worse than a gap.
+              {
+                printf '{'
+                SEP=""
+                [ -n "${COVERAGE}" ] && { printf '%s"coveragePercent":"%s"' "${SEP}" "${COVERAGE}"; SEP=","; }
+                [ -n "${TOTAL}" ]    && { printf '%s"testsTotal":%s' "${SEP}" "${TOTAL}"; SEP=","; }
+                [ -n "${PASSED}" ]   && { printf '%s"testsPassed":%s' "${SEP}" "${PASSED}"; SEP=","; }
+                [ -n "${FAILED}" ]   && { printf '%s"testsFailed":%s' "${SEP}" "${FAILED}"; SEP=","; }
+                [ -n "${SKIPPED}" ]  && { printf '%s"testsSkipped":%s' "${SEP}" "${SKIPPED}"; SEP=","; }
+                [ -n "${DURATION}" ] && { printf '%s"testDurationSeconds":"%s"' "${SEP}" "${DURATION}"; SEP=","; }
+                [ -n "${REPORT_FORMAT}" ] && { printf '%s"reportFormat":"%s"' "${SEP}" "${REPORT_FORMAT}"; SEP=","; }
+                printf '}'
+              } > /tmp/test-report.json
+            fi
+
+            # An empty object carries no information and would only produce a
+            # TestReportInvalid event on the WorkflowRun. Emit nothing instead.
+            if [ "$(cat /tmp/test-report.json)" = "{}" ]; then
+              : > /tmp/test-report.json
+            fi
+
+            echo ">> Test summary: $(cat /tmp/test-report.json)"
+
+            if [ "${TEST_EXIT}" -ne 0 ] && [ "${FAIL_ON_TEST_FAILURE}" = "true" ]; then
+              echo ">> Tests failed and fail-on-test-failure is true; failing the build"
+              exit "${TEST_EXIT}"
+            fi
+            if [ "${TEST_EXIT}" -ne 0 ]; then
+              echo ">> Tests failed, but fail-on-test-failure is false; recording the summary and continuing"
+            fi
+            exit 0
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace

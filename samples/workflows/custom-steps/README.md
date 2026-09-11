@@ -14,6 +14,7 @@ Each subdirectory covers a category of custom step with its own README and sampl
 | Directory | Description |
 |-----------|-------------|
 | [`linter/`](./linter/) | API and code linting steps (e.g. Spectral for OpenAPI specs) |
+| [`testing/`](./testing/) | Test execution steps that surface coverage and test counts into `WorkflowRun` status |
 
 ## How It Works
 

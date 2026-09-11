@@ -85,6 +85,9 @@ type WorkflowSpec struct {
 type WorkflowResult struct {
 	// Name identifies the result within the workflow and is the key it appears under in
 	// WorkflowRunStatus.Results.
+	//
+	// The name "test-report" is reserved: a result under that name is expected to carry a
+	// JSON test summary and is additionally projected into WorkflowRunStatus.TestReport.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63

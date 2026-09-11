@@ -3906,6 +3906,29 @@ type TaskResultRef struct {
 	Task string `json:"task"`
 }
 
+// TestReport Typed projection of the reserved "test-report" result. Summary values only - the
+// full report is not stored in status.
+type TestReport struct {
+	// CoveragePercent Line coverage as a decimal percentage between 0 and 100. A string so a value like "87.5" round-trips exactly.
+	CoveragePercent *string `json:"coveragePercent,omitempty"`
+
+	// ReportArtifact Locates the full report when the workflow plane has somewhere to put one. Empty
+	// in every shipped configuration today.
+	ReportArtifact *string `json:"reportArtifact,omitempty"`
+
+	// ReportFormat The format the step produced, so a consumer knows how to read reportArtifact.
+	ReportFormat *string `json:"reportFormat,omitempty"`
+
+	// TestDurationSeconds How long the tests took, in seconds, as a decimal string.
+	TestDurationSeconds *string `json:"testDurationSeconds,omitempty"`
+	TestsFailed         *int32  `json:"testsFailed,omitempty"`
+	TestsPassed         *int32  `json:"testsPassed,omitempty"`
+	TestsSkipped        *int32  `json:"testsSkipped,omitempty"`
+
+	// TestsTotal Number of tests executed, including skipped ones.
+	TestsTotal *int32 `json:"testsTotal,omitempty"`
+}
+
 // Trait Trait resource.
 // Defines composable cross-cutting concerns that can be applied to components.
 type Trait struct {
@@ -4246,6 +4269,8 @@ type WorkflowResultDeclaration struct {
 	Description *string `json:"description,omitempty"`
 
 	// Name Result name, and the key it appears under in WorkflowRunStatus.results.
+	// The name "test-report" is reserved and is additionally projected into
+	// WorkflowRunStatus.testReport.
 	Name string `json:"name"`
 
 	// Sensitive Record the result without its value. The entry still appears in
@@ -4376,6 +4401,11 @@ type WorkflowRunStatus struct {
 	RunReference *ResourceReference `json:"runReference,omitempty"`
 	StartedAt    *time.Time         `json:"startedAt,omitempty"`
 	Tasks        *[]WorkflowTask    `json:"tasks,omitempty"`
+
+	// TestReport Parsed form of the reserved "test-report" result. Set only when a run declares
+	// that result and its value parses as a test summary; the raw value stays in
+	// results either way.
+	TestReport *TestReport `json:"testReport,omitempty"`
 }
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details

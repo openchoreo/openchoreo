@@ -400,7 +400,10 @@ func TestResolveResultsFromTaskResult(t *testing.T) {
 			map[string]string{"image": "registry.example/app:v1"}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
+	results, report := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
+	if report != nil {
+		t.Errorf("no test-report result was declared, got %+v", report)
+	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %+v", results)
 	}
@@ -436,7 +439,7 @@ func TestResolveResultsMissingTaskEmitsEventAndNoEntry(t *testing.T) {
 			map[string]string{"image": "registry.example/app:v1"}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
 	if len(results) != 1 {
 		t.Fatalf("only the resolvable result should be recorded, got %+v", results)
 	}
@@ -477,7 +480,7 @@ func TestResolveResultsFromExpression(t *testing.T) {
 		podNode("build[1].tests", "tests", argoproj.NodeSucceeded, nil),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
 	if len(results) != len(decls) {
 		t.Fatalf("expected %d results, got %+v", len(decls), results)
 	}
@@ -506,7 +509,7 @@ func TestResolveResultsExpressionObjectIsJSONEncoded(t *testing.T) {
 			map[string]string{"coverage-percent": "87.5"}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(), decls, extractor)
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %+v", results)
 	}
@@ -522,7 +525,7 @@ func TestResolveResultsBadExpressionEmitsEvent(t *testing.T) {
 	decls := []openchoreodevv1alpha1.WorkflowResult{
 		expressionDecl("broken", `${tasks['nope'].results['nope']}`),
 	}
-	results := r.resolveResults(context.Background(), run, testWorkflow(), decls,
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(), decls,
 		newArgoResultExtractor(argoRun(podNode("build[0].a", "a", argoproj.NodeSucceeded, map[string]string{"x": "1"}))))
 
 	if len(results) != 0 {
@@ -546,7 +549,7 @@ func TestResolveResultsTruncatesOversizedValue(t *testing.T) {
 		podNode("build[0].tests", "tests", argoproj.NodeSucceeded, map[string]string{"report": long}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(),
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(),
 		[]openchoreodevv1alpha1.WorkflowResult{taskResultDecl("report", "tests", "report")}, extractor)
 
 	if len(results) != 1 {
@@ -595,7 +598,7 @@ func TestResolveResultsStopsAtRunBudget(t *testing.T) {
 			map[string]string{"a": sixty, "b": sixty, "c": sixty}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(), []openchoreodevv1alpha1.WorkflowResult{
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(), []openchoreodevv1alpha1.WorkflowResult{
 		taskResultDecl("a", "tests", "a"),
 		taskResultDecl("b", "tests", "b"),
 		taskResultDecl("c", "tests", "c"),
@@ -629,7 +632,7 @@ func TestResolveResultsSensitiveWithholdsValue(t *testing.T) {
 			map[string]string{"password": "hunter2"}),
 	))
 
-	results := r.resolveResults(context.Background(), run, testWorkflow(),
+	results, _ := r.resolveResults(context.Background(), run, testWorkflow(),
 		[]openchoreodevv1alpha1.WorkflowResult{
 			decl,
 			// A later expression must not be able to read the withheld value back out.
@@ -652,18 +655,179 @@ func TestResolveResultsSensitiveWithholdsValue(t *testing.T) {
 // test report projection
 // ---------------------------------------------------------------------------
 
+func TestProjectTestReport(t *testing.T) {
+	r, recorder := newResultsReconciler(ResultLimits{})
+	run := testRun(t, "")
+
+	report := `{"coveragePercent":"87.5","testsTotal":120,"testsPassed":118,` +
+		`"testsFailed":1,"testsSkipped":1,"testDurationSeconds":"42.5","reportFormat":"cobertura"}`
+
+	extractor := newArgoResultExtractor(argoRun(
+		podNode("build[0].run-tests", "run-tests", argoproj.NodeSucceeded,
+			map[string]string{"test-report": report}),
+	))
+
+	results, parsed := r.resolveResults(context.Background(), run, testWorkflow(),
+		[]openchoreodevv1alpha1.WorkflowResult{
+			taskResultDecl(ReservedTestReportResult, "run-tests", "test-report"),
+		}, extractor)
+
+	if parsed == nil {
+		t.Fatalf("expected a projected test report; events: %v", drainEvents(recorder))
+	}
+	if parsed.CoveragePercent != "87.5" {
+		t.Errorf("coveragePercent = %q", parsed.CoveragePercent)
+	}
+	if parsed.TestsTotal == nil || *parsed.TestsTotal != 120 {
+		t.Errorf("testsTotal = %v", parsed.TestsTotal)
+	}
+	if parsed.TestsFailed == nil || *parsed.TestsFailed != 1 {
+		t.Errorf("testsFailed = %v", parsed.TestsFailed)
+	}
+	if parsed.ReportFormat != "cobertura" {
+		t.Errorf("reportFormat = %q", parsed.ReportFormat)
+	}
+	if parsed.ReportArtifact != "" {
+		t.Errorf("no artifact repository is configured, so reportArtifact should be empty: %q", parsed.ReportArtifact)
+	}
+	// The raw value stays alongside the projection.
+	if got := resultValue(t, results, ReservedTestReportResult).Value; got != report {
+		t.Errorf("the raw result should be preserved, got %q", got)
+	}
+}
+
+func TestProjectTestReportInvalidJSONEmitsEvent(t *testing.T) {
+	for name, value := range map[string]string{
+		"not json":       "coverage is 87%",
+		"unknown field":  `{"coverage":"87.5"}`,
+		"empty object":   `{}`,
+		"trailing value": `{"coveragePercent":"87.5"} {"coveragePercent":"1"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r, recorder := newResultsReconciler(ResultLimits{})
+			run := testRun(t, "")
+			extractor := newArgoResultExtractor(argoRun(
+				podNode("build[0].run-tests", "run-tests", argoproj.NodeSucceeded,
+					map[string]string{"test-report": value}),
+			))
+
+			results, parsed := r.resolveResults(context.Background(), run, testWorkflow(),
+				[]openchoreodevv1alpha1.WorkflowResult{
+					taskResultDecl(ReservedTestReportResult, "run-tests", "test-report"),
+				}, extractor)
+
+			if parsed != nil {
+				t.Errorf("expected no projection, got %+v", parsed)
+			}
+			// The raw value is still recorded - the operator needs to see what the step produced.
+			if got := resultValue(t, results, ReservedTestReportResult).Value; got != value {
+				t.Errorf("raw result = %q", got)
+			}
+			if got := eventsMentioning(drainEvents(recorder), reasonTestReportInvalid); got != 1 {
+				t.Errorf("expected one invalid-report event, got %d", got)
+			}
+		})
+	}
+}
+
+// A report that parses as JSON but violates the CRD's own constraints must be rejected
+// here. It would otherwise be assigned to status and rejected by the API server on the
+// deferred write that also carries the run's terminal condition, so the run would never be
+// marked complete.
+func TestProjectTestReportRejectsValuesTheAPIServerWouldReject(t *testing.T) {
+	for name, value := range map[string]string{
+		"coverage above 100":     `{"coveragePercent":"187.5"}`,
+		"coverage not a number":  `{"coveragePercent":"87.5 of statements"}`,
+		"coverage with percent":  `{"coveragePercent":"87.5%"}`,
+		"duration with unit":     `{"testDurationSeconds":"42s"}`,
+		"negative count":         `{"testsFailed":-1}`,
+		"report format too long": `{"reportFormat":"` + strings.Repeat("f", 64) + `"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r, recorder := newResultsReconciler(ResultLimits{})
+			run := testRun(t, "")
+			extractor := newArgoResultExtractor(argoRun(
+				podNode("build[0].run-tests", "run-tests", argoproj.NodeSucceeded,
+					map[string]string{"test-report": value}),
+			))
+
+			results, parsed := r.resolveResults(context.Background(), run, testWorkflow(),
+				[]openchoreodevv1alpha1.WorkflowResult{
+					taskResultDecl(ReservedTestReportResult, "run-tests", "test-report"),
+				}, extractor)
+
+			if parsed != nil {
+				t.Errorf("expected no projection for %s, got %+v", name, parsed)
+			}
+			// The raw value is still recorded - the operator needs to see what was produced.
+			if got := resultValue(t, results, ReservedTestReportResult).Value; got != value {
+				t.Errorf("raw result = %q", got)
+			}
+			if got := eventsMentioning(drainEvents(recorder), reasonTestReportInvalid); got != 1 {
+				t.Errorf("expected one invalid-report event, got %d", got)
+			}
+		})
+	}
+}
+
+func TestProjectTestReportAcceptsBoundaryValues(t *testing.T) {
+	for name, value := range map[string]string{
+		"zero":             `{"coveragePercent":"0"}`,
+		"exactly 100":      `{"coveragePercent":"100"}`,
+		"100 with decimal": `{"coveragePercent":"100.00"}`,
+		"integer duration": `{"testDurationSeconds":"42"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r, _ := newResultsReconciler(ResultLimits{})
+			run := testRun(t, "")
+			extractor := newArgoResultExtractor(argoRun(
+				podNode("build[0].run-tests", "run-tests", argoproj.NodeSucceeded,
+					map[string]string{"test-report": value}),
+			))
+			_, parsed := r.resolveResults(context.Background(), run, testWorkflow(),
+				[]openchoreodevv1alpha1.WorkflowResult{
+					taskResultDecl(ReservedTestReportResult, "run-tests", "test-report"),
+				}, extractor)
+			if parsed == nil {
+				t.Errorf("%s should be accepted, got no projection", name)
+			}
+		})
+	}
+}
+
+func TestProjectTestReportSkippedWhenTruncated(t *testing.T) {
+	r, recorder := newResultsReconciler(ResultLimits{ValueMaxBytes: 8})
+	run := testRun(t, "")
+	extractor := newArgoResultExtractor(argoRun(
+		podNode("build[0].run-tests", "run-tests", argoproj.NodeSucceeded,
+			map[string]string{"test-report": `{"coveragePercent":"87.5"}`}),
+	))
+
+	_, parsed := r.resolveResults(context.Background(), run, testWorkflow(),
+		[]openchoreodevv1alpha1.WorkflowResult{
+			taskResultDecl(ReservedTestReportResult, "run-tests", "test-report"),
+		}, extractor)
+
+	if parsed != nil {
+		t.Errorf("a truncated report must not be parsed as if it were whole, got %+v", parsed)
+	}
+	if got := eventsMentioning(drainEvents(recorder), reasonTestReportInvalid); got != 1 {
+		t.Errorf("expected one invalid-report event, got %d", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // no-results workflows are unaffected
 // ---------------------------------------------------------------------------
 
 func TestResolveResultsNoDeclarationsIsInert(t *testing.T) {
 	r, recorder := newResultsReconciler(ResultLimits{})
-	results := r.resolveResults(context.Background(), testRun(t, ""), testWorkflow(), nil,
+	results, report := r.resolveResults(context.Background(), testRun(t, ""), testWorkflow(), nil,
 		newArgoResultExtractor(argoRun(
 			podNode("build[0].a", "a", argoproj.NodeSucceeded, map[string]string{"x": "1"}))))
 
-	if results != nil {
-		t.Errorf("a workflow declaring no results should record none, got %+v", results)
+	if results != nil || report != nil {
+		t.Errorf("a workflow declaring no results should record none, got %+v / %+v", results, report)
 	}
 	if events := drainEvents(recorder); len(events) != 0 {
 		t.Errorf("and emit no events, got %v", events)

@@ -159,6 +159,9 @@ spec:
                       description: |-
                         Name identifies the result within the workflow and is the key it appears under in
                         WorkflowRunStatus.Results.
+
+                        The name "test-report" is reserved: a result under that name is expected to carry a
+                        JSON test summary and is additionally projected into WorkflowRunStatus.TestReport.
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
