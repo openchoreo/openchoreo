@@ -139,6 +139,95 @@ spec:
                   - template
                   type: object
                 type: array
+              results:
+                description: |-
+                  Results declares the values a run of this workflow surfaces into
+                  WorkflowRunStatus.Results once it completes.
+                items:
+                  description: |-
+                    WorkflowResult declares a value that a run of this workflow surfaces into
+                    WorkflowRunStatus.Results. Results replace the convention of scraping a value out of
+                    pod logs, or of a step writing back to the WorkflowRun itself: the workflow author
+                    declares what a run produces, and the controller records it after the run completes.
+                  properties:
+                    description:
+                      description: Description explains what the value carries, for
+                        consumers rendering the result.
+                      maxLength: 256
+                      type: string
+                    name:
+                      description: |-
+                        Name identifies the result within the workflow and is the key it appears under in
+                        WorkflowRunStatus.Results.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    sensitive:
+                      description: |-
+                        Sensitive records the result without its value. The entry still appears in
+                        WorkflowRunStatus.Results - so a consumer can see the run produced it - but the value
+                        is left empty rather than written into status, where `kubectl describe` would reach it.
+
+                        Results are not a way to move a secret out of a workflow. There is no valueFrom
+                        source that reads a Secret, and marking a result sensitive does not make an already
+                        printed value private: whatever the step wrote to its logs stays in its logs.
+                      type: boolean
+                    valueFrom:
+                      description: ValueFrom is the source of the result's value.
+                        Exactly one source must be set.
+                      properties:
+                        expression:
+                          description: |-
+                            Expression is a CEL expression evaluated against the completed run, in the same
+                            ${...} form and on the same engine as the rest of this spec. Available inputs:
+
+                              - ${tasks['<task>'].results['<result>']} - one task's outputs, by the same task
+                                name that appears in WorkflowRunStatus.Tasks[].Name
+                              - ${tasks['<task>'].phase} - that task's phase
+                              - ${parameters.*} - the developer-provided parameter values for this run
+                              - ${metadata.workflowRunName}, ${metadata.namespaceName}, ${metadata.labels['key']}
+                              - ${results['<name>']} - results declared earlier in this list, already resolved
+
+                            A value that does not evaluate to a string is recorded as its JSON encoding, so an
+                            expression may assemble an object.
+                          minLength: 1
+                          pattern: ^\$\{[\s\S]+\}\s*$
+                          type: string
+                        taskResult:
+                          description: TaskResult reads an output that a single task
+                            of the run produced.
+                          properties:
+                            result:
+                              description: |-
+                                Result is the name of the output within that task. For Argo Workflows this is an
+                                entry in the node's outputs.parameters; for Tekton it is a TaskRun result.
+                              minLength: 1
+                              type: string
+                            task:
+                              description: |-
+                                Task is the name of the task that produced the output. This is the same name that
+                                appears in WorkflowRunStatus.Tasks[].Name, not the underlying engine's node or
+                                template name - both are derived from the run resource through one helper, so a task
+                                visible in status can always be named here.
+                              minLength: 1
+                              type: string
+                          required:
+                          - result
+                          - task
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: exactly one of taskResult or expression must be set
+                        rule: has(self.taskResult) != has(self.expression)
+                  required:
+                  - name
+                  - valueFrom
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               runTemplate:
                 description: |-
                   RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
