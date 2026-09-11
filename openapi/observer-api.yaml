@@ -473,7 +473,7 @@ paths:
         was allowed. Served from the audit destination, which has its own retention
         independent of the log retention behind the other endpoints.
 
-        Requires `auditlog:view`, evaluated at cluster scope. The trail discloses
+        Requires `auditlogs:view`, evaluated at cluster scope. The trail discloses
         activity across every team, so reading it is a privilege in its own right rather
         than something a broad observability grant carries.
 
@@ -590,7 +590,7 @@ paths:
         `query.timelineInterval` are ignored — no records are returned and there is
         nothing to page.
 
-        Requires `auditlog:view`, evaluated at cluster scope — the same permission as
+        Requires `auditlogs:view`, evaluated at cluster scope — the same permission as
         the record query, because this discloses the same content. Enumerating every
         actor, resource name and source address in the trail is a disclosure of the
         trail even without the records attached, so a caller who cannot read the records

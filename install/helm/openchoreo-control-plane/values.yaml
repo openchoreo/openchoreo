@@ -1609,6 +1609,7 @@ openchoreoApi:
                 - "workload:delete"
                 - "logs:view"
                 - "platformlogs:view"
+                - "auditlogs:view"
                 - "events:view"
                 - "metrics:view"
                 - "traces:view"
