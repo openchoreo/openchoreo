@@ -76,6 +76,7 @@ const (
 
 // Defines values for AuditLogsQueryRequestCategory.
 const (
+	Access        AuditLogsQueryRequestCategory = "access"
 	Authorization AuditLogsQueryRequestCategory = "authorization"
 	Management    AuditLogsQueryRequestCategory = "management"
 )
@@ -339,8 +340,12 @@ type AuditLogActor struct {
 }
 
 // AuditLogCollectorInfo Where the record was collected from, as stamped by the collector rather than by
-// the emitting service. Cross-checks `producer`: a mismatch between the two means a
-// record's claimed origin and its actual one disagree.
+// the emitting service.
+//
+// Served so a client can compare it against `producer` — a record whose claimed
+// origin and collected origin disagree is worth looking at. The observer does not
+// perform that comparison or report its outcome; both values are returned and the
+// judgement is the caller's.
 type AuditLogCollectorInfo struct {
 	ContainerName *string `json:"containerName,omitempty"`
 	NamespaceName *string `json:"namespaceName,omitempty"`
@@ -509,12 +514,16 @@ type AuditLogRecord struct {
 	// from two identity providers is two different subjects.
 	Actor AuditLogActor `json:"actor"`
 
-	// Category Event category. `management` or `authorization` at schema 1.0.
+	// Category Event category. `management`, `authorization` or `access` at schema 1.0.
 	Category string `json:"category"`
 
 	// Collector Where the record was collected from, as stamped by the collector rather than by
-	// the emitting service. Cross-checks `producer`: a mismatch between the two means a
-	// record's claimed origin and its actual one disagree.
+	// the emitting service.
+	//
+	// Served so a client can compare it against `producer` — a record whose claimed
+	// origin and collected origin disagree is worth looking at. The observer does not
+	// perform that comparison or report its outcome; both values are returned and the
+	// judgement is the caller's.
 	Collector *AuditLogCollectorInfo `json:"collector,omitempty"`
 
 	// EventId UUID v7, unique per record.
@@ -702,6 +711,10 @@ type AuditLogsQueryRequest struct {
 
 	// Category Event categories. A closed set: an unknown value is a `400` rather than a
 	// filter that silently matches nothing.
+	//
+	// `access` is what separates disclosure from change — reading the trail is
+	// recorded under it, so filtering it out leaves only the operations that
+	// altered something.
 	Category *[]AuditLogsQueryRequestCategory `json:"category,omitempty"`
 
 	// Cursor Opaque continuation token from a previous response's `nextCursor`. Minted and
@@ -715,7 +728,7 @@ type AuditLogsQueryRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
 
 	// EndTime Exclusive upper bound of the event window (RFC 3339, absolute UTC). Must be
-	// strictly greater than startTime.
+	// strictly greater than startTime, and within 366 days of it.
 	EndTime time.Time `json:"endTime"`
 
 	// EventId Record identifiers, for fetching known records directly.
@@ -776,6 +789,11 @@ type AuditLogsQueryRequest struct {
 	SourceIp *[]string `json:"source_ip,omitempty"`
 
 	// StartTime Inclusive lower bound of the event window (RFC 3339, absolute UTC).
+	//
+	// The window may span at most 366 days; a wider one is a `400`. Longer than
+	// the log endpoints allow, because the audit trail keeps its own retention and
+	// an annual review is an ordinary query — but still bounded, so page a
+	// multi-year investigation a year at a time.
 	StartTime time.Time `json:"startTime"`
 
 	// Surface Surfaces of the API the call arrived through. Closed. MCP wraps the same

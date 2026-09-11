@@ -1480,14 +1480,20 @@ components:
       properties:
         startTime:
           type: string
-          description: Inclusive lower bound of the event window (RFC 3339, absolute UTC).
+          description: |
+            Inclusive lower bound of the event window (RFC 3339, absolute UTC).
+
+            The window may span at most 366 days; a wider one is a `400`. Longer than
+            the log endpoints allow, because the audit trail keeps its own retention and
+            an annual review is an ordinary query — but still bounded, so page a
+            multi-year investigation a year at a time.
           format: date-time
           example: "2026-08-14T16:30:00Z"
         endTime:
           type: string
           description: |
             Exclusive upper bound of the event window (RFC 3339, absolute UTC). Must be
-            strictly greater than startTime.
+            strictly greater than startTime, and within 366 days of it.
           format: date-time
           example: "2026-08-14T17:30:00Z"
         limit:
@@ -1569,13 +1575,17 @@ components:
         category:
           type: array
           uniqueItems: true
-          maxItems: 2
+          maxItems: 3
           description: |
             Event categories. A closed set: an unknown value is a `400` rather than a
             filter that silently matches nothing.
+
+            `access` is what separates disclosure from change — reading the trail is
+            recorded under it, so filtering it out leaves only the operations that
+            altered something.
           items:
             type: string
-            enum: ["management", "authorization"]
+            enum: ["management", "authorization", "access"]
           example: ["authorization"]
         result:
           type: array
@@ -1993,7 +2003,7 @@ components:
           example: create_project
         category:
           type: string
-          description: Event category. `management` or `authorization` at schema 1.0.
+          description: Event category. `management`, `authorization` or `access` at schema 1.0.
         result:
           type: string
           description: |
@@ -2118,8 +2128,12 @@ components:
       type: object
       description: |
         Where the record was collected from, as stamped by the collector rather than by
-        the emitting service. Cross-checks `producer`: a mismatch between the two means a
-        record's claimed origin and its actual one disagree.
+        the emitting service.
+
+        Served so a client can compare it against `producer` — a record whose claimed
+        origin and collected origin disagree is worth looking at. The observer does not
+        perform that comparison or report its outcome; both values are returned and the
+        judgement is the caller's.
       properties:
         namespaceName:
           type: string

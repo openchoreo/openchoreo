@@ -63,9 +63,8 @@ func TestAuditLogsAuthz_NoSubjectContext(t *testing.T) {
 	inner.AssertNotCalled(t, "QueryAuditLogs", mock.Anything, mock.Anything)
 }
 
-// TestAuditLogsAuthz_FilterValuesCarriesTheSameCheck: the filter values read
-// enumerates actors, resource names and source addresses, so gating only the
-// record read would leave this as a way around it.
+// The filter values read enumerates actors and resource names, so gating only
+// the record read would leave a way around it.
 func TestAuditLogsAuthz_FilterValuesCarriesTheSameCheck(t *testing.T) {
 	t.Run("allowed", func(t *testing.T) {
 		inner := mocks.NewMockAuditLogsQuerier(t)
@@ -90,9 +89,8 @@ func TestAuditLogsAuthz_FilterValuesCarriesTheSameCheck(t *testing.T) {
 	})
 }
 
-// TestAuditLogsAuthz_EvaluatesAtClusterScope pins what the decorator asks the
-// PDP: the cluster-scoped action, and an empty hierarchy that only a
-// cluster-scoped binding can satisfy.
+// Pins what the decorator asks the PDP: the cluster-scoped action and an empty
+// hierarchy.
 func TestAuditLogsAuthz_EvaluatesAtClusterScope(t *testing.T) {
 	inner := mocks.NewMockAuditLogsQuerier(t)
 	inner.EXPECT().QueryAuditLogs(mock.Anything, mock.Anything).
@@ -112,14 +110,8 @@ func TestAuditLogsAuthz_EvaluatesAtClusterScope(t *testing.T) {
 	assert.Equal(t, authzcore.ResourceHierarchy{}, got.Resource.Hierarchy)
 }
 
-// TestAuditLogsAuthz_TenancyFilterDoesNotWidenScope is the property this commit
-// exists for. A namespace-scoped binding must not satisfy an audit query just
-// because the query filters to the namespace it holds: working in a project does
-// not confer the right to read its audit trail.
-//
-// Enforced by the decorator passing an empty hierarchy regardless of the
-// request, which resourceHierarchyToPath maps to "*". The assertion is that the
-// namespace in the body reaches the PDP nowhere.
+// A namespace-scoped binding must not satisfy an audit query just because the
+// query filters to the namespace it holds.
 func TestAuditLogsAuthz_TenancyFilterDoesNotWidenScope(t *testing.T) {
 	tests := []struct {
 		name string
@@ -160,8 +152,6 @@ func TestAuditLogsAuthz_TenancyFilterDoesNotWidenScope(t *testing.T) {
 			err := tt.call(svc)
 			require.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
 
-			// The filtered namespace is a filter, never a scope: it must not
-			// appear anywhere in what the PDP evaluated.
 			assert.Equal(t, authzcore.ResourceHierarchy{}, got.Resource.Hierarchy)
 			assert.NotEqual(t, "payments", got.Resource.Hierarchy.Namespace)
 		})

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/types"
@@ -16,6 +17,14 @@ import (
 
 // ErrAuditLogsRetrieval wraps a failure to reach or read from the logs adapter.
 var ErrAuditLogsRetrieval = errors.New("audit logs retrieval failed")
+
+// maxAuditLogsCursorLength mirrors the cursor maxLength both specs declare.
+const maxAuditLogsCursorLength = 4096
+
+// auditLogsTimelineInterval mirrors the interval pattern both specs declare.
+// Separate from the handler's copy: that one validates a request, this one an
+// adapter response.
+var auditLogsTimelineInterval = regexp.MustCompile(`^[1-9][0-9]*[mhdw]$`)
 
 // AuditLogsService serves the audit trail's two reads: the records themselves
 // and the distinct values a filter over them can take.
@@ -55,14 +64,13 @@ func (s *AuditLogsService) QueryAuditLogs(
 	resp := &types.AuditLogsResponse{
 		Records:       records,
 		Total:         result.TotalCount,
-		TotalRelation: string(result.TotalRelation),
+		TotalRelation: s.totalRelation(result.TotalRelation),
 		TookMs:        result.Took,
-		NextCursor:    result.NextCursor,
+		NextCursor:    s.nextCursor(result.NextCursor),
 	}
-	// Only ever answered when asked for. An adapter that computes a timeline
-	// unconditionally must not make every caller carry it.
+	// Only when asked for: an adapter may compute one unconditionally.
 	if req.IncludeTimeline {
-		resp.Timeline = toTypesAuditLogTimeline(result.Timeline)
+		resp.Timeline = s.auditLogTimeline(result.Timeline)
 	}
 	return resp, nil
 }
@@ -97,15 +105,39 @@ func (s *AuditLogsService) QueryAuditLogFilterValues(
 		Filter:        result.Filter,
 		Values:        values,
 		TotalValues:   result.TotalValues,
-		TotalRelation: string(result.TotalRelation),
+		TotalRelation: s.totalRelation(result.TotalRelation),
 		TookMs:        result.Took,
 	}, nil
 }
 
-// wrapRetrieval passes the sentinels the handler maps onto specific statuses
-// straight through, and wraps anything else as a retrieval failure. Which
-// sentinels are pass-through differs per operation — a cursor cannot expire on
-// a filter-values query — so each caller names its own.
+// totalRelation constrains what the adapter reported to the values the
+// observer's contract declares. Falls back to gte rather than eq, which would
+// claim a precision nobody established.
+func (s *AuditLogsService) totalRelation(reported observability.AuditLogsTotalRelation) string {
+	switch reported {
+	case observability.AuditLogsTotalEq, observability.AuditLogsTotalGTE:
+		return string(reported)
+	}
+	s.logger.Warn("Logs adapter reported an unrecognized totalRelation; reporting gte",
+		"totalRelation", string(reported))
+	return string(observability.AuditLogsTotalGTE)
+}
+
+// nextCursor drops an over-long token rather than emitting a response the
+// observer's own schema rejects. Dropping it ends the scroll, which is
+// recoverable.
+func (s *AuditLogsService) nextCursor(cursor string) string {
+	if len(cursor) <= maxAuditLogsCursorLength {
+		return cursor
+	}
+	s.logger.Error("Logs adapter returned an oversized nextCursor; dropping it",
+		"length", len(cursor), "max", maxAuditLogsCursorLength)
+	return ""
+}
+
+// wrapRetrieval passes the given sentinels through and wraps anything else as a
+// retrieval failure. Which sentinels apply differs per operation: a cursor
+// cannot expire on a filter-values query.
 func (s *AuditLogsService) wrapRetrieval(msg string, err error, passThrough ...error) error {
 	for _, sentinel := range passThrough {
 		if errors.Is(err, sentinel) {
@@ -116,8 +148,7 @@ func (s *AuditLogsService) wrapRetrieval(msg string, err error, passThrough ...e
 	return fmt.Errorf("%w: %w", ErrAuditLogsRetrieval, err)
 }
 
-// toAuditLogsParams maps the decoded request onto the adapter params. The
-// filter groups stay grouped so this is a field-for-field copy.
+// toAuditLogsParams maps the decoded request onto the adapter params.
 func toAuditLogsParams(req *types.AuditLogsQueryRequest) (observability.AuditLogsParams, error) {
 	if req == nil {
 		return observability.AuditLogsParams{}, fmt.Errorf("request is required")
@@ -234,11 +265,22 @@ func toTypesAuditLogCollectorInfo(
 	}
 }
 
-// toTypesAuditLogTimeline preserves nil: the caller has to tell "the adapter
-// cannot compute this" apart from "no activity in the window", and only nil
-// says the former.
-func toTypesAuditLogTimeline(src *observability.AuditLogTimeline) *types.AuditLogTimeline {
+// auditLogTimeline preserves nil, which means "not computed" rather than "no
+// activity".
+//
+// An interval the contract's pattern does not accept drops the whole timeline
+// to nil rather than emitting a response the observer's own schema rejects.
+// Buckets are meaningless without a width to label them by, so a mislabeled
+// chart is worse than none — and nil is a state the contract already defines.
+func (s *AuditLogsService) auditLogTimeline(
+	src *observability.AuditLogTimeline,
+) *types.AuditLogTimeline {
 	if src == nil {
+		return nil
+	}
+	if !auditLogsTimelineInterval.MatchString(src.Interval) {
+		s.logger.Error("Logs adapter returned an unusable timeline interval; dropping the timeline",
+			"interval", src.Interval)
 		return nil
 	}
 	buckets := make([]types.AuditLogTimelineBucket, 0, len(src.Buckets))

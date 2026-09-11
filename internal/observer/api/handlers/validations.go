@@ -168,8 +168,15 @@ func validateWorkflowScope(scope *types.WorkflowSearchScope) error {
 	return nil
 }
 
-// ValidateTimeRange validates start and end time strings
+// ValidateTimeRange validates start and end time strings against the window cap
+// the log-backed endpoints share.
 func ValidateTimeRange(startTime, endTime string) error {
+	return ValidateTimeRangeWithMax(startTime, endTime, maxQueryTimeRange)
+}
+
+// ValidateTimeRangeWithMax validates start and end time strings against a
+// caller-supplied window cap.
+func ValidateTimeRangeWithMax(startTime, endTime string, maxRange time.Duration) error {
 	if startTime == "" {
 		return fmt.Errorf("startTime is required")
 	}
@@ -191,8 +198,8 @@ func ValidateTimeRange(startTime, endTime string) error {
 		return fmt.Errorf("endTime must be after startTime")
 	}
 
-	if parsedEnd.Sub(parsedStart) > maxQueryTimeRange {
-		return fmt.Errorf("query time range cannot exceed %d days", maxQueryTimeRange/24/time.Hour)
+	if parsedEnd.Sub(parsedStart) > maxRange {
+		return fmt.Errorf("query time range cannot exceed %d days", maxRange/24/time.Hour)
 	}
 
 	return nil
@@ -319,21 +326,18 @@ const (
 	maxAuditLogsValueLength  = 512
 	maxAuditLogsSearchLength = 256
 	maxAuditLogsMaxValues    = 1000
-	// maxAuditLogsTimelineBuckets mirrors the ceiling the contract states an
-	// adapter must coarsen to rather than reject. Checked here only to reject a
-	// syntactically bad interval; the bucket count itself is the adapter's call.
+	// Deliberately not defaultLimit, which is a record page size.
+	defaultAuditLogsMaxValues = 100
+	// Not maxQueryTimeRange: the audit trail has its own, longer retention, and
+	// an annual compliance query is ordinary.
+	maxAuditLogsTimeRange            = 366 * 24 * time.Hour
 	auditLogsTimelineIntervalPattern = `^[1-9][0-9]*[mhdw]$`
 )
 
-// auditLogsTimelineInterval matches the "<count><unit>" width the contract
-// declares, extended with "m" because a one-hour window wants minute buckets.
 var auditLogsTimelineInterval = regexp.MustCompile(auditLogsTimelineIntervalPattern)
 
-// auditLogsFilterPaths are the filters QueryAuditLogFilterValues can list values
-// for, named by their path in the query vocabulary. Kept in sync with the
-// `filter` enum in openapi/observer-api.yaml — an unlisted value is a 400
-// rather than a silently empty list, which would read as "this filter has no
-// values".
+// auditLogsFilterPaths are the filters QueryAuditLogFilterValues can list
+// values for. Mirrors the `filter` enum in openapi/observer-api.yaml.
 //
 // event_id and request_id are absent deliberately: both are near-unique per
 // record, so a list of them is not something a client picks from.
@@ -403,9 +407,8 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 		}
 	}
 
-	// The closed enums are checked here rather than left to the generated
-	// types: those are string aliases, so an unknown value decodes cleanly and
-	// would otherwise become a filter that silently matches nothing.
+	// Checked here because the generated types are string aliases: an unknown
+	// value decodes cleanly and would match nothing.
 	closed := []struct {
 		name   string
 		values []string
@@ -431,7 +434,7 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 			"timelineInterval must be <count><unit> where unit is m, h, d or w (e.g. 15m)")
 	}
 
-	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+	if err := ValidateTimeRangeWithMax(req.StartTime, req.EndTime, maxAuditLogsTimeRange); err != nil {
 		return err
 	}
 	if err := ValidateAndSetLimit(&req.Limit); err != nil {
@@ -441,12 +444,9 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 }
 
 // ValidateAuditLogFilterValuesRequest validates the request and applies the
-// default for maxValues.
-//
-// The nested query is validated by the same rules as a record query, so one
-// filter vocabulary cannot drift between the two operations. Its limit and sort
-// order are defaulted rather than rejected: the contract says they are ignored
-// here, which is a weaker statement than "must be absent".
+// default for maxValues. The nested query is validated by the record query's
+// rules; its limit and sort order are defaulted rather than rejected, since the
+// contract ignores rather than forbids them.
 func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest) error {
 	if req == nil {
 		return fmt.Errorf("request is required")
@@ -464,7 +464,7 @@ func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest)
 		return fmt.Errorf("maxValues cannot exceed %d", maxAuditLogsMaxValues)
 	}
 	if req.MaxValues == 0 {
-		req.MaxValues = defaultLimit
+		req.MaxValues = defaultAuditLogsMaxValues
 	}
 	return ValidateAuditLogsQueryRequest(&req.Query)
 }

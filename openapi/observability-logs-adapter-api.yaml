@@ -972,13 +972,16 @@ components:
         category:
           type: array
           uniqueItems: true
-          maxItems: 2
+          maxItems: 3
           description: |
             Event categories. A closed set: the observer rejects an unknown value with
             a `400` rather than forwarding a filter that would silently match nothing.
+
+            `access` covers reads that disclose without changing anything — reading the
+            trail itself is recorded under it.
           items:
             type: string
-            enum: ["management", "authorization"]
+            enum: ["management", "authorization", "access"]
         result:
           type: array
           uniqueItems: true
@@ -1315,7 +1318,7 @@ components:
           description: Semantic action name, e.g. `create_project`
         category:
           type: string
-          description: Event category. `management` or `authorization` at schema 1.0.
+          description: Event category. `management`, `authorization` or `access` at schema 1.0.
         result:
           type: string
           description: |
@@ -1432,8 +1435,12 @@ components:
       type: object
       description: |
         Where the record was collected from, as stamped by the collector rather than by
-        the emitting service. Cross-checks `producer`: a mismatch between the two means
-        a record's claimed origin and its actual one disagree.
+        the emitting service.
+
+        Returned so a caller can compare it against `producer` — a record whose claimed
+        origin and collected origin disagree is worth looking at. Neither this adapter
+        nor the observer performs that comparison; both values are carried and the
+        judgement is left to whoever is investigating.
       properties:
         namespaceName:
           type: string

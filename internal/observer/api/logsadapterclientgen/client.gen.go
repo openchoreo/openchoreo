@@ -95,6 +95,7 @@ const (
 
 // Defines values for AuditLogsQueryRequestCategory.
 const (
+	Access        AuditLogsQueryRequestCategory = "access"
 	Authorization AuditLogsQueryRequestCategory = "authorization"
 	Management    AuditLogsQueryRequestCategory = "management"
 )
@@ -317,8 +318,12 @@ type AuditLogActor struct {
 }
 
 // AuditLogCollectorInfo Where the record was collected from, as stamped by the collector rather than by
-// the emitting service. Cross-checks `producer`: a mismatch between the two means
-// a record's claimed origin and its actual one disagree.
+// the emitting service.
+//
+// Returned so a caller can compare it against `producer` — a record whose claimed
+// origin and collected origin disagree is worth looking at. Neither this adapter
+// nor the observer performs that comparison; both values are carried and the
+// judgement is left to whoever is investigating.
 type AuditLogCollectorInfo struct {
 	ContainerName *string `json:"containerName,omitempty"`
 	NamespaceName *string `json:"namespaceName,omitempty"`
@@ -448,12 +453,16 @@ type AuditLogRecord struct {
 	// from two identity providers is two different subjects.
 	Actor AuditLogActor `json:"actor"`
 
-	// Category Event category. `management` or `authorization` at schema 1.0.
+	// Category Event category. `management`, `authorization` or `access` at schema 1.0.
 	Category string `json:"category"`
 
 	// Collector Where the record was collected from, as stamped by the collector rather than by
-	// the emitting service. Cross-checks `producer`: a mismatch between the two means
-	// a record's claimed origin and its actual one disagree.
+	// the emitting service.
+	//
+	// Returned so a caller can compare it against `producer` — a record whose claimed
+	// origin and collected origin disagree is worth looking at. Neither this adapter
+	// nor the observer performs that comparison; both values are carried and the
+	// judgement is left to whoever is investigating.
 	Collector *AuditLogCollectorInfo `json:"collector,omitempty"`
 
 	// EventId UUID v7, unique per record
@@ -607,6 +616,9 @@ type AuditLogsQueryRequest struct {
 
 	// Category Event categories. A closed set: the observer rejects an unknown value with
 	// a `400` rather than forwarding a filter that would silently match nothing.
+	//
+	// `access` covers reads that disclose without changing anything — reading the
+	// trail itself is recorded under it.
 	Category *[]AuditLogsQueryRequestCategory `json:"category,omitempty"`
 
 	// Cursor Opaque continuation token from a previous response's `nextCursor`. Minted
