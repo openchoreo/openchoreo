@@ -120,3 +120,89 @@ func derefMap(ptr *map[string]string) map[string]string {
 	}
 	return *ptr
 }
+
+// --- filter values ---
+
+// ErrPlatformLogFilterValuesNotSupported is returned when the configured logs adapter
+// answers 501. Aggregating a field's values is work an adapter may not be able to do
+// even though it serves platform logs, so this is a distinct condition from
+// ErrPlatformLogsNotSupported and from a failure.
+var ErrPlatformLogFilterValuesNotSupported = errors.New(
+	"platform log filter values are not supported by the configured logs adapter")
+
+// GetPlatformLogFilterValues implements observability.PlatformLogsAdapter.
+func (p *LogsAdapter) GetPlatformLogFilterValues(
+	ctx context.Context,
+	params observability.PlatformLogFilterValuesParams,
+) (*observability.PlatformLogFilterValuesResult, error) {
+	client, err := logsadapterclientgen.NewClientWithResponses(
+		p.baseURL, logsadapterclientgen.WithHTTPClient(p.httpClient))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform log filter values client: %w", err)
+	}
+
+	// The record query goes over the wire whole, including the named filter's own
+	// selections: excluding them is the adapter's job, and sending a doctored query
+	// would leave it unable to tell "not selected" from "excluded for this call".
+	query := logsadapterclientgen.PlatformLogsQueryRequest{
+		StartTime: params.Query.StartTime,
+		EndTime:   params.Query.EndTime,
+	}
+	setIfNotEmpty(&query.ClusterInstance, params.Query.ClusterInstances)
+	setIfNotEmpty(&query.Namespace, params.Query.Namespaces)
+	setIfNotEmpty(&query.PodName, params.Query.PodNames)
+	setIfNotEmpty(&query.ContainerName, params.Query.ContainerNames)
+	if len(params.Query.Labels) > 0 {
+		labels := params.Query.Labels
+		query.Labels = &labels
+	}
+	if len(params.Query.LogLevels) > 0 {
+		levels := make([]logsadapterclientgen.PlatformLogsQueryRequestLogLevels, 0, len(params.Query.LogLevels))
+		for _, l := range params.Query.LogLevels {
+			levels = append(levels, logsadapterclientgen.PlatformLogsQueryRequestLogLevels(l))
+		}
+		query.LogLevels = &levels
+	}
+	if params.Query.SearchPhrase != "" {
+		query.SearchPhrase = &params.Query.SearchPhrase
+	}
+
+	body := logsadapterclientgen.QueryPlatformLogFilterValuesJSONRequestBody{
+		Query:  query,
+		Filter: logsadapterclientgen.PlatformLogFilterValuesRequestFilter(params.Filter),
+	}
+	if params.ValueSearch != "" {
+		body.ValueSearch = &params.ValueSearch
+	}
+	if params.MaxValues > 0 {
+		body.MaxValues = &params.MaxValues
+	}
+
+	resp, err := client.QueryPlatformLogFilterValuesWithResponse(ctx, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+
+	if resp.StatusCode() == http.StatusNotImplemented {
+		return nil, ErrPlatformLogFilterValuesNotSupported
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode(), string(resp.Body))
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected nil response body")
+	}
+
+	values := make([]observability.PlatformLogFilterValue, 0, len(resp.JSON200.Values))
+	for _, v := range resp.JSON200.Values {
+		values = append(values, observability.PlatformLogFilterValue{Value: v.Value, Count: v.Count})
+	}
+
+	return &observability.PlatformLogFilterValuesResult{
+		Filter:        resp.JSON200.Filter,
+		Values:        values,
+		TotalValues:   resp.JSON200.TotalValues,
+		TotalRelation: string(resp.JSON200.TotalRelation),
+		Took:          resp.JSON200.TookMs,
+	}, nil
+}

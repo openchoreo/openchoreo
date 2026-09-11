@@ -176,6 +176,69 @@ paths:
                 errorCode: ""
                 message: "platform logs are not supported by this adapter"
 
+  /api/v1alpha1/platform-logs/filter-values:
+    post:
+      tags:
+        - Logs
+      summary: List the distinct values one platform logs filter can take
+      description: |
+        Returns the distinct values a single filter takes under a query, with a count
+        for each. Backs `GET /api/v1alpha1/platform-logs/filter-values` on the observer.
+
+        The values are those reachable under `query`'s other filters, except the one
+        named by `filter`, whose own selections are ignored - a filter that counted its
+        own selection would offer only what is already picked.
+
+        An adapter that serves platform logs but cannot aggregate answers 501.
+      operationId: queryPlatformLogFilterValues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformLogFilterValuesRequest"
+      responses:
+        "200":
+          description: Filter values retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformLogFilterValuesResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "platform log filter values are not supported by this adapter"
+
   /api/v1/events/query:
     post:
       tags:
@@ -700,6 +763,96 @@ components:
           type: integer
           description: The time taken to query the logs in milliseconds
       required: [logs, total, tookMs]
+
+    PlatformLogFilterValuesRequest:
+      type: object
+      description: |
+        Which filter to list values for, and the query to list them under.
+
+        `query` is a full `PlatformLogsQueryRequest`, in the same shape as a record
+        query - so the observer passes the query it already holds rather than
+        rebuilding it. Its `startTime` and `endTime` are required, so every call here
+        is scoped to a period.
+
+        The other filters in `query` narrow which records the values are drawn from,
+        except the one named by `filter`, whose own selections are ignored.
+
+        `query.limit` and `query.sortOrder` carry no meaning here: no records are
+        returned, so there is nothing to page or order. They are accepted and ignored
+        rather than rejected.
+      required: [query, filter]
+      properties:
+        query:
+          $ref: "#/components/schemas/PlatformLogsQueryRequest"
+        filter:
+          type: string
+          description: |
+            The filter to list values for, named as the request field that accepts it.
+          enum: [clusterInstance, namespace, podName, containerName]
+        valueSearch:
+          type: string
+          maxLength: 256
+          description: |
+            Return only values containing this text, case-insensitively. Narrows the
+            *values* returned, where `query.searchPhrase` narrows the *records* they
+            are drawn from.
+        maxValues:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: |
+            The maximum number of values to return, ordered by `count` descending then
+            `value` ascending, so a truncated list holds the busiest. Named to stay
+            distinct from `query.limit`, which is a record page size and is ignored
+            here.
+
+    PlatformLogFilterValue:
+      type: object
+      description: One value a filter takes, with how many records carry it.
+      required: [value, count]
+      properties:
+        value:
+          type: string
+          description: The value, exactly as it would be sent back as a filter
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Matching records carrying this value. May be approximate on a
+            high-cardinality filter where the backend answers from a partial term
+            count, so it is an ordering hint rather than a total.
+
+    PlatformLogFilterValuesResponse:
+      type: object
+      required: [filter, values, totalValues, totalRelation, tookMs]
+      properties:
+        filter:
+          type: string
+          description: The filter these values belong to, echoed from the request
+        values:
+          type: array
+          description: |
+            Distinct values, ordered by `count` descending then `value` ascending.
+            Records on which the field is absent are not represented: no empty-string
+            entry, because no filter value would select one.
+          items:
+            $ref: "#/components/schemas/PlatformLogFilterValue"
+        totalValues:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            How many distinct values match, of which at most `maxValues` were returned.
+        totalRelation:
+          type: string
+          enum: [eq, gte]
+          description: |
+            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
+        tookMs:
+          type: integer
+          description: The time taken to compute the values in milliseconds
 
     # Request schema for events
     EventsQueryRequest:

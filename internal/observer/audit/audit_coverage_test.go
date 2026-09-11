@@ -111,9 +111,9 @@ func TestAuditCoverage(t *testing.T) {
 	// Pins the total so a spec change is forced through a deliberate update
 	// here rather than silently shifting the audited/exempted/read split.
 	//
-	// 20 = 15 public (6 GET + 9 non-GET) + 5 internal (1 GET + 4 non-GET).
+	// 21 = 16 public (7 GET + 9 non-GET) + 5 internal (1 GET + 4 non-GET).
 	t.Run("total operation count is pinned", func(t *testing.T) {
-		const wantTotal = 20
+		const wantTotal = 21
 		if len(restOperationIDs) != wantTotal {
 			t.Errorf("len(allOperationIDs) = %d, want %d", len(restOperationIDs), wantTotal)
 		}

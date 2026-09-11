@@ -460,6 +460,84 @@ paths:
                 errorCode: ""
                 message: "platform logs are not supported by this adapter"
 
+  /api/v1alpha1/platform-logs/filter-values:
+    get:
+      tags:
+        - Logs
+      summary: List the distinct values one platform logs filter can take
+      description: |
+        Returns the distinct values one filter takes across the platform logs matching a
+        query, with a count for each - what a filter picker is populated from, rather
+        than only the values that happen to appear in the page a client has loaded.
+
+        One filter per request: each costs an aggregation, so a client asks for the
+        picker it has open. The query narrows which records the values are drawn from,
+        except for the named filter's own selections, which are ignored - counting
+        `podName` under a selected pod would offer that pod alone, with no way back to
+        the others.
+
+        Takes the same query parameters as `GET /api/v1alpha1/platform-logs`, so a
+        client sends the query string it already holds. `limit` and `sortOrder` are not
+        among them: no records are returned.
+      operationId: getPlatformLogFilterValues
+      parameters:
+        - $ref: "#/components/parameters/PlatformLogFilterValuesFilter"
+        - $ref: "#/components/parameters/PlatformLogsStartTime"
+        - $ref: "#/components/parameters/PlatformLogsEndTime"
+        - $ref: "#/components/parameters/PlatformLogsClusterInstance"
+        - $ref: "#/components/parameters/PlatformLogsNamespace"
+        - $ref: "#/components/parameters/PlatformLogsPodName"
+        - $ref: "#/components/parameters/PlatformLogsContainerName"
+        - $ref: "#/components/parameters/PlatformLogsLabels"
+        - $ref: "#/components/parameters/PlatformLogsLogLevels"
+        - $ref: "#/components/parameters/PlatformLogsSearchPhrase"
+        - $ref: "#/components/parameters/PlatformLogFilterValuesValueSearch"
+        - $ref: "#/components/parameters/PlatformLogFilterValuesMaxValues"
+      responses:
+        "200":
+          description: Filter values retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformLogFilterValuesResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: |
+            Not Implemented. Surfaced when the logs adapter backing this observer
+            cannot enumerate filter values, which it may not be able to do even
+            though it serves platform logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "platform log filter values are not supported by this adapter"
+
   # Runtime topology endpoint (for cell diagram with runtime observability)
   /api/v1alpha1/metrics/runtime-topology:
     post:
@@ -1037,6 +1115,50 @@ components:
         type: string
         enum: [asc, desc]
         default: desc
+    PlatformLogFilterValuesFilter:
+      name: filter
+      in: query
+      required: true
+      description: |
+        The filter to list values for, named as the query parameter that accepts it -
+        `podName` lists the values that filter takes.
+
+        Only the coordinate filters are listed. `logLevels` is a fixed enum a client
+        already knows, and `labels` is a selector rather than a field with values.
+      schema:
+        type: string
+        enum: [clusterInstance, namespace, podName, containerName]
+        example: podName
+    PlatformLogFilterValuesValueSearch:
+      name: valueSearch
+      in: query
+      required: false
+      description: |
+        Return only values containing this text, case-insensitively. This is how a
+        picker narrows as its user types, and it is what makes a high-cardinality
+        filter usable at all: `podName` on a busy plane has more distinct values than
+        any list should offer, and typing three characters cuts it to something
+        choosable.
+
+        Distinct from `searchPhrase`, which narrows the *records* considered. This
+        narrows the *values* returned from those records.
+      schema:
+        type: string
+        maxLength: 256
+        example: controller
+    PlatformLogFilterValuesMaxValues:
+      name: maxValues
+      in: query
+      required: false
+      description: |
+        The maximum number of values to return, ordered by `count` descending then
+        `value` ascending - so a truncated list holds the busiest. Named to stay
+        distinct from `limit`, which is a record page size and has no meaning here.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
 
   schemas:
     # Request schemas for logs
@@ -1258,6 +1380,73 @@ components:
           format: int64
           minimum: 0
           description: The time taken to query the logs in milliseconds.
+
+    PlatformLogFilterValue:
+      type: object
+      description: One value a filter takes, with how many records carry it.
+      required:
+        - value
+        - count
+      properties:
+        value:
+          type: string
+          description: The value, exactly as it would be sent back as a filter.
+          example: controller-manager-7f58b689b5-pwsb5
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Matching records carrying this value, within the queried window. May be
+            approximate on a high-cardinality filter where the backend answers from a
+            partial term count, so treat it as an ordering hint and a sense of scale
+            rather than a total.
+          example: 412
+
+    PlatformLogFilterValuesResponse:
+      type: object
+      required:
+        - filter
+        - values
+        - totalValues
+        - totalRelation
+        - tookMs
+      properties:
+        filter:
+          type: string
+          description: |
+            The filter these values belong to, echoed from the request so a client
+            handling several pickers can match a response to the one that asked.
+          example: podName
+        values:
+          type: array
+          description: |
+            The distinct values, ordered by `count` descending then `value` ascending.
+            Records on which the field is absent are not represented: no empty-string
+            entry, because no filter value would select one.
+          items:
+            $ref: "#/components/schemas/PlatformLogFilterValue"
+        totalValues:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            How many distinct values match, of which at most `maxValues` were returned.
+            Read together with `totalRelation` - this is what lets a picker say "412
+            more values, keep typing to narrow" rather than silently ending its list.
+        totalRelation:
+          type: string
+          enum: [eq, gte]
+          description: |
+            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
+            distinct values exactly is itself an expensive aggregation on a
+            high-cardinality field, and most backends answer approximately, so a
+            capped or estimated count is labelled rather than passed off as exact.
+        tookMs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The time taken to compute the values in milliseconds.
 
     # Request schema for events
     EventsQueryRequest:

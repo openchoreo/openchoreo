@@ -138,9 +138,50 @@ type LogsAdapter interface {
 		params WorkflowLogsParams) (*WorkflowLogsResult, error)
 }
 
+// PlatformLogFilterValuesParams asks what values one filter takes under a query.
+type PlatformLogFilterValuesParams struct {
+	// Query is the record query the values are drawn from. Its own selections for
+	// Filter are ignored - a filter that counted its own selection would offer only
+	// what is already picked.
+	Query PlatformLogsParams `json:"query"`
+	// Filter names the coordinate to list, as the query parameter that accepts it.
+	Filter string `json:"filter"`
+	// ValueSearch narrows the values returned, where Query.SearchPhrase narrows the
+	// records they are drawn from.
+	ValueSearch string `json:"valueSearch"`
+	MaxValues   int    `json:"maxValues"`
+}
+
+// PlatformLogFilterValue is one value a filter takes, with how many records carry it.
+// The count may be approximate on a high-cardinality filter, so it orders a list rather
+// than totalling it.
+type PlatformLogFilterValue struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
+}
+
+// PlatformLogFilterValuesResult is the result of a filter values query.
+type PlatformLogFilterValuesResult struct {
+	Filter string                   `json:"filter"`
+	Values []PlatformLogFilterValue `json:"values"`
+	// TotalValues is how many distinct values match, of which at most MaxValues were
+	// returned. TotalRelation says whether it is exact ("eq") or a lower bound ("gte").
+	TotalValues   int64  `json:"totalValues"`
+	TotalRelation string `json:"totalRelation"`
+	Took          int    `json:"took"`
+}
+
 // PlatformLogsAdapter defines the interface for fetching platform logs
 type PlatformLogsAdapter interface {
 	// GetPlatformLogs retrieves logs by raw Kubernetes coordinates, with no
 	// project/component/environment correlation.
 	GetPlatformLogs(ctx context.Context, params PlatformLogsParams) (*PlatformLogsResult, error)
+
+	// GetPlatformLogFilterValues retrieves the distinct values one filter takes.
+	// Separately declinable from GetPlatformLogs: an adapter may serve the records
+	// without being able to aggregate them, and says so with a 501 rather than by
+	// implementing a narrower interface.
+	GetPlatformLogFilterValues(
+		ctx context.Context, params PlatformLogFilterValuesParams,
+	) (*PlatformLogFilterValuesResult, error)
 }

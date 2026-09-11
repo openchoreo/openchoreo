@@ -478,4 +478,45 @@ func TestResponsesConformToSpec(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		assertConformsToSpec(t, req, serve(t, h, req))
 	})
+
+	// The handler returns the untyped apiResponse, so this is the only thing checking
+	// the emitted body against the declared schema. Both a populated and an empty
+	// result, since a filter with no matching values still answers 200.
+	t.Run("getPlatformLogFilterValues", func(t *testing.T) {
+		t.Parallel()
+
+		for name, resp := range map[string]*types.PlatformLogFilterValuesResponse{
+			"populated": {
+				Filter: "podName",
+				Values: []types.PlatformLogFilterValue{
+					{Value: "controller-manager-abc", Count: 412},
+				},
+				TotalValues:   940,
+				TotalRelation: "gte",
+				TookMs:        9,
+			},
+			"empty": {
+				Filter:        "podName",
+				Values:        []types.PlatformLogFilterValue{},
+				TotalRelation: "eq",
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				svc := servicemocks.NewMockPlatformLogsQuerier(t)
+				svc.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+					Return(resp, nil)
+
+				h := &Handler{
+					baseHandler:         baseHandler{logger: noopLogger()},
+					platformLogsService: svc,
+				}
+
+				req := httptest.NewRequest(http.MethodGet,
+					"/api/v1alpha1/platform-logs/filter-values?"+filterValuesQuery, nil)
+				assertConformsToSpec(t, req, serve(t, h, req))
+			})
+		}
+	})
 }
