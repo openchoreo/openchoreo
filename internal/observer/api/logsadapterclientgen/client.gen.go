@@ -359,8 +359,16 @@ type EventsQueryRequest struct {
 	EndTime time.Time `json:"endTime"`
 
 	// Limit The maximum number of items to return
-	Limit       *int                           `json:"limit,omitempty"`
-	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+	Limit *int `json:"limit,omitempty"`
+
+	// Reasons Optional server-side filter on the event reason field. The adapter returns only events whose reason exactly matches one of the supplied values. Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded). The list is bounded so that the filter stays cheap for the adapter to evaluate.
+	Reasons *[]string `json:"reasons,omitempty"`
+
+	// SearchAfter Opaque pagination cursor from a previous response's nextCursor. Enables deep pagination beyond the limit cap for machine consumers.
+	SearchAfter *string `json:"searchAfter,omitempty"`
+
+	// SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
+	SearchScope *EventsQueryRequest_SearchScope `json:"searchScope,omitempty"`
 
 	// SortOrder The sort order of the query
 	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
@@ -369,7 +377,7 @@ type EventsQueryRequest struct {
 	StartTime time.Time `json:"startTime"`
 }
 
-// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+// EventsQueryRequest_SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
 type EventsQueryRequest_SearchScope struct {
 	union json.RawMessage
 }
@@ -381,6 +389,9 @@ type EventsQueryRequestSortOrder string
 type EventsQueryResponse struct {
 	// Events The events queried successfully
 	Events *[]EventEntry `json:"events,omitempty"`
+
+	// NextCursor Opaque cursor to pass as searchAfter in a follow-up request to continue past this page. Absent when there are no further results.
+	NextCursor *string `json:"nextCursor,omitempty"`
 
 	// TookMs The time taken to query the events in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`

@@ -181,7 +181,40 @@ paths:
       tags:
         - Events
       summary: Query events
-      description: Query Kubernetes events from the observer service
+      description: >
+        Query Kubernetes events from the logging backend. This endpoint is
+        served by the adapter; the Observer is the client.
+
+
+        `searchScope` is optional, but omitting it is legal only together with
+        `reasons` (an unscoped, reason-filtered sweep, used by machine consumers
+        such as the delivery insights aggregator). Because a missing scope
+        otherwise widens a query to every namespace, adapters MUST apply all
+        three rules below:
+
+
+        1. A request with neither `searchScope` nor `reasons` MUST be rejected
+        with 400. A missing scope MUST NEVER be treated as "all namespaces" on
+        its own.
+
+        2. Unscoped sweeps are an OPTIONAL capability. An adapter that does not
+        implement them MUST reject an unscoped request with 501, rather than
+        ignoring the omission and running a broader query than the caller asked
+        for.
+
+        3. An unscoped sweep MUST filter to the requested `reasons`, and MUST
+        NOT be widened by any scope inferred from the request.
+
+
+        Clients MUST treat a 501 on an unscoped sweep as "capability
+        unavailable" and fall back rather than retrying. A 400 always means the
+        request itself was rejected and MUST NOT be read as an unsupported
+        capability.
+
+
+        This API carries no end-user identity, so an adapter cannot authorize
+        the caller; a client that serves unscoped results onward is responsible
+        for authorizing its own consumers.
       operationId: queryEvents
       requestBody:
         required: true
@@ -202,10 +235,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "badRequest"
-                errorCode: ""
-                message: "Missing required fields 'startTime' and 'endTime'"
+              examples:
+                missingRequiredFields:
+                  summary: startTime/endTime absent
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "Missing required fields 'startTime' and 'endTime'"
+                unscopedWithoutReasons:
+                  summary: No searchScope and no reasons filter
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "searchScope is required unless reasons is set for an unscoped sweep"
         "401":
           description: Unauthorized
           content:
@@ -242,10 +284,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "notImplemented"
-                errorCode: ""
-                message: "Events query is not implemented by this adapter"
+              examples:
+                eventsNotImplemented:
+                  summary: Adapter implements no events query at all
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "Events query is not implemented by this adapter"
+                unscopedNotSupported:
+                  summary: Adapter implements scoped queries but not unscoped sweeps
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "Unscoped event queries are not supported by this adapter; set searchScope"
 
   /api/v1alpha1/alerts/rules:
     post:
@@ -726,11 +777,39 @@ components:
             - asc
             - desc
           default: desc
+        reasons:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          minItems: 1
+          maxItems: 32
+          description: >
+            Optional server-side filter on the event reason field. The adapter
+            returns only events whose reason exactly matches one of the supplied
+            values. Used by machine consumers such as the delivery insights
+            aggregator to sweep specific controller-emitted events
+            (e.g. DeploymentSucceeded). The list is bounded so that the filter
+            stays cheap for the adapter to evaluate.
+        searchAfter:
+          type: string
+          description: >
+            Opaque pagination cursor from a previous response's nextCursor.
+            Enables deep pagination beyond the limit cap for machine consumers.
         searchScope:
           oneOf:
             - $ref: "#/components/schemas/ComponentSearchScope"
             - $ref: "#/components/schemas/WorkflowSearchScope"
-      required: [startTime, endTime, searchScope]
+          description: >
+            Scope of the query. Omitting it requests an unscoped sweep, which is
+            permitted only together with `reasons` (machine consumers reading
+            controller-emitted events across all namespaces). Interactive queries
+            must always be scoped. Unscoped sweeps are an OPTIONAL adapter
+            capability; see the queryEvents description for the rules that apply.
+      # The "unscoped only with reasons" rule cannot be expressed here without
+      # changing the generated request type, so it is stated normatively in the
+      # queryEvents description and enforced by the adapter.
+      required: [startTime, endTime]
 
     # Response schemas for events
     EventEntry:
@@ -801,6 +880,11 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the events in milliseconds
+        nextCursor:
+          type: string
+          description: >
+            Opaque cursor to pass as searchAfter in a follow-up request to
+            continue past this page. Absent when there are no further results.
 
     # Request schemas for alert rules
     AlertRuleRequest:
