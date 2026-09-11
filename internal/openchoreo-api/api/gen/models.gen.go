@@ -1309,6 +1309,9 @@ type ClusterWorkflowSpec struct {
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
 
+	// Results Values a run of this workflow surfaces into WorkflowRunStatus.results once it completes.
+	Results *[]WorkflowResultDeclaration `json:"results,omitempty"`
+
 	// RunTemplate Kubernetes resource template to render and apply for this workflow run.
 	RunTemplate map[string]interface{} `json:"runTemplate"`
 
@@ -3894,6 +3897,38 @@ type TargetPlaneRef struct {
 // TargetPlaneRefKind Kind of the target plane resource
 type TargetPlaneRefKind string
 
+// TaskResultRef One output of one task in the run
+type TaskResultRef struct {
+	// Result Name of the output within that task.
+	Result string `json:"result"`
+
+	// Task Name of the task that produced the output, as it appears in WorkflowRunStatus.tasks[].name.
+	Task string `json:"task"`
+}
+
+// TestReport Typed projection of the reserved "test-report" result. Summary values only - the
+// full report is not stored in status.
+type TestReport struct {
+	// CoveragePercent Line coverage as a decimal percentage between 0 and 100. A string so a value like "87.5" round-trips exactly.
+	CoveragePercent *string `json:"coveragePercent,omitempty"`
+
+	// ReportArtifact Locates the full report when the workflow plane has somewhere to put one. Empty
+	// in every shipped configuration today.
+	ReportArtifact *string `json:"reportArtifact,omitempty"`
+
+	// ReportFormat The format the step produced, so a consumer knows how to read reportArtifact.
+	ReportFormat *string `json:"reportFormat,omitempty"`
+
+	// TestDurationSeconds How long the tests took, in seconds, as a decimal string.
+	TestDurationSeconds *string `json:"testDurationSeconds,omitempty"`
+	TestsFailed         *int32  `json:"testsFailed,omitempty"`
+	TestsPassed         *int32  `json:"testsPassed,omitempty"`
+	TestsSkipped        *int32  `json:"testsSkipped,omitempty"`
+
+	// TestsTotal Number of tests executed, including skipped ones.
+	TestsTotal *int32 `json:"testsTotal,omitempty"`
+}
+
 // Trait Trait resource.
 // Defines composable cross-cutting concerns that can be applied to components.
 type Trait struct {
@@ -4228,6 +4263,37 @@ type WorkflowResource struct {
 	Template map[string]interface{} `json:"template"`
 }
 
+// WorkflowResultDeclaration A value a run of the workflow surfaces into WorkflowRunStatus.results
+type WorkflowResultDeclaration struct {
+	// Description What the value carries, for consumers rendering the result.
+	Description *string `json:"description,omitempty"`
+
+	// Name Result name, and the key it appears under in WorkflowRunStatus.results.
+	// The name "test-report" is reserved and is additionally projected into
+	// WorkflowRunStatus.testReport.
+	Name string `json:"name"`
+
+	// Sensitive Record the result without its value. The entry still appears in
+	// WorkflowRunStatus.results so a consumer can see the run produced it, but the
+	// value is not written into status.
+	Sensitive *bool `json:"sensitive,omitempty"`
+
+	// ValueFrom Where a result's value comes from. Exactly one source must be set.
+	ValueFrom WorkflowResultSource `json:"valueFrom"`
+}
+
+// WorkflowResultSource Where a result's value comes from. Exactly one source must be set.
+type WorkflowResultSource struct {
+	// Expression CEL expression evaluated against the completed run, in the same ${...} form as
+	// the rest of the spec. Inputs are tasks, parameters, metadata and the results
+	// declared before this one. A value that is not a string is recorded as its JSON
+	// encoding.
+	Expression *string `json:"expression,omitempty"`
+
+	// TaskResult Read an output that a single task of the run produced.
+	TaskResult *TaskResultRef `json:"taskResult,omitempty"`
+}
+
 // WorkflowRun defines model for WorkflowRun.
 type WorkflowRun struct {
 	// ApiVersion API version of the resource
@@ -4293,6 +4359,24 @@ type WorkflowRunLogEntry struct {
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
+// WorkflowRunResult One value a completed run produced
+type WorkflowRunResult struct {
+	// Description Copied from the declaration, so a consumer reading only the run knows what the value carries.
+	Description *string `json:"description,omitempty"`
+
+	// Name The result name declared on the Workflow.
+	Name string `json:"name"`
+
+	// Sensitive Mirrors the declaration, distinguishing a withheld value from a genuinely empty one.
+	Sensitive *bool `json:"sensitive,omitempty"`
+
+	// Truncated The produced value exceeded the per-value size cap and value holds only its leading bytes.
+	Truncated *bool `json:"truncated,omitempty"`
+
+	// Value The recorded value. Empty when the declaration marked the result sensitive.
+	Value *string `json:"value,omitempty"`
+}
+
 // WorkflowRunSpec Desired state of a WorkflowRun
 type WorkflowRunSpec struct {
 	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
@@ -4310,10 +4394,18 @@ type WorkflowRunStatus struct {
 	Conditions *[]Condition         `json:"conditions,omitempty"`
 	Resources  *[]ResourceReference `json:"resources,omitempty"`
 
+	// Results Values this run produced, as declared by the Workflow's spec.results. Populated once the run completes.
+	Results *[]WorkflowRunResult `json:"results,omitempty"`
+
 	// RunReference Reference to a Kubernetes resource applied during a workflow run
 	RunReference *ResourceReference `json:"runReference,omitempty"`
 	StartedAt    *time.Time         `json:"startedAt,omitempty"`
 	Tasks        *[]WorkflowTask    `json:"tasks,omitempty"`
+
+	// TestReport Parsed form of the reserved "test-report" result. Set only when a run declares
+	// that result and its value parses as a test summary; the raw value stays in
+	// results either way.
+	TestReport *TestReport `json:"testReport,omitempty"`
 }
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details
@@ -4341,6 +4433,9 @@ type WorkflowSpec struct {
 
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
+
+	// Results Values a run of this workflow surfaces into WorkflowRunStatus.results once it completes.
+	Results *[]WorkflowResultDeclaration `json:"results,omitempty"`
 
 	// RunTemplate Kubernetes resource template to render and apply for this workflow run.
 	RunTemplate map[string]interface{} `json:"runTemplate"`

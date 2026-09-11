@@ -9188,9 +9188,76 @@ components:
           description: External CR references resolved and injected into the CEL context under their id.
           items:
             $ref: '#/components/schemas/ExternalRef'
+        results:
+          type: array
+          description: Values a run of this workflow surfaces into WorkflowRunStatus.results once it completes.
+          items:
+            $ref: '#/components/schemas/WorkflowResultDeclaration'
         ttlAfterCompletion:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+
+    WorkflowResultDeclaration:
+      type: object
+      description: A value a run of the workflow surfaces into WorkflowRunStatus.results
+      required:
+        - name
+        - valueFrom
+      properties:
+        name:
+          type: string
+          description: |
+            Result name, and the key it appears under in WorkflowRunStatus.results.
+            The name "test-report" is reserved and is additionally projected into
+            WorkflowRunStatus.testReport.
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: image
+        description:
+          type: string
+          description: What the value carries, for consumers rendering the result.
+          maxLength: 256
+        sensitive:
+          type: boolean
+          description: |
+            Record the result without its value. The entry still appears in
+            WorkflowRunStatus.results so a consumer can see the run produced it, but the
+            value is not written into status.
+        valueFrom:
+          $ref: '#/components/schemas/WorkflowResultSource'
+
+    WorkflowResultSource:
+      type: object
+      description: Where a result's value comes from. Exactly one source must be set.
+      properties:
+        taskResult:
+          description: Read an output that a single task of the run produced.
+          allOf:
+            - $ref: '#/components/schemas/TaskResultRef'
+        expression:
+          type: string
+          description: |
+            CEL expression evaluated against the completed run, in the same ${...} form as
+            the rest of the spec. Inputs are tasks, parameters, metadata and the results
+            declared before this one. A value that is not a string is recorded as its JSON
+            encoding.
+          example: "${tasks['run-tests'].results['tests-failed'] == '0' ? 'passed' : 'failed'}"
+
+    TaskResultRef:
+      type: object
+      description: One output of one task in the run
+      required:
+        - task
+        - result
+      properties:
+        task:
+          type: string
+          description: Name of the task that produced the output, as it appears in WorkflowRunStatus.tasks[].name.
+          example: publish-image
+        result:
+          type: string
+          description: Name of the output within that task.
+          example: image
 
     WorkflowPlaneRef:
       type: object
@@ -9342,6 +9409,11 @@ components:
           description: External CR references resolved and injected into the CEL context under their id.
           items:
             $ref: '#/components/schemas/ExternalRef'
+        results:
+          type: array
+          description: Values a run of this workflow surfaces into WorkflowRunStatus.results once it completes.
+          items:
+            $ref: '#/components/schemas/WorkflowResultDeclaration'
         ttlAfterCompletion:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
@@ -9520,12 +9592,97 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WorkflowTask'
+        results:
+          type: array
+          description: Values this run produced, as declared by the Workflow's spec.results. Populated once the run completes.
+          items:
+            $ref: '#/components/schemas/WorkflowRunResult'
+        testReport:
+          description: |
+            Parsed form of the reserved "test-report" result. Set only when a run declares
+            that result and its value parses as a test summary; the raw value stays in
+            results either way.
+          allOf:
+            - $ref: '#/components/schemas/TestReport'
         startedAt:
           type: string
           format: date-time
         completedAt:
           type: string
           format: date-time
+
+    WorkflowRunResult:
+      type: object
+      description: One value a completed run produced
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The result name declared on the Workflow.
+          example: image
+        description:
+          type: string
+          description: Copied from the declaration, so a consumer reading only the run knows what the value carries.
+        value:
+          type: string
+          description: The recorded value. Empty when the declaration marked the result sensitive.
+          example: registry.example.com/my-app:v1
+        truncated:
+          type: boolean
+          description: The produced value exceeded the per-value size cap and value holds only its leading bytes.
+        sensitive:
+          type: boolean
+          description: Mirrors the declaration, distinguishing a withheld value from a genuinely empty one.
+
+    TestReport:
+      type: object
+      description: |
+        Typed projection of the reserved "test-report" result. Summary values only - the
+        full report is not stored in status.
+      properties:
+        coveragePercent:
+          type: string
+          description: Line coverage as a decimal percentage between 0 and 100. A string so a value like "87.5" round-trips exactly.
+          pattern: '^(100(\.0+)?|\d{1,2}(\.\d+)?)$'
+          example: "87.5"
+        testsTotal:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Number of tests executed, including skipped ones.
+          example: 120
+        testsPassed:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 118
+        testsFailed:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+        testsSkipped:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+        testDurationSeconds:
+          type: string
+          description: How long the tests took, in seconds, as a decimal string.
+          pattern: '^\d+(\.\d+)?$'
+          example: "42.5"
+        reportFormat:
+          type: string
+          maxLength: 63
+          description: The format the step produced, so a consumer knows how to read reportArtifact.
+          example: cobertura
+        reportArtifact:
+          type: string
+          maxLength: 2048
+          description: |
+            Locates the full report when the workflow plane has somewhere to put one. Empty
+            in every shipped configuration today.
 
     WorkflowRunStatusResponse:
       type: object

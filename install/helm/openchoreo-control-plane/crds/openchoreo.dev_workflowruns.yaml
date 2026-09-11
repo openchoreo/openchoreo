@@ -190,6 +190,47 @@ spec:
                   - name
                   type: object
                 type: array
+              results:
+                description: |-
+                  Results contains the values this run produced, as declared by the Workflow's
+                  spec.results. Entries appear once the run completes; a workflow that declares no
+                  results leaves this empty.
+                items:
+                  description: |-
+                    WorkflowRunResult is one value a completed run produced, as declared by the Workflow's
+                    spec.results.
+                  properties:
+                    description:
+                      description: |-
+                        Description is copied from the declaration, so a consumer reading only the run
+                        knows what the value carries.
+                      type: string
+                    name:
+                      description: Name is the result name declared on the Workflow.
+                      minLength: 1
+                      type: string
+                    sensitive:
+                      description: |-
+                        Sensitive mirrors the declaration, so a consumer can tell an empty value that was
+                        withheld from one that was genuinely empty.
+                      type: boolean
+                    truncated:
+                      description: |-
+                        Truncated reports that the produced value was longer than the controller's per-value
+                        size cap and Value holds only its leading bytes.
+                      type: boolean
+                    value:
+                      description: |-
+                        Value is the recorded value. It is empty when the declaration marked the result
+                        sensitive, in which case the entry records only that the run produced it.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               runReference:
                 description: |-
                   RunReference contains a reference to the workflow run resource that was applied to the cluster.
@@ -275,6 +316,58 @@ spec:
                   - name
                   type: object
                 type: array
+              testReport:
+                description: |-
+                  TestReport is the parsed form of the reserved "test-report" result. It is set only
+                  when a run declares that result and its value parses as a test summary; the raw
+                  value stays in Results either way.
+                properties:
+                  coveragePercent:
+                    description: |-
+                      CoveragePercent is the line coverage the run measured, as a decimal percentage
+                      between 0 and 100. It is a string rather than a number so a value like "87.5"
+                      round-trips exactly through the API server.
+                    pattern: ^(100(\.0+)?|\d{1,2}(\.\d+)?)$
+                    type: string
+                  reportArtifact:
+                    description: |-
+                      ReportArtifact locates the full report when the workflow plane has somewhere to put
+                      one. It is empty in every shipped configuration today.
+                    maxLength: 2048
+                    type: string
+                  reportFormat:
+                    description: |-
+                      ReportFormat names the format the step produced (e.g. "cobertura", "lcov",
+                      "jacoco", "go-cover"), so a consumer knows how to read ReportArtifact.
+                    maxLength: 63
+                    type: string
+                  testDurationSeconds:
+                    description: TestDurationSeconds is how long the tests took, in
+                      seconds, as a decimal string.
+                    pattern: ^\d+(\.\d+)?$
+                    type: string
+                  testsFailed:
+                    description: TestsFailed is the number of tests that failed.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  testsPassed:
+                    description: TestsPassed is the number of tests that passed.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  testsSkipped:
+                    description: TestsSkipped is the number of tests that were skipped.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  testsTotal:
+                    description: TestsTotal is the number of tests the run executed,
+                      including skipped ones.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                type: object
             type: object
         required:
         - spec
