@@ -1,0 +1,16 @@
+{{- if and .Values.gateway.enabled .Values.rca.enabled .Values.rca.http.enabled (eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway") }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: {{ .Values.rca.name }}-mcp-timeout
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ .Values.rca.name }}
+      sectionName: mcp
+  timeouts:
+    request: "0s"
+    streamIdle: "24h"
+{{- end }}

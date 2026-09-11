@@ -92,31 +92,9 @@ mcp_server = FastMCP(
     # from the path before forwarding — so the inner app must serve at
     # the root "/" or the request 404s.
     streamable_http_path="/",
-    # FastMCP's default DNS-rebinding protection rejects any Host header
-    # not on a tiny allowlist (localhost). In-cluster traffic from the
-    # assistant-agent uses the Service DNS host (e.g.
-    # sre-agent.openchoreo-observability-plane.svc.cluster.local),
-    # which would 421. We disable the protection because (a) ingress is
-    # already gated by JWT auth and (b) the protection guards browsers,
-    # not service-to-service callers.
-    #
-    # Required deployment invariants (the security argument depends on
-    # ALL of these — verify when changing the chart or networking):
-    #   1. ``mcp>=1.23.0`` is pinned in pyproject.toml. Pre-1.23 the SDK
-    #      had a different default for this flag and a different set of
-    #      transport-layer mitigations.
-    #   2. The ``/mcp`` endpoint is NOT exposed via the cluster's
-    #      external HTTPRoute. Only the in-cluster Service is reachable.
-    #      See install/helm/.../templates/rca-agent/httproute.yaml — it
-    #      must NOT include a /mcp path match for the public gateway.
-    #   3. NetworkPolicy (or equivalent) restricts ingress to ``/mcp`` to
-    #      the assistant-agent ServiceAccount / Pod selector.
-    # If any of (1)–(3) cannot be guaranteed in a target environment,
-    # flip this to True and supply ``allowed_hosts`` for the in-cluster
-    # Service DNS instead of disabling protection wholesale.
-    # TODO: revisit once FastMCP exposes a clean ``allowed_hosts`` API
-    # that can be combined with ``enable_dns_rebinding_protection=True``
-    # for a defense-in-depth setup.
+    # Requests arrive through service and gateway hostnames that cannot be
+    # statically enumerated here. JWT authentication and per-tool authorization
+    # are enforced by _MCPAuthMiddleware below.
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=False,
     ),

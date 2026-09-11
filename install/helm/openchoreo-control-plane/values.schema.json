@@ -4605,7 +4605,7 @@
               "type": "integer"
             },
             "observerApiUrl": {
-              "default": "http://observer.openchoreo-observability-plane.svc.cluster.local:8080",
+              "default": "http://observer.openchoreo.localhost:11080",
               "title": "observerApiUrl",
               "type": "string"
             },

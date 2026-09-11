@@ -4270,7 +4270,7 @@ portalAssistant:
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-    observerApiUrl: "http://observer.openchoreo-observability-plane.svc.cluster.local:8080"
+    observerApiUrl: "http://observer.openchoreo.localhost:11080"
     rcaAgentApiUrl: ""
     maxConcurrentChats: 20
     authzTimeoutSeconds: 30

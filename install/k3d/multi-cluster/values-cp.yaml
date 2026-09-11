@@ -25,6 +25,10 @@ backstage:
     hostnames:
     - openchoreo.localhost
 
+portalAssistant:
+  config:
+    observerApiUrl: "http://observer.openchoreo.localhost:11080"
+
 security:
   oidc:
     issuer: "http://thunder.openchoreo.localhost:8080"

@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-// Observer service coordinates inside the e2e cluster. Set by `_e2e.install-op`
-// in make/e2e.mk — keep these names in sync.
+// Observer gateway coordinates inside the e2e cluster. Set by `_e2e.install-op`
+// in make/e2e.mk — keep these values in sync.
 const (
 	ObserverNamespace = "openchoreo-observability-plane"
-	ObserverService   = "observer"
-	ObserverPort      = 8080
+	ObserverService   = "gateway-default"
+	observerURL       = "http://observer.e2e-op.local:21080"
 
 	// Thunder OAuth2 client_credentials path used to mint a bearer token for
 	// the observer's JWT-protected query routes. service_mcp_client carries
@@ -62,10 +62,8 @@ type ObserverQueryFrom struct {
 	// k3d cluster). Empty falls back to the default in-cluster URL.
 	ThunderTokenURL string
 
-	// ObserverURL overrides the in-cluster observer service base URL.
-	// Set this when the exec pod cannot reach
-	// observer.openchoreo-observability-plane.svc via cluster DNS (e.g.
-	// multi-cluster e2e where the observer is in a different k3d cluster).
+	// ObserverURL overrides the observer gateway base URL. Set this for
+	// multi-cluster e2e where the observer runs in a different k3d cluster.
 	// Must not include a trailing slash. Empty falls back to the default
 	// in-cluster URL.
 	ObserverURL string
@@ -220,8 +218,8 @@ func QueryTraces(q ObserverQueryFrom, token string, req TracesQueryRequest) (*Tr
 	return &resp, nil
 }
 
-// observerPost runs `kubectl exec <pod> -- curl ...` to POST to the observer's
-// in-cluster Service. Using kubectl-exec instead of `kubectl port-forward`
+// observerPost runs `kubectl exec <pod> -- curl ...` to POST through the
+// observability gateway. Using kubectl-exec instead of `kubectl port-forward`
 // avoids forwarder lifecycle management and mirrors the pattern used by
 // framework/gitea.go.
 func observerPost(q ObserverQueryFrom, token, path string, payload any) (string, error) {
@@ -229,8 +227,7 @@ func observerPost(q ObserverQueryFrom, token, path string, payload any) (string,
 	if err != nil {
 		return "", fmt.Errorf("marshal payload: %w", err)
 	}
-	baseURL := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d",
-		ObserverService, ObserverNamespace, ObserverPort)
+	baseURL := observerURL
 	if q.ObserverURL != "" {
 		baseURL = q.ObserverURL
 	}

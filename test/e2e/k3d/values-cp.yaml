@@ -17,6 +17,10 @@ backstage:
     hostnames:
       - openchoreo.e2e-cp.local
 
+portalAssistant:
+  config:
+    observerApiUrl: "http://observer.e2e-op.local:21080"
+
 security:
   oidc:
     issuer: "http://thunder.e2e-cp.local:28080"
