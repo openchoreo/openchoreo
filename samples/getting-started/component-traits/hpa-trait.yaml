@@ -1,0 +1,139 @@
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: horizontal-pod-autoscaler
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - replicas
+          - targetUtilization
+      properties:
+        replicas:
+          type: object
+          default: {}
+          title: Replicas
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - min
+              - max
+          properties:
+            min:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Minimum
+            max:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Maximum
+          required:
+            - min
+            - max
+        targetUtilization:
+          type: object
+          default: {}
+          title: Target utilization
+          description: "Target utilization levels the autoscaler maintains by adding or removing replicas."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - cpu
+              - memory
+          properties:
+            cpu:
+              type: integer
+              default: 80
+              minimum: 1
+              maximum: 100
+              title: CPU
+              description: "Average CPU across pods, as a percentage of the pod's CPU request."
+            memory:
+              type: integer
+              minimum: 1
+              maximum: 100
+              title: Memory
+              description: "Average memory across pods, as a percentage of the pod's memory request. Optional; when unset, memory is not used for scaling."
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - minReplicas
+          - maxReplicas
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether autoscaling is active in this environment. When disabled, no HorizontalPodAutoscaler is created."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        minReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the lower replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+        maxReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the upper replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+
+  validations:
+    - rule: "${(has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max) >= (has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min)}"
+      message: "maxReplicas must be greater than or equal to minReplicas."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${metadata.name}
+          minReplicas: |
+            ${has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min}
+          maxReplicas: |
+            ${has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max}
+          metrics: |
+            ${[
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "cpu",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.cpu}
+                }
+              }
+            ] + (has(parameters.targetUtilization.memory) ? [
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "memory",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.memory}
+                }
+              }
+            ] : [])}
+
+  # Remove the ComponentType's static replica count so it doesn't interfere with the HPA.
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: remove
+          path: /spec/replicas
