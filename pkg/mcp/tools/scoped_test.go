@@ -152,14 +152,20 @@ func TestScopedToolNamespaceRequiredForNamespaceScope(t *testing.T) {
 }
 
 func TestScopedToolInvalidScope(t *testing.T) {
-	cs, _ := setupScopedTestServer(t, context.Background(), nil)
-	// The `scope` argument is constrained by an enum in the input schema, so an
-	// out-of-range value is rejected at the protocol layer before the handler runs.
-	if _, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+	cs, mock := setupScopedTestServer(t, context.Background(), nil)
+	// The SDK rejects an out-of-range scope as a tool error before the handler runs.
+	result, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
 		Name:      "list_component_types",
 		Arguments: map[string]any{"scope": "galaxy"},
-	}); err == nil {
-		t.Errorf("expected an error for an invalid scope value")
+	})
+	if err != nil {
+		t.Fatalf("CallTool protocol error: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Errorf("expected a tool error for an invalid scope value")
+	}
+	if len(mock.calls) != 0 {
+		t.Errorf("handler called with invalid scope: %v", mock.calls)
 	}
 }
 
