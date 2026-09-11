@@ -1059,12 +1059,14 @@ func TestToolErrorHandling(t *testing.T) {
 
 	mockHandler.resetAll()
 
-	_, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
+	result, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 		Name:      testSpec.name,
 		Arguments: map[string]any{}, // Empty - missing required params
 	})
 
-	require.Error(t, err, "Expected error for tool %q with missing required parameters", testSpec.name)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.True(t, result.IsError, "Expected tool error for %q with missing required parameters", testSpec.name)
 }
 
 // TestMinimalParameterSets verifies that tools work with only required parameters.

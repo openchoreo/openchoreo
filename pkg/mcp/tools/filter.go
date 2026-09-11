@@ -42,7 +42,7 @@ var (
 // tools/list and tools/call results along two independent axes:
 //
 //  1. Toolset narrowing — when the client requested a specific subset of
-//     toolsets via ?toolsets= on the initialize request, tools/list returns
+//     toolsets via ?toolsets= on the current request, tools/list returns
 //     only tools whose registered toolsets intersect the requested set. This
 //     filter is purely a tools/list visibility helper; tools/call is not
 //     gated by it (clients that bypass tools/list can still call any
@@ -87,7 +87,7 @@ func NewToolFilterMiddleware(
 }
 
 // filterListTools calls the next handler, then narrows the returned tool list
-// by the per-session toolset request and (when enabled) the user's authz
+// by the per-request toolset request and (when enabled) the user's authz
 // capabilities.
 func filterListTools(
 	ctx context.Context,
@@ -155,7 +155,7 @@ func filterListTools(
 
 // filterCallTool checks whether the user is permitted to call the requested tool
 // before forwarding to the next handler. Authz checks are skipped when the
-// per-session filterByAuthz flag is false or no PDP is configured; the service
+// per-request filterByAuthz flag is false or no PDP is configured; the service
 // layer enforces authz independently in those cases.
 func filterCallTool(
 	ctx context.Context,
@@ -218,7 +218,7 @@ func filterCallTool(
 
 // authzFilteringActive reports whether MCP-layer authz filtering should be
 // applied for this request. It is active only when a PDP is configured and the
-// per-session filterByAuthz flag has not been explicitly set to false.
+// per-request filterByAuthz flag has not been explicitly set to false.
 func authzFilteringActive(ctx context.Context, pdp authzcore.PDP) bool {
 	if pdp == nil {
 		return false

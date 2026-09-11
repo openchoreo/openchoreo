@@ -119,14 +119,17 @@ func TestToolErrorHandling(t *testing.T) {
 	mockHandler.calls = make(map[string][]interface{})
 
 	// Try calling the tool with missing required parameter
-	_, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      testSpec.name,
 		Arguments: map[string]any{}, // Empty arguments - missing required params
 	})
 
-	// We expect an error for missing required parameters
-	if err == nil {
-		t.Errorf("Expected error for tool %q with missing required parameters, got nil", testSpec.name)
+	// The SDK reports input validation failures as tool errors, not protocol errors.
+	if err != nil {
+		t.Fatalf("CallTool protocol error: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Errorf("Expected tool error for %q with missing required parameters", testSpec.name)
 	}
 
 	// Verify the handler was NOT called (validation should fail before reaching handler)
