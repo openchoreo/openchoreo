@@ -225,3 +225,23 @@ func TestActionViewDeliveryInsightsRegistered(t *testing.T) {
 	require.False(t, found.IsInternal,
 		"%s is granted to roles, so it must not be internal-only", ActionViewDeliveryInsights)
 }
+
+// TestActionInvokePortalAssistantRegistered pins the Portal Assistant invoke action and its
+// metadata. It is invoked at cluster scope for chat and warmup endpoints.
+func TestActionInvokePortalAssistantRegistered(t *testing.T) {
+	var found *Action
+	for i := range PublicActions() {
+		if PublicActions()[i].Name == ActionInvokePortalAssistant {
+			found = &PublicActions()[i]
+			break
+		}
+	}
+
+	require.NotNil(t, found, "%s must be registered as a public action", ActionInvokePortalAssistant)
+	require.Equal(t, "portal-assistant:invoke", ActionInvokePortalAssistant,
+		"the action name is referenced by role grants in values.yaml and portal-assistant auth, and must not drift")
+	require.Equal(t, ScopeCluster, found.LowestScope,
+		"portal-assistant is invoked at cluster scope")
+	require.False(t, found.IsInternal,
+		"%s is granted to roles, so it must not be internal-only", ActionInvokePortalAssistant)
+}
