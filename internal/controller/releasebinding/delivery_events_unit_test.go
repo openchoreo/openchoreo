@@ -9,18 +9,22 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -47,12 +51,33 @@ func makeDeliveryBinding() *openchoreov1alpha1.ReleaseBinding {
 	}
 }
 
+// testCommit and testAuthoredAt are the source provenance the ComponentRelease
+// snapshot carries, which delivery events forward for Lead Time for Changes.
+const (
+	testCommit     = "9f2c1ab3d4e5f60718293a4b5c6d7e8f90123456"
+	testAuthoredAt = "2026-09-01T10:30:00Z"
+)
+
 func makeDeliveryComponentRelease() *openchoreov1alpha1.ComponentRelease {
+	authored, err := time.Parse(time.RFC3339, testAuthoredAt)
+	if err != nil {
+		panic(err)
+	}
 	return &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testComponentReleaseName,
 			Namespace: "acme",
 			UID:       types.UID(testComponentReleaseUID),
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Workload: openchoreov1alpha1.WorkloadTemplateSpec{
+				Source: &openchoreov1alpha1.WorkloadSource{
+					Commit:     testCommit,
+					Branch:     "main",
+					Repository: "https://github.com/acme/checkout-service",
+					AuthoredAt: &metav1.Time{Time: authored},
+				},
+			},
 		},
 	}
 }
@@ -60,9 +85,10 @@ func makeDeliveryComponentRelease() *openchoreov1alpha1.ComponentRelease {
 func makeDeliveryRelease() *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "checkout-service-dev",
-			Namespace: "acme",
-			UID:       types.UID("rr-uid-1"),
+			Name:       "checkout-service-dev",
+			Namespace:  "acme",
+			UID:        types.UID("rr-uid-1"),
+			Generation: 4,
 		},
 		Spec: openchoreov1alpha1.RenderedReleaseSpec{
 			Owner: openchoreov1alpha1.RenderedReleaseOwner{
@@ -136,10 +162,11 @@ func TestDeliveryContextFor(t *testing.T) {
 		if dc == nil {
 			t.Fatal("expected delivery context, got nil")
 		}
-		// The rollout identity pairs the immutable ComponentRelease UID with the
-		// RenderedRelease UID: neither alone identifies one rollout of one
-		// component into one environment.
-		wantRollout := testComponentReleaseUID + ".rr-uid-1"
+		// The rollout identity joins the immutable ComponentRelease UID, the
+		// RenderedRelease UID and its generation: neither UID alone identifies one
+		// rollout of one component into one environment, and without the generation
+		// a redeployment of a spec that ran before repeats the identity.
+		wantRollout := testComponentReleaseUID + ".rr-uid-1.4"
 		if dc.rolloutID != wantRollout {
 			t.Errorf("rolloutID = %q, want %q", dc.rolloutID, wantRollout)
 		}
@@ -274,8 +301,8 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 		if err := json.Unmarshal([]byte(started.Message), &payload); err != nil {
 			t.Fatalf("unmarshal payload: %v", err)
 		}
-		if payload.RenderedReleaseUID != dc.rolloutID {
-			t.Errorf("payload renderedReleaseUid = %q, want %q", payload.RenderedReleaseUID, dc.rolloutID)
+		if payload.RolloutID != dc.rolloutID {
+			t.Errorf("payload rolloutId = %q, want %q", payload.RolloutID, dc.rolloutID)
 		}
 		if payload.ComponentReleaseName != testComponentReleaseName {
 			t.Errorf("payload componentReleaseName = %q, want %q", payload.ComponentReleaseName, testComponentReleaseName)
@@ -287,6 +314,14 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 		}
 		if payload.Phase != "Started" {
 			t.Errorf("payload phase = %q, want Started", payload.Phase)
+		}
+		// Provenance travels on every phase: the aggregator reads a log store, not
+		// the control plane, so it cannot resolve the ComponentRelease itself.
+		if payload.Commit != testCommit {
+			t.Errorf("payload commit = %q, want %q", payload.Commit, testCommit)
+		}
+		if payload.CommitAuthoredAt != testAuthoredAt {
+			t.Errorf("payload commitAuthoredAt = %q, want %q", payload.CommitAuthoredAt, testAuthoredAt)
 		}
 
 		if binding.Status.Delivery == nil || binding.Status.Delivery.StartedAt == nil {
@@ -405,8 +440,8 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		dc2 := deliveryContextFor(binding, nextRelease, release, desired)
 		mustReconcileDelivery(t, r, ctx, cl, binding, dc2, healthy)
 
-		if binding.Status.Delivery.RolloutID != "cr-uid-8.rr-uid-1" {
-			t.Errorf("RolloutID = %q, want cr-uid-8.rr-uid-1", binding.Status.Delivery.RolloutID)
+		if binding.Status.Delivery.RolloutID != "cr-uid-8.rr-uid-1.4" {
+			t.Errorf("RolloutID = %q, want cr-uid-8.rr-uid-1.4", binding.Status.Delivery.RolloutID)
 		}
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 4 {
@@ -1021,6 +1056,344 @@ func TestDeliveryReachesAFixedPoint(t *testing.T) {
 		}
 		if n := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); n != 1 {
 			t.Errorf("emitted %d DeploymentFailed for one open episode, want 1", n)
+		}
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// reconcileDelivery: health currency and non-fatal emission
+// ─────────────────────────────────────────────────────────────
+
+// deliveryPlaneProvider hands out one client for every plane, so a delivery
+// reconcile can be driven end to end. Only the data plane methods are reached.
+type deliveryPlaneProvider struct{ cl client.Client }
+
+func (p *deliveryPlaneProvider) DataPlaneClient(*openchoreov1alpha1.DataPlane) (client.Client, error) {
+	return p.cl, nil
+}
+
+func (p *deliveryPlaneProvider) ClusterDataPlaneClient(*openchoreov1alpha1.ClusterDataPlane) (client.Client, error) {
+	return p.cl, nil
+}
+
+func (p *deliveryPlaneProvider) ObservabilityPlaneClient(*openchoreov1alpha1.ObservabilityPlane) (client.Client, error) {
+	return p.cl, nil
+}
+
+func (p *deliveryPlaneProvider) ClusterObservabilityPlaneClient(
+	*openchoreov1alpha1.ClusterObservabilityPlane,
+) (client.Client, error) {
+	return p.cl, nil
+}
+
+func (p *deliveryPlaneProvider) WorkflowPlaneClient(*openchoreov1alpha1.WorkflowPlane) (client.Client, error) {
+	return p.cl, nil
+}
+
+func (p *deliveryPlaneProvider) ClusterWorkflowPlaneClient(
+	*openchoreov1alpha1.ClusterWorkflowPlane,
+) (client.Client, error) {
+	return p.cl, nil
+}
+
+// appliedCondition builds the condition the renderedrelease controller sets
+// alongside Status.Resources, observed at the given generation.
+func appliedCondition(observedGeneration int64) metav1.Condition {
+	return metav1.Condition{
+		Type:               renderedrelease.ConditionResourcesApplied,
+		Status:             metav1.ConditionTrue,
+		Reason:             "ApplySucceeded",
+		ObservedGeneration: observedGeneration,
+		LastTransitionTime: metav1.Now(),
+	}
+}
+
+// newDeliveryReconcile wires a Reconciler whose control-plane client can resolve
+// the environment's data plane, and whose data-plane client is dpClient.
+func newDeliveryReconcile(t *testing.T, dpClient client.Client) (*Reconciler, *openchoreov1alpha1.ReleaseBinding) {
+	t.Helper()
+	binding := makeDeliveryBinding()
+
+	env := &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{Name: binding.Spec.Environment, Namespace: binding.Namespace},
+		Spec: openchoreov1alpha1.EnvironmentSpec{
+			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+				Name: "dp-1",
+			},
+		},
+	}
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp-1", Namespace: binding.Namespace},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add openchoreo scheme: %v", err)
+	}
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(env, dp).Build()
+
+	return &Reconciler{
+		Client:              cpClient,
+		PlaneClientProvider: &deliveryPlaneProvider{cl: dpClient},
+	}, binding
+}
+
+// TestDeliveryWaitsForHealthOfThisGeneration pins the ordering that makes
+// succeededAt meaningful.
+//
+// The rollout identity advances as soon as a new ComponentRelease is rendered,
+// but Status.Resources is written asynchronously by the renderedrelease
+// controller. On the first reconcile after a re-render that status still
+// summarizes the revision being replaced, which is healthy because it has been
+// running all along. Emitting on it reports DeploymentSucceeded for a rollout
+// whose pods do not exist yet -- and succeededAt is what Lead Time for Changes
+// measures to, so it would exclude the very rollout it is timing.
+//
+// Verified against the unguarded behavior: without the generation check the
+// stale case emits Started and Succeeded immediately.
+func TestDeliveryWaitsForHealthOfThisGeneration(t *testing.T) {
+	ctx := context.Background()
+	deployment := makeDeliveryDeployment()
+	resources := []map[string]any{deployment.Object}
+	componentRelease := makeDeliveryComponentRelease()
+
+	// The previous revision, still healthy -- what a stale status reports.
+	healthy := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+
+	t.Run("status from an older generation emits nothing", func(t *testing.T) {
+		dpClient := fake.NewClientBuilder().Build()
+		r, binding := newDeliveryReconcile(t, dpClient)
+
+		release := makeDeliveryRelease()
+		release.Generation = 2
+		release.Status.Resources = healthy
+		release.Status.Conditions = []metav1.Condition{appliedCondition(1)}
+
+		r.reconcileDelivery(ctx, binding, componentRelease, release, resources, false)
+		if events := listDeliveryEvents(t, dpClient); len(events) != 0 {
+			t.Fatalf("expected no events while health is stale, got %d: %s",
+				len(events), events[0].Reason)
+		}
+		if binding.Status.Delivery != nil {
+			t.Errorf("expected no delivery markers, got %+v", binding.Status.Delivery)
+		}
+	})
+
+	t.Run("no applied condition at all emits nothing", func(t *testing.T) {
+		dpClient := fake.NewClientBuilder().Build()
+		r, binding := newDeliveryReconcile(t, dpClient)
+
+		release := makeDeliveryRelease()
+		release.Generation = 1
+		release.Status.Resources = healthy
+
+		r.reconcileDelivery(ctx, binding, componentRelease, release, resources, false)
+		if events := listDeliveryEvents(t, dpClient); len(events) != 0 {
+			t.Fatalf("expected no events without an applied condition, got %d", len(events))
+		}
+	})
+
+	t.Run("a failed apply at this generation emits nothing", func(t *testing.T) {
+		dpClient := fake.NewClientBuilder().Build()
+		r, binding := newDeliveryReconcile(t, dpClient)
+
+		release := makeDeliveryRelease()
+		release.Generation = 2
+		release.Status.Resources = healthy
+		failed := appliedCondition(2)
+		failed.Status = metav1.ConditionFalse
+		failed.Reason = "ApplyFailed"
+		release.Status.Conditions = []metav1.Condition{failed}
+
+		// reconcileRelease routes a current-generation apply failure to the
+		// applyFailed path instead, so arriving here with one means the health
+		// beside it is not this rollout's to report.
+		r.reconcileDelivery(ctx, binding, componentRelease, release, resources, false)
+		if events := listDeliveryEvents(t, dpClient); len(events) != 0 {
+			t.Fatalf("expected no events for a failed apply, got %d: %s", len(events), events[0].Reason)
+		}
+	})
+
+	t.Run("status observed at this generation emits", func(t *testing.T) {
+		dpClient := fake.NewClientBuilder().Build()
+		r, binding := newDeliveryReconcile(t, dpClient)
+
+		release := makeDeliveryRelease()
+		release.Generation = 2
+		release.Status.Resources = healthy
+		release.Status.Conditions = []metav1.Condition{appliedCondition(2)}
+
+		r.reconcileDelivery(ctx, binding, componentRelease, release, resources, false)
+		events := listDeliveryEvents(t, dpClient)
+		if len(events) != 2 {
+			t.Fatalf("expected Started and Succeeded once health is current, got %d", len(events))
+		}
+		if findEventByReason(events, reasonDeploymentStarted) == nil {
+			t.Error("missing DeploymentStarted")
+		}
+		if findEventByReason(events, reasonDeploymentSucceeded) == nil {
+			t.Error("missing DeploymentSucceeded")
+		}
+	})
+}
+
+// TestDeliveryEmissionFailureDoesNotFailReconcile pins that a plane which
+// refuses the write degrades the metric rather than the deployment.
+//
+// A data plane whose agent has no RBAC to create events returns Forbidden on
+// every attempt. Returning that to the reconcile boundary puts every
+// ReleaseBinding into permanent error backoff -- deployments still converge, but
+// no reconcile ever reports success. Delivery events are a metric, so this is
+// logged and swallowed, exactly as an unreachable plane client already is.
+//
+// Verified against the previous behavior: returning the error made this fail
+// with the Forbidden wrapped in "failed to emit delivery lifecycle events".
+func TestDeliveryEmissionFailureDoesNotFailReconcile(t *testing.T) {
+	ctx := context.Background()
+	resources := []map[string]any{makeDeliveryDeployment().Object}
+	componentRelease := makeDeliveryComponentRelease()
+
+	forbidden := apierrors.NewForbidden(
+		schema.GroupResource{Resource: "events"}, "",
+		errors.New(`User "system:serviceaccount:openchoreo-data-plane:cluster-agent-dataplane" cannot create resource "events"`))
+
+	dpClient := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+		Create: func(ctx context.Context, cl client.WithWatch, obj client.Object,
+			opts ...client.CreateOption) error {
+			if _, ok := obj.(*corev1.Event); ok {
+				return forbidden
+			}
+			return cl.Create(ctx, obj, opts...)
+		},
+	}).Build()
+
+	r, binding := newDeliveryReconcile(t, dpClient)
+	release := makeDeliveryRelease()
+	release.Generation = 1
+	release.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+	release.Status.Conditions = []metav1.Condition{appliedCondition(1)}
+
+	// reconcileDelivery reports nothing back, so the contract is that this returns
+	// at all rather than propagating the Forbidden to the reconcile boundary. The
+	// call site in reconcileRelease has no error to return, which is what keeps a
+	// plane that refuses the write from wedging every binding.
+	r.reconcileDelivery(ctx, binding, componentRelease, release, resources, false)
+
+	if events := listDeliveryEvents(t, dpClient); len(events) != 0 {
+		t.Errorf("expected no events to be stored, got %d", len(events))
+	}
+	if binding.Status.Delivery == nil || binding.Status.Delivery.StartedAt != nil {
+		t.Error("a refused write must not record a StartedAt marker, or the phase would be skipped on retry")
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rollout identity and commit provenance
+// ─────────────────────────────────────────────────────────────
+
+// TestRolloutIDDistinguishesRedeployments pins that deploying a spec which ran
+// before is its own rollout.
+//
+// ComponentReleases are content-addressed, so rolling back to a previous spec --
+// or restarting -- resolves to the ComponentRelease that spec already had. With
+// only the two UIDs the identity repeated, and since the store keys deployment
+// facts by it, the redeployment folded into the earlier one: a rollback, which is
+// a deployment like any other, went uncounted in deployment frequency and left
+// the original deployment's timestamps in place.
+//
+// The RenderedRelease generation closes that, and must stay stable within one
+// rollout or Started and Succeeded would land under different identities.
+func TestRolloutIDDistinguishesRedeployments(t *testing.T) {
+	desired := []*unstructured.Unstructured{makeDeliveryDeployment()}
+	binding := makeDeliveryBinding()
+	componentRelease := makeDeliveryComponentRelease()
+
+	t.Run("the same spec at a later generation is a new rollout", func(t *testing.T) {
+		first := makeDeliveryRelease()
+		first.Generation = 4
+		rolledBack := makeDeliveryRelease()
+		rolledBack.Generation = 6
+
+		a := deliveryContextFor(binding, componentRelease, first, desired)
+		b := deliveryContextFor(binding, componentRelease, rolledBack, desired)
+		if a == nil || b == nil {
+			t.Fatal("expected delivery contexts")
+		}
+		if a.rolloutID == b.rolloutID {
+			t.Errorf("rolloutID %q repeated across generations; the redeployment would fold into the first",
+				a.rolloutID)
+		}
+	})
+
+	t.Run("the same generation is the same rollout", func(t *testing.T) {
+		a := deliveryContextFor(binding, componentRelease, makeDeliveryRelease(), desired)
+		b := deliveryContextFor(binding, componentRelease, makeDeliveryRelease(), desired)
+		if a.rolloutID != b.rolloutID {
+			t.Errorf("rolloutID is not stable within a rollout: %q then %q", a.rolloutID, b.rolloutID)
+		}
+	})
+}
+
+// TestDeliveryProvenance pins the source provenance the payload carries.
+//
+// Lead Time for Changes is authoring time to succeededAt, and the consumer folds
+// events out of a log store with no route back to the ComponentRelease, so the
+// commit and its authoring time have to travel in the message. When the emitter
+// moved packages this was dropped, and every deployment fact landed with an empty
+// commit and a null lead time while the aggregator went on parsing for it.
+func TestDeliveryProvenance(t *testing.T) {
+	t.Run("read from the ComponentRelease snapshot", func(t *testing.T) {
+		commit, authoredAt := deliveryProvenance(makeDeliveryComponentRelease())
+		if commit != testCommit {
+			t.Errorf("commit = %q, want %q", commit, testCommit)
+		}
+		if authoredAt != testAuthoredAt {
+			t.Errorf("authoredAt = %q, want %q (RFC 3339, which is what the consumer parses)",
+				authoredAt, testAuthoredAt)
+		}
+	})
+
+	t.Run("a workload with no source yields empty strings", func(t *testing.T) {
+		cr := makeDeliveryComponentRelease()
+		cr.Spec.Workload.Source = nil
+		commit, authoredAt := deliveryProvenance(cr)
+		if commit != "" || authoredAt != "" {
+			t.Errorf("commit/authoredAt = %q/%q, want empty for a workload without provenance",
+				commit, authoredAt)
+		}
+	})
+
+	t.Run("a source without an authoring time still yields the commit", func(t *testing.T) {
+		cr := makeDeliveryComponentRelease()
+		cr.Spec.Workload.Source.AuthoredAt = nil
+		commit, authoredAt := deliveryProvenance(cr)
+		if commit != testCommit || authoredAt != "" {
+			t.Errorf("commit/authoredAt = %q/%q, want the commit with no authoring time",
+				commit, authoredAt)
+		}
+	})
+
+	t.Run("an absent commit is omitted from the payload entirely", func(t *testing.T) {
+		cr := makeDeliveryComponentRelease()
+		cr.Spec.Workload.Source = nil
+		dc := deliveryContextFor(makeDeliveryBinding(), cr, makeDeliveryRelease(),
+			[]*unstructured.Unstructured{makeDeliveryDeployment()})
+		if dc == nil {
+			t.Fatal("expected a delivery context")
+		}
+		payload, err := json.Marshal(deliveryEventPayload{
+			RolloutID: dc.rolloutID, Commit: dc.commit, CommitAuthoredAt: dc.commitAuthoredAt,
+		})
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if strings.Contains(string(payload), "commit") {
+			t.Errorf("payload %s carries an empty commit; omitempty must drop it", payload)
 		}
 	})
 }
