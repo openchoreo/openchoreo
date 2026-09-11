@@ -9,6 +9,8 @@ BUILDER_NAME ?= "open-choreo-builder"
 # Define general image details
 IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 TAG ?= latest-dev
+DOCKER_PROVENANCE ?= false
+DOCKER_SBOM ?= false
 
 # Current platform for image build
 # OS will be always linux
@@ -141,7 +143,7 @@ docker.push-multiarch.%: ## Push a docker image for multiple platforms. Ex: make
 		exit 1; \
 	fi
 	@# See: https://github.com/orgs/community/discussions/45969 for details on the --sbom and --provenance flags
-	@$(call docker_build,$*,$(BUILDX_TARGET_PLATFORMS),--push --provenance=false --sbom=false)
+	@$(call docker_build,$*,$(BUILDX_TARGET_PLATFORMS),--push --provenance=$(DOCKER_PROVENANCE) --sbom=$(DOCKER_SBOM))
 
 
 .PHONY: docker.push-multiarch

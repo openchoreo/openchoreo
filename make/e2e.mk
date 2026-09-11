@@ -6,6 +6,8 @@ E2E_KUBECONTEXT        := k3d-$(E2E_CLUSTER_NAME)
 
 # "local" uses chart dirs from install/helm/, "oci" pulls published charts from HELM_OCI_REGISTRY
 E2E_HELM_SOURCE        ?= local
+# Optional registry override for first-party images installed by the e2e charts.
+E2E_IMAGE_REGISTRY     ?=
 # Set to "true" to include workflow plane and observability plane in the e2e setup
 E2E_WITH_BUILD         ?= false
 E2E_WITH_OBSERVABILITY ?= false
@@ -83,6 +85,12 @@ ifeq ($(E2E_WITH_UI),true)
   endif
 else
   E2E_CP_EXTRA_VALUES :=
+endif
+
+ifneq ($(strip $(E2E_IMAGE_REGISTRY)),)
+  E2E_IMAGE_VALUES := --set-string global.imageRegistry=$(E2E_IMAGE_REGISTRY)
+else
+  E2E_IMAGE_VALUES :=
 endif
 
 # Namespaces
@@ -516,6 +524,7 @@ _e2e.install-cp:
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-cp.yaml \
 		$(E2E_CP_EXTRA_VALUES) \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_CP_NS))
 	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
@@ -540,6 +549,7 @@ _e2e.install-dp:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-dp.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_DP_NS))
 	$(E2E_KUBECTL) wait -n $(E2E_DP_NS) \
@@ -571,6 +581,7 @@ _e2e.install-wp:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-wp.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_KUBECTL) wait -n $(E2E_WP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
@@ -608,6 +619,7 @@ _e2e.install-op:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-op.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_OP_NS))
 	@$(call log_info, Installing observability modules)
@@ -937,6 +949,7 @@ _e2e.mc.install-cp:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-cp.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_mc_patch_gateway,$(E2E_MC_CP_KUBECONTEXT),$(E2E_CP_NS))
 	$(E2E_MC_CP_KUBECTL) wait -n $(E2E_CP_NS) \
@@ -963,6 +976,7 @@ _e2e.mc.install-dp:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-dp.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_mc_patch_gateway,$(E2E_MC_DP_KUBECONTEXT),$(E2E_DP_NS))
 	$(E2E_MC_DP_KUBECTL) wait -n $(E2E_DP_NS) \
@@ -1019,6 +1033,7 @@ _e2e.mc.install-wp:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-wp.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_MC_WP_KUBECTL) wait -n $(E2E_WP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
@@ -1057,6 +1072,7 @@ _e2e.mc.install-op:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-op.yaml \
+		$(E2E_IMAGE_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_mc_patch_gateway,$(E2E_MC_OP_KUBECONTEXT),$(E2E_OP_NS))
 	@# Logs module — https://github.com/openchoreo/community-modules/blob/main/observability-logs-openobserve/README.md

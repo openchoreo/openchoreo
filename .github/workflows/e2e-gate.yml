@@ -36,6 +36,16 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      helm_oci_registry:
+        description: "OCI registry containing the OpenChoreo Helm charts"
+        required: false
+        type: string
+        default: "oci://ghcr.io/openchoreo/helm-charts"
+      image_registry:
+        description: "Optional global.imageRegistry override for first-party images"
+        required: false
+        type: string
+        default: ""
       backstage_image_tag:
         description: "Backstage (openchoreo-ui) image tag for the UI leg, e.g. the backstage-plugins commit's 8-char short SHA or 'latest-dev'; empty uses the chart's AppVersion default"
         required: false
@@ -83,6 +93,16 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      helm_oci_registry:
+        description: "OCI registry containing the OpenChoreo Helm charts"
+        required: false
+        type: string
+        default: "oci://ghcr.io/openchoreo/helm-charts"
+      image_registry:
+        description: "Optional global.imageRegistry override for first-party images"
+        required: false
+        type: string
+        default: ""
       backstage_image_tag:
         description: "Backstage (openchoreo-ui) image tag for the UI leg, e.g. the backstage-plugins commit's 8-char short SHA or 'latest-dev'; empty uses the chart's AppVersion default"
         required: false
@@ -133,6 +153,8 @@ env:
   # `inputs` is empty on the nightly `schedule` trigger, so fall back to the
   # rolling latest-dev chart; the dispatch/call paths already default to it too.
   HELM_CHART_VERSION: ${{ inputs.helm_chart_version || '0.0.0-latest-dev' }}
+  HELM_OCI_REGISTRY: ${{ inputs.helm_oci_registry || 'oci://ghcr.io/openchoreo/helm-charts' }}
+  E2E_IMAGE_REGISTRY: ${{ inputs.image_registry || '' }}
   K3D_VERSION: v5.8.3
   K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
   YQ_VERSION: v4.45.4

@@ -21,6 +21,8 @@ env:
   IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
   HELM_OCI_REGISTRY: ${{ vars.HELM_OCI_REGISTRY || 'oci://ghcr.io/openchoreo/helm-charts' }}
   PUBLISH_LATEST: ${{ vars.PUBLISH_LATEST || 'true' }}
+  DOCKER_PROVENANCE: ${{ vars.DOCKER_PROVENANCE || 'false' }}
+  DOCKER_SBOM: ${{ vars.DOCKER_SBOM || 'false' }}
   IMAGE_PLATFORMS: ${{ github.event_name == 'push' && 'linux/amd64 linux/arm64' || 'linux/amd64' }}
   CLI_EXTRA_PLATFORMS: ${{ github.event_name == 'push' && 'darwin/amd64 darwin/arm64 windows/amd64 windows/arm64' || '' }}
 
@@ -69,6 +71,7 @@ jobs:
           make go.test
 
       - name: Upload coverage to Codecov
+        if: vars.CODECOV_ENABLED != 'false'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./cover.out
