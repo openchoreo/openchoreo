@@ -92,6 +92,13 @@ type EnvsByContainerEntry struct {
 type ServicePortEntry struct {
 	Name       string `json:"name"`
 	Port       int64  `json:"port"`
-	TargetPort int64  `json:"targetPort"`
+	TargetPort string `json:"targetPort"`
 	Protocol   string `json:"protocol"`
+}
+
+// ContainerPortEntry represents an element of derived.containerPorts.
+type ContainerPortEntry struct {
+	Name          string `json:"name"`
+	ContainerPort int64  `json:"containerPort"`
+	Protocol      string `json:"protocol"`
 }
