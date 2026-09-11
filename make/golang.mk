@@ -64,7 +64,10 @@ define package_binary
 	$(call log_info, Packaging binary '$(BINARY_NAME)' for $(OS)/$(ARCH))
 	if [ -f $(BIN_PATH) ]; then \
 		if [ $(OS) = "windows" ]; then \
-			zip -rj $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).zip $(BIN_PATH); \
+			( trap 'rm -f $(OUTPUT_PATH)/$(BINARY_NAME).exe' EXIT; \
+			  cp $(BIN_PATH) $(OUTPUT_PATH)/$(BINARY_NAME).exe; \
+			  zip -rj $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).zip $(OUTPUT_PATH)/$(BINARY_NAME).exe; \
+			); \
 		else \
 			 tar -zcvf $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).tar.gz -C $(OUTPUT_PATH) $(BINARY_NAME); \
 		fi; \
