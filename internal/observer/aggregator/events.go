@@ -38,10 +38,16 @@ type DeliveryEvent struct {
 }
 
 // EventsSource reads delivery lifecycle events from the observability event store.
-// service.LogsAdapter implements it via FetchDeliveryEvents, which sweeps the event
-// index using the logs-adapter `reasons` filter and `searchAfter` cursor. A deployed
-// adapter without those extensions cannot serve the sweep, so the source stays behind
-// DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED; the aggregator skips the events path while nil.
+//
+// Nothing implements it yet in this tree: the implementation sweeps the event index
+// using the logs-adapter `reasons` filter and `searchAfter` cursor, which the adapter
+// contract only gains with #4598, so it arrives with the logs-adapter client that
+// carries them. A deployed adapter without those extensions cannot serve the sweep
+// either, which is why the source stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED
+// even once it exists.
+//
+// The aggregator skips the events path while this is nil, and folds incidents alone —
+// see New.
 type EventsSource interface {
 	// FetchDeliveryEvents returns delivery lifecycle events in [fromMs, toMs),
 	// ordered by timestamp ascending (phase merges assume chronological folding).

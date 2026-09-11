@@ -750,3 +750,85 @@ func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
 	}
 	require.Len(t, uids, count, "no duplicate facts across page boundaries")
 }
+
+// TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout pins that a later
+// phase missing its scope labels cannot blank what an earlier one recorded.
+//
+// Only the release UID and the org namespace are required of a fact, and the
+// scope UIDs travel as `omitempty` payload fields that not every render path
+// stamps. Overwriting unconditionally meant one such event erased the UIDs:
+// scopesForFact then drops those scopes from every rollup it computes, and
+// AttributeIncident can no longer find the deployment by
+// (component_uid, environment_uid), so the incident never lands on it.
+func TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	started := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC).UnixMilli()
+	ready := started + time.Minute.Milliseconds()
+
+	full := testFact("rel-scope", ready)
+	full.StartedMs = &started
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{full}))
+
+	// The same rollout, folded again from an event that carried no scope labels.
+	bare := DeploymentFact{
+		ReleaseUID:   "rel-scope",
+		OrgNamespace: "default", // the one scope the validator insists on
+		ReadyMs:      &ready,
+		Outcome:      OutcomeSuccess,
+		UpdatedAtMs:  ready + 1,
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{bare}))
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
+		OrgNamespace: "default", StartMs: started - 1000, EndMs: ready + 1000,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	got := facts[0]
+	assert.Equal(t, "proj-1", got.ProjectUID, "an empty incoming scope must not erase the stored one")
+	assert.Equal(t, "comp-1", got.ComponentUID, "AttributeIncident matches on this")
+	assert.Equal(t, "env-prod", got.EnvironmentUID, "AttributeIncident matches on this")
+	assert.Equal(t, "checkout", got.ProjectName)
+	assert.Equal(t, "api", got.ComponentName)
+	assert.Equal(t, "prod", got.EnvironmentName)
+}
+
+// TestQueryRecoveryDurationsExcludesNegative pins that the exact-window MTTR
+// applies the same sign rule as the rollups.
+//
+// Neither derivation of duration_ms checks the sign -- validateRecoveryFact
+// subtracts, and so does the upsert -- so a recovery timestamp preceding its
+// failure stores a negative duration. BuildRollups skips those, and
+// QueryLeadTimes skips negative lead times; without the same guard here the
+// headline MTTR would count a value its own series had dropped.
+func TestQueryRecoveryDurationsExcludesNegative(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+
+	good := RecoveryFact{
+		ID: "rec-ok", OrgNamespace: "default", ProjectUID: "proj-1",
+		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
+		FailureStartedMs: base + 1000, RecoveredMs: msPtr(base + 61_000), UpdatedAtMs: base,
+	}
+	// Recovered before it failed: clock skew between the alert source and the
+	// store, or delivery events arriving out of order.
+	skewed := RecoveryFact{
+		ID: "rec-skewed", OrgNamespace: "default", ProjectUID: "proj-1",
+		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
+		FailureStartedMs: base + 5000, RecoveredMs: msPtr(base + 2000), UpdatedAtMs: base,
+	}
+	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{good, skewed}))
+
+	durations, err := store.QueryRecoveryDurations(ctx, FactQuery{
+		OrgNamespace: "default", StartMs: base, EndMs: base + 100_000,
+	})
+	require.NoError(t, err)
+	require.Len(t, durations, 1, "a negative duration must not reach MTTR")
+	assert.Equal(t, time.Minute.Milliseconds(), durations[0])
+}

@@ -695,3 +695,61 @@ func (e *emptyIncompleteSource) FetchDeliveryEvents(
 ) ([]DeliveryEvent, bool, error) {
 	return nil, false, nil
 }
+
+// TestProcessIncidentsPagesOnIngestionTimeNotTriggerTime pins that the incident
+// cursor advances on the column the query pages by.
+//
+// QueryIncidentEntries filters and orders on timestamp_ns, the ingestion time.
+// Advancing the cursor by the page's newest TriggeredAt instead moves it past
+// entries whose ingestion time sorts between the two the moment those fields
+// diverge, and the incident watermark then advances over them, so they are never
+// folded: their recoveries never reach MTTR and their attribution never lands.
+//
+// Every entry the alert path writes today sets both fields from one value, so
+// this is a property of the paging logic rather than a live defect -- which is
+// exactly why it needs pinning: nothing in this package would notice if the two
+// columns started to differ.
+func TestProcessIncidentsPagesOnIngestionTimeNotTriggerTime(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	// Ingested a minute apart, but each alert claims it fired an hour later than
+	// the entry ingested after it. Paging on TriggeredAt jumps the cursor past
+	// the entries in between.
+	const incidentCount = 6
+	for i := 0; i < incidentCount; i++ {
+		ingested := now.Add(-time.Duration(incidentCount-i) * time.Minute)
+		triggered := ingested.Add(time.Hour)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:         fmt.Sprintf("skew-alert-%d", i),
+			Timestamp:       ingested.Format(time.RFC3339Nano),
+			Status:          incidententry.StatusResolved,
+			TriggeredAt:     triggered.Format(time.RFC3339Nano),
+			ResolvedAt:      triggered.Add(5 * time.Minute).Format(time.RFC3339Nano),
+			NamespaceName:   "default",
+			ProjectName:     "checkout",
+			ComponentName:   "checkout-api",
+			EnvironmentName: "production",
+			ProjectID:       "checkout",
+			ComponentID:     "checkout-api",
+			EnvironmentID:   "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = 2 // force several pages
+	require.NoError(t, agg.RunOnce(ctx))
+
+	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		OrgNamespace: "default",
+		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:        now.Add(24 * time.Hour).UnixMilli(),
+	})
+	require.NoError(t, err)
+	assert.Len(t, recoveries, incidentCount,
+		"paging must not skip entries whose ingestion time sorts before a later trigger time")
+}

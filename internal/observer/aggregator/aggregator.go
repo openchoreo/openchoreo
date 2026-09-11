@@ -224,7 +224,7 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 			break
 		}
 
-		pageTouched, count, lastTriggeredMs, foldErr := a.foldIncidentPage(
+		pageTouched, count, lastIngestedMs, foldErr := a.foldIncidentPage(
 			ctx, entries, seen, changedSinceMs, tickStart)
 		if foldErr != nil {
 			return nil, foldErr
@@ -235,15 +235,15 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 		if len(entries) < a.incidentPageSize {
 			break // short page: the window is exhausted
 		}
-		if lastTriggeredMs <= cursorMs {
-			// A full page sharing one trigger timestamp cannot be paged past without
-			// skipping entries. Practically unreachable at this page size; bail out
-			// rather than spin.
+		if lastIngestedMs <= cursorMs {
+			// A full page sharing one ingestion timestamp cannot be paged past
+			// without skipping entries. Practically unreachable at this page size;
+			// bail out rather than spin.
 			a.logger.Warn("Incident page did not advance the cursor; stopping this tick",
 				"cursorMs", cursorMs, "pageSize", len(entries))
 			break
 		}
-		cursorMs = lastTriggeredMs
+		cursorMs = lastIngestedMs
 
 		if page == incidentMaxPages-1 {
 			a.logger.Warn("Incident window paging hit its page cap; remainder processed on later ticks",
@@ -256,15 +256,16 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 }
 
 // foldIncidentPage attributes one page of incidents and upserts their recovery facts.
-// It returns the moments whose rollup buckets were touched, how many entries it folded,
-// and the newest trigger time in the page, which becomes the next page's cursor.
+// It returns the moments whose rollup buckets were touched, how many entries it
+// folded, and the newest ingestion time in the page, which becomes the next
+// page's cursor.
 func (a *Aggregator) foldIncidentPage(
 	ctx context.Context,
 	entries []incidententry.IncidentEntry,
 	seen map[string]struct{},
 	changedSinceMs int64,
 	tickStart time.Time,
-) (touched []int64, processed int, lastTriggeredMs int64, err error) {
+) (touched []int64, processed int, lastIngestedMs int64, err error) {
 	var recoveries []deliveryinsights.RecoveryFact
 	attributedCount := 0
 	for i := range entries {
@@ -275,8 +276,17 @@ func (a *Aggregator) foldIncidentPage(
 				"incident", entry.ID, "triggeredAt", entry.TriggeredAt)
 			continue
 		}
-		if triggeredMs > lastTriggeredMs {
-			lastTriggeredMs = triggeredMs
+		// The cursor advances on Timestamp, the ingestion time the incident query
+		// filters and orders by -- not on TriggeredAt, which is when the alert
+		// fired. The two are equal for every entry the alert path writes today, but
+		// paging on a column the query does not order by would skip whatever sorts
+		// between them the moment they diverge. TriggeredAt stays what attribution
+		// is measured from.
+		if ingestedMs, tsErr := parseEntryTime(entry.Timestamp); tsErr != nil {
+			a.logger.Warn("Incident has an unparseable ingestion time; not advancing the cursor past it",
+				"incident", entry.ID, "timestamp", entry.Timestamp)
+		} else if ingestedMs > lastIngestedMs {
+			lastIngestedMs = ingestedMs
 		}
 		if _, done := seen[entry.ID]; done {
 			continue // already folded earlier in this tick
@@ -329,7 +339,7 @@ func (a *Aggregator) foldIncidentPage(
 	}
 	a.logger.Debug("Folded incident page",
 		"incidents", len(recoveries), "attributedDeployments", attributedCount)
-	return touched, processed, lastTriggeredMs, nil
+	return touched, processed, lastIngestedMs, nil
 }
 
 // recomputeRollups rebuilds every rollup bucket containing a touched moment.

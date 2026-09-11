@@ -128,7 +128,15 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 //     outcome. Without the second guard a Started event folded after its Succeeded
 //     event would reopen the fact, and BuildRollups excludes in-progress deployments,
 //     so the deployment would vanish from every bucket.
-//   - descriptor columns: a non-empty incoming value wins over a stored one.
+//   - scope and descriptor columns: a non-empty incoming value wins over a stored
+//     one, and an empty one never erases what is stored. Only the release UID and
+//     the org namespace are required of a fact, so an event that reaches the fold
+//     without its scope labels -- they travel as `omitempty` payload fields, and
+//     not every render path stamps them -- would otherwise blank the UIDs an
+//     earlier phase of the same rollout recorded. That is not a cosmetic loss:
+//     scopesForFact then drops the affected scopes from every rollup it computes,
+//     and AttributeIncident can no longer match the deployment by
+//     (component_uid, environment_uid).
 const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
 	release_uid, org_namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
@@ -136,13 +144,20 @@ const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (release_uid) DO UPDATE SET
-	org_namespace = excluded.org_namespace,
-	project_uid = excluded.project_uid,
-	component_uid = excluded.component_uid,
-	environment_uid = excluded.environment_uid,
-	project_name = excluded.project_name,
-	component_name = excluded.component_name,
-	environment_name = excluded.environment_name,
+	org_namespace = CASE WHEN excluded.org_namespace <> ''
+		THEN excluded.org_namespace ELSE deployment_fact.org_namespace END,
+	project_uid = CASE WHEN excluded.project_uid <> ''
+		THEN excluded.project_uid ELSE deployment_fact.project_uid END,
+	component_uid = CASE WHEN excluded.component_uid <> ''
+		THEN excluded.component_uid ELSE deployment_fact.component_uid END,
+	environment_uid = CASE WHEN excluded.environment_uid <> ''
+		THEN excluded.environment_uid ELSE deployment_fact.environment_uid END,
+	project_name = CASE WHEN excluded.project_name <> ''
+		THEN excluded.project_name ELSE deployment_fact.project_name END,
+	component_name = CASE WHEN excluded.component_name <> ''
+		THEN excluded.component_name ELSE deployment_fact.component_name END,
+	environment_name = CASE WHEN excluded.environment_name <> ''
+		THEN excluded.environment_name ELSE deployment_fact.environment_name END,
 	component_release = CASE WHEN excluded.component_release <> ''
 		THEN excluded.component_release ELSE deployment_fact.component_release END,
 	commit_sha = CASE WHEN excluded.commit_sha <> ''
@@ -745,8 +760,17 @@ func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, er
 
 func (s *sqlStore) QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error) {
 	conditions, args := s.factScopeConditions(q)
+	// duration_ms >= 0 mirrors BuildRollups, which skips negative durations, and
+	// QueryLeadTimes, which does the same for lead time. Neither derivation of
+	// duration_ms -- validateRecoveryFact's, nor the upsert's -- checks the sign,
+	// so a recovery timestamp that precedes its failure (clock skew between the
+	// alert source and the store, or out-of-order delivery events) stores a
+	// negative value. Without this guard the exact-window MTTR would count it
+	// while the rollup MTTR did not, and the summary would disagree with its own
+	// series.
 	conditions = append(conditions,
-		"failure_started_ms >= ?", "failure_started_ms < ?", "duration_ms IS NOT NULL")
+		"failure_started_ms >= ?", "failure_started_ms < ?",
+		"duration_ms IS NOT NULL", "duration_ms >= 0")
 	args = append(args, q.StartMs, q.EndMs)
 
 	base := "SELECT duration_ms FROM recovery_fact WHERE " +
