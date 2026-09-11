@@ -13,15 +13,19 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -1696,6 +1700,147 @@ func TestFinalizeObsPlane_NoFinalizersIsNoOp(t *testing.T) {
 	}
 	if result.Requeue || result.RequeueAfter != 0 {
 		t.Errorf("expected empty Result for no-op path, got Requeue=%v RequeueAfter=%v", result.Requeue, result.RequeueAfter)
+	}
+}
+
+func TestIsPlaneLookupGone(t *testing.T) {
+	if isPlaneLookupGone(nil) {
+		t.Fatal("nil should not be gone")
+	}
+	if !isPlaneLookupGone(apierrors.NewNotFound(schema.GroupResource{Resource: "environments"}, "dev")) {
+		t.Fatal("IsNotFound should be gone")
+	}
+	wrapped := fmt.Errorf("failed to get environment dev: %w", apierrors.NewNotFound(schema.GroupResource{Resource: "environments"}, "dev"))
+	if !isPlaneLookupGone(wrapped) {
+		t.Fatal("wrapped IsNotFound should be gone")
+	}
+	if !isPlaneLookupGone(controller.NewHierarchyNotFoundError(
+		&openchoreov1alpha1.Environment{},
+		&openchoreov1alpha1.DataPlane{},
+	)) {
+		t.Fatal("HierarchyNotFoundError should be gone")
+	}
+	if isPlaneLookupGone(fmt.Errorf("connection refused")) {
+		t.Fatal("transient error should not be gone")
+	}
+}
+
+func TestFinalizeDataPlane_RemovesFinalizerWhenEnvironmentMissing(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	now := metav1.Now()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-release",
+			Namespace:         "default",
+			Finalizers:        []string{DataPlaneCleanupFinalizer},
+			DeletionTimestamp: &now,
+		},
+		Spec: openchoreov1alpha1.RenderedReleaseSpec{
+			EnvironmentName: "missing-env",
+		},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Conditions: []metav1.Condition{
+				NewRenderedReleaseFinalizingCondition(1),
+			},
+		},
+	}
+	// Status must already have Finalizing so finalize does not return early on condition write.
+	release.Generation = 1
+	release.Status.Conditions[0].ObservedGeneration = 1
+
+	fakeClient := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(release).
+		WithStatusSubresource(&openchoreov1alpha1.RenderedRelease{}).
+		Build()
+	r := &Reconciler{Client: fakeClient}
+
+	// Reload live object (fake client may normalize)
+	live := &openchoreov1alpha1.RenderedRelease{}
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-release", Namespace: "default"}, live); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	// Ensure Finalizing is already recorded so we hit getDPClient path
+	if meta.SetStatusCondition(&live.Status.Conditions, NewRenderedReleaseFinalizingCondition(live.Generation)) {
+		if err := fakeClient.Status().Update(context.Background(), live); err != nil {
+			t.Fatalf("status update: %v", err)
+		}
+	}
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-release", Namespace: "default"}, live); err != nil {
+		t.Fatalf("get after status: %v", err)
+	}
+
+	_, err := r.finalizeDataPlane(context.Background(), live.DeepCopy(), live)
+	if err != nil {
+		t.Fatalf("finalizeDataPlane: %v", err)
+	}
+
+	got := &openchoreov1alpha1.RenderedRelease{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-release", Namespace: "default"}, got)
+	if apierrors.IsNotFound(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("get after finalize: %v", err)
+	}
+	if controllerutil.ContainsFinalizer(got, DataPlaneCleanupFinalizer) {
+		t.Fatal("expected data plane cleanup finalizer removed when environment is missing")
+	}
+}
+
+func TestFinalizeObsPlane_RemovesFinalizerWhenEnvironmentMissing(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	now := metav1.Now()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "obs-release",
+			Namespace:         "default",
+			Finalizers:        []string{ObsPlaneCleanupFinalizer},
+			DeletionTimestamp: &now,
+			Generation:        1,
+		},
+		Spec: openchoreov1alpha1.RenderedReleaseSpec{
+			EnvironmentName: "missing-env",
+			TargetPlane:     targetPlaneObservabilityPlane,
+		},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Conditions: []metav1.Condition{
+				NewRenderedReleaseFinalizingCondition(1),
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(release).
+		WithStatusSubresource(&openchoreov1alpha1.RenderedRelease{}).
+		Build()
+	r := &Reconciler{Client: fakeClient}
+
+	live := &openchoreov1alpha1.RenderedRelease{}
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: "obs-release", Namespace: "default"}, live); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	_, err := r.finalizeObsPlane(context.Background(), live.DeepCopy(), live)
+	if err != nil {
+		t.Fatalf("finalizeObsPlane: %v", err)
+	}
+
+	got := &openchoreov1alpha1.RenderedRelease{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "obs-release", Namespace: "default"}, got)
+	if apierrors.IsNotFound(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("get after finalize: %v", err)
+	}
+	if controllerutil.ContainsFinalizer(got, ObsPlaneCleanupFinalizer) {
+		t.Fatal("expected obs plane cleanup finalizer removed when environment is missing")
 	}
 }
 

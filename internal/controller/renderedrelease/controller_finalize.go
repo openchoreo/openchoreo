@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -75,6 +76,13 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 	// STEP 2: Get data plane client
 	planeClient, err := r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 	if err != nil {
+		// Environment or data plane already gone: nothing left to clean up on the remote plane.
+		if isPlaneLookupGone(err) {
+			logger := log.FromContext(ctx).WithValues("release", release.Name)
+			logger.Info("Environment or data plane not found during finalization, removing finalizer",
+				"environment", release.Spec.EnvironmentName, "error", err.Error())
+			return r.removeFinalizer(ctx, release, DataPlaneCleanupFinalizer)
+		}
 		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
@@ -111,13 +119,7 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer
-	if controllerutil.RemoveFinalizer(release, DataPlaneCleanupFinalizer) {
-		if err := r.Update(ctx, release); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return r.removeFinalizer(ctx, release, DataPlaneCleanupFinalizer)
 }
 
 // finalizeObsPlane cleans up the observability plane resources associated with the release.
@@ -143,6 +145,12 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	// STEP 2: Get observability plane client
 	planeClient, err := r.getOPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 	if err != nil {
+		if isPlaneLookupGone(err) {
+			logger := log.FromContext(ctx).WithValues("release", release.Name)
+			logger.Info("Environment or plane not found during obs finalization, removing finalizer",
+				"environment", release.Spec.EnvironmentName, "error", err.Error())
+			return r.removeFinalizer(ctx, release, activeFinalizer)
+		}
 		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
@@ -178,13 +186,30 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer
-	if controllerutil.RemoveFinalizer(release, activeFinalizer) {
+	return r.removeFinalizer(ctx, release, activeFinalizer)
+}
+
+// removeFinalizer drops finalizer from the release once remote cleanup is done or skipped.
+func (r *Reconciler) removeFinalizer(ctx context.Context, release *openchoreov1alpha1.RenderedRelease, finalizer string) (ctrl.Result, error) {
+	if controllerutil.RemoveFinalizer(release, finalizer) {
 		if err := r.Update(ctx, release); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("remove finalizer %s from release %s: %w", finalizer, release.Name, err)
 		}
 	}
-
 	return ctrl.Result{}, nil
+}
+
+// isPlaneLookupGone reports whether plane client resolution failed because the
+// Environment, DataPlane, or ObservabilityPlane no longer exists. Transient
+// errors (network, timeout, misconfig) return false so finalization can retry.
+func isPlaneLookupGone(err error) bool {
+	if err == nil {
+		return false
+	}
+	if controller.IgnoreHierarchyNotFoundError(err) == nil {
+		return true
+	}
+	return apierrors.IsNotFound(err)
 }
 
 // intersectObsPlaneGVKs returns the subset of GVKs from the release status that are in
