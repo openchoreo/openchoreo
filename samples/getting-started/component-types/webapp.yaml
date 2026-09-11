@@ -18,6 +18,8 @@ spec:
   allowedTraits:
     - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"

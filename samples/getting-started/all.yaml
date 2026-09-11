@@ -207,6 +207,8 @@ spec:
   allowedTraits:
     - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"
@@ -381,6 +383,8 @@ spec:
   allowedTraits:
     - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -652,6 +656,8 @@ spec:
   allowedTraits:
     - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
@@ -2992,3 +2998,131 @@ spec:
               enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
               triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: persistent-volume-claim
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - containerName
+          - mountPath
+          - subPath
+          - accessMode
+          - readOnly
+      properties:
+        containerName:
+          type: string
+          default: main
+          title: Container name
+          description: "Name of the container the volume is mounted into. Defaults to 'main'."
+        mountPath:
+          type: string
+          title: Mount path
+          description: "Absolute path inside the container where the volume is mounted (e.g. /data)."
+        subPath:
+          type: string
+          title: Sub path
+          description: "Optional path within the volume to mount instead of its root."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Mounts the volume root when empty"
+        accessMode:
+          type: string
+          title: Access mode
+          default: ReadWriteOnce
+          enum:
+            - ReadWriteOnce
+            - ReadOnlyMany
+            - ReadWriteMany
+            - ReadWriteOncePod
+        readOnly:
+          type: boolean
+          default: false
+          title: Read only
+          description: "Mounts the volume as read-only in the container."
+      required:
+        - mountPath
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - size
+          - storageClass
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether persistent storage is provisioned in this environment. When disabled, no PersistentVolumeClaim is created and the volume is not mounted."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        size:
+          type: string
+          default: "1Gi"
+          description: "Requested storage capacity for the volume (e.g. 1Gi, 10Gi)."
+        storageClass:
+          type: string
+          description: "Optional storage class for the volume. When unset, the cluster's default storage class is used."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the cluster's default storage class"
+
+  validations:
+    - rule: "${parameters.mountPath.startsWith('/')}"
+      message: "mountPath must be an absolute path starting with '/'."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          accessModes:
+            - ${parameters.accessMode}
+          resources:
+            requests:
+              storage: ${environmentConfigs.size}
+          storageClassName: |
+            ${has(environmentConfigs.storageClass) ? environmentConfigs.storageClass : oc_omit()}
+
+  patches:
+    # Attach the PVC to the pod as a named volume.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${trait.instanceName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${trait.instanceName}
+
+    # Mount the volume into the target container.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${trait.instanceName}
+            mountPath: ${parameters.mountPath}
+            readOnly: ${parameters.readOnly}
+            subPath: |
+              ${has(parameters.subPath) ? parameters.subPath : oc_omit()}
