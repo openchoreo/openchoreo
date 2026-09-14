@@ -136,7 +136,7 @@ func TestAuditCoverage(t *testing.T) {
 	// clear count mismatch instead of this test quietly covering fewer tools
 	// than actually exist.
 	t.Run("registers every known tool", func(t *testing.T) {
-		const wantTools = 157
+		const wantTools = 130
 		if len(perms) != wantTools {
 			t.Errorf("registerAllToolsets(t) registered %d tools, want %d", len(perms), wantTools)
 		}
@@ -243,12 +243,11 @@ func TestAuditCoverage(t *testing.T) {
 	// audit.MergeMCPAliases each error on a (ToolName, Scope) collision
 	// before the map is ever returned — the err check earlier in this test
 	// would have failed had that happened. Cross-checking the bound-tool-name
-	// count against the known total of 69 state-modifying tools (60
-	// canonical + 9 deprecated aliases) catches the case a bare error check
-	// wouldn't: a future refactor that swallows the collision error instead
-	// of propagating it.
+	// count against the known total of 60 state-modifying tools catches the
+	// case a bare error check wouldn't: a future refactor that swallows the
+	// collision error instead of propagating it.
 	t.Run("no duplicate bindings", func(t *testing.T) {
-		const wantBoundToolNames = 69
+		const wantBoundToolNames = 60
 		if len(boundToolNames) != wantBoundToolNames {
 			t.Errorf("len(distinct bound tool names) = %d, want %d — a collision may have silently "+
 				"dropped a tool, or a new tool needs a binding added", len(boundToolNames), wantBoundToolNames)
