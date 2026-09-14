@@ -63,6 +63,7 @@ var RESTExemptions = map[string]string{
 var MCPToolNames = map[string]bool{
 	"query_component_logs":   true,
 	"query_workflow_logs":    true,
+	"query_platform_logs":    true,
 	"query_component_events": true,
 	"query_workflow_events":  true,
 	"query_resource_metrics": true,

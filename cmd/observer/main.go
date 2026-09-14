@@ -295,6 +295,7 @@ func main() {
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
+		authzPlatformLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
