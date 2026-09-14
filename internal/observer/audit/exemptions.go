@@ -26,6 +26,23 @@ var RESTExemptions = map[string]string{
 	"DeleteAlertRule":    reasonInternal,
 	"HandleAlertWebhook": reasonInternal,
 
+	// QueryAuditLogs is deliberately absent from this table: it is defined in
+	// tools/auditgen's observer overrides under CategoryAccess, so querying the
+	// trail appends to it. Filing it here with the reads below would have
+	// satisfied the gate while dropping the one read the trail is meant to
+	// record.
+	//
+	// Its sibling is exempt, and the difference is volume rather than
+	// sensitivity. A filter picker populates on every interaction that changes
+	// a query, so auditing it would bury the record reads it leads to — and
+	// those are audited, which is where the disclosure that matters is already
+	// captured. The values it returns are the trail's own vocabulary, not its
+	// contents; the same permission still gates it.
+	"QueryAuditLogFilterValues": "Populates a filter picker, so it fires on every " +
+		"interaction that changes a query. Auditing it would bury QueryAuditLogs, " +
+		"which is audited and is where the disclosure is recorded. Gated on " +
+		"auditlogs:view all the same.",
+
 	// Public spec — reads expressed as POST, to carry a query body.
 	"QueryAlerts":          reasonReadAsPOST,
 	"QueryEvents":          reasonReadAsPOST,

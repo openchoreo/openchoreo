@@ -228,6 +228,9 @@ func main() {
 	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
 		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
 		authzClient, logger.With("component", "authz-platform-logs"))
+	authzAuditLogsService := service.NewAuditLogsServiceWithAuthz(
+		service.NewAuditLogsService(concreteLogsAdapter, logger.With("component", "audit-logs")),
+		authzClient, logger.With("component", "authz-audit-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
 		eventsService, authzClient, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
@@ -244,6 +247,7 @@ func main() {
 		healthService,
 		authzLogsService,
 		authzPlatformLogsService,
+		authzAuditLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,

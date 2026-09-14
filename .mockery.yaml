@@ -140,6 +140,7 @@ packages:
       HealthChecker:
       LogsQuerier:
       PlatformLogsQuerier:
+      AuditLogsQuerier:
       EventsQuerier:
       MetricsQuerier:
       TracesQuerier:

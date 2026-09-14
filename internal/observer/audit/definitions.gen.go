@@ -17,6 +17,10 @@ import (
 func generatedOperationDefs() []audit.OperationDef {
 	return []audit.OperationDef{
 		{
+			ID: "QueryAuditLogs", Action: "read_audit_log", ResourceType: "auditlog",
+			Category: audit.CategoryAccess,
+		},
+		{
 			ID: "UpdateIncident", Action: "update_incident", ResourceType: "incident",
 			Category: audit.CategoryManagement, RESTResourceParam: "incidentId",
 		},
