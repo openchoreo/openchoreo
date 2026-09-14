@@ -403,7 +403,7 @@ observer:
 
     # @schema
     # type: boolean
-    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter implementing the events reasons filter and searchAfter pagination; without it Deployment Frequency, Lead Time and Change Failure Rate have no data.
+    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter that can filter events by reason and return matches across every namespace in one query, because the aggregator sweeps the whole installation on a timer rather than one component at a time. Without such an adapter, Deployment Frequency, Lead Time and Change Failure Rate have no data; Mean Time to Recovery still works, since it can be derived from incidents alone.
     # default: false
     # @schema
     eventsSourceEnabled: false

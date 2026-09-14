@@ -36,16 +36,17 @@ var _ gen.StrictServerInterface = (*Handler)(nil)
 // than bare service instances.
 type Handler struct {
 	baseHandler
-	healthService        service.HealthChecker
-	logsService          service.LogsQuerier
-	platformLogsService  service.PlatformLogsQuerier
-	auditLogsService     service.AuditLogsQuerier
-	eventsService        service.EventsQuerier
-	metricsService       service.MetricsQuerier
-	alertIncidentService service.AlertIncidentService
-	tracesService        service.TracesQuerier
-	finOpsService        service.FinOpsQuerier
-	oauthMetadata        OAuthMetadataConfig
+	healthService           service.HealthChecker
+	logsService             service.LogsQuerier
+	platformLogsService     service.PlatformLogsQuerier
+	auditLogsService        service.AuditLogsQuerier
+	eventsService           service.EventsQuerier
+	metricsService          service.MetricsQuerier
+	alertIncidentService    service.AlertIncidentService
+	tracesService           service.TracesQuerier
+	finOpsService           service.FinOpsQuerier
+	oauthMetadata           OAuthMetadataConfig
+	deliveryInsightsService service.DeliveryInsightsService
 }
 
 // NewHandler creates a new public Handler instance.
@@ -60,20 +61,22 @@ func NewHandler(
 	tracesService service.TracesQuerier,
 	finOpsService service.FinOpsQuerier,
 	oauthMetadata OAuthMetadataConfig,
+	deliveryInsightsService service.DeliveryInsightsService,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
-		baseHandler:          baseHandler{logger: logger},
-		healthService:        healthService,
-		logsService:          logsService,
-		platformLogsService:  platformLogsService,
-		auditLogsService:     auditLogsService,
-		eventsService:        eventsService,
-		metricsService:       metricsService,
-		alertIncidentService: alertIncidentService,
-		tracesService:        tracesService,
-		finOpsService:        finOpsService,
-		oauthMetadata:        oauthMetadata,
+		baseHandler:             baseHandler{logger: logger},
+		healthService:           healthService,
+		logsService:             logsService,
+		platformLogsService:     platformLogsService,
+		auditLogsService:        auditLogsService,
+		eventsService:           eventsService,
+		metricsService:          metricsService,
+		alertIncidentService:    alertIncidentService,
+		tracesService:           tracesService,
+		finOpsService:           finOpsService,
+		oauthMetadata:           oauthMetadata,
+		deliveryInsightsService: deliveryInsightsService,
 	}
 }
 

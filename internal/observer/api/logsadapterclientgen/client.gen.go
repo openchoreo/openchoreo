@@ -844,8 +844,13 @@ type EventsQueryRequest struct {
 	EndTime time.Time `json:"endTime"`
 
 	// Limit The maximum number of items to return
-	Limit       *int                           `json:"limit,omitempty"`
-	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+	Limit *int `json:"limit,omitempty"`
+
+	// Reasons Optional server-side filter on the event reason field. The adapter returns only events whose reason exactly matches one of the supplied values. Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded). The list is bounded so that the filter stays cheap for the adapter to evaluate.
+	Reasons *[]string `json:"reasons,omitempty"`
+
+	// SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
+	SearchScope *EventsQueryRequest_SearchScope `json:"searchScope,omitempty"`
 
 	// SortOrder The sort order of the query
 	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
@@ -854,7 +859,7 @@ type EventsQueryRequest struct {
 	StartTime time.Time `json:"startTime"`
 }
 
-// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+// EventsQueryRequest_SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
 type EventsQueryRequest_SearchScope struct {
 	union json.RawMessage
 }
@@ -864,6 +869,13 @@ type EventsQueryRequestSortOrder string
 
 // EventsQueryResponse defines model for EventsQueryResponse.
 type EventsQueryResponse struct {
+	// Complete Whether this response covers the whole requested window. False means the adapter stopped at `limit` before reaching `endTime`, so the caller must resume from the last returned event's timestamp rather than treating `endTime` as read.
+	//
+	// Absent is read as false, which is the safe direction. An adapter that forgets to set it makes the caller re-read rather than skip, and a sweep that cannot advance is reported loudly instead of silently dropping the remainder.
+	//
+	// There is deliberately no continuation token. Resumption is by timestamp, which every backend can express -- CloudWatch Logs Insights, for instance, has no cursor at all. Because the start of the window is inclusive, resuming re-reads the events sharing the last timestamp; consumers must be idempotent over a replayed window, which is what makes second-granularity Kubernetes event timestamps safe to page on.
+	Complete *bool `json:"complete,omitempty"`
+
 	// Events The events queried successfully
 	Events *[]EventEntry `json:"events,omitempty"`
 

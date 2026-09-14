@@ -39,13 +39,12 @@ type DeliveryEvent struct {
 
 // EventsSource reads delivery lifecycle events from the observability event store.
 //
-// Nothing implements it yet in this tree: the implementation sweeps the event index
-// using the logs-adapter `reasons` filter and its ability to return events across
-// every namespace in one query rather than a scope at a time, which the adapter
-// contract only gains with #4597, so it arrives with the logs-adapter client that
-// carries them. A deployed adapter without those extensions cannot serve the sweep
-// either, which is why the source stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED
-// even once it exists.
+// service.LogsAdapter implements it. The sweep reads the event index using the
+// logs-adapter `reasons` filter and its ability to return events across every
+// namespace in one query rather than a scope at a time, which the adapter contract
+// gains with #4597. A deployed adapter without those extensions cannot serve the
+// sweep, which is why the source stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED
+// even though an implementation now exists.
 //
 // The aggregator skips the events path while this is nil, and folds incidents alone —
 // see New.
