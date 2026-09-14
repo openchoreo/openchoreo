@@ -81,7 +81,7 @@ func (h *Handler) CreateWorkflow(
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*created)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *Handler) UpdateWorkflow(
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*updated)
 	if err != nil {
@@ -287,7 +287,7 @@ func (h *Handler) CreateWorkflowRun(
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*created)
 	if err != nil {
@@ -370,7 +370,7 @@ func (h *Handler) UpdateWorkflowRun(
 		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*updated)
 	if err != nil {

@@ -68,6 +68,10 @@ type IncidentEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteIncidentEntry(ctx context.Context, entry *IncidentEntry) (id string, err error)
 	QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error)
+	// GetIncidentEntry reads one entry by ID. Needed so an authorization
+	// check can name the incident's real hierarchy before the update runs —
+	// IncidentPutRequest carries no scope of its own.
+	GetIncidentEntry(ctx context.Context, id string) (IncidentEntry, error)
 	UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error)
 	Close() error
 }

@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 )
 
 var _ = Describe("Resource Controller", func() {
@@ -216,6 +217,33 @@ var _ = Describe("Resource Controller", func() {
 			return rt
 		}
 
+		// newAnnotatedResourceType adds the declarations and the outputs they name.
+		newAnnotatedResourceType := func(name, endpoints string) *openchoreov1alpha1.ResourceType {
+			rt := &openchoreov1alpha1.ResourceType{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Namespace:   "default",
+					Annotations: map[string]string{localdevaddresses.AnnotationKey: endpoints},
+				},
+				Spec: openchoreov1alpha1.ResourceTypeSpec{
+					Outputs: []openchoreov1alpha1.ResourceTypeOutput{
+						{Name: "host", Value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"},
+						{Name: "port", Value: "5432"},
+					},
+					Resources: []openchoreov1alpha1.ResourceTypeManifest{
+						{
+							ID: "claim",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"x"}}`),
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, rt)).To(Succeed())
+			return rt
+		}
+
 		newResource := func(name, rtName string, params *runtime.RawExtension) *openchoreov1alpha1.Resource {
 			res := &openchoreov1alpha1.Resource{
 				ObjectMeta: metav1.ObjectMeta{
@@ -276,6 +304,94 @@ var _ = Describe("Resource Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal("Reconciled"))
+		})
+
+		// The binding controller resolves the declarations from the release, so the
+		// release has to carry them.
+		It("stamps the endpoints annotation from the resource type onto the ResourceRelease", func() {
+			rt := newAnnotatedResourceType("stage2-ep-pg", "database=outputs.host:outputs.port")
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, rt) })
+
+			res := newResource("stage2-ep", rt.Name, nil)
+			DeferCleanup(func() {
+				cleanupReleases("default")
+				_ = k8sClient.Delete(ctx, res)
+			})
+
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(res)})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &openchoreov1alpha1.Resource{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(res), updated)).To(Succeed())
+			rr := &openchoreov1alpha1.ResourceRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: updated.Status.LatestRelease.Name, Namespace: "default",
+			}, rr)).To(Succeed())
+			Expect(rr.Annotations).To(HaveKeyWithValue(localdevaddresses.AnnotationKey, "database=outputs.host:outputs.port"))
+		})
+
+		// A type with nothing to dial leaves no annotation on the release.
+		It("leaves the annotation off the ResourceRelease when the resource type declares no endpoints", func() {
+			rt := newResourceType("stage2-noep-pg")
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, rt) })
+
+			res := newResource("stage2-noep", rt.Name, nil)
+			DeferCleanup(func() {
+				cleanupReleases("default")
+				_ = k8sClient.Delete(ctx, res)
+			})
+
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(res)})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &openchoreov1alpha1.Resource{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(res), updated)).To(Succeed())
+			rr := &openchoreov1alpha1.ResourceRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: updated.Status.LatestRelease.Name, Namespace: "default",
+			}, rr)).To(Succeed())
+			Expect(rr.Annotations).NotTo(HaveKey(localdevaddresses.AnnotationKey))
+		})
+
+		// Releases are immutable, so editing the declarations cuts a new one rather than
+		// changing what a pinned release tunnels.
+		It("cuts a new ResourceRelease when the endpoints annotation changes; both old and new exist", func() {
+			rt := newAnnotatedResourceType("stage2-epedit-pg", "database=outputs.host:outputs.port")
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, rt) })
+
+			res := newResource("stage2-epedit", rt.Name, nil)
+			DeferCleanup(func() {
+				cleanupReleases("default")
+				_ = k8sClient.Delete(ctx, res)
+			})
+
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(res)})
+			Expect(err).NotTo(HaveOccurred())
+			first := &openchoreov1alpha1.Resource{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(res), first)).To(Succeed())
+			firstRelease := first.Status.LatestRelease.Name
+
+			By("renaming the output the port comes from")
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rt), rt)).To(Succeed())
+			rt.Annotations[localdevaddresses.AnnotationKey] = "database=outputs.host:outputs.pgPort"
+			Expect(k8sClient.Update(ctx, rt)).To(Succeed())
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(res)})
+			Expect(err).NotTo(HaveOccurred())
+			second := &openchoreov1alpha1.Resource{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(res), second)).To(Succeed())
+			Expect(second.Status.LatestRelease.Name).NotTo(Equal(firstRelease))
+
+			By("keeping the release the previous declaration was cut with")
+			oldRR := &openchoreov1alpha1.ResourceRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: firstRelease, Namespace: "default"}, oldRR)).To(Succeed())
+			Expect(oldRR.Annotations).To(HaveKeyWithValue(localdevaddresses.AnnotationKey, "database=outputs.host:outputs.port"))
+
+			newRR := &openchoreov1alpha1.ResourceRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name: second.Status.LatestRelease.Name, Namespace: "default",
+			}, newRR)).To(Succeed())
+			Expect(newRR.Annotations).To(HaveKeyWithValue(localdevaddresses.AnnotationKey, "database=outputs.host:outputs.pgPort"))
 		})
 
 		It("is idempotent — reconciling twice does not create a duplicate ResourceRelease", func() {

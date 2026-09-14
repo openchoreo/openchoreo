@@ -24,33 +24,57 @@ import (
 // NewRemoteCmd builds the `remote` command.
 func NewRemoteCmd() *cobra.Command {
 	var (
-		printEnv  bool
-		localArgs []string
+		printEnv    bool
+		noSecrets   bool
+		showSecrets bool
+		dryRun      bool
+		localArgs   []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "remote <workload.yaml> [workload.yaml...]",
+		Use:   "remote <path> [path...]",
 		Short: "Tunnel one or more workloads' dependencies to your machine",
 		Long: "Resolve each workload's declared dependencies for an environment, open a local " +
 			"TCP listener for each remote one, and start a subshell whose environment points at " +
 			"those listeners — so the app runs locally against the environment's real upstreams.\n\n" +
-			"When multiple workload files are given and one declares an endpoint dependency on " +
-			"another workload's own component, that dependency is wired directly to a local " +
-			"host:port instead of being tunneled — see --local.",
+			"Each argument is a path. A file contributes every Workload document it holds, and " +
+			"a directory contributes every Workload document beneath it, recursively, so " +
+			"`occ remote components/` is shorthand for naming each workload file in that tree. " +
+			"Use --dry-run to see what a path expands to.\n\n" +
+			"Every workload in the resolved set is treated as running on your machine. When one " +
+			"of them declares an endpoint dependency on another's own component, that dependency " +
+			"is wired directly to a local host:port instead of being tunneled — see --local.\n\n" +
+			"Values a dependency publishes through a Secret or ConfigMap are read in the data " +
+			"plane and returned over the tunnel, so they never pass through the control plane. " +
+			"They are placed in the subshell's environment (or, for file bindings, in a " +
+			"session-scoped directory removed on exit) and are not printed unless you ask for " +
+			"them with --print-env --show-secrets. Use --no-secrets to skip fetching them.",
 		Example: "  occ remote comp1/workload.yaml --env development\n" +
 			"  occ remote comp1/workload.yaml comp2/workload.yaml --env development\n" +
+			"  occ remote components/ --env development\n" +
+			"  occ remote components/ ../shared/gateway.yaml --env development\n" +
+			"  occ remote components/ --dry-run\n" +
 			"  occ remote comp1/workload.yaml comp2/workload.yaml --local comp2=127.0.0.1:9091 --env development",
-		Args:    cobra.MinimumNArgs(1),
-		PreRunE: auth.RequireLogin(),
+		Args: cobra.MinimumNArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// --dry-run reads local files only.
+			if dryRun {
+				return nil
+			}
+			return auth.RequireLogin()(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overrides, err := parseLocalOverrides(localArgs)
 			if err != nil {
 				return err
 			}
 
-			resolver, err := newHTTPResolver()
-			if err != nil {
-				return err
+			// --dry-run reads local files only, so it must not need a control plane.
+			var resolver Resolver
+			if !dryRun {
+				if resolver, err = newHTTPResolver(); err != nil {
+					return err
+				}
 			}
 			// Tunnels live for the session; Ctrl-C / SIGTERM tears everything down.
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -62,16 +86,31 @@ func NewRemoteCmd() *cobra.Command {
 				Environment:    flags.GetEnvironment(cmd),
 				LocalOverrides: overrides,
 				PrintEnv:       printEnv,
+				ShowSecrets:    showSecrets,
+				NoSecrets:      noSecrets,
+				DryRun:         dryRun,
 			}, cmd.OutOrStdout())
 		},
 	}
 
 	cmd.Flags().BoolVar(&printEnv, "print-env", false,
 		"Print resolved env bindings and hold tunnels open instead of spawning a subshell")
+	cmd.Flags().BoolVar(&showSecrets, "show-secrets", false,
+		"With --print-env, print fetched secret and configmap values in full instead of "+
+			"redacting them. The values land in your terminal scrollback")
+	cmd.Flags().BoolVar(&noSecrets, "no-secrets", false,
+		"Do not fetch secret- or configmap-backed dependency values; report them as "+
+			"unresolved instead, so no credential enters the local process")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
+		"Print the workloads the given paths expand to and exit, without resolving "+
+			"dependencies or contacting the control plane")
 	cmd.Flags().StringArrayVar(&localArgs, "local", nil,
 		"Override the local host:port for a cross-linked dependency's provider component "+
 			"(component=host:port), e.g. --local comp2=127.0.0.1:9091. Repeatable. Defaults to "+
 			"127.0.0.1:<the provider's declared endpoint port> when not given.")
+	// --no-secrets fetches nothing, so there is nothing for --show-secrets to print.
+	cmd.MarkFlagsMutuallyExclusive("show-secrets", "no-secrets")
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "print-env")
 	flags.AddNamespace(cmd)
 	flags.AddEnvironment(cmd)
 	return cmd

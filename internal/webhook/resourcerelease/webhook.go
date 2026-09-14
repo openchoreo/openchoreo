@@ -134,8 +134,11 @@ func validateParametersAgainstSnapshot(rr *openchoreodevv1alpha1.ResourceRelease
 // the release was cut and admission today: a webhook upgrade can tighten CEL
 // rules that previously admitted a permissive ResourceType, and we want
 // those releases to be rejected at admission rather than silently rendering
-// failed at runtime. Mirrors componentrelease.validateEmbeddedResourceTemplates.
+// failed at runtime. Mirrors componentrelease.validateEmbeddedResourceTemplates. The
+// local-dev-addresses annotation is checked against the same snapshot.
 func validateEmbeddedResourceType(rr *openchoreodevv1alpha1.ResourceRelease) field.ErrorList {
 	specPath := field.NewPath("spec", "resourceType", "spec")
-	return resourcevalidation.ValidateResourceTypeSpec(&rr.Spec.ResourceType.Spec, specPath)
+	errs := resourcevalidation.ValidateResourceTypeSpec(&rr.Spec.ResourceType.Spec, specPath)
+	return append(errs, resourcevalidation.ValidateLocalDevAddressesAnnotation(
+		rr.Annotations, rr.Spec.ResourceType.Spec.Outputs, field.NewPath("metadata", "annotations"))...)
 }

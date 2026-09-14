@@ -46,7 +46,10 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	}
 	clusterresourcetypelog.Info("Validation for ClusterResourceType upon creation", "name", crt.GetName())
 
-	if errs := resourcevalidation.ValidateClusterResourceTypeSpec(&crt.Spec, field.NewPath("spec")); len(errs) > 0 {
+	errs := resourcevalidation.ValidateClusterResourceTypeSpec(&crt.Spec, field.NewPath("spec"))
+	errs = append(errs, resourcevalidation.ValidateLocalDevAddressesAnnotation(
+		crt.Annotations, crt.Spec.Outputs, field.NewPath("metadata", "annotations"))...)
+	if len(errs) > 0 {
 		return nil, apierrors.NewInvalid(crt.GroupVersionKind().GroupKind(), crt.GetName(), errs)
 	}
 	return nil, nil
@@ -65,7 +68,10 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 	clusterresourcetypelog.Info("Validation for ClusterResourceType upon update", "name", crt.GetName())
 
-	if errs := resourcevalidation.ValidateClusterResourceTypeSpec(&crt.Spec, field.NewPath("spec")); len(errs) > 0 {
+	errs := resourcevalidation.ValidateClusterResourceTypeSpec(&crt.Spec, field.NewPath("spec"))
+	errs = append(errs, resourcevalidation.ValidateLocalDevAddressesAnnotation(
+		crt.Annotations, crt.Spec.Outputs, field.NewPath("metadata", "annotations"))...)
+	if len(errs) > 0 {
 		return nil, apierrors.NewInvalid(crt.GroupVersionKind().GroupKind(), crt.GetName(), errs)
 	}
 	return nil, nil

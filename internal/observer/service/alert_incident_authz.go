@@ -78,13 +78,34 @@ func (s *alertIncidentServiceWithAuthz) QueryIncidents(ctx context.Context, req 
 	return s.internal.QueryIncidents(ctx, req)
 }
 
-// UpdateIncident performs a generic permission check (no scope/namespace lookup —
-// just verifies the caller has the incidents:update permission) before delegating.
+// IncidentScope is a pass-through: it is the read this wrapper uses to
+// authorize UpdateIncident, so authorizing it here would be circular. No
+// handler calls it.
+func (s *alertIncidentServiceWithAuthz) IncidentScope(
+	ctx context.Context, incidentID string,
+) (string, string, string, error) {
+	return s.internal.IncidentScope(ctx, incidentID)
+}
+
+// UpdateIncident authorizes against the incident's own
+// namespace/project/component before delegating. The hierarchy is read from
+// the stored incident, because IncidentPutRequest names no scope, and must be
+// named precisely: an empty ResourceHierarchy{} resolves to the "*" wildcard
+// path, which under resourceMatch's prefix semantics only a cluster-wide
+// grant would match — silently denying a namespace- or project-scoped
+// incidents:update grant. It also gives the audit event its hierarchy, since
+// CheckAuthorization records what it authorized on.
 func (s *alertIncidentServiceWithAuthz) UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
+	namespace, project, component, err := s.internal.IncidentScope(ctx, incidentID)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(namespace, project, component)
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionUpdateIncidents,
-		observerAuthz.ResourceTypeNamespace, "", authzcore.ResourceHierarchy{},
+		resourceType, resourceName, hierarchy,
 		authzcore.Context{},
 	); err != nil {
 		return nil, err

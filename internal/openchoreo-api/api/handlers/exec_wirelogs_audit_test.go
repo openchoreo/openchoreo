@@ -5,23 +5,25 @@ package handlers
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
-func newTestAuditEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
+func newTestAuditEmitter(t *testing.T, sink io.Writer) *audit.Emitter {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet(nil)
+	policies, err := auditCfg.BuildPolicySet(auditconfig.Vocabulary{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error building policy set: %v", err)
 	}
-	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(sink))
 	if err != nil {
 		t.Fatalf("unexpected error building emitter: %v", err)
 	}
@@ -60,12 +62,12 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			logger := slog.New(slog.NewJSONHandler(&buf, nil))
-			emitter := newTestAuditEmitter(t, logger)
+			emitter := newTestAuditEmitter(t, &buf)
 			mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
 
 			inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("handler must not run on a rejected request")
@@ -87,8 +89,8 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 			if records[0]["result"] != "unauthenticated" {
 				t.Errorf("result = %v, want unauthenticated", records[0]["result"])
 			}
-			if records[0]["origin"] != string(audit.OriginAPI) {
-				t.Errorf("origin = %v, want %q", records[0]["origin"], audit.OriginAPI)
+			if records[0]["surface"] != string(audit.SurfaceREST) {
+				t.Errorf("surface = %v, want %q", records[0]["surface"], audit.SurfaceREST)
 			}
 			actor, ok := records[0]["actor"].(map[string]any)
 			if !ok || actor["id"] != "anonymous" {
@@ -106,12 +108,12 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
 
 	passthroughAuth := func(next http.Handler) http.Handler { return next }
 	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -141,7 +143,7 @@ func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 func TestFindFlusher_SeesThroughAuditWrapper(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -175,7 +177,7 @@ func TestFindFlusher_SeesThroughAuditWrapper(t *testing.T) {
 func TestExecWirelogsAuditMiddleware_ResolvesBothRoutes(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -229,7 +231,7 @@ func TestExecWirelogsAuditMiddleware_ResolvesBothRoutes(t *testing.T) {
 func TestExecHandler_SetsResourceNameFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -269,7 +271,7 @@ func TestExecHandler_SetsResourceNameFromParsedPath(t *testing.T) {
 func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -295,8 +297,13 @@ func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 	if resource["namespace"] != "ns-a" {
 		t.Errorf("resource.namespace = %v, want %q", resource["namespace"], "ns-a")
 	}
-	if resource["name"] != "dev-a" {
-		t.Errorf("resource.name = %v, want %q", resource["name"], "dev-a")
+	// The route's scope belongs in resource.environment, not resource.name,
+	// and carries the dual-scoped identifier authorization uses.
+	if resource["environment"] != "ns-a/dev-a" {
+		t.Errorf("resource.environment = %v, want %q", resource["environment"], "ns-a/dev-a")
+	}
+	if _, present := resource["name"]; present {
+		t.Errorf("resource.name = %v, want absent", resource["name"])
 	}
 }
 
@@ -311,7 +318,7 @@ func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 func TestWirelogsHandler_MalformedNamespaceNotAudited(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	emitter := newTestAuditEmitter(t, logger)
+	emitter := newTestAuditEmitter(t, &buf)
 	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

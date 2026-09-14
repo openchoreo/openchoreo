@@ -25,7 +25,7 @@ import (
 func setAuditResource(ctx context.Context, obj metav1.Object) {
 	audit.SetResource(ctx, &audit.Resource{
 		Namespace: obj.GetNamespace(),
-		ID:        string(obj.GetUID()),
+		UID:       string(obj.GetUID()),
 		Name:      obj.GetName(),
 	})
 }

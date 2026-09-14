@@ -3,6 +3,7 @@ kind: ClusterResourceType
 metadata:
   name: nats
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster NATS Core pub/sub server (no JetStream) backed by a
       single-replica Deployment. Stateless and in-memory; for demonstration

@@ -189,7 +189,7 @@ install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets
 
 This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth with reader/writer policies, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
 
-To use a different secret backend (Vault, AWS Secrets Manager, etc.), skip this step and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/provider/).
+To use a different secret backend (Vault, AWS Secrets Manager, etc.), skip this step and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/api/clustersecretstore/).
 
 ### Install Data Plane
 

@@ -206,7 +206,11 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"
@@ -380,7 +384,11 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -651,7 +659,11 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
@@ -1069,9 +1081,12 @@ kind: ClusterResourceType
 metadata:
   name: postgres
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster PostgreSQL database backed by a single-replica StatefulSet.
-      Ephemeral storage (emptyDir); for demonstration purposes only.
+      Storage defaults to ephemeral (emptyDir), for demonstration purposes
+      only; set environmentConfigs.persistenceEnabled to back it with a PVC
+      instead.
 spec:
   parameters:
     openAPIV3Schema:
@@ -1080,6 +1095,13 @@ spec:
         database:
           type: string
           default: appdb
+        initSQL:
+          type: string
+          default: ""
+          description: >-
+            SQL run once at initdb, on first boot when the data directory
+            is empty. Changing this after the database has already
+            initialized has no effect.
 
   environmentConfigs:
     openAPIV3Schema:
@@ -1091,6 +1113,24 @@ spec:
         adminEnabled:
           type: boolean
           default: false
+        persistenceEnabled:
+          type: boolean
+          default: false
+          description: >-
+            Back the data volume with a PVC (via volumeClaimTemplates)
+            instead of emptyDir. The PVC survives pod recreation (e.g. a
+            StatefulSet rolling update triggered by changing `memory`), so
+            data is not lost when the pod restarts or is rescheduled.
+        storageSize:
+          type: string
+          default: 1Gi
+          description: Only used when persistenceEnabled is true.
+        storageClassName:
+          type: string
+          default: ""
+          description: >-
+            Only used when persistenceEnabled is true. Empty string uses the
+            cluster's default StorageClass.
 
   retainPolicy: Delete
 
@@ -1175,6 +1215,8 @@ spec:
               CREATE USER "$APPUSER" WITH PASSWORD '$APPUSER_PASSWORD';
               GRANT ALL ON DATABASE "$POSTGRES_DB" TO "$APPUSER";
               GRANT ALL ON SCHEMA public TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "$APPUSER";
             EOSQL
           02-create-demo-user.sh: |
             #!/bin/bash
@@ -1182,6 +1224,12 @@ spec:
             psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
               CREATE USER demo WITH SUPERUSER PASSWORD 'demo';
             EOSQL
+          # Optional app schema, supplied via parameters.initSQL. Runs after the
+          # app user exists (03, alphabetical) so it's a no-op when unset — the
+          # 01 script's ALTER DEFAULT PRIVILEGES above covers tables created
+          # here even though they're owned by the postgres superuser.
+          03-app-schema.sql: |
+            ${parameters.initSQL}
 
     # Postgres superuser password: generated on the data plane by ESO and
     # never written to the control plane. Used by initdb and by the init
@@ -1303,6 +1351,27 @@ spec:
           selector:
             matchLabels:
               app: ${metadata.name}
+          # Only present when persistenceEnabled is true. A StatefulSet's
+          # volumeClaimTemplates-backed PVCs survive pod recreation (e.g. a
+          # rolling update triggered by changing `memory`), unlike emptyDir.
+          # volumeClaimTemplates is immutable after StatefulSet creation, so
+          # persistenceEnabled effectively only takes effect at create time —
+          # toggling it afterward will fail to apply.
+          volumeClaimTemplates: |
+            ${environmentConfigs.persistenceEnabled
+              ? [{"metadata": {"name": "data"},
+                  "spec": {"accessModes": ["ReadWriteOnce"],
+                           "resources": {"requests": {"storage": environmentConfigs.storageSize}},
+                           "storageClassName": environmentConfigs.storageClassName != ""
+                             ? environmentConfigs.storageClassName
+                             : oc_omit()}}]
+              : oc_omit()}
+          # Delete the PVC when the StatefulSet itself is torn down (Resource
+          # deleted), but keep it across ordinary pod restarts/rolling updates.
+          persistentVolumeClaimRetentionPolicy: |
+            ${environmentConfigs.persistenceEnabled
+              ? {"whenDeleted": "Delete", "whenScaled": "Retain"}
+              : oc_omit()}
           template:
             metadata:
               labels:
@@ -1348,8 +1417,12 @@ spec:
                     - name: init-scripts
                       mountPath: /docker-entrypoint-initdb.d
               volumes:
-                - name: data
-                  emptyDir: {}
+                # Omitted when persistenceEnabled is true — the "data" volume
+                # is supplied by volumeClaimTemplates above instead.
+                - |
+                  ${environmentConfigs.persistenceEnabled
+                    ? oc_omit()
+                    : {"name": "data", "emptyDir": {}}}
                 - name: init-scripts
                   configMap:
                     name: ${metadata.name}-init
@@ -1429,6 +1502,7 @@ kind: ClusterResourceType
 metadata:
   name: valkey
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster Valkey cache (Redis-protocol-compatible) backed by a
       single-replica StatefulSet. In-memory only; data is lost on pod restart.
@@ -1683,6 +1757,7 @@ kind: ClusterResourceType
 metadata:
   name: nats
   annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
     openchoreo.dev/description: >-
       In-cluster NATS Core pub/sub server (no JetStream) backed by a
       single-replica Deployment. Stateless and in-memory; for demonstration
@@ -2012,6 +2087,14 @@ spec:
                       value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
                       value: "{{workflow.parameters.workflowrun-name}}"
+                    - name: source-commit
+                      value: "{{steps.checkout-source.outputs.parameters.commit-sha}}"
+                    - name: source-branch
+                      value: "{{steps.checkout-source.outputs.parameters.source-branch}}"
+                    - name: source-repository
+                      value: "{{workflow.parameters.git-repo}}"
+                    - name: source-authored-at
+                      value: "{{steps.checkout-source.outputs.parameters.commit-authored-at}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2220,6 +2303,14 @@ spec:
                       value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
                       value: "{{workflow.parameters.workflowrun-name}}"
+                    - name: source-commit
+                      value: "{{steps.checkout-source.outputs.parameters.commit-sha}}"
+                    - name: source-branch
+                      value: "{{steps.checkout-source.outputs.parameters.source-branch}}"
+                    - name: source-repository
+                      value: "{{workflow.parameters.git-repo}}"
+                    - name: source-authored-at
+                      value: "{{steps.checkout-source.outputs.parameters.commit-authored-at}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2430,6 +2521,14 @@ spec:
                       value: '{{steps.publish-image.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
+                    - name: source-commit
+                      value: '{{steps.checkout-source.outputs.parameters.commit-sha}}'
+                    - name: source-branch
+                      value: '{{steps.checkout-source.outputs.parameters.source-branch}}'
+                    - name: source-repository
+                      value: '{{workflow.parameters.git-repo}}'
+                    - name: source-authored-at
+                      value: '{{steps.checkout-source.outputs.parameters.commit-authored-at}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2675,6 +2774,14 @@ spec:
                       value: '{{steps.publish-image.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
+                    - name: source-commit
+                      value: '{{steps.checkout-source.outputs.parameters.commit-sha}}'
+                    - name: source-branch
+                      value: '{{steps.checkout-source.outputs.parameters.source-branch}}'
+                    - name: source-repository
+                      value: '{{workflow.parameters.git-repo}}'
+                    - name: source-authored-at
+                      value: '{{steps.checkout-source.outputs.parameters.commit-authored-at}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -2897,3 +3004,272 @@ spec:
               enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
               triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: horizontal-pod-autoscaler
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - replicas
+          - targetUtilization
+      properties:
+        replicas:
+          type: object
+          default: {}
+          title: Replicas
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - min
+              - max
+          properties:
+            min:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Minimum
+            max:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Maximum
+          required:
+            - min
+            - max
+        targetUtilization:
+          type: object
+          default: {}
+          title: Target utilization
+          description: "Target utilization levels the autoscaler maintains by adding or removing replicas."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - cpu
+              - memory
+          properties:
+            cpu:
+              type: integer
+              default: 80
+              minimum: 1
+              maximum: 100
+              title: CPU
+              description: "Average CPU across pods, as a percentage of the pod's CPU request."
+            memory:
+              type: integer
+              minimum: 1
+              maximum: 100
+              title: Memory
+              description: "Average memory across pods, as a percentage of the pod's memory request. Optional; when unset, memory is not used for scaling."
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - minReplicas
+          - maxReplicas
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether autoscaling is active in this environment. When disabled, no HorizontalPodAutoscaler is created."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        minReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the lower replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+        maxReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the upper replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+
+  validations:
+    - rule: "${(has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max) >= (has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min)}"
+      message: "maxReplicas must be greater than or equal to minReplicas."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${metadata.name}
+          minReplicas: |
+            ${has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min}
+          maxReplicas: |
+            ${has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max}
+          metrics: |
+            ${[
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "cpu",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.cpu}
+                }
+              }
+            ] + (has(parameters.targetUtilization.memory) ? [
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "memory",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.memory}
+                }
+              }
+            ] : [])}
+
+  # Remove the ComponentType's static replica count so it doesn't interfere with the HPA.
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: remove
+          path: /spec/replicas
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: persistent-volume-claim
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - containerName
+          - mountPath
+          - subPath
+          - accessMode
+          - readOnly
+      properties:
+        containerName:
+          type: string
+          default: main
+          title: Container name
+          description: "Name of the container the volume is mounted into. Defaults to 'main'."
+        mountPath:
+          type: string
+          title: Mount path
+          description: "Absolute path inside the container where the volume is mounted (e.g. /data)."
+        subPath:
+          type: string
+          title: Sub path
+          description: "Optional path within the volume to mount instead of its root."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Mounts the volume root when empty"
+        accessMode:
+          type: string
+          title: Access mode
+          default: ReadWriteOnce
+          enum:
+            - ReadWriteOnce
+            - ReadOnlyMany
+            - ReadWriteMany
+            - ReadWriteOncePod
+        readOnly:
+          type: boolean
+          default: false
+          title: Read only
+          description: "Mounts the volume as read-only in the container."
+      required:
+        - mountPath
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - size
+          - storageClass
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether persistent storage is provisioned in this environment. When disabled, no PersistentVolumeClaim is created and the volume is not mounted."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        size:
+          type: string
+          default: "1Gi"
+          description: "Requested storage capacity for the volume (e.g. 1Gi, 10Gi)."
+        storageClass:
+          type: string
+          description: "Optional storage class for the volume. When unset, the cluster's default storage class is used."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the cluster's default storage class"
+
+  validations:
+    - rule: "${parameters.mountPath.startsWith('/')}"
+      message: "mountPath must be an absolute path starting with '/'."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          accessModes:
+            - ${parameters.accessMode}
+          resources:
+            requests:
+              storage: ${environmentConfigs.size}
+          storageClassName: |
+            ${has(environmentConfigs.storageClass) && environmentConfigs.storageClass != '' ? environmentConfigs.storageClass : oc_omit()}
+
+  patches:
+    # Attach the PVC to the pod as a named volume.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${trait.instanceName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${trait.instanceName}
+
+    # Mount the volume into the target container.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${trait.instanceName}
+            mountPath: ${parameters.mountPath}
+            readOnly: ${parameters.readOnly}
+            subPath: |
+              ${has(parameters.subPath) ? parameters.subPath : oc_omit()}

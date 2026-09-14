@@ -7,34 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
-	"time"
 )
-
-// Logger returns a middleware that logs HTTP requests using slog
-func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-
-			// Wrap the response writer to capture status code
-			wrappedWriter := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-			// Process request
-			next.ServeHTTP(wrappedWriter, r)
-
-			// Log request details
-			duration := time.Since(start)
-			logger.Debug("HTTP request",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", wrappedWriter.statusCode,
-				"duration", duration,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.UserAgent(),
-			)
-		})
-	}
-}
 
 // Recovery returns a middleware that recovers from panics
 func Recovery(logger *slog.Logger) func(http.Handler) http.Handler {
@@ -107,15 +80,4 @@ func Chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) ht
 		}
 		return handler
 	}
-}
-
-// responseWriter wraps http.ResponseWriter to capture status code
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
 }

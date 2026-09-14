@@ -216,3 +216,203 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+// uidResolutionResolver is the default UID resolution mode; passthrough is the
+// seeded-data shortcut.
+const uidResolutionResolver = "resolver"
+
+// TestDeliveryInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
+// not mention Delivery Insights gets it disabled. Aggregation in particular must
+// default off: the aggregator has no leader election, so the chart refuses
+// observer.replicas > 1 while it is enabled, and defaulting it on would fail the
+// render of an existing scaled deployment that never opted in.
+func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
+	// Load() reads the process environment, and anyone working on this feature is
+	// likely to have DELIVERY_INSIGHTS_* set in their shell -- which would make this assert
+	// their environment rather than the defaults. Load() skips empty values, so
+	// setting each to "" neutralizes it; t.Setenv restores the originals.
+	for _, key := range []string{
+		"DELIVERY_INSIGHTS_STORE_BACKEND",
+		"DELIVERY_INSIGHTS_STORE_DSN",
+		"DELIVERY_INSIGHTS_UID_RESOLUTION",
+		"DELIVERY_INSIGHTS_AGGREGATION_ENABLED",
+		"DELIVERY_INSIGHTS_AGGREGATION_INTERVAL",
+		"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP",
+		"DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED",
+		"DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW",
+		"DELIVERY_INSIGHTS_INCIDENT_LOOKBACK",
+	} {
+		t.Setenv(key, "")
+	}
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	assert.False(t, cfg.DeliveryInsights.AggregationEnabled,
+		"aggregation must default off; enabling it caps the observer at one replica")
+	assert.False(t, cfg.DeliveryInsights.EventsSourceEnabled,
+		"the events source must default off until a log module implements the sweep")
+	assert.Equal(t, uidResolutionResolver, cfg.DeliveryInsights.UIDResolution,
+		"passthrough is a seeded-data shortcut and must not be the default")
+}
+
+func TestValidateDeliveryInsightsStore(t *testing.T) {
+	// newConfig returns a config whose only interesting fields are the store ones,
+	// with aggregation off so validation stops after the store checks.
+	newConfig := func(alertBackend, alertDSN, deliveryInsightsBackend, deliveryInsightsDSN string) *Config {
+		c := &Config{}
+		c.Alerting.AlertStoreBackend = alertBackend
+		c.Alerting.AlertStoreDSN = alertDSN
+		c.DeliveryInsights.StoreBackend = deliveryInsightsBackend
+		c.DeliveryInsights.StoreDSN = deliveryInsightsDSN
+		c.DeliveryInsights.UIDResolution = uidResolutionResolver
+		return c
+	}
+
+	t.Run("backend and DSN are inherited from the alert store when unset", func(t *testing.T) {
+		c := newConfig("postgresql", "postgres://alerts", "", "")
+		require.NoError(t, c.validateDeliveryInsightsStore())
+		assert.Equal(t, "postgresql", c.DeliveryInsights.StoreBackend)
+		assert.Equal(t, "postgres://alerts", c.DeliveryInsights.StoreDSN,
+			"sharing the alert store is the default, so its DSN carries over")
+	})
+
+	t.Run("a differing backend with no DSN is rejected", func(t *testing.T) {
+		c := newConfig("sqlite", "file:/data/alerts.db", "postgresql", "")
+		err := c.validateDeliveryInsightsStore()
+		require.Error(t, err, "inheriting a SQLite DSN into a PostgreSQL store would be nonsense")
+		assert.Contains(t, err.Error(), "deliveryinsights.store.dsn is required")
+	})
+
+	t.Run("an unknown backend is rejected", func(t *testing.T) {
+		c := newConfig("sqlite", "file:/data/alerts.db", "mysql", "mysql://x")
+		err := c.validateDeliveryInsightsStore()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be 'sqlite' or 'postgresql'")
+	})
+
+	t.Run("backend is normalised", func(t *testing.T) {
+		c := newConfig("sqlite", "file:/data/alerts.db", "  SQLite  ", "file:/data/x.db")
+		require.NoError(t, c.validateDeliveryInsightsStore())
+		assert.Equal(t, "sqlite", c.DeliveryInsights.StoreBackend)
+	})
+
+	t.Run("a SQLite DSN gains a busy timeout", func(t *testing.T) {
+		c := newConfig("sqlite", "file:/data/alerts.db", "sqlite", "file:/data/insights.db")
+		require.NoError(t, c.validateDeliveryInsightsStore())
+		assert.Contains(t, c.DeliveryInsights.StoreDSN, "busy_timeout",
+			"both stores may share one file, so a writer must wait rather than fail with SQLITE_BUSY")
+	})
+
+	t.Run("an existing busy timeout is preserved", func(t *testing.T) {
+		dsn := "file:/data/insights.db?_pragma=busy_timeout(120000)"
+		c := newConfig("sqlite", "file:/data/alerts.db", "sqlite", dsn)
+		require.NoError(t, c.validateDeliveryInsightsStore())
+		assert.Equal(t, dsn, c.DeliveryInsights.StoreDSN, "an operator's own timeout must not be overridden")
+	})
+
+	t.Run("a PostgreSQL DSN is left alone", func(t *testing.T) {
+		c := newConfig("postgresql", "postgres://alerts", "postgresql", "postgres://insights")
+		require.NoError(t, c.validateDeliveryInsightsStore())
+		assert.Equal(t, "postgres://insights", c.DeliveryInsights.StoreDSN)
+	})
+}
+
+func TestEnsureSQLiteBusyTimeout(t *testing.T) {
+	tests := []struct {
+		name string
+		dsn  string
+		want string
+	}{
+		{"appends with ? when the DSN has no query", "file:/data/x.db",
+			"file:/data/x.db?_pragma=busy_timeout(5000)"},
+		{"appends with & when the DSN already has a query", "file:/data/x.db?_journal=WAL",
+			"file:/data/x.db?_journal=WAL&_pragma=busy_timeout(5000)"},
+		{"leaves an existing timeout untouched", "file:/data/x.db?_pragma=busy_timeout(1)",
+			"file:/data/x.db?_pragma=busy_timeout(1)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ensureSQLiteBusyTimeout(tt.dsn))
+		})
+	}
+}
+
+func TestValidateDeliveryInsightsAggregation(t *testing.T) {
+	newConfig := func(interval, overlap time.Duration) *Config {
+		c := &Config{}
+		c.Alerting.AlertStoreBackend = "sqlite"
+		c.Alerting.AlertStoreDSN = "file:/data/alerts.db"
+		c.DeliveryInsights.UIDResolution = uidResolutionResolver
+		c.DeliveryInsights.AggregationEnabled = true
+		c.DeliveryInsights.AggregationInterval = interval
+		c.DeliveryInsights.AggregationOverlap = overlap
+		// Valid values for the bounds this case is not exercising, so a failure
+		// names the field under test rather than the first unset one.
+		c.DeliveryInsights.AttributionWindow = 24 * time.Hour
+		c.DeliveryInsights.IncidentLookback = 30 * 24 * time.Hour
+		return c
+	}
+
+	t.Run("aggregation bounds are not checked while it is disabled", func(t *testing.T) {
+		c := newConfig(0, -time.Second)
+		c.DeliveryInsights.AggregationEnabled = false
+		require.NoError(t, c.validateDeliveryInsights(),
+			"an install that never enables aggregation must not have to supply its timings")
+	})
+
+	t.Run("a non-positive interval is rejected", func(t *testing.T) {
+		err := newConfig(0, time.Minute).validateDeliveryInsights()
+		require.Error(t, err, "a zero tick would spin or never fire")
+		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.interval must be positive")
+	})
+
+	t.Run("a negative overlap is rejected", func(t *testing.T) {
+		err := newConfig(5*time.Minute, -time.Second).validateDeliveryInsights()
+		require.Error(t, err, "a negative overlap would move the window backwards")
+		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.overlap must be non-negative")
+	})
+
+	t.Run("a zero overlap is allowed", func(t *testing.T) {
+		require.NoError(t, newConfig(5*time.Minute, 0).validateDeliveryInsights())
+	})
+
+	t.Run("a non-positive attribution window is rejected", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.DeliveryInsights.AttributionWindow = 0
+		err := c.validateDeliveryInsights()
+		require.Error(t, err, "a zero window would attribute no incident to any deployment")
+		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.attribution.window must be positive")
+	})
+
+	t.Run("a non-positive incident lookback is rejected", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.DeliveryInsights.IncidentLookback = 0
+		err := c.validateDeliveryInsights()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.incident.lookback must be positive")
+	})
+
+	t.Run("passthrough stays accepted", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.DeliveryInsights.UIDResolution = "passthrough"
+		require.NoError(t, c.validateDeliveryInsights(),
+			"passthrough serves seeded data without a control plane and must remain valid")
+		assert.Equal(t, "passthrough", c.DeliveryInsights.UIDResolution)
+	})
+
+	t.Run("an empty uid resolution mode normalises to resolver", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.DeliveryInsights.UIDResolution = "  "
+		require.NoError(t, c.validateDeliveryInsights())
+		assert.Equal(t, uidResolutionResolver, c.DeliveryInsights.UIDResolution)
+	})
+
+	t.Run("an unknown uid resolution mode is rejected", func(t *testing.T) {
+		c := newConfig(5*time.Minute, time.Minute)
+		c.DeliveryInsights.UIDResolution = "guess"
+		err := c.validateDeliveryInsights()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be 'resolver' or 'passthrough'")
+	})
+}

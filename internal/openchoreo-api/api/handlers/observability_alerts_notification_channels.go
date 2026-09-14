@@ -79,7 +79,7 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*created)
 	if err != nil {
@@ -156,7 +156,7 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*updated)
 	if err != nil {

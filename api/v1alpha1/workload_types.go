@@ -252,6 +252,48 @@ type WorkloadResourceDependency struct {
 	FileBindings map[string]string `json:"fileBindings,omitempty"`
 }
 
+// WorkloadSource records the VCS commit provenance of the image running in this
+// workload. Populated by the producer alongside the image (native CI's push-workload
+// step, or an external CI calling the API/occ directly) and threaded through to the
+// rendered data-plane resource so Delivery Insights can compute Lead Time for Changes
+// from real deployments. Optional: DF/CFR/MTTR compute without it; Lead Time reports
+// unavailable when absent.
+type WorkloadSource struct {
+	// Commit is the VCS commit SHA the running image was built from. Constrained to
+	// hex so that a tag or branch name passed here is rejected rather than recorded
+	// as a commit -- an easy mistake to make when --source-branch sits next to it,
+	// and one that produces provenance pointing at nothing. A prefix is accepted
+	// because external CI often has only a short SHA; native CI canonicalizes to the
+	// full 40.
+	// +optional
+	// +kubebuilder:validation:MinLength=7
+	// +kubebuilder:validation:MaxLength=40
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]+$`
+	Commit string `json:"commit,omitempty"`
+
+	// Branch is the VCS branch the commit was built from. Absent for a build pinned
+	// to a commit, which is not made from any particular branch. Not pattern-checked:
+	// git ref names permit a wide character set, and rejecting a valid one would
+	// block a deployment for a metadata field.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	Branch string `json:"branch,omitempty"`
+
+	// Repository is the VCS repository URL the commit belongs to. Bounded but not
+	// format-checked, since both https and scp-style SSH forms
+	// (git@host:org/repo.git) are legitimate here.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	Repository string `json:"repository,omitempty"`
+
+	// AuthoredAt is when the commit was authored, not when it was committed or
+	// built. This is the timestamp Lead Time for Changes measures from.
+	// +optional
+	AuthoredAt *metav1.Time `json:"authoredAt,omitempty"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// Container defines the container specification for this workload.
@@ -266,6 +308,11 @@ type WorkloadTemplateSpec struct {
 	// Dependencies define the dependencies of this workload on other components.
 	// +optional
 	Dependencies *WorkloadDependencies `json:"dependencies,omitempty"`
+
+	// Source records the commit provenance of the image in Container, for Delivery
+	// Insights' Lead Time for Changes metric.
+	// +optional
+	Source *WorkloadSource `json:"source,omitempty"`
 }
 
 // GetDependencyEndpoints returns the endpoint connections from dependencies, or nil if none.

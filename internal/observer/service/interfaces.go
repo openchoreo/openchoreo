@@ -21,6 +21,27 @@ type LogsQuerier interface {
 	QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error)
 }
 
+// PlatformLogsQuerier is the interface for querying platform logs.
+type PlatformLogsQuerier interface {
+	QueryPlatformLogs(ctx context.Context, req *types.PlatformLogsQueryRequest) (*types.PlatformLogsResponse, error)
+
+	// QueryPlatformLogFilterValues lists the values one of those filters can take.
+	QueryPlatformLogFilterValues(
+		ctx context.Context,
+		req *types.PlatformLogFilterValuesRequest,
+	) (*types.PlatformLogFilterValuesResponse, error)
+}
+
+// AuditLogsQuerier is the interface for querying the audit trail and the filter
+// values a picker over it is populated from. One interface because both reads
+// disclose the same content and so carry the same permission.
+type AuditLogsQuerier interface {
+	QueryAuditLogs(ctx context.Context, req *types.AuditLogsQueryRequest) (*types.AuditLogsResponse, error)
+	QueryAuditLogFilterValues(
+		ctx context.Context, req *types.AuditLogFilterValuesRequest,
+	) (*types.AuditLogFilterValuesResponse, error)
+}
+
 // EventsQuerier is the interface for querying Kubernetes events.
 type EventsQuerier interface {
 	QueryEvents(ctx context.Context, req *types.EventsQueryRequest) (*types.EventsQueryResponse, error)
@@ -59,6 +80,12 @@ type IncidentsQuerier interface {
 // IncidentsUpdater is the interface for updating incidents.
 type IncidentsUpdater interface {
 	UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error)
+	// IncidentScope returns the namespace, project and component an incident
+	// belongs to. It exists for the authorization wrapper: IncidentPutRequest
+	// names no scope, so authorizing against the incident's real hierarchy
+	// requires reading the stored incident first. Returns
+	// incidententry.ErrIncidentNotFound for an unknown ID.
+	IncidentScope(ctx context.Context, incidentID string) (namespace, project, component string, err error)
 }
 
 // AlertIncidentService is a composite interface combining alert query, incident query,

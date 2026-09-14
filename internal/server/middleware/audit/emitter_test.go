@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"testing"
+	"time"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 )
@@ -52,7 +53,7 @@ func TestEmitter_FansOutToEverySink(t *testing.T) {
 	}
 
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "project", Category: CategoryManagement}
-	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
+	emitter.Emit(context.Background(), op, Envelope{Surface: SurfaceREST, Result: ResultSuccess})
 
 	if len(sinkA.events) != 1 || len(sinkB.events) != 1 {
 		t.Fatalf("expected exactly one event per sink, got sinkA=%d sinkB=%d", len(sinkA.events), len(sinkB.events))
@@ -83,7 +84,7 @@ func TestEmitter_StampsIdentityForEverySink(t *testing.T) {
 	}
 
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "project", Category: CategoryManagement}
-	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
+	emitter.Emit(context.Background(), op, Envelope{Surface: SurfaceREST, Result: ResultSuccess})
 
 	for name, sink := range map[string]*recordingSink{"sinkA": sinkA, "sinkB": sinkB} {
 		if len(sink.events) != 1 {
@@ -93,12 +94,35 @@ func TestEmitter_StampsIdentityForEverySink(t *testing.T) {
 		if event.EventID == "" {
 			t.Errorf("%s: EventID is empty, want a stamped UUID", name)
 		}
-		if event.Timestamp.IsZero() {
-			t.Errorf("%s: Timestamp is zero, want stamped", name)
+		if event.Producer != "test-service" {
+			t.Errorf("%s: Producer = %q, want test-service", name, event.Producer)
 		}
-		if event.Service != "test-service" {
-			t.Errorf("%s: Service = %q, want test-service", name, event.Service)
-		}
+	}
+}
+
+// TestBuildEvent_TakesEntryCapturedFactsFromEnvelope guards the split between
+// what the emitter stamps and what only the adapter can know: buildEvent runs
+// after the handler returned, so it must read no clock of its own.
+func TestBuildEvent_TakesEntryCapturedFactsFromEnvelope(t *testing.T) {
+	entryTime := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	env := Envelope{
+		Surface: SurfaceREST, Result: ResultSuccess,
+		Request: RequestInfo{
+			EventTime: entryTime,
+			HTTP:      &HTTPInfo{Method: "POST", Path: "/api/v1/namespaces/ns-1/projects"},
+		},
+	}
+
+	event := buildEvent(nil, env, "test-service")
+
+	if !event.EventTime.Equal(entryTime) {
+		t.Errorf("EventTime = %v, want the entry-captured %v", event.EventTime, entryTime)
+	}
+	if event.EventID == "" {
+		t.Error("EventID is empty, want a stamped UUID")
+	}
+	if event.HTTP != env.Request.HTTP {
+		t.Errorf("HTTP = %+v, want the entry-captured request line", event.HTTP)
 	}
 }
 
@@ -120,7 +144,7 @@ func TestEmitter_StampsResourceTypeFromOperation(t *testing.T) {
 	}
 
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "project", Category: CategoryManagement}
-	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultDenied})
+	emitter.Emit(context.Background(), op, Envelope{Surface: SurfaceREST, Result: ResultDenied})
 
 	if len(sink.events) != 1 {
 		t.Fatalf("expected exactly one event, got %d", len(sink.events))
@@ -141,7 +165,7 @@ func TestBuildEvent_FillsEmptyNamespaceFromHierarchy(t *testing.T) {
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "namespace", Category: CategoryManagement}
 	resource := &Resource{Name: "ns-1"}
 	env := Envelope{
-		Origin: OriginAPI, Result: ResultSuccess,
+		Surface: SurfaceREST, Result: ResultSuccess,
 		Resource: resource, Hierarchy: Hierarchy{Namespace: "ns-1"},
 	}
 
@@ -164,7 +188,7 @@ func TestBuildEvent_FillsEmptyNamespaceFromHierarchy(t *testing.T) {
 func TestBuildEvent_DoesNotOverrideExistingNamespace(t *testing.T) {
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "component", Category: CategoryManagement}
 	env := Envelope{
-		Origin: OriginAPI, Result: ResultSuccess,
+		Surface: SurfaceREST, Result: ResultSuccess,
 		Resource: &Resource{Namespace: "handler-namespace"}, Hierarchy: Hierarchy{Namespace: "hierarchy-namespace"},
 	}
 
@@ -181,7 +205,7 @@ func TestBuildEvent_DoesNotOverrideExistingNamespace(t *testing.T) {
 func TestBuildEvent_CarriesHierarchyEvenWithNilResource(t *testing.T) {
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "component", Category: CategoryManagement}
 	env := Envelope{
-		Origin: OriginAPI, Result: ResultDenied,
+		Surface: SurfaceREST, Result: ResultDenied,
 		Hierarchy: Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1"},
 	}
 
@@ -208,7 +232,7 @@ func TestEmitter_SkipsAllSinksWhenPolicyDenies(t *testing.T) {
 	}
 
 	op := &Operation{ID: testProjectOpID, Action: testCreateProjectAction, ResourceType: "project", Category: CategoryManagement}
-	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
+	emitter.Emit(context.Background(), op, Envelope{Surface: SurfaceREST, Result: ResultSuccess})
 
 	if len(sink.events) != 0 {
 		t.Errorf("expected no events when policy denies publish, got %d", len(sink.events))

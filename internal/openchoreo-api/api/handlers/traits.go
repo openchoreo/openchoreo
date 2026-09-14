@@ -80,7 +80,7 @@ func (h *Handler) CreateTrait(
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*created)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *Handler) UpdateTrait(
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*updated)
 	if err != nil {

@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,9 @@ import (
 	coremocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/service/mocks"
+	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -106,6 +109,7 @@ func TestAlertIncidentAuthz_QueryIncidents_Denied(t *testing.T) {
 func TestAlertIncidentAuthz_UpdateIncident_NilPDP(t *testing.T) {
 	inner := mocks.NewMockAlertIncidentService(t)
 	expected := &gen.IncidentPutResponse{}
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns", "proj", "comp", nil)
 	inner.EXPECT().UpdateIncident(mock.Anything, "inc-1", mock.Anything).Return(expected, nil)
 
 	svc := NewAlertIncidentServiceWithAuthz(inner, nil, testLogger())
@@ -117,11 +121,59 @@ func TestAlertIncidentAuthz_UpdateIncident_NilPDP(t *testing.T) {
 
 func TestAlertIncidentAuthz_UpdateIncident_Denied(t *testing.T) {
 	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns", "proj", "comp", nil)
 
 	svc := NewAlertIncidentServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
 
 	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
 	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+}
+
+// TestAlertIncidentAuthz_UpdateIncident_AuthorizesOnIncidentHierarchy guards
+// against authorizing UpdateIncident with an empty ResourceHierarchy{}, which
+// resourceHierarchyToPath renders as the "*" wildcard — under prefix matching
+// only a policy whose own resource is "*" matches that, silently denying
+// namespace- and project-scoped incidents:update grants.
+//
+// Asserting on the EvaluateRequest is what catches a regression to the
+// scope-free form — the call still succeeds either way, so nothing else would.
+func TestAlertIncidentAuthz_UpdateIncident_AuthorizesOnIncidentHierarchy(t *testing.T) {
+	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").Return("ns-a", "proj-b", "comp-c", nil)
+	inner.EXPECT().UpdateIncident(mock.Anything, "inc-1", mock.Anything).
+		Return(&gen.IncidentPutResponse{}, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	var got *authzcore.EvaluateRequest
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *authzcore.EvaluateRequest) { got = req }).
+		Return(&authzcore.Decision{Decision: true}, nil)
+
+	svc := NewAlertIncidentServiceWithAuthz(inner, pdp, testLogger())
+	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
+	require.NoError(t, err)
+
+	require.NotNil(t, got)
+	assert.Equal(t, string(observerAuthz.ActionUpdateIncidents), got.Action)
+	assert.Equal(t, authzcore.ResourceHierarchy{
+		Namespace: "ns-a", Project: "proj-b", Component: "comp-c",
+	}, got.Resource.Hierarchy, "the check must name the incident's own hierarchy, not an empty one")
+	assert.Equal(t, "comp-c", got.Resource.ID)
+}
+
+// TestAlertIncidentAuthz_UpdateIncident_ScopeLookupFails covers the pre-authz
+// read failing. The PDP mock carries no expectations, so mockery fails the
+// test if it is consulted at all — the update must not be authorized against
+// a hierarchy that could not be established, nor run.
+func TestAlertIncidentAuthz_UpdateIncident_ScopeLookupFails(t *testing.T) {
+	inner := mocks.NewMockAlertIncidentService(t)
+	inner.EXPECT().IncidentScope(mock.Anything, "inc-1").
+		Return("", "", "", incidententry.ErrIncidentNotFound)
+
+	svc := NewAlertIncidentServiceWithAuthz(inner, coremocks.NewMockPDP(t), testLogger())
+
+	_, err := svc.UpdateIncident(authedCtx(), "inc-1", gen.IncidentPutRequest{})
+	assert.ErrorIs(t, err, incidententry.ErrIncidentNotFound)
 }
 
 // --- LogsQuerier Authz Tests ---
@@ -294,18 +346,106 @@ func TestTracesAuthz_QuerySpans_Denied(t *testing.T) {
 	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
 }
 
-func TestTracesAuthz_GetSpanDetails_PassThrough(t *testing.T) {
+func spanWithScope() *types.SpanInfo {
+	return &types.SpanInfo{
+		SpanID: "span-1",
+		ResourceAttributes: map[string]interface{}{
+			labels.NamespaceName:   "ns",
+			labels.ProjectName:     "proj",
+			labels.ComponentName:   "comp",
+			labels.EnvironmentName: "dev",
+		},
+	}
+}
+
+func TestTracesAuthz_GetSpanDetails_NilPDP(t *testing.T) {
 	inner := mocks.NewMockTracesQuerier(t)
-	expected := &types.SpanInfo{SpanID: "span-1"}
+	expected := spanWithScope()
 	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(expected, nil)
 
-	// PDP with no Evaluate expectation — testify will fail if Evaluate is called
-	pdp := coremocks.NewMockPDP(t)
-	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+	svc := NewTracesServiceWithAuthz(inner, nil, testLogger())
 
 	resp, err := svc.GetSpanDetails(context.Background(), "trace-1", "span-1")
 	require.NoError(t, err)
 	assert.Equal(t, expected, resp)
+}
+
+// spanScopeEvaluateReq matches the EvaluateRequest that GetSpanDetails derives
+// from spanWithScope's resource attributes: a component-scoped traces:view check.
+func spanScopeEvaluateReq(req *authzcore.EvaluateRequest) bool {
+	return req.Action == string(observerAuthz.ActionViewTraces) &&
+		req.Resource.Type == string(observerAuthz.ResourceTypeComponent) &&
+		req.Resource.ID == "comp" &&
+		req.Resource.Hierarchy == authzcore.ResourceHierarchy{Namespace: "ns", Project: "proj", Component: "comp"} &&
+		req.Context.Resource.Environment == "ns/dev"
+}
+
+func TestTracesAuthz_GetSpanDetails_Allowed(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	expected := spanWithScope()
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(expected, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(spanScopeEvaluateReq)).
+		Return(&authzcore.Decision{Decision: true}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	require.NoError(t, err)
+	assert.Equal(t, expected, resp)
+}
+
+func TestTracesAuthz_GetSpanDetails_Denied(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(spanWithScope(), nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(spanScopeEvaluateReq)).
+		Return(&authzcore.Decision{Decision: false}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+	assert.Nil(t, resp)
+}
+
+// The span fetch failing short-circuits before any authorization is attempted.
+func TestTracesAuthz_GetSpanDetails_FetchError(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	wantErr := errors.New("adapter unavailable")
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(nil, wantErr)
+
+	// A non-nil PDP with no Evaluate expectation: the mock fails if authz is consulted.
+	pdp := coremocks.NewMockPDP(t)
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	assert.ErrorIs(t, err, wantErr)
+	assert.Nil(t, resp)
+}
+
+// A span lacking openchoreo.dev/* attributes yields an empty (unknown) scope; the
+// PDP is still consulted and its decision is honored.
+func TestTracesAuthz_GetSpanDetails_MissingScopeAttributes(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	span := &types.SpanInfo{
+		SpanID:             "span-1",
+		ResourceAttributes: map[string]interface{}{"service.name": "frontend"},
+	}
+	inner.EXPECT().GetSpanDetails(mock.Anything, "trace-1", "span-1").Return(span, nil)
+
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authzcore.EvaluateRequest) bool {
+		return req.Resource.Type == string(observerAuthz.ResourceTypeUnknown) &&
+			req.Resource.ID == "" &&
+			req.Resource.Hierarchy == authzcore.ResourceHierarchy{} &&
+			req.Context.Resource.Environment == ""
+	})).Return(&authzcore.Decision{Decision: true}, nil).Once()
+	svc := NewTracesServiceWithAuthz(inner, pdp, testLogger())
+
+	resp, err := svc.GetSpanDetails(authedCtx(), "trace-1", "span-1")
+	require.NoError(t, err)
+	assert.Equal(t, span, resp)
 }
 
 // --- MetricsQuerier QueryRuntimeTopology Authz Tests ---

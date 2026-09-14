@@ -87,7 +87,7 @@ func (h *Handler) CreateDataPlane(
 		return gen.CreateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*created)
 	if err != nil {
@@ -164,7 +164,7 @@ func (h *Handler) UpdateDataPlane(
 		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*updated)
 	if err != nil {

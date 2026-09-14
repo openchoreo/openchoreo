@@ -23,7 +23,7 @@ func TestSetHierarchy_NoAuditData_NoOp(t *testing.T) {
 // fires, then the service-layer Check resolves the real hierarchy off a
 // fetched object — the resolved value must win over the claimed one.
 func TestSetHierarchy_OverridesSeed(t *testing.T) {
-	ctx, data := NewAuditContext(context.Background(), &Resource{})
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
 
 	SeedHierarchy(ctx, Hierarchy{Project: "claimed-project", Component: "claimed-component"})
 	SetHierarchy(ctx, Hierarchy{Project: "resolved-project", Component: "resolved-component"})
@@ -49,7 +49,7 @@ func TestSetHierarchy_OverridesSeed(t *testing.T) {
 // a precondition lookup's Check always completes before the enclosing
 // operation's own — see SetHierarchy's doc comment.
 func TestSetHierarchy_LastCheckWins(t *testing.T) {
-	ctx, data := NewAuditContext(context.Background(), &Resource{Name: "audit-mcp-comp-3"})
+	ctx, data := NewAuditContext(context.Background(), &Resource{Name: "audit-mcp-comp-3"}, RequestInfo{})
 
 	SeedHierarchy(ctx, Hierarchy{Namespace: "default", Project: "audit-test-proj"})
 	SetHierarchy(ctx, Hierarchy{Namespace: "default"})                                                            // componenttype:view precondition
@@ -68,16 +68,16 @@ func TestSetHierarchy_LastCheckWins(t *testing.T) {
 // the real resource ID/name must not wipe out a hierarchy an earlier authz
 // check already recorded.
 func TestSetHierarchy_SurvivesLaterSetResource(t *testing.T) {
-	ctx, data := NewAuditContext(context.Background(), &Resource{Namespace: "ns-1"})
+	ctx, data := NewAuditContext(context.Background(), &Resource{Namespace: "ns-1"}, RequestInfo{})
 
 	SetHierarchy(ctx, Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1"})
-	SetResource(ctx, &Resource{Namespace: "ns-1", ID: "uid-123", Name: "c1"})
+	SetResource(ctx, &Resource{Namespace: "ns-1", UID: "uid-123", Name: "c1"})
 
 	want := Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1"}
 	if data.Hierarchy != want {
 		t.Errorf("Hierarchy = %+v, want %+v (SetResource must not wipe a previously recorded hierarchy)", data.Hierarchy, want)
 	}
-	if data.Resource == nil || data.Resource.ID != "uid-123" {
+	if data.Resource == nil || data.Resource.UID != "uid-123" {
 		t.Errorf("Resource = %+v, want SetResource's write to still take effect", data.Resource)
 	}
 }

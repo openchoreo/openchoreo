@@ -24,6 +24,7 @@ spec:
       labels:
         app.kubernetes.io/component: event-forwarder
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
       annotations:
         # Trigger pod restart when config changes
         checksum/config: {{ include (print $.Template.BasePath "/event-forwarder/configmap.yaml") . | sha256sum }}

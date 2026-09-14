@@ -82,7 +82,9 @@
         },
         "planeID": {
           "default": "default",
-          "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified.\n",
+          "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nShips as the literal \"default\"; falls back to Helm release name if set as \"\". Rendered as\nthe openchoreo.dev/plane-id pod label, so it must be a valid Kubernetes label value.\n",
+          "maxLength": 63,
+          "pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
           "title": "planeID",
           "type": "string"
         },
@@ -1184,7 +1186,23 @@
         },
         "infrastructure": {
           "additionalProperties": true,
-          "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"",
+          "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"\n\nThe chart always renders spec.infrastructure so platform identity labels\nreach the kgateway proxy pods. That field needs Gateway API \u003e= v1.2 - on\nolder CRDs it is pruned and the proxy pods lose plane attribution.\nlabels is capped at 8 entries by Gateway API, platform identity included.\n",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
+            },
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
+            }
+          },
           "required": [],
           "title": "infrastructure",
           "type": "object"
@@ -1343,6 +1361,47 @@
           "title": "alertSuppressionWindow",
           "type": "string"
         },
+        "audit": {
+          "additionalProperties": false,
+          "description": "Audit logging configuration",
+          "properties": {
+            "defaults": {
+              "additionalProperties": false,
+              "description": "Policy settings applied when no policies entry matches",
+              "properties": {
+                "publish": {
+                  "default": true,
+                  "description": "Emit an audit event by default",
+                  "title": "publish",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "defaults",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable audit event emission for state-modifying observer API requests",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "policies": {
+              "default": [],
+              "description": "Ordered, first-match-wins policy overrides. Each entry has a `match` selector and a `set` block of overrides. See the audit logging docs for the selector-admissibility rules enforced at startup.\n",
+              "items": {
+                "additionalProperties": true,
+                "required": [],
+                "type": "object"
+              },
+              "title": "policies",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "audit",
+          "type": "object"
+        },
         "authzTlsInsecureSkipVerify": {
           "default": false,
           "description": "Skip TLS certificate verification when calling the control plane authz service (use for self-signed certs)",
@@ -1370,6 +1429,27 @@
           },
           "required": [],
           "title": "cors",
+          "type": "object"
+        },
+        "deliveryInsights": {
+          "additionalProperties": false,
+          "description": "Delivery Insights (DORA metrics).",
+          "properties": {
+            "aggregationEnabled": {
+              "default": false,
+              "description": "Run the DORA aggregator in the Observer process. It is a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. It governs aggregation only - the read API is served by every replica either way, though with no aggregator running there are no facts for it to return. The aggregator has no leader election, so exactly one replica may run it and the chart refuses replicas \u003e 1 while it is enabled; a multi-replica Observer therefore cannot collect Delivery Insights data until leader election is added.",
+              "title": "aggregationEnabled",
+              "type": "boolean"
+            },
+            "eventsSourceEnabled": {
+              "default": false,
+              "description": "Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter implementing the events reasons filter and searchAfter pagination; without it Deployment Frequency, Lead Time and Change Failure Rate have no data.",
+              "title": "eventsSourceEnabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "deliveryInsights",
           "type": "object"
         },
         "extraEnvs": {
@@ -1732,7 +1812,9 @@
           "type": "object"
         }
       },
-      "required": [],
+      "required": [
+        "deliveryInsights"
+      ],
       "title": "observer",
       "type": "object"
     },

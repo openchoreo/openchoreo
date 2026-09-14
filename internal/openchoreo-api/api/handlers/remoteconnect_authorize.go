@@ -23,21 +23,27 @@ import (
 //
 // The capability itself is the credential (a short-lived CP-signed JWT); this endpoint
 // is therefore registered outside the user-JWT middleware, like the exec stream
-// handler, and returns only host:port for targets already signed into the capability —
-// information the capability holder obtained at resolve time.
+// handler, and returns only what is already signed into the capability — a target's
+// host:port, or a grant's Secret/ConfigMap coordinates — information the capability
+// holder obtained at resolve time. It never returns a secret VALUE: the agent reads that
+// from its own cluster, so no secret material passes through this endpoint.
+//
+// This endpoint is an echo of the capability, not a policy decision point: it holds no
+// Kubernetes client and no authorization enforcer, and re-checks nothing. Authorization
+// is decided once, at resolve, and the capability's expiry is its revocation window.
 type RemoteConnectAuthorizeHandler struct {
 	verifyKey ed25519.PublicKey
 	// touch refreshes the remote-agent's last-used annotation so the reaper keeps an
 	// actively-used agent alive. Optional; called asynchronously off the dial path.
 	// Signature: (ctx, controlPlaneNamespace, env, agentDataPlaneNamespace).
-	touch  func(ctx context.Context, namespace, env, dpNamespace string) error
+	touch  func(ctx context.Context, namespace, env, dpNamespace string, readsSecret bool) error
 	logger *slog.Logger
 }
 
 // NewRemoteConnectAuthorizeHandler builds the authorize handler. verifyKey is the public
 // half of the key RemoteConnectHandler signs capabilities with; touch (optional)
 // refreshes the remote-agent's liveness annotation.
-func NewRemoteConnectAuthorizeHandler(verifyKey ed25519.PublicKey, touch func(ctx context.Context, namespace, env, dpNamespace string) error, logger *slog.Logger) *RemoteConnectAuthorizeHandler {
+func NewRemoteConnectAuthorizeHandler(verifyKey ed25519.PublicKey, touch func(ctx context.Context, namespace, env, dpNamespace string, readsSecret bool) error, logger *slog.Logger) *RemoteConnectAuthorizeHandler {
 	return &RemoteConnectAuthorizeHandler{
 		verifyKey: verifyKey,
 		touch:     touch,
@@ -68,32 +74,57 @@ func (h *RemoteConnectAuthorizeHandler) ServeHTTP(w http.ResponseWriter, r *http
 		return
 	}
 
-	target, ok := claims.TargetByKey(req.Key)
-	if !ok {
-		h.logger.Warn("target not authorized by capability", "key", req.Key)
-		http.Error(w, "target not authorized", http.StatusForbidden)
-		return
-	}
-
-	proto := target.Proto
-	if proto == "" {
-		proto = "tcp"
-	}
-	resp := remoteconnect.AuthorizeResponse{
-		Host: target.Host, Port: target.Port, Proto: proto, AgentNamespace: target.AgentNamespace,
+	// A key resolves in exactly one space, chosen by its prefix — never by searching
+	// both. Looking a fetch key up in the dial table (or the reverse) is what would let
+	// a caller turn one kind of grant into the other, with the agent as the deputy.
+	var (
+		resp        remoteconnect.AuthorizeResponse
+		agentNs     string
+		readsSecret bool
+	)
+	if remoteconnect.IsSecretGrantKey(req.Key) {
+		grant, ok := claims.SecretByKey(req.Key)
+		if !ok {
+			h.logger.Warn("secret read not authorized by capability", "key", req.Key)
+			http.Error(w, "target not authorized", http.StatusForbidden)
+			return
+		}
+		agentNs = grant.AgentNamespace
+		readsSecret = true
+		resp = remoteconnect.AuthorizeResponse{
+			Kind:           remoteconnect.AuthorizeKindSecret,
+			AgentNamespace: grant.AgentNamespace,
+			Secret:         &grant,
+		}
+	} else {
+		target, ok := claims.TargetByKey(req.Key)
+		if !ok {
+			h.logger.Warn("target not authorized by capability", "key", req.Key)
+			http.Error(w, "target not authorized", http.StatusForbidden)
+			return
+		}
+		proto := target.Proto
+		if proto == "" {
+			proto = "tcp"
+		}
+		agentNs = target.AgentNamespace
+		resp = remoteconnect.AuthorizeResponse{
+			Kind: remoteconnect.AuthorizeKindTCP,
+			Host: target.Host, Port: target.Port, Proto: proto, AgentNamespace: target.AgentNamespace,
+		}
 	}
 
 	// Refresh the liveness annotation of the agent that served this stream (the one in
 	// the target's namespace) off the dial path, so an active session isn't reaped
 	// mid-use. Best-effort, detached from the request context.
 	if h.touch != nil {
-		go func(ns, env, dpNs string) {
+		go func(ns, env, dpNs string, reads bool) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			if err := h.touch(ctx, ns, env, dpNs); err != nil {
+			if err := h.touch(ctx, ns, env, dpNs, reads); err != nil {
 				h.logger.Debug("failed to refresh remote-agent liveness", "error", err)
 			}
-		}(claims.Namespace, claims.Env, target.AgentNamespace)
+		}(claims.Namespace, claims.Env, agentNs, readsSecret)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

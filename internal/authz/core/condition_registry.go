@@ -89,6 +89,8 @@ var conditionRegistry = map[string][]AttributeSpec{
 	ActionDeleteProjectReleaseBinding:  {AttrResourceEnvironment},
 	ActionExecComponent:                {AttrResourceEnvironment},
 	ActionConnectComponent:             {AttrResourceEnvironment},
+	ActionConnectResource:              {AttrResourceEnvironment},
+	ActionReadResourceSecrets:          {AttrResourceEnvironment},
 	ActionViewLogs:                     {AttrResourceEnvironment},
 	ActionViewWirelogs:                 {AttrResourceEnvironment},
 	ActionViewMetrics:                  {AttrResourceEnvironment},

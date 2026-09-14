@@ -418,6 +418,9 @@ type fakeIncidentEntryStore struct {
 	lastUpdateStatus string
 	lastUpdateNotes  *string
 	lastUpdateDesc   *string
+	getEntry         incidententry.IncidentEntry
+	getErr           error
+	lastGetID        string
 }
 
 func (f *fakeIncidentEntryStore) Initialize(context.Context) error { return nil }
@@ -427,6 +430,13 @@ func (f *fakeIncidentEntryStore) WriteIncidentEntry(context.Context, *incidenten
 func (f *fakeIncidentEntryStore) QueryIncidentEntries(_ context.Context, params incidententry.QueryParams) ([]incidententry.IncidentEntry, int, error) {
 	f.lastQueryParams = params
 	return f.entries, f.total, nil
+}
+func (f *fakeIncidentEntryStore) GetIncidentEntry(_ context.Context, id string) (incidententry.IncidentEntry, error) {
+	f.lastGetID = id
+	if f.getErr != nil {
+		return incidententry.IncidentEntry{}, f.getErr
+	}
+	return f.getEntry, nil
 }
 func (f *fakeIncidentEntryStore) UpdateIncidentEntry(_ context.Context, id string, status string, notes, description *string, _ time.Time) (incidententry.IncidentEntry, error) {
 	f.lastUpdateID = id

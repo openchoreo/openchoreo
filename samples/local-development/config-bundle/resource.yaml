@@ -1,0 +1,22 @@
+# Configuration bundle for `db-api`, provisioned from the `config-bundle`
+# ClusterResourceType in this directory. Owned by the `default` project so the
+# consuming `db-api` workload can depend on it.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  name: local-dev-config-bundle
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterResourceType
+    name: config-bundle
+  parameters:
+    # Published as the `settings` output and mounted as a file by the consumer.
+    # Kept deliberately small, but nested: structure is the point, since that is
+    # what an environment variable cannot carry.
+    settings: |
+      logLevel: debug
+      features:
+        darkMode: true

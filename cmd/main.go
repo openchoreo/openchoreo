@@ -205,10 +205,11 @@ func setupControlPlaneControllers(
 			RenderTimeout: renderTimeout,
 		},
 		&releasebinding.Reconciler{
-			Client:        c,
-			Scheme:        s,
-			CELCostLimit:  celCostLimit,
-			RenderTimeout: renderTimeout,
+			Client:              c,
+			Scheme:              s,
+			PlaneClientProvider: planeClientProvider,
+			CELCostLimit:        celCostLimit,
+			RenderTimeout:       renderTimeout,
 		},
 		&renderedrelease.Reconciler{
 			Client:              c,

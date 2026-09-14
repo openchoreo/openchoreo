@@ -21,6 +21,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/authz"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -203,12 +204,13 @@ func main() {
 	// a policy applies identically regardless of which one produced the event.
 	// cfg.Validate() (above) already ran the same conversion and would have
 	// failed startup on an invalid policy; a non-nil error here is defensive.
-	auditPolicies, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	auditVocab := auditconfig.NewVocabulary(apiaudit.GetOperations())
+	auditPolicies, err := cfg.Audit.BuildPolicySet(auditVocab, cfg.Security.KnownActorTypes())
 	if err != nil {
 		logger.Error("Failed to build audit policy set", slog.Any("error", err))
 		os.Exit(1)
 	}
-	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(logger))
+	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(os.Stdout))
 	if err != nil {
 		logger.Error("Failed to build audit emitter", slog.Any("error", err))
 		os.Exit(1)
@@ -250,9 +252,9 @@ func main() {
 		// and never calls next, so mcpaudit's own middleware — which lives
 		// inside the MCP server, below all of this — never sees a 401.
 		// Auth401Interceptor only adds a WWW-Authenticate header; it emits
-		// nothing. OriginMCP so an MCP token rejection isn't recorded as if
+		// nothing. SurfaceMCP so an MCP token rejection isn't recorded as if
 		// it had arrived over REST.
-		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.OriginMCP, cfg.Audit.Enabled)
+		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceMCP, cfg.Audit.Enabled)
 		mcpHandler := middleware.Chain(mcpLoggerMw, unauthedMCPMw, mcpAuth401Mw, jwtMiddleware)(mcpServer)
 
 		baseMux.Handle("/mcp", mcpHandler)
@@ -284,8 +286,12 @@ func main() {
 		// Heartbeat: the remote-agent's periodic liveness callback while it has live
 		// sessions. Also unauthenticated at the middleware layer — the presented
 		// capability is the credential (verified, expiry tolerated, inside the handler).
+		// A heartbeat keeps the agent alive but is not a read.
 		heartbeatHandler := openapihandlers.NewRemoteConnectHeartbeatHandler(
-			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+			remoteConnectHandler.VerifyKey(),
+			func(ctx context.Context, namespace, env, dpNamespace string) error {
+				return remoteConnectHandler.TouchAgent(ctx, namespace, env, dpNamespace, false)
+			}, logger)
 		baseMux.Handle("POST "+remoteconnect.HeartbeatPath, heartbeatHandler)
 		logger.Info("Remote-connect resolve + authorize + heartbeat endpoints registered",
 			"resolve", "/api/v1/remote-connect:resolve",
@@ -335,7 +341,7 @@ func main() {
 		// two routes reach the data plane — a live shell and a live traffic
 		// stream — so a rejected attempt on them is exactly the event worth
 		// recording.
-		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.OriginAPI, cfg.Audit.Enabled)
+		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceREST, cfg.Audit.Enabled)
 
 		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
 		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{

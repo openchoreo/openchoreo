@@ -1,0 +1,14 @@
+# ResourceReleaseBinding for local-dev-config-bundle in the `development` env.
+# spec.resourceRelease is intentionally omitted — the binding stays pending
+# until promoted to a specific ResourceRelease. See the README's step 3.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  name: local-dev-config-bundle-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    resourceName: local-dev-config-bundle
+  environment: development
+  retainPolicy: Delete

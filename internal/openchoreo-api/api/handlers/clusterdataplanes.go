@@ -82,7 +82,7 @@ func (h *Handler) CreateClusterDataPlane(
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*created)
 	if err != nil {
@@ -159,7 +159,7 @@ func (h *Handler) UpdateClusterDataPlane(
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*updated)
 	if err != nil {

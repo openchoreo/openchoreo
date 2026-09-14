@@ -133,13 +133,67 @@ func TestCheck_RecordsHierarchyRegardlessOfDecision(t *testing.T) {
 			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(tt.decision, tt.evalErr)
 			checker := newTestChecker(pdp)
 
-			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 			_ = checker.Check(ctx, testCheckRequest())
 
 			want := audit.Hierarchy{Namespace: "ns-1", Project: "my-project"}
 			require.Equal(t, want, auditData.Hierarchy)
 		})
 	}
+}
+
+// TestCheck_RecordsEnvironmentRegardlessOfDecision is why the environment is
+// recorded here rather than by a handler's SetResource call: a denial never
+// reaches the handler, and a refused attempt on a production environment is
+// exactly the record that needs to name it. It also pins the value to the
+// dual-scoped identifier the decision used, not a re-derived variant.
+func TestCheck_RecordsEnvironmentRegardlessOfDecision(t *testing.T) {
+	evalErr := errors.New("pdp unavailable")
+	tests := []struct {
+		name     string
+		decision *authz.Decision
+		evalErr  error
+	}{
+		{name: "allow", decision: &authz.Decision{Decision: true, Context: &authz.DecisionContext{}}},
+		{name: "deny", decision: &authz.Decision{Decision: false, Context: &authz.DecisionContext{}}},
+		{name: "pdp error", evalErr: evalErr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pdp := authzmocks.NewMockPDP(t)
+			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(tt.decision, tt.evalErr)
+			checker := newTestChecker(pdp)
+
+			req := testCheckRequest()
+			req.Context = authz.Context{
+				Resource: authz.ResourceAttribute{
+					Environment: FormatDualScopedResourceName("ns-1", "production", false),
+				},
+			}
+
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
+			_ = checker.Check(ctx, req)
+
+			want := audit.Hierarchy{Namespace: "ns-1", Environment: "ns-1/production", Project: "my-project"}
+			require.Equal(t, want, auditData.Hierarchy)
+		})
+	}
+}
+
+// TestCheck_NoEnvironmentAttributeRecordsNone covers the environment-agnostic
+// majority of operations: no ABAC environment means an empty one, not
+// something derived from the namespace.
+func TestCheck_NoEnvironmentAttributeRecordsNone(t *testing.T) {
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authz.Decision{Decision: true, Context: &authz.DecisionContext{}}, nil)
+	checker := newTestChecker(pdp)
+
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
+	_ = checker.Check(ctx, testCheckRequest())
+
+	require.Empty(t, auditData.Hierarchy.Environment)
 }
 
 // TestBatchCheck_DoesNotRecordHierarchy guards that FilteredList's per-item
@@ -152,7 +206,7 @@ func TestBatchCheck_DoesNotRecordHierarchy(t *testing.T) {
 		Return(&authz.BatchEvaluateResponse{Decisions: []authz.Decision{{Decision: true}}}, nil)
 	checker := newTestChecker(pdp)
 
-	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{})
+	ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
 	_, err := checker.BatchCheck(ctx, []CheckRequest{testCheckRequest()})
 	require.NoError(t, err)
 

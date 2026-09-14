@@ -1,0 +1,1 @@
+{{- include "openchoreo-workflow-plane.validatePlatformIdentity" . -}}

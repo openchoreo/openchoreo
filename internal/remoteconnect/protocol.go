@@ -15,9 +15,18 @@ import (
 // sends it in Hello so the agent can reject incompatible clients.
 const ProtocolVersion = 1
 
-// maxMessageSize bounds a single control message (handshake / stream-open). It is a
-// guard against a malformed or hostile length prefix; control messages are tiny.
-const maxMessageSize = 1 << 20 // 1 MiB
+// maxMessageSize bounds a single control message (handshake / stream-open / fetch
+// result). It is a guard against a malformed or hostile length prefix. Handshake and
+// stream-open messages are tiny; the ceiling is set by SecretResult, whose value may be
+// a whole Kubernetes Secret key. Kubernetes caps a Secret at 1 MiB and JSON base64
+// inflates by 4/3, so 2 MiB clears a maximal value with room for the envelope.
+const maxMessageSize = 2 << 20 // 2 MiB
+
+// MaxSecretValueSize bounds the value a fetch stream will return, chosen so the encoded
+// SecretResult always fits maxMessageSize. The agent refuses a larger value with an
+// error rather than writing a frame the peer will reject, which would look like a
+// transport fault instead of an oversized secret.
+const MaxSecretValueSize = 1 << 20 // 1 MiB
 
 // Hello is the first message occ sends on a freshly dialed (TLS) connection, before
 // yamux is layered on. It presents the CP-signed capability, which the remote-agent
@@ -49,6 +58,19 @@ type StreamOpen struct {
 // bidirectional byte pipe to the dialed target.
 type StreamResult struct {
 	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// SecretResult is the agent's reply on a fetch stream, and the only message on it: the
+// agent reads the authorized key from the Kubernetes API and writes exactly one of
+// these, then closes. Nothing is piped, so the stream is not a byte channel.
+type SecretResult struct {
+	OK bool `json:"ok"`
+	// Value is the raw bytes of the referenced key (base64 in JSON). It is []byte and
+	// not string because a Secret key may legitimately hold binary content — a
+	// keystore, a DER certificate — and a file binding must reproduce it byte-exactly.
+	Value []byte `json:"value,omitempty"`
+	// Error is a short, non-value-bearing reason when OK is false.
 	Error string `json:"error,omitempty"`
 }
 

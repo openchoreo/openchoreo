@@ -99,7 +99,7 @@ func (h *Handler) CreateComponent(
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*created)
 	if err != nil {
@@ -254,7 +254,7 @@ func (h *Handler) UpdateComponent(
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*updated)
 	if err != nil {
@@ -369,7 +369,7 @@ func (h *Handler) GenerateRelease(
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(release.UID), Name: release.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(release.UID), Name: release.Name})
 
 	genRelease, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*release)
 	if err != nil {

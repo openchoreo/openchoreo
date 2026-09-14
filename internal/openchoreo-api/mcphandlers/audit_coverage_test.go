@@ -89,9 +89,10 @@ func toolInputSchemaProperties(t *testing.T) map[string]map[string]bool {
 	return props
 }
 
-// stateModifyingRESTOperationIDs returns every non-GET operationId in the
-// live OpenAPI spec — the same universe tools/auditgen walks.
-func stateModifyingRESTOperationIDs(t *testing.T) map[string]bool {
+// allRESTOperationIDs returns every operationId in the live OpenAPI spec — the
+// same universe tools/auditgen walks. Reads are included: filtering them out
+// by HTTP method is what let a read go unclassified.
+func allRESTOperationIDs(t *testing.T) map[string]bool {
 	t.Helper()
 	swagger, err := gen.GetSwagger()
 	if err != nil {
@@ -100,21 +101,18 @@ func stateModifyingRESTOperationIDs(t *testing.T) map[string]bool {
 	ids := make(map[string]bool)
 	for _, path := range swagger.Paths.InMatchingOrder() {
 		item := swagger.Paths.Find(path)
-		for method, op := range item.Operations() {
-			if method == "GET" {
-				continue
-			}
+		for _, op := range item.Operations() {
 			ids[op.OperationID] = true
 		}
 	}
 	return ids
 }
 
-// TestAuditCoverage is a CI gate: every state-modifying operation on both
-// surfaces must be audited or explicitly, reasoned-ly exempted, enforced at
-// build time rather than left to drift silently.
+// TestAuditCoverage is a CI gate: every operation on both surfaces must be
+// audited or exempted with a reason — enforced at build time rather than left
+// to drift silently.
 func TestAuditCoverage(t *testing.T) {
-	restOperationIDs := stateModifyingRESTOperationIDs(t)
+	restOperationIDs := allRESTOperationIDs(t)
 	definedOps := apiaudit.GetOperations()
 	definedByID := make(map[string]audit.Operation, len(definedOps))
 	for _, op := range definedOps {
@@ -138,20 +136,21 @@ func TestAuditCoverage(t *testing.T) {
 	// clear count mismatch instead of this test quietly covering fewer tools
 	// than actually exist.
 	t.Run("registers every known tool", func(t *testing.T) {
-		const wantTools = 157
+		const wantTools = 130
 		if len(perms) != wantTools {
 			t.Errorf("registerAllToolsets(t) registered %d tools, want %d", len(perms), wantTools)
 		}
 	})
 
-	// Assertion 1: every state-modifying REST operation is defined or exempted.
+	// Assertion 1: every REST operation is defined or exempted.
 	t.Run("every REST operation is defined or exempted", func(t *testing.T) {
 		for id := range restOperationIDs {
 			_, defined := definedByID[id]
 			_, exempted := apiaudit.RESTExemptions[id]
 			if !defined && !exempted {
 				t.Errorf("operationId %q is neither audited (apiaudit.GetOperations) nor exempted "+
-					"(apiaudit.RESTExemptions) — add one or the other", id)
+					"(apiaudit.RESTExemptions) — add one or the other. A read belongs in "+
+					"RESTExemptions with a reason; it is not exempt by virtue of its HTTP method", id)
 			}
 			if defined && exempted {
 				t.Errorf("operationId %q is both audited and exempted — remove one", id)
@@ -244,12 +243,11 @@ func TestAuditCoverage(t *testing.T) {
 	// audit.MergeMCPAliases each error on a (ToolName, Scope) collision
 	// before the map is ever returned — the err check earlier in this test
 	// would have failed had that happened. Cross-checking the bound-tool-name
-	// count against the known total of 69 state-modifying tools (60
-	// canonical + 9 deprecated aliases) catches the case a bare error check
-	// wouldn't: a future refactor that swallows the collision error instead
-	// of propagating it.
+	// count against the known total of 60 state-modifying tools catches the
+	// case a bare error check wouldn't: a future refactor that swallows the
+	// collision error instead of propagating it.
 	t.Run("no duplicate bindings", func(t *testing.T) {
-		const wantBoundToolNames = 69
+		const wantBoundToolNames = 60
 		if len(boundToolNames) != wantBoundToolNames {
 			t.Errorf("len(distinct bound tool names) = %d, want %d — a collision may have silently "+
 				"dropped a tool, or a new tool needs a binding added", len(boundToolNames), wantBoundToolNames)

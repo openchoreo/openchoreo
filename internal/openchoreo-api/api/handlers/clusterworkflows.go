@@ -79,7 +79,7 @@ func (h *Handler) CreateClusterWorkflow(
 		return gen.CreateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCWF, err := convert[openchoreov1alpha1.ClusterWorkflow, gen.ClusterWorkflow](*created)
 	if err != nil {
@@ -128,7 +128,7 @@ func (h *Handler) UpdateClusterWorkflow(
 		return gen.UpdateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCWF, err := convert[openchoreov1alpha1.ClusterWorkflow, gen.ClusterWorkflow](*updated)
 	if err != nil {

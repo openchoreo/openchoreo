@@ -57,7 +57,7 @@ spec:
     http:
       type: HTTP
       port: 9090
-      # namespace-visible so service-test (a different project) can depend on it
+      # namespace-visible so web-app (a different project) can depend on it
       visibility: [namespace]
   container:
     image: "ghcr.io/openchoreo/samples/greeter-service:latest"

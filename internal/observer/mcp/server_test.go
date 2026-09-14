@@ -261,6 +261,10 @@ func (m *MockAlertIncidentService) UpdateIncident(_ context.Context, _ string, _
 	return &gen.IncidentPutResponse{}, nil
 }
 
+func (m *MockAlertIncidentService) IncidentScope(_ context.Context, _ string) (string, string, string, error) {
+	return "", "", "", nil
+}
+
 func (m *MockAlertIncidentService) lastAlertsRequest() *gen.AlertsQueryRequest {
 	if len(m.alertsRequests) == 0 {
 		return nil

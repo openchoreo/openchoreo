@@ -80,7 +80,7 @@ func (h *Handler) CreateClusterResourceType(
 		return gen.CreateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCRT, err := convert[openchoreov1alpha1.ClusterResourceType, gen.ClusterResourceType](*created)
 	if err != nil {
@@ -126,7 +126,7 @@ func (h *Handler) UpdateClusterResourceType(
 		return gen.UpdateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCRT, err := convert[openchoreov1alpha1.ClusterResourceType, gen.ClusterResourceType](*updated)
 	if err != nil {

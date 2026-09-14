@@ -1,0 +1,16 @@
+# In-cluster Postgres, provisioned from the `postgres` ClusterResourceType that
+# ships with the getting-started samples. Owned by the `default` project so the
+# consuming `db-api` workload can depend on it.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  name: local-dev-postgres
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterResourceType
+    name: postgres
+  parameters:
+    database: localdev

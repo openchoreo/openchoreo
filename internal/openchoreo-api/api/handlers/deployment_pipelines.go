@@ -82,7 +82,7 @@ func (h *Handler) CreateDeploymentPipeline(
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(created.UID), Name: created.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*created)
 	if err != nil {
@@ -159,7 +159,7 @@ func (h *Handler) UpdateDeploymentPipeline(
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, UID: string(updated.UID), Name: updated.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*updated)
 	if err != nil {

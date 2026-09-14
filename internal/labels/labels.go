@@ -52,6 +52,16 @@ const (
 	// LabelKeyRenderedReleaseNamespace tracks the namespace of the rendered release that manages a resource.
 	LabelKeyRenderedReleaseNamespace = "openchoreo.dev/rendered-release-namespace"
 
+	// LabelKeyComponentReleaseName records the ComponentRelease a RenderedRelease was
+	// rendered from. The renderedrelease controller uses it to resolve release-scoped
+	// context (delivery events, commit provenance).
+	LabelKeyComponentReleaseName = "openchoreo.dev/component-release-name"
+
+	// LabelKeyComponentReleaseUID records the UID of that ComponentRelease. Because a
+	// ComponentRelease is immutable and every release is a new object, this UID is the
+	// per-rollout identity used by delivery lifecycle events.
+	LabelKeyComponentReleaseUID = "openchoreo.dev/component-release-uid"
+
 	// LabelKeyNotificationChannelName identifies a notification channel resource (ConfigMap/Secret)
 	// created by the observabilityalertsnotificationchannel controller.
 	LabelKeyNotificationChannelName = "openchoreo.dev/notification-channel-name"
@@ -74,6 +84,13 @@ const (
 	// LabelKeySystemComponent identifies platform infrastructure pods (e.g., gateway) that need
 	// network access to user workloads. Used in NetworkPolicy rules to allow ingress from system components.
 	LabelKeySystemComponent = "openchoreo.dev/system-component"
+
+	// LabelKeyPlane and LabelKeyPlaneID attribute a platform (system component) pod to the
+	// OpenChoreo plane that owns it, for platform observability. Stamped by the plane Helm
+	// charts on pod templates.
+	// LabelKeyPlaneID is omitted on the control plane, which is a singleton.
+	LabelKeyPlane   = "openchoreo.dev/plane"
+	LabelKeyPlaneID = "openchoreo.dev/plane-id"
 
 	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.

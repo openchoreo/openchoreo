@@ -139,6 +139,8 @@ packages:
     interfaces:
       HealthChecker:
       LogsQuerier:
+      PlatformLogsQuerier:
+      AuditLogsQuerier:
       EventsQuerier:
       MetricsQuerier:
       TracesQuerier:

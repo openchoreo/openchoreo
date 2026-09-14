@@ -6,7 +6,18 @@ metadata:
   labels:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 data:
+  # Both blocks are read from this one file by internal/observer/config: the
+  # audit.policies list is a nested structure observer's flat env-var mapping
+  # cannot represent, so it is loaded here alongside auth.subject_types rather
+  # than from observer-config.yaml's env vars.
   auth-config.yaml: |
     auth:
       subject_types:
         {{- toYaml .Values.observer.security.subjectTypes | nindent 8 }}
+
+    audit:
+      enabled: {{ .Values.observer.audit.enabled }}
+      defaults:
+        {{- toYaml .Values.observer.audit.defaults | nindent 8 }}
+      policies:
+        {{- toYaml .Values.observer.audit.policies | nindent 8 }}

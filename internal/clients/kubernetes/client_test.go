@@ -330,6 +330,25 @@ func TestGetK8sClientFromObservabilityPlane(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("with ClientCA.SecretKeyRef and valid gatewayURL returns client", func(t *testing.T) {
+		mgr := NewManager()
+		op := &openchoreov1alpha1.ObservabilityPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "obs", Namespace: "default"},
+			Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
+				ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+					ClientCA: openchoreov1alpha1.ValueFrom{
+						SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
+							Name: "cluster-agent-tls", Key: "ca.crt",
+						},
+					},
+				},
+			},
+		}
+		cl, err := GetK8sClientFromObservabilityPlane(mgr, op, testGatewayURL)
+		require.NoError(t, err)
+		assert.NotNil(t, cl)
+	})
+
 	t.Run("with ClientCA.Value and valid gatewayURL returns client", func(t *testing.T) {
 		mgr := NewManager()
 		op := &openchoreov1alpha1.ObservabilityPlane{
@@ -389,6 +408,25 @@ func TestGetK8sClientFromClusterObservabilityPlane(t *testing.T) {
 		}
 		_, err := GetK8sClientFromClusterObservabilityPlane(mgr, cop, "")
 		require.Error(t, err)
+	})
+
+	t.Run("with ClientCA.SecretKeyRef and valid gatewayURL returns client", func(t *testing.T) {
+		mgr := NewManager()
+		cop := &openchoreov1alpha1.ClusterObservabilityPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-obs"},
+			Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+				ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+					ClientCA: openchoreov1alpha1.ValueFrom{
+						SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
+							Name: "cluster-agent-tls", Key: "ca.crt",
+						},
+					},
+				},
+			},
+		}
+		cl, err := GetK8sClientFromClusterObservabilityPlane(mgr, cop, testGatewayURL)
+		require.NoError(t, err)
+		require.NotNil(t, cl)
 	})
 
 	t.Run("with ClientCA.Value and valid gatewayURL returns client", func(t *testing.T) {

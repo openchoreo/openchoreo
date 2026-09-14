@@ -14,8 +14,9 @@ import (
 // Middleware handles audit logging for HTTP requests. It is service-agnostic:
 // patternMap is built from the caller's own Operations and its own OpenAPI
 // spec (see BuildPatternMap), so any REST service can construct one of these
-// from its own data. openchoreo-api is the only one that does today —
-// observer has its own unrelated NewHTTPServer and no audit middleware.
+// from its own data. openchoreo-api and observer both do — observer builds
+// two, one per generated spec it serves, sharing a single Emitter so one
+// configured policy applies across both of its ports.
 type Middleware struct {
 	logger     *slog.Logger // pre-flight "should never happen" logging only, see Handler
 	patternMap map[string]*Operation
@@ -152,7 +153,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		ctx, auditData := NewAuditContext(r.Context(), &Resource{
 			Namespace: r.PathValue("namespaceName"),
 			Name:      r.PathValue(op.RESTResourceParam),
-		})
+		}, NewRequestInfo(HTTPInfoFromRequest(r)))
 
 		rw := &responseWriter{
 			ResponseWriter: w,
@@ -166,7 +167,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		defer func() {
 			if p := recover(); p != nil {
 				markEmitted(ctx)
-				EmitFromContext(ctx, m.emitter, op, OriginAPI, ResultFailure, auditData, r.Header, r.RemoteAddr)
+				EmitFromContext(ctx, m.emitter, op, SurfaceREST, ResultFailure, auditData, r.Header, r.RemoteAddr)
 				panic(p)
 			}
 			// A hijacking handler (e.g. exec's WebSocket upgrade) can call
@@ -179,7 +180,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 				result = *auditData.Result
 			}
 			markEmitted(ctx)
-			EmitFromContext(ctx, m.emitter, op, OriginAPI, result, auditData, r.Header, r.RemoteAddr)
+			EmitFromContext(ctx, m.emitter, op, SurfaceREST, result, auditData, r.Header, r.RemoteAddr)
 		}()
 
 		next.ServeHTTP(rw, r.WithContext(ctx))

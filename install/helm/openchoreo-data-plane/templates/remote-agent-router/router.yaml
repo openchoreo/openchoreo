@@ -59,6 +59,7 @@ spec:
     metadata:
       labels:
         app: {{ $name }}
+        {{- include "openchoreo-data-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ $name }}
       {{- with .Values.global.imagePullSecrets }}

@@ -172,7 +172,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		// so an unbound subject still sees all 13 (unlike the control-plane MCP). Pins the live registered
 		// inventory and the no-filter behavior end to end.
 		//
-		// Toolset narrowing / filterByAuthz / deprecated-tool specs are N/A here:
+		// Toolset narrowing / filterByAuthz specs are N/A here:
 		// the observer's NewHTTPServer (internal/observer/mcp/server.go:15-26)
 		// registers no filter middleware, so there is no per-tool authz visibility
 		// filter and the unbound subject sees the same 13 tools (pinned in O6).

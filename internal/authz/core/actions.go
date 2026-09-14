@@ -48,10 +48,17 @@ const (
 	ActionConnectComponent = "component:connect"
 
 	// Resource actions
-	ActionCreateResource = "resource:create"
-	ActionViewResource   = "resource:view"
-	ActionUpdateResource = "resource:update"
-	ActionDeleteResource = "resource:delete"
+	ActionCreateResource  = "resource:create"
+	ActionViewResource    = "resource:view"
+	ActionUpdateResource  = "resource:update"
+	ActionDeleteResource  = "resource:delete"
+	ActionConnectResource = "resource:connect"
+	// ActionReadResourceSecrets authorizes reading the VALUES of a resource's
+	// secret-backed outputs, as `occ remote` does to populate a local process. It is
+	// deliberately separate from ActionConnectResource: a tunnel to a database and the
+	// database's password are different grants, and an installation must be able to
+	// give one without the other.
+	ActionReadResourceSecrets = "resource:read-secrets"
 
 	// ComponentRelease actions
 	ActionCreateComponentRelease = "componentrelease:create"
@@ -251,6 +258,24 @@ const (
 	// Logs actions
 	ActionViewLogs = "logs:view"
 
+	// Platform logs actions
+	// Cluster-scoped: reads every log the observability plane holds, user workload logs
+	// included, with no ownership check. Operator-scoped by design.
+	//
+	// Named by surface rather than by scope, like the other log actions. logs:view is
+	// expected to split into componentlogs:view and workflowrunlogs:view in a follow-up.
+	ActionViewPlatformLogs = "platformlogs:view"
+
+	// Audit logs actions
+	// Cluster-scoped: the trail records activity across every team, so reading it is a
+	// privilege in its own right rather than something a broad observability grant
+	// carries. A tenancy filter in a query narrows the result and never widens this.
+	//
+	// Gates both audit reads — the records and the filter values a picker over them is
+	// built from. The second enumerates actors, resource names and source addresses, so
+	// gating only the first would leave a read-around.
+	ActionViewAuditLogs = "auditlogs:view"
+
 	// Events actions
 	ActionViewEvents = "events:view"
 
@@ -280,6 +305,9 @@ const (
 
 	// FinOps cost insights actions
 	ActionViewFinOps = "finops:view"
+
+	// Delivery insights (DORA metrics) actions
+	ActionViewDeliveryInsights = "deliveryinsights:view"
 )
 
 // Action represents a system action with metadata
@@ -320,6 +348,8 @@ var systemActions = []Action{
 	{Name: ActionViewResource, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionUpdateResource, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionDeleteResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionConnectResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionReadResourceSecrets, LowestScope: ScopeResource, IsInternal: false},
 
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
@@ -548,6 +578,17 @@ var systemActions = []Action{
 
 	// FinOps cost insights
 	{Name: ActionViewFinOps, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Delivery insights (DORA metrics). Queried at namespace, project and component
+	// scope, so the lowest level it is evaluated at is the component.
+	{Name: ActionViewDeliveryInsights, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Platform logs observability
+	{Name: ActionViewPlatformLogs, LowestScope: ScopeCluster, IsInternal: false},
+
+	// Audit trail. Cluster-scoped: a query's tenancy filters are filters, not a
+	// scope, so nothing below the cluster can satisfy it.
+	{Name: ActionViewAuditLogs, LowestScope: ScopeCluster, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

@@ -39,6 +39,11 @@ rules:
   - pods/status
   - events
   verbs: ["get", "list"]
+# Delivery lifecycle events emitted by the renderedrelease controller
+- apiGroups: [""]
+  resources:
+  - events
+  verbs: ["create"]
 # Pod exec (required for occ component exec / interactive shell into pods)
 - apiGroups: [""]
   resources:

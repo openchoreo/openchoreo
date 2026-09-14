@@ -6,14 +6,17 @@ package authz
 type Action string
 
 const (
-	ActionViewLogs        Action = "logs:view"
-	ActionViewEvents      Action = "events:view"
-	ActionViewTraces      Action = "traces:view"
-	ActionViewMetrics     Action = "metrics:view"
-	ActionViewAlerts      Action = "alerts:view"
-	ActionViewIncidents   Action = "incidents:view"
-	ActionUpdateIncidents Action = "incidents:update"
-	ActionViewFinOps      Action = "finops:view"
+	ActionViewLogs             Action = "logs:view"
+	ActionViewPlatformLogs     Action = "platformlogs:view"
+	ActionViewAuditLogs        Action = "auditlogs:view"
+	ActionViewEvents           Action = "events:view"
+	ActionViewTraces           Action = "traces:view"
+	ActionViewMetrics          Action = "metrics:view"
+	ActionViewAlerts           Action = "alerts:view"
+	ActionViewIncidents        Action = "incidents:view"
+	ActionUpdateIncidents      Action = "incidents:update"
+	ActionViewDeliveryInsights Action = "deliveryinsights:view"
+	ActionViewFinOps           Action = "finops:view"
 )
 
 type ResourceType string
@@ -24,4 +27,6 @@ const (
 	ResourceTypeProject     ResourceType = "project"
 	ResourceTypeNamespace   ResourceType = "namespace"
 	ResourceTypeWorkflowRun ResourceType = "workflowRun"
+	ResourceTypePlatform    ResourceType = "platform"
+	ResourceTypeAudit       ResourceType = "audit"
 )

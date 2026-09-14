@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 )
 
 func TestAuditConfig_ValidPoliciesRoundTrip(t *testing.T) {
@@ -32,7 +35,7 @@ audit:
 		t.Fatalf("Validate() error = %v, want none", err)
 	}
 
-	ps, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	ps, err := cfg.Audit.BuildPolicySet(auditconfig.NewVocabulary(apiaudit.GetOperations()), cfg.Security.KnownActorTypes())
 	if err != nil {
 		t.Fatalf("BuildPolicySet() error = %v", err)
 	}
@@ -156,19 +159,19 @@ audit:
 	}
 }
 
-func TestAuditConfig_RejectsInvalidOriginValue(t *testing.T) {
+func TestAuditConfig_RejectsInvalidSurfaceValue(t *testing.T) {
 	cfg := loadAuditTestConfig(t, `
 audit:
   policies:
     - match:
-        origins: [bogus]
+        surfaces: [bogus]
       set:
         publish: false
 `)
 
 	err := cfg.Validate()
 	if err == nil {
-		t.Fatal("Validate() = nil, want an error for an unrecognized origin value")
+		t.Fatal("Validate() = nil, want an error for an unrecognized surface value")
 	}
 	if !strings.Contains(err.Error(), "must be one of") {
 		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())

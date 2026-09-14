@@ -104,7 +104,7 @@ func (h *Handler) CreateClusterWorkflowPlane(
 		return gen.CreateClusterWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(created.UID), Name: created.Name})
 
 	genCBP, err := convert[openchoreov1alpha1.ClusterWorkflowPlane, gen.ClusterWorkflowPlane](*created)
 	if err != nil {
@@ -153,7 +153,7 @@ func (h *Handler) UpdateClusterWorkflowPlane(
 		return gen.UpdateClusterWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{UID: string(updated.UID), Name: updated.Name})
 
 	genCBP, err := convert[openchoreov1alpha1.ClusterWorkflowPlane, gen.ClusterWorkflowPlane](*updated)
 	if err != nil {

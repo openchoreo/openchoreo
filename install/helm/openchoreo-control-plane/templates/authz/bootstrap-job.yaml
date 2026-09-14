@@ -19,6 +19,7 @@ spec:
       labels:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: authz-bootstrap
+        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ $name }}
       restartPolicy: Never
