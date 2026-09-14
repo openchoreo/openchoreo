@@ -24,12 +24,12 @@ const (
 
 // Defines values for AlertRuleConditionOperator.
 const (
-	AlertRuleConditionOperatorEq  AlertRuleConditionOperator = "eq"
-	AlertRuleConditionOperatorGt  AlertRuleConditionOperator = "gt"
-	AlertRuleConditionOperatorGte AlertRuleConditionOperator = "gte"
-	AlertRuleConditionOperatorLt  AlertRuleConditionOperator = "lt"
-	AlertRuleConditionOperatorLte AlertRuleConditionOperator = "lte"
-	AlertRuleConditionOperatorNeq AlertRuleConditionOperator = "neq"
+	Eq  AlertRuleConditionOperator = "eq"
+	Gt  AlertRuleConditionOperator = "gt"
+	Gte AlertRuleConditionOperator = "gte"
+	Lt  AlertRuleConditionOperator = "lt"
+	Lte AlertRuleConditionOperator = "lte"
+	Neq AlertRuleConditionOperator = "neq"
 )
 
 // Defines values for AlertRuleSourceType.
@@ -93,12 +93,6 @@ const (
 const (
 	MetricsQueryRequestMetricHttp     MetricsQueryRequestMetric = "http"
 	MetricsQueryRequestMetricResource MetricsQueryRequestMetric = "resource"
-)
-
-// Defines values for PlatformLogFilterValuesResponseTotalRelation.
-const (
-	PlatformLogFilterValuesResponseTotalRelationEq  PlatformLogFilterValuesResponseTotalRelation = "eq"
-	PlatformLogFilterValuesResponseTotalRelationGte PlatformLogFilterValuesResponseTotalRelation = "gte"
 )
 
 // Defines values for RuntimeTopologyEdgeProtocol.
@@ -795,15 +789,11 @@ type PlatformLogFilterValuesResponse struct {
 	// TookMs The time taken to compute the values in milliseconds.
 	TookMs int64 `json:"tookMs"`
 
-	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-	// distinct values exactly is itself an expensive aggregation on a
-	// high-cardinality field, and most backends answer approximately, so a
-	// capped or estimated count is labelled rather than passed off as exact.
-	TotalRelation PlatformLogFilterValuesResponseTotalRelation `json:"totalRelation"`
-
 	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
-	// Read together with `totalRelation` - this is what lets a picker say "412
-	// more values, keep typing to narrow" rather than silently ending its list.
+	// This is what lets a picker say "412 more values, keep typing to narrow"
+	// rather than silently ending its list. Counting distinct values exactly is
+	// itself an expensive aggregation on a high-cardinality field, so treat it as
+	// a sense of scale rather than a guaranteed total.
 	TotalValues int64 `json:"totalValues"`
 
 	// Values The distinct values, ordered by `count` descending then `value` ascending.
@@ -811,12 +801,6 @@ type PlatformLogFilterValuesResponse struct {
 	// entry, because no filter value would select one.
 	Values []PlatformLogFilterValue `json:"values"`
 }
-
-// PlatformLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-// distinct values exactly is itself an expensive aggregation on a
-// high-cardinality field, and most backends answer approximately, so a
-// capped or estimated count is labelled rather than passed off as exact.
-type PlatformLogFilterValuesResponseTotalRelation string
 
 // PlatformLogsResponse defines model for PlatformLogsResponse.
 type PlatformLogsResponse struct {

@@ -153,9 +153,8 @@ func TestPlatformLogsService_FilterValues_Query(t *testing.T) {
 				{Value: "controller-manager-abc", Count: 412},
 				{Value: "controller-manager-xyz", Count: 88},
 			},
-			TotalValues:   2,
-			TotalRelation: "eq",
-			Took:          7,
+			TotalValues: 2,
+			Took:        7,
 		},
 	}
 
@@ -174,7 +173,6 @@ func TestPlatformLogsService_FilterValues_Query(t *testing.T) {
 	require.Len(t, resp.Values, 2)
 	assert.Equal(t, types.PlatformLogFilterValue{Value: "controller-manager-abc", Count: 412}, resp.Values[0])
 	assert.EqualValues(t, 2, resp.TotalValues)
-	assert.Equal(t, "eq", resp.TotalRelation)
 	assert.Equal(t, 7, resp.TookMs)
 }
 
@@ -185,7 +183,7 @@ func TestPlatformLogsService_FilterValues_ForwardsNamedFilterSelections(t *testi
 	t.Parallel()
 
 	adapter := &stubPlatformLogsAdapter{
-		filterValues: &observability.PlatformLogFilterValuesResult{Filter: "podName", TotalRelation: "eq"},
+		filterValues: &observability.PlatformLogFilterValuesResult{Filter: "podName"},
 	}
 	svc := NewPlatformLogsService(adapter, testLogger())
 
@@ -201,9 +199,7 @@ func TestPlatformLogsService_FilterValues_EchoesRequestedFilter(t *testing.T) {
 	t.Parallel()
 
 	adapter := &stubPlatformLogsAdapter{
-		filterValues: &observability.PlatformLogFilterValuesResult{
-			Filter: "containerName", TotalRelation: "eq",
-		},
+		filterValues: &observability.PlatformLogFilterValuesResult{Filter: "containerName"},
 	}
 	svc := NewPlatformLogsService(adapter, testLogger())
 

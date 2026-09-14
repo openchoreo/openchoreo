@@ -202,10 +202,9 @@ func (p *LogsAdapter) GetPlatformLogFilterValues(
 		// The filter we asked for, not the one the adapter echoed back: the
 		// response names the picker that asked, so it cannot rest on a remote
 		// agreeing about what was requested.
-		Filter:        params.Filter,
-		Values:        values,
-		TotalValues:   resp.JSON200.TotalValues,
-		TotalRelation: string(resp.JSON200.TotalRelation),
-		Took:          resp.JSON200.TookMs,
+		Filter:      params.Filter,
+		Values:      values,
+		TotalValues: resp.JSON200.TotalValues,
+		Took:        resp.JSON200.TookMs,
 	}, nil
 }

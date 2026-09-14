@@ -141,10 +141,9 @@ func (s *PlatformLogsService) QueryPlatformLogFilterValues(
 	}
 
 	return &types.PlatformLogFilterValuesResponse{
-		Filter:        req.Filter,
-		Values:        values,
-		TotalValues:   result.TotalValues,
-		TotalRelation: result.TotalRelation,
-		TookMs:        result.Took,
+		Filter:      req.Filter,
+		Values:      values,
+		TotalValues: result.TotalValues,
+		TookMs:      result.Took,
 	}, nil
 }

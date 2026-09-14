@@ -165,10 +165,10 @@ type PlatformLogFilterValuesResult struct {
 	Filter string                   `json:"filter"`
 	Values []PlatformLogFilterValue `json:"values"`
 	// TotalValues is how many distinct values match, of which at most MaxValues were
-	// returned. TotalRelation says whether it is exact ("eq") or a lower bound ("gte").
-	TotalValues   int64  `json:"totalValues"`
-	TotalRelation string `json:"totalRelation"`
-	Took          int    `json:"took"`
+	// returned. Counting distinct values exactly is an expensive aggregation on a
+	// high-cardinality field, so treat it as a sense of scale rather than a total.
+	TotalValues int64 `json:"totalValues"`
+	Took        int   `json:"took"`
 }
 
 // PlatformLogsAdapter defines the interface for fetching platform logs

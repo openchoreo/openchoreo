@@ -491,14 +491,12 @@ func TestResponsesConformToSpec(t *testing.T) {
 				Values: []types.PlatformLogFilterValue{
 					{Value: "controller-manager-abc", Count: 412},
 				},
-				TotalValues:   940,
-				TotalRelation: "gte",
-				TookMs:        9,
+				TotalValues: 940,
+				TookMs:      9,
 			},
 			"empty": {
-				Filter:        "podName",
-				Values:        []types.PlatformLogFilterValue{},
-				TotalRelation: "eq",
+				Filter: "podName",
+				Values: []types.PlatformLogFilterValue{},
 			},
 		} {
 			t.Run(name, func(t *testing.T) {

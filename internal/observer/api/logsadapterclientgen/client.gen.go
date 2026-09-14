@@ -103,12 +103,6 @@ const (
 	PodName         PlatformLogFilterValuesRequestFilter = "podName"
 )
 
-// Defines values for PlatformLogFilterValuesResponseTotalRelation.
-const (
-	Eq  PlatformLogFilterValuesResponseTotalRelation = "eq"
-	Gte PlatformLogFilterValuesResponseTotalRelation = "gte"
-)
-
 // Defines values for PlatformLogsQueryRequestLogLevels.
 const (
 	PlatformLogsQueryRequestLogLevelsDEBUG PlatformLogsQueryRequestLogLevels = "DEBUG"
@@ -537,10 +531,10 @@ type PlatformLogFilterValuesResponse struct {
 	// TookMs The time taken to compute the values in milliseconds
 	TookMs int `json:"tookMs"`
 
-	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
-	TotalRelation PlatformLogFilterValuesResponseTotalRelation `json:"totalRelation"`
-
 	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
+	// Counting distinct values exactly is an expensive aggregation on a
+	// high-cardinality field, so this is a sense of scale rather than a
+	// guaranteed total.
 	TotalValues int64 `json:"totalValues"`
 
 	// Values Distinct values, ordered by `count` descending then `value` ascending.
@@ -548,9 +542,6 @@ type PlatformLogFilterValuesResponse struct {
 	// entry, because no filter value would select one.
 	Values []PlatformLogFilterValue `json:"values"`
 }
-
-// PlatformLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
-type PlatformLogFilterValuesResponseTotalRelation string
 
 // PlatformLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
 // AND with each other. An absent field is not a filter.

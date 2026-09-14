@@ -380,9 +380,8 @@ func TestGetPlatformLogFilterValues_Success(t *testing.T) {
 			Values: []types.PlatformLogFilterValue{
 				{Value: "controller-manager-abc", Count: 412},
 			},
-			TotalValues:   940,
-			TotalRelation: "gte",
-			TookMs:        4,
+			TotalValues: 940,
+			TookMs:      4,
 		}, nil)
 
 	rr := getFilterValues(t, platformLogsHandler(t, svc), filterValuesQuery)
@@ -392,7 +391,6 @@ func TestGetPlatformLogFilterValues_Success(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"value":"controller-manager-abc"`)
 	assert.Contains(t, rr.Body.String(), `"count":412`)
 	assert.Contains(t, rr.Body.String(), `"totalValues":940`)
-	assert.Contains(t, rr.Body.String(), `"totalRelation":"gte"`)
 }
 
 // The record filters arrive flattened on the query string and are rebuilt into the

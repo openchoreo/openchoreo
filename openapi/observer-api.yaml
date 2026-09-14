@@ -1409,7 +1409,6 @@ components:
         - filter
         - values
         - totalValues
-        - totalRelation
         - tookMs
       properties:
         filter:
@@ -1432,16 +1431,10 @@ components:
           minimum: 0
           description: |
             How many distinct values match, of which at most `maxValues` were returned.
-            Read together with `totalRelation` - this is what lets a picker say "412
-            more values, keep typing to narrow" rather than silently ending its list.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
-          description: |
-            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-            distinct values exactly is itself an expensive aggregation on a
-            high-cardinality field, and most backends answer approximately, so a
-            capped or estimated count is labelled rather than passed off as exact.
+            This is what lets a picker say "412 more values, keep typing to narrow"
+            rather than silently ending its list. Counting distinct values exactly is
+            itself an expensive aggregation on a high-cardinality field, so treat it as
+            a sense of scale rather than a guaranteed total.
         tookMs:
           type: integer
           format: int64

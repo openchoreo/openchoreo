@@ -79,9 +79,8 @@ type PlatformLogFilterValue struct {
 // PlatformLogFilterValuesResponse is the response for
 // GET /api/v1alpha1/platform-logs/filter-values.
 type PlatformLogFilterValuesResponse struct {
-	Filter        string                   `json:"filter"`
-	Values        []PlatformLogFilterValue `json:"values"`
-	TotalValues   int64                    `json:"totalValues"`
-	TotalRelation string                   `json:"totalRelation"`
-	TookMs        int                      `json:"tookMs"`
+	Filter      string                   `json:"filter"`
+	Values      []PlatformLogFilterValue `json:"values"`
+	TotalValues int64                    `json:"totalValues"`
+	TookMs      int                      `json:"tookMs"`
 }

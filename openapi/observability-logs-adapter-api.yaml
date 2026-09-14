@@ -826,7 +826,7 @@ components:
 
     PlatformLogFilterValuesResponse:
       type: object
-      required: [filter, values, totalValues, totalRelation, tookMs]
+      required: [filter, values, totalValues, tookMs]
       properties:
         filter:
           type: string
@@ -845,11 +845,9 @@ components:
           minimum: 0
           description: |
             How many distinct values match, of which at most `maxValues` were returned.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
-          description: |
-            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`).
+            Counting distinct values exactly is an expensive aggregation on a
+            high-cardinality field, so this is a sense of scale rather than a
+            guaranteed total.
         tookMs:
           type: integer
           description: The time taken to compute the values in milliseconds

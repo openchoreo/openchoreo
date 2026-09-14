@@ -277,7 +277,7 @@ func filterValuesParams() observability.PlatformLogFilterValuesParams {
 func okFilterValuesBody() map[string]any {
 	return map[string]any{
 		"filter": "podName", "values": []any{},
-		"totalValues": 0, "totalRelation": "eq", "tookMs": 1,
+		"totalValues": 0, "tookMs": 1,
 	}
 }
 
@@ -360,7 +360,7 @@ func TestLogsAdapter_GetPlatformLogFilterValues_MapsResponse(t *testing.T) {
 			{"value": "controller-manager-abc", "count": 412},
 			{"value": "controller-manager-xyz", "count": 88},
 		},
-		"totalValues": 940, "totalRelation": "gte", "tookMs": 12,
+		"totalValues": 940, "tookMs": 12,
 	}, nil, nil, nil)
 	defer server.Close()
 
@@ -373,9 +373,8 @@ func TestLogsAdapter_GetPlatformLogFilterValues_MapsResponse(t *testing.T) {
 		{Value: "controller-manager-abc", Count: 412},
 		{Value: "controller-manager-xyz", Count: 88},
 	}, result.Values)
-	// A truncated list says so, rather than ending silently.
+	// A truncated list still reports how many values matched in total.
 	assert.EqualValues(t, 940, result.TotalValues)
-	assert.Equal(t, "gte", result.TotalRelation)
 	assert.Equal(t, 12, result.Took)
 }
 
@@ -386,7 +385,7 @@ func TestLogsAdapter_GetPlatformLogFilterValues_KeepsRequestedFilter(t *testing.
 
 	server := platformLogsServer(t, http.StatusOK, map[string]any{
 		"filter": "containerName", "values": []any{},
-		"totalValues": 0, "totalRelation": "eq", "tookMs": 1,
+		"totalValues": 0, "tookMs": 1,
 	}, nil, nil, nil)
 	defer server.Close()
 
