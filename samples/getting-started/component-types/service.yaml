@@ -19,6 +19,8 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
 
   validations:
