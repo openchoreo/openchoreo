@@ -171,9 +171,10 @@ type DeliveryInsightsConfig struct {
 	// increments would miss them).
 	IncidentLookback time.Duration `koanf:"aggregation.incident.lookback"`
 	// EventsSourceEnabled feeds the aggregator delivery lifecycle events read
-	// from the logs adapter. Requires an adapter that supports the events query
-	// reasons filter and searchAfter pagination; off by default until the
-	// deployed adapter does.
+	// from the logs adapter. Requires an adapter that can filter the events query
+	// by reason and return matches across every namespace in one call, since the
+	// sweep covers the whole install rather than one scope at a time; off by
+	// default until the deployed adapter can.
 	EventsSourceEnabled bool `koanf:"aggregation.events.source.enabled"`
 }
 
