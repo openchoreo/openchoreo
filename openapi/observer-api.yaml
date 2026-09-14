@@ -2201,12 +2201,6 @@ components:
           description: Operation-specific detail, when the emitting handler recorded any.
         collector:
           $ref: "#/components/schemas/AuditLogCollectorInfo"
-        log:
-          type: string
-          description: |
-            The raw line the collector ingested, preserved alongside the parsed fields.
-            Present when the storage backend retains it. This is the ground truth a
-            parsing discrepancy is settled against.
 
     AuditLogActor:
       type: object

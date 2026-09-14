@@ -560,7 +560,6 @@ func TestResponsesConformToSpec(t *testing.T) {
 					PodName:       "observer-0",
 					ContainerName: "observer",
 				},
-				Log: `{"action":"read_audit_log"}`,
 			}},
 			Total:  1,
 			TookMs: 7,

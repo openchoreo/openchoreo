@@ -139,7 +139,6 @@ type AuditLogRecord struct {
 	Resource    *AuditLogResource      `json:"resource,omitempty"`
 	Metadata    map[string]any         `json:"metadata,omitempty"`
 	Collector   *AuditLogCollectorInfo `json:"collector,omitempty"`
-	Log         string                 `json:"log,omitempty"`
 }
 
 // AuditLogsResponse is the response for POST /api/v1alpha1/audit-logs/query.
