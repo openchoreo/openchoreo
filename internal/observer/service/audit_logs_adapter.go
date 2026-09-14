@@ -18,18 +18,11 @@ import (
 // adopted it and a different condition from a failure.
 var ErrAuditLogsNotSupported = errors.New("audit logs are not supported by the configured logs adapter")
 
-// ErrAuditLogFilterValuesNotSupported is separate from ErrAuditLogsNotSupported
-// because the two are separately declinable: an adapter may serve audit records
-// while being unable to aggregate them, and a caller told only "audit logs are
-// unsupported" would give up on records that in fact work.
+// ErrAuditLogFilterValuesNotSupported is separate because the two are
+// separately declinable: an adapter may serve records while unable to
+// aggregate them.
 var ErrAuditLogFilterValuesNotSupported = errors.New(
 	"audit log filter values are not supported by the configured logs adapter")
-
-// ErrAuditLogsCursorExpired is returned when the adapter answers 410: the
-// cursor's point-in-time has lapsed, or the indices it was minted against have
-// rolled. The caller must restart the query from the first page — never read as
-// the end of the trail.
-var ErrAuditLogsCursorExpired = errors.New("audit logs cursor has expired")
 
 var _ observability.AuditLogsAdapter = (*LogsAdapter)(nil)
 
@@ -52,8 +45,6 @@ func (p *LogsAdapter) GetAuditLogs(
 	switch resp.StatusCode() {
 	case http.StatusNotImplemented:
 		return nil, ErrAuditLogsNotSupported
-	case http.StatusGone:
-		return nil, ErrAuditLogsCursorExpired
 	case http.StatusOK:
 	default:
 		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode(), string(resp.Body))
@@ -68,12 +59,10 @@ func (p *LogsAdapter) GetAuditLogs(
 	}
 
 	return &observability.AuditLogsResult{
-		Records:       records,
-		TotalCount:    resp.JSON200.Total,
-		TotalRelation: observability.AuditLogsTotalRelation(resp.JSON200.TotalRelation),
-		Took:          resp.JSON200.TookMs,
-		NextCursor:    deref(resp.JSON200.NextCursor),
-		Timeline:      toAuditLogTimeline(resp.JSON200.Timeline),
+		Records:    records,
+		TotalCount: resp.JSON200.Total,
+		Took:       resp.JSON200.TookMs,
+		Timeline:   toAuditLogTimeline(resp.JSON200.Timeline),
 	}, nil
 }
 
@@ -121,11 +110,10 @@ func (p *LogsAdapter) GetAuditLogFilterValues(
 	}
 
 	return &observability.AuditLogFilterValuesResult{
-		Filter:        resp.JSON200.Filter,
-		Values:        values,
-		TotalValues:   resp.JSON200.TotalValues,
-		TotalRelation: observability.AuditLogsTotalRelation(resp.JSON200.TotalRelation),
-		Took:          resp.JSON200.TookMs,
+		Filter:      resp.JSON200.Filter,
+		Values:      values,
+		TotalValues: resp.JSON200.TotalValues,
+		Took:        resp.JSON200.TookMs,
 	}, nil
 }
 
@@ -201,9 +189,6 @@ func auditLogsRequestBody(params observability.AuditLogsParams) logsadapterclien
 	if params.SortOrder != "" {
 		sortOrder := logsadapterclientgen.AuditLogsQueryRequestSortOrder(params.SortOrder)
 		body.SortOrder = &sortOrder
-	}
-	if params.Cursor != "" {
-		body.Cursor = &params.Cursor
 	}
 	// Sent only when true. An adapter predating the field ignores it either
 	// way, but an explicit false is still a field it has to tolerate.

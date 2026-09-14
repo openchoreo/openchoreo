@@ -55,7 +55,6 @@ func fullAuditLogsParams() observability.AuditLogsParams {
 		SearchPhrase:     "reconcile",
 		Limit:            50,
 		SortOrder:        "asc",
-		Cursor:           "opaque-token",
 		IncludeTimeline:  true,
 		TimelineInterval: "15m",
 	}
@@ -63,7 +62,7 @@ func fullAuditLogsParams() observability.AuditLogsParams {
 
 func emptyAuditLogsResponse() map[string]any {
 	return map[string]any{
-		"records": []any{}, "total": 0, "totalRelation": "eq", "tookMs": 3,
+		"records": []any{}, "total": 0, "tookMs": 3,
 	}
 }
 
@@ -118,7 +117,6 @@ func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, "reconcile", gotBody["searchPhrase"])
 	assert.Equal(t, float64(50), gotBody["limit"])
 	assert.Equal(t, "asc", gotBody["sortOrder"])
-	assert.Equal(t, "opaque-token", gotBody["cursor"])
 	assert.Equal(t, true, gotBody["includeTimeline"])
 	assert.Equal(t, "15m", gotBody["timelineInterval"])
 }
@@ -140,7 +138,7 @@ func TestLogsAdapter_GetAuditLogs_OmitsUnsetFilters(t *testing.T) {
 	for _, key := range []string{
 		"actor", "resource", "action", "category", "result", "producer", "surface",
 		"operation_id", "request_id", "event_id", "source_ip", "user_agent",
-		"searchPhrase", "cursor", "includeTimeline", "timelineInterval",
+		"searchPhrase", "includeTimeline", "timelineInterval",
 	} {
 		assert.NotContains(t, gotBody, key, "unset filter %q must be omitted", key)
 	}
@@ -169,7 +167,7 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 			},
 			"log": `{"action":"create_project"}`,
 		}},
-		"total": 1, "totalRelation": "gte", "tookMs": 7, "nextCursor": "next-token",
+		"total": 1, "tookMs": 7,
 		"timeline": map[string]any{
 			"interval": "15m",
 			"buckets": []any{
@@ -208,9 +206,7 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 	assert.Equal(t, `{"action":"create_project"}`, rec.Log)
 
 	assert.Equal(t, int64(1), result.TotalCount)
-	assert.Equal(t, observability.AuditLogsTotalGTE, result.TotalRelation)
 	assert.Equal(t, int64(7), result.Took)
-	assert.Equal(t, "next-token", result.NextCursor)
 
 	require.NotNil(t, result.Timeline)
 	assert.Equal(t, "15m", result.Timeline.Interval)
@@ -250,16 +246,10 @@ func TestLogsAdapter_GetAuditLogs_StatusMapping(t *testing.T) {
 			wantErr: ErrAuditLogsNotSupported,
 		},
 		{
-			name:    "410 is an expired cursor, never an empty page",
-			status:  http.StatusGone,
-			wantErr: ErrAuditLogsCursorExpired,
-		},
-		{
 			name:   "500 is neither sentinel",
 			status: http.StatusInternalServerError,
 			notErrs: []error{
-				ErrAuditLogsNotSupported, ErrAuditLogsCursorExpired,
-				ErrAuditLogFilterValuesNotSupported,
+				ErrAuditLogsNotSupported, ErrAuditLogFilterValuesNotSupported,
 			},
 		},
 	}
@@ -289,8 +279,7 @@ func TestLogsAdapter_GetAuditLogFilterValues_RequestContract(t *testing.T) {
 	var gotBody map[string]any
 	var gotMethod, gotPath string
 	server := platformLogsServer(t, http.StatusOK, map[string]any{
-		"filter": "actor.id", "values": []any{}, "totalValues": 0,
-		"totalRelation": "eq", "tookMs": 2,
+		"filter": "actor.id", "values": []any{}, "totalValues": 0, "tookMs": 2,
 	}, &gotBody, &gotMethod, &gotPath)
 	defer server.Close()
 
@@ -328,7 +317,7 @@ func TestLogsAdapter_GetAuditLogFilterValues_MapsResponse(t *testing.T) {
 			map[string]any{"value": "alice@example.com", "count": 412},
 			map[string]any{"value": "bob@example.com", "count": 17},
 		},
-		"totalValues": 128, "totalRelation": "gte", "tookMs": 9,
+		"totalValues": 128, "tookMs": 9,
 	}, nil, nil, nil)
 	defer server.Close()
 
@@ -343,7 +332,6 @@ func TestLogsAdapter_GetAuditLogFilterValues_MapsResponse(t *testing.T) {
 	assert.Equal(t, "alice@example.com", result.Values[0].Value)
 	assert.Equal(t, int64(412), result.Values[0].Count)
 	assert.Equal(t, int64(128), result.TotalValues)
-	assert.Equal(t, observability.AuditLogsTotalGTE, result.TotalRelation)
 	assert.Equal(t, int64(9), result.Took)
 }
 

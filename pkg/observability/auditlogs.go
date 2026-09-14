@@ -58,10 +58,10 @@ type AuditLogsParams struct {
 
 	SearchPhrase string `json:"searchPhrase"`
 
+	// Paging is by time window: a caller closes the window up to the last
+	// record it received, so an adapter keeps no per-scroll state.
 	Limit     int    `json:"limit"`
 	SortOrder string `json:"sortOrder"`
-	// Cursor is opaque; only the adapter that minted it interprets it.
-	Cursor string `json:"cursor"`
 
 	// IncludeTimeline asks for per-interval counts across the window. Opt-in:
 	// it costs an aggregation pass and describes the query rather than the
@@ -139,17 +139,6 @@ type AuditLogRecord struct {
 	Log string `json:"log,omitempty"`
 }
 
-// AuditLogsTotalRelation says how to read AuditLogsResult.TotalCount.
-type AuditLogsTotalRelation string
-
-const (
-	// AuditLogsTotalEq means TotalCount is exact.
-	AuditLogsTotalEq AuditLogsTotalRelation = "eq"
-	// AuditLogsTotalGTE means TotalCount is a lower bound the backend stopped
-	// counting at, so a capped count is not read as exact.
-	AuditLogsTotalGTE AuditLogsTotalRelation = "gte"
-)
-
 // AuditLogTimelineBucket is one interval of a timeline.
 type AuditLogTimelineBucket struct {
 	StartTime time.Time `json:"startTime"`
@@ -174,13 +163,10 @@ type AuditLogTimeline struct {
 
 // AuditLogsResult is the result of an audit trail query.
 type AuditLogsResult struct {
-	Records       []AuditLogRecord       `json:"records"`
-	TotalCount    int64                  `json:"totalCount"`
-	TotalRelation AuditLogsTotalRelation `json:"totalRelation"`
-	Took          int64                  `json:"took"`
-	// NextCursor is empty on the last page, and its absence is the only
-	// end-of-results signal.
-	NextCursor string `json:"nextCursor,omitempty"`
+	Records []AuditLogRecord `json:"records"`
+	// TotalCount is every match in the window, not the number returned.
+	TotalCount int64 `json:"totalCount"`
+	Took       int64 `json:"took"`
 
 	// Timeline is nil unless asked for and computable. Nil means "unknown",
 	// never "no activity".
@@ -192,8 +178,7 @@ type AuditLogsResult struct {
 // proportional to what a caller needs.
 type AuditLogFilterValuesParams struct {
 	// Query carries the window and the filters the values are reached under.
-	// Limit, SortOrder, Cursor, IncludeTimeline and TimelineInterval are
-	// ignored.
+	// Limit, SortOrder, IncludeTimeline and TimelineInterval are ignored.
 	Query AuditLogsParams `json:"query"`
 	// Filter names the filter to list values for, by its path in the query
 	// vocabulary. Its own selections in Query are ignored, so a picker keeps
@@ -220,10 +205,9 @@ type AuditLogFilterValuesResult struct {
 	Filter string                `json:"filter"`
 	Values []AuditLogFilterValue `json:"values"`
 	// TotalValues is how many distinct values match, of which at most
-	// MaxValues were returned. Read with TotalRelation.
-	TotalValues   int64                  `json:"totalValues"`
-	TotalRelation AuditLogsTotalRelation `json:"totalRelation"`
-	Took          int64                  `json:"took"`
+	// MaxValues were returned.
+	TotalValues int64 `json:"totalValues"`
+	Took        int64 `json:"took"`
 }
 
 // AuditLogsAdapter fetches audit trail records and the filter values a picker

@@ -24,12 +24,12 @@ const (
 
 // Defines values for AlertRuleConditionOperator.
 const (
-	AlertRuleConditionOperatorEq  AlertRuleConditionOperator = "eq"
-	AlertRuleConditionOperatorGt  AlertRuleConditionOperator = "gt"
-	AlertRuleConditionOperatorGte AlertRuleConditionOperator = "gte"
-	AlertRuleConditionOperatorLt  AlertRuleConditionOperator = "lt"
-	AlertRuleConditionOperatorLte AlertRuleConditionOperator = "lte"
-	AlertRuleConditionOperatorNeq AlertRuleConditionOperator = "neq"
+	Eq  AlertRuleConditionOperator = "eq"
+	Gt  AlertRuleConditionOperator = "gt"
+	Gte AlertRuleConditionOperator = "gte"
+	Lt  AlertRuleConditionOperator = "lt"
+	Lte AlertRuleConditionOperator = "lte"
+	Neq AlertRuleConditionOperator = "neq"
 )
 
 // Defines values for AlertRuleSourceType.
@@ -68,12 +68,6 @@ const (
 	UserAgent           AuditLogFilterValuesRequestFilter = "user_agent"
 )
 
-// Defines values for AuditLogFilterValuesResponseTotalRelation.
-const (
-	AuditLogFilterValuesResponseTotalRelationEq  AuditLogFilterValuesResponseTotalRelation = "eq"
-	AuditLogFilterValuesResponseTotalRelationGte AuditLogFilterValuesResponseTotalRelation = "gte"
-)
-
 // Defines values for AuditLogsQueryRequestCategory.
 const (
 	Access        AuditLogsQueryRequestCategory = "access"
@@ -99,12 +93,6 @@ const (
 const (
 	Mcp  AuditLogsQueryRequestSurface = "mcp"
 	Rest AuditLogsQueryRequestSurface = "rest"
-)
-
-// Defines values for AuditLogsResponseTotalRelation.
-const (
-	Eq  AuditLogsResponseTotalRelation = "eq"
-	Gte AuditLogsResponseTotalRelation = "gte"
 )
 
 // Defines values for ErrorResponseTitle.
@@ -404,7 +392,7 @@ type AuditLogFilterValue struct {
 // The other filters in `query` narrow which records the values are drawn from,
 // except the one named by `filter`, whose own selections are ignored.
 //
-// `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+// `query.limit`, `query.sortOrder`, `query.includeTimeline` and
 // `query.timelineInterval` carry no meaning here: no records are returned, so
 // there is nothing to page, order or bucket. They are accepted and ignored
 // rather than rejected, so a client can pass its query through untouched.
@@ -423,11 +411,14 @@ type AuditLogFilterValuesRequest struct {
 	// MaxValues The maximum number of values to return, ordered by `count` descending then
 	// `value` ascending — so a truncated list holds the busiest values.
 	//
-	// A value above the maximum is clamped to it rather than rejected, and one at
-	// or below zero falls back to the default. A picker repopulates on every
-	// keystroke, so a `400` breaks the control instead of correcting it — and
-	// `totalValues` already reports how many values the cap left out, which makes
-	// a shortened list honest rather than misleading.
+	// `minimum` and `maximum` state the range a client should send. The observer
+	// itself clamps rather than rejects an out-of-range value — above the maximum
+	// to the maximum, at or below zero to the default — because a picker
+	// repopulates on every keystroke and a `400` would break the control instead
+	// of correcting it, while `totalValues` already reports what the cap left out.
+	// That leniency is the observer's alone: an intermediary validating against
+	// this schema may reject an out-of-range value before it ever arrives, so do
+	// not rely on it.
 	//
 	// Named `maxValues` rather than `limit` to keep it distinct from
 	// `query.limit`, which is a page size for records and is ignored here.
@@ -491,15 +482,9 @@ type AuditLogFilterValuesResponse struct {
 	// TookMs The time taken to compute the values in milliseconds.
 	TookMs int64 `json:"tookMs"`
 
-	// TotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-	// distinct values exactly is itself an expensive aggregation on a
-	// high-cardinality field, and most backends answer approximately, so a
-	// capped or estimated count is labelled rather than passed off as exact.
-	TotalRelation AuditLogFilterValuesResponseTotalRelation `json:"totalRelation"`
-
 	// TotalValues How many distinct values match, of which at most `maxValues` were returned.
-	// Read together with `totalRelation` — this is what lets a picker say "412
-	// more values, keep typing to narrow" rather than silently ending its list.
+	// This is what lets a picker say "412 more values, keep typing to narrow"
+	// rather than silently ending its list.
 	TotalValues int64 `json:"totalValues"`
 
 	// Values The distinct values, ordered by `count` descending then `value` ascending.
@@ -510,12 +495,6 @@ type AuditLogFilterValuesResponse struct {
 	// at all rather than to an empty one.
 	Values []AuditLogFilterValue `json:"values"`
 }
-
-// AuditLogFilterValuesResponseTotalRelation Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-// distinct values exactly is itself an expensive aggregation on a
-// high-cardinality field, and most backends answer approximately, so a
-// capped or estimated count is labelled rather than passed off as exact.
-type AuditLogFilterValuesResponseTotalRelation string
 
 // AuditLogHTTPInfo The request line, for an event that arrived over HTTP. Absent for an MCP
 // `tools/call`, which has none.
@@ -747,16 +726,6 @@ type AuditLogsQueryRequest struct {
 	// altered something.
 	Category *[]AuditLogsQueryRequestCategory `json:"category,omitempty"`
 
-	// Cursor Opaque continuation token from a previous response's `nextCursor`. Minted and
-	// interpreted by the adapter behind this observer; pass it back unmodified.
-	//
-	// Continuing with a cursor pins the ordering, so a record written mid-scroll
-	// cannot shift a page boundary. A cursor eventually expires — the backend's
-	// point-in-time lapses, or the indices it was minted against roll — and that
-	// comes back as a `400` carrying the cursor-expired error code, not as an empty
-	// page. Restart the query from the first page when it does.
-	Cursor *string `json:"cursor,omitempty"`
-
 	// EndTime Exclusive upper bound of the event window (RFC 3339, absolute UTC). Must be
 	// strictly greater than startTime, and within 366 days of it.
 	EndTime time.Time `json:"endTime"`
@@ -772,16 +741,17 @@ type AuditLogsQueryRequest struct {
 	// wants a histogram has to ask for one.
 	//
 	// Opt-in because it costs an aggregation pass on top of the search, and the
-	// answer describes the query rather than the page: a client paginating should
-	// request it on the first page only, since it does not change as the cursor
-	// is walked.
+	// answer describes the query rather than the page: a client walking the window
+	// should request it on the first page only, since it does not change as the
+	// window narrows.
 	//
 	// There is deliberately no companion flag for filter values — the distinct
 	// values each filter can take under the query. Those need one aggregation per
 	// filter rather than one in total, which on a busy trail is enough load to
-	// matter on every keystroke that changes a query. They are planned as their
-	// own operation, where a client can ask for one filter's values at a time and
-	// the cost is proportional to what it actually needs.
+	// matter on every keystroke that changes a query. They have their own
+	// operation, `POST /api/v1alpha1/audit-logs/filter-values`, where a client
+	// asks for one filter's values at a time and the cost stays proportional to
+	// what it actually needs.
 	IncludeTimeline *bool `json:"includeTimeline,omitempty"`
 
 	// Limit The maximum number of records to return.
@@ -890,10 +860,6 @@ type AuditLogsResourceFilter struct {
 
 // AuditLogsResponse defines model for AuditLogsResponse.
 type AuditLogsResponse struct {
-	// NextCursor Opaque token for the next page. Absent when this page is the last one; its
-	// absence is the only end-of-results signal.
-	NextCursor *string `json:"nextCursor,omitempty"`
-
 	// Records Audit records matching the query, in `sortOrder` of `event_time`.
 	Records []AuditLogRecord `json:"records"`
 
@@ -907,21 +873,15 @@ type AuditLogsResponse struct {
 	// TookMs The time taken to query the audit logs in milliseconds.
 	TookMs int64 `json:"tookMs"`
 
-	// Total Number of matching records. Read together with `totalRelation`.
+	// Total Exact number of records matching the query across the whole window, not the
+	// number returned — `records` holds at most `limit` of them. Compare the two to
+	// tell whether the window holds more than one page.
+	//
+	// Exact, not an estimate: a backend that caps hit counting by default must be
+	// configured to count fully. An audit consumer reading an understated total
+	// draws the wrong conclusion about how much happened.
 	Total int64 `json:"total"`
-
-	// TotalRelation Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
-	// at (`gte`). Present so a capped count cannot silently claim to be exact — an
-	// audit consumer reading a capped `total` as exact draws the wrong conclusion
-	// about how much happened.
-	TotalRelation AuditLogsResponseTotalRelation `json:"totalRelation"`
 }
-
-// AuditLogsResponseTotalRelation Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
-// at (`gte`). Present so a capped count cannot silently claim to be exact — an
-// audit consumer reading a capped `total` as exact draws the wrong conclusion
-// about how much happened.
-type AuditLogsResponseTotalRelation string
 
 // ComponentCost defines model for ComponentCost.
 type ComponentCost struct {

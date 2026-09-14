@@ -87,12 +87,10 @@ func (h *Handler) QueryAuditLogFilterValues(
 }
 
 // auditLogsError maps audit logs service errors onto responses. Shared by both
-// operations: the sentinels are disjoint, so one table serves both without
-// either being able to produce the other's.
-//
-// The two not-supported sentinels carry different codes on purpose. A module may
-// serve records while unable to aggregate, and a client told only that "audit
-// logs are not supported" would abandon records that in fact work.
+// operations, whose sentinels are disjoint. The two not-supported sentinels
+// carry different codes because a module may serve records while unable to
+// aggregate, and a client told only "audit logs are not supported" would
+// abandon records that in fact work.
 func (h *Handler) auditLogsError(err error) apiResponse {
 	switch {
 	case errors.Is(err, observerAuthz.ErrAuthzForbidden):
@@ -114,15 +112,6 @@ func (h *Handler) auditLogsError(err error) apiResponse {
 			gen.NotImplemented,
 			types.ErrorCodeV1AuditLogsFilterValuesNotSupported,
 			"The configured logs adapter does not support audit log filter values",
-		)
-	case errors.Is(err, service.ErrAuditLogsCursorExpired):
-		// A 4xx, never an empty page: an empty page reads as the end of the
-		// trail, and the caller's remedy is to restart rather than stop.
-		return errorResponse(
-			http.StatusBadRequest,
-			gen.BadRequest,
-			types.ErrorCodeV1AuditLogsCursorExpired,
-			"The audit logs cursor has expired; restart the query",
 		)
 	}
 

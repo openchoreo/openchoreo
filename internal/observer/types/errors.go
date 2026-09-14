@@ -61,10 +61,6 @@ const (
 	ErrorCodeV1AuditLogsServiceNotReady = "OBS-V1-AL-03"
 	ErrorCodeV1AuditLogsRetrievalFailed = "OBS-V1-AL-04"
 	ErrorCodeV1AuditLogsNotSupported    = "OBS-V1-AL-05"
-	// ErrorCodeV1AuditLogsCursorExpired accompanies a 400 and means the cursor
-	// can no longer be continued. Distinct from a malformed-request 400 because
-	// the caller's remedy differs: restart the query rather than fix the body.
-	ErrorCodeV1AuditLogsCursorExpired = "OBS-V1-AL-06"
 	// ErrorCodeV1AuditLogsFilterValuesNotSupported is distinct from
 	// ErrorCodeV1AuditLogsNotSupported: an adapter may serve audit records
 	// while being unable to aggregate them, so a client seeing this one should

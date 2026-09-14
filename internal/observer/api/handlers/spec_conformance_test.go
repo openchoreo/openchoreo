@@ -562,10 +562,8 @@ func TestResponsesConformToSpec(t *testing.T) {
 				},
 				Log: `{"action":"read_audit_log"}`,
 			}},
-			Total:         1,
-			TotalRelation: "eq",
-			TookMs:        7,
-			NextCursor:    "b3BhcXVl",
+			Total:  1,
+			TookMs: 7,
 			Timeline: &types.AuditLogTimeline{
 				Interval: "15m",
 				Buckets: []types.AuditLogTimelineBucket{
@@ -603,9 +601,8 @@ func TestResponsesConformToSpec(t *testing.T) {
 					{Value: "alice@example.com", Count: 412},
 					{Value: "sa-ci-pipeline", Count: 17},
 				},
-				TotalValues:   128,
-				TotalRelation: "gte",
-				TookMs:        9,
+				TotalValues: 128,
+				TookMs:      9,
 			}, nil)
 
 		h := &Handler{

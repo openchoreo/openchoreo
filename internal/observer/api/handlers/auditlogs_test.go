@@ -62,7 +62,7 @@ func TestQueryAuditLogs_FiltersReachTheService(t *testing.T) {
 	var got *types.AuditLogsQueryRequest
 	svc.EXPECT().QueryAuditLogs(mock.Anything, mock.Anything).
 		Run(func(_ context.Context, req *types.AuditLogsQueryRequest) { got = req }).
-		Return(&types.AuditLogsResponse{Records: []types.AuditLogRecord{}, TotalRelation: "eq"}, nil)
+		Return(&types.AuditLogsResponse{Records: []types.AuditLogRecord{}}, nil)
 
 	body := `{` + auditLogsWindow + `,
 		"actor":{"id":["alice@example.com"],"issuer":["https://idp.example.com"],
@@ -155,7 +155,7 @@ func TestQueryAuditLogs_WindowCapIsAuditsOwn(t *testing.T) {
 
 		svc := servicemocks.NewMockAuditLogsQuerier(t)
 		svc.EXPECT().QueryAuditLogs(mock.Anything, mock.Anything).
-			Return(&types.AuditLogsResponse{TotalRelation: "eq"}, nil)
+			Return(&types.AuditLogsResponse{}, nil)
 
 		rr := queryAuditLogs(t, auditLogsHandler(t, svc),
 			`{"startTime":"2026-01-01T00:00:00Z","endTime":"2026-04-01T00:00:00Z"}`)
@@ -214,8 +214,7 @@ func TestQueryAuditLogFilterValues_Succeeds(t *testing.T) {
 	svc.EXPECT().QueryAuditLogFilterValues(mock.Anything, mock.Anything).
 		Run(func(_ context.Context, req *types.AuditLogFilterValuesRequest) { got = req }).
 		Return(&types.AuditLogFilterValuesResponse{
-			Filter: "actor.id", Values: []types.AuditLogFilterValue{},
-			TotalValues: 0, TotalRelation: "eq",
+			Filter: "actor.id", Values: []types.AuditLogFilterValue{}, TotalValues: 0,
 		}, nil)
 
 	body := `{"query":{` + auditLogsWindow + `,"resource":{"namespace":["default"]}},
@@ -255,7 +254,7 @@ func TestQueryAuditLogFilterValues_ClampsMaxValues(t *testing.T) {
 			var got *types.AuditLogFilterValuesRequest
 			svc.EXPECT().QueryAuditLogFilterValues(mock.Anything, mock.Anything).
 				Run(func(_ context.Context, req *types.AuditLogFilterValuesRequest) { got = req }).
-				Return(&types.AuditLogFilterValuesResponse{Filter: "action", TotalRelation: "eq"}, nil)
+				Return(&types.AuditLogFilterValuesResponse{Filter: "action"}, nil)
 
 			rr := queryFilterValues(t, auditLogsHandler(t, svc),
 				`{"query":{`+auditLogsWindow+`},"filter":"action"`+tt.sent+`}`)
@@ -293,12 +292,6 @@ func TestAuditLogs_ErrorMapping(t *testing.T) {
 			err:      service.ErrAuditLogFilterValuesNotSupported,
 			wantCode: http.StatusNotImplemented,
 			wantBody: types.ErrorCodeV1AuditLogsFilterValuesNotSupported,
-		},
-		{
-			name:     "expired cursor is a restartable 400, never an empty page",
-			err:      service.ErrAuditLogsCursorExpired,
-			wantCode: http.StatusBadRequest,
-			wantBody: types.ErrorCodeV1AuditLogsCursorExpired,
 		},
 		{
 			name:     "retrieval failure",

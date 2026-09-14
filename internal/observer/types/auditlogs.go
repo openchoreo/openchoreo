@@ -3,8 +3,10 @@
 
 package types
 
-// AuditLogsActorFilter filters the record's actor group. Matches the OpenAPI
-// AuditLogsActorFilter schema.
+// The types below mirror the schemas of the same name in
+// openapi/observer-api.yaml.
+
+// AuditLogsActorFilter filters the record's actor group.
 type AuditLogsActorFilter struct {
 	IDs   []string `json:"id,omitempty"`
 	Types []string `json:"type,omitempty"`
@@ -16,8 +18,7 @@ type AuditLogsActorFilter struct {
 	Entitlements []string `json:"entitlements,omitempty"`
 }
 
-// AuditLogsResourceFilter filters the record's resource group. Matches the
-// OpenAPI AuditLogsResourceFilter schema.
+// AuditLogsResourceFilter filters the record's resource group.
 //
 // No uid: absent on deletes and non-CRUD mutations. No resource: set only where
 // it duplicates the name.
@@ -33,8 +34,7 @@ type AuditLogsResourceFilter struct {
 }
 
 // AuditLogsQueryRequest is the decoded body of
-// POST /api/v1alpha1/audit-logs/query. Matches the OpenAPI
-// AuditLogsQueryRequest schema.
+// POST /api/v1alpha1/audit-logs/query.
 //
 // Filters are named and nested as the record field they match, so the
 // record-derived ones keep the record's snake_case while the query's own
@@ -43,15 +43,12 @@ type AuditLogsResourceFilter struct {
 // The filters under Resource narrow the result set and nothing else — see
 // service/audit_logs_authz.go.
 type AuditLogsQueryRequest struct {
-	// Time range for the query (required)
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
 
-	// Record-group filters (optional)
 	Actor    AuditLogsActorFilter    `json:"actor"`
 	Resource AuditLogsResourceFilter `json:"resource"`
 
-	// Event filters (optional)
 	Actions      []string `json:"action,omitempty"`
 	Categories   []string `json:"category,omitempty"`
 	Results      []string `json:"result,omitempty"`
@@ -63,15 +60,12 @@ type AuditLogsQueryRequest struct {
 	SourceIPs    []string `json:"source_ip,omitempty"`
 	UserAgents   []string `json:"user_agent,omitempty"`
 
-	// Search options (optional)
 	SearchPhrase string `json:"searchPhrase,omitempty"`
 
-	// Pagination and sorting (optional)
+	// Continuation is by time window: a caller closes the window up to the last
+	// record it received.
 	Limit     int    `json:"limit,omitempty"`
 	SortOrder string `json:"sortOrder,omitempty"` // asc or desc, default: desc
-	// Cursor is opaque and minted by the adapter. Passed through unparsed in
-	// both directions; observer never interprets it.
-	Cursor string `json:"cursor,omitempty"`
 
 	// IncludeTimeline asks for per-interval counts across the window, which no
 	// page of records can be bucketed into.
@@ -81,8 +75,7 @@ type AuditLogsQueryRequest struct {
 	TimelineInterval string `json:"timelineInterval,omitempty"`
 }
 
-// AuditLogActor identifies who performed an audited action. Matches the OpenAPI
-// AuditLogActor schema.
+// AuditLogActor identifies who performed an audited action.
 type AuditLogActor struct {
 	Type         string              `json:"type"`
 	ID           string              `json:"id"`
@@ -92,15 +85,13 @@ type AuditLogActor struct {
 }
 
 // AuditLogHTTPInfo is the request line of an event that arrived over HTTP.
-// Matches the OpenAPI AuditLogHTTPInfo schema.
 type AuditLogHTTPInfo struct {
 	Method string `json:"method,omitempty"`
 	Path   string `json:"path,omitempty"`
 }
 
 // AuditLogResource is the target resource of an audited action together with the
-// point in OpenChoreo's tree the decision was authorized at. Matches the OpenAPI
-// AuditLogResource schema.
+// point in OpenChoreo's tree the decision was authorized at.
 type AuditLogResource struct {
 	Type        string         `json:"type,omitempty"`
 	Namespace   string         `json:"namespace,omitempty"`
@@ -114,8 +105,7 @@ type AuditLogResource struct {
 }
 
 // AuditLogCollectorInfo is where a record was collected from, as stamped by the
-// collector rather than by the emitting service. Matches the OpenAPI
-// AuditLogCollectorInfo schema.
+// collector rather than by the emitting service.
 type AuditLogCollectorInfo struct {
 	NamespaceName string `json:"namespaceName,omitempty"`
 	PodName       string `json:"podName,omitempty"`
@@ -123,8 +113,7 @@ type AuditLogCollectorInfo struct {
 }
 
 // AuditLogRecord is one audit event as served by
-// POST /api/v1alpha1/audit-logs/query. Matches the OpenAPI AuditLogRecord
-// schema.
+// POST /api/v1alpha1/audit-logs/query.
 //
 // Field names are snake_case while the surrounding response is camelCase: this
 // is the published record, so a response can be compared against an exported
@@ -154,17 +143,11 @@ type AuditLogRecord struct {
 }
 
 // AuditLogsResponse is the response for POST /api/v1alpha1/audit-logs/query.
-// Matches the OpenAPI AuditLogsResponse schema.
 type AuditLogsResponse struct {
 	Records []AuditLogRecord `json:"records"`
-	Total   int64            `json:"total"`
-	// TotalRelation is "eq" when Total is exact, "gte" when it is a lower
-	// bound. Always populated.
-	TotalRelation string `json:"totalRelation"`
-	TookMs        int64  `json:"tookMs"`
-	// NextCursor is empty on the last page; its absence is the only
-	// end-of-results signal.
-	NextCursor string `json:"nextCursor,omitempty"`
+	// Total is every match in the window; Records holds at most Limit of them.
+	Total  int64 `json:"total"`
+	TookMs int64 `json:"tookMs"`
 
 	// Timeline is omitted unless asked for and computable. Absent means
 	// "unknown", never "no activity".
@@ -172,12 +155,10 @@ type AuditLogsResponse struct {
 }
 
 // AuditLogFilterValuesRequest is the decoded body of
-// POST /api/v1alpha1/audit-logs/filter-values. Matches the OpenAPI
-// AuditLogFilterValuesRequest schema.
+// POST /api/v1alpha1/audit-logs/filter-values.
 type AuditLogFilterValuesRequest struct {
 	// Query carries the window and the filters the values are reached under.
-	// Limit, SortOrder, Cursor, IncludeTimeline and TimelineInterval are
-	// ignored.
+	// Limit, SortOrder, IncludeTimeline and TimelineInterval are ignored.
 	Query AuditLogsQueryRequest `json:"query"`
 	// Filter names the filter to list values for. Its own selections in Query
 	// are ignored.
@@ -189,28 +170,25 @@ type AuditLogFilterValuesRequest struct {
 }
 
 // AuditLogFilterValue is one value a filter takes, with how many matching
-// records carry it. Matches the OpenAPI AuditLogFilterValue schema.
+// records carry it.
 type AuditLogFilterValue struct {
 	Value string `json:"value"`
 	Count int64  `json:"count"`
 }
 
 // AuditLogFilterValuesResponse is the response for
-// POST /api/v1alpha1/audit-logs/filter-values. Matches the OpenAPI
-// AuditLogFilterValuesResponse schema.
+// POST /api/v1alpha1/audit-logs/filter-values.
 type AuditLogFilterValuesResponse struct {
 	// Filter echoes the request, for a client driving several pickers.
 	Filter string                `json:"filter"`
 	Values []AuditLogFilterValue `json:"values"`
 	// TotalValues is how many distinct values match, of which at most
-	// MaxValues were returned. TotalRelation says whether it is exact.
-	TotalValues   int64  `json:"totalValues"`
-	TotalRelation string `json:"totalRelation"`
-	TookMs        int64  `json:"tookMs"`
+	// MaxValues were returned.
+	TotalValues int64 `json:"totalValues"`
+	TookMs      int64 `json:"tookMs"`
 }
 
-// AuditLogTimelineBucket is one interval of the timeline. Matches the OpenAPI
-// AuditLogTimelineBucket schema.
+// AuditLogTimelineBucket is one interval of the timeline.
 type AuditLogTimelineBucket struct {
 	StartTime string `json:"startTime"`
 	// Total equals the sum of Counts, carried separately so a bucket with no
@@ -222,7 +200,7 @@ type AuditLogTimelineBucket struct {
 }
 
 // AuditLogTimeline holds per-interval counts across the queried window, broken
-// down by result. Matches the OpenAPI AuditLogTimeline schema.
+// down by result.
 type AuditLogTimeline struct {
 	// Interval is the width actually used, not necessarily the one requested.
 	Interval string `json:"interval"`

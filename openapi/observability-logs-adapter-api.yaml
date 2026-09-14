@@ -259,8 +259,10 @@ paths:
         forward-only — publishing the trail to an external SIEM and keeping no queryable
         copy — is an explicitly read-path-disabled configuration and answers `501` too.
 
-        Ordering is stable across pages via `cursor`, an opaque token this adapter mints
-        and interprets. See the `410` response for what happens when one expires.
+        **Paging is by time window, not by a continuation token.** Return at most
+        `limit` records ordered by `event_time` in `sortOrder`; the caller continues by
+        re-querying with the window closed up to the last record it received. An adapter
+        therefore keeps no per-scroll state and needs no point-in-time from its backend.
       operationId: queryAuditLogs
       requestBody:
         required: true
@@ -293,24 +295,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "410":
-          description: |
-            Gone. The `cursor` is no longer valid — the point-in-time it pins has
-            expired, or the indices it was minted against have been rolled or deleted.
-            The caller must restart the query from the first page.
-
-            A distinct status rather than a `400`: the observer maps this by status code,
-            exactly as it maps `501`, and a generic `400` would be indistinguishable from
-            a malformed request body. Answering `200` with an empty page instead is the
-            one thing an adapter must not do — it reads as the end of the trail.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "gone"
-                errorCode: ""
-                message: "audit logs cursor has expired; restart the query"
         "500":
           description: Internal Server Error
           content:
@@ -354,7 +338,7 @@ paths:
         than across the whole trail. Honour them, and `query.searchPhrase`, exactly as
         a record query would.
 
-        `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+        `query.limit`, `query.sortOrder`, `query.includeTimeline` and
         `query.timelineInterval` carry no meaning here and must be ignored.
 
         An adapter that serves audit records but cannot aggregate answers `501` here
@@ -1070,17 +1054,6 @@ components:
             - asc
             - desc
           default: desc
-        cursor:
-          type: string
-          description: |
-            Opaque continuation token from a previous response's `nextCursor`. Minted
-            and interpreted by this adapter; the observer passes it through without
-            parsing it. Its shape is deliberately unspecified so the contract does not
-            pick a storage backend by accident.
-
-            When `cursor` is set, the adapter must continue the ordering the token
-            pins rather than re-running the query, so a record written mid-scroll
-            cannot shift a page boundary. An expired token is a `410`.
         includeTimeline:
           type: boolean
           default: false
@@ -1094,8 +1067,8 @@ components:
 
             This is the only aggregation on this operation. Per-filter distinct values
             are deliberately not requested here — one aggregation per filter rather
-            than one in total is enough load to matter on a busy trail, and they are
-            planned as their own operation instead.
+            than one in total is enough load to matter on a busy trail. They have their
+            own operation, `POST /api/v1alpha1/audit-logs/filter-values`.
         timelineInterval:
           type: string
           pattern: "^[1-9][0-9]*[mhdw]$"
@@ -1259,7 +1232,7 @@ components:
 
     AuditLogFilterValuesResponse:
       type: object
-      required: [filter, values, totalValues, totalRelation, tookMs]
+      required: [filter, values, totalValues, tookMs]
       properties:
         filter:
           type: string
@@ -1278,14 +1251,6 @@ components:
           minimum: 0
           description: |
             How many distinct values match, of which at most `maxValues` were returned.
-            Read with `totalRelation`.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
-          description: |
-            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-            distinct values exactly is itself expensive on a high-cardinality field, so
-            an estimate must be labelled `gte` rather than passed off as exact.
         tookMs:
           type: integer
           format: int64
@@ -1591,29 +1556,20 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: Number of matching records. Read with `totalRelation`.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
           description: |
-            Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
-            at (`gte`). Required so a capped count cannot silently claim to be exact —
-            an audit consumer reading `total` as exact when it is capped draws the wrong
-            conclusion about how much happened.
+            Exact number of records matching the query across the whole window, not the
+            number returned — `records` holds at most `limit`. A backend that caps hit
+            counting by default must be configured to count fully: an audit consumer
+            reading an understated total draws the wrong conclusion about how much
+            happened.
         tookMs:
           type: integer
           format: int64
           minimum: 0
           description: The time taken to query the audit logs in milliseconds
-        nextCursor:
-          type: string
-          description: |
-            Opaque token for the next page. Absent when this page is the last one.
-            Absence is the only end-of-results signal — see the `410` response for the
-            expired case.
         timeline:
           $ref: "#/components/schemas/AuditLogTimeline"
-      required: [records, total, totalRelation, tookMs]
+      required: [records, total, tookMs]
 
     AuditLogTimeline:
       type: object

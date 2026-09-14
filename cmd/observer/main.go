@@ -228,8 +228,6 @@ func main() {
 	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
 		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
 		authzClient, logger.With("component", "authz-platform-logs"))
-	// Constructed already wrapped: the bare service is never assigned to a
-	// variable that could reach the handler ungated.
 	authzAuditLogsService := service.NewAuditLogsServiceWithAuthz(
 		service.NewAuditLogsService(concreteLogsAdapter, logger.With("component", "audit-logs")),
 		authzClient, logger.With("component", "authz-audit-logs"))

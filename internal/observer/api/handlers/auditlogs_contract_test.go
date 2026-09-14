@@ -35,12 +35,9 @@ func specFilterProperty(t *testing.T, schemas openapi3.Schemas, path string) *op
 // TestAuditLogsValidatorsMatchSpec ties the hand-written audit validators to
 // openapi/observer-api.yaml.
 //
-// The observer mounts no request-validating middleware, so nothing enforces the
-// spec at runtime: the generated enums are string aliases and maxItems and
-// maxLength reach Go as documentation. validations.go therefore restates them,
-// and a restatement drifts — which is how the `category` enum came to omit
-// `access` on both sides of the same change. These read the numbers back out of
-// the spec so the drift fails here instead.
+// The observer mounts no request-validating middleware, so validations.go
+// restates the spec's enums and bounds — and a restatement drifts. These read
+// them back out of the spec so the drift fails here instead.
 func TestAuditLogsValidatorsMatchSpec(t *testing.T) {
 	t.Parallel()
 

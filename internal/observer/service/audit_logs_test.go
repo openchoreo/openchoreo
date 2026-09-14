@@ -70,10 +70,8 @@ func TestAuditLogsService_QueryAuditLogs(t *testing.T) {
 			Resource:  &observability.AuditLogResource{Type: "project", Name: "payments"},
 			Collector: &observability.AuditLogCollectorInfo{ContainerName: "api-server"},
 		}},
-		TotalCount:    1,
-		TotalRelation: observability.AuditLogsTotalEq,
-		Took:          7,
-		NextCursor:    "next-token",
+		TotalCount: 1,
+		Took:       7,
 	}}
 
 	svc := NewAuditLogsService(adapter, testLogger())
@@ -94,8 +92,6 @@ func TestAuditLogsService_QueryAuditLogs(t *testing.T) {
 	require.NotNil(t, resp.Records[0].Collector)
 	assert.Equal(t, "api-server", resp.Records[0].Collector.ContainerName)
 	assert.Equal(t, int64(1), resp.Total)
-	assert.Equal(t, "eq", resp.TotalRelation)
-	assert.Equal(t, "next-token", resp.NextCursor)
 }
 
 func TestAuditLogsService_TimelineOnlyWhenRequested(t *testing.T) {
@@ -193,39 +189,39 @@ func TestAuditLogsService_DropsTimelineWithUnusableInterval(t *testing.T) {
 	}
 }
 
+const unparsableTime = "not-a-time"
+
 func TestAuditLogsService_QueryAuditLogs_TimeParsing(t *testing.T) {
 	t.Parallel()
 
 	svc := NewAuditLogsService(&stubAuditLogsAdapter{}, testLogger())
 
 	req := auditLogsRequest()
-	req.StartTime = "not-a-time"
+	req.StartTime = unparsableTime
 	_, err := svc.QueryAuditLogs(context.Background(), req)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "start time")
 
 	req = auditLogsRequest()
-	req.EndTime = "not-a-time"
+	req.EndTime = unparsableTime
 	_, err = svc.QueryAuditLogs(context.Background(), req)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "end time")
 }
 
 // The handler maps these sentinels onto specific statuses, so wrapping them
-// would turn a 501 or a restart-the-query 400 into a 500.
+// would turn a 501 into a 500.
 func TestAuditLogsService_SentinelPassThrough(t *testing.T) {
 	t.Parallel()
 
-	t.Run("records: not supported and cursor expired pass through", func(t *testing.T) {
+	t.Run("records: not supported passes through", func(t *testing.T) {
 		t.Parallel()
-		for _, sentinel := range []error{ErrAuditLogsNotSupported, ErrAuditLogsCursorExpired} {
-			adapter := &stubAuditLogsAdapter{queryErr: sentinel}
-			svc := NewAuditLogsService(adapter, testLogger())
-			_, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
-			require.Error(t, err)
-			assert.ErrorIs(t, err, sentinel)
-			assert.NotErrorIs(t, err, ErrAuditLogsRetrieval)
-		}
+		adapter := &stubAuditLogsAdapter{queryErr: ErrAuditLogsNotSupported}
+		svc := NewAuditLogsService(adapter, testLogger())
+		_, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrAuditLogsNotSupported)
+		assert.NotErrorIs(t, err, ErrAuditLogsRetrieval)
 	})
 
 	t.Run("records: anything else is a retrieval failure", func(t *testing.T) {
@@ -238,8 +234,8 @@ func TestAuditLogsService_SentinelPassThrough(t *testing.T) {
 		assert.NotErrorIs(t, err, ErrAuditLogsNotSupported)
 	})
 
-	// A cursor cannot expire on a filter-values query, so that sentinel is not
-	// pass-through there: it would be a bug in the adapter, not a client error.
+	// The record read's sentinel is not pass-through here: a filter-values call
+	// answering it would be a bug in the adapter, not a client error.
 	t.Run("filter values: only its own sentinel passes through", func(t *testing.T) {
 		t.Parallel()
 		adapter := &stubAuditLogsAdapter{valuesErr: ErrAuditLogFilterValuesNotSupported}
@@ -248,52 +244,12 @@ func TestAuditLogsService_SentinelPassThrough(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAuditLogFilterValuesNotSupported)
 
-		adapter = &stubAuditLogsAdapter{valuesErr: ErrAuditLogsCursorExpired}
+		adapter = &stubAuditLogsAdapter{valuesErr: ErrAuditLogsNotSupported}
 		svc = NewAuditLogsService(adapter, testLogger())
 		_, err = svc.QueryAuditLogFilterValues(context.Background(), auditLogFilterValuesRequest())
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrAuditLogsRetrieval)
 	})
-}
-
-// A module's bad value must not become an observer response that violates the
-// observer's own contract.
-func TestAuditLogsService_NormalisesAdapterTotalRelation(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		reported observability.AuditLogsTotalRelation
-		want     string
-	}{
-		{name: "eq passes through", reported: observability.AuditLogsTotalEq, want: "eq"},
-		{name: "gte passes through", reported: observability.AuditLogsTotalGTE, want: "gte"},
-		{name: "unrecognized becomes gte", reported: "exact", want: "gte"},
-		{name: "empty becomes gte", reported: "", want: "gte"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			adapter := &stubAuditLogsAdapter{
-				queryResult: &observability.AuditLogsResult{TotalRelation: tt.reported},
-				valuesResult: &observability.AuditLogFilterValuesResult{
-					Filter: "actor.id", TotalRelation: tt.reported,
-				},
-			}
-			svc := NewAuditLogsService(adapter, testLogger())
-
-			resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, resp.TotalRelation)
-
-			values, err := svc.QueryAuditLogFilterValues(
-				context.Background(), auditLogFilterValuesRequest())
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, values.TotalRelation)
-		})
-	}
 }
 
 func auditLogFilterValuesRequest() *types.AuditLogFilterValuesRequest {
@@ -325,9 +281,8 @@ func TestAuditLogsService_QueryAuditLogFilterValues(t *testing.T) {
 			{Value: "alice@example.com", Count: 412},
 			{Value: "bob@example.com", Count: 17},
 		},
-		TotalValues:   128,
-		TotalRelation: observability.AuditLogsTotalGTE,
-		Took:          9,
+		TotalValues: 128,
+		Took:        9,
 	}}
 
 	svc := NewAuditLogsService(adapter, testLogger())
@@ -346,6 +301,5 @@ func TestAuditLogsService_QueryAuditLogFilterValues(t *testing.T) {
 	require.Len(t, resp.Values, 2)
 	assert.Equal(t, int64(412), resp.Values[0].Count)
 	assert.Equal(t, int64(128), resp.TotalValues)
-	assert.Equal(t, "gte", resp.TotalRelation)
 	assert.Equal(t, int64(9), resp.TookMs)
 }

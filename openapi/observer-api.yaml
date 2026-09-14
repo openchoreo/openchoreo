@@ -564,6 +564,20 @@ paths:
         `/traces/query` and the rest). `GET /api/v1alpha1/platform-logs` is the one
         filter-query read on a GET; the remaining GETs are path-addressed reports.
 
+        **Paging is by time window, as it is on the other log endpoints.** A page holds
+        at most `limit` records, ordered by `event_time` in `sortOrder`; to continue,
+        re-query with the window closed up to the last record you received — moving
+        `endTime` down when descending, `startTime` up when ascending. There is no
+        continuation token, so nothing to expire and nothing a backend has to keep state
+        for.
+
+        One consequence is worth knowing before relying on it: `endTime` is exclusive, so
+        records sharing the boundary's exact `event_time` beyond the page's `limit` are
+        not reached by the next query. `total` reports every match in the window while
+        `records` holds at most `limit`, so compare the two to tell whether a window holds
+        more than one page, and prefer narrowing the window over walking a long one when a
+        burst of activity puts many records on one timestamp.
+
         A `501` here means the configured logs adapter does not serve audit logs — see
         that response. It is never answered with an empty `200`, which would be
         indistinguishable from "nothing happened".
@@ -582,18 +596,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuditLogsResponse"
         "400":
-          description: |
-            Invalid request. Also the response for an expired `cursor`, distinguished by
-            `errorCode` — the caller must restart the query from the first page rather
-            than treat it as the end of the trail.
+          description: Invalid request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "badRequest"
-                errorCode: "OBS-V1-AL-06"
-                message: "The audit logs cursor has expired; restart the query"
         "401":
           description: Unauthorized
           content:
@@ -662,7 +669,7 @@ paths:
         what makes a picker's values agree with the results it leads to.
         `query.searchPhrase` is honoured for the same reason.
 
-        `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+        `query.limit`, `query.sortOrder`, `query.includeTimeline` and
         `query.timelineInterval` are ignored — no records are returned and there is
         nothing to page.
 
@@ -1689,17 +1696,6 @@ components:
             - asc
             - desc
           default: desc
-        cursor:
-          type: string
-          description: |
-            Opaque continuation token from a previous response's `nextCursor`. Minted and
-            interpreted by the adapter behind this observer; pass it back unmodified.
-
-            Continuing with a cursor pins the ordering, so a record written mid-scroll
-            cannot shift a page boundary. A cursor eventually expires — the backend's
-            point-in-time lapses, or the indices it was minted against roll — and that
-            comes back as a `400` carrying the cursor-expired error code, not as an empty
-            page. Restart the query from the first page when it does.
         includeTimeline:
           type: boolean
           default: false
@@ -1712,16 +1708,17 @@ components:
             wants a histogram has to ask for one.
 
             Opt-in because it costs an aggregation pass on top of the search, and the
-            answer describes the query rather than the page: a client paginating should
-            request it on the first page only, since it does not change as the cursor
-            is walked.
+            answer describes the query rather than the page: a client walking the window
+            should request it on the first page only, since it does not change as the
+            window narrows.
 
             There is deliberately no companion flag for filter values — the distinct
             values each filter can take under the query. Those need one aggregation per
             filter rather than one in total, which on a busy trail is enough load to
-            matter on every keystroke that changes a query. They are planned as their
-            own operation, where a client can ask for one filter's values at a time and
-            the cost is proportional to what it actually needs.
+            matter on every keystroke that changes a query. They have their own
+            operation, `POST /api/v1alpha1/audit-logs/filter-values`, where a client
+            asks for one filter's values at a time and the cost stays proportional to
+            what it actually needs.
         timelineInterval:
           type: string
           pattern: "^[1-9][0-9]*[mhdw]$"
@@ -1982,7 +1979,7 @@ components:
         The other filters in `query` narrow which records the values are drawn from,
         except the one named by `filter`, whose own selections are ignored.
 
-        `query.limit`, `query.sortOrder`, `query.cursor`, `query.includeTimeline` and
+        `query.limit`, `query.sortOrder`, `query.includeTimeline` and
         `query.timelineInterval` carry no meaning here: no records are returned, so
         there is nothing to page, order or bucket. They are accepted and ignored
         rather than rejected, so a client can pass its query through untouched.
@@ -2046,11 +2043,14 @@ components:
             The maximum number of values to return, ordered by `count` descending then
             `value` ascending — so a truncated list holds the busiest values.
 
-            A value above the maximum is clamped to it rather than rejected, and one at
-            or below zero falls back to the default. A picker repopulates on every
-            keystroke, so a `400` breaks the control instead of correcting it — and
-            `totalValues` already reports how many values the cap left out, which makes
-            a shortened list honest rather than misleading.
+            `minimum` and `maximum` state the range a client should send. The observer
+            itself clamps rather than rejects an out-of-range value — above the maximum
+            to the maximum, at or below zero to the default — because a picker
+            repopulates on every keystroke and a `400` would break the control instead
+            of correcting it, while `totalValues` already reports what the cap left out.
+            That leniency is the observer's alone: an intermediary validating against
+            this schema may reject an out-of-range value before it ever arrives, so do
+            not rely on it.
 
             Named `maxValues` rather than `limit` to keep it distinct from
             `query.limit`, which is a page size for records and is ignored here.
@@ -2061,7 +2061,6 @@ components:
         - filter
         - values
         - totalValues
-        - totalRelation
         - tookMs
       properties:
         filter:
@@ -2086,16 +2085,8 @@ components:
           minimum: 0
           description: |
             How many distinct values match, of which at most `maxValues` were returned.
-            Read together with `totalRelation` — this is what lets a picker say "412
-            more values, keep typing to narrow" rather than silently ending its list.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
-          description: |
-            Whether `totalValues` is exact (`eq`) or a lower bound (`gte`). Counting
-            distinct values exactly is itself an expensive aggregation on a
-            high-cardinality field, and most backends answer approximately, so a
-            capped or estimated count is labelled rather than passed off as exact.
+            This is what lets a picker say "412 more values, keep typing to narrow"
+            rather than silently ending its list.
         tookMs:
           type: integer
           format: int64
@@ -2312,7 +2303,6 @@ components:
       required:
         - records
         - total
-        - totalRelation
         - tookMs
       properties:
         records:
@@ -2324,25 +2314,19 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: Number of matching records. Read together with `totalRelation`.
-        totalRelation:
-          type: string
-          enum: [eq, gte]
           description: |
-            Whether `total` is exact (`eq`) or a lower bound the backend stopped counting
-            at (`gte`). Present so a capped count cannot silently claim to be exact — an
-            audit consumer reading a capped `total` as exact draws the wrong conclusion
-            about how much happened.
+            Exact number of records matching the query across the whole window, not the
+            number returned — `records` holds at most `limit` of them. Compare the two to
+            tell whether the window holds more than one page.
+
+            Exact, not an estimate: a backend that caps hit counting by default must be
+            configured to count fully. An audit consumer reading an understated total
+            draws the wrong conclusion about how much happened.
         tookMs:
           type: integer
           format: int64
           minimum: 0
           description: The time taken to query the audit logs in milliseconds.
-        nextCursor:
-          type: string
-          description: |
-            Opaque token for the next page. Absent when this page is the last one; its
-            absence is the only end-of-results signal.
         timeline:
           $ref: "#/components/schemas/AuditLogTimeline"
 

@@ -413,7 +413,7 @@ func TestQueryAuditLogsAuditEvent(t *testing.T) {
 	svc := servicemocks.NewMockAuditLogsQuerier(t)
 	svc.On("QueryAuditLogs", mock.Anything, mock.Anything).
 		Return(&types.AuditLogsResponse{
-			Records: []types.AuditLogRecord{}, TotalRelation: "eq",
+			Records: []types.AuditLogRecord{},
 		}, nil)
 	h := &Handler{
 		baseHandler:      baseHandler{logger: noopLogger()},
@@ -451,7 +451,7 @@ func TestQueryAuditLogFilterValuesEmitsNoAuditEvent(t *testing.T) {
 	svc := servicemocks.NewMockAuditLogsQuerier(t)
 	svc.On("QueryAuditLogFilterValues", mock.Anything, mock.Anything).
 		Return(&types.AuditLogFilterValuesResponse{
-			Filter: "actor.id", Values: []types.AuditLogFilterValue{}, TotalRelation: "eq",
+			Filter: "actor.id", Values: []types.AuditLogFilterValue{},
 		}, nil).Maybe()
 	h := &Handler{
 		baseHandler:      baseHandler{logger: noopLogger()},

@@ -334,17 +334,13 @@ const (
 var auditLogsTimelineInterval = regexp.MustCompile(auditLogsTimelineIntervalPattern)
 
 // auditLogsFilterMaxItems is how many values each filter accepts, as
-// openapi/observer-api.yaml declares. The counts differ — the closed enums
-// accept only as many values as they have members — and nothing validates
-// request bodies against the spec at runtime, so this is the only place they
-// are applied.
+// openapi/observer-api.yaml declares. Nothing validates request bodies against
+// the spec at runtime, so this is the only place those counts are applied, and
+// TestAuditLogsValidatorsMatchSpec reads them back out of the spec to catch
+// drift.
 //
-// There is no companion length limit. A filter value longer than anything the
-// trail stores simply matches nothing, which is an answer rather than an error,
-// and capping the length only turned that into a 400 a caller had to handle.
-//
-// TestAuditLogsValidatorsMatchSpec reads these back out of the spec, so a count
-// changed in the YAML alone fails there rather than drifting.
+// There is deliberately no companion length limit: an over-long value matches
+// no record, which is an answer rather than an error.
 var auditLogsFilterMaxItems = map[string]int{
 	"actor.id":             20,
 	"actor.type":           4,
@@ -489,12 +485,10 @@ func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest)
 	if !auditLogsFilterPaths[req.Filter] {
 		return fmt.Errorf("invalid filter %q", req.Filter)
 	}
-	// Clamped rather than rejected, unlike the filter arrays. This caps a list
-	// of values the response already describes — totalValues and totalRelation
-	// say how many more there are — so a shortened list conceals nothing, while
-	// a shortened filter array would silently change which records were asked
-	// about. The caller is a picker repopulating on every keystroke, and a 400
-	// there breaks the control rather than correcting it.
+	// Clamped rather than rejected, unlike the filter arrays: totalValues
+	// already reports what the cap left out, so a shortened list conceals
+	// nothing, and the caller is a picker that a 400 would break rather than
+	// correct.
 	switch {
 	case req.MaxValues <= 0:
 		req.MaxValues = defaultAuditLogsMaxValues
@@ -504,11 +498,9 @@ func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest)
 	return ValidateAuditLogsQueryRequest(&req.Query)
 }
 
-// validateAuditLogsWindow applies the shared window rules, then the audit
-// contract's stricter one. Its endTime is an exclusive bound declared strictly
-// greater than startTime, while the shared validator admits an equal pair — a
-// window that can only ever return nothing, which is better answered as a bad
-// request than as an empty page.
+// validateAuditLogsWindow adds the audit contract's stricter rule to the shared
+// ones: endTime is exclusive and declared strictly greater than startTime,
+// while the shared validator admits an equal pair that can only return nothing.
 func validateAuditLogsWindow(startTime, endTime string) error {
 	if err := ValidateTimeRangeWithMax(startTime, endTime, maxAuditLogsTimeRange); err != nil {
 		return err
@@ -523,9 +515,8 @@ func validateAuditLogsWindow(startTime, endTime string) error {
 }
 
 // validateAuditLogsFilter bounds how many values one filter carries. Rejected
-// rather than truncated, unlike maxValues: a shortened filter would silently
-// change which records were asked about, and nothing in the response would say
-// so.
+// rather than truncated: a shortened filter would change which records were
+// asked about, and nothing in the response would say so.
 func validateAuditLogsFilter(name string, values []string) error {
 	maxItems, ok := auditLogsFilterMaxItems[name]
 	if !ok {

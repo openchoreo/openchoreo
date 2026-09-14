@@ -50,7 +50,7 @@ func (s *AuditLogsService) QueryAuditLogs(
 	result, err := s.adapter.GetAuditLogs(ctx, params)
 	if err != nil {
 		return nil, s.wrapRetrieval("Failed to retrieve audit logs", err,
-			ErrAuditLogsNotSupported, ErrAuditLogsCursorExpired)
+			ErrAuditLogsNotSupported)
 	}
 
 	records := make([]types.AuditLogRecord, 0, len(result.Records))
@@ -59,13 +59,9 @@ func (s *AuditLogsService) QueryAuditLogs(
 	}
 
 	resp := &types.AuditLogsResponse{
-		Records:       records,
-		Total:         result.TotalCount,
-		TotalRelation: s.totalRelation(result.TotalRelation),
-		TookMs:        result.Took,
-		// Passed through whole. The adapter minted it and is the only component
-		// that can read it, and the contract sets it no length.
-		NextCursor: result.NextCursor,
+		Records: records,
+		Total:   result.TotalCount,
+		TookMs:  result.Took,
 	}
 	// Only when asked for: an adapter may compute one unconditionally.
 	if req.IncludeTimeline {
@@ -79,8 +75,7 @@ func (s *AuditLogsService) QueryAuditLogFilterValues(
 	ctx context.Context,
 	req *types.AuditLogFilterValuesRequest,
 ) (*types.AuditLogFilterValuesResponse, error) {
-	// Guarded here rather than in toAuditLogsParams, which sees only the nested
-	// query and so cannot tell a nil request from a nil query.
+	// toAuditLogsParams sees only the nested query, so it cannot catch this.
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
 	}
@@ -106,30 +101,16 @@ func (s *AuditLogsService) QueryAuditLogFilterValues(
 	}
 
 	return &types.AuditLogFilterValuesResponse{
-		Filter:        result.Filter,
-		Values:        values,
-		TotalValues:   result.TotalValues,
-		TotalRelation: s.totalRelation(result.TotalRelation),
-		TookMs:        result.Took,
+		Filter:      result.Filter,
+		Values:      values,
+		TotalValues: result.TotalValues,
+		TookMs:      result.Took,
 	}, nil
 }
 
-// totalRelation constrains what the adapter reported to the values the
-// observer's contract declares. Falls back to gte rather than eq, which would
-// claim a precision nobody established.
-func (s *AuditLogsService) totalRelation(reported observability.AuditLogsTotalRelation) string {
-	switch reported {
-	case observability.AuditLogsTotalEq, observability.AuditLogsTotalGTE:
-		return string(reported)
-	}
-	s.logger.Warn("Logs adapter reported an unrecognized totalRelation; reporting gte",
-		"totalRelation", string(reported))
-	return string(observability.AuditLogsTotalGTE)
-}
-
 // wrapRetrieval passes the given sentinels through and wraps anything else as a
-// retrieval failure. Which sentinels apply differs per operation: a cursor
-// cannot expire on a filter-values query.
+// retrieval failure. Each read names its own, since a module may serve one and
+// decline the other.
 func (s *AuditLogsService) wrapRetrieval(msg string, err error, passThrough ...error) error {
 	for _, sentinel := range passThrough {
 		if errors.Is(err, sentinel) {
@@ -185,7 +166,6 @@ func toAuditLogsParams(req *types.AuditLogsQueryRequest) (observability.AuditLog
 		SearchPhrase:     req.SearchPhrase,
 		Limit:            req.Limit,
 		SortOrder:        req.SortOrder,
-		Cursor:           req.Cursor,
 		IncludeTimeline:  req.IncludeTimeline,
 		TimelineInterval: req.TimelineInterval,
 	}, nil
