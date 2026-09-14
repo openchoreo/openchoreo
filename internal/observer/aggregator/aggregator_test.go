@@ -938,3 +938,90 @@ func TestTickKeepsRunningWhileTheLeaseHolds(t *testing.T) {
 		t.Fatal("the renewer must stop when the tick ends")
 	}
 }
+
+// captureLogs collects slog records at info level so a test can assert on what an
+// operator would actually see.
+type captureHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *captureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+
+func (h *captureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *captureHandler) WithGroup(string) slog.Handler      { return h }
+
+// messagesAtLeast returns the messages logged at or above level.
+func (h *captureHandler) messagesAtLeast(level slog.Level) []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []string
+	for _, r := range h.records {
+		if r.Level >= level {
+			out = append(out, r.Message)
+		}
+	}
+	return out
+}
+
+func containsMessage(msgs []string, substr string) bool {
+	for _, m := range msgs {
+		if strings.Contains(m, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestAnIdleTickStillReportsItself pins that an aggregator with nothing to do is
+// distinguishable from one that is stuck.
+//
+// The completion line used to be emitted only when a tick touched something, so
+// an install with no deployments yet logged nothing at all between startup and
+// its first deployment. That is exactly the window in which someone goes looking
+// for evidence the aggregator is running, and finding silence reads as a hang —
+// it cost a real debugging session on a cluster that was working correctly.
+func TestAnIdleTickStillReportsItself(t *testing.T) {
+	ctx := context.Background()
+	store, incidents := newTestStores(t)
+	capture := &captureHandler{}
+
+	agg := newTestAggregator(store, incidents, nil, time.Now().UTC())
+	agg.logger = slog.New(capture)
+
+	// No incidents, no events: a tick with nothing to fold.
+	require.NoError(t, agg.RunOnce(ctx))
+
+	msgs := capture.messagesAtLeast(slog.LevelInfo)
+	require.True(t, containsMessage(msgs, "tick complete"),
+		"an idle tick must still report at info level, or it cannot be told apart from a stuck one; got %v", msgs)
+}
+
+// TestASkippedTickIsVisible pins that a replica standing down is visible at info
+// level. On a scaled Observer this is the normal state of every replica but one,
+// and it used to log at Debug — invisible at the default level, so a replica that
+// was deliberately idle looked identical to one that was broken.
+func TestASkippedTickIsVisible(t *testing.T) {
+	ctx := context.Background()
+	store, incidents := newTestStores(t)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+
+	leader := newTestAggregator(store, incidents, nil, now)
+	leader.tick(ctx) // takes the lease
+
+	capture := &captureHandler{}
+	follower := newTestAggregator(store, incidents, nil, now)
+	follower.logger = slog.New(capture)
+	follower.tick(ctx) // must stand down, and say so
+
+	msgs := capture.messagesAtLeast(slog.LevelInfo)
+	require.True(t, containsMessage(msgs, "Another replica holds"),
+		"a replica standing down must say so at info level; got %v", msgs)
+}

@@ -189,7 +189,10 @@ func (a *Aggregator) tick(ctx context.Context) {
 		return
 	}
 	if !held {
-		a.logger.Debug("Another replica holds the DORA aggregation lease, skipping tick",
+		// Info, not Debug: on a scaled Observer this is the normal state of every
+		// replica but one, and "am I the one aggregating" is the first question
+		// asked when the metrics look stale.
+		a.logger.Info("Another replica holds the DORA aggregation lease, skipping tick",
 			"holder", a.holder)
 		return
 	}
@@ -329,10 +332,12 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 		}
 	}
 
-	if len(touched) > 0 {
-		a.logger.Info("DORA aggregation tick complete",
-			"touchedMoments", len(touched), "tookMs", a.now().UTC().Sub(tickStart).Milliseconds())
-	}
+	// Reported on every tick, including the ones that touched nothing. Logging
+	// only when there was work leaves an idle aggregator looking exactly like a
+	// stuck one -- no line either way -- and an install with no deployments yet is
+	// precisely when someone goes looking for proof it is running.
+	a.logger.Info("DORA aggregation tick complete",
+		"touchedMoments", len(touched), "tookMs", a.now().UTC().Sub(tickStart).Milliseconds())
 	return nil
 }
 
