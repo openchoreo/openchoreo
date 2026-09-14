@@ -195,6 +195,24 @@ func TestPlatformLogsService_FilterValues_ForwardsNamedFilterSelections(t *testi
 	assert.Equal(t, []string{"already-selected"}, adapter.gotFilterValues.Query.PodNames)
 }
 
+// The response names the picker that asked, so the filter comes off the request. An
+// adapter that answers with a different one does not get to relabel the response.
+func TestPlatformLogsService_FilterValues_EchoesRequestedFilter(t *testing.T) {
+	t.Parallel()
+
+	adapter := &stubPlatformLogsAdapter{
+		filterValues: &observability.PlatformLogFilterValuesResult{
+			Filter: "containerName", TotalRelation: "eq",
+		},
+	}
+	svc := NewPlatformLogsService(adapter, testLogger())
+
+	resp, err := svc.QueryPlatformLogFilterValues(context.Background(), filterValuesRequest())
+	require.NoError(t, err)
+
+	assert.Equal(t, "podName", resp.Filter)
+}
+
 func TestPlatformLogsService_FilterValues_NotSupportedPassesThrough(t *testing.T) {
 	t.Parallel()
 

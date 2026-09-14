@@ -199,7 +199,10 @@ func (p *LogsAdapter) GetPlatformLogFilterValues(
 	}
 
 	return &observability.PlatformLogFilterValuesResult{
-		Filter:        resp.JSON200.Filter,
+		// The filter we asked for, not the one the adapter echoed back: the
+		// response names the picker that asked, so it cannot rest on a remote
+		// agreeing about what was requested.
+		Filter:        params.Filter,
 		Values:        values,
 		TotalValues:   resp.JSON200.TotalValues,
 		TotalRelation: string(resp.JSON200.TotalRelation),

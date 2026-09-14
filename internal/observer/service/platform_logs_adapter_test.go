@@ -379,6 +379,24 @@ func TestLogsAdapter_GetPlatformLogFilterValues_MapsResponse(t *testing.T) {
 	assert.Equal(t, 12, result.Took)
 }
 
+// The filter we asked for wins: a disagreeing adapter cannot make the observer report
+// values under a filter nobody requested.
+func TestLogsAdapter_GetPlatformLogFilterValues_KeepsRequestedFilter(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
+		"filter": "containerName", "values": []any{},
+		"totalValues": 0, "totalRelation": "eq", "tookMs": 1,
+	}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetPlatformLogFilterValues(context.Background(), filterValuesParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, "podName", result.Filter)
+}
+
 // An adapter may serve platform logs and still not be able to aggregate their fields,
 // so this 501 is its own condition rather than the platform logs one.
 func TestLogsAdapter_GetPlatformLogFilterValues_NotImplemented(t *testing.T) {
