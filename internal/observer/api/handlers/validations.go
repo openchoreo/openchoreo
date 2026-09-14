@@ -400,6 +400,28 @@ var (
 	auditLogSurfaces = map[string]bool{"rest": true, "mcp": true}
 )
 
+// AuditLogCategoryValues returns the accepted category filter values, sorted.
+func AuditLogCategoryValues() []string { return sortedVocabulary(auditLogCategories) }
+
+// AuditLogResultValues returns the accepted result filter values, sorted.
+func AuditLogResultValues() []string { return sortedVocabulary(auditLogResults) }
+
+// AuditLogSurfaceValues returns the accepted surface filter values, sorted.
+//
+// These three are exported for the query_audit_logs MCP tool, which declares
+// the same vocabularies as JSON Schema enums. Reading them back out of the
+// validator stops a tool schema and the 400 it would earn from drifting apart.
+func AuditLogSurfaceValues() []string { return sortedVocabulary(auditLogSurfaces) }
+
+func sortedVocabulary(vocabulary map[string]bool) []string {
+	values := make([]string, 0, len(vocabulary))
+	for v := range vocabulary {
+		values = append(values, v)
+	}
+	slices.Sort(values)
+	return values
+}
+
 // ValidateAuditLogsQueryRequest validates the AuditLogsQueryRequest and applies
 // defaults for limit and sort order.
 func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
