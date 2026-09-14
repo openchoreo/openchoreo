@@ -124,7 +124,8 @@ class ChatScope(BaseModel):
     # confirm the failure premise without an extra tool call.
     run_status: str | None = Field(default=None, alias="runStatus", max_length=64)
     # Bound workflow CRD details — name + kind ("Workflow" | "ClusterWorkflow").
-    # When set, the agent can go straight to get_(cluster_)workflow without
+    # When set, the agent can go straight to get_workflow (with the matching
+    # scope) without
     # first calling list_*.
     workflow_name: str | None = Field(default=None, alias="workflowName", max_length=253)
     workflow_kind: str | None = Field(default=None, alias="workflowKind", max_length=64)

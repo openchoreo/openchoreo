@@ -35,7 +35,6 @@ WRITE_VERB_SUBSTRINGS = (
 READ_OVERRIDES: frozenset[str] = frozenset(
     {
         "get_component_type_creation_schema",
-        "get_cluster_component_type_creation_schema",
         "get_trait_creation_schema",
     }
 )

@@ -18,8 +18,6 @@ import (
 //
 // Roles and role bindings each have one scope-collapsed family (5 CRUD + 1
 // creation_schema). Plus two flat diagnostic tools (evaluate_authz, list_authz_actions).
-// No deprecated cluster-prefixed aliases — these tools are net-new and ship
-// scope-collapsed from day one.
 // ---------------------------------------------------------------------------
 
 const (

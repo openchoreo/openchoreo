@@ -76,7 +76,6 @@ def test_query_prefix_beats_description_keyword():
 def test_creation_schema_override_is_read():
     # READ_OVERRIDES — the name has 'create' but it's a schema reader.
     assert not is_mutating(_FakeTool(name="get_component_type_creation_schema"))
-    assert not is_mutating(_FakeTool(name="get_cluster_component_type_creation_schema"))
     assert not is_mutating(_FakeTool(name="get_trait_creation_schema"))
 
 

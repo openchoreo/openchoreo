@@ -98,11 +98,9 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 
 	Context("tool listing", func() {
 		It("returns expected core tools", func() {
-			noDeprecated := false
 			session, err := framework.NewMCPSession(context.Background(), framework.MCPClientConfig{
-				Endpoint:               mcpEndpoint,
-				Token:                  token,
-				IncludeDeprecatedTools: &noDeprecated,
+				Endpoint: mcpEndpoint,
+				Token:    token,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			defer session.Close()
@@ -128,12 +126,10 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 		})
 
 		It("respects toolset narrowing via query parameter", func() {
-			noDeprecated := false
 			session, err := framework.NewMCPSession(context.Background(), framework.MCPClientConfig{
-				Endpoint:               mcpEndpoint,
-				Token:                  token,
-				Toolsets:               []string{"namespace"},
-				IncludeDeprecatedTools: &noDeprecated,
+				Endpoint: mcpEndpoint,
+				Token:    token,
+				Toolsets: []string{"namespace"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			defer session.Close()

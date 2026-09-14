@@ -94,31 +94,6 @@ func handleToolResult(result any, err error) (*mcp.CallToolResult, any, error) {
 	}, result, nil
 }
 
-// deprecationWarning builds the standard deprecation message for a deprecated
-// cluster-prefixed alias tool, pointing the caller at the canonical scope-collapsed
-// tool.
-func deprecationWarning(aliasName, canonicalName string) string {
-	return fmt.Sprintf("%s is deprecated; use %s with scope=%q", aliasName, canonicalName, ScopeCluster)
-}
-
-// handleDeprecatedToolResult is handleToolResult for a deprecated alias tool: on
-// success it prepends a text content block carrying the deprecation warning so
-// callers that have pinned the alias name get a migration signal. The structured
-// result is left unchanged.
-func handleDeprecatedToolResult(
-	aliasName, canonicalName string, result any, err error,
-) (*mcp.CallToolResult, any, error) {
-	res, structured, rerr := handleToolResult(result, err)
-	if rerr != nil || res == nil {
-		return res, structured, rerr
-	}
-	res.Content = append(
-		[]mcp.Content{&mcp.TextContent{Text: "deprecation_warning: " + deprecationWarning(aliasName, canonicalName)}},
-		res.Content...,
-	)
-	return res, structured, nil
-}
-
 func intProperty(description string) map[string]any {
 	return map[string]any{
 		"type":        "integer",

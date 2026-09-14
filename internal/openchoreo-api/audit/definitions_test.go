@@ -61,9 +61,9 @@ func TestGetOperations(t *testing.T) {
 }
 
 // TestMCPBindings is a direct, readable regression test over key shapes in
-// the full MCP tool-to-operation binding table (69 tool names, 90 (tool,
-// scope) keys: 38 plain + 21 scope-collapsed tools x 2 operations + 10
-// fan-in aliases). The exhaustive
+// the full MCP tool-to-operation binding table (60 tool names, 81 (tool,
+// scope) keys: 38 plain + 21 scope-collapsed tools x 2 operations + 1
+// fan-in alias). The exhaustive
 // structural checks (every tool bound or exempted, no unresolvable
 // reference) live in mcphandlers' TestAuditCoverage, which cross-references
 // the live MCP tool registry; this test instead pins specific, easy-to-get-
@@ -74,7 +74,7 @@ func TestMCPBindings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	const wantTotalKeys = 90
+	const wantTotalKeys = 81
 	if len(bindings) != wantTotalKeys {
 		t.Fatalf("len(MCPBindings()) = %d, want %d (got tools: %v)", len(bindings), wantTotalKeys, toolNames(bindings))
 	}
@@ -129,13 +129,6 @@ func TestMCPBindings(t *testing.T) {
 	trigger, ok := bindings[audit.MCPBindingKey{ToolName: "trigger_workflow_run"}]
 	if !ok || trigger.Operation == nil || trigger.Operation.ID != "CreateWorkflowRun" {
 		t.Errorf(`bindings[{"trigger_workflow_run",""}] = %+v, want Operation.ID CreateWorkflowRun`, trigger)
-	}
-
-	// Deprecated cluster-prefixed alias: unscoped tool name, cluster operation.
-	deprecatedAlias, ok := bindings[audit.MCPBindingKey{ToolName: "create_cluster_component_type"}]
-	if !ok || deprecatedAlias.Operation == nil || deprecatedAlias.Operation.ID != "CreateClusterComponentType" {
-		t.Errorf(`bindings[{"create_cluster_component_type",""}] = %+v, want Operation.ID CreateClusterComponentType`,
-			deprecatedAlias)
 	}
 
 	for _, unbound := range []string{

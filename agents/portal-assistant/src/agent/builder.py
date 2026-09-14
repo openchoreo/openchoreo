@@ -106,7 +106,6 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         # Phase A — config inspection
         "get_workflow_run",
         "get_workflow",
-        "get_cluster_workflow",
         # Phase B — log inspection (try in order: live pod logs → events →
         # OpenSearch fallback). Live logs + events come from the build plane
         # directly and work even when OpenSearch hasn't indexed anything yet.

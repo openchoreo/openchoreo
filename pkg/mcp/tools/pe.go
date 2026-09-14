@@ -117,7 +117,7 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server, perms map[string]Too
 			"description":    stringProperty("Human-readable description"),
 			"data_plane_ref": stringProperty("Associated data plane reference name." +
 				" Use list_dataplanes to discover namespace-scoped names," +
-				" or list_cluster_dataplanes to discover cluster-scoped names"),
+				` or list_dataplanes with scope:"cluster" for cluster-scoped names`),
 			"data_plane_ref_kind": map[string]any{
 				"type": "string",
 				"enum": []string{

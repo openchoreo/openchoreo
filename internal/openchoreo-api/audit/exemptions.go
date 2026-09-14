@@ -148,13 +148,4 @@ var MCPToolExemptions = map[string]string{
 		"returns a static JSON schema and calls no service method.",
 	"get_project_type_creation_schema": "Declares projecttype:create for permission-gating only; " +
 		"returns a static JSON schema and calls no service method.",
-
-	// Deprecated cluster-prefixed aliases of three of the five above — same
-	// exemption reason.
-	"get_cluster_component_type_creation_schema": "Deprecated alias of get_component_type_creation_schema; " +
-		"declares clustercomponenttype:create for permission-gating only, calls no service method.",
-	"get_cluster_trait_creation_schema": "Deprecated alias of get_trait_creation_schema; declares " +
-		"clustertrait:create for permission-gating only, calls no service method.",
-	"get_cluster_workflow_creation_schema": "Deprecated alias of get_workflow_creation_schema; declares " +
-		"clusterworkflow:create for permission-gating only, calls no service method.",
 }

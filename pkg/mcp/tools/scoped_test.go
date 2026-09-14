@@ -17,7 +17,7 @@ import (
 // setupScopedTestServer registers all toolsets on a server that has the tool
 // filter middleware installed, then returns a connected client session and the
 // shared mock handler. ctx is propagated to the session (so per-session flags such
-// as WithIncludeDeprecatedTools take effect).
+// as WithRequestedToolsets take effect).
 func setupScopedTestServer(
 	t *testing.T, ctx context.Context, pdp authzcore.PDP,
 ) (*mcp.ClientSession, *MockCoreToolsetHandler) {
@@ -160,127 +160,6 @@ func TestScopedToolInvalidScope(t *testing.T) {
 		Arguments: map[string]any{"scope": "galaxy"},
 	}); err == nil {
 		t.Errorf("expected an error for an invalid scope value")
-	}
-}
-
-func TestDeprecatedAliasHiddenByDefault(t *testing.T) {
-	// Default session as of v1.2: deprecated cluster-prefixed aliases are hidden
-	// from tools/list. They remain callable (see TestDeprecatedAliasRoutesAndWarns)
-	// and can be listed again with ?includeDeprecatedTools=true.
-	cs, _ := setupScopedTestServer(t, context.Background(), nil)
-	result, err := cs.ListTools(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("ListTools: %v", err)
-	}
-	names := toolNameSet(result.Tools)
-	for alias := range deprecatedToolNames {
-		if names[alias] {
-			t.Errorf("deprecated alias %q should be hidden from the default tools/list", alias)
-		}
-	}
-	if !names["get_component_type"] || !names["list_component_types"] {
-		t.Errorf("expected canonical scope-collapsed tools to be present in tools/list")
-	}
-}
-
-func TestDeprecatedAliasVisibleWhenIncluded(t *testing.T) {
-	// includeDeprecatedTools=true keeps the deprecated aliases in tools/list for
-	// clients that have not yet migrated: every alias appears with a
-	// "[DEPRECATED ...]" description banner and the structured _meta marker, so
-	// pinned-name callers see a migration signal before the aliases are removed
-	// in v1.3.
-	ctx := WithIncludeDeprecatedTools(context.Background(), true)
-	cs, _ := setupScopedTestServer(t, ctx, nil)
-	result, err := cs.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListTools: %v", err)
-	}
-	names := toolNameSet(result.Tools)
-	byName := make(map[string]*mcp.Tool, len(result.Tools))
-	for _, tool := range result.Tools {
-		byName[tool.Name] = tool
-	}
-	for alias := range deprecatedToolNames {
-		if !names[alias] {
-			t.Errorf("deprecated alias %q should be listed when includeDeprecatedTools=true", alias)
-			continue
-		}
-		tool := byName[alias]
-		if !strings.HasPrefix(tool.Description, "[DEPRECATED — use ") {
-			t.Errorf("deprecated alias %q description should start with [DEPRECATED ...], got %q",
-				alias, tool.Description)
-		}
-		if !strings.Contains(tool.Description, "hidden in "+deprecatedHiddenInVersion) ||
-			!strings.Contains(tool.Description, "removed in "+deprecatedRemovedInVersion) {
-			t.Errorf("deprecated alias %q description should mention hidden/removed versions, got %q",
-				alias, tool.Description)
-		}
-		meta := tool.GetMeta()
-		if v, _ := meta[deprecatedMetaPrefix+"deprecated"].(bool); !v {
-			t.Errorf("deprecated alias %q should carry _meta[%s]=true, got %+v",
-				alias, deprecatedMetaPrefix+"deprecated", meta)
-		}
-		if v, _ := meta[deprecatedMetaPrefix+"hidden_in"].(string); v != deprecatedHiddenInVersion {
-			t.Errorf("deprecated alias %q _meta hidden_in = %q, want %q",
-				alias, v, deprecatedHiddenInVersion)
-		}
-		if v, _ := meta[deprecatedMetaPrefix+"removed_in"].(string); v != deprecatedRemovedInVersion {
-			t.Errorf("deprecated alias %q _meta removed_in = %q, want %q",
-				alias, v, deprecatedRemovedInVersion)
-		}
-	}
-	if !names["get_component_type"] || !names["list_component_types"] {
-		t.Errorf("expected canonical scope-collapsed tools to be present in tools/list")
-	}
-}
-
-func TestDeprecatedAliasHiddenWhenExcluded(t *testing.T) {
-	// Explicitly setting includeDeprecatedTools=false matches the v1.2 default:
-	// aliases drop out of tools/list, while canonical scope-collapsed tools remain.
-	ctx := WithIncludeDeprecatedTools(context.Background(), false)
-	cs, _ := setupScopedTestServer(t, ctx, nil)
-	result, err := cs.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListTools: %v", err)
-	}
-	names := toolNameSet(result.Tools)
-	for alias := range deprecatedToolNames {
-		if names[alias] {
-			t.Errorf("deprecated alias %q should be hidden when includeDeprecatedTools=false", alias)
-		}
-	}
-	if !names["get_component_type"] || !names["list_component_types"] {
-		t.Errorf("canonical scope-collapsed tools should remain in tools/list")
-	}
-}
-
-func TestDeprecatedAliasRoutesAndWarns(t *testing.T) {
-	cs, mock := setupScopedTestServer(t, context.Background(), nil)
-	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name:      "get_cluster_component_type",
-		Arguments: map[string]any{"name": "platform-web-app"},
-	})
-	if err != nil {
-		t.Fatalf("CallTool get_cluster_component_type: %v", err)
-	}
-	if res.IsError {
-		t.Fatalf("unexpected tool error: %q", firstText(res))
-	}
-	if calls := mock.calls["GetClusterComponentType"]; len(calls) != 1 {
-		t.Fatalf("expected GetClusterComponentType called once, got %d", len(calls))
-	} else if got := calls[0].([]interface{})[0]; got != "platform-web-app" {
-		t.Errorf("GetClusterComponentType arg = %v, want platform-web-app", got)
-	}
-	// The deprecation warning is surfaced as a leading text content block.
-	var warned bool
-	for _, c := range res.Content {
-		if tc, ok := c.(*mcp.TextContent); ok && strings.Contains(tc.Text, "deprecation_warning") &&
-			strings.Contains(tc.Text, "get_component_type") {
-			warned = true
-		}
-	}
-	if !warned {
-		t.Errorf("expected a deprecation_warning content block pointing at get_component_type, got %+v", res.Content)
 	}
 }
 

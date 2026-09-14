@@ -20,8 +20,6 @@ func peToolSpecs() []toolTestSpec {
 	specs = append(specs, peDataPlaneSpecs()...)
 	specs = append(specs, peWorkflowPlaneSpecs()...)
 	specs = append(specs, peObservabilityPlaneSpecs()...)
-	specs = append(specs, peClusterSpecs()...)
-	specs = append(specs, peClusterPlatformStandardsSpecs()...)
 	specs = append(specs, pePlatformStandardsSpecs()...)
 	specs = append(specs, peResourceTypeSpecs()...)
 	specs = append(specs, peProjectTypeSpecs()...)
@@ -405,321 +403,6 @@ func peObservabilityPlaneSpecs() []toolTestSpec {
 	)
 }
 
-func peClusterSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_cluster_dataplanes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "data", "plane"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterDataPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_dataplane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "data", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": "cdp1",
-			},
-			expectedMethod: "GetClusterDataPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "cdp1" {
-					t.Errorf("Expected name %q, got %v", "cdp1", args[0])
-				}
-			},
-		},
-		{
-			name:                "list_cluster_workflowplanes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "workflow", "plane"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterWorkflowPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_workflowplane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "workflow", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": "cwp1",
-			},
-			expectedMethod: "GetClusterWorkflowPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "cwp1" {
-					t.Errorf("Expected name %q, got %v", "cwp1", args[0])
-				}
-			},
-		},
-		{
-			name:                "list_cluster_observability_planes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "observability", "plane"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterObservabilityPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_observability_plane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "observability", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": "cop1",
-			},
-			expectedMethod: "GetClusterObservabilityPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "cop1" {
-					t.Errorf("Expected name %q, got %v", "cop1", args[0])
-				}
-			},
-		},
-	}
-}
-
-func peClusterPlatformStandardsSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_cluster_component_types",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "component", "type"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterComponentTypes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_component_type",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testGoServiceName,
-			},
-			expectedMethod: "GetClusterComponentType",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testGoServiceName {
-					t.Errorf("Expected name %q, got %v", testGoServiceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_cluster_component_type_schema",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "component", "type", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testGoServiceName,
-			},
-			expectedMethod: "GetClusterComponentTypeSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testGoServiceName {
-					t.Errorf("Expected name %q, got %v", testGoServiceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "list_cluster_traits",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "trait"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterTraits",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_trait",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "trait"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testAutoscalerName,
-			},
-			expectedMethod: "GetClusterTrait",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testAutoscalerName {
-					t.Errorf("Expected name %q, got %v", testAutoscalerName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_cluster_trait_schema",
-			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "trait", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testAutoscalerName,
-			},
-			expectedMethod: "GetClusterTraitSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testAutoscalerName {
-					t.Errorf("Expected name %q, got %v", testAutoscalerName, args[0])
-				}
-			},
-		},
-		// Write operations (cluster-scoped)
-		{
-			name:                "create_cluster_component_type",
-			toolset:             "pe",
-			descriptionKeywords: []string{"create", "cluster", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testGoServiceName,
-				"spec": map[string]any{"workloadType": "deployment", "resources": []any{}},
-			},
-			expectedMethod: "CreateClusterComponentType",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "update_cluster_component_type",
-			toolset:             "pe",
-			descriptionKeywords: []string{"update", "cluster", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testGoServiceName,
-				"spec": map[string]any{"workloadType": "deployment", "resources": []any{}},
-			},
-			expectedMethod: "UpdateClusterComponentType",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "delete_cluster_component_type",
-			toolset:             "pe",
-			descriptionKeywords: []string{"delete", "cluster", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testGoServiceName,
-			},
-			expectedMethod: "DeleteClusterComponentType",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testGoServiceName {
-					t.Errorf("Expected name %q, got %v", testGoServiceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "create_cluster_trait",
-			toolset:             "pe",
-			descriptionKeywords: []string{"create", "cluster", "trait"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testAutoscalerName,
-				"spec": map[string]any{},
-			},
-			expectedMethod: "CreateClusterTrait",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "update_cluster_trait",
-			toolset:             "pe",
-			descriptionKeywords: []string{"update", "cluster", "trait"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testAutoscalerName,
-				"spec": map[string]any{},
-			},
-			expectedMethod: "UpdateClusterTrait",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "delete_cluster_trait",
-			toolset:             "pe",
-			descriptionKeywords: []string{"delete", "cluster", "trait"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testAutoscalerName,
-			},
-			expectedMethod: "DeleteClusterTrait",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testAutoscalerName {
-					t.Errorf("Expected name %q, got %v", testAutoscalerName, args[0])
-				}
-			},
-		},
-		{
-			name:                "create_cluster_workflow",
-			toolset:             "pe",
-			descriptionKeywords: []string{"create", "cluster", "workflow"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testBuildWorkflow,
-				"spec": map[string]any{"runTemplate": map[string]any{}},
-			},
-			expectedMethod: "CreateClusterWorkflow",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "update_cluster_workflow",
-			toolset:             "pe",
-			descriptionKeywords: []string{"update", "cluster", "workflow"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name", "spec"},
-			optionalParams:      []string{"display_name", "description"},
-			testArgs: map[string]any{
-				"name": testBuildWorkflow,
-				"spec": map[string]any{"runTemplate": map[string]any{}},
-			},
-			expectedMethod: "UpdateClusterWorkflow",
-			validateCall:   func(t *testing.T, args []interface{}) {},
-		},
-		{
-			name:                "delete_cluster_workflow",
-			toolset:             "pe",
-			descriptionKeywords: []string{"delete", "cluster", "workflow"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": testBuildWorkflow,
-			},
-			expectedMethod: "DeleteClusterWorkflow",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testBuildWorkflow {
-					t.Errorf("Expected name %q, got %v", testBuildWorkflow, args[0])
-				}
-			},
-		},
-	}
-}
-
 func pePlatformStandardsSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
@@ -891,13 +574,6 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			testArgs:            map[string]any{},
 		},
 		{
-			name:                "get_cluster_component_type_creation_schema",
-			toolset:             "pe",
-			descriptionKeywords: []string{"schema", "creating", "cluster", "component", "type"},
-			descriptionMinLen:   10,
-			testArgs:            map[string]any{},
-		},
-		{
 			name:                "get_trait_creation_schema",
 			toolset:             "pe",
 			descriptionKeywords: []string{"schema", "creating", "trait"},
@@ -906,25 +582,11 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			testArgs:            map[string]any{},
 		},
 		{
-			name:                "get_cluster_trait_creation_schema",
-			toolset:             "pe",
-			descriptionKeywords: []string{"schema", "creating", "cluster", "trait"},
-			descriptionMinLen:   10,
-			testArgs:            map[string]any{},
-		},
-		{
 			name:                "get_workflow_creation_schema",
 			toolset:             "pe",
 			descriptionKeywords: []string{"schema", "creating", "workflow"},
 			descriptionMinLen:   10,
 			optionalParams:      []string{"scope"},
-			testArgs:            map[string]any{},
-		},
-		{
-			name:                "get_cluster_workflow_creation_schema",
-			toolset:             "pe",
-			descriptionKeywords: []string{"schema", "creating", "cluster", "workflow"},
-			descriptionMinLen:   10,
 			testArgs:            map[string]any{},
 		},
 		// Write operations (namespace-scoped)
@@ -1195,12 +857,24 @@ func TestComponentToolsetClosuresInPEFile(t *testing.T) {
 			map[string]any{"namespace_name": testNamespaceName, "name": testAutoscalingTrait},
 			"GetTraitSchema",
 		},
-		{"list_cluster_component_types", map[string]any{}, "ListClusterComponentTypes"},
-		{"get_cluster_component_type", map[string]any{"name": testGoServiceName}, "GetClusterComponentType"},
-		{"get_cluster_component_type_schema", map[string]any{"name": testGoServiceName}, "GetClusterComponentTypeSchema"},
-		{"list_cluster_traits", map[string]any{}, "ListClusterTraits"},
-		{"get_cluster_trait", map[string]any{"name": testAutoscalerName}, "GetClusterTrait"},
-		{"get_cluster_trait_schema", map[string]any{"name": testAutoscalerName}, "GetClusterTraitSchema"},
+		{"list_component_types", map[string]any{"scope": ScopeCluster}, "ListClusterComponentTypes"},
+		{
+			"get_component_type",
+			map[string]any{"scope": ScopeCluster, "name": testGoServiceName},
+			"GetClusterComponentType",
+		},
+		{
+			"get_component_type_schema",
+			map[string]any{"scope": ScopeCluster, "name": testGoServiceName},
+			"GetClusterComponentTypeSchema",
+		},
+		{"list_traits", map[string]any{"scope": ScopeCluster}, "ListClusterTraits"},
+		{"get_trait", map[string]any{"scope": ScopeCluster, "name": testAutoscalerName}, "GetClusterTrait"},
+		{
+			"get_trait_schema",
+			map[string]any{"scope": ScopeCluster, "name": testAutoscalerName},
+			"GetClusterTraitSchema",
+		},
 	}
 
 	for _, tt := range tests {
