@@ -93,8 +93,10 @@ data:
       issuer: {{ .issuer | quote }}
       ttl_seconds: {{ .ttlSeconds }}
       secret_ttl_seconds: {{ .secretTtlSeconds }}
+      max_session_seconds: {{ .maxSessionSeconds }}
       secrets_enabled: {{ .secretsEnabled }}
       agent_image: "{{ include "openchoreo-control-plane.image" (dict "context" $ "image" .agentImage) }}"
+      agent_image_pull_policy: {{ .agentImage.pullPolicy | quote }}
       agent_listen_port: {{ .agentListenPort }}
       entrypoint_address: {{ .entrypointAddress | quote }}
       sni_suffix: {{ .sniSuffix | quote }}

@@ -3417,6 +3417,17 @@
                   "additionalProperties": false,
                   "description": "Container image for the provisioned remote-agent Deployment",
                   "properties": {
+                    "pullPolicy": {
+                      "default": "IfNotPresent",
+                      "description": "Image pull policy. Set Always when the tag is floating, so a rebuilt agent is fetched.",
+                      "enum": [
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                      ],
+                      "required": [],
+                      "title": "pullPolicy"
+                    },
                     "repository": {
                       "default": "ghcr.io/openchoreo/remote-agent",
                       "description": "Remote-agent image repository",
@@ -3482,6 +3493,13 @@
                   "description": "JWT kid header for capability signing-key rotation.",
                   "title": "keyId",
                   "type": "string"
+                },
+                "maxSessionSeconds": {
+                  "default": 43200,
+                  "description": "Total length one `occ remote` session may reach across renewals, measured from\nits first resolve. Every renewal re-runs the full authorization check, so the\nrevocation window stays the renewal interval however long a session runs. This\nbounds a forgotten session rather than acting as an access control, and a\nrefused session can always be restarted. Must be at least ttlSeconds, or the\nfirst renewal of every session is refused. 0 means unbounded.\n",
+                  "minimum": 0,
+                  "title": "maxSessionSeconds",
+                  "type": "integer"
                 },
                 "reaperIntervalSeconds": {
                   "default": 300,
