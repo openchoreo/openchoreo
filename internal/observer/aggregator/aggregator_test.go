@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -851,4 +852,89 @@ func (s leaseErrorStore) AcquireLease(
 	context.Context, string, string, int64, int64,
 ) (bool, error) {
 	return true, errors.New("lease store unavailable")
+}
+
+// handoverStore grants the lease once and refuses every renewal after it, which
+// is what a replica sees when its lease expired mid-tick and another replica took
+// over. grants counts acquisitions so a test can tell renewal from acquisition.
+type handoverStore struct {
+	deliveryinsights.Store
+	mu     sync.Mutex
+	grants int
+}
+
+func (s *handoverStore) AcquireLease(
+	context.Context, string, string, int64, int64,
+) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.grants++
+	return s.grants == 1, nil
+}
+
+func (s *handoverStore) grantCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.grants
+}
+
+// TestTickIsAbandonedWhenTheLeaseIsLost pins that holding the lease at the start
+// of a tick is not taken as holding it for the whole tick.
+//
+// A sweep can outlast the TTL — the first tick after enabling reads a 30-day
+// incident window plus whatever event backlog exists — and an expired lease is
+// takeable. Without renewal the original replica keeps writing facts and
+// watermarks while its successor does the same, which is the corruption the lease
+// exists to prevent.
+func TestTickIsAbandonedWhenTheLeaseIsLost(t *testing.T) {
+	store, incidents := newTestStores(t)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	handover := &handoverStore{Store: store}
+	agg.store = handover
+	agg.renewInterval = 2 * time.Millisecond
+
+	// Stand in for a long RunOnce: hold the tick context open and watch for it
+	// being cancelled out from under us.
+	tickCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	renewed := agg.holdLease(tickCtx, cancel)
+
+	select {
+	case <-tickCtx.Done():
+		// The renewer noticed the lease was gone and stopped the tick.
+	case <-time.After(2 * time.Second):
+		t.Fatal("a tick that lost its lease must be cancelled, not left running")
+	}
+	<-renewed
+	require.Greater(t, handover.grantCount(), 1,
+		"the lease must be renewed during the tick, not only acquired before it")
+}
+
+// TestTickKeepsRunningWhileTheLeaseHolds is the other half: renewal must not
+// cancel a tick that still legitimately owns the lease.
+func TestTickKeepsRunningWhileTheLeaseHolds(t *testing.T) {
+	store, incidents := newTestStores(t)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.renewInterval = 2 * time.Millisecond
+
+	tickCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	renewed := agg.holdLease(tickCtx, cancel)
+
+	select {
+	case <-tickCtx.Done():
+		t.Fatal("a tick still holding its lease must not be cancelled")
+	case <-time.After(50 * time.Millisecond): // many renewal intervals
+	}
+
+	cancel()
+	select {
+	case <-renewed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the renewer must stop when the tick ends")
+	}
 }

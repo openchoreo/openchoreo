@@ -91,6 +91,9 @@ type Aggregator struct {
 	// per process, not per pod: a restarted pod reusing its name must not be able to
 	// renew the lease its predecessor held.
 	holder string
+	// renewInterval overrides the lease renewal cadence in tests, where waiting a
+	// third of a real TTL is not an option.
+	renewInterval time.Duration
 }
 
 // New creates an aggregator. events may be nil, in which case only the incident path
@@ -190,9 +193,84 @@ func (a *Aggregator) tick(ctx context.Context) {
 			"holder", a.holder)
 		return
 	}
-	if err := a.RunOnce(ctx); err != nil && ctx.Err() == nil {
+
+	// Acquiring once is not enough. A sweep can outlast the TTL -- the first tick
+	// after enabling reads a 30-day incident window and whatever event backlog
+	// exists -- and an expired lease is takeable, so another replica could start
+	// writing facts and watermarks while this one is still going. The lease is
+	// renewed for as long as the tick runs, and losing it cancels the tick instead
+	// of letting it write on.
+	tickCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	renewed := a.holdLease(tickCtx, cancel)
+
+	err = a.RunOnce(tickCtx)
+	cancel()
+	<-renewed
+
+	switch {
+	case err == nil:
+	case ctx.Err() != nil:
+		// The aggregator is shutting down; not a tick failure.
+	case tickCtx.Err() != nil:
+		a.logger.Warn("DORA aggregation tick abandoned after losing the lease", "holder", a.holder)
+	default:
 		a.logger.Error("DORA aggregation tick failed", "error", err)
 	}
+}
+
+// holdLease renews the lease while a tick runs and calls lost if it ever cannot,
+// so the tick is cancelled rather than continuing to write without the lease. It
+// returns a channel closed once the renewer has stopped, so the caller can be
+// sure no renewal outlives the tick.
+//
+// This narrows the window rather than closing it: like any lease-based election,
+// a renewal that succeeds moments before the holder stalls still leaves a gap. It
+// is bounded by the renewal interval, and a store unreachable for long enough to
+// lose the lease is one this replica's writes are failing against anyway.
+func (a *Aggregator) holdLease(ctx context.Context, lost func()) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(a.leaseRenewInterval())
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				held, err := a.store.AcquireLease(
+					ctx, aggregationLease, a.holder,
+					a.now().UTC().UnixMilli(), a.leaseTTL().Milliseconds(),
+				)
+				if ctx.Err() != nil {
+					return
+				}
+				if err != nil {
+					a.logger.Error("Failed to renew DORA aggregation lease, abandoning tick",
+						"holder", a.holder, "error", err)
+					lost()
+					return
+				}
+				if !held {
+					a.logger.Warn("Lost the DORA aggregation lease to another replica, abandoning tick",
+						"holder", a.holder)
+					lost()
+					return
+				}
+			}
+		}
+	}()
+	return done
+}
+
+// leaseRenewInterval renews comfortably inside the TTL, so a single slow or failed
+// renewal does not forfeit the lease.
+func (a *Aggregator) leaseRenewInterval() time.Duration {
+	if a.renewInterval > 0 {
+		return a.renewInterval
+	}
+	return a.leaseTTL() / 3
 }
 
 // releaseLease hands the lease back on shutdown so a surviving replica starts on
