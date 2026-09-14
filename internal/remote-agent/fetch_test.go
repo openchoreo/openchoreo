@@ -58,7 +58,7 @@ func serveFetchAgent(t *testing.T, auth streamAuthorizer, values valueReader, na
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := remoteconnect.NewTunnelClient(conn, "test-capability")
+	client, err := remoteconnect.NewTunnelClient(conn, func() string { return "test-capability" })
 	if err != nil {
 		t.Fatalf("handshake: %v", err)
 	}

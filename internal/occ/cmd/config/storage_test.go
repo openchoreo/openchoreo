@@ -6,6 +6,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -151,4 +152,36 @@ func TestIsConfigFileExists(t *testing.T) {
 
 		assert.True(t, IsConfigFileExists())
 	})
+}
+
+// The config holds the only copy of the user's credentials, so a partial write would
+// cost a re-login.
+func TestSaveStoredConfigWritesAtomically(t *testing.T) {
+	home := setupTestHome(t)
+	cfgDir := filepath.Join(home, ".openchoreo")
+
+	cfg := &StoredConfig{
+		CurrentContext: "ctx",
+		ControlPlanes:  []ControlPlane{{Name: "cp", URL: "http://cp.example"}},
+		Credentials:    []Credential{{Name: "cred", Token: "t"}},
+		Contexts:       []Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
+	}
+	require.NoError(t, SaveStoredConfig(cfg))
+	require.NoError(t, SaveStoredConfig(cfg))
+
+	info, err := os.Stat(filepath.Join(cfgDir, "config"))
+	require.NoError(t, err)
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm(), "credentials must not be world-readable")
+	}
+
+	entries, err := os.ReadDir(cfgDir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.Equal(t, "config", e.Name(), "the staging file should not survive a successful save")
+	}
+
+	loaded, err := LoadStoredConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "cred", loaded.Credentials[0].Name)
 }

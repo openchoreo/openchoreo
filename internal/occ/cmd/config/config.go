@@ -538,24 +538,38 @@ func GetCurrentContext() (*Context, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+	return cfg.ActiveContext()
+}
 
-	if cfg.CurrentContext == "" {
+// ActiveContext returns the current context within this loaded config.
+func (c *StoredConfig) ActiveContext() (*Context, error) {
+	if c.CurrentContext == "" {
 		return nil, fmt.Errorf("no current context set")
 	}
 
-	// Find current context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			return &cfg.Contexts[idx], nil
+	for idx := range c.Contexts {
+		if c.Contexts[idx].Name == c.CurrentContext {
+			return &c.Contexts[idx], nil
 		}
 	}
 
-	return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
+	return nil, fmt.Errorf("current context '%s' not found", c.CurrentContext)
 }
 
 // GetCurrentCredential returns the credential for the current context
 func GetCurrentCredential() (*Credential, error) {
-	currentContext, err := GetCurrentContext()
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	return cfg.ActiveCredential()
+}
+
+// ActiveCredential returns the current context's credential within this loaded config.
+// The returned pointer aliases c, so a caller that updates it persists the change by
+// saving c.
+func (c *StoredConfig) ActiveCredential() (*Credential, error) {
+	currentContext, err := c.ActiveContext()
 	if err != nil {
 		return nil, err
 	}
@@ -564,37 +578,41 @@ func GetCurrentCredential() (*Credential, error) {
 		return nil, fmt.Errorf("no credentials associated with current context")
 	}
 
-	cfg, err := LoadStoredConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
+	return c.CredentialByName(currentContext.Credentials)
+}
 
-	// Find credential
-	for idx := range cfg.Credentials {
-		if cfg.Credentials[idx].Name == currentContext.Credentials {
-			return &cfg.Credentials[idx], nil
+// CredentialByName returns the named credential within this loaded config. The pointer
+// aliases c, so a caller that updates it persists the change by saving c.
+func (c *StoredConfig) CredentialByName(name string) (*Credential, error) {
+	for idx := range c.Credentials {
+		if c.Credentials[idx].Name == name {
+			return &c.Credentials[idx], nil
 		}
 	}
 
-	return nil, fmt.Errorf("credential '%s' not found", currentContext.Credentials)
+	return nil, fmt.Errorf("credential '%s' not found", name)
 }
 
 // GetCurrentControlPlane returns the control plane for the current context
 func GetCurrentControlPlane() (*ControlPlane, error) {
-	currentContext, err := GetCurrentContext()
-	if err != nil {
-		return nil, err
-	}
-
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+	return cfg.ActiveControlPlane()
+}
 
-	// Find control plane
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			return &cfg.ControlPlanes[idx], nil
+// ActiveControlPlane returns the current context's control plane within this loaded
+// config, so a caller can pair it with ActiveCredential from the same snapshot.
+func (c *StoredConfig) ActiveControlPlane() (*ControlPlane, error) {
+	currentContext, err := c.ActiveContext()
+	if err != nil {
+		return nil, err
+	}
+
+	for idx := range c.ControlPlanes {
+		if c.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			return &c.ControlPlanes[idx], nil
 		}
 	}
 

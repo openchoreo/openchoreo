@@ -4,10 +4,17 @@
 package config
 
 import (
+	"math"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 )
+
+// maxSessionSecondsCeiling is the largest value MaxSession can express without
+// overflowing a time.Duration.
+const maxSessionSecondsCeiling = int64(math.MaxInt64) / int64(time.Second)
 
 // RemoteConnectConfig configures the `occ remote` resolve/authorize endpoints, the signed
 // capability they issue, and the per-project+env remote-agent the control plane
@@ -34,6 +41,11 @@ type RemoteConnectConfig struct {
 	// revocation window for a credential read, and is worth setting shorter than the
 	// dial TTL. Zero falls back to TTLSeconds.
 	SecretTTLSeconds int `koanf:"secret_ttl_seconds"`
+	// MaxSessionSeconds bounds the total life of one `occ remote` session across
+	// renewals, measured from its first resolve. Hygiene for forgotten sessions rather
+	// than an access control: every renewal re-runs authorization, and a refused client
+	// can start a new session. Zero means unbounded.
+	MaxSessionSeconds int `koanf:"max_session_seconds"`
 	// SecretsEnabled allows resolve to sign secret grants at all. An operator kill
 	// switch independent of policy: with it off, no capability authorizes reading a
 	// value, whatever roles grant, and `occ remote` behaves as it did before secret
@@ -42,6 +54,10 @@ type RemoteConnectConfig struct {
 
 	// AgentImage is the container image used for the provisioned remote-agent Deployment.
 	AgentImage string `koanf:"agent_image"`
+	// AgentImagePullPolicy is the pull policy for that image. IfNotPresent suits a tag
+	// that changes per release; a floating tag needs Always for a rebuilt agent to be
+	// fetched rather than served from the node's cache.
+	AgentImagePullPolicy string `koanf:"agent_image_pull_policy"`
 	// AgentListenPort is the TLS tunnel port the remote-agent listens on (ClusterIP
 	// Service targets it; the shared SNI router forwards to it).
 	AgentListenPort int `koanf:"agent_listen_port"`
@@ -71,10 +87,11 @@ func RemoteConnectDefaults() RemoteConnectConfig {
 		Enabled:               false,
 		Issuer:                "openchoreo-control-plane",
 		KeyID:                 "remote-connect-1",
-		TTLSeconds:            1800, // 30 minutes
-		SecretTTLSeconds:      600,  // 10 minutes: a credential read gets a tighter freeze
+		TTLSeconds:            1800,  // 30 minutes
+		SecretTTLSeconds:      600,   // 10 minutes: a credential read gets a tighter freeze
+		MaxSessionSeconds:     43200, // 12 hours: covers a working session, bounds a forgotten one
 		SecretsEnabled:        true,
-		AgentImage:            "ghcr.io/openchoreo/remote-agent:latest",
+		AgentImagePullPolicy:  string(corev1.PullIfNotPresent),
 		AgentListenPort:       8443,
 		SNISuffix:             "remote-connect",
 		ReaperIntervalSeconds: 300,  // 5 minutes
@@ -89,6 +106,55 @@ func (c *RemoteConnectConfig) CapabilityTTL(withSecrets bool) time.Duration {
 		return time.Duration(c.SecretTTLSeconds) * time.Second
 	}
 	return time.Duration(c.TTLSeconds) * time.Second
+}
+
+// renewMargin keeps a renewal ahead of the reaper's idle TTL, so a slow resolve still
+// refreshes the agent before it is considered idle.
+const renewMargin = 60 * time.Second
+
+// minRenewAfter floors the renewal interval so a misconfigured TTL pair cannot ask every
+// connected occ to resolve continuously.
+const minRenewAfter = 10 * time.Second
+
+// RenewAfter returns how long occ should wait before renewing a capability with this
+// lifetime. The cadence has to beat two deadlines: the capability's own expiry, and
+// ReaperTTL, since a resolve is what refreshes a remote-agent once a session's streams
+// have gone quiet. Two thirds of the lifetime leaves the remaining third for retries.
+func (c *RemoteConnectConfig) RenewAfter(withSecrets bool) time.Duration {
+	ttl := c.CapabilityTTL(withSecrets)
+	if ttl <= 0 {
+		return 0
+	}
+	after := ttl * 2 / 3
+	if reaper := c.reaperDeadline(); reaper > 0 && reaper < after {
+		after = reaper
+	}
+	if after < minRenewAfter {
+		after = minRenewAfter
+	}
+	// The floor must not push a renewal past the expiry it exists to beat.
+	if after >= ttl {
+		after = ttl * 2 / 3
+	}
+	return after
+}
+
+// reaperDeadline is the latest a renewal can land and still refresh the agent before the
+// reaper treats it as idle. A TTL too short for the fixed margin uses a proportional one.
+func (c *RemoteConnectConfig) reaperDeadline() time.Duration {
+	ttl := c.ReaperTTL()
+	if ttl <= 0 {
+		return 0
+	}
+	if fixed := ttl - renewMargin; fixed >= ttl*2/3 {
+		return fixed
+	}
+	return ttl * 2 / 3
+}
+
+// MaxSession returns MaxSessionSeconds as a Duration; zero means unbounded.
+func (c *RemoteConnectConfig) MaxSession() time.Duration {
+	return time.Duration(c.MaxSessionSeconds) * time.Second
 }
 
 // GrantTTL returns how long the agent's read Role may go unread before the reaper
@@ -119,6 +185,10 @@ func (c *RemoteConnectConfig) Validate(path *coreconfig.Path) coreconfig.Validat
 	if c.AgentImage == "" {
 		errs = append(errs, coreconfig.Required(path.Child("agent_image")))
 	}
+	if err := coreconfig.MustBeOneOf(path.Child("agent_image_pull_policy"), c.AgentImagePullPolicy,
+		[]string{string(corev1.PullAlways), string(corev1.PullIfNotPresent), string(corev1.PullNever)}); err != nil {
+		errs = append(errs, err)
+	}
 	if c.AuthorizeURL == "" {
 		errs = append(errs, coreconfig.Required(path.Child("authorize_url")))
 	}
@@ -141,11 +211,33 @@ func (c *RemoteConnectConfig) Validate(path *coreconfig.Path) coreconfig.Validat
 		errs = append(errs, coreconfig.MustBeInRange(
 			path.Child("secret_ttl_seconds"), c.SecretTTLSeconds, 1, c.TTLSeconds))
 	}
+	// A bound below the capability lifetime would refuse every session's first renewal.
+	if c.MaxSessionSeconds < 0 {
+		errs = append(errs, coreconfig.MustBeGreaterThan(path.Child("max_session_seconds"), c.MaxSessionSeconds, -1))
+	}
+	if c.MaxSessionSeconds > 0 && c.TTLSeconds > 0 && c.MaxSessionSeconds < c.TTLSeconds {
+		errs = append(errs, coreconfig.MustBeInRange(
+			path.Child("max_session_seconds"), c.MaxSessionSeconds, c.TTLSeconds, 1<<31-1))
+	}
+	// Past the ceiling MaxSession overflows to a negative duration, which reads as
+	// unbounded rather than as the long bound that was asked for.
+	if c.MaxSessionSeconds > 0 {
+		if err := coreconfig.MustBeLessThanOrEqual(path.Child("max_session_seconds"),
+			int64(c.MaxSessionSeconds), maxSessionSecondsCeiling); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if err := coreconfig.MustBeGreaterThan(path.Child("reaper_interval_seconds"), c.ReaperIntervalSeconds, 0); err != nil {
 		errs = append(errs, err)
 	}
 	if err := coreconfig.MustBeGreaterThan(path.Child("reaper_ttl_seconds"), c.ReaperTTLSeconds, 0); err != nil {
 		errs = append(errs, err)
+	}
+	// Below this no cadence both refreshes the agent before the reaper and respects the
+	// renewal floor, so the agent would be reaped mid-session.
+	if c.ReaperTTLSeconds > 0 && c.reaperDeadline() <= minRenewAfter {
+		errs = append(errs, coreconfig.MustBeGreaterThan(path.Child("reaper_ttl_seconds"),
+			c.ReaperTTLSeconds, int(minRenewAfter*3/2/time.Second)))
 	}
 	if err := coreconfig.MustBeInRange(path.Child("agent_listen_port"), c.AgentListenPort, 1, 65535); err != nil {
 		errs = append(errs, err)

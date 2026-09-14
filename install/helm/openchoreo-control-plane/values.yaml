@@ -1983,6 +1983,19 @@ openchoreoApi:
       # @schema
       secretTtlSeconds: 600
       # @schema
+      # type: integer
+      # description: |
+      #   Total length one `occ remote` session may reach across renewals, measured from
+      #   its first resolve. Every renewal re-runs the full authorization check, so the
+      #   revocation window stays the renewal interval however long a session runs. This
+      #   bounds a forgotten session rather than acting as an access control, and a
+      #   refused session can always be restarted. Must be at least ttlSeconds, or the
+      #   first renewal of every session is refused. 0 means unbounded.
+      # default: 43200
+      # minimum: 0
+      # @schema
+      maxSessionSeconds: 43200
+      # @schema
       # type: boolean
       # description: |
       #   Allow `occ remote` to resolve secret- and configmap-backed dependency values.
@@ -2011,6 +2024,13 @@ openchoreoApi:
         # default: ""
         # @schema
         tag: ""
+
+        # @schema
+        # description: Image pull policy. Set Always when the tag is floating, so a rebuilt agent is fetched.
+        # enum: [Always, IfNotPresent, Never]
+        # default: IfNotPresent
+        # @schema
+        pullPolicy: IfNotPresent
       # @schema
       # type: integer
       # description: TLS tunnel port the provisioned remote-agent listens on.

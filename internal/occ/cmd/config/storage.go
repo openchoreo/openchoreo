@@ -30,6 +30,16 @@ func getConfigFilePath() (string, error) {
 	return filepath.Join(homeDir, ".openchoreo", "config"), nil
 }
 
+// TokenLockPath returns the advisory lock file guarding token refreshes. It sits beside
+// the config so a refresh in one occ process excludes one in another.
+func TokenLockPath() (string, error) {
+	configPath, err := getConfigFilePath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(configPath), ".token.lock"), nil
+}
+
 // LoadStoredConfig loads the configuration from disk
 func LoadStoredConfig() (*StoredConfig, error) {
 	configPath, err := getConfigFilePath()
@@ -71,7 +81,27 @@ func SaveStoredConfig(cfg *StoredConfig) error {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	// Write via a temp file in the same directory and rename, so a crash or a second
+	// writer cannot leave the credentials truncated.
+	tmp, err := os.CreateTemp(filepath.Dir(configPath), ".config-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp config file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to set config file permissions: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	if err := os.Rename(tmpPath, configPath); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

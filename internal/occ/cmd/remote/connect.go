@@ -34,7 +34,9 @@ const localHost = "127.0.0.1"
 // tunnel is one yamux session to a project+env remote-agent; each accepted local
 // connection opens a stream on it for a resolved target key.
 type tunnel interface {
-	OpenStream(key string) (net.Conn, error)
+	// OpenStreamWith authorizes the stream with the given capability rather than the
+	// tunnel's current one, so a renewal cannot repoint a stream already being opened.
+	OpenStreamWith(key, capability string) (net.Conn, error)
 	// Fetch resolves one value-fetch key to the bytes the remote-agent read from its own
 	// namespace. Separate from OpenStream because a fetch stream is a single
 	// request/response, not a byte pipe.
@@ -45,10 +47,10 @@ type tunnel interface {
 // Remote implements the `remote` command logic.
 type Remote struct {
 	resolver Resolver
-	// dialTunnel opens one yamux tunnel to a single remote-agent, presenting capability in
-	// the handshake; called once per distinct agent a workload's targets fan out to.
-	// Overridable in tests.
-	dialTunnel func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability string) (tunnel, error)
+	// dialTunnel opens one yamux tunnel to a single remote-agent; called once per distinct
+	// agent a workload's targets fan out to, and again when a renewal moves a target to a
+	// different agent. Overridable in tests.
+	dialTunnel func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability func() string) (tunnel, error)
 	// runShell spawns the subshell with the given environment; overridable in tests.
 	runShell func(ctx context.Context, env []string) error
 	// confirmSecrets asks whether --print-env may print the named fetched values in
@@ -60,7 +62,7 @@ type Remote struct {
 func New(resolver Resolver) *Remote {
 	return &Remote{
 		resolver: resolver,
-		dialTunnel: func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability string) (tunnel, error) {
+		dialTunnel: func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability func() string) (tunnel, error) {
 			return dialRemoteAgentTunnel(ctx, agent, capability)
 		},
 		runShell:       runInteractiveShell,
@@ -168,6 +170,13 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		for _, tn := range s.tunnels {
 			_ = tn.Close()
 		}
+		// Tunnels a renewal superseded stay open for the streams still running on them,
+		// so the session closes them here.
+		for _, u := range s.units {
+			for _, tn := range u.retiredTunnels() {
+				_ = tn.Close()
+			}
+		}
 		s.files.cleanup()
 	}()
 
@@ -201,6 +210,17 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 			failures, len(found))
 	}
 
+	// Started once the workloads are up, so a renewal cannot overlap the resolve that
+	// established one.
+	renewCtx, stopRenewals := context.WithCancel(ctx)
+	defer stopRenewals()
+	for _, u := range s.units {
+		if !u.needsRenewal() {
+			continue
+		}
+		go u.renew(renewCtx, d.resolver)
+	}
+
 	if p.PrintEnv {
 		// Explicit --show-secrets needs no prompt; without it, ask rather than leaving
 		// the developer to guess why a resolved binding has no value.
@@ -209,11 +229,12 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 			show = d.confirmSecrets(out, names)
 		}
 		printEnvBindings(out, s.overrides, s.sensitive, show)
-		fmt.Fprintln(out, "\nTunnels open. Press Ctrl-C to disconnect.")
+		fmt.Fprintln(out, "\nTunnels open. The session renews automatically; press Ctrl-C to disconnect.")
 		<-ctx.Done()
 		return nil
 	}
 
+	fmt.Fprintln(out, "\nTunnels open. The session renews automatically; exit the shell to disconnect.")
 	return d.runShell(ctx, mergeEnv(os.Environ(), s.overrides))
 }
 
@@ -226,6 +247,9 @@ type session struct {
 	listeners []net.Listener
 	tunnels   []tunnel
 	files     *fileStore
+	// units is one entry per fully connected workload, each holding the capability its
+	// streams are authorized by.
+	units []*remoteUnit
 }
 
 // connectWorkload wires one workload's dependencies into s. A failure here is confined
@@ -255,6 +279,10 @@ func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovere
 		return nil
 	}
 	req := buildResolveRequest(wl, f.id.namespace, p.Environment, remoteEndpoints)
+	req.Purpose = remoteconnect.PurposeConnect
+	// A session that will not read values asks for no grants, which keeps it on the full
+	// dial TTL (see ResolveRequest.SkipSecrets).
+	req.SkipSecrets = p.NoSecrets
 	resp, err := d.resolver.Resolve(ctx, req)
 	if err != nil {
 		return err
@@ -270,22 +298,25 @@ func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovere
 	localAddrs := map[string][]addrSwap{}
 	// Hoisted out of the target loop: fetching values needs the same tunnels the
 	// listeners use, and a resource with no address at all still needs one.
+	// Built before the tunnels, because each tunnel is handed unit.cap.
+	unit := newRemoteUnit(req, resp, out, d.dialTunnel)
 	agentTunnels := make(map[string]tunnel, len(resp.Agents))
 	for id, agent := range resp.Agents {
-		tn, terr := d.dialTunnel(ctx, agent, resp.Capability)
+		tn, terr := d.dialTunnel(ctx, agent, unit.cap)
 		if terr != nil {
 			return terr
 		}
 		s.tunnels = append(s.tunnels, tn)
 		agentTunnels[id] = tn
+		unit.installTunnel(id, tn)
 	}
 	if len(resp.Targets) > 0 {
-		// Route each target's streams to its own agent; same-namespace
-		// dependencies share a tunnel.
-		reporter := newStreamErrorReporter(out, resp.Capability)
+		// Route each target's streams to its own agent; same-namespace dependencies
+		// share a tunnel. The unit resolves key -> tunnel per connection, so the
+		// listener does not care which agent currently serves it.
+		reporter := newStreamErrorReporter(out, unit.expiresAt)
 		for _, t := range resp.Targets {
-			tn, ok := agentTunnels[t.AgentID]
-			if !ok {
+			if _, ok := agentTunnels[t.AgentID]; !ok {
 				return fmt.Errorf("resolve returned no remote-agent %q for target %s", t.AgentID, t.Key)
 			}
 
@@ -297,7 +328,7 @@ func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovere
 			port := ln.Addr().(*net.TCPAddr).Port
 
 			key := t.Key
-			open := func() (net.Conn, error) { return tn.OpenStream(key) }
+			open := func() (net.Conn, error) { return unit.openStream(key) }
 			go forward(ln, key, open, reporter.report)
 
 			mergeOverrides(staged, out, remoteconnect.RenderEnv(t, localHost, port))
@@ -323,6 +354,8 @@ func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovere
 	for name := range stagedSensitive {
 		s.sensitive[name] = true
 	}
+	// Registered only once the whole workload is up, so a failed one is never renewed.
+	s.units = append(s.units, unit)
 	return nil
 }
 
@@ -472,18 +505,15 @@ func forward(ln net.Listener, key string, open func() (net.Conn, error), report 
 // fails once usually fails for every subsequent connection, so repeating it would bury
 // the session in noise.
 type streamErrorReporter struct {
-	out     io.Writer
-	expiry  time.Time
+	out io.Writer
+	// expiry is read per failure rather than captured, because renewal moves it.
+	expiry  func() time.Time
 	mu      sync.Mutex
 	printed map[string]bool
 }
 
-func newStreamErrorReporter(out io.Writer, capability string) *streamErrorReporter {
-	r := &streamErrorReporter{out: out, printed: map[string]bool{}}
-	if exp, ok := remoteconnect.CapabilityExpiry(capability); ok {
-		r.expiry = exp
-	}
-	return r
+func newStreamErrorReporter(out io.Writer, expiry func() time.Time) *streamErrorReporter {
+	return &streamErrorReporter{out: out, expiry: expiry, printed: map[string]bool{}}
 }
 
 func (r *streamErrorReporter) report(key string, err error) {
@@ -493,9 +523,14 @@ func (r *streamErrorReporter) report(key string, err error) {
 		return
 	}
 	r.printed[key] = true
-	if !r.expiry.IsZero() && time.Now().After(r.expiry) {
-		fmt.Fprintf(r.out, "  ! %s: session expired at %s — exit and re-run `occ remote` to reconnect\n",
-			key, r.expiry.Local().Format(time.Kitchen))
+	// The renewal that dropped the key already reported the reason.
+	if errors.Is(err, errRevoked) {
+		fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)
+		return
+	}
+	if exp := r.expiry(); !exp.IsZero() && time.Now().After(exp) {
+		fmt.Fprintf(r.out, "  ! %s: the session could not be renewed before it expired at %s — "+
+			"exit and re-run `occ remote` to reconnect\n", key, exp.Local().Format(time.Kitchen))
 		return
 	}
 	fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)

@@ -51,8 +51,13 @@ type Server struct {
 	values valueReader
 }
 
-// sessionTracker records the capability of each live tunnel session. Its count drives
-// whether the agent heartbeats; sample() yields any live capability to present.
+// sessionTracker records the most recent capability seen on each live tunnel session.
+// Its count drives whether the agent heartbeats; sample() yields a live capability to
+// present.
+//
+// A session enters with no capability (it arrives with the first StreamOpen) and cannot
+// be heartbeated until then. Not a gap: occ's own renewals resolve on a cadence shorter
+// than the reaper's TTL, which refreshes the agent.
 type sessionTracker struct {
 	mu   sync.Mutex
 	next uint64
@@ -61,13 +66,27 @@ type sessionTracker struct {
 
 func newSessionTracker() *sessionTracker { return &sessionTracker{caps: map[uint64]string{}} }
 
-func (t *sessionTracker) add(capability string) uint64 {
+func (t *sessionTracker) add() uint64 {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	id := t.next
 	t.next++
-	t.caps[id] = capability
+	t.caps[id] = ""
 	return id
+}
+
+// update records the capability a stream on this session presented, so the heartbeat
+// presents a genuine one. Any capability will do as a liveness proof, so the freshest
+// one seen simply wins.
+func (t *sessionTracker) update(id uint64, capability string) {
+	if capability == "" {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, live := t.caps[id]; live {
+		t.caps[id] = capability
+	}
 }
 
 func (t *sessionTracker) remove(id uint64) {
@@ -76,12 +95,16 @@ func (t *sessionTracker) remove(id uint64) {
 	delete(t.caps, id)
 }
 
-// sample returns the capability of one live session, or ("", false) if none are live.
+// sample returns a capability from one live session, or ("", false) when no live session
+// has presented one yet. A session that has opened no stream is skipped rather than
+// yielding an empty token the control plane would reject.
 func (t *sessionTracker) sample() (string, bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, c := range t.caps {
-		return c, true
+		if c != "" {
+			return c, true
+		}
 	}
 	return "", false
 }
@@ -177,16 +200,15 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 	remote := conn.RemoteAddr().String()
 
-	capability, ok := s.handshake(conn, remote)
-	if !ok {
+	if !s.handshake(conn, remote) {
 		return
 	}
 	s.log.Info("tunnel established", "remote", remote)
 
 	// Register the session so the heartbeat loop keeps this agent alive for the whole
 	// life of the connection — even while it is idle (no new streams), as when a
-	// debugger is paused at a breakpoint.
-	sessionID := s.sessions.add(capability)
+	// debugger is paused at a breakpoint. The capability arrives with the first stream.
+	sessionID := s.sessions.add()
 	defer s.sessions.remove(sessionID)
 
 	ycfg := yamux.DefaultConfig()
@@ -219,7 +241,7 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 			if sem != nil {
 				defer func() { <-sem }()
 			}
-			s.handleStream(ctx, st, capability)
+			s.handleStream(ctx, st, sessionID)
 		}(stream)
 	}
 }
@@ -252,31 +274,32 @@ func (s *Server) heartbeatLoop(ctx context.Context) {
 	}
 }
 
-// handshake reads Hello and replies HelloResult. The agent does not verify the
-// capability here — it holds no key. It simply checks the protocol version and retains
-// the capability to replay to the control plane's authorize endpoint on each stream.
-func (s *Server) handshake(conn net.Conn, remote string) (capability string, ok bool) {
+// handshake reads Hello and replies HelloResult, checking only that the peer speaks this
+// protocol version. Hello carries no capability: the client is admitted by the TLS
+// handshake against the agent's pinned certificate, and every stream is authorized on
+// its own by the control plane.
+func (s *Server) handshake(conn net.Conn, remote string) bool {
 	_ = conn.SetDeadline(time.Now().Add(s.cfg.HandshakeTimeout))
 	defer func() { _ = conn.SetDeadline(time.Time{}) }()
 
 	var hello remoteconnect.Hello
 	if err := remoteconnect.ReadMessage(conn, &hello); err != nil {
 		s.log.Warn("handshake read failed", "remote", remote, "error", err)
-		return "", false
+		return false
 	}
 	if hello.ProtocolVersion != remoteconnect.ProtocolVersion {
-		_ = remoteconnect.WriteMessage(conn, remoteconnect.HelloResult{OK: false, Error: "unsupported protocol version"})
-		return "", false
-	}
-	if hello.Capability == "" {
-		_ = remoteconnect.WriteMessage(conn, remoteconnect.HelloResult{OK: false, Error: "missing capability"})
-		return "", false
+		s.log.Warn("handshake rejected: protocol version",
+			"remote", remote, "client", hello.ProtocolVersion, "agent", remoteconnect.ProtocolVersion)
+		_ = remoteconnect.WriteMessage(conn, remoteconnect.HelloResult{OK: false, Error: fmt.Sprintf(
+			"unsupported protocol version: this remote-agent speaks %d, occ sent %d; upgrade whichever is older",
+			remoteconnect.ProtocolVersion, hello.ProtocolVersion)})
+		return false
 	}
 	if err := remoteconnect.WriteMessage(conn, remoteconnect.HelloResult{OK: true}); err != nil {
 		s.log.Warn("handshake reply failed", "remote", remote, "error", err)
-		return "", false
+		return false
 	}
-	return hello.Capability, true
+	return true
 }
 
 func (s *Server) rejectStream(stream net.Conn, reason string) {

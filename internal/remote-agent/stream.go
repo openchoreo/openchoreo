@@ -13,10 +13,12 @@ import (
 )
 
 // handleStream services one multiplexed stream: read StreamOpen, ask the control
-// plane to authorize the key against the session capability (returning the concrete
-// dial target), dial it, and pipe bytes both ways. The agent never trusts a
-// client-supplied host — the target comes only from the control plane.
-func (s *Server) handleStream(ctx context.Context, stream net.Conn, capability string) {
+// plane to authorize the key against the capability the stream presented (returning the
+// concrete dial target), dial it, and pipe bytes both ways. The agent never trusts a
+// client-supplied host — the target comes only from the control plane. The agent holds
+// no verification key: it forwards whatever the stream presented and obeys the answer.
+// sessionID names the session to record the capability against for heartbeats.
+func (s *Server) handleStream(ctx context.Context, stream net.Conn, sessionID uint64) {
 	defer stream.Close()
 
 	_ = stream.SetReadDeadline(time.Now().Add(s.cfg.StreamOpenTimeout))
@@ -27,8 +29,14 @@ func (s *Server) handleStream(ctx context.Context, stream net.Conn, capability s
 	}
 	_ = stream.SetReadDeadline(time.Time{})
 
+	if open.Capability == "" {
+		s.log.Warn("stream open carried no capability", "key", open.Key)
+		_ = remoteconnect.WriteMessage(stream, remoteconnect.StreamResult{OK: false, Error: "missing capability"})
+		return
+	}
+
 	authCtx, cancelAuth := context.WithTimeout(ctx, s.cfg.AuthorizeTimeout)
-	target, err := s.auth.authorize(authCtx, capability, open.Key)
+	target, err := s.auth.authorize(authCtx, open.Capability, open.Key)
 	cancelAuth()
 	if err != nil {
 		s.log.Warn("stream authorization failed", "key", open.Key, "error", err)
@@ -45,6 +53,10 @@ func (s *Server) handleStream(ctx context.Context, stream net.Conn, capability s
 		_ = remoteconnect.WriteMessage(stream, remoteconnect.StreamResult{OK: false, Error: "not authorized"})
 		return
 	}
+
+	// Recorded once the capability is vouched for and belongs to this agent, so a refused
+	// stream cannot displace what the heartbeat presents. Kept if a check below refuses.
+	s.sessions.update(sessionID, open.Capability)
 
 	// The key's space and the control plane's answer must agree. A fetch key answered
 	// with a dial target would open a TCP connection to a host the client never had a

@@ -62,6 +62,9 @@ const (
 	certValidity = 90 * 24 * time.Hour
 	// certAnnotation carries the served cert's digest on the agent pod template.
 	certAnnotation = "openchoreo.dev/remote-connect-cert"
+	// protocolAnnotation carries the tunnel wire-protocol version on the agent pod
+	// template, so a version bump rolls agents whose image tag did not change.
+	protocolAnnotation = "openchoreo.dev/remote-connect-protocol"
 	// certRenewBefore is how long before expiry a stored agent cert is reissued, so a
 	// long-lived agent never serves an expired one.
 	certRenewBefore = 30 * 24 * time.Hour
@@ -407,15 +410,18 @@ func (p *remoteAgentProvisioner) applyDeployment(ctx context.Context, dpClient c
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labelSet,
-					// The agent loads its keypair at start-up, so the pod must roll when the
-					// cert is reissued.
-					Annotations: map[string]string{certAnnotation: certFingerprint(certPEM)},
+					// The agent loads its keypair at start-up and serves one wire-protocol
+					// version, so the pod must roll when either changes.
+					Annotations: map[string]string{
+						certAnnotation:     certFingerprint(certPEM),
+						protocolAnnotation: strconv.Itoa(remoteconnect.ProtocolVersion),
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:            "remote-agent",
 						Image:           p.cfg.AgentImage,
-						ImagePullPolicy: corev1.PullIfNotPresent,
+						ImagePullPolicy: corev1.PullPolicy(p.cfg.AgentImagePullPolicy),
 						Args:            args,
 						// The agent sends its own namespace in heartbeats so the control
 						// plane refreshes the right agent.

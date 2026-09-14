@@ -322,7 +322,7 @@ func TestConnectAnnouncesDirectoryExpansion(t *testing.T) {
 	run := func(t *testing.T, paths []string) string {
 		t.Helper()
 		d := New(erroringResolver{t: t})
-		d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, string) (tunnel, error) {
+		d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, func() string) (tunnel, error) {
 			t.Fatal("dialTunnel should not be called for a locally-linked dependency")
 			return nil, nil
 		}
@@ -765,7 +765,7 @@ func TestConnectKeepsLocalLinksWhenRemoteHalfFails(t *testing.T) {
 		gotEnv = envToMap(env)
 		return nil
 	}
-	d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, string) (tunnel, error) {
+	d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, func() string) (tunnel, error) {
 		t.Fatal("dialTunnel should not be called for a locally-linked dependency")
 		return nil, nil
 	}
@@ -954,7 +954,7 @@ func TestConnectFailedWorkloadContributesNothing(t *testing.T) {
 	// comp-b's second target names an agent the response never defines, so the workload
 	// fails only after its first target merged env and opened a listener.
 	d := New(&brokenSecondTargetResolver{failFor: "comp-b"})
-	d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, string) (tunnel, error) {
+	d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, func() string) (tunnel, error) {
 		return &fakeTunnel{addr: "127.0.0.1:1"}, nil
 	}
 	var gotEnv map[string]string
@@ -1076,4 +1076,56 @@ func TestConnectNoDirectoryHeaderWhenDirectoryContributedNothing(t *testing.T) {
 	if strings.Contains(out.String(), "all treated as running locally") {
 		t.Errorf("no directory chose the set, so no header belongs here:\n%s", out.String())
 	}
+}
+
+// A workload that fails partway must not be left registered for renewal: renewing it
+// would keep resolving, and reporting, for something the developer was told is down.
+func TestConnectRemoteRegistersRenewalOnlyOnSuccess(t *testing.T) {
+	root := writeTree(t, map[string]string{"components/comp-b.yaml": resourceWorkloadYAML("comp-b")})
+	disc, err := discoverWorkloads([]string{filepath.Join(root, "components")})
+	if err != nil {
+		t.Fatalf("discoverWorkloads: %v", err)
+	}
+	if err := assignIdentities(disc.workloads, "default"); err != nil {
+		t.Fatalf("assignIdentities: %v", err)
+	}
+
+	run := func(t *testing.T, resolver Resolver) (*session, error) {
+		t.Helper()
+		d := New(resolver)
+		d.dialTunnel = func(context.Context, remoteconnect.AgentEndpoint, func() string) (tunnel, error) {
+			return &fakeTunnel{addr: "127.0.0.1:1"}, nil
+		}
+		s := &session{overrides: map[string]string{}, sensitive: map[string]bool{}, files: newFileStore()}
+		var out bytes.Buffer
+		err := d.connectRemote(t.Context(), ConnectParams{Namespace: "default", Environment: "development"},
+			disc.workloads[0], nil, s, &out)
+		for _, ln := range s.listeners {
+			_ = ln.Close()
+		}
+		return s, err
+	}
+
+	t.Run("failed workload", func(t *testing.T) {
+		s, err := run(t, &brokenSecondTargetResolver{failFor: "comp-b"})
+		if err == nil {
+			t.Fatal("expected the workload to fail on its undefined agent")
+		}
+		if !strings.Contains(err.Error(), "no remote-agent") {
+			t.Errorf("connectRemote error = %v, want the missing-agent failure", err)
+		}
+		if len(s.units) != 0 {
+			t.Errorf("a workload that failed partway was registered for renewal (%d units)", len(s.units))
+		}
+	})
+
+	t.Run("healthy workload", func(t *testing.T) {
+		s, err := run(t, &brokenSecondTargetResolver{failFor: "other"})
+		if err != nil {
+			t.Fatalf("connectRemote: %v", err)
+		}
+		if len(s.units) != 1 {
+			t.Errorf("a connected workload should be registered exactly once, got %d units", len(s.units))
+		}
+	})
 }

@@ -17,6 +17,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 )
 
+// testCapability is the capability the agent tests present on their streams. Its value
+// is irrelevant: the agent holds no key and forwards whatever it is given.
+const testCapability = "test-capability"
+
 // fakeAuthorizer stands in for the control-plane authorize callback: it maps target
 // keys to concrete dial targets, or refuses unknown keys.
 type fakeAuthorizer struct {
@@ -76,7 +80,7 @@ func serveAgent(t *testing.T, auth streamAuthorizer) *remoteconnect.TunnelClient
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := remoteconnect.NewTunnelClient(conn, "test-capability")
+	client, err := remoteconnect.NewTunnelClient(conn, func() string { return testCapability })
 	if err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
@@ -130,9 +134,9 @@ func (f *fakeHeartbeater) heartbeat(_ context.Context, capability, namespace str
 	return nil
 }
 
-// TestAgentHeartbeatsWhileSessionLive proves the agent refreshes liveness only while it
-// has a live session — the mechanism that keeps a paused/idle session from being reaped
-// (it does not depend on any new streams being opened).
+// The agent refreshes liveness while a live session has presented a capability the
+// control plane accepted, which keeps a paused session from being reaped once its
+// streams have gone quiet. Until then occ's own renewals keep the agent alive.
 func TestAgentHeartbeatsWhileSessionLive(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -140,9 +144,16 @@ func TestAgentHeartbeatsWhileSessionLive(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
+	echo := startEcho(t)
+	host, portStr, _ := net.SplitHostPort(echo.Addr().String())
+	port, _ := strconv.Atoi(portStr)
+
 	hb := &fakeHeartbeater{ch: make(chan [2]string, 8)}
 	cfg := Config{HeartbeatInterval: 20 * time.Millisecond, Namespace: "dp-ns"}.withDefaults()
-	srv := NewServer(cfg, &fakeAuthorizer{targets: map[string]remoteconnect.AuthorizeResponse{}}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	auth := &fakeAuthorizer{targets: map[string]remoteconnect.AuthorizeResponse{
+		"ep/greeter/greeter-svc/http": {Host: host, Port: port, Proto: "tcp"},
+	}}
+	srv := NewServer(cfg, auth, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	srv.hb = hb
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -156,20 +167,42 @@ func TestAgentHeartbeatsWhileSessionLive(t *testing.T) {
 	case <-time.After(120 * time.Millisecond):
 	}
 
-	// Open a session (no streams). The heartbeat must still fire — this is the paused-
-	// at-a-breakpoint case: a live tunnel with zero open connections.
+	// No stream yet, so no capability to heartbeat with.
 	conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := remoteconnect.NewTunnelClient(conn, "test-capability")
+	client, err := remoteconnect.NewTunnelClient(conn, func() string { return testCapability })
 	if err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
+	select {
+	case c := <-hb.ch:
+		t.Fatalf("heartbeat fired before any stream presented a capability: %v", c)
+	case <-time.After(120 * time.Millisecond):
+	}
+
+	// A refused stream proves nothing about its capability, so it must not become the
+	// one the heartbeat presents.
+	if _, oerr := client.OpenStream("ep/unknown"); oerr == nil {
+		t.Fatal("expected an unknown key to be refused")
+	}
+	select {
+	case c := <-hb.ch:
+		t.Fatalf("heartbeat fired on a capability only a refused stream presented: %v", c)
+	case <-time.After(120 * time.Millisecond):
+	}
+
+	// An authorized stream vouches for the capability, so liveness starts.
+	authorized, oerr := client.OpenStream("ep/greeter/greeter-svc/http")
+	if oerr != nil {
+		t.Fatalf("open authorized stream: %v", oerr)
+	}
+	t.Cleanup(func() { _ = authorized.Close() })
 
 	select {
 	case c := <-hb.ch:
-		if c[0] != "test-capability" || c[1] != "dp-ns" {
+		if c[0] != testCapability || c[1] != "dp-ns" {
 			t.Fatalf("heartbeat sent unexpected args: capability=%q namespace=%q", c[0], c[1])
 		}
 	case <-time.After(2 * time.Second):
@@ -255,7 +288,7 @@ func TestAgentRefusesTargetForAnotherNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := remoteconnect.NewTunnelClient(conn, "test-capability")
+	client, err := remoteconnect.NewTunnelClient(conn, func() string { return testCapability })
 	if err != nil {
 		t.Fatalf("handshake: %v", err)
 	}
