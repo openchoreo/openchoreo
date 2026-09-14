@@ -1072,7 +1072,6 @@ components:
           default: desc
         cursor:
           type: string
-          maxLength: 4096
           description: |
             Opaque continuation token from a previous response's `nextCursor`. Minted
             and interpreted by this adapter; the observer passes it through without
@@ -1119,7 +1118,6 @@ components:
           description: Semantic action names, e.g. `create_project`
           items:
             type: string
-            maxLength: 253
         category:
           type: array
           uniqueItems: true
@@ -1148,7 +1146,6 @@ components:
           description: Emitting services, e.g. `openchoreo-api`
           items:
             type: string
-            maxLength: 253
         surface:
           type: array
           uniqueItems: true
@@ -1166,7 +1163,6 @@ components:
           description: Canonical operation identifiers, e.g. `CreateProject`
           items:
             type: string
-            maxLength: 253
         request_id:
           type: array
           uniqueItems: true
@@ -1174,7 +1170,6 @@ components:
           description: Correlation IDs shared with the access log, matched exactly
           items:
             type: string
-            maxLength: 253
         event_id:
           type: array
           uniqueItems: true
@@ -1182,7 +1177,6 @@ components:
           description: Record identifiers, matched exactly
           items:
             type: string
-            maxLength: 253
         source_ip:
           type: array
           uniqueItems: true
@@ -1190,7 +1184,6 @@ components:
           description: Client addresses, matched exactly rather than by network range
           items:
             type: string
-            maxLength: 253
         user_agent:
           type: array
           uniqueItems: true
@@ -1198,10 +1191,8 @@ components:
           description: Client identifications, matched exactly
           items:
             type: string
-            maxLength: 512
         searchPhrase:
           type: string
-          maxLength: 256
           description: Free text to match within the record
       required: [startTime, endTime]
 
@@ -1252,7 +1243,6 @@ components:
             - user_agent
         valueSearch:
           type: string
-          maxLength: 256
           description: |
             Return only values containing this text, case-insensitively. Narrows the
             **values** returned, unlike `query.searchPhrase`, which narrows the records
@@ -1332,7 +1322,6 @@ components:
             deployment an `id` filter is meaningful only paired with one.
           items:
             type: string
-            maxLength: 253
         type:
           type: array
           uniqueItems: true
@@ -1340,7 +1329,6 @@ components:
           description: Kinds of subject, e.g. `user`, `service_account`, `anonymous`
           items:
             type: string
-            maxLength: 64
         issuer:
           type: array
           uniqueItems: true
@@ -1348,7 +1336,6 @@ components:
           description: Token issuers — the namespace an `id` is unique within
           items:
             type: string
-            maxLength: 512
         session_id:
           type: array
           uniqueItems: true
@@ -1358,7 +1345,6 @@ components:
             on client-credentials tokens, so a session filter excludes service accounts.
           items:
             type: string
-            maxLength: 253
         entitlements:
           type: array
           uniqueItems: true
@@ -1370,7 +1356,6 @@ components:
             account) and a caller should not have to know which.
           items:
             type: string
-            maxLength: 253
 
     AuditLogsResourceFilter:
       type: object
@@ -1385,7 +1370,6 @@ components:
           description: Resource kinds
           items:
             type: string
-            maxLength: 253
         namespace:
           type: array
           uniqueItems: true
@@ -1393,7 +1377,6 @@ components:
           description: OpenChoreo namespaces
           items:
             type: string
-            maxLength: 253
         environment:
           type: array
           uniqueItems: true
@@ -1404,21 +1387,18 @@ components:
             A bare name will not match.
           items:
             type: string
-            maxLength: 507
         project:
           type: array
           uniqueItems: true
           maxItems: 20
           items:
             type: string
-            maxLength: 253
         component:
           type: array
           uniqueItems: true
           maxItems: 20
           items:
             type: string
-            maxLength: 253
         name:
           type: array
           uniqueItems: true
@@ -1426,7 +1406,6 @@ components:
           description: Resource names, as the handler recorded them
           items:
             type: string
-            maxLength: 253
 
     AuditLogRecord:
       type: object
@@ -1628,7 +1607,6 @@ components:
           description: The time taken to query the audit logs in milliseconds
         nextCursor:
           type: string
-          maxLength: 4096
           description: |
             Opaque token for the next page. Absent when this page is the last one.
             Absence is the only end-of-results signal — see the `410` response for the
@@ -1973,6 +1951,7 @@ components:
             - forbidden
             - notFound
             - conflict
+            - gone
             - internalServerError
             - notImplemented
         errorCode:

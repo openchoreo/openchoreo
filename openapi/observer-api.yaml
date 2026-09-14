@@ -1691,7 +1691,6 @@ components:
           default: desc
         cursor:
           type: string
-          maxLength: 4096
           description: |
             Opaque continuation token from a previous response's `nextCursor`. Minted and
             interpreted by the adapter behind this observer; pass it back unmodified.
@@ -1750,7 +1749,6 @@ components:
           description: Semantic action names.
           items:
             type: string
-            maxLength: 253
           example: ["create_project", "delete_component"]
         category:
           type: array
@@ -1783,7 +1781,6 @@ components:
           description: Emitting services.
           items:
             type: string
-            maxLength: 253
           example: ["openchoreo-api"]
         surface:
           type: array
@@ -1803,7 +1800,6 @@ components:
           description: Canonical operation identifiers.
           items:
             type: string
-            maxLength: 253
           example: ["CreateProject"]
         request_id:
           type: array
@@ -1814,7 +1810,6 @@ components:
             record for the same request, so it takes exact IDs rather than a prefix.
           items:
             type: string
-            maxLength: 253
         event_id:
           type: array
           uniqueItems: true
@@ -1822,7 +1817,6 @@ components:
           description: Record identifiers, for fetching known records directly.
           items:
             type: string
-            maxLength: 253
         source_ip:
           type: array
           uniqueItems: true
@@ -1833,7 +1827,6 @@ components:
             with, which behind a proxy is the proxy.
           items:
             type: string
-            maxLength: 253
         user_agent:
           type: array
           uniqueItems: true
@@ -1844,10 +1837,8 @@ components:
             — this filter is for pinning down one exact agent.
           items:
             type: string
-            maxLength: 512
         searchPhrase:
           type: string
-          maxLength: 256
           description: Free text to match within the record.
       required: [startTime, endTime]
 
@@ -1868,7 +1859,6 @@ components:
             that happen to share a `sub`.
           items:
             type: string
-            maxLength: 253
           example: ["alice@example.com"]
         type:
           type: array
@@ -1877,7 +1867,6 @@ components:
           description: Kinds of subject, e.g. `user`, `service_account`, `anonymous`.
           items:
             type: string
-            maxLength: 64
           example: ["user", "service_account"]
         issuer:
           type: array
@@ -1889,7 +1878,6 @@ components:
             multi-issuer one it is what makes an `id` filter mean one subject.
           items:
             type: string
-            maxLength: 512
         session_id:
           type: array
           uniqueItems: true
@@ -1903,7 +1891,6 @@ components:
             activity and silently excludes service accounts.
           items:
             type: string
-            maxLength: 253
         entitlements:
           type: array
           uniqueItems: true
@@ -1916,7 +1903,6 @@ components:
             `platform-engineer` do" should not have to know which.
           items:
             type: string
-            maxLength: 253
           example: ["platform-engineer"]
 
     AuditLogsResourceFilter:
@@ -1935,7 +1921,6 @@ components:
           description: Resource kinds.
           items:
             type: string
-            maxLength: 253
           example: ["project"]
         namespace:
           type: array
@@ -1944,7 +1929,6 @@ components:
           description: OpenChoreo namespaces.
           items:
             type: string
-            maxLength: 253
           example: ["default"]
         environment:
           type: array
@@ -1956,7 +1940,6 @@ components:
             bare environment name will not match.
           items:
             type: string
-            maxLength: 507
           example: ["default/development"]
         project:
           type: array
@@ -1965,7 +1948,6 @@ components:
           description: Projects.
           items:
             type: string
-            maxLength: 253
         component:
           type: array
           uniqueItems: true
@@ -1973,7 +1955,6 @@ components:
           description: Components.
           items:
             type: string
-            maxLength: 253
         name:
           type: array
           uniqueItems: true
@@ -1981,7 +1962,6 @@ components:
           description: Resource names, as the handler recorded them.
           items:
             type: string
-            maxLength: 253
 
     AuditLogFilterValuesRequest:
       type: object
@@ -2047,7 +2027,6 @@ components:
           example: actor.id
         valueSearch:
           type: string
-          maxLength: 256
           description: |
             Return only values containing this text, case-insensitively. This is how a
             picker narrows as its user types, and it is what makes a high-cardinality
@@ -2066,6 +2045,12 @@ components:
           description: |
             The maximum number of values to return, ordered by `count` descending then
             `value` ascending — so a truncated list holds the busiest values.
+
+            A value above the maximum is clamped to it rather than rejected, and one at
+            or below zero falls back to the default. A picker repopulates on every
+            keystroke, so a `400` breaks the control instead of correcting it — and
+            `totalValues` already reports how many values the cap left out, which makes
+            a shortened list honest rather than misleading.
 
             Named `maxValues` rather than `limit` to keep it distinct from
             `query.limit`, which is a page size for records and is ignored here.
@@ -2355,7 +2340,6 @@ components:
           description: The time taken to query the audit logs in milliseconds.
         nextCursor:
           type: string
-          maxLength: 4096
           description: |
             Opaque token for the next page. Absent when this page is the last one; its
             absence is the only end-of-results signal.

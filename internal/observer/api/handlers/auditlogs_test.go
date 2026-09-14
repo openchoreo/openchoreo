@@ -121,6 +121,17 @@ func TestQueryAuditLogs_ValidationRejects(t *testing.T) {
 			name: "malformed timeline interval",
 			body: `{` + auditLogsWindow + `,"includeTimeline":true,"timelineInterval":"15x"}`,
 		},
+		{
+			// endTime is exclusive, so an equal pair selects nothing. A 400
+			// says so rather than answering with an empty page.
+			name: "empty window",
+			body: `{"startTime":"2026-08-14T16:30:00Z","endTime":"2026-08-14T16:30:00Z"}`,
+		},
+		{
+			// actor.type accepts 4 values, not the 20 most filters take.
+			name: "too many values for a narrow filter",
+			body: `{` + auditLogsWindow + `,"actor":{"type":["a","b","c","d","e"]}}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -178,10 +189,6 @@ func TestQueryAuditLogFilterValues_ValidationRejects(t *testing.T) {
 			body: `{"query":{` + auditLogsWindow + `},"filter":"event_id"}`,
 		},
 		{
-			name: "maxValues over the cap",
-			body: `{"query":{` + auditLogsWindow + `},"filter":"actor.id","maxValues":1001}`,
-		},
-		{
 			name: "the nested query is validated by the same rules",
 			body: `{"query":{` + auditLogsWindow + `,"category":["bogus"]},"filter":"actor.id"}`,
 		},
@@ -223,20 +230,40 @@ func TestQueryAuditLogFilterValues_Succeeds(t *testing.T) {
 	assert.Equal(t, []string{"default"}, got.Query.Resource.Namespaces)
 }
 
-func TestQueryAuditLogFilterValues_DefaultsMaxValues(t *testing.T) {
+// A picker repopulates on every keystroke, and the response reports what the cap
+// left out, so maxValues is clamped into range instead of rejected.
+func TestQueryAuditLogFilterValues_ClampsMaxValues(t *testing.T) {
 	t.Parallel()
 
-	svc := servicemocks.NewMockAuditLogsQuerier(t)
-	var got *types.AuditLogFilterValuesRequest
-	svc.EXPECT().QueryAuditLogFilterValues(mock.Anything, mock.Anything).
-		Run(func(_ context.Context, req *types.AuditLogFilterValuesRequest) { got = req }).
-		Return(&types.AuditLogFilterValuesResponse{Filter: "action", TotalRelation: "eq"}, nil)
+	tests := []struct {
+		name string
+		sent string
+		want int
+	}{
+		{name: "absent falls back to the default", sent: "", want: defaultAuditLogsMaxValues},
+		{name: "zero is absent", sent: `,"maxValues":0`, want: defaultAuditLogsMaxValues},
+		{name: "negative is absent", sent: `,"maxValues":-5`, want: defaultAuditLogsMaxValues},
+		{name: "within range passes through", sent: `,"maxValues":25`, want: 25},
+		{name: "over the cap clamps", sent: `,"maxValues":5000`, want: maxAuditLogsMaxValues},
+	}
 
-	rr := queryFilterValues(t, auditLogsHandler(t, svc),
-		`{"query":{`+auditLogsWindow+`},"filter":"action"}`)
-	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	require.NotNil(t, got)
-	assert.Equal(t, 100, got.MaxValues)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := servicemocks.NewMockAuditLogsQuerier(t)
+			var got *types.AuditLogFilterValuesRequest
+			svc.EXPECT().QueryAuditLogFilterValues(mock.Anything, mock.Anything).
+				Run(func(_ context.Context, req *types.AuditLogFilterValuesRequest) { got = req }).
+				Return(&types.AuditLogFilterValuesResponse{Filter: "action", TotalRelation: "eq"}, nil)
+
+			rr := queryFilterValues(t, auditLogsHandler(t, svc),
+				`{"query":{`+auditLogsWindow+`},"filter":"action"`+tt.sent+`}`)
+			require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, got.MaxValues)
+		})
+	}
 }
 
 func TestAuditLogs_ErrorMapping(t *testing.T) {

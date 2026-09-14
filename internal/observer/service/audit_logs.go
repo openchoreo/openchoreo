@@ -18,9 +18,6 @@ import (
 // ErrAuditLogsRetrieval wraps a failure to reach or read from the logs adapter.
 var ErrAuditLogsRetrieval = errors.New("audit logs retrieval failed")
 
-// maxAuditLogsCursorLength mirrors the cursor maxLength both specs declare.
-const maxAuditLogsCursorLength = 4096
-
 // auditLogsTimelineInterval mirrors the interval pattern both specs declare.
 // Separate from the handler's copy: that one validates a request, this one an
 // adapter response.
@@ -66,7 +63,9 @@ func (s *AuditLogsService) QueryAuditLogs(
 		Total:         result.TotalCount,
 		TotalRelation: s.totalRelation(result.TotalRelation),
 		TookMs:        result.Took,
-		NextCursor:    s.nextCursor(result.NextCursor),
+		// Passed through whole. The adapter minted it and is the only component
+		// that can read it, and the contract sets it no length.
+		NextCursor: result.NextCursor,
 	}
 	// Only when asked for: an adapter may compute one unconditionally.
 	if req.IncludeTimeline {
@@ -80,6 +79,11 @@ func (s *AuditLogsService) QueryAuditLogFilterValues(
 	ctx context.Context,
 	req *types.AuditLogFilterValuesRequest,
 ) (*types.AuditLogFilterValuesResponse, error) {
+	// Guarded here rather than in toAuditLogsParams, which sees only the nested
+	// query and so cannot tell a nil request from a nil query.
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
 	query, err := toAuditLogsParams(&req.Query)
 	if err != nil {
 		return nil, err
@@ -121,18 +125,6 @@ func (s *AuditLogsService) totalRelation(reported observability.AuditLogsTotalRe
 	s.logger.Warn("Logs adapter reported an unrecognized totalRelation; reporting gte",
 		"totalRelation", string(reported))
 	return string(observability.AuditLogsTotalGTE)
-}
-
-// nextCursor drops an over-long token rather than emitting a response the
-// observer's own schema rejects. Dropping it ends the scroll, which is
-// recoverable.
-func (s *AuditLogsService) nextCursor(cursor string) string {
-	if len(cursor) <= maxAuditLogsCursorLength {
-		return cursor
-	}
-	s.logger.Error("Logs adapter returned an oversized nextCursor; dropping it",
-		"length", len(cursor), "max", maxAuditLogsCursorLength)
-	return ""
 }
 
 // wrapRetrieval passes the given sentinels through and wraps anything else as a

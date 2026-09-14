@@ -423,6 +423,12 @@ type AuditLogFilterValuesRequest struct {
 	// MaxValues The maximum number of values to return, ordered by `count` descending then
 	// `value` ascending — so a truncated list holds the busiest values.
 	//
+	// A value above the maximum is clamped to it rather than rejected, and one at
+	// or below zero falls back to the default. A picker repopulates on every
+	// keystroke, so a `400` breaks the control instead of correcting it — and
+	// `totalValues` already reports how many values the cap left out, which makes
+	// a shortened list honest rather than misleading.
+	//
 	// Named `maxValues` rather than `limit` to keep it distinct from
 	// `query.limit`, which is a page size for records and is ignored here.
 	MaxValues *int `json:"maxValues,omitempty"`

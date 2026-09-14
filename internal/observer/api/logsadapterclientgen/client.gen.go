@@ -131,6 +131,7 @@ const (
 	BadRequest          ErrorResponseTitle = "badRequest"
 	Conflict            ErrorResponseTitle = "conflict"
 	Forbidden           ErrorResponseTitle = "forbidden"
+	Gone                ErrorResponseTitle = "gone"
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"
 	NotImplemented      ErrorResponseTitle = "notImplemented"

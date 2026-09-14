@@ -322,10 +322,7 @@ func validatePlatformLogsFilter(name string, values []string) error {
 }
 
 const (
-	maxAuditLogsFilterItems  = 20
-	maxAuditLogsValueLength  = 512
-	maxAuditLogsSearchLength = 256
-	maxAuditLogsMaxValues    = 1000
+	maxAuditLogsMaxValues = 1000
 	// Deliberately not defaultLimit, which is a record page size.
 	defaultAuditLogsMaxValues = 100
 	// Not maxQueryTimeRange: the audit trail has its own, longer retention, and
@@ -335,6 +332,42 @@ const (
 )
 
 var auditLogsTimelineInterval = regexp.MustCompile(auditLogsTimelineIntervalPattern)
+
+// auditLogsFilterMaxItems is how many values each filter accepts, as
+// openapi/observer-api.yaml declares. The counts differ — the closed enums
+// accept only as many values as they have members — and nothing validates
+// request bodies against the spec at runtime, so this is the only place they
+// are applied.
+//
+// There is no companion length limit. A filter value longer than anything the
+// trail stores simply matches nothing, which is an answer rather than an error,
+// and capping the length only turned that into a 400 a caller had to handle.
+//
+// TestAuditLogsValidatorsMatchSpec reads these back out of the spec, so a count
+// changed in the YAML alone fails there rather than drifting.
+var auditLogsFilterMaxItems = map[string]int{
+	"actor.id":             20,
+	"actor.type":           4,
+	"actor.issuer":         20,
+	"actor.session_id":     20,
+	"actor.entitlements":   20,
+	"resource.type":        20,
+	"resource.namespace":   20,
+	"resource.environment": 20,
+	"resource.project":     20,
+	"resource.component":   20,
+	"resource.name":        20,
+	"action":               20,
+	"category":             3,
+	"result":               4,
+	"surface":              2,
+	"producer":             20,
+	"operation_id":         20,
+	"request_id":           20,
+	"event_id":             20,
+	"source_ip":            20,
+	"user_agent":           20,
+}
 
 // auditLogsFilterPaths are the filters QueryAuditLogFilterValues can list
 // values for. Mirrors the `filter` enum in openapi/observer-api.yaml.
@@ -378,31 +411,36 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 		return fmt.Errorf("request is required")
 	}
 
-	filters := map[string][]string{
-		"actor.id":             req.Actor.IDs,
-		"actor.type":           req.Actor.Types,
-		"actor.issuer":         req.Actor.Issuers,
-		"actor.session_id":     req.Actor.SessionIDs,
-		"actor.entitlements":   req.Actor.Entitlements,
-		"resource.type":        req.Resource.Types,
-		"resource.namespace":   req.Resource.Namespaces,
-		"resource.environment": req.Resource.Environments,
-		"resource.project":     req.Resource.Projects,
-		"resource.component":   req.Resource.Components,
-		"resource.name":        req.Resource.Names,
-		"action":               req.Actions,
-		"category":             req.Categories,
-		"result":               req.Results,
-		"producer":             req.Producers,
-		"surface":              req.Surfaces,
-		"operation_id":         req.OperationIDs,
-		"request_id":           req.RequestIDs,
-		"event_id":             req.EventIDs,
-		"source_ip":            req.SourceIPs,
-		"user_agent":           req.UserAgents,
+	// A slice rather than a map so a body violating two filters always names the
+	// same one, which map iteration order would leave to chance.
+	filters := []struct {
+		name   string
+		values []string
+	}{
+		{"actor.id", req.Actor.IDs},
+		{"actor.type", req.Actor.Types},
+		{"actor.issuer", req.Actor.Issuers},
+		{"actor.session_id", req.Actor.SessionIDs},
+		{"actor.entitlements", req.Actor.Entitlements},
+		{"resource.type", req.Resource.Types},
+		{"resource.namespace", req.Resource.Namespaces},
+		{"resource.environment", req.Resource.Environments},
+		{"resource.project", req.Resource.Projects},
+		{"resource.component", req.Resource.Components},
+		{"resource.name", req.Resource.Names},
+		{"action", req.Actions},
+		{"category", req.Categories},
+		{"result", req.Results},
+		{"producer", req.Producers},
+		{"surface", req.Surfaces},
+		{"operation_id", req.OperationIDs},
+		{"request_id", req.RequestIDs},
+		{"event_id", req.EventIDs},
+		{"source_ip", req.SourceIPs},
+		{"user_agent", req.UserAgents},
 	}
-	for name, values := range filters {
-		if err := validateAuditLogsFilter(name, values); err != nil {
+	for _, f := range filters {
+		if err := validateAuditLogsFilter(f.name, f.values); err != nil {
 			return err
 		}
 	}
@@ -426,15 +464,12 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 		}
 	}
 
-	if len(req.SearchPhrase) > maxAuditLogsSearchLength {
-		return fmt.Errorf("searchPhrase cannot exceed %d characters", maxAuditLogsSearchLength)
-	}
 	if req.TimelineInterval != "" && !auditLogsTimelineInterval.MatchString(req.TimelineInterval) {
 		return fmt.Errorf(
 			"timelineInterval must be <count><unit> where unit is m, h, d or w (e.g. 15m)")
 	}
 
-	if err := ValidateTimeRangeWithMax(req.StartTime, req.EndTime, maxAuditLogsTimeRange); err != nil {
+	if err := validateAuditLogsWindow(req.StartTime, req.EndTime); err != nil {
 		return err
 	}
 	if err := ValidateAndSetLimit(&req.Limit); err != nil {
@@ -454,30 +489,53 @@ func ValidateAuditLogFilterValuesRequest(req *types.AuditLogFilterValuesRequest)
 	if !auditLogsFilterPaths[req.Filter] {
 		return fmt.Errorf("invalid filter %q", req.Filter)
 	}
-	if len(req.ValueSearch) > maxAuditLogsSearchLength {
-		return fmt.Errorf("valueSearch cannot exceed %d characters", maxAuditLogsSearchLength)
-	}
-	if req.MaxValues < 0 {
-		return fmt.Errorf("maxValues must be a positive integer")
-	}
-	if req.MaxValues > maxAuditLogsMaxValues {
-		return fmt.Errorf("maxValues cannot exceed %d", maxAuditLogsMaxValues)
-	}
-	if req.MaxValues == 0 {
+	// Clamped rather than rejected, unlike the filter arrays. This caps a list
+	// of values the response already describes — totalValues and totalRelation
+	// say how many more there are — so a shortened list conceals nothing, while
+	// a shortened filter array would silently change which records were asked
+	// about. The caller is a picker repopulating on every keystroke, and a 400
+	// there breaks the control rather than correcting it.
+	switch {
+	case req.MaxValues <= 0:
 		req.MaxValues = defaultAuditLogsMaxValues
+	case req.MaxValues > maxAuditLogsMaxValues:
+		req.MaxValues = maxAuditLogsMaxValues
 	}
 	return ValidateAuditLogsQueryRequest(&req.Query)
 }
 
+// validateAuditLogsWindow applies the shared window rules, then the audit
+// contract's stricter one. Its endTime is an exclusive bound declared strictly
+// greater than startTime, while the shared validator admits an equal pair — a
+// window that can only ever return nothing, which is better answered as a bad
+// request than as an empty page.
+func validateAuditLogsWindow(startTime, endTime string) error {
+	if err := ValidateTimeRangeWithMax(startTime, endTime, maxAuditLogsTimeRange); err != nil {
+		return err
+	}
+	// Both parsed cleanly above, so only the comparison is left to make.
+	start, _ := time.Parse(time.RFC3339, startTime)
+	end, _ := time.Parse(time.RFC3339, endTime)
+	if !end.After(start) {
+		return fmt.Errorf("endTime must be strictly after startTime")
+	}
+	return nil
+}
+
+// validateAuditLogsFilter bounds how many values one filter carries. Rejected
+// rather than truncated, unlike maxValues: a shortened filter would silently
+// change which records were asked about, and nothing in the response would say
+// so.
 func validateAuditLogsFilter(name string, values []string) error {
-	if len(values) > maxAuditLogsFilterItems {
-		return fmt.Errorf("%s cannot have more than %d values", name, maxAuditLogsFilterItems)
+	maxItems, ok := auditLogsFilterMaxItems[name]
+	if !ok {
+		return fmt.Errorf("unknown filter %q", name)
+	}
+	if len(values) > maxItems {
+		return fmt.Errorf("%s cannot have more than %d values", name, maxItems)
 	}
 	seen := make(map[string]struct{}, len(values))
 	for _, v := range values {
-		if len(v) > maxAuditLogsValueLength {
-			return fmt.Errorf("%s values cannot exceed %d characters", name, maxAuditLogsValueLength)
-		}
 		if _, dup := seen[v]; dup {
 			return fmt.Errorf("duplicate %s value %q is not allowed", name, v)
 		}

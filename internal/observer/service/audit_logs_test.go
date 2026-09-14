@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -297,36 +296,6 @@ func TestAuditLogsService_NormalisesAdapterTotalRelation(t *testing.T) {
 	}
 }
 
-func TestAuditLogsService_DropsOversizedCursor(t *testing.T) {
-	t.Parallel()
-
-	t.Run("within the cap passes through", func(t *testing.T) {
-		t.Parallel()
-		cursor := strings.Repeat("a", maxAuditLogsCursorLength)
-		adapter := &stubAuditLogsAdapter{queryResult: &observability.AuditLogsResult{
-			TotalRelation: observability.AuditLogsTotalEq, NextCursor: cursor,
-		}}
-		svc := NewAuditLogsService(adapter, testLogger())
-
-		resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
-		require.NoError(t, err)
-		assert.Equal(t, cursor, resp.NextCursor)
-	})
-
-	t.Run("over the cap is dropped", func(t *testing.T) {
-		t.Parallel()
-		adapter := &stubAuditLogsAdapter{queryResult: &observability.AuditLogsResult{
-			TotalRelation: observability.AuditLogsTotalEq,
-			NextCursor:    strings.Repeat("a", maxAuditLogsCursorLength+1),
-		}}
-		svc := NewAuditLogsService(adapter, testLogger())
-
-		resp, err := svc.QueryAuditLogs(context.Background(), auditLogsRequest())
-		require.NoError(t, err)
-		assert.Empty(t, resp.NextCursor)
-	})
-}
-
 func auditLogFilterValuesRequest() *types.AuditLogFilterValuesRequest {
 	return &types.AuditLogFilterValuesRequest{
 		Query:       *auditLogsRequest(),
@@ -334,6 +303,17 @@ func auditLogFilterValuesRequest() *types.AuditLogFilterValuesRequest {
 		ValueSearch: "ali",
 		MaxValues:   25,
 	}
+}
+
+// Reachable through the exported AuditLogsQuerier, where reading req.Query
+// before any nil check would panic rather than return.
+func TestAuditLogsService_RejectsNilFilterValuesRequest(t *testing.T) {
+	t.Parallel()
+
+	svc := NewAuditLogsService(&stubAuditLogsAdapter{}, testLogger())
+	resp, err := svc.QueryAuditLogFilterValues(context.Background(), nil)
+	require.Error(t, err)
+	assert.Nil(t, resp)
 }
 
 func TestAuditLogsService_QueryAuditLogFilterValues(t *testing.T) {
