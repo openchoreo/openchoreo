@@ -30,7 +30,7 @@ func NewHTTPServer(handler *MCPHandler, auditOpts mcpaudit.MiddlewareOptions) (h
 
 	auditMw, err := mcpaudit.NewMiddleware(auditOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create MCP audit middleware: %w", err)
 	}
 	server.AddReceivingMiddleware(auditMw)
 
