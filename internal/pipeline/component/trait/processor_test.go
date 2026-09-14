@@ -136,6 +136,43 @@ spec:
 			wantErr: false,
 		},
 		{
+			name:              "create with conditional omit - empty string is omitted",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: pvc-trait
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: pvc
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: |
+            ${has(environmentConfigs.storageClass) && environmentConfigs.storageClass != '' ? environmentConfigs.storageClass : oc_omit()}
+`,
+			context: map[string]any{
+				"environmentConfigs": map[string]any{
+					"storageClass": "",
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: pvc
+  spec:
+    accessModes:
+    - ReadWriteOnce
+`,
+			wantErr: false,
+		},
+		{
 			name:              "create with includeWhen true - resource created",
 			baseResourcesYAML: `[]`,
 			traitYAML: `
