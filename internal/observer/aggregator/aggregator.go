@@ -8,7 +8,8 @@
 // the deployment live at trigger time, and recomputes the metric rollups for every
 // bucket it touched. The events source is opt-in
 // (DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED) because it needs a logs adapter carrying the
-// reasons filter and the unscoped sweep; without it only the incident path runs.
+// reasons filter, and able to return them across every namespace in one query
+// rather than a scope at a time; without it only the incident path runs.
 //
 // Correctness rests on the store's semantics, not on tick bookkeeping: facts
 // upsert on stable keys with sticky-failure merge rules, rollups are recomputed
@@ -79,9 +80,11 @@ const aggregationLease = "dora-aggregation"
 type Aggregator struct {
 	store     deliveryinsights.Store
 	incidents incidententry.IncidentEntryStore
-	// events is nil when the deployed logs adapter lacks the reasons filter and the
-	// unscoped sweep the events path needs, which is why it stays behind
-	// DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED. The events path is skipped when nil.
+	// events is nil when the deployed logs adapter cannot filter events by reason, or
+	// cannot return them across every namespace in one query -- the sweep covers the
+	// whole install on a timer, so asking scope by scope is not an option. That is why
+	// it stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED, and the events path is
+	// skipped when nil.
 	events           EventsSource
 	cfg              Config
 	logger           *slog.Logger
