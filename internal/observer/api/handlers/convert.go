@@ -151,3 +151,51 @@ func toTypesPlatformLogsQuery(src gen.GetPlatformLogsParams) (*types.PlatformLog
 	}
 	return dst, nil
 }
+
+// toTypesPlatformLogFilterValuesQuery maps the generated query parameters onto the
+// internal request. The record filters arrive flattened, so they are rebuilt into the
+// query they describe - including the named filter's own selections, which the adapter
+// is responsible for excluding.
+func toTypesPlatformLogFilterValuesQuery(
+	src gen.GetPlatformLogFilterValuesParams,
+) (*types.PlatformLogFilterValuesRequest, error) {
+	dst := &types.PlatformLogFilterValuesRequest{
+		Filter: string(src.Filter),
+		Query: types.PlatformLogsQueryRequest{
+			StartTime: rfc3339OrEmpty(src.StartTime),
+			EndTime:   rfc3339OrEmpty(src.EndTime),
+		},
+	}
+	if src.ClusterInstance != nil {
+		dst.Query.ClusterInstances = *src.ClusterInstance
+	}
+	if src.Namespace != nil {
+		dst.Query.Namespaces = *src.Namespace
+	}
+	if src.PodName != nil {
+		dst.Query.PodNames = *src.PodName
+	}
+	if src.ContainerName != nil {
+		dst.Query.ContainerNames = *src.ContainerName
+	}
+	if src.LogLevels != nil {
+		dst.Query.LogLevels = *src.LogLevels
+	}
+	if src.SearchPhrase != nil {
+		dst.Query.SearchPhrase = *src.SearchPhrase
+	}
+	if src.Labels != nil {
+		labels, err := ParseLabelSelector(*src.Labels)
+		if err != nil {
+			return nil, err
+		}
+		dst.Query.Labels = labels
+	}
+	if src.ValueSearch != nil {
+		dst.ValueSearch = *src.ValueSearch
+	}
+	if src.MaxValues != nil {
+		dst.MaxValues = *src.MaxValues
+	}
+	return dst, nil
+}

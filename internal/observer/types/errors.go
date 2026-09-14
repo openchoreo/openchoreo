@@ -50,6 +50,11 @@ const (
 	ErrorCodeV1PlatformLogsRetrievalFailed = "OBS-V1-CL-04"
 	ErrorCodeV1PlatformLogsNotSupported    = "OBS-V1-CL-05"
 
+	// Platform log filter values (v1alpha1) — same area, continuing the sequence.
+	ErrorCodeV1PlatformLogFilterValuesServiceNotReady = "OBS-V1-CL-06"
+	ErrorCodeV1PlatformLogFilterValuesRetrievalFailed = "OBS-V1-CL-07"
+	ErrorCodeV1PlatformLogFilterValuesNotSupported    = "OBS-V1-CL-08"
+
 	// Scope resolution auth failure — shared across all APIs.
 	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"
 )

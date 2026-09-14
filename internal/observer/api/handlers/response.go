@@ -106,3 +106,7 @@ func (resp apiResponse) VisitGetRecommendationsResponse(w http.ResponseWriter) e
 func (resp apiResponse) VisitGetPlatformLogsResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }
+
+func (resp apiResponse) VisitGetPlatformLogFilterValuesResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}

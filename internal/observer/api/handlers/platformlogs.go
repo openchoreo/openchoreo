@@ -76,3 +76,69 @@ func (h *Handler) platformLogsError(err error) gen.GetPlatformLogsResponseObject
 		"Failed to retrieve platform logs",
 	)
 }
+
+// --- filter values ---
+
+// GetPlatformLogFilterValues handles
+// GET /api/v1alpha1/platform-logs/filter-values.
+func (h *Handler) GetPlatformLogFilterValues(
+	ctx context.Context,
+	request gen.GetPlatformLogFilterValuesRequestObject,
+) (gen.GetPlatformLogFilterValuesResponseObject, error) {
+	req, err := toTypesPlatformLogFilterValuesQuery(request.Params)
+	if err != nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
+	}
+
+	if err := ValidatePlatformLogFilterValuesRequest(req); err != nil {
+		h.logger.Debug("Platform log filter values request validation failed", "error", err)
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
+	}
+
+	if h.platformLogsService == nil {
+		h.logger.Error("Platform log filter values service is not initialized")
+		return errorResponse(
+			http.StatusInternalServerError,
+			gen.InternalServerError,
+			types.ErrorCodeV1PlatformLogFilterValuesServiceNotReady,
+			"Platform log filter values service is not initialized",
+		), nil
+	}
+
+	result, err := h.platformLogsService.QueryPlatformLogFilterValues(ctx, req)
+	if err != nil {
+		return h.platformLogFilterValuesError(err), nil
+	}
+
+	return jsonResponse(http.StatusOK, result), nil
+}
+
+// platformLogFilterValuesError maps filter values service errors onto responses.
+func (h *Handler) platformLogFilterValuesError(err error) gen.GetPlatformLogFilterValuesResponseObject {
+	switch {
+	case errors.Is(err, observerAuthz.ErrAuthzForbidden):
+		return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied")
+	case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
+		return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+	case errors.Is(err, service.ErrPlatformLogFilterValuesNotSupported):
+		h.logger.Warn("Logs adapter cannot enumerate platform log filter values")
+		return errorResponse(
+			http.StatusNotImplemented,
+			gen.NotImplemented,
+			types.ErrorCodeV1PlatformLogFilterValuesNotSupported,
+			"The configured logs adapter does not support platform log filter values",
+		)
+	}
+
+	errorCode := types.ErrorCodeV1PlatformLogsInternalGeneric
+	if errors.Is(err, service.ErrPlatformLogFilterValuesRetrieval) {
+		errorCode = types.ErrorCodeV1PlatformLogFilterValuesRetrievalFailed
+	}
+	h.logger.Error("Failed to retrieve platform log filter values", "error", err)
+	return errorResponse(
+		http.StatusInternalServerError,
+		gen.InternalServerError,
+		errorCode,
+		"Failed to retrieve platform log filter values",
+	)
+}

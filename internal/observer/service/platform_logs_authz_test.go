@@ -97,3 +97,40 @@ func TestPlatformLogsAuthz_EvaluatesAtClusterScope(t *testing.T) {
 	assert.Equal(t, authzcore.ResourceHierarchy{}, captured.Resource.Hierarchy,
 		"platform logs must evaluate at cluster scope")
 }
+
+// --- filter values ---
+
+func TestPlatformLogsAuthz_FilterValues_Denied(t *testing.T) {
+	inner := mocks.NewMockPlatformLogsQuerier(t)
+
+	svc := NewPlatformLogsServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
+
+	_, err := svc.QueryPlatformLogFilterValues(authedCtx(), filterValuesRequest())
+	require.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+	inner.AssertNotCalled(t, "QueryPlatformLogFilterValues", mock.Anything, mock.Anything)
+}
+
+// Pins that listing a filter's values is gated by the same action and the same cluster
+// scope as reading the logs. Anything weaker would let a caller enumerate every pod the
+// plane collects without being able to read one line of it.
+func TestPlatformLogsAuthz_FilterValues_MatchesPlatformLogsPermission(t *testing.T) {
+	inner := mocks.NewMockPlatformLogsQuerier(t)
+	inner.EXPECT().QueryPlatformLogFilterValues(mock.Anything, mock.Anything).
+		Return(&types.PlatformLogFilterValuesResponse{}, nil)
+
+	var captured authzcore.EvaluateRequest
+	pdp := coremocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *authzcore.EvaluateRequest) {
+			captured = *req
+		}).
+		Return(&authzcore.Decision{Decision: true}, nil).Once()
+
+	svc := NewPlatformLogsServiceWithAuthz(inner, pdp, testLogger())
+	_, err := svc.QueryPlatformLogFilterValues(authedCtx(), filterValuesRequest())
+	require.NoError(t, err)
+
+	assert.Equal(t, string(observerAuthz.ActionViewPlatformLogs), captured.Action)
+	assert.Equal(t, authzcore.ResourceHierarchy{}, captured.Resource.Hierarchy,
+		"filter values must evaluate at cluster scope, like the logs themselves")
+}
