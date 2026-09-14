@@ -945,6 +945,9 @@ var platformLogFilterValuesFilters = map[string]bool{
 // query that would be rejected there is rejected here rather than reaching the adapter
 // in a shape only one of the two endpoints accepts.
 func ValidatePlatformLogFilterValuesRequest(req *types.PlatformLogFilterValuesRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
 	if !platformLogFilterValuesFilters[req.Filter] {
 		return fmt.Errorf("filter must be one of clusterInstance, namespace, podName, containerName")
 	}

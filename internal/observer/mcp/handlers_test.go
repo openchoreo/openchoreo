@@ -36,7 +36,7 @@ func TestQueryComponentLogs(t *testing.T) {
 					req.StartTime == testStartTime &&
 					req.EndTime == testEndTime &&
 					req.SearchPhrase == "err" &&
-					len(req.LogLevels) == 1 && req.LogLevels[0] == "ERROR" &&
+					len(req.LogLevels) == 1 && req.LogLevels[0] == logLevelError &&
 					req.Limit == 50 &&
 					req.SortOrder == sortOrderAsc
 			})).
@@ -44,7 +44,7 @@ func TestQueryComponentLogs(t *testing.T) {
 
 		h := newTestMCPHandler(t, withLogsService(logsSvc))
 		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment,
-			testStartTime, testEndTime, "err", []string{"ERROR"}, 50, sortOrderAsc)
+			testStartTime, testEndTime, "err", []string{logLevelError}, 50, sortOrderAsc)
 		require.NoError(t, err)
 	})
 

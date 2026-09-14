@@ -16,6 +16,7 @@ import (
 type MCPHandler struct {
 	healthService        *service.HealthService
 	logsService          service.LogsQuerier
+	platformLogsService  service.PlatformLogsQuerier
 	eventsService        service.EventsQuerier
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
@@ -27,6 +28,7 @@ type MCPHandler struct {
 func NewMCPHandler(
 	healthService *service.HealthService,
 	logsService service.LogsQuerier,
+	platformLogsService service.PlatformLogsQuerier,
 	eventsService service.EventsQuerier,
 	metricsService service.MetricsQuerier,
 	alertIncidentService service.AlertIncidentService,
@@ -39,6 +41,9 @@ func NewMCPHandler(
 	}
 	if logsService == nil {
 		return nil, fmt.Errorf("missing logsService")
+	}
+	if platformLogsService == nil {
+		return nil, fmt.Errorf("missing platformLogsService")
 	}
 	if eventsService == nil {
 		return nil, fmt.Errorf("missing eventsService")
@@ -61,6 +66,7 @@ func NewMCPHandler(
 	return &MCPHandler{
 		healthService:        healthService,
 		logsService:          logsService,
+		platformLogsService:  platformLogsService,
 		eventsService:        eventsService,
 		metricsService:       metricsService,
 		alertIncidentService: alertIncidentService,

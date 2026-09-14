@@ -44,12 +44,13 @@ const (
 	obsMCPAuthzLabelKey = "e2e-obsmcp/run"
 )
 
-// allObserverTools is the exact set of 13 tools the observer MCP server
+// allObserverTools is the exact set of 14 tools the observer MCP server
 // registers (internal/observer/mcp/server.go). Pinned here so O3 catches an
 // accidental add/remove.
 var allObserverTools = []string{
 	"query_component_logs",
 	"query_workflow_logs",
+	"query_platform_logs",
 	"query_component_events",
 	"query_workflow_events",
 	"query_resource_metrics",
@@ -167,15 +168,15 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		Expect(names).NotTo(BeEmpty(), "observer tool list should not be empty")
 	})
 
-	It("O3: all 13 observer tools are registered/visible (no visibility filter)", func() {
-		// O3: all 13 observer tools must be registered/visible; observer has NO visibility filter,
-		// so an unbound subject still sees all 13 (unlike the control-plane MCP). Pins the live registered
+	It("O3: all 14 observer tools are registered/visible (no visibility filter)", func() {
+		// O3: all 14 observer tools must be registered/visible; observer has NO visibility filter,
+		// so an unbound subject still sees all 14 (unlike the control-plane MCP). Pins the live registered
 		// inventory and the no-filter behavior end to end.
 		//
 		// Toolset narrowing / filterByAuthz specs are N/A here:
 		// the observer's NewHTTPServer (internal/observer/mcp/server.go:15-26)
 		// registers no filter middleware, so there is no per-tool authz visibility
-		// filter and the unbound subject sees the same 13 tools (pinned in O6).
+		// filter and the unbound subject sees the same 14 tools (pinned in O6).
 		adminNames, err := framework.ListMCPToolNames(adminSession)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminNames).To(ConsistOf(allObserverTools),
@@ -190,9 +191,9 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	// O4 — tool chain: exactly one tool per distinct signal/service path
 	// (logs / metrics / events / traces).
 	//
-	// Selection rationale (4 of the 13 tools):
+	// Selection rationale (4 of the 14 tools):
 	//
-	// The 13 observer MCP tools share one integration path — jwt → MCP handler → authz-wrapped
+	// The 14 observer MCP tools share one integration path — jwt → MCP handler → authz-wrapped
 	// service → CP PDP (only for the tools that carry an authz check; get_span_details passes
 	// through, see traces_authz.go:67-70) → JSON-marshalled `TextContent`
 	// (internal/observer/mcp/server.go:29-42).
@@ -216,7 +217,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	// decoding, defaults) is pure and is covered by unit/integration tests. Testing all 9 here
 	// would re-prove the same integration path 9× at full e2e cost for zero new signal-path coverage.
 	//
-	// (O3 already asserts all 13 tools are registered/visible; O4 deliberately exercises only the
+	// (O3 already asserts all 14 tools are registered/visible; O4 deliberately exercises only the
 	// 4 backend-representatives. Distinguishing "listed" from "exercised" is intentional.)
 	//
 	// Tools deliberately NOT exercised in e2e, and where their coverage lives instead:
@@ -373,9 +374,9 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		}, "insufficient permissions to perform this action")
 	})
 
-	It("O6: grant developer role → query succeeds → revoke → denied (and tool count stays 13)", func() {
+	It("O6: grant developer role → query succeeds → revoke → denied (and tool count stays 14)", func() {
 		// O6: grant developer role -> query succeeds -> revoke -> denied (allow-after-grant +
-		// revocation propagation) on the observer path. Also pins tool count stays 13 before/after grant
+		// revocation propagation) on the observer path. Also pins tool count stays 14 before/after grant
 		// (no visibility filtering). The PDP decision is unit-tested in pdp_test.go; e2e adds real binding
 		// propagation across the OP and CP clusters over the live authz-API call.
 		bindingName := "e2e-obsmcp-dev-" + obsRunID

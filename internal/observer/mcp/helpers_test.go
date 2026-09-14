@@ -106,9 +106,9 @@ func TestSetDefaults(t *testing.T) {
 	})
 
 	t.Run("non-nil logLevels is unchanged", func(t *testing.T) {
-		input := []string{"ERROR", "WARN"}
+		input := []string{logLevelError, logLevelWarn}
 		_, _, logLevels := setDefaults(10, "desc", input)
-		if len(logLevels) != 2 || logLevels[0] != "ERROR" || logLevels[1] != "WARN" {
+		if len(logLevels) != 2 || logLevels[0] != logLevelError || logLevels[1] != logLevelWarn {
 			t.Errorf("expected %v, got %v", input, logLevels)
 		}
 	})
