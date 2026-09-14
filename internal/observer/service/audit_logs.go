@@ -196,7 +196,6 @@ func toTypesAuditLogRecord(r observability.AuditLogRecord) types.AuditLogRecord 
 		Resource:    toTypesAuditLogResource(r.Resource),
 		Metadata:    r.Metadata,
 		Collector:   toTypesAuditLogCollectorInfo(r.Collector),
-		Log:         r.Log,
 	}
 }
 

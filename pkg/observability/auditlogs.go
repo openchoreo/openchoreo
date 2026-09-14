@@ -135,8 +135,6 @@ type AuditLogRecord struct {
 	Resource      *AuditLogResource      `json:"resource,omitempty"`
 	Metadata      map[string]any         `json:"metadata,omitempty"`
 	Collector     *AuditLogCollectorInfo `json:"collector,omitempty"`
-	// Log is the raw ingested line, the ground truth for a parsing discrepancy.
-	Log string `json:"log,omitempty"`
 }
 
 // AuditLogTimelineBucket is one interval of a timeline.

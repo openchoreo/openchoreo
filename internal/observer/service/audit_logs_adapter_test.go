@@ -165,7 +165,6 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 			"collector": map[string]any{
 				"namespaceName": "openchoreo-control-plane", "podName": "api-0", "containerName": "api-server",
 			},
-			"log": `{"action":"create_project"}`,
 		}},
 		"total": 1, "tookMs": 7,
 		"timeline": map[string]any{
@@ -203,7 +202,6 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 	assert.Equal(t, "payments", rec.Resource.Name)
 	require.NotNil(t, rec.Collector)
 	assert.Equal(t, "api-server", rec.Collector.ContainerName)
-	assert.Equal(t, `{"action":"create_project"}`, rec.Log)
 
 	assert.Equal(t, int64(1), result.TotalCount)
 	assert.Equal(t, int64(7), result.Took)

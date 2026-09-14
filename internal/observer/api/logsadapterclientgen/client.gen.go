@@ -459,12 +459,7 @@ type AuditLogRecord struct {
 
 	// Http The request line, for an event that arrived over HTTP. Absent for an MCP
 	// `tools/call`, which has none.
-	Http *AuditLogHTTPInfo `json:"http,omitempty"`
-
-	// Log The raw line the collector ingested, preserved alongside the parsed fields.
-	// Present when the storage backend retains it. This is the ground truth a
-	// parsing discrepancy is settled against.
-	Log      *string                 `json:"log,omitempty"`
+	Http     *AuditLogHTTPInfo       `json:"http,omitempty"`
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
 
 	// OperationId Canonical operation identifier, e.g. `CreateProject`
