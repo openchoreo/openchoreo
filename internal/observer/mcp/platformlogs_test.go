@@ -205,6 +205,7 @@ func TestQueryPlatformLogs(t *testing.T) {
 			name           string
 			labels         string
 			includeSources []string
+			maxSources     int
 			startTime      string
 			endTime        string
 			wantErr        string
@@ -218,6 +219,18 @@ func TestQueryPlatformLogs(t *testing.T) {
 				name:           "duplicate include_sources value",
 				includeSources: []string{"pod_name", "pod_name"},
 				wantErr:        "duplicate include_sources value",
+			},
+			{
+				name:           "negative max_sources",
+				includeSources: []string{"pod_name"},
+				maxSources:     -1,
+				wantErr:        "maxValues must be a positive integer",
+			},
+			{
+				name:           "max_sources above the API cap",
+				includeSources: []string{"pod_name"},
+				maxSources:     1001,
+				wantErr:        "maxValues cannot exceed 1000",
 			},
 			{
 				name:    "set-based label selector",
@@ -251,7 +264,7 @@ func TestQueryPlatformLogs(t *testing.T) {
 				_, err := h.QueryPlatformLogs(context.Background(),
 					nil, nil, nil, nil,
 					tt.labels, start, end, "", nil,
-					0, "", tt.includeSources, 0,
+					0, "", tt.includeSources, tt.maxSources,
 				)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)

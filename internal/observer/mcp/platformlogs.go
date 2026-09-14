@@ -98,6 +98,25 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 		maxSources = defaultMaxSources
 	}
 
+	// Every aggregation is built and validated before any of them is launched: an
+	// out-of-range max_sources is the caller's mistake like an unknown coordinate,
+	// and must fail the call rather than arrive as SourcesError, which reports what
+	// the backend could not do.
+	valuesReqs := make(map[string]*types.PlatformLogFilterValuesRequest, len(fields))
+	for name, filter := range fields {
+		// The filter's own selections stay in the query: the adapter drops them,
+		// so that counting podName under a selected pod still offers the others.
+		valuesReq := &types.PlatformLogFilterValuesRequest{
+			Query:     *req,
+			Filter:    filter,
+			MaxValues: maxSources,
+		}
+		if err := handlers.ValidatePlatformLogFilterValuesRequest(valuesReq); err != nil {
+			return nil, err
+		}
+		valuesReqs[name] = valuesReq
+	}
+
 	var (
 		mu         sync.Mutex
 		wg         sync.WaitGroup
@@ -116,26 +135,10 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 		logsResp, logsErr = resp, err
 	}()
 
-	for name, filter := range fields {
+	for name, valuesReq := range valuesReqs {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// The filter's own selections stay in the query: the adapter drops
-			// them, so that counting podName under a selected pod still offers
-			// the others.
-			valuesReq := &types.PlatformLogFilterValuesRequest{
-				Query:     *req,
-				Filter:    filter,
-				MaxValues: maxSources,
-			}
-			if err := handlers.ValidatePlatformLogFilterValuesRequest(valuesReq); err != nil {
-				mu.Lock()
-				defer mu.Unlock()
-				if sourcesErr == nil {
-					sourcesErr = err
-				}
-				return
-			}
 			resp, err := h.platformLogsService.QueryPlatformLogFilterValues(ctx, valuesReq)
 			mu.Lock()
 			defer mu.Unlock()
