@@ -1,11 +1,11 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
-  name: ballerina-buildpack-builder
+  name: dockerfile-builder-tests
   labels:
     openchoreo.dev/workflow-type: "component"
   annotations:
-    openchoreo.dev/description: "Workflow for building applications written in Ballerina"
+    openchoreo.dev/description: "Build with a provided Dockerfile, running tests first and surfacing coverage"
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -27,6 +27,39 @@ spec:
         taskResult:
           task: checkout-source
           result: git-revision
+    # "test-report" is reserved: the controller additionally parses this value into the
+    # typed status.testReport, so a consumer reads coverage as a field rather than by
+    # unpacking a JSON string.
+    - name: test-report
+      description: "Summary of the test run, projected into status.testReport"
+      valueFrom:
+        taskResult:
+          task: run-tests
+          result: test-report
+    # The same number as a standalone result, for consumers that want one value and not
+    # the whole report - a badge, a gate, an `occ` column.
+    - name: coverage-percent
+      description: "Line coverage measured by the test step, as a percentage"
+      valueFrom:
+        taskResult:
+          task: run-tests
+          result: coverage-percent
+    # Read from the step's exit code rather than derived from a count. With the shipped
+    # defaults no JUnit report is parsed, so tests-failed is empty - and an empty count is
+    # not a pass. tests-outcome is definitive whether or not a report was produced.
+    - name: tests-verdict
+      description: "Whether the test command succeeded"
+      valueFrom:
+        taskResult:
+          task: run-tests
+          result: tests-outcome
+    # An expression rather than a task output, evaluated on the same CEL engine as the rest
+    # of this spec. It reports the counts when a report was parsed and says so plainly when
+    # one was not, instead of presenting an absent count as a zero.
+    - name: tests-summary
+      description: "Test counts, when the step produced a report"
+      valueFrom:
+        expression: "${tasks['run-tests'].results['tests-total'] == '' ? 'no test counts reported' : tasks['run-tests'].results['tests-passed'] + '/' + tasks['run-tests'].results['tests-total'] + ' passed'}"
   parameters:
     openAPIV3Schema:
       type: object
@@ -65,12 +98,59 @@ spec:
             appPath:
               type: string
               default: "."
-              description: "Path to the Ballerina application directory within the repository"
+              description: "Path to the application directory within the repository"
               x-openchoreo-component-parameter-repository-app-path: true
+        testing:
+          type: object
+          default: {}
+          description: "Test step configuration"
+          properties:
+            image:
+              type: string
+              default: "golang:1.24-alpine"
+              description: "Container image the tests run in. Must contain the toolchain the test command needs."
+            command:
+              type: string
+              default: "go test ./... -coverprofile=/tmp/cover.out && go tool cover -func=/tmp/cover.out | tail -1 | awk '{print $3}' > coverage.txt"
+              description: "Shell command that runs the tests, executed from the repository root"
+            summaryPath:
+              type: string
+              default: ""
+              description: "Path to a JSON summary the test command writes itself. When set and present, it is used verbatim and nothing else is parsed."
+            junitPath:
+              type: string
+              default: ""
+              description: "Path to a JUnit XML report, relative to the repository root. Parsed for test counts."
+            coveragePath:
+              type: string
+              default: "coverage.txt"
+              description: "Path to a coverage report. A .xml file is read as Cobertura; anything else is read as a bare percentage."
+            reportFormat:
+              type: string
+              default: ""
+              description: "Name of the report format produced, recorded in status.testReport.reportFormat"
+            failOnTestFailure:
+              type: string
+              default: "true"
+              enum: ["true", "false"]
+              description: "Whether a failing test fails the build. Set to false to always record the summary; see the sample README for the trade-off."
+        docker:
+          type: object
+          default: {}
+          description: "Docker build configuration"
+          properties:
+            context:
+              type: string
+              default: "."
+              description: "Docker build context path relative to the repository root"
+            filePath:
+              type: string
+              default: "./Dockerfile"
+              description: "Path to the Dockerfile relative to the repository root"
         buildEnv:
           type: array
           default: []
-          description: "Environment variables to be passed into the buildpack"
+          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
           items:
             type: object
             required: [name, value]
@@ -81,6 +161,20 @@ spec:
               value:
                 type: string
                 description: "Environment variable value"
+        buildArgs:
+          type: array
+          default: []
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Build argument name"
+              value:
+                type: string
+                description: "Build argument value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -106,8 +200,28 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
+          - name: test-image
+            value: ${parameters.testing.image}
+          - name: test-command
+            value: ${parameters.testing.command}
+          - name: test-summary-path
+            value: ${parameters.testing.summaryPath}
+          - name: test-junit-path
+            value: ${parameters.testing.junitPath}
+          - name: test-coverage-path
+            value: ${parameters.testing.coveragePath}
+          - name: test-report-format
+            value: ${parameters.testing.reportFormat}
+          - name: fail-on-test-failure
+            value: ${parameters.testing.failOnTestFailure}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
           - name: build-env
             value: ${parameters.buildEnv}
+          - name: build-args
+            value: ${parameters.buildArgs}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -126,9 +240,32 @@ spec:
                   name: checkout-source
                   clusterScope: true
                   template: checkout
+            - - name: run-tests
+                templateRef:
+                  name: run-tests
+                  clusterScope: true
+                  template: run-tests
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                    - name: test-image
+                      value: '{{workflow.parameters.test-image}}'
+                    - name: test-command
+                      value: '{{workflow.parameters.test-command}}'
+                    - name: summary-path
+                      value: '{{workflow.parameters.test-summary-path}}'
+                    - name: junit-path
+                      value: '{{workflow.parameters.test-junit-path}}'
+                    - name: coverage-path
+                      value: '{{workflow.parameters.test-coverage-path}}'
+                    - name: report-format
+                      value: '{{workflow.parameters.test-report-format}}'
+                    - name: fail-on-test-failure
+                      value: '{{workflow.parameters.fail-on-test-failure}}'
             - - name: build-image
                 templateRef:
-                  name: ballerina-buildpack-build
+                  name: containerfile-build
                   clusterScope: true
                   template: build-image
                 arguments:
@@ -137,6 +274,8 @@ spec:
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
                     - name: build-env
                       value: '{{workflow.parameters.build-env}}'
+                    - name: build-args
+                      value: '{{workflow.parameters.build-args}}'
             - - name: publish-image
                 templateRef:
                   name: publish-image

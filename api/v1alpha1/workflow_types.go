@@ -60,6 +60,14 @@ type WorkflowSpec struct {
 	// +listMapKey=id
 	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
 
+	// Results declares the values a run of this workflow surfaces into
+	// WorkflowRunStatus.Results once it completes - an image reference, a git revision, a
+	// test summary. A workflow that declares no results behaves exactly as before.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Results []WorkflowResult `json:"results,omitempty"`
+
 	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.
 	// Once a WorkflowRun completes, it will be automatically deleted after this duration.
 	// Format: duration string supporting days, hours, minutes, seconds without spaces (e.g., "90d", "10d1h30m", "1h30m")
@@ -68,6 +76,84 @@ type WorkflowSpec struct {
 	// +optional
 	// +kubebuilder:validation:Pattern=`^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$`
 	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
+}
+
+// WorkflowResult declares a value that a run of this workflow surfaces into
+// WorkflowRunStatus.Results. Results replace the convention of scraping a value out of
+// pod logs, or of a step writing back to the WorkflowRun itself: the workflow author
+// declares what a run produces, and the controller records it after the run completes.
+type WorkflowResult struct {
+	// Name identifies the result within the workflow and is the key it appears under in
+	// WorkflowRunStatus.Results.
+	//
+	// The name "test-report" is reserved: a result under that name is expected to carry a
+	// JSON test summary and is additionally projected into WorkflowRunStatus.TestReport.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// Description explains what the value carries, for consumers rendering the result.
+	// +optional
+	// +kubebuilder:validation:MaxLength=256
+	Description string `json:"description,omitempty"`
+
+	// Sensitive records the result without its value. The entry still appears in
+	// WorkflowRunStatus.Results - so a consumer can see the run produced it - but the value
+	// is left empty rather than written into status, where `kubectl describe` would reach it.
+	//
+	// Results are not a way to move a secret out of a workflow. There is no valueFrom
+	// source that reads a Secret, and marking a result sensitive does not make an already
+	// printed value private: whatever the step wrote to its logs stays in its logs.
+	// +optional
+	Sensitive bool `json:"sensitive,omitempty"`
+
+	// ValueFrom is the source of the result's value. Exactly one source must be set.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="has(self.taskResult) != has(self.expression)",message="exactly one of taskResult or expression must be set"
+	ValueFrom WorkflowResultSource `json:"valueFrom"`
+}
+
+// WorkflowResultSource selects where a result's value comes from.
+type WorkflowResultSource struct {
+	// TaskResult reads an output that a single task of the run produced.
+	// +optional
+	TaskResult *TaskResultRef `json:"taskResult,omitempty"`
+
+	// Expression is a CEL expression evaluated against the completed run, in the same
+	// ${...} form and on the same engine as the rest of this spec. Available inputs:
+	//
+	//   - ${tasks['<task>'].results['<result>']} - one task's outputs, by the same task
+	//     name that appears in WorkflowRunStatus.Tasks[].Name
+	//   - ${tasks['<task>'].phase} - that task's phase
+	//   - ${parameters.*} - the developer-provided parameter values for this run
+	//   - ${metadata.workflowRunName}, ${metadata.namespaceName}, ${metadata.labels['key']}
+	//   - ${results['<name>']} - results declared earlier in this list, already resolved
+	//
+	// A value that does not evaluate to a string is recorded as its JSON encoding, so an
+	// expression may assemble an object.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	Expression string `json:"expression,omitempty"`
+}
+
+// TaskResultRef points at one output of one task in the run.
+type TaskResultRef struct {
+	// Task is the name of the task that produced the output. This is the same name that
+	// appears in WorkflowRunStatus.Tasks[].Name, not the underlying engine's node or
+	// template name - both are derived from the run resource through one helper, so a task
+	// visible in status can always be named here.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Task string `json:"task"`
+
+	// Result is the name of the output within that task. For Argo Workflows this is an
+	// entry in the node's outputs.parameters; for Tekton it is a TaskRun result.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Result string `json:"result"`
 }
 
 // WorkflowResource defines a template for generating Kubernetes resources

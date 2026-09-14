@@ -521,6 +521,7 @@ func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
 			RunTemplate:        r.ClusterWorkflow.Spec.RunTemplate,
 			Resources:          r.ClusterWorkflow.Spec.Resources,
 			ExternalRefs:       r.ClusterWorkflow.Spec.ExternalRefs,
+			Results:            r.ClusterWorkflow.Spec.Results,
 			TTLAfterCompletion: r.ClusterWorkflow.Spec.TTLAfterCompletion,
 		}
 		// Map ClusterWorkflowPlaneRef to WorkflowPlaneRef, defaulting to ClusterWorkflowPlane "default"

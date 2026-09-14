@@ -119,6 +119,7 @@ func setupControlPlaneControllers(
 	gwTLS gatewayClient.TLSConfig,
 	celCostLimit uint64,
 	renderTimeout time.Duration,
+	resultLimits workflowrun.ResultLimits,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -224,6 +225,7 @@ func setupControlPlaneControllers(
 			PlaneClientProvider: planeClientProvider,
 			CELCostLimit:        celCostLimit,
 			RenderTimeout:       renderTimeout,
+			ResultLimits:        resultLimits,
 		},
 		&workflowplane.Reconciler{
 			Client:        c,
@@ -302,6 +304,8 @@ func main() {
 	var maxConcurrentReconciles int
 	var celCostLimit uint64
 	var renderTimeout time.Duration
+	var resultValueMaxBytes int
+	var resultsMaxBytes int
 	var tlsOpts []func(*tls.Config)
 	// Environment defaults are resolved before the flags are declared, so a malformed value
 	// is reported after flag.Parse rather than silently replaced by the built-in default.
@@ -346,6 +350,12 @@ func main() {
 		"Deadline for each rendering step of a reconcile, applied to every step separately. "+
 			"A reconcile that renders more than once (manifests, outputs, each readyWhen) may spend it at each. "+
 			"0 disables the deadline. Defaults to the RENDER_TIMEOUT environment variable when set.")
+	flag.IntVar(&resultValueMaxBytes, "workflowrun-result-max-bytes", 0,
+		"Maximum size of a single value recorded in WorkflowRun status.results. A longer value is "+
+			"truncated and marked as such. 0 uses the built-in default; it never means unlimited.")
+	flag.IntVar(&resultsMaxBytes, "workflowrun-results-max-bytes", 0,
+		"Maximum combined size of every value one WorkflowRun records in status.results. Once reached, "+
+			"remaining results are not recorded. 0 uses the built-in default; it never means unlimited.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -474,7 +484,10 @@ func main() {
 			ClientCertFile:     clusterGatewayClientCert,
 			ClientKeyFile:      clusterGatewayClientKey,
 			InsecureSkipVerify: clusterGatewayInsecure,
-		}, celCostLimit, renderTimeout)
+		}, celCostLimit, renderTimeout, workflowrun.ResultLimits{
+			ValueMaxBytes: resultValueMaxBytes,
+			TotalMaxBytes: resultsMaxBytes,
+		})
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)

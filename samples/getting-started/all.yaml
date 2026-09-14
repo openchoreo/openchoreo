@@ -1946,6 +1946,22 @@ spec:
     kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
+  results:
+    # Both values already existed as Argo step outputs; until now nothing read them, so a
+    # consumer wanting the image a build produced had to read pod logs or the underlying
+    # Argo resource. Declaring them here is the whole change.
+    - name: image
+      description: "The image reference this build published"
+      valueFrom:
+        taskResult:
+          task: publish-image
+          result: image
+    - name: git-revision
+      description: "The git revision this build checked out"
+      valueFrom:
+        taskResult:
+          task: checkout-source
+          result: git-revision
   parameters:
     openAPIV3Schema:
       type: object
@@ -2163,6 +2179,22 @@ spec:
     kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
+  results:
+    # Both values already existed as Argo step outputs; until now nothing read them, so a
+    # consumer wanting the image a build produced had to read pod logs or the underlying
+    # Argo resource. Declaring them here is the whole change.
+    - name: image
+      description: "The image reference this build published"
+      valueFrom:
+        taskResult:
+          task: publish-image
+          result: image
+    - name: git-revision
+      description: "The git revision this build checked out"
+      valueFrom:
+        taskResult:
+          task: checkout-source
+          result: git-revision
   parameters:
     openAPIV3Schema:
       type: object
@@ -2379,6 +2411,22 @@ spec:
     kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
+  results:
+    # Both values already existed as Argo step outputs; until now nothing read them, so a
+    # consumer wanting the image a build produced had to read pod logs or the underlying
+    # Argo resource. Declaring them here is the whole change.
+    - name: image
+      description: "The image reference this build published"
+      valueFrom:
+        taskResult:
+          task: publish-image
+          result: image
+    - name: git-revision
+      description: "The git revision this build checked out"
+      valueFrom:
+        taskResult:
+          task: checkout-source
+          result: git-revision
   parameters:
     openAPIV3Schema:
       type: object
@@ -2597,6 +2645,22 @@ spec:
     kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
+  results:
+    # Both values already existed as Argo step outputs; until now nothing read them, so a
+    # consumer wanting the image a build produced had to read pod logs or the underlying
+    # Argo resource. Declaring them here is the whole change.
+    - name: image
+      description: "The image reference this build published"
+      valueFrom:
+        taskResult:
+          task: publish-image
+          result: image
+    - name: git-revision
+      description: "The git revision this build checked out"
+      valueFrom:
+        taskResult:
+          task: checkout-source
+          result: git-revision
   parameters:
     openAPIV3Schema:
       type: object
