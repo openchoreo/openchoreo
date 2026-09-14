@@ -6,6 +6,7 @@ package aggregator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -752,4 +753,102 @@ func TestProcessIncidentsPagesOnIngestionTimeNotTriggerTime(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, recoveries, incidentCount,
 		"paging must not skip entries whose ingestion time sorts before a later trigger time")
+}
+
+// TestOnlyTheLeaseHolderAggregates pins that scaling the Observer does not mean
+// scaling the sweeps.
+//
+// Two aggregators share one store, as two replicas of a scaled Observer do. The
+// one without the lease must do nothing at all, because concurrent sweeps share
+// watermarks and would overwrite each other's resume positions.
+//
+// The follower runs on a later clock so that a tick it should not have run shows
+// up as a moved watermark. Nothing probes the lease mid-test: AcquireLease is the
+// only way to read it and it renews on success, so probing would rewrite the
+// expiry the test depends on.
+func TestOnlyTheLeaseHolderAggregates(t *testing.T) {
+	ctx := context.Background()
+	store, incidents := newTestStores(t)
+	leaderNow := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	followerNow := leaderNow.Add(5 * time.Minute) // well inside the leader's TTL
+
+	leader := newTestAggregator(store, incidents, nil, leaderNow)
+	follower := newTestAggregator(store, incidents, nil, followerNow)
+	require.NotEqual(t, leader.holder, follower.holder,
+		"two replicas must not share a holder id, or each could renew the other's lease")
+
+	leader.tick(ctx)
+	require.Equal(t, leaderNow.UnixMilli(), mustWatermark(t, store),
+		"the lease holder should have aggregated")
+
+	follower.tick(ctx)
+	require.Equal(t, leaderNow.UnixMilli(), mustWatermark(t, store),
+		"a replica without the lease must not aggregate, and must leave the watermark alone")
+}
+
+func mustWatermark(t *testing.T, store deliveryinsights.Store) int64 {
+	t.Helper()
+	wm, err := store.Watermark(context.Background(), watermarkSourceIncidents)
+	require.NoError(t, err)
+	return wm
+}
+
+// TestLeaseHandsOverWhenTheHolderStops pins that a graceful shutdown does not
+// pause aggregation for a whole TTL.
+func TestLeaseHandsOverWhenTheHolderStops(t *testing.T) {
+	ctx := context.Background()
+	store, incidents := newTestStores(t)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+
+	leader := newTestAggregator(store, incidents, nil, now)
+	successor := newTestAggregator(store, incidents, nil, now)
+
+	leader.tick(ctx)
+	successor.tick(ctx) // refused while the leader holds it
+
+	leader.releaseLease()
+
+	// Same instant, so nothing has expired: the successor can only get in because
+	// the lease was handed back.
+	successor.tick(ctx)
+	held, err := store.AcquireLease(ctx, aggregationLease, successor.holder, now.UnixMilli(), 1)
+	require.NoError(t, err)
+	require.True(t, held, "a released lease must be takeable before its TTL elapses")
+}
+
+// TestLeaseStoreFailureSkipsTheTick pins the safe direction of the failure.
+// If the lease cannot be read, the tick must be skipped rather than run: a
+// delayed tick costs latency, whereas two replicas sweeping at once corrupts
+// the watermarks.
+func TestLeaseStoreFailureSkipsTheTick(t *testing.T) {
+	ctx := context.Background()
+	store, incidents := newTestStores(t)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.store = leaseErrorStore{Store: store}
+
+	agg.tick(ctx)
+
+	wm, err := store.Watermark(ctx, watermarkSourceIncidents)
+	require.NoError(t, err)
+	require.Zero(t, wm, "a tick must not proceed when the lease cannot be acquired")
+}
+
+// leaseErrorStore fails only lease acquisition, leaving every other call intact,
+// so the test isolates the lease failure from a broken store.
+//
+// It returns true alongside the error deliberately. A store that merely returned
+// (false, err) would be skipped by the not-held branch, and the test would pass
+// whether or not the error was handled at all. Returning the contradictory pair
+// forces the question the invariant is really about: on an error the tick must be
+// skipped regardless of what the boolean claims.
+type leaseErrorStore struct {
+	deliveryinsights.Store
+}
+
+func (s leaseErrorStore) AcquireLease(
+	context.Context, string, string, int64, int64,
+) (bool, error) {
+	return true, errors.New("lease store unavailable")
 }

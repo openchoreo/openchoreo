@@ -15,13 +15,20 @@
 // from facts and fully replaced (never incremented), and watermarks advance only
 // after a tick commits — so re-processing any window, or a full backfill, is
 // idempotent by construction.
+//
+// Exactly one replica aggregates at a time. Every replica runs this loop, but a
+// tick only proceeds while the replica holds the aggregation lease in the store,
+// so an Observer can be scaled for read traffic without the sweeps colliding.
 package aggregator
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -66,6 +73,9 @@ type Config struct {
 }
 
 // Aggregator folds incidents and delivery events into the insights store.
+// aggregationLease is the single lease name every replica contends for.
+const aggregationLease = "dora-aggregation"
+
 type Aggregator struct {
 	store     deliveryinsights.Store
 	incidents incidententry.IncidentEntryStore
@@ -77,6 +87,10 @@ type Aggregator struct {
 	logger           *slog.Logger
 	now              func() time.Time // injectable for tests
 	incidentPageSize int              // overridable for tests
+	// holder identifies this replica in the aggregation lease. It has to be unique
+	// per process, not per pod: a restarted pod reusing its name must not be able to
+	// renew the lease its predecessor held.
+	holder string
 }
 
 // New creates an aggregator. events may be nil, in which case only the incident path
@@ -97,22 +111,49 @@ func New(
 		logger:           logger,
 		now:              time.Now,
 		incidentPageSize: incidentQueryLimit,
+		holder:           newHolderID(),
 	}
+}
+
+// newHolderID identifies this process in the aggregation lease. The hostname
+// makes a held lease traceable to a pod; the UUID keeps it unique across restarts
+// of a pod that keeps its name.
+func newHolderID() string {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "observer"
+	}
+	return host + "-" + uuid.NewString()
+}
+
+// leaseTTL is how long a won tick keeps the lease. It outlasts the interval so the
+// holder keeps aggregating across ticks rather than re-contending each time, and a
+// holder that dies hard is replaced within it. A graceful stop releases early, so
+// this only bounds the crash case.
+func (a *Aggregator) leaseTTL() time.Duration {
+	ttl := 2 * a.cfg.Interval
+	if ttl < time.Minute {
+		ttl = time.Minute
+	}
+	return ttl
 }
 
 // Run ticks until ctx is cancelled. A failed tick logs and retries on the next
 // interval — the watermark did not advance, so no data is skipped.
+//
+// Every replica runs this loop, but only the lease holder aggregates. The others
+// idle at the same interval, taking over within one TTL if the holder stops.
 func (a *Aggregator) Run(ctx context.Context) {
 	a.logger.Info("DORA aggregator started",
 		"interval", a.cfg.Interval,
 		"attributionWindow", a.cfg.AttributionWindow,
 		"eventsSource", a.events != nil,
+		"holder", a.holder,
 	)
+	defer a.releaseLease()
 
 	// First tick immediately so a restart doesn't wait a full interval.
-	if err := a.RunOnce(ctx); err != nil && ctx.Err() == nil {
-		a.logger.Error("DORA aggregation tick failed", "error", err)
-	}
+	a.tick(ctx)
 
 	ticker := time.NewTicker(a.cfg.Interval)
 	defer ticker.Stop()
@@ -122,10 +163,46 @@ func (a *Aggregator) Run(ctx context.Context) {
 			a.logger.Info("DORA aggregator stopped")
 			return
 		case <-ticker.C:
-			if err := a.RunOnce(ctx); err != nil && ctx.Err() == nil {
-				a.logger.Error("DORA aggregation tick failed", "error", err)
-			}
+			a.tick(ctx)
 		}
+	}
+}
+
+// tick aggregates if this replica holds the lease, and does nothing if it does
+// not. A lease store that errors is treated as not-held: skipping a tick costs a
+// delay, whereas aggregating alongside another replica corrupts the watermarks.
+func (a *Aggregator) tick(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+	held, err := a.store.AcquireLease(
+		ctx, aggregationLease, a.holder,
+		a.now().UTC().UnixMilli(), a.leaseTTL().Milliseconds(),
+	)
+	if err != nil {
+		if ctx.Err() == nil {
+			a.logger.Error("Failed to acquire DORA aggregation lease, skipping tick", "error", err)
+		}
+		return
+	}
+	if !held {
+		a.logger.Debug("Another replica holds the DORA aggregation lease, skipping tick",
+			"holder", a.holder)
+		return
+	}
+	if err := a.RunOnce(ctx); err != nil && ctx.Err() == nil {
+		a.logger.Error("DORA aggregation tick failed", "error", err)
+	}
+}
+
+// releaseLease hands the lease back on shutdown so a surviving replica starts on
+// its next tick instead of waiting out the TTL. Best-effort by nature: the process
+// is stopping, and an expired lease reaches the same place.
+func (a *Aggregator) releaseLease() {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(context.Background()), 5*time.Second)
+	defer cancel()
+	if err := a.store.ReleaseLease(ctx, aggregationLease, a.holder); err != nil {
+		a.logger.Warn("Failed to release DORA aggregation lease", "error", err)
 	}
 }
 

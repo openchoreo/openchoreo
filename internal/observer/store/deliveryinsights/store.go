@@ -209,6 +209,12 @@ type Store interface {
 	QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error)
 	Watermark(ctx context.Context, source string) (int64, error)
 	SetWatermark(ctx context.Context, source string, watermarkMs int64) error
+	// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs,
+	// reporting whether it is held. Renewal by the current holder always succeeds;
+	// a lease held by anyone else is only taken once it has expired.
+	AcquireLease(ctx context.Context, name, holder string, nowMs, ttlMs int64) (bool, error)
+	// ReleaseLease drops the named lease if holder still owns it.
+	ReleaseLease(ctx context.Context, name, holder string) error
 	Close() error
 }
 

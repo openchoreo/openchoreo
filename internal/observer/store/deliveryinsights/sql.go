@@ -107,6 +107,22 @@ var migrations = []migration{
 			);`,
 		},
 	},
+	{
+		version: 2,
+		statements: []string{
+			// Mutual exclusion for the aggregator. It lives here rather than in a
+			// Kubernetes Lease because the state it guards -- the watermarks above --
+			// is in this database already, and because multi-replica installs are
+			// required to be on PostgreSQL anyway (the alert store's PVC is
+			// ReadWriteOnce). No extra RBAC, and no dependency on the observer having
+			// a working in-cluster client.
+			`CREATE TABLE IF NOT EXISTS delivery_insights_lease (
+				name       TEXT PRIMARY KEY,
+				holder     TEXT NOT NULL,
+				expires_ms BIGINT NOT NULL
+			);`,
+		},
+	},
 }
 
 const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insights_schema_version (
@@ -230,6 +246,23 @@ ON CONFLICT (scope_type, scope_uid, environment_uid, granularity, bucket_start_m
 const setWatermarkQuery = `INSERT INTO delivery_insights_watermark (source, watermark_ms)
 VALUES (?, ?)
 ON CONFLICT (source) DO UPDATE SET watermark_ms = excluded.watermark_ms;`
+
+// acquireLeaseQuery takes or renews a lease in one statement, so two replicas
+// racing cannot both believe they hold it. The DO UPDATE fires only when the
+// current lease has expired or is already ours, which makes RowsAffected the
+// answer: 1 acquired or renewed, 0 held by someone else.
+const acquireLeaseQuery = `INSERT INTO delivery_insights_lease (name, holder, expires_ms)
+VALUES (?, ?, ?)
+ON CONFLICT (name) DO UPDATE SET
+	holder = excluded.holder,
+	expires_ms = excluded.expires_ms
+WHERE delivery_insights_lease.expires_ms <= ?
+	OR delivery_insights_lease.holder = excluded.holder;`
+
+// releaseLeaseQuery only clears a lease we still hold, so a holder that stalled
+// past expiry cannot delete the lease its successor has already taken.
+const releaseLeaseQuery = `DELETE FROM delivery_insights_lease
+WHERE name = ? AND holder = ?;`
 
 type sqlStore struct {
 	db      *sql.DB
@@ -813,6 +846,38 @@ func (s *sqlStore) SetWatermark(ctx context.Context, source string, watermarkMs 
 	query := s.rebind(setWatermarkQuery)
 	if _, err := s.db.ExecContext(ctx, query, source, watermarkMs); err != nil {
 		return fmt.Errorf("failed to set delivery insights watermark %q: %w", source, err)
+	}
+	return nil
+}
+
+// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs.
+func (s *sqlStore) AcquireLease(
+	ctx context.Context, name, holder string, nowMs, ttlMs int64,
+) (bool, error) {
+	if strings.TrimSpace(name) == "" || strings.TrimSpace(holder) == "" {
+		return false, fmt.Errorf("lease name and holder are required")
+	}
+	if ttlMs <= 0 {
+		return false, fmt.Errorf("lease ttl must be positive, got %d", ttlMs)
+	}
+	query := s.rebind(acquireLeaseQuery)
+	result, err := s.db.ExecContext(ctx, query, name, holder, nowMs+ttlMs, nowMs)
+	if err != nil {
+		return false, fmt.Errorf("failed to acquire delivery insights lease %q: %w", name, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to read lease acquisition result for %q: %w", name, err)
+	}
+	return affected > 0, nil
+}
+
+// ReleaseLease drops the named lease if holder still owns it, so the next tick
+// elsewhere starts immediately instead of waiting out the TTL.
+func (s *sqlStore) ReleaseLease(ctx context.Context, name, holder string) error {
+	query := s.rebind(releaseLeaseQuery)
+	if _, err := s.db.ExecContext(ctx, query, name, holder); err != nil {
+		return fmt.Errorf("failed to release delivery insights lease %q: %w", name, err)
 	}
 	return nil
 }
