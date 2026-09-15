@@ -166,14 +166,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Mark resources as successfully applied and persist to API
-	if changed := controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
-		controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully"); changed {
-		if statusErr := r.Status().Update(ctx, release); statusErr != nil {
-			logger.Error(statusErr, "Failed to update Release status with apply success")
-			return ctrl.Result{}, statusErr
-		}
-	}
+	// Mark resources as successfully applied, but leave persisting it to the status
+	// update at the end of this reconcile.
+	// Writing it here would publish a state that contradicts itself: the condition
+	// would report this generation as applied while Status.Resources still holds
+	// the health of the generation being replaced. A consumer that reads the
+	// condition to decide whether the health beside it is current -- which is the
+	// only signal available for that -- would act on the previous revision's
+	// health. The delivery events built on it reported a rollout as succeeded
+	// before its pods existed.
+	//
+	// The apply-failure branch above still persists immediately, because there the
+	// point is to surface the error before returning.
+	controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
+		controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully")
 
 	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)

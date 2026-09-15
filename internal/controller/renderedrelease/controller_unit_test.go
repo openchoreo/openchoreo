@@ -1858,3 +1858,161 @@ func TestExtractDeploymentConditions(t *testing.T) {
 		}
 	})
 }
+
+// ─────────────────────────────────────────────────────────────
+// Health must describe the spec that was applied
+// ─────────────────────────────────────────────────────────────
+
+// healthyDeployment builds a Deployment that reads as fully rolled out at the
+// given generation: every replica updated, ready and available.
+func healthyDeployment(generation, observedGeneration int64) *unstructured.Unstructured {
+	const resourceID = "deployment-checkout"
+	obj := &unstructured.Unstructured{}
+	obj.SetAPIVersion("apps/v1")
+	obj.SetKind("Deployment")
+	obj.SetName("checkout")
+	obj.SetNamespace("dp-ns")
+	obj.SetGeneration(generation)
+	obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
+	if err := unstructured.SetNestedMap(obj.Object, map[string]any{
+		"observedGeneration":  observedGeneration,
+		"replicas":            int64(1),
+		"updatedReplicas":     int64(1),
+		"readyReplicas":       int64(1),
+		"availableReplicas":   int64(1),
+		"unavailableReplicas": int64(0),
+	}, "status"); err != nil {
+		panic(err)
+	}
+	if err := unstructured.SetNestedSlice(obj.Object, []any{
+		map[string]any{"type": "Available", "status": "True", "reason": "MinimumReplicasAvailable"},
+		map[string]any{"type": "Progressing", "status": "True", "reason": "NewReplicaSetAvailable"},
+	}, "status", "conditions"); err != nil {
+		panic(err)
+	}
+	if err := unstructured.SetNestedField(obj.Object, int64(1), "spec", "replicas"); err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// TestBuildResourceStatusRejectsPreApplySnapshot pins that health is only
+// reported for a snapshot of the spec this reconcile applied.
+//
+// applyResources uses server-side apply, and the client writes the server's
+// response back into the desired object, so its generation is the one the write
+// produced. The List that follows is served from the API server's watch cache
+// and can lag that write, handing back the previous revision -- fully rolled out
+// and healthy, with its own generation and observedGeneration agreeing, so
+// getDeploymentHealth has no way to notice.
+//
+// Publishing that as this generation's health told the delivery events a rollout
+// had succeeded before its new ReplicaSet existed, which is what succeededAt --
+// and therefore Lead Time for Changes -- is measured from.
+func TestBuildResourceStatusRejectsPreApplySnapshot(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	t.Run("live snapshot behind the apply is Progressing, not Healthy", func(t *testing.T) {
+		// The apply returned generation 7; the cache still holds generation 6,
+		// settled and healthy on the revision being replaced.
+		applied := healthyDeployment(7, 7)
+		live := healthyDeployment(6, 6)
+
+		result := r.buildResourceStatus(ctx, emptyRelease,
+			[]*unstructured.Unstructured{applied}, []*unstructured.Unstructured{live})
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if got := result[0].HealthStatus; got != openchoreov1alpha1.HealthStatusProgressing {
+			t.Errorf("health = %q, want Progressing: the snapshot predates the applied spec", got)
+		}
+	})
+
+	t.Run("live snapshot at the applied generation is judged normally", func(t *testing.T) {
+		applied := healthyDeployment(7, 7)
+		live := healthyDeployment(7, 7)
+
+		result := r.buildResourceStatus(ctx, emptyRelease,
+			[]*unstructured.Unstructured{applied}, []*unstructured.Unstructured{live})
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if got := result[0].HealthStatus; got != openchoreov1alpha1.HealthStatusHealthy {
+			t.Errorf("health = %q, want Healthy", got)
+		}
+	})
+
+	t.Run("kinds without a generation are unaffected", func(t *testing.T) {
+		// ConfigMaps do not track generation, so both sides read zero. Comparing
+		// them must not make every such resource permanently Progressing.
+		desired := buildResourcesDesired("res-cm", "my-cm")
+		live := buildResourcesLive("res-cm", "my-cm", map[string]interface{}{})
+
+		result := r.buildResourceStatus(ctx, emptyRelease,
+			[]*unstructured.Unstructured{desired}, []*unstructured.Unstructured{live})
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if got := result[0].HealthStatus; got == openchoreov1alpha1.HealthStatusProgressing {
+			t.Errorf("health = %q, want anything but Progressing for a generation-less kind", got)
+		}
+	})
+}
+
+// TestUpdateStatusPersistsConditionOnlyChange pins that the apply-success
+// condition reaches the API server.
+//
+// It used to be persisted by its own Status().Update mid-reconcile, and
+// updateStatus copied conditions onto old before comparing so that write would
+// not look like a diff. It is now published here instead, together with the
+// resource statuses it will be read beside -- so the comparison has to include
+// conditions, or a reconcile whose resource health did not change would drop the
+// condition entirely.
+func TestUpdateStatusPersistsConditionOnlyChange(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add scheme: %v", err)
+	}
+
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "rr-1", Namespace: "ns-1", Generation: 3},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(release).WithStatusSubresource(release).Build()
+	r := &Reconciler{Client: cl}
+
+	old := release.DeepCopy()
+	updated := release.DeepCopy()
+	// Same resources on both sides; only the condition differs.
+	statuses := []openchoreov1alpha1.RenderedManifestStatus{
+		{ID: "res-1", Kind: "ConfigMap", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+	}
+	old.Status.Resources = statuses
+	updated.Status.Conditions = []metav1.Condition{{
+		Type:               ConditionResourcesApplied,
+		Status:             metav1.ConditionTrue,
+		Reason:             ReasonApplySucceeded,
+		ObservedGeneration: 3,
+		LastTransitionTime: metav1.Now(),
+	}}
+
+	changed, err := r.updateStatus(ctx, old, updated, statuses)
+	if err != nil {
+		t.Fatalf("updateStatus returned %v", err)
+	}
+	if !changed {
+		t.Fatal("a condition-only change must still be persisted")
+	}
+
+	stored := &openchoreov1alpha1.RenderedRelease{}
+	if err := cl.Get(ctx, client.ObjectKey{Name: "rr-1", Namespace: "ns-1"}, stored); err != nil {
+		t.Fatalf("get stored release: %v", err)
+	}
+	if len(stored.Status.Conditions) != 1 ||
+		stored.Status.Conditions[0].Type != ConditionResourcesApplied {
+		t.Errorf("stored conditions = %+v, want ResourcesApplied", stored.Status.Conditions)
+	}
+}
