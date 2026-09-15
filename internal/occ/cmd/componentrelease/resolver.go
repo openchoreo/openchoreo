@@ -20,7 +20,7 @@ import (
 func buildOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
 		// Priority 1: Use directory of existing releases
-		releases := ocIndex.ListReleasesForComponent(projectName, componentName)
+		releases := ocIndex.ListReleasesForComponent(namespace, projectName, componentName)
 		if len(releases) > 0 {
 			return filepath.Dir(releases[0].FilePath)
 		}
