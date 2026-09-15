@@ -246,8 +246,6 @@ spec:
       remoteRef: { key: backstage-backend-secret, property: value }
     - secretKey: client-secret
       remoteRef: { key: backstage-client-secret, property: value }
-    - secretKey: jenkins-api-key
-      remoteRef: { key: backstage-jenkins-api-key, property: value }
     - secretKey: github-actions-token
       remoteRef: { key: backstage-github-actions-token, property: value }
     - secretKey: github-oauth-client-secret
