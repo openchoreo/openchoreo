@@ -1108,7 +1108,7 @@ paths:
       summary: Query DORA metrics
       description: >
         Query pre-computed DORA metrics (Deployment Frequency, Lead Time for Changes,
-        Change Failure Rate, Mean Time to Recovery) for an org, project, or component
+        Change Failure Rate, Mean Time to Recovery) for a namespace, project, or component
         scope, optionally sliced by environment. Serves the Delivery Insights pages.
       operationId: queryDoraMetrics
       requestBody:

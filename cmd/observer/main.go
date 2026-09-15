@@ -245,10 +245,6 @@ func main() {
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, pdp, logger.With("component", "authz-logs"))
-	// pdp rather than authzClient, as everywhere else here: it is the same client
-	// except when AUTHZ_DISABLED, where it is nil and CheckAuthorization skips.
-	// Passing the client directly would leave platform logs the one surface that
-	// still authorizes on a deployment that turned authorization off.
 	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
 		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
 		pdp, logger.With("component", "authz-platform-logs"))
@@ -545,8 +541,13 @@ func shutdownServers(
 
 // newDeliveryInsightsStore opens the delivery insights store and applies its
 // migrations, returning the store and the function that closes it. The caller
-// defers that function; keeping it out of main means the store's three failure
-// branches do not sit in main's control flow.
+// defers that function.
+//
+// The alert and incident stores are initialized inline in main, and this would
+// read better beside them. It cannot be: main is at the gocyclo limit of 30, and
+// the three failure branches here take it to 33. The same applies to
+// newDeliveryInsightsService below, whose passthrough branch alone takes it
+// to 31.
 func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
