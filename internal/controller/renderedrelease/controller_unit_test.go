@@ -1064,6 +1064,84 @@ func TestGetUnknownResourceHealth(t *testing.T) {
 	}
 }
 
+func TestGetUnknownResourceHealth_ReadyCondition(t *testing.T) {
+	newForeignCRD := func(conditions []interface{}) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "postgresql.cnpg.io", Version: "v1", Kind: "Cluster"})
+		obj.SetName("test")
+		if conditions != nil {
+			_ = unstructured.SetNestedSlice(obj.Object, conditions, "status", "conditions")
+		}
+		return obj
+	}
+
+	tests := []struct {
+		name       string
+		conditions []interface{}
+		want       openchoreov1alpha1.HealthStatus
+	}{
+		{
+			name:       "no status.conditions falls back to Healthy",
+			conditions: nil,
+			want:       openchoreov1alpha1.HealthStatusHealthy,
+		},
+		{
+			name: "no Ready condition falls back to Healthy",
+			conditions: []interface{}{
+				map[string]interface{}{"type": "SomeOtherCondition", "status": "False"},
+			},
+			want: openchoreov1alpha1.HealthStatusHealthy,
+		},
+		{
+			name: "Ready=True is Healthy",
+			conditions: []interface{}{
+				map[string]interface{}{"type": "Ready", "status": "True"},
+			},
+			want: openchoreov1alpha1.HealthStatusHealthy,
+		},
+		{
+			name: "Ready=False is Progressing, not Healthy",
+			conditions: []interface{}{
+				map[string]interface{}{"type": "Ready", "status": "False"},
+			},
+			want: openchoreov1alpha1.HealthStatusProgressing,
+		},
+		{
+			name: "Ready=Unknown is Unknown",
+			conditions: []interface{}{
+				map[string]interface{}{"type": "Ready", "status": "Unknown"},
+			},
+			want: openchoreov1alpha1.HealthStatusUnknown,
+		},
+		{
+			name: "Ready condition missing status field is Unknown",
+			conditions: []interface{}{
+				map[string]interface{}{"type": "Ready"},
+			},
+			want: openchoreov1alpha1.HealthStatusUnknown,
+		},
+		{
+			name: "malformed non-map condition entry is skipped, falls back to Healthy",
+			conditions: []interface{}{
+				"not-a-condition-map",
+			},
+			want: openchoreov1alpha1.HealthStatusHealthy,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			health, err := getUnknownResourceHealth(newForeignCRD(tt.conditions))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if health != tt.want {
+				t.Errorf("expected %s, got %s", tt.want, health)
+			}
+		})
+	}
+}
+
 // ─────────────────────────────────────────────────────────────
 // makeDesiredResources
 // ─────────────────────────────────────────────────────────────
