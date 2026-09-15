@@ -13,6 +13,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -31,9 +32,9 @@ type k8sResourcesServiceWithAuthz struct {
 var _ Service = (*k8sResourcesServiceWithAuthz)(nil)
 
 // NewServiceWithAuthz creates a k8s resources service with authorization checks.
-func NewServiceWithAuthz(k8sClient client.Client, gatewayClient *gateway.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
+func NewServiceWithAuthz(k8sClient client.Client, gatewayClient *gateway.Client, authzPDP authz.PDP, treeCfg config.ResourceTreeConfig, logger *slog.Logger) Service {
 	return &k8sResourcesServiceWithAuthz{
-		internal:  NewService(k8sClient, gatewayClient, logger),
+		internal:  NewService(k8sClient, gatewayClient, treeCfg, logger),
 		k8sClient: k8sClient,
 		authz:     services.NewAuthzChecker(authzPDP, logger),
 	}

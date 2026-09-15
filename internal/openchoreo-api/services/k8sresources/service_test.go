@@ -12,10 +12,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+)
+
+// The GVRs objects are selected through, which is what sanitizeObject keys off.
+var (
+	podGVR        = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
+	secretGVR     = schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	configMapGVR  = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	deploymentGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 )
 
 func TestBuildK8sGetPath(t *testing.T) {
@@ -139,7 +148,7 @@ func TestBuildResourceNode(t *testing.T) {
 			},
 		}
 
-		node, ok := buildResourceNode(obj, nil, "Healthy")
+		node, ok := buildResourceNode(obj, deploymentGVR, nil, "Healthy")
 		require.True(t, ok)
 		assert.Equal(t, "apps", node.Group)
 		assert.Equal(t, "v1", node.Version)
@@ -163,7 +172,7 @@ func TestBuildResourceNode(t *testing.T) {
 			},
 		}
 
-		node, ok := buildResourceNode(obj, nil, "")
+		node, ok := buildResourceNode(obj, podGVR, nil, "")
 		assert.False(t, ok)
 		assert.Equal(t, models.ResourceNode{}, node)
 	})
@@ -187,7 +196,7 @@ func TestBuildResourceNode(t *testing.T) {
 			UID:       "deploy-uid",
 		}
 
-		node, ok := buildResourceNode(obj, parentRef, "")
+		node, ok := buildResourceNode(obj, podGVR, parentRef, "")
 		require.True(t, ok)
 		require.Len(t, node.ParentRefs, 1)
 		assert.Equal(t, *parentRef, node.ParentRefs[0])
@@ -203,7 +212,7 @@ func TestBuildResourceNode(t *testing.T) {
 			},
 		}
 
-		node, ok := buildResourceNode(obj, nil, openchoreov1alpha1.HealthStatusDegraded)
+		node, ok := buildResourceNode(obj, deploymentGVR, nil, openchoreov1alpha1.HealthStatusDegraded)
 		require.True(t, ok)
 		require.NotNil(t, node.Health)
 		assert.Equal(t, "Degraded", node.Health.Status)
@@ -221,7 +230,7 @@ func TestSanitizeObject(t *testing.T) {
 			},
 		}
 
-		result := sanitizeObject(obj, "ConfigMap")
+		result := sanitizeObject(obj, configMapGVR)
 		metadata := result["metadata"].(map[string]any)
 		assert.NotContains(t, metadata, "managedFields")
 		assert.Equal(t, "my-cm", metadata["name"])
@@ -242,10 +251,53 @@ func TestSanitizeObject(t *testing.T) {
 			"type":       "Opaque",
 		}
 
-		result := sanitizeObject(obj, "Secret")
+		result := sanitizeObject(obj, secretGVR)
 		assert.NotContains(t, result, "data")
 		assert.NotContains(t, result, "stringData")
 		assert.Equal(t, "Opaque", result["type"])
+	})
+
+	// The two cases below pin that the GVR decides, not the object's kind. On
+	// the legacy fallback path the kind is not the API server's word for what
+	// the object is: list items arrive without one and fetchChildKindList
+	// backfills it from the operator's rule text.
+	t.Run("strips Secret data when the kind is spelled non-canonically", func(t *testing.T) {
+		obj := map[string]any{
+			"apiVersion": "v1",
+			// What a rule saying `kind: secret` backfills onto a list item.
+			"kind": "secret",
+			"metadata": map[string]any{
+				"name": "my-secret",
+				"annotations": map[string]any{
+					"kubectl.kubernetes.io/last-applied-configuration": `{"data":{"key":"dmFsdWU="}}`,
+				},
+			},
+			"data":       map[string]any{"key": "dmFsdWU="},
+			"stringData": map[string]any{"key": "value"},
+		}
+
+		result := sanitizeObject(obj, secretGVR)
+		assert.NotContains(t, result, "data")
+		assert.NotContains(t, result, "stringData")
+		metadata := result["metadata"].(map[string]any)
+		annotations := metadata["annotations"].(map[string]any)
+		assert.NotContains(t, annotations, "kubectl.kubernetes.io/last-applied-configuration",
+			"the annotation carries the same data block the deletes above removed")
+	})
+
+	t.Run("leaves a CRD named Secret in another group whole", func(t *testing.T) {
+		obj := map[string]any{
+			"apiVersion": "example.com/v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"name": "not-a-core-secret"},
+			"data":       map[string]any{"key": "value"},
+		}
+
+		result := sanitizeObject(obj, schema.GroupVersionResource{
+			Group: "example.com", Version: "v1", Resource: "secrets",
+		})
+		assert.Equal(t, map[string]any{"key": "value"}, result["data"],
+			"only core v1 Secrets are stripped; another group's Secret is an unrelated CRD")
 	})
 }
 
@@ -415,52 +467,6 @@ func TestGetAPIVersion(t *testing.T) {
 	})
 }
 
-func TestIsChildResourceKind(t *testing.T) {
-	t.Run("Pod", func(t *testing.T) {
-		assert.True(t, isChildResourceKind("Pod"))
-	})
-
-	t.Run("Deployment", func(t *testing.T) {
-		assert.False(t, isChildResourceKind("Deployment"))
-	})
-
-	t.Run("Job", func(t *testing.T) {
-		assert.True(t, isChildResourceKind("Job"))
-	})
-}
-
-func TestHasParentResourceInRelease(t *testing.T) {
-	t.Run("Pod with Deployment parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.RenderedManifestStatus{
-			{Kind: "Service", Name: "svc1"},
-			{Kind: "Deployment", Name: "dep1"},
-		}
-		assert.True(t, hasParentResourceInRelease("Pod", resources))
-	})
-
-	t.Run("Pod with no parent kinds in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.RenderedManifestStatus{
-			{Kind: "Service", Name: "svc1"},
-			{Kind: "ConfigMap", Name: "cm1"},
-		}
-		assert.False(t, hasParentResourceInRelease("Pod", resources))
-	})
-
-	t.Run("Job with CronJob parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.RenderedManifestStatus{
-			{Kind: "CronJob", Name: "cj1"},
-		}
-		assert.True(t, hasParentResourceInRelease("Job", resources))
-	})
-
-	t.Run("ReplicaSet with Deployment parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.RenderedManifestStatus{
-			{Kind: "Deployment", Name: "dep1"},
-		}
-		assert.True(t, hasParentResourceInRelease("ReplicaSet", resources))
-	})
-}
-
 func TestDeriveNamespace(t *testing.T) {
 	t.Run("with resources", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
@@ -577,114 +583,6 @@ func TestResolveObservabilityPlaneInfo(t *testing.T) {
 	})
 }
 
-func TestFindResourceRelease(t *testing.T) {
-	svc := &k8sResourcesService{}
-
-	dpRelease := releaseContext{
-		release: &openchoreov1alpha1.RenderedRelease{
-			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: planeTypeDataPlane},
-			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.RenderedManifestStatus{
-					{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "app-ns"},
-					{Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "app-ns"},
-				},
-			},
-		},
-		namespace: "app-ns",
-	}
-
-	obsRelease := releaseContext{
-		release: &openchoreov1alpha1.RenderedRelease{
-			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: planeTypeObservabilityPlane},
-			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.RenderedManifestStatus{
-					{Group: "", Version: "v1", Kind: "ConfigMap", Name: "obs-cfg", Namespace: "obs-ns"},
-				},
-			},
-		},
-		namespace: "obs-ns",
-	}
-
-	contexts := []releaseContext{dpRelease, obsRelease}
-
-	t.Run("exact match returns resource namespace", func(t *testing.T) {
-		rc, ns := svc.findResourceRelease(contexts, "apps", "v1", "Deployment", "web")
-		require.NotNil(t, rc)
-		assert.Equal(t, "app-ns", ns)
-		assert.Equal(t, planeTypeDataPlane, rc.release.Spec.TargetPlane)
-	})
-
-	t.Run("exact match in second context", func(t *testing.T) {
-		rc, ns := svc.findResourceRelease(contexts, "", "v1", "ConfigMap", "obs-cfg")
-		require.NotNil(t, rc)
-		assert.Equal(t, "obs-ns", ns)
-		assert.Equal(t, planeTypeObservabilityPlane, rc.release.Spec.TargetPlane)
-	})
-
-	t.Run("child kind falls back to parent lookup", func(t *testing.T) {
-		// Pod is not in status resources, but its parent kind Deployment is
-		rc, ns := svc.findResourceRelease(contexts, "", "v1", "Pod", "web-abc-xyz")
-		require.NotNil(t, rc)
-		assert.Equal(t, "app-ns", ns)
-	})
-
-	t.Run("child kind with no parent in any context", func(t *testing.T) {
-		// ReplicaSet's parent is Deployment — only dpRelease has it
-		// But Job's parent is CronJob — neither context has a CronJob
-		noParentContexts := []releaseContext{obsRelease}
-		rc, ns := svc.findResourceRelease(noParentContexts, "", "v1", "Pod", "orphan-pod")
-		assert.Nil(t, rc)
-		assert.Equal(t, "", ns)
-	})
-
-	t.Run("Job child falls back to CronJob parent", func(t *testing.T) {
-		cronJobCtx := releaseContext{
-			release: &openchoreov1alpha1.RenderedRelease{
-				Status: openchoreov1alpha1.RenderedReleaseStatus{
-					Resources: []openchoreov1alpha1.RenderedManifestStatus{
-						{Group: "batch", Version: "v1", Kind: "CronJob", Name: "cj1", Namespace: "batch-ns"},
-					},
-				},
-			},
-			namespace: "batch-ns",
-		}
-		rc, ns := svc.findResourceRelease([]releaseContext{cronJobCtx}, "batch", "v1", "Job", "cj1-abc")
-		require.NotNil(t, rc)
-		assert.Equal(t, "batch-ns", ns)
-	})
-
-	t.Run("exact child match preferred over parent fallback", func(t *testing.T) {
-		// Release has both a Deployment (parent) and a Pod listed directly with a different namespace
-		mixedCtx := releaseContext{
-			release: &openchoreov1alpha1.RenderedRelease{
-				Status: openchoreov1alpha1.RenderedReleaseStatus{
-					Resources: []openchoreov1alpha1.RenderedManifestStatus{
-						{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "app-ns"},
-						{Group: "", Version: "v1", Kind: "Pod", Name: "special-pod", Namespace: "pod-ns"},
-					},
-				},
-			},
-			namespace: "app-ns",
-		}
-		// Exact match should return the Pod's own namespace ("pod-ns"), not the context namespace ("app-ns")
-		rc, ns := svc.findResourceRelease([]releaseContext{mixedCtx}, "", "v1", "Pod", "special-pod")
-		require.NotNil(t, rc)
-		assert.Equal(t, "pod-ns", ns)
-	})
-
-	t.Run("non-child kind not found", func(t *testing.T) {
-		rc, ns := svc.findResourceRelease(contexts, "apps", "v1", "StatefulSet", "missing")
-		assert.Nil(t, rc)
-		assert.Equal(t, "", ns)
-	})
-
-	t.Run("empty contexts", func(t *testing.T) {
-		rc, ns := svc.findResourceRelease(nil, "apps", "v1", "Deployment", "web")
-		assert.Nil(t, rc)
-		assert.Equal(t, "", ns)
-	})
-}
-
 func TestComputeHealthFromObject(t *testing.T) {
 	t.Run("healthy Deployment", func(t *testing.T) {
 		replicas := int32(1)
@@ -767,7 +665,7 @@ func TestSanitizeObject_EdgeCases(t *testing.T) {
 			"kind":       "ConfigMap",
 		}
 
-		result := sanitizeObject(obj, "ConfigMap")
+		result := sanitizeObject(obj, configMapGVR)
 		assert.Equal(t, "v1", result["apiVersion"])
 		assert.Equal(t, "ConfigMap", result["kind"])
 	})
@@ -780,7 +678,7 @@ func TestSanitizeObject_EdgeCases(t *testing.T) {
 			"data":       map[string]any{"key": "value"},
 		}
 
-		result := sanitizeObject(obj, "ConfigMap")
+		result := sanitizeObject(obj, configMapGVR)
 		assert.Contains(t, result, "data")
 		assert.Equal(t, map[string]any{"key": "value"}, result["data"])
 	})
@@ -828,4 +726,23 @@ func TestResolveDataPlaneInfo_BothNil(t *testing.T) {
 	dpResult := &controller.DataPlaneResult{}
 	pi := resolveDataPlaneInfo(dpResult)
 	assert.Equal(t, planeInfo{}, pi)
+}
+
+func TestContextsForPlane(t *testing.T) {
+	mk := func(plane string) releaseContext {
+		return releaseContext{release: &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: plane},
+		}}
+	}
+	contexts := []releaseContext{
+		mk(planeTypeObservabilityPlane),
+		mk(planeTypeDataPlane),
+		mk(planeTypeObservabilityPlane),
+	}
+
+	got := contextsForPlane(contexts, planeTypeDataPlane)
+	require.Len(t, got, 1, "only the data-plane context must survive the filter")
+	assert.Equal(t, planeTypeDataPlane, got[0].release.Spec.TargetPlane)
+
+	assert.Empty(t, contextsForPlane(nil, planeTypeDataPlane))
 }

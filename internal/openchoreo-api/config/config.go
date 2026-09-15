@@ -4,6 +4,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/pflag"
@@ -33,6 +34,10 @@ type Config struct {
 	Audit AuditConfig `koanf:"audit"`
 	// RemoteConnect defines the `occ remote` resolve endpoint settings.
 	RemoteConnect RemoteConnectConfig `koanf:"remote_connect"`
+
+	// ResourceTree defines how the release resource tree walks from a root
+	// workload resource down to its children.
+	ResourceTree ResourceTreeConfig `koanf:"resource_tree"`
 }
 
 // Defaults returns the default configuration.
@@ -47,6 +52,7 @@ func Defaults() Config {
 		ClusterGateway:   ClusterGatewayDefaults(),
 		Audit:            AuditDefaults(),
 		RemoteConnect:    RemoteConnectDefaults(),
+		ResourceTree:     ResourceTreeDefaults(),
 	}
 }
 
@@ -91,6 +97,25 @@ func NewLoader(configPath string, flags *pflag.FlagSet) (*coreconfig.Loader, err
 	return loader, nil
 }
 
+// ValidateWithRaw reports every configuration defect in one pass: the checks on
+// the unmarshaled config, plus the resource_tree unknown-key check that has to
+// read the raw config, since unmarshaling silently drops keys this binary does
+// not know and a typo would otherwise take effect as its default.
+//
+// This is the entry point a binary calls at startup; Validate alone cannot see
+// the raw section, so which sections need a raw pass — and how the two error
+// sets merge — is decided here rather than in wiring code.
+func (c *Config) ValidateWithRaw(loader *coreconfig.Loader) error {
+	errs := c.ResourceTree.validateRawKeys(loader.RawAt("resource_tree"))
+
+	err := c.Validate()
+	var validationErrs coreconfig.ValidationErrors
+	if errors.As(err, &validationErrs) {
+		return append(errs, validationErrs...)
+	}
+	return errors.Join(errs.OrNil(), err)
+}
+
 // Validate validates the configuration.
 func (c *Config) Validate() error {
 	var errs coreconfig.ValidationErrors
@@ -104,6 +129,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.Audit.Validate(
 		coreconfig.NewPath("audit"), auditconfig.NewVocabulary(apiaudit.GetOperations()), c.Security.KnownActorTypes())...)
 	errs = append(errs, c.RemoteConnect.Validate(coreconfig.NewPath("remote_connect"))...)
+	errs = append(errs, c.ResourceTree.Validate(coreconfig.NewPath("resource_tree"))...)
 
 	return errs.OrNil()
 }

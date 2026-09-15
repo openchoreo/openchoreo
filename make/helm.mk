@@ -51,6 +51,8 @@ helm-generate.%: yq helm-schema ## Generate helm chart for the specified chart n
 			sed -i.bak "/$$crd/d" $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml && \
 			rm -f $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml.bak; \
 		done; \
+		$(call log_info, Generating built-in resource tree rules for control-plane chart); \
+		go run $(PROJECT_DIR)/hack/resource-tree-builtin-rules -output $(CHART_PATH)/files/resource-tree-builtin-rules.yaml || exit 1; \
 		;; \
 	"openchoreo-observability-plane") \
 		$(call log_info, Generating CRDs for observability plane chart); \

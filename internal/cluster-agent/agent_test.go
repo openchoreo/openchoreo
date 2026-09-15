@@ -573,7 +573,7 @@ func TestAgent_New_TLSDisabled(t *testing.T) {
 	// NewRouter needs a rest.Config — provide a minimal one
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	require.NoError(t, err)
 	assert.NotNil(t, agent)
 	assert.NotNil(t, agent.router)
@@ -593,7 +593,7 @@ func TestAgent_New_TLSEnabled_BadCert(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	_, err := New(cfg, nil, k8sConfig, testLogger())
+	_, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load client certificate")
 }
@@ -675,7 +675,7 @@ func TestAgent_New_TLSEnabled_Success(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	require.NoError(t, err)
 	assert.NotNil(t, agent)
 	assert.NotNil(t, agent.serverCA)
@@ -701,7 +701,7 @@ func TestAgent_New_TLSEnabled_BadServerCA(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	// Fail closed: an unparsable CA must not silently downgrade to an
 	// unverified tunnel, which any host answering the gateway's address
 	// could then impersonate.
@@ -725,7 +725,7 @@ func TestAgent_New_TLSEnabled_MissingServerCA(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	// Fail closed: an unreadable CA path is a misconfiguration, not a
 	// reason to drop server verification.
 	require.Error(t, err)
@@ -748,7 +748,7 @@ func TestAgent_New_TLSEnabled_NoServerCAConfigured(t *testing.T) {
 		ServerCAPath:   "",
 	}
 
-	agent, err := New(cfg, nil, &rest.Config{Host: "https://kubernetes.default.svc"}, testLogger())
+	agent, err := New(cfg, nil, &rest.Config{Host: "https://kubernetes.default.svc"}, nil, testLogger())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no server CA is configured")
 	assert.Nil(t, agent)
@@ -834,7 +834,7 @@ func TestAgent_New_TLSEnabled_PlaintextURLFailsClosed(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "use wss://")
 	assert.Nil(t, agent)

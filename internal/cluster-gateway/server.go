@@ -38,6 +38,14 @@ const (
 	planeTypeObservabilityPlane   = "observabilityplane"
 	crNamespaceClusterPlaceholder = "_cluster" // Special placeholder for cluster-scoped CRs (no namespace)
 
+	// headerGatewayEntryPod and headerGatewayServedBy name the pair of
+	// response headers that make a request's path through the mesh visible:
+	// the pod the caller reached, and the pod that owned the agent connection.
+	// The handlers that echo them share the names from here rather than
+	// spelling out the literals, so the two cannot drift apart.
+	headerGatewayEntryPod = "X-Cluster-Gateway-Entry-Pod"
+	headerGatewayServedBy = "X-Cluster-Gateway-Served-By"
+
 	// drainGracePeriod is how long the drain waits after the last GOAWAY for
 	// agents to close on their own before sockets are forced shut. It is spent
 	// inside the shutdown budget, so Start validates that it fits.
@@ -231,9 +239,10 @@ func (s *Server) Start() error {
 
 	// Internal listener: caller-facing /api/* for in-cluster components only.
 	internalMux := http.NewServeMux()
-	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
-	internalMux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
-	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
+	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)                    // HTTP proxy to data plane services
+	internalMux.HandleFunc("/api/exec/", s.handleExec)                          // WebSocket exec proxy to data plane pods
+	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs)                  // WebSocket wirelogs (Cilium Hubble flow) stream
+	internalMux.HandleFunc(resourceTreePathPrefix, s.handleResourceTreeMatches) // Resource tree child match queries
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
@@ -903,8 +912,8 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	// which pod actually owned the agent connection and served it. Equal
 	// values mean it was served locally; differing values mean it was
 	// forwarded one hop over the gateway mesh.
-	w.Header().Set("X-Cluster-Gateway-Entry-Pod", s.selfID())
-	w.Header().Set("X-Cluster-Gateway-Served-By", servedBy)
+	w.Header().Set(headerGatewayEntryPod, s.selfID())
+	w.Header().Set(headerGatewayServedBy, servedBy)
 
 	w.WriteHeader(response.StatusCode)
 	if len(response.Body) > 0 {

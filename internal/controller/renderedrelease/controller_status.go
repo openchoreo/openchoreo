@@ -199,18 +199,36 @@ func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Un
 }
 
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
-	switch {
-	case gvk.Group == appsAPIGroup && gvk.Kind == deploymentKind:
-		return getDeploymentHealth
-	case gvk.Group == appsAPIGroup && gvk.Kind == statefulSetKind:
-		return getStatefulSetHealth
-	case gvk.Group == "" && gvk.Kind == "Pod":
-		return getPodHealth
-	case gvk.Group == batchAPIGroup && gvk.Kind == cronJobKind:
-		return getCronJobHealth
-		// TODO: Add gateway http route health check, and other resources as needed
+	if check, ok := kindHealthCheckFunc(gvk); ok {
+		return check
 	}
 	return getUnknownResourceHealth
+}
+
+// HasKindHealthCheck reports whether gvk has a calculator that reads the
+// object's spec and status, as opposed to the presence-only fallback every other
+// kind gets. Callers holding a partial object need the difference: a
+// presence-only answer stays true of a projection that kept only metadata, while
+// a spec/status calculator reading one is answering about fields that are not
+// there.
+func HasKindHealthCheck(gvk schema.GroupVersionKind) bool {
+	_, ok := kindHealthCheckFunc(gvk)
+	return ok
+}
+
+func kindHealthCheckFunc(gvk schema.GroupVersionKind) (func(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error), bool) {
+	switch {
+	case gvk.Group == appsAPIGroup && gvk.Kind == deploymentKind:
+		return getDeploymentHealth, true
+	case gvk.Group == appsAPIGroup && gvk.Kind == statefulSetKind:
+		return getStatefulSetHealth, true
+	case gvk.Group == "" && gvk.Kind == "Pod":
+		return getPodHealth, true
+	case gvk.Group == batchAPIGroup && gvk.Kind == cronJobKind:
+		return getCronJobHealth, true
+		// TODO: Add gateway http route health check, and other resources as needed
+	}
+	return nil, false
 }
 
 func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {

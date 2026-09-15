@@ -1,0 +1,27 @@
+# The Envoy Gateway shape: the data plane Deployment carries labels naming the
+# Gateway that owns it, in a namespace of its own.
+resource_tree:
+  rules:
+    - root:
+        group: gateway.networking.k8s.io
+        version: v1
+        kind: Gateway
+        resource: gateways
+      children:
+        - kind:
+            group: apps
+            version: v1
+            kind: Deployment
+            resource: deployments
+          matcher: labelSelector
+          label_selector:
+            match_labels:
+              gateway.envoyproxy.io/owning-gateway-name: "${parent.metadata.name}"
+              gateway.envoyproxy.io/owning-gateway-namespace: "${parent.metadata.namespace}"
+            namespaces:
+              - envoy-gateway-system
+          children:
+            - kind:
+                version: v1
+                kind: Pod
+                resource: pods
