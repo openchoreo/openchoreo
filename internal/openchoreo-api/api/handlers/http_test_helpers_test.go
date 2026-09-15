@@ -55,7 +55,7 @@ func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Servic
 		Logger:         logger,
 		AuthMiddleware: injectTestSubject,
 		AuditEmitter:   emitter,
-		AuditEnabled:   auditCfg.Enabled,
+		AuditEnabled:   true,
 	})
 	require.NoError(t, err, "test OpenAPIMiddlewareOptions must build a valid middleware chain")
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{

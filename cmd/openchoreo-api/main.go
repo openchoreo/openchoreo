@@ -188,7 +188,7 @@ func main() {
 	// Initialize all handler services
 	services := handlerservices.NewServices(
 		k8sClient, runtime.pap, runtime.pdp, planeClientProvider, cfg.SecretManagement, logger, gwClient,
-		webhookProcessor, cfg.ResourceTree,
+		webhookProcessor, cfg.ResourceTree, cfg.Audit,
 	)
 
 	// Initialize OpenAPI handlers

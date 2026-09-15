@@ -497,6 +497,15 @@ type AgentConnectionStatus struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// AuditLogsFeature Audit trail read path
+type AuditLogsFeature struct {
+	// Enabled Whether audit logging is enabled
+	Enabled bool `json:"enabled"`
+
+	// ObserverURL Base URL of the observer that serves audit logs. Omitted when audit logging is disabled or the referenced observability plane is not found.
+	ObserverURL *string `json:"observerURL,omitempty"`
+}
+
 // AuthMechanismConfig Configuration for an authentication mechanism
 type AuthMechanismConfig struct {
 	// Entitlement Configuration for extracting entitlement claims from tokens
@@ -2282,6 +2291,18 @@ type ListSecretsResponse struct {
 type MessageResponse struct {
 	// Message Response message
 	Message string `json:"message"`
+}
+
+// MetadataFeatures Optional platform features and how clients reach them
+type MetadataFeatures struct {
+	// AuditLogs Audit trail read path
+	AuditLogs AuditLogsFeature `json:"auditLogs"`
+}
+
+// MetadataResponse How this OpenChoreo installation is configured
+type MetadataResponse struct {
+	// Features Optional platform features and how clients reach them
+	Features MetadataFeatures `json:"features"`
 }
 
 // Namespace Namespace resource.

@@ -65,7 +65,7 @@ type SelectorConfig struct {
 // AuditDefaults returns the default audit configuration.
 func AuditDefaults() AuditConfig {
 	return AuditConfig{
-		Enabled: true,
+		Enabled: false,
 		Defaults: PolicyDefaultsConfig{
 			Publish: true,
 		},

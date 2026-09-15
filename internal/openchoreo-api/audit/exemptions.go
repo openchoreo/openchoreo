@@ -51,6 +51,7 @@ var RESTExemptions = map[string]string{
 	"GetDeploymentPipeline":                       reasonRead,
 	"GetEnvironment":                              reasonRead,
 	"GetHealth":                                   reasonRead,
+	"GetMetadata":                                 reasonRead,
 	"GetNamespace":                                reasonRead,
 	"GetNamespaceRole":                            reasonRead,
 	"GetNamespaceRoleBinding":                     reasonRead,

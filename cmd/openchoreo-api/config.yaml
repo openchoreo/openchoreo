@@ -194,8 +194,9 @@ logging:
   add_source: false
 
 audit:
-  # Enable audit event emission for state-modifying API requests.
-  enabled: true
+  # Enable audit event emission for state-modifying API requests. Requires
+  # observability_plane_ref.
+  enabled: false
 
   # Settings applied when no policy below matches.
   defaults:

@@ -3319,10 +3319,42 @@
                   "type": "object"
                 },
                 "enabled": {
-                  "default": true,
-                  "description": "Enable audit event emission for state-modifying API requests",
+                  "default": false,
+                  "description": "Enable audit event emission for state-modifying API requests. Requires observabilityPlaneRef.",
                   "title": "enabled",
                   "type": "boolean"
+                },
+                "observabilityPlaneRef": {
+                  "additionalProperties": false,
+                  "description": "Reference to the observability plane where audit logs are stored",
+                  "properties": {
+                    "kind": {
+                      "default": "",
+                      "description": "Kind of the referenced observability plane. Required when enabled is true.",
+                      "enum": [
+                        "",
+                        "ObservabilityPlane",
+                        "ClusterObservabilityPlane"
+                      ],
+                      "required": [],
+                      "title": "kind"
+                    },
+                    "name": {
+                      "default": "",
+                      "description": "Name of the referenced observability plane. Required when enabled is true.",
+                      "title": "name",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "default": "",
+                      "description": "Namespace of the referenced ObservabilityPlane. Not used for ClusterObservabilityPlane.",
+                      "title": "namespace",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "observabilityPlaneRef",
+                  "type": "object"
                 },
                 "policies": {
                   "default": [],
