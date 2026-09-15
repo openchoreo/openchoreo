@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/flock"
+
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/scanner"
 )
@@ -23,6 +25,7 @@ const (
 	DirName      = ".occ"
 	IndexFile    = "index.json"
 	MetadataFile = "metadata.json"
+	LockFile     = "index.lock"
 )
 
 // FileState tracks the state of a single file for change detection
@@ -56,8 +59,34 @@ type PersistentIndex struct {
 	metadata *CacheMetadata
 }
 
+// withCacheLock runs fn while holding an exclusive cross-process lock on the
+// repository cache directory. This prevents concurrent LoadOrBuild/ForceRebuild
+// callers from corrupting .occ/index.json and .occ/metadata.json.
+func withCacheLock(repoPath string, fn func() (*PersistentIndex, error)) (*PersistentIndex, error) {
+	cacheDir := filepath.Join(repoPath, DirName)
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	lock := flock.New(filepath.Join(cacheDir, LockFile))
+	if err := lock.Lock(); err != nil {
+		return nil, fmt.Errorf("failed to acquire cache lock: %w", err)
+	}
+	defer func() {
+		_ = lock.Unlock()
+	}()
+
+	return fn()
+}
+
 // LoadOrBuild loads existing index from cache or builds a new one
 func LoadOrBuild(repoPath string) (*PersistentIndex, error) {
+	return withCacheLock(repoPath, func() (*PersistentIndex, error) {
+		return loadOrBuildLocked(repoPath)
+	})
+}
+
+func loadOrBuildLocked(repoPath string) (*PersistentIndex, error) {
 	pi := &PersistentIndex{
 		Index:    index.New(repoPath),
 		repoPath: repoPath,
@@ -185,7 +214,7 @@ func (pi *PersistentIndex) saveToDisk() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal index: %w", err)
 	}
-	if err := os.WriteFile(indexPath, indexData, 0600); err != nil {
+	if err := atomicWriteFile(indexPath, indexData); err != nil {
 		return fmt.Errorf("failed to write index file: %w", err)
 	}
 
@@ -198,7 +227,7 @@ func (pi *PersistentIndex) saveToDisk() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	if err := os.WriteFile(metaPath, metaData, 0600); err != nil {
+	if err := atomicWriteFile(metaPath, metaData); err != nil {
 		return fmt.Errorf("failed to write metadata file: %w", err)
 	}
 
@@ -497,12 +526,14 @@ func (pi *PersistentIndex) incrementalUpdate(changedFiles []string) error {
 
 // ForceRebuild forces a full rebuild of the index, ignoring cache
 func ForceRebuild(repoPath string) (*PersistentIndex, error) {
-	pi := &PersistentIndex{
-		Index:    index.New(repoPath),
-		repoPath: repoPath,
-		cacheDir: filepath.Join(repoPath, DirName),
-	}
-	return pi.fullRebuild()
+	return withCacheLock(repoPath, func() (*PersistentIndex, error) {
+		pi := &PersistentIndex{
+			Index:    index.New(repoPath),
+			repoPath: repoPath,
+			cacheDir: filepath.Join(repoPath, DirName),
+		}
+		return pi.fullRebuild()
+	})
 }
 
 // ClearCache removes the cache directory
