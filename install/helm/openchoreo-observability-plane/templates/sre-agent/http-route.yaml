@@ -31,4 +31,12 @@ spec:
     backendRefs:
     - name: {{ .Values.rca.name }}
       port: {{ .Values.rca.service.port }}
+  - name: mcp
+    matches:
+    - path:
+        type: PathPrefix
+        value: /mcp
+    backendRefs:
+    - name: {{ .Values.rca.name }}
+      port: {{ .Values.rca.service.port }}
 {{- end }}
