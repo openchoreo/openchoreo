@@ -292,6 +292,36 @@ func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
 	}
 }
 
+// TestNewMiddleware_HandlerSetResultWins covers the escape hatch a server
+// whose only authz check lives inside the tool handler depends on: the SDK
+// folds the handler's error into CallToolResult.IsError, so classifyResult
+// would call a policy denial a failure. What the handler recorded must win.
+func TestNewMiddleware_HandlerSetResultWins(t *testing.T) {
+	sink := &recordingSink{}
+	emitter := testEmitter(t, sink)
+	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+
+	next := func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+		audit.SetResult(ctx, audit.ResultDenied)
+		return &mcp.CallToolResult{IsError: true}, nil
+	}
+
+	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{Name: "create_project", Arguments: json.RawMessage(`{"name":"proj-1"}`)},
+	}
+
+	if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sink.events) != 1 {
+		t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+	}
+	if sink.events[0].Result != audit.ResultDenied {
+		t.Errorf("Result = %v, want denied — the handler's SetResult must override IsError",
+			sink.events[0].Result)
+	}
+}
+
 func TestClassifyResult(t *testing.T) {
 	tests := []struct {
 		name string

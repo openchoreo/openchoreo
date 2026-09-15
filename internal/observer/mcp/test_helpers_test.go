@@ -22,6 +22,7 @@ type handlerTestDeps struct {
 	alerts       service.AlertIncidentService
 	traces       service.TracesQuerier
 	finops       service.FinOpsQuerier
+	auditLogs    service.AuditLogsQuerier
 	insights     service.DeliveryInsightsService
 }
 
@@ -37,6 +38,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 		alerts:       servicemocks.NewMockAlertIncidentService(t),
 		traces:       servicemocks.NewMockTracesQuerier(t),
 		finops:       servicemocks.NewMockFinOpsQuerier(t),
+		auditLogs:    servicemocks.NewMockAuditLogsQuerier(t),
 		insights:     servicemocks.NewMockDeliveryInsightsService(t),
 	}
 	for _, o := range opts {
@@ -47,8 +49,8 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	healthSvc, err := service.NewHealthService(logger)
 	require.NoError(t, err)
 
-	h, err := NewMCPHandler(healthSvc, d.logs, d.platformLogs, d.events, d.metrics, d.alerts,
-		d.traces, d.finops, d.insights, logger)
+	h, err := NewMCPHandler(healthSvc, d.logs, d.platformLogs, d.events, d.metrics, d.alerts, d.traces,
+		d.finops, d.auditLogs, d.insights, logger)
 	require.NoError(t, err)
 	return h
 }
@@ -79,6 +81,10 @@ func withTracesService(s service.TracesQuerier) func(*handlerTestDeps) {
 
 func withFinOpsService(s service.FinOpsQuerier) func(*handlerTestDeps) {
 	return func(d *handlerTestDeps) { d.finops = s }
+}
+
+func withAuditLogsService(s service.AuditLogsQuerier) func(*handlerTestDeps) {
+	return func(d *handlerTestDeps) { d.auditLogs = s }
 }
 
 func withDeliveryInsightsService(s service.DeliveryInsightsService) func(*handlerTestDeps) {

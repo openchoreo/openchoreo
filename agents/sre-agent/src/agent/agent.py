@@ -359,6 +359,8 @@ async def run_analysis(
                 alert_id=alert_id,
                 status="completed",
                 report=report_data,
+                namespace=scope.namespace,
+                project=scope.project,
                 environment_uid=scope.environment_uid,
                 project_uid=scope.project_uid,
             )
@@ -385,6 +387,8 @@ async def run_analysis(
                             alert_id=alert_id,
                             status="failed",
                             summary=f"Analysis cancelled during shutdown (report_id: {report_id})",
+                            namespace=scope.namespace,
+                            project=scope.project,
                             environment_uid=scope.environment_uid,
                             project_uid=scope.project_uid,
                         )
@@ -413,6 +417,8 @@ async def run_analysis(
                     alert_id=alert_id,
                     status="failed",
                     summary=f"Analysis timed out (report_id: {report_id})",
+                    namespace=scope.namespace,
+                    project=scope.project,
                     environment_uid=scope.environment_uid,
                     project_uid=scope.project_uid,
                 )
@@ -427,6 +433,8 @@ async def run_analysis(
                     alert_id=alert_id,
                     status="failed",
                     summary=f"Analysis failed (report_id: {report_id})",
+                    namespace=scope.namespace,
+                    project=scope.project,
                     environment_uid=scope.environment_uid,
                     project_uid=scope.project_uid,
                 )

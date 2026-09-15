@@ -204,8 +204,11 @@ type MCPMiddlewareOptions struct {
 // sharing would misattribute MCP rejections to REST, and nesting would
 // double-emit. They never stack, since /mcp is registered on the base mux.
 //
-// No operation-level audit middleware: observer registers no mutating MCP
-// tools (see internal/observer/audit's MCPToolNames).
+// No operation-level audit middleware here. That one needs the tool name and
+// arguments, which this chain only sees as a JSON-RPC body, so it is installed
+// inside the MCP server itself (observermcp.NewHTTPServer). The two are
+// complementary: this middleware records the rejections that never reach a
+// tool, that one records the calls on tools bound to an audited operation.
 func MCPMiddlewares(opts MCPMiddlewareOptions) ([]middleware.Middleware, error) {
 	if opts.Auth401 == nil {
 		return nil, errors.New("observer: MCPMiddlewareOptions.Auth401 must not be nil")

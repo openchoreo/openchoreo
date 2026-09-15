@@ -51,6 +51,7 @@ from common.auth.authz_models import (
     ResourceHierarchy,
     SubjectContext,
 )
+from common.auth.runtime import MissingReportHierarchy, hierarchy_from_result
 from src.agent import run_analysis
 from src.auth import get_authz_client, require_authn
 from src.clients import get_report_backend
@@ -92,31 +93,9 @@ mcp_server = FastMCP(
     # from the path before forwarding — so the inner app must serve at
     # the root "/" or the request 404s.
     streamable_http_path="/",
-    # FastMCP's default DNS-rebinding protection rejects any Host header
-    # not on a tiny allowlist (localhost). In-cluster traffic from the
-    # assistant-agent uses the Service DNS host (e.g.
-    # sre-agent.openchoreo-observability-plane.svc.cluster.local),
-    # which would 421. We disable the protection because (a) ingress is
-    # already gated by JWT auth and (b) the protection guards browsers,
-    # not service-to-service callers.
-    #
-    # Required deployment invariants (the security argument depends on
-    # ALL of these — verify when changing the chart or networking):
-    #   1. ``mcp>=1.23.0`` is pinned in pyproject.toml. Pre-1.23 the SDK
-    #      had a different default for this flag and a different set of
-    #      transport-layer mitigations.
-    #   2. The ``/mcp`` endpoint is NOT exposed via the cluster's
-    #      external HTTPRoute. Only the in-cluster Service is reachable.
-    #      See install/helm/.../templates/rca-agent/httproute.yaml — it
-    #      must NOT include a /mcp path match for the public gateway.
-    #   3. NetworkPolicy (or equivalent) restricts ingress to ``/mcp`` to
-    #      the assistant-agent ServiceAccount / Pod selector.
-    # If any of (1)–(3) cannot be guaranteed in a target environment,
-    # flip this to True and supply ``allowed_hosts`` for the in-cluster
-    # Service DNS instead of disabling protection wholesale.
-    # TODO: revisit once FastMCP exposes a clean ``allowed_hosts`` API
-    # that can be combined with ``enable_dns_rebinding_protection=True``
-    # for a defense-in-depth setup.
+    # Requests arrive through service and gateway hostnames that cannot be
+    # statically enumerated here. JWT authentication and per-tool authorization
+    # are enforced by _MCPAuthMiddleware below.
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=False,
     ),
@@ -245,7 +224,7 @@ async def list_rca_reports(
     await _authorize(
         "rcareport:view",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid),
+        ResourceHierarchy(namespace=scope.namespace, project=scope.project),
     )
     report_backend = get_report_backend()
     result = await report_backend.list_rca_reports(
@@ -281,28 +260,14 @@ async def get_rca_report(
     result = await report_backend.get_rca_report(report_id)
     if not result:
         raise _MCPNotFoundError(f"RCA report not found: {report_id}")
-    # Re-authorize against the report's own project — the user might be
-    # entitled to one project's reports but not another's, and we don't
-    # want list_rca_reports to be the only gate. Single-key contract:
-    # backends MUST emit ``projectUid`` at the top level of the doc
-    # (see sql_backend._row_to_doc). A missing/empty value would mean
-    # we can't make an authz decision — fail closed with FORBIDDEN
-    # rather than degrading to "authorize against project=None" or
-    # leaking the report's existence via NOT_FOUND.
-    project_uid = result.get("projectUid")
-    if not project_uid:
-        logger.error(
-            "RCA report %s has no projectUid — refusing to authorize",
-            report_id,
-        )
-        raise _MCPAuthzError(
-            f"FORBIDDEN: report {report_id} has no project hierarchy"
-        )
-    await _authorize(
-        "rcareport:view",
-        "rcareport",
-        ResourceHierarchy(project=project_uid),
-    )
+    # Re-authorize against the report's own project — the user might be entitled
+    # to one project's reports but not another's. A report with no project on
+    # record (predates the name columns) fails closed.
+    try:
+        hierarchy = hierarchy_from_result(result)
+    except MissingReportHierarchy as e:
+        raise _MCPAuthzError(f"FORBIDDEN: report {report_id} has no project hierarchy") from e
+    await _authorize("rcareport:view", "rcareport", hierarchy)
     return {
         "alertId": result.get("alertId"),
         "reportId": result.get("reportId"),
@@ -354,7 +319,9 @@ async def analyze_runtime_state(
     await _authorize(
         "rcareport:update",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid, component=scope.component_uid),
+        ResourceHierarchy(
+            namespace=scope.namespace, project=scope.project, component=scope.component
+        ),
     )
 
     timestamp = datetime.now(timezone.utc)
@@ -389,6 +356,8 @@ async def analyze_runtime_state(
                 alert_id=alert_id,
                 status="pending",
                 timestamp=timestamp,
+                namespace=scope.namespace,
+                project=scope.project,
                 environment_uid=scope.environment_uid,
                 project_uid=scope.project_uid,
             ),

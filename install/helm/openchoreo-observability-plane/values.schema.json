@@ -1327,6 +1327,43 @@
       "title": "kubernetesClusterDomain",
       "type": "string"
     },
+    "networkPolicy": {
+      "additionalProperties": false,
+      "description": "Namespace ingress isolation for observability-plane workloads. Requires a NetworkPolicy-capable CNI.",
+      "properties": {
+        "additionalIngress": {
+          "default": [],
+          "description": "Additional ingress rules appended to the built-in rules",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "additionalIngress",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Restrict ingress to the release namespace, except for explicitly exempted applications and rules",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "unrestrictedIngressAppNames": {
+          "default": [
+            "gateway-default",
+            "opentelemetry-collector"
+          ],
+          "description": "app.kubernetes.io/name values allowed unrestricted ingress",
+          "items": {
+            "type": "string"
+          },
+          "title": "unrestrictedIngressAppNames",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "networkPolicy",
+      "type": "object"
+    },
     "observer": {
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters",

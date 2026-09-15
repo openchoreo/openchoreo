@@ -93,32 +93,39 @@ func TestFetchDeliveryEvents(t *testing.T) {
 		}
 	})
 
-	// complete is what the aggregator resumes on, and getting it wrong in the
-	// permissive direction advances the watermark past events nobody read. Absent
-	// therefore has to mean "not complete" rather than defaulting to true.
-	t.Run("completeness is reported, and absent means not complete", func(t *testing.T) {
+	// Completeness is what the aggregator resumes on, and getting it wrong in the
+	// permissive direction advances the watermark past events nobody read. It is
+	// derived from `total` against the events returned, so every way `total` can
+	// be wrong has to fail towards "not complete".
+	t.Run("completeness is derived from total, erring towards not complete", func(t *testing.T) {
 		for name, tc := range map[string]struct {
-			field        any
+			total        any
+			events       int
 			wantComplete bool
 		}{
-			"true":   {field: true, wantComplete: true},
-			"false":  {field: false, wantComplete: false},
-			"absent": {field: nil, wantComplete: false},
+			"total matches the page": {total: 2, events: 2, wantComplete: true},
+			"total exceeds the page": {total: 9, events: 2, wantComplete: false},
+			"empty window":           {total: 0, events: 0, wantComplete: true},
+			// The contract requires total; an adapter that omits it decodes as zero,
+			// which must not read as "nothing matched" when events came back.
+			"total absent with events": {total: nil, events: 2, wantComplete: false},
+			// Understating total is the failure the contract warns about -- it must
+			// cost a re-read, never a skip.
+			"total understated": {total: 1, events: 2, wantComplete: false},
 		} {
 			t.Run(name, func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					response := map[string]any{
-						"events": []map[string]any{
-							{
-								"timestamp": time.UnixMilli(1000).UTC().Format(time.RFC3339Nano),
-								"reason":    aggregator.ReasonDeploymentSucceeded,
-								"message":   `{"rolloutId":"u1"}`,
-							},
-						},
-						"total": 1,
+					events := make([]map[string]any, 0, tc.events)
+					for i := 0; i < tc.events; i++ {
+						events = append(events, map[string]any{
+							"timestamp": time.UnixMilli(int64(1000 + i)).UTC().Format(time.RFC3339Nano),
+							"reason":    aggregator.ReasonDeploymentSucceeded,
+							"message":   `{"rolloutId":"u1"}`,
+						})
 					}
-					if tc.field != nil {
-						response["complete"] = tc.field
+					response := map[string]any{"events": events}
+					if tc.total != nil {
+						response["total"] = tc.total
 					}
 					w.Header().Set("Content-Type", "application/json")
 					_ = json.NewEncoder(w).Encode(response)
@@ -134,8 +141,8 @@ func TestFetchDeliveryEvents(t *testing.T) {
 				if err != nil {
 					t.Fatalf("FetchDeliveryEvents: %v", err)
 				}
-				if len(events) != 1 {
-					t.Fatalf("expected 1 event, got %d", len(events))
+				if len(events) != tc.events {
+					t.Fatalf("expected %d events, got %d", tc.events, len(events))
 				}
 				if complete != tc.wantComplete {
 					t.Errorf("complete = %v, want %v", complete, tc.wantComplete)

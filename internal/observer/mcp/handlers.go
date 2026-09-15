@@ -23,6 +23,7 @@ type MCPHandler struct {
 	alertIncidentService    service.AlertIncidentService
 	tracesService           service.TracesQuerier
 	finopsService           service.FinOpsQuerier
+	auditLogsService        service.AuditLogsQuerier
 	deliveryInsightsService service.DeliveryInsightsService
 	logger                  *slog.Logger
 }
@@ -36,6 +37,7 @@ func NewMCPHandler(
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
 	finopsService service.FinOpsQuerier,
+	auditLogsService service.AuditLogsQuerier,
 	deliveryInsightsService service.DeliveryInsightsService,
 	logger *slog.Logger,
 ) (*MCPHandler, error) {
@@ -63,6 +65,9 @@ func NewMCPHandler(
 	if finopsService == nil {
 		return nil, fmt.Errorf("missing finopsService")
 	}
+	if auditLogsService == nil {
+		return nil, fmt.Errorf("missing auditLogsService")
+	}
 	if deliveryInsightsService == nil {
 		return nil, fmt.Errorf("missing deliveryInsightsService")
 	}
@@ -78,6 +83,7 @@ func NewMCPHandler(
 		alertIncidentService:    alertIncidentService,
 		tracesService:           tracesService,
 		finopsService:           finopsService,
+		auditLogsService:        auditLogsService,
 		deliveryInsightsService: deliveryInsightsService,
 		logger:                  logger,
 	}, nil

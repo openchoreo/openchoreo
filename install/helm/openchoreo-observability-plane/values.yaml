@@ -63,6 +63,38 @@ kubernetesClusterDomain: cluster.local
 
 # @schema
 # type: object
+# description: Namespace ingress isolation for observability-plane workloads. Requires a NetworkPolicy-capable CNI.
+# @schema
+networkPolicy:
+  # @schema
+  # type: boolean
+  # description: Restrict ingress to the release namespace, except for explicitly exempted applications and rules
+  # default: true
+  # @schema
+  enabled: true
+
+  # @schema
+  # type: array
+  # description: app.kubernetes.io/name values allowed unrestricted ingress
+  # items:
+  #   type: string
+  # default: [gateway-default, opentelemetry-collector]
+  # @schema
+  unrestrictedIngressAppNames:
+    - gateway-default
+    - opentelemetry-collector
+
+  # @schema
+  # type: array
+  # description: Additional ingress rules appended to the built-in rules
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  additionalIngress: []
+
+# @schema
+# type: object
 # description: Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs
 # @schema
 controllerManager:

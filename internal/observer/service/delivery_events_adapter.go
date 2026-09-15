@@ -31,9 +31,10 @@ var deliveryEventReasons = []string{
 // [fromMs, toMs) across every namespace, in timestamp-ascending order.
 //
 // One request per call, with no paging loop. The adapter caps a single read at
-// deliveryEventsPageSize, so a window holding more than that comes back with
-// complete=false, and the aggregator resumes from where this read stopped on its
-// next tick rather than this call looping until the window is drained.
+// deliveryEventsPageSize; a window holding more than that returns a `total`
+// exceeding the events returned, which is how the caller learns it was read
+// short. The aggregator then resumes from where this read stopped on its next
+// tick rather than this call looping until the window is drained.
 func (p *LogsAdapter) FetchDeliveryEvents(
 	ctx context.Context, fromMs, toMs int64,
 ) ([]aggregator.DeliveryEvent, bool, error) {
@@ -85,9 +86,15 @@ func (p *LogsAdapter) FetchDeliveryEvents(
 		}
 	}
 
-	// Absent means not complete. An adapter that does not set the field makes the
-	// caller resume and re-read, which is the safe direction -- treating silence as
-	// "fully swept" would advance the watermark past events nobody read.
-	complete := result.Complete != nil && *result.Complete
+	// The window was fully read when the match count equals what came back. The
+	// comparison is against equality rather than "total <= len", so that a total
+	// the adapter understated -- omitted entirely, or capped below limit+1 as the
+	// contract forbids -- reads as incomplete and costs a re-read, instead of
+	// advancing the watermark past events nobody saw.
+	//
+	// A total that overshoots because the adapter extended the page past limit to
+	// avoid splitting a timestamp group also reads as incomplete: one extra query,
+	// no loss.
+	complete := result.Total == len(out)
 	return out, complete, nil
 }
