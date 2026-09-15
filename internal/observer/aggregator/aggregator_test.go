@@ -1151,3 +1151,70 @@ func TestWatermarksAreFencedOnTheLease(t *testing.T) {
 	require.Equal(t, int64(500), got,
 		"the resume position of the live holder must survive a zombie's write")
 }
+
+// TestACappedIncidentSweepResumesRatherThanRestarting pins that a window larger
+// than one tick can page through can still be finished.
+//
+// The window start is derived from the tick time and the cursor used to reset with
+// it, so a sweep that hit the page cap re-read its oldest pages on every tick and
+// never reached the newest entries — while the watermark advanced to the tick time
+// regardless, so those entries were later folded as unchanged and their rollup
+// buckets never recomputed. The cap is reached here by shrinking the page rather
+// than by writing incidentMaxPages x incidentQueryLimit rows.
+func TestACappedIncidentSweepResumesRatherThanRestarting(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	// The cursor is inclusive, so a page re-reads its own last entry and advances by
+	// perPage-1 entries. Two per page is the smallest size that still advances, and
+	// makes the cap bite after roughly incidentMaxPages entries.
+	const perPage = 2
+	total := incidentMaxPages + 10
+	first := now.Add(-time.Duration(total+1) * time.Minute)
+	for i := 0; i < total; i++ {
+		at := first.Add(time.Duration(i) * time.Minute)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:       fmt.Sprintf("alert-%d", i),
+			Timestamp:     at.Format(time.RFC3339Nano),
+			Status:        incidententry.StatusActive,
+			TriggeredAt:   at.Format(time.RFC3339Nano),
+			NamespaceName: "default",
+			ComponentID:   "checkout-api",
+			EnvironmentID: "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg))
+
+	resume, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.NotZero(t, resume,
+		"a sweep stopped by the page cap must record where it got to")
+	require.Less(t, resume, now.UnixMilli(),
+		"the resume position must be inside the window, not at its end")
+
+	// A second tick carries on from there and drains the rest.
+	agg2 := newTestAggregator(store, incidents, nil, now.Add(time.Minute))
+	agg2.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg2))
+
+	drained, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.Zero(t, drained,
+		"once the window is swept the resume position must clear, re-arming the rolling rescan")
+
+	facts, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: first.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.Add(time.Hour).UnixMilli(),
+		All:     true,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, total,
+		"every incident in the window must be folded across the two ticks")
+}
