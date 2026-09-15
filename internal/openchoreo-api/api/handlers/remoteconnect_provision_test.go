@@ -12,6 +12,7 @@ import (
 	"io"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -221,7 +222,8 @@ func seedCertSecret(t *testing.T, cl client.Client, ns, sni string, issuedAt tim
 
 func certTestProvisioner(now time.Time) *remoteAgentProvisioner {
 	p := newRemoteAgentProvisioner(config.RemoteConnectConfig{
-		AgentImage: "img", AgentListenPort: 8443, EntrypointAddress: "e:8443", SNISuffix: "remote-connect",
+		AgentImage: "img", AgentImagePullPolicy: string(corev1.PullIfNotPresent),
+		AgentListenPort: 8443, EntrypointAddress: "e:8443", SNISuffix: "remote-connect",
 	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	p.now = func() time.Time { return now }
 	return p
@@ -575,6 +577,46 @@ func TestEnsureAgentRollsPodWhenCertRotates(t *testing.T) {
 	}
 	if got := dep.Spec.Template.Annotations[certAnnotation]; got == first {
 		t.Error("cert was reissued but the pod template did not change, so the agent keeps serving the old cert")
+	}
+}
+
+// TestEnsureAgentStampsProtocolVersion: the pod template carries the wire-protocol
+// version, so bumping it rolls agents whose image tag did not change.
+func TestEnsureAgentStampsProtocolVersion(t *testing.T) {
+	const ns = "dp-default-proj-development"
+	cl := fake.NewClientBuilder().WithScheme(provScheme(t)).Build()
+
+	p := certTestProvisioner(time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC))
+	if _, err := p.ensureAgent(context.Background(), cl, ns, nil); err != nil {
+		t.Fatalf("ensureAgent: %v", err)
+	}
+	dep := &appsv1.Deployment{}
+	if err := cl.Get(context.Background(), client.ObjectKey{Namespace: ns, Name: remoteAgentName}, dep); err != nil {
+		t.Fatal(err)
+	}
+	want := strconv.Itoa(remoteconnect.ProtocolVersion)
+	if got := dep.Spec.Template.Annotations[protocolAnnotation]; got != want {
+		t.Errorf("pod template protocol annotation = %q, want %q; an agent serving an older protocol would never be rolled", got, want)
+	}
+}
+
+// TestEnsureAgentAppliesConfiguredPullPolicy: a floating agent tag needs Always for a
+// rebuilt image to be fetched rather than served from the node's cache.
+func TestEnsureAgentAppliesConfiguredPullPolicy(t *testing.T) {
+	const ns = "dp-default-proj-development"
+	cl := fake.NewClientBuilder().WithScheme(provScheme(t)).Build()
+
+	p := certTestProvisioner(time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC))
+	p.cfg.AgentImagePullPolicy = string(corev1.PullAlways)
+	if _, err := p.ensureAgent(context.Background(), cl, ns, nil); err != nil {
+		t.Fatalf("ensureAgent: %v", err)
+	}
+	dep := &appsv1.Deployment{}
+	if err := cl.Get(context.Background(), client.ObjectKey{Namespace: ns, Name: remoteAgentName}, dep); err != nil {
+		t.Fatal(err)
+	}
+	if got := dep.Spec.Template.Spec.Containers[0].ImagePullPolicy; got != corev1.PullAlways {
+		t.Errorf("imagePullPolicy = %q, want %q", got, corev1.PullAlways)
 	}
 }
 

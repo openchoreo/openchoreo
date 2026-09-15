@@ -136,6 +136,43 @@ spec:
 			wantErr: false,
 		},
 		{
+			name:              "create with conditional omit - empty string is omitted",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: pvc-trait
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: pvc
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: |
+            ${has(environmentConfigs.storageClass) && environmentConfigs.storageClass != '' ? environmentConfigs.storageClass : oc_omit()}
+`,
+			context: map[string]any{
+				"environmentConfigs": map[string]any{
+					"storageClass": "",
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: pvc
+  spec:
+    accessModes:
+    - ReadWriteOnce
+`,
+			wantErr: false,
+		},
+		{
 			name:              "create with includeWhen true - resource created",
 			baseResourcesYAML: `[]`,
 			traitYAML: `
@@ -1795,6 +1832,51 @@ spec:
 	require.NoError(t, err)
 
 	// Resource must be completely unmodified
+	if diff := cmp.Diff(before, resources[0].Resource); diff != "" {
+		t.Errorf("resource was modified despite where filtering all targets (-before +after):\n%s", diff)
+	}
+}
+
+func TestApplyTraitPatches_WhereFiltersAllSkipsOperationRendering(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      tier: backend
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	before := deepCopy(resources[0].Resource)
+
+	valueJSON, err := json.Marshal("${nonexistent.deeply.nested}")
+	require.NoError(t, err)
+
+	trait := v1alpha1.Trait{}
+	trait.Name = "gated-bad-value-trait"
+	trait.Spec.Patches = []v1alpha1.TraitPatch{
+		{
+			Target: v1alpha1.PatchTarget{
+				Kind:    "Deployment",
+				Version: "v1",
+				Group:   "apps",
+				Where:   `${resource.metadata.labels.tier == "frontend"}`, // only backend exists
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{Op: "add", Path: "/metadata/labels/key", Value: &runtime.RawExtension{Raw: valueJSON}},
+			},
+		},
+	}
+
+	require.NoError(t, processor.ApplyTraitPatches(t.Context(), resources, &trait, map[string]any{}),
+		"a where clause that filters all targets must skip operation rendering, not error on the unrenderable value")
+
 	if diff := cmp.Diff(before, resources[0].Resource); diff != "" {
 		t.Errorf("resource was modified despite where filtering all targets (-before +after):\n%s", diff)
 	}

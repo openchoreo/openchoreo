@@ -174,7 +174,7 @@ func SourceIPFromHeader(h http.Header) string {
 // Envelope differently. sourceIPFallback applies only when the header carries
 // no IP hint — REST passes r.RemoteAddr, MCP passes "".
 func EmitFromContext(
-	ctx context.Context, emitter *Emitter, op *Operation, origin Origin, result Result,
+	ctx context.Context, emitter *Emitter, op *Operation, surface Surface, result Result,
 	auditData *AuditData, header http.Header, sourceIPFallback string,
 ) {
 	sourceIP := SourceIPFromHeader(header)
@@ -182,7 +182,7 @@ func EmitFromContext(
 		sourceIP = sourceIPFallback
 	}
 	env := Envelope{
-		Origin:    origin,
+		Surface:   surface,
 		Actor:     ExtractActor(ctx),
 		Result:    result,
 		Resource:  auditData.Resource,
@@ -190,6 +190,7 @@ func EmitFromContext(
 		Request:   auditData.Request,
 		RequestID: RequestIDFromHeader(header),
 		SourceIP:  sourceIP,
+		UserAgent: header.Get("User-Agent"),
 		Metadata:  auditData.Metadata,
 	}
 	emitter.Emit(ctx, op, env)

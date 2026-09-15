@@ -42,18 +42,16 @@ func swaggers(t *testing.T) []*openapi3.T {
 	return []*openapi3.T{public, internal}
 }
 
-// stateModifyingOperationIDs returns every non-GET operationId across both
-// live specs — the same universe tools/auditgen walks.
-func stateModifyingOperationIDs(t *testing.T) map[string]bool {
+// allOperationIDs returns every operationId across both live specs — the same
+// universe tools/auditgen walks. Reads are included: filtering them out by
+// HTTP method is what let a read go unclassified.
+func allOperationIDs(t *testing.T) map[string]bool {
 	t.Helper()
 
 	ids := make(map[string]bool)
 	for _, swagger := range swaggers(t) {
 		for _, path := range swagger.Paths.InMatchingOrder() {
-			for method, op := range swagger.Paths.Find(path).Operations() {
-				if method == "GET" {
-					continue
-				}
+			for _, op := range swagger.Paths.Find(path).Operations() {
 				ids[op.OperationID] = true
 			}
 		}
@@ -61,11 +59,11 @@ func stateModifyingOperationIDs(t *testing.T) map[string]bool {
 	return ids
 }
 
-// TestAuditCoverage is a CI gate: every state-modifying observer REST
-// operation must be audited or explicitly, reasoned-ly exempted, enforced at
-// build time rather than left to drift silently.
+// TestAuditCoverage is a CI gate: every observer REST operation must be
+// audited or exempted with a reason — enforced at build time rather than left
+// to drift silently.
 func TestAuditCoverage(t *testing.T) {
-	restOperationIDs := stateModifyingOperationIDs(t)
+	restOperationIDs := allOperationIDs(t)
 	definedOps := observeraudit.GetOperations()
 	definedByID := make(map[string]coreaudit.Operation, len(definedOps))
 	for _, op := range definedOps {
@@ -78,7 +76,8 @@ func TestAuditCoverage(t *testing.T) {
 			_, exempted := observeraudit.RESTExemptions[id]
 			if !defined && !exempted {
 				t.Errorf("operationId %q is neither audited (GetOperations) nor exempted "+
-					"(RESTExemptions) — add one or the other", id)
+					"(RESTExemptions) — add one or the other. A read belongs in RESTExemptions "+
+					"with a reason; it is not exempt by virtue of its HTTP method", id)
 			}
 			if defined && exempted {
 				t.Errorf("operationId %q is both audited and exempted — remove one", id)
@@ -86,13 +85,13 @@ func TestAuditCoverage(t *testing.T) {
 		}
 	})
 
-	t.Run("every exemption references a real state-modifying operation", func(t *testing.T) {
+	t.Run("every exemption references a real operation", func(t *testing.T) {
 		for id, reason := range observeraudit.RESTExemptions {
 			if reason == "" {
 				t.Errorf("REST exemption %q has an empty reason", id)
 			}
 			if !restOperationIDs[id] {
-				t.Errorf("REST exemption %q does not name a real state-modifying operation in either "+
+				t.Errorf("REST exemption %q does not name a real operation in either "+
 					"live spec (renamed or removed operationId?)", id)
 			}
 		}
@@ -101,23 +100,23 @@ func TestAuditCoverage(t *testing.T) {
 	t.Run("every operation resolves to a category", func(t *testing.T) {
 		for _, op := range definedOps {
 			switch op.Category {
-			case coreaudit.CategoryManagement, coreaudit.CategoryAuthorization:
+			case coreaudit.CategoryManagement, coreaudit.CategoryAuthorization, coreaudit.CategoryAccess:
 			default:
-				t.Errorf("operation %q has category %q, want %q or %q",
-					op.ID, op.Category, coreaudit.CategoryManagement, coreaudit.CategoryAuthorization)
+				t.Errorf("operation %q has category %q, want one of %q, %q or %q",
+					op.ID, op.Category, coreaudit.CategoryManagement,
+					coreaudit.CategoryAuthorization, coreaudit.CategoryAccess)
 			}
 		}
 	})
 
 	// Pins the total so a spec change is forced through a deliberate update
-	// here rather than silently shifting the audited/exempted split.
+	// here rather than silently shifting the audited/exempted/read split.
 	//
-	// 13 = 9 public (14 less health, the OAuth metadata GET, both FinOps GETs
-	// and the span-details GET) + 4 internal (5 less the getAlertRule GET).
+	// 23 = 18 public (7 GET + 11 non-GET) + 5 internal (1 GET + 4 non-GET).
 	t.Run("total operation count is pinned", func(t *testing.T) {
-		const wantTotal = 13
+		const wantTotal = 23
 		if len(restOperationIDs) != wantTotal {
-			t.Errorf("len(stateModifyingOperationIDs) = %d, want %d", len(restOperationIDs), wantTotal)
+			t.Errorf("len(allOperationIDs) = %d, want %d", len(restOperationIDs), wantTotal)
 		}
 	})
 }
@@ -193,30 +192,61 @@ func registeredMCPToolNames(t *testing.T) map[string]bool {
 	return names
 }
 
-// TestMCPToolRegistry_NoMutatingTools is a name pin, not a permission check:
-// observer has no ToolPermission registry (unlike openchoreo-api's
-// pkg/mcp/tools) to classify a tool as state-modifying from a declared authz
-// action, so this cannot verify read-only-ness the way TestAuditCoverage's MCP
-// assertions do for openchoreo-api. Every name below was confirmed read-only
-// by reading registerTools.
+// TestMCPToolCoverage is the MCP half of the coverage gate: every tool the
+// server registers must be bound to an audited operation or exempted with a
+// reason, and never both.
 //
-// What it does enforce is that MCPToolNames matches what the server really
-// registers. Adding a tool to registerTools without listing it here fails —
-// which forces a human to classify the new tool rather than letting a mutating
-// one ship unaudited by silent omission.
-func TestMCPToolRegistry_NoMutatingTools(t *testing.T) {
+// Shaped after TestAuditCoverage's REST assertions rather than openchoreo-api's
+// MCP one, which classifies only tools whose declared authz action is
+// state-modifying. Observer has no ToolPermission registry to read such an
+// action from, and the verb would be the wrong test regardless: every tool here
+// is a read, and one of them is audited.
+func TestMCPToolCoverage(t *testing.T) {
 	registered := registeredMCPToolNames(t)
 
-	for name := range registered {
-		if !observeraudit.MCPToolNames[name] {
-			t.Errorf("tool %q is registered by internal/observer/mcp but missing from MCPToolNames — "+
-				"add it after confirming it is read-only, or wire MCP audit if it is not", name)
-		}
+	bindings, err := observeraudit.MCPBindings()
+	if err != nil {
+		t.Fatalf("failed to build MCP bindings: %v", err)
 	}
-	for name := range observeraudit.MCPToolNames {
-		if !registered[name] {
-			t.Errorf("MCPToolNames lists %q, which internal/observer/mcp no longer registers — "+
-				"remove it", name)
-		}
+	bound := make(map[string]bool, len(bindings))
+	for key := range bindings {
+		bound[key.ToolName] = true
 	}
+
+	t.Run("every registered tool is bound or exempted", func(t *testing.T) {
+		for name := range registered {
+			_, exempted := observeraudit.MCPToolExemptions[name]
+			if !bound[name] && !exempted {
+				t.Errorf("tool %q is neither bound to an audited operation (observeraudit.MCPBindings) "+
+					"nor exempted (observeraudit.MCPToolExemptions) — add one or the other. A tool is "+
+					"not exempt by virtue of being a read: query_audit_logs is a read and is audited", name)
+			}
+			if bound[name] && exempted {
+				t.Errorf("tool %q is both bound and exempted — remove one", name)
+			}
+		}
+	})
+
+	t.Run("every exemption names a registered tool", func(t *testing.T) {
+		for name, reason := range observeraudit.MCPToolExemptions {
+			if reason == "" {
+				t.Errorf("MCP tool exemption %q has an empty reason", name)
+			}
+			if !registered[name] {
+				t.Errorf("MCP tool exemption %q does not name a tool internal/observer/mcp registers "+
+					"(renamed or removed tool?)", name)
+			}
+		}
+	})
+
+	// mcpEnrichment's init only validates the operationId it is keyed by, so a
+	// typo in a ToolName produces a binding no call can ever match.
+	t.Run("every binding names a registered tool", func(t *testing.T) {
+		for name := range bound {
+			if !registered[name] {
+				t.Errorf("an MCP binding names tool %q, which internal/observer/mcp does not register, "+
+					"so the binding never fires and the tool is audited nowhere", name)
+			}
+		}
+	})
 }

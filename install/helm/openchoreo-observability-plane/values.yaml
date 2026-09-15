@@ -63,6 +63,38 @@ kubernetesClusterDomain: cluster.local
 
 # @schema
 # type: object
+# description: Namespace ingress isolation for observability-plane workloads. Requires a NetworkPolicy-capable CNI.
+# @schema
+networkPolicy:
+  # @schema
+  # type: boolean
+  # description: Restrict ingress to the release namespace, except for explicitly exempted applications and rules
+  # default: true
+  # @schema
+  enabled: true
+
+  # @schema
+  # type: array
+  # description: app.kubernetes.io/name values allowed unrestricted ingress
+  # items:
+  #   type: string
+  # default: [gateway-default, opentelemetry-collector]
+  # @schema
+  unrestrictedIngressAppNames:
+    - gateway-default
+    - opentelemetry-collector
+
+  # @schema
+  # type: array
+  # description: Additional ingress rules appended to the built-in rules
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  additionalIngress: []
+
+# @schema
+# type: object
 # description: Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs
 # @schema
 controllerManager:
@@ -396,14 +428,14 @@ observer:
   deliveryInsights:
     # @schema
     # type: boolean
-    # description: Run the DORA aggregator in the Observer process. It is a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. It governs aggregation only - the read API is served by every replica either way, though with no aggregator running there are no facts for it to return. The aggregator has no leader election, so exactly one replica may run it and the chart refuses replicas > 1 while it is enabled; a multi-replica Observer therefore cannot collect Delivery Insights data until leader election is added.
+    # description: Run the DORA aggregator in the Observer process. It is a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. It governs aggregation only - the read API is served by every replica either way. This is safe to enable alongside more than one replica, since every replica runs the loop but only the holder of the aggregation lease ticks; note that scaling the Observer past one replica also requires alertStoreBackend postgresql, because the default sqlite alert store is backed by a ReadWriteOnce volume.
     # default: false
     # @schema
     aggregationEnabled: false
 
     # @schema
     # type: boolean
-    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter implementing the events reasons filter and searchAfter pagination; without it Deployment Frequency, Lead Time and Change Failure Rate have no data.
+    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter that can filter events by reason and return matches across every namespace in one query, because the aggregator sweeps the whole installation on a timer rather than one component at a time. Without such an adapter, Deployment Frequency, Lead Time and Change Failure Rate have no data; Mean Time to Recovery still works, since it can be derived from incidents alone.
     # default: false
     # @schema
     eventsSourceEnabled: false

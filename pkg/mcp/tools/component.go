@@ -139,7 +139,7 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
 			"component_type": stringProperty("Component type in {workloadType}/{componentTypeName} format. " +
-				"Use list_component_types or list_cluster_component_types to discover valid values."),
+				`Use list_component_types (scope:"cluster" for ClusterComponentTypes) to discover valid values.`),
 			"auto_deploy": map[string]any{
 				"type": "boolean",
 				"description": "Optional: Automatically triggers the component deployment if the component or" +
@@ -155,10 +155,10 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 					"Set 'name' to the workflow name, 'kind' to 'ClusterWorkflow' or 'Workflow' " +
 					"to match the workflow resource type, and 'parameters' to the workflow parameters " +
 					"that strictly adhere to the workflow schema. " +
-					"Use list_cluster_workflows or list_workflows to discover available workflow names " +
-					"for cluster-scoped (ClusterWorkflow kind, used with ClusterComponentType) or " +
-					"namespace-scoped (Workflow kind) workflows respectively. " +
-					"Use get_cluster_workflow_schema or get_workflow_schema to inspect the " +
+					"Use list_workflows to discover available workflow names — " +
+					`scope:"cluster" for cluster-scoped (ClusterWorkflow kind, used with ` +
+					`ClusterComponentType), scope:"namespace" for namespace-scoped (Workflow kind). ` +
+					`Use get_workflow_schema (scope:"cluster" for a ClusterWorkflow) to inspect the ` +
 					"parameter schema for a given workflow.",
 			},
 		}, []string{"namespace_name", "project_name", "name", "component_type"}),
@@ -262,12 +262,13 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"component_type_environment_configs": map[string]any{
 				"type": "object",
 				"description": "Optional: environment-specific overrides for component type parameters. " +
-					"Use get_component_type_schema or get_cluster_component_type_schema to discover available parameters.",
+					`Use get_component_type_schema (scope:"cluster" for a ClusterComponentType) ` +
+					"to discover available parameters.",
 			},
 			"trait_environment_configs": map[string]any{
 				"type": "object",
 				"description": "Optional: environment-specific trait configuration overrides. " +
-					"Use get_trait_schema or get_cluster_trait_schema to discover available parameters.",
+					`Use get_trait_schema (scope:"cluster" for a ClusterTrait) to discover available parameters.`,
 			},
 			"workload_overrides": map[string]any{
 				"type": "object",
@@ -339,12 +340,13 @@ func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server, perms map[string]
 			"component_type_environment_configs": map[string]any{
 				"type": "object",
 				"description": "Optional: environment-specific overrides for component type parameters. " +
-					"Use get_component_type_schema or get_cluster_component_type_schema to discover available parameters.",
+					`Use get_component_type_schema (scope:"cluster" for a ClusterComponentType) ` +
+					"to discover available parameters.",
 			},
 			"trait_environment_configs": map[string]any{
 				"type": "object",
 				"description": "Optional: environment-specific trait configuration overrides. " +
-					"Use get_trait_schema or get_cluster_trait_schema to discover available parameters.",
+					`Use get_trait_schema (scope:"cluster" for a ClusterTrait) to discover available parameters.`,
 			},
 			"workload_overrides": map[string]any{
 				"type": "object",
@@ -665,8 +667,8 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPe
 				"description": "Optional: Replace the entire traits list. Pass an empty array to clear all traits. " +
 					"Each entry: 'name' (required), 'instanceName' (required, unique per component), " +
 					"'kind' (optional, 'Trait' or 'ClusterTrait', default 'Trait'), 'parameters' (optional object). " +
-					"Use list_cluster_traits or list_traits to discover trait names; " +
-					"use get_cluster_trait_schema or get_trait_schema to inspect parameters.",
+					`Use list_traits (scope:"cluster" for ClusterTraits) to discover trait names; ` +
+					"use get_trait_schema to inspect parameters.",
 				"items": map[string]any{
 					"type": "object",
 				},
@@ -676,8 +678,8 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPe
 				"description": "Optional: Replace the workflow configuration. Set 'name' (required), " +
 					"'kind' (optional, 'Workflow' or 'ClusterWorkflow', default 'ClusterWorkflow'), " +
 					"and 'parameters' (optional object) that strictly adhere to the workflow schema. " +
-					"Use list_cluster_workflows or list_workflows to discover names; " +
-					"use get_cluster_workflow_schema or get_workflow_schema to inspect parameters.",
+					`Use list_workflows (scope:"cluster" for ClusterWorkflows) to discover names; ` +
+					`use get_workflow_schema (scope:"cluster" for a ClusterWorkflow) to inspect parameters.`,
 			},
 		}, []string{"namespace_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {

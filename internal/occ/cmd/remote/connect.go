@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -33,7 +34,9 @@ const localHost = "127.0.0.1"
 // tunnel is one yamux session to a project+env remote-agent; each accepted local
 // connection opens a stream on it for a resolved target key.
 type tunnel interface {
-	OpenStream(key string) (net.Conn, error)
+	// OpenStreamWith authorizes the stream with the given capability rather than the
+	// tunnel's current one, so a renewal cannot repoint a stream already being opened.
+	OpenStreamWith(key, capability string) (net.Conn, error)
 	// Fetch resolves one value-fetch key to the bytes the remote-agent read from its own
 	// namespace. Separate from OpenStream because a fetch stream is a single
 	// request/response, not a byte pipe.
@@ -44,10 +47,10 @@ type tunnel interface {
 // Remote implements the `remote` command logic.
 type Remote struct {
 	resolver Resolver
-	// dialTunnel opens one yamux tunnel to a single remote-agent, presenting capability in
-	// the handshake; called once per distinct agent a workload's targets fan out to.
-	// Overridable in tests.
-	dialTunnel func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability string) (tunnel, error)
+	// dialTunnel opens one yamux tunnel to a single remote-agent; called once per distinct
+	// agent a workload's targets fan out to, and again when a renewal moves a target to a
+	// different agent. Overridable in tests.
+	dialTunnel func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability func() string) (tunnel, error)
 	// runShell spawns the subshell with the given environment; overridable in tests.
 	runShell func(ctx context.Context, env []string) error
 	// confirmSecrets asks whether --print-env may print the named fetched values in
@@ -59,7 +62,7 @@ type Remote struct {
 func New(resolver Resolver) *Remote {
 	return &Remote{
 		resolver: resolver,
-		dialTunnel: func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability string) (tunnel, error) {
+		dialTunnel: func(ctx context.Context, agent remoteconnect.AgentEndpoint, capability func() string) (tunnel, error) {
 			return dialRemoteAgentTunnel(ctx, agent, capability)
 		},
 		runShell:       runInteractiveShell,
@@ -114,144 +117,283 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 	if len(p.WorkloadPaths) == 0 {
 		return fmt.Errorf("at least one workload is required")
 	}
-	if p.Environment == "" {
+	// --dry-run resolves nothing, so it needs no environment.
+	if p.Environment == "" && !p.DryRun {
 		return fmt.Errorf("--env is required")
 	}
 
-	workloads := make([]*v1alpha1.Workload, 0, len(p.WorkloadPaths))
-	byIdentity := make(map[workloadIdentity]*v1alpha1.Workload, len(p.WorkloadPaths))
-	for _, path := range p.WorkloadPaths {
-		wl, err := loadWorkloadFromFile(path)
-		if err != nil {
-			return err
+	disc, err := discoverWorkloads(p.WorkloadPaths)
+	if err != nil {
+		return err
+	}
+	if err := reportDiscovery(out, disc); err != nil {
+		return err
+	}
+	found := disc.workloads
+
+	if err := assignIdentities(found, p.Namespace); err != nil {
+		return err
+	}
+	// A collision is what --dry-run is most often reached for, so print the expansion
+	// before reporting it.
+	byIdentity, dupErr := indexByIdentity(found)
+	if p.DryRun {
+		printDiscovered(out, disc.sources, found)
+		// byIdentity is nil on a collision, which would understate the links.
+		if dupErr == nil {
+			printPlannedLinks(out, found, byIdentity, p.LocalOverrides)
+			printBindingCollisions(out, found)
 		}
-		namespace, err := workloadNamespace(wl, p.Namespace)
-		if err != nil {
-			return err
-		}
-		id := workloadIdentity{namespace: namespace, project: wl.Spec.Owner.ProjectName, component: wl.Spec.Owner.ComponentName}
-		if existing, dup := byIdentity[id]; dup {
-			return fmt.Errorf("duplicate workload for %s/%s/%s: %s and %s",
-				namespace, id.project, id.component, existing.Spec.Owner.ComponentName, path)
-		}
-		byIdentity[id] = wl
-		workloads = append(workloads, wl)
+		return dupErr
+	}
+	if dupErr != nil {
+		return dupErr
+	}
+	// Announce a set a directory chose; the whole set is treated as running locally.
+	if disc.fromDir {
+		fmt.Fprintf(out, "%s from %s, all treated as running locally\n",
+			countWorkloads(len(found)), strings.Join(disc.sources, ", "))
 	}
 
-	overrides := map[string]string{}
-	// Names of env vars whose values were fetched from the data plane. Tracked so
-	// --print-env can redact them rather than writing credentials to the terminal.
-	sensitive := map[string]bool{}
-	var listeners []net.Listener
-	var tunnels []tunnel
-	// Fetched file bindings live here for the life of the session. The cleanup below
-	// runs on every return path — including the ctx-cancelled one that Ctrl-C takes —
-	// so credentials written to disk do not outlive the tunnels that fetched them.
-	files := newFileStore()
+	s := &session{
+		overrides: map[string]string{},
+		sensitive: map[string]bool{},
+		files:     newFileStore(),
+	}
+	// This cleanup runs on every return path — including the ctx-cancelled one that
+	// Ctrl-C takes — so credentials written to disk do not outlive the tunnels that
+	// fetched them.
 	defer func() {
-		for _, ln := range listeners {
+		for _, ln := range s.listeners {
 			_ = ln.Close()
 		}
-		for _, tn := range tunnels {
+		for _, tn := range s.tunnels {
 			_ = tn.Close()
 		}
-		files.cleanup()
+		// Tunnels a renewal superseded stay open for the streams still running on them,
+		// so the session closes them here.
+		for _, u := range s.units {
+			for _, tn := range u.retiredTunnels() {
+				_ = tn.Close()
+			}
+		}
+		s.files.cleanup()
 	}()
 
-	for _, wl := range workloads {
-		namespace, err := workloadNamespace(wl, p.Namespace)
-		if err != nil {
-			return err
+	failures := 0
+	var firstErr error
+	var firstID workloadIdentity
+	for _, f := range found {
+		werr := d.connectWorkload(ctx, p, f, byIdentity, s, out)
+		if werr == nil {
+			continue
 		}
-		componentName := wl.Spec.Owner.ComponentName
-		remoteEndpoints, links := splitDependencies(wl, namespace, byIdentity)
-
-		fmt.Fprintf(out, "Connecting to %s/%s (%s)...\n", wl.Spec.Owner.ProjectName, componentName, p.Environment)
-
-		hasResources := wl.Spec.Dependencies != nil && len(wl.Spec.Dependencies.Resources) > 0
-		if len(remoteEndpoints) > 0 || hasResources {
-			req := buildResolveRequest(wl, namespace, p.Environment, remoteEndpoints)
-			resp, err := d.resolver.Resolve(ctx, req)
-			if err != nil {
-				return err
-			}
-
-			// Per resource, the in-cluster address each of its addresses resolved to and
-			// the local listener that now stands in for it.
-			localAddrs := map[string][]addrSwap{}
-			// Hoisted out of the target loop: fetching values needs the same tunnels the
-			// listeners use, and a resource with no address at all still needs one.
-			agentTunnels := make(map[string]tunnel, len(resp.Agents))
-			for id, agent := range resp.Agents {
-				tn, terr := d.dialTunnel(ctx, agent, resp.Capability)
-				if terr != nil {
-					return terr
-				}
-				tunnels = append(tunnels, tn)
-				agentTunnels[id] = tn
-			}
-			if len(resp.Targets) > 0 {
-				// Route each target's streams to its own agent; same-namespace
-				// dependencies share a tunnel.
-				reporter := newStreamErrorReporter(out, resp.Capability)
-				for _, t := range resp.Targets {
-					tn, ok := agentTunnels[t.AgentID]
-					if !ok {
-						return fmt.Errorf("resolve returned no remote-agent %q for target %s", t.AgentID, t.Key)
-					}
-
-					ln, lerr := net.Listen("tcp", net.JoinHostPort(localHost, "0"))
-					if lerr != nil {
-						return fmt.Errorf("open local listener for %s: %w", t.Key, lerr)
-					}
-					listeners = append(listeners, ln)
-					port := ln.Addr().(*net.TCPAddr).Port
-
-					key := t.Key
-					open := func() (net.Conn, error) { return tn.OpenStream(key) }
-					go forward(ln, key, open, reporter.report)
-
-					mergeOverrides(overrides, out, remoteconnect.RenderEnv(t, localHost, port))
-					if t.Resource != nil && t.Resource.RemoteAddr != "" {
-						localAddrs[t.Resource.Ref] = append(localAddrs[t.Resource.Ref],
-							newAddrSwap(t.Resource.RemoteAddr, strconv.Itoa(port)))
-					}
-					fmt.Fprintf(out, "  %-28s -> %s:%d  (%s)\n", t.Key, localHost, port, targetKind(t))
-				}
-			}
-			applyResourceBindings(overrides, out, resp, localAddrs)
-			// After the tunnels: a fetched value travels over one, so this cannot run
-			// before they are up.
-			materialized := fetchBindings(overrides, sensitive, out, resp, agentTunnels, files, localAddrs, p.NoSecrets)
-			// After both merges: an env var naming a mount path may have come from
-			// StaticEnv or from a fetch, so the repoint must see the finished map.
-			repointFilePaths(overrides, out, files, materialized)
-			for _, u := range resp.Unconnectable {
-				fmt.Fprintf(out, "  ! %s: %s\n", u.Ref, u.Reason)
-			}
+		// With a single workload the returned error is the whole report.
+		if len(found) > 1 {
+			fmt.Fprintf(out, "  ! could not connect %s/%s (%s): %v\n",
+				f.id.project, f.id.component, f.path, werr)
 		}
-
-		for _, link := range links {
-			host, port := link.target(p.LocalOverrides)
-			mergeOverrides(overrides, out, remoteconnect.RenderEnv(link.resolvedTarget(), host, port))
-			fmt.Fprintf(out, "  %-28s -> %s:%d  (local)\n", link.key, host, port)
+		failures++
+		if firstErr == nil {
+			firstErr, firstID = werr, f.id
 		}
+	}
+	if failures == len(found) {
+		if len(found) == 1 {
+			return firstErr
+		}
+		return fmt.Errorf("none of the %d workloads could be connected; first failure: %s/%s: %w",
+			len(found), firstID.project, firstID.component, firstErr)
+	}
+	if failures > 0 {
+		fmt.Fprintf(out, "! %d of %d workloads could not be connected; their dependencies are missing from this session\n",
+			failures, len(found))
+	}
+
+	// Started once the workloads are up, so a renewal cannot overlap the resolve that
+	// established one.
+	renewCtx, stopRenewals := context.WithCancel(ctx)
+	defer stopRenewals()
+	for _, u := range s.units {
+		if !u.needsRenewal() {
+			continue
+		}
+		go u.renew(renewCtx, d.resolver)
 	}
 
 	if p.PrintEnv {
 		// Explicit --show-secrets needs no prompt; without it, ask rather than leaving
 		// the developer to guess why a resolved binding has no value.
 		show := p.ShowSecrets
-		if names := sortedKeys(sensitive); !show && len(names) > 0 {
+		if names := sortedKeys(s.sensitive); !show && len(names) > 0 {
 			show = d.confirmSecrets(out, names)
 		}
-		printEnvBindings(out, overrides, sensitive, show)
-		fmt.Fprintln(out, "\nTunnels open. Press Ctrl-C to disconnect.")
+		printEnvBindings(out, s.overrides, s.sensitive, show)
+		fmt.Fprintln(out, "\nTunnels open. The session renews automatically; press Ctrl-C to disconnect.")
 		<-ctx.Done()
 		return nil
 	}
 
-	return d.runShell(ctx, mergeEnv(os.Environ(), overrides))
+	fmt.Fprintln(out, "\nTunnels open. The session renews automatically; exit the shell to disconnect.")
+	return d.runShell(ctx, mergeEnv(os.Environ(), s.overrides))
+}
+
+// session is the mutable state one invocation accumulates across its workloads.
+type session struct {
+	overrides map[string]string
+	// sensitive names the env vars whose values were fetched from the data plane, so
+	// --print-env can redact them rather than writing credentials to the terminal.
+	sensitive map[string]bool
+	listeners []net.Listener
+	tunnels   []tunnel
+	files     *fileStore
+	// units is one entry per fully connected workload, each holding the capability its
+	// streams are authorized by.
+	units []*remoteUnit
+}
+
+// connectWorkload wires one workload's dependencies into s. A failure here is confined
+// to this workload: the caller reports it and moves on to the next.
+func (d *Remote) connectWorkload(ctx context.Context, p ConnectParams, f discovered,
+	byIdentity map[workloadIdentity]*v1alpha1.Workload, s *session, out io.Writer) error {
+	remoteEndpoints, links := splitDependencies(f.wl, f.id.namespace, byIdentity)
+	fmt.Fprintf(out, "Connecting to %s/%s (%s)...\n", f.id.project, f.id.component, p.Environment)
+
+	err := d.connectRemote(ctx, p, f, remoteEndpoints, s, out)
+	// Local links need no control plane, so they hold even when the remote half failed.
+	for _, link := range links {
+		host, port := link.target(p.LocalOverrides)
+		mergeOverrides(s.overrides, out, remoteconnect.RenderEnv(link.resolvedTarget(), host, port))
+		fmt.Fprintf(out, "  %-28s -> %s:%d  (local)\n", link.key, host, port)
+	}
+	return err
+}
+
+// connectRemote resolves the workload's remaining dependencies and opens a local
+// listener for each tunnellable target.
+func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovered,
+	remoteEndpoints []v1alpha1.WorkloadConnection, s *session, out io.Writer) error {
+	wl := f.wl
+	hasResources := wl.Spec.Dependencies != nil && len(wl.Spec.Dependencies.Resources) > 0
+	if len(remoteEndpoints) == 0 && !hasResources {
+		return nil
+	}
+	req := buildResolveRequest(wl, f.id.namespace, p.Environment, remoteEndpoints)
+	req.Purpose = remoteconnect.PurposeConnect
+	// A session that will not read values asks for no grants, which keeps it on the full
+	// dial TTL (see ResolveRequest.SkipSecrets).
+	req.SkipSecrets = p.NoSecrets
+	resp, err := d.resolver.Resolve(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	// Staged until the whole workload is up, so one counted as failed contributes
+	// nothing and can never overwrite a healthy workload's binding.
+	staged := map[string]string{}
+	stagedSensitive := map[string]bool{}
+
+	// Per resource, the in-cluster address each of its addresses resolved to and
+	// the local listener that now stands in for it.
+	localAddrs := map[string][]addrSwap{}
+	// Hoisted out of the target loop: fetching values needs the same tunnels the
+	// listeners use, and a resource with no address at all still needs one.
+	// Built before the tunnels, because each tunnel is handed unit.cap.
+	unit := newRemoteUnit(req, resp, out, d.dialTunnel)
+	agentTunnels := make(map[string]tunnel, len(resp.Agents))
+	for id, agent := range resp.Agents {
+		tn, terr := d.dialTunnel(ctx, agent, unit.cap)
+		if terr != nil {
+			return terr
+		}
+		s.tunnels = append(s.tunnels, tn)
+		agentTunnels[id] = tn
+		unit.installTunnel(id, tn)
+	}
+	if len(resp.Targets) > 0 {
+		// Route each target's streams to its own agent; same-namespace dependencies
+		// share a tunnel. The unit resolves key -> tunnel per connection, so the
+		// listener does not care which agent currently serves it.
+		reporter := newStreamErrorReporter(out, unit.expiresAt)
+		for _, t := range resp.Targets {
+			if _, ok := agentTunnels[t.AgentID]; !ok {
+				return fmt.Errorf("resolve returned no remote-agent %q for target %s", t.AgentID, t.Key)
+			}
+
+			ln, lerr := net.Listen("tcp", net.JoinHostPort(localHost, "0"))
+			if lerr != nil {
+				return fmt.Errorf("open local listener for %s: %w", t.Key, lerr)
+			}
+			s.listeners = append(s.listeners, ln)
+			port := ln.Addr().(*net.TCPAddr).Port
+
+			key := t.Key
+			open := func() (net.Conn, error) { return unit.openStream(key) }
+			go forward(ln, key, open, reporter.report)
+
+			mergeOverrides(staged, out, remoteconnect.RenderEnv(t, localHost, port))
+			if t.Resource != nil && t.Resource.RemoteAddr != "" {
+				localAddrs[t.Resource.Ref] = append(localAddrs[t.Resource.Ref],
+					newAddrSwap(t.Resource.RemoteAddr, strconv.Itoa(port)))
+			}
+			fmt.Fprintf(out, "  %-28s -> %s:%d  (%s)\n", t.Key, localHost, port, targetKind(t))
+		}
+	}
+	applyResourceBindings(staged, out, resp, localAddrs)
+	// After the tunnels: a fetched value travels over one, so this cannot run
+	// before they are up.
+	materialized := fetchBindings(staged, stagedSensitive, out, resp, agentTunnels, s.files, localAddrs, p.NoSecrets)
+	// After both merges: an env var naming a mount path may have come from
+	// StaticEnv or from a fetch, so the repoint must see the finished map.
+	repointFilePaths(staged, out, s.files, materialized)
+	for _, u := range resp.Unconnectable {
+		fmt.Fprintf(out, "  ! %s: %s\n", u.Ref, u.Reason)
+	}
+
+	mergeOverrides(s.overrides, out, staged)
+	for name := range stagedSensitive {
+		s.sensitive[name] = true
+	}
+	// Registered only once the whole workload is up, so a failed one is never renewed.
+	s.units = append(s.units, unit)
+	return nil
+}
+
+// assignIdentities fills in each discovered workload's identity.
+func assignIdentities(found []discovered, fallbackNamespace string) error {
+	for i := range found {
+		wl := found[i].wl
+		namespace, err := workloadNamespace(wl, fallbackNamespace)
+		if err != nil {
+			return fmt.Errorf("%s: %w", found[i].path, err)
+		}
+		found[i].id = workloadIdentity{
+			namespace: namespace,
+			project:   wl.Spec.Owner.ProjectName,
+			component: wl.Spec.Owner.ComponentName,
+		}
+	}
+	return nil
+}
+
+// indexByIdentity indexes the discovered workloads for cross-workload dependency
+// matching, rejecting two workloads that claim the same component.
+func indexByIdentity(found []discovered) (map[workloadIdentity]*v1alpha1.Workload, error) {
+	byIdentity := make(map[workloadIdentity]*v1alpha1.Workload, len(found))
+	paths := make(map[workloadIdentity]string, len(found))
+	for _, f := range found {
+		if existing, dup := paths[f.id]; dup {
+			where := fmt.Sprintf("%s and %s", existing, f.path)
+			if existing == f.path {
+				where = fmt.Sprintf("%s declares it twice", f.path)
+			}
+			return nil, fmt.Errorf("duplicate workload for %s/%s/%s: %s",
+				f.id.namespace, f.id.project, f.id.component, where)
+		}
+		paths[f.id] = f.path
+		byIdentity[f.id] = f.wl
+	}
+	return byIdentity, nil
 }
 
 // workloadNamespace resolves a workload's effective namespace: its own
@@ -363,18 +505,15 @@ func forward(ln net.Listener, key string, open func() (net.Conn, error), report 
 // fails once usually fails for every subsequent connection, so repeating it would bury
 // the session in noise.
 type streamErrorReporter struct {
-	out     io.Writer
-	expiry  time.Time
+	out io.Writer
+	// expiry is read per failure rather than captured, because renewal moves it.
+	expiry  func() time.Time
 	mu      sync.Mutex
 	printed map[string]bool
 }
 
-func newStreamErrorReporter(out io.Writer, capability string) *streamErrorReporter {
-	r := &streamErrorReporter{out: out, printed: map[string]bool{}}
-	if exp, ok := remoteconnect.CapabilityExpiry(capability); ok {
-		r.expiry = exp
-	}
-	return r
+func newStreamErrorReporter(out io.Writer, expiry func() time.Time) *streamErrorReporter {
+	return &streamErrorReporter{out: out, expiry: expiry, printed: map[string]bool{}}
 }
 
 func (r *streamErrorReporter) report(key string, err error) {
@@ -384,9 +523,14 @@ func (r *streamErrorReporter) report(key string, err error) {
 		return
 	}
 	r.printed[key] = true
-	if !r.expiry.IsZero() && time.Now().After(r.expiry) {
-		fmt.Fprintf(r.out, "  ! %s: session expired at %s — exit and re-run `occ remote` to reconnect\n",
-			key, r.expiry.Local().Format(time.Kitchen))
+	// The renewal that dropped the key already reported the reason.
+	if errors.Is(err, errRevoked) {
+		fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)
+		return
+	}
+	if exp := r.expiry(); !exp.IsZero() && time.Now().After(exp) {
+		fmt.Fprintf(r.out, "  ! %s: the session could not be renewed before it expired at %s — "+
+			"exit and re-run `occ remote` to reconnect\n", key, exp.Local().Format(time.Kitchen))
 		return
 	}
 	fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)
@@ -588,29 +732,89 @@ func isAddrChar(s string, i int) bool {
 		('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
 }
 
-// loadWorkloadFromFile reads a YAML file and returns its Workload document.
-func loadWorkloadFromFile(path string) (*v1alpha1.Workload, error) {
+// loadedFile is what one YAML file yielded. problems describes documents that mean to
+// be OpenChoreo Workloads but cannot be used; their siblings in the same file are still
+// returned.
+type loadedFile struct {
+	workloads []*v1alpha1.Workload
+	problems  []string
+}
+
+// loadWorkloadsFromFile returns every usable OpenChoreo Workload document in a YAML
+// file. A document belonging to another API group, or none at all, is not ours and is
+// passed over in silence. When the file yields no usable Workload the error either
+// names the problems found or is errNoWorkloadDoc.
+func loadWorkloadsFromFile(path string) (loadedFile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read workload file: %w", err)
+		return loadedFile{}, reasonOnly(err)
 	}
+	var lf loadedFile
 	for _, doc := range splitYAMLDocs(data) {
 		var probe struct {
-			Kind string `json:"kind"`
+			APIVersion string `json:"apiVersion"`
+			Kind       string `json:"kind"`
 		}
 		if err := k8syaml.Unmarshal(doc, &probe); err != nil {
+			// Unparseable, so its kind is unknown. Reported only when the text means to
+			// be a Workload, which keeps templated YAML from filling the output.
+			if bytes.Contains(doc, []byte("kind: Workload")) {
+				lf.problems = append(lf.problems, fmt.Sprintf("a document does not parse: %v", err))
+			}
 			continue
 		}
 		if probe.Kind != "Workload" {
 			continue
 		}
+		switch group, version, qualified := strings.Cut(probe.APIVersion, "/"); {
+		case probe.APIVersion == "":
+			lf.problems = append(lf.problems, fmt.Sprintf("Workload %q has no apiVersion", docName(doc)))
+			continue
+		case !qualified:
+			lf.problems = append(lf.problems, fmt.Sprintf("Workload %q has unsupported apiVersion %s",
+				docName(doc), probe.APIVersion))
+			continue
+		case group != v1alpha1.GroupVersion.Group:
+			// Several other ecosystems define a Workload kind; theirs are not ours.
+			continue
+		case version != v1alpha1.GroupVersion.Version:
+			lf.problems = append(lf.problems, fmt.Sprintf("Workload %q has unsupported apiVersion %s",
+				docName(doc), probe.APIVersion))
+			continue
+		}
 		var wl v1alpha1.Workload
 		if err := k8syaml.Unmarshal(doc, &wl); err != nil {
-			return nil, fmt.Errorf("parse Workload: %w", err)
+			lf.problems = append(lf.problems, fmt.Sprintf("Workload %q does not parse: %v", docName(doc), err))
+			continue
 		}
-		return &wl, nil
+		if wl.Spec.Owner.ProjectName == "" || wl.Spec.Owner.ComponentName == "" {
+			lf.problems = append(lf.problems,
+				fmt.Sprintf("Workload %q has no spec.owner.projectName or spec.owner.componentName", wl.Name))
+			continue
+		}
+		lf.workloads = append(lf.workloads, &wl)
 	}
-	return nil, fmt.Errorf("no Workload document found in %s", path)
+	if len(lf.workloads) == 0 {
+		if len(lf.problems) > 0 {
+			return loadedFile{}, errors.New(strings.Join(lf.problems, "; "))
+		}
+		return loadedFile{}, errNoWorkloadDoc
+	}
+	return lf, nil
+}
+
+// docName reads a document's metadata.name for a problem report, since a document that
+// does not parse into a Workload still usually names itself.
+func docName(doc []byte) string {
+	var probe struct {
+		Metadata struct {
+			Name string `json:"name"`
+		} `json:"metadata"`
+	}
+	if err := k8syaml.Unmarshal(doc, &probe); err == nil && probe.Metadata.Name != "" {
+		return probe.Metadata.Name
+	}
+	return "(unnamed)"
 }
 
 // splitYAMLDocs splits a multi-document YAML byte slice on `---` separators.

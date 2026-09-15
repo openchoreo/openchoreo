@@ -98,7 +98,7 @@ func TestAuditMiddlewareWired(t *testing.T) {
 	assert.Equal(t, "create_project", record["action"])
 	assert.Equal(t, "management", record["category"])
 	assert.Equal(t, "success", record["result"])
-	assert.Equal(t, "api", record["origin"], "REST-originated events must carry origin=api")
+	assert.Equal(t, "rest", record["surface"], "REST-originated events must carry surface=rest")
 
 	actor, ok := record["actor"].(map[string]any)
 	require.True(t, ok, "actor must be a nested group")

@@ -61,8 +61,15 @@ type RemoteConnectHandler struct {
 	// secretsEnabled is the operator kill switch for value resolution, independent of
 	// policy: off means no capability authorizes a read, whatever roles grant.
 	secretsEnabled bool
-	logger         *slog.Logger
+	// cfg supplies the renewal cadence and the session bound resolve applies per call.
+	cfg    config.RemoteConnectConfig
+	logger *slog.Logger
 }
+
+// ErrSessionBoundReached is returned when a renewal would take a session past
+// remote_connect.max_session_seconds. Distinguished so the caller can be told the
+// session ended for a known reason instead of retrying.
+var ErrSessionBoundReached = errors.New("remote-connect: session bound reached")
 
 // NewRemoteConnectHandler loads the signing key and builds the handler. planeClientProvider
 // is used to reach the data plane (through the cluster-gateway proxy) to provision the
@@ -77,14 +84,16 @@ func NewRemoteConnectHandler(k8sClient client.Client, planeClientProvider kubern
 		planeClientProvider: planeClientProvider,
 		authzChecker:        authzChecker,
 		signer: &capabilitySigner{
-			privKey:   priv,
-			keyID:     cfg.KeyID,
-			issuer:    cfg.Issuer,
-			ttl:       time.Duration(cfg.TTLSeconds) * time.Second,
-			secretTTL: time.Duration(cfg.SecretTTLSeconds) * time.Second,
+			privKey:    priv,
+			keyID:      cfg.KeyID,
+			issuer:     cfg.Issuer,
+			ttl:        time.Duration(cfg.TTLSeconds) * time.Second,
+			secretTTL:  time.Duration(cfg.SecretTTLSeconds) * time.Second,
+			maxSession: cfg.MaxSession(),
 		},
 		provisioner:    newRemoteAgentProvisioner(cfg, logger),
 		secretsEnabled: cfg.SecretsEnabled,
+		cfg:            cfg,
 		logger:         logger.With("component", "remote-connect-handler"),
 	}, nil
 }
@@ -118,6 +127,14 @@ func (h *RemoteConnectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	resp, err := h.resolve(ctx, req, subject)
 	if err != nil {
+		// An expected refusal, not a fault.
+		if errors.Is(err, ErrSessionBoundReached) {
+			h.logger.Info("remote-connect: renewal refused, session bound reached",
+				"subject", subject, "project", req.Project, "component", req.Component)
+			http.Error(w, "session has reached the maximum length allowed by this control plane",
+				http.StatusForbidden)
+			return
+		}
 		h.logger.Error("dependency resolution failed", "error", err)
 		http.Error(w, "dependency resolution failed", http.StatusInternalServerError)
 		return
@@ -432,16 +449,7 @@ func (h *RemoteConnectHandler) resolve(ctx context.Context, req remoteconnect.Re
 			unconnectable = append(unconnectable, remoteconnect.Unconnectable{Ref: refKey, Reason: unavailableReason})
 			continue
 		}
-		fetch := fetchPolicy{
-			// A ConfigMap-backed value is not secret; reading it rides on the same
-			// resource:connect grant that admitted the dependency (checked above).
-			configMaps: true,
-			secrets:    allowedSecrets[dep.Ref],
-		}
-		if !h.secretsEnabled {
-			fetch.disabledReason = "value resolution is disabled on this control plane " +
-				"(remote_connect.secrets_enabled)"
-		}
+		fetch := h.fetchPolicyFor(req, allowedSecrets[dep.Ref])
 		res, err := h.resolveResource(ctx, req.Namespace, req.Project, dep, req.Environment, fetch)
 		if err != nil {
 			// Collapsed to the shared reason for the same purpose as the address path:
@@ -488,17 +496,23 @@ func (h *RemoteConnectHandler) resolve(ctx context.Context, req remoteconnect.Re
 		}
 	}
 
+	sessionStart, err := h.sessionStart(req)
+	if err != nil {
+		return nil, err
+	}
 	capability, err := h.signer.sign(subject, req.Namespace,
-		remoteconnect.ComponentRef{Project: req.Project, Name: req.Component}, req.Environment, capTargets, capGrants)
+		remoteconnect.ComponentRef{Project: req.Project, Name: req.Component}, req.Environment,
+		capTargets, capGrants, sessionStart)
 	if err != nil {
 		return nil, fmt.Errorf("sign capability: %w", err)
 	}
 
 	resp := &remoteconnect.ResolveResponse{
-		Capability:    capability,
-		Targets:       respTargets,
-		Unconnectable: unconnectable,
-		Resources:     resourceBindings,
+		Capability:        capability,
+		Targets:           respTargets,
+		Unconnectable:     unconnectable,
+		Resources:         resourceBindings,
+		RenewAfterSeconds: int(h.cfg.RenewAfter(len(capGrants) > 0).Seconds()),
 	}
 
 	// Provision (or refresh) one remote-agent per distinct provider project+env namespace
@@ -793,6 +807,29 @@ func (h *RemoteConnectHandler) resolveResource(ctx context.Context, ns, project 
 	return out, nil
 }
 
+// fetchPolicyFor decides which of one resource's ref-backed outputs this caller may
+// fetch, from the operator kill switch, the caller's per-resource authorization, and
+// whether the caller asked for values at all.
+func (h *RemoteConnectHandler) fetchPolicyFor(req remoteconnect.ResolveRequest, secretsAllowed bool) fetchPolicy {
+	fetch := fetchPolicy{
+		// A ConfigMap-backed value is not secret; reading it rides on the same
+		// resource:connect grant that admitted the dependency.
+		configMaps: true,
+		secrets:    secretsAllowed,
+	}
+	if !h.secretsEnabled {
+		fetch.disabledReason = "value resolution is disabled on this control plane " +
+			"(remote_connect.secrets_enabled)"
+	}
+	// The caller will not read values, so sign no grants whatever it is authorized for.
+	if req.SkipSecrets {
+		fetch.configMaps = false
+		fetch.secrets = false
+		fetch.disabledReason = "value resolution was not requested for this session"
+	}
+	return fetch
+}
+
 // fetchPolicy says which ref-backed outputs of one resource may be fetched. It is
 // resolved once per resource, from the operator kill switch and the caller's
 // per-resource authorization, so the per-binding decision below is a lookup.
@@ -995,14 +1032,26 @@ type capabilitySigner struct {
 	// per-stream authorize callback re-checks no policy, so a capability's expiry is the
 	// entire revocation window for the reads it authorizes. Zero uses ttl.
 	secretTTL time.Duration
+	// maxSession bounds the whole session; zero means unbounded.
+	maxSession time.Duration
 }
 
 func (s *capabilitySigner) sign(subject, namespace string, comp remoteconnect.ComponentRef, env string,
-	targets []remoteconnect.Target, grants []remoteconnect.SecretGrant) (string, error) {
+	targets []remoteconnect.Target, grants []remoteconnect.SecretGrant, sessionStart time.Time) (string, error) {
 	now := time.Now()
 	ttl := s.ttl
 	if len(grants) > 0 && s.secretTTL > 0 {
 		ttl = s.secretTTL
+	}
+	if sessionStart.IsZero() {
+		sessionStart = now
+	}
+	expires := now.Add(ttl)
+	// A renewal accepted just inside the bound must not mint a capability that outlives it.
+	if s.maxSession > 0 {
+		if deadline := sessionStart.Add(s.maxSession); deadline.Before(expires) {
+			expires = deadline
+		}
 	}
 	claims := &remoteconnect.CapabilityClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -1010,15 +1059,42 @@ func (s *capabilitySigner) sign(subject, namespace string, comp remoteconnect.Co
 			Subject:   subject,
 			Audience:  jwt.ClaimStrings{remoteconnect.CapabilityAudience},
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			ExpiresAt: jwt.NewNumericDate(expires),
 		},
 		Namespace: namespace,
 		Component: comp,
 		Env:       env,
 		Targets:   targets,
 		Secrets:   grants,
+		// Carried forward unchanged, so a session bound measures the whole session.
+		SessionStart: jwt.NewNumericDate(sessionStart),
 	}
 	return remoteconnect.SignCapability(claims, s.privKey, s.keyID)
+}
+
+// sessionStart returns the start time to stamp on the capability this call will mint:
+// now for a new session, and for a renewal the start carried by the capability being
+// renewed, so max_session_seconds bounds a session rather than one capability.
+//
+// The previous capability is verified (expiry tolerated, because a renewal may arrive
+// just after it lapsed) and read for nothing but that start time. An unusable one starts
+// a fresh clock: the bound is hygiene for forgotten sessions, not an access control.
+func (h *RemoteConnectHandler) sessionStart(req remoteconnect.ResolveRequest) (time.Time, error) {
+	now := time.Now()
+	if req.Purpose != remoteconnect.PurposeRenew || req.PreviousCapability == "" {
+		return now, nil
+	}
+	prev, err := remoteconnect.VerifyCapabilityAllowExpired(req.PreviousCapability, h.VerifyKey())
+	if err != nil {
+		h.logger.Debug("remote-connect: renewal presented an unusable previous capability", "error", err)
+		return now, nil
+	}
+	start := prev.SessionStartOrIssued()
+	if bound := h.cfg.MaxSession(); bound > 0 && now.Sub(start) > bound {
+		return time.Time{}, fmt.Errorf("%w: started %s ago, limit %s",
+			ErrSessionBoundReached, now.Sub(start).Truncate(time.Second), bound)
+	}
+	return start, nil
 }
 
 func loadEd25519PrivateKeyPEM(path string) (ed25519.PrivateKey, error) {

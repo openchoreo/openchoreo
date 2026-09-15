@@ -1078,10 +1078,10 @@ openchoreoApi:
         read: "15s"
         # @schema
         # type: string
-        # description: Maximum duration before timing out writes of the response
-        # default: "15s"
+        # description: "Maximum duration before timing out writes of the response. Must outlast the resource tree walk budget (60s, the top of the ladder agent 25s < gateway 28s < client 30s < walk 60s), or a legitimate tree response is cut off while the walk is still within its budget."
+        # default: "65s"
         # @schema
-        write: "15s"
+        write: "65s"
         # @schema
         # type: string
         # description: Maximum time to wait for the next request when keep-alives are enabled
@@ -1609,6 +1609,7 @@ openchoreoApi:
                 - "workload:delete"
                 - "logs:view"
                 - "platformlogs:view"
+                - "auditlogs:view"
                 - "events:view"
                 - "metrics:view"
                 - "traces:view"
@@ -1982,6 +1983,19 @@ openchoreoApi:
       # @schema
       secretTtlSeconds: 600
       # @schema
+      # type: integer
+      # description: |
+      #   Total length one `occ remote` session may reach across renewals, measured from
+      #   its first resolve. Every renewal re-runs the full authorization check, so the
+      #   revocation window stays the renewal interval however long a session runs. This
+      #   bounds a forgotten session rather than acting as an access control, and a
+      #   refused session can always be restarted. Must be at least ttlSeconds, or the
+      #   first renewal of every session is refused. 0 means unbounded.
+      # default: 43200
+      # minimum: 0
+      # @schema
+      maxSessionSeconds: 43200
+      # @schema
       # type: boolean
       # description: |
       #   Allow `occ remote` to resolve secret- and configmap-backed dependency values.
@@ -2010,6 +2024,13 @@ openchoreoApi:
         # default: ""
         # @schema
         tag: ""
+
+        # @schema
+        # description: Image pull policy. Set Always when the tag is floating, so a rebuilt agent is fetched.
+        # enum: [Always, IfNotPresent, Never]
+        # default: IfNotPresent
+        # @schema
+        pullPolicy: IfNotPresent
       # @schema
       # type: integer
       # description: TLS tunnel port the provisioned remote-agent listens on.
@@ -2057,6 +2078,97 @@ openchoreoApi:
       # default: 1800
       # @schema
       reaperTtlSeconds: 1800
+    # @schema
+    # type: object
+    # description: How the release resource tree walks from a root workload resource down to its children. The built-in rules live in the chart file files/resource-tree-builtin-rules.yaml and are not settable here; rules below are appended to them.
+    # @schema
+    resourceTree:
+      # @schema
+      # type: boolean
+      # default: false
+      # description: Drop the chart's built-in traversal rules from the rendered config. When true, rules below becomes the complete rule set, and leaving it empty disables child discovery entirely.
+      # @schema
+      disableBuiltInRules: false
+      # A child with no `matcher` is matched by owner reference. The other
+      # supported matcher is `labelSelector`, for children that carry no owner
+      # reference back to the root. Its `match_labels` values may use
+      # `${parent.metadata.name}` and `${parent.metadata.namespace}`, and at
+      # least one value has to derive from the parent. `namespaces` lists the
+      # namespaces to search (no wildcards); leave it out to search each
+      # parent's own namespace. Example, for Envoy Gateway's proxy Deployment:
+      #
+      # rules:
+      #   - root:
+      #       group: gateway.networking.k8s.io
+      #       version: v1
+      #       kind: Gateway
+      #       resource: gateways
+      #     children:
+      #       - kind:
+      #           group: apps
+      #           version: v1
+      #           kind: Deployment
+      #           resource: deployments
+      #         matcher: labelSelector
+      #         label_selector:
+      #           match_labels:
+      #             gateway.envoyproxy.io/owning-gateway-name: "${parent.metadata.name}"
+      #             gateway.envoyproxy.io/owning-gateway-namespace: "${parent.metadata.namespace}"
+      #           namespaces:
+      #             - envoy-gateway-system
+      #         children:
+      #           - kind:
+      #               version: v1
+      #               kind: Pod
+      #               resource: pods
+      # @schema
+      # type: array
+      # description: Additional traversal rules, appended after the chart's built-in rules. A rule whose root duplicates a built-in root fails API server startup validation - to run a different set, set disableBuiltInRules to true and supply the complete set here.
+      # items:
+      #   type: object
+      #   required: [root, children]
+      #   properties:
+      #     root:
+      #       type: object
+      #       description: Root workload kind the rule applies to
+      #       required: [version, kind, resource]
+      #       properties:
+      #         group:
+      #           type: string
+      #           description: API group, omitted or empty for the core group
+      #         version:
+      #           type: string
+      #           description: API version
+      #         kind:
+      #           type: string
+      #           description: Kind name
+      #         resource:
+      #           type: string
+      #           description: Plural REST resource name, required because it is not derivable for arbitrary CRDs
+      #     children:
+      #       type: array
+      #       description: "Child edges walked from the root. Each entry is {kind, matcher, label_selector, metadata_only, hide, children}; children nest recursively, which JSON Schema generation cannot express, so nested levels are unconstrained here and validated by the API server at startup."
+      #       items:
+      #         type: object
+      #         additionalProperties: true
+      #         required: [kind]
+      #         properties:
+      #           kind:
+      #             type: object
+      #             description: The child kind this edge matches
+      #             required: [version, kind, resource]
+      #             properties:
+      #               group:
+      #                 type: string
+      #               version:
+      #                 type: string
+      #               kind:
+      #                 type: string
+      #               resource:
+      #                 type: string
+      # default: []
+      # @schema
+      rules: []
     # @schema
     # type: object
     # description: Logging configuration
@@ -4270,7 +4382,7 @@ portalAssistant:
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-    observerApiUrl: "http://observer.openchoreo-observability-plane.svc.cluster.local:8080"
+    observerApiUrl: "http://observer.openchoreo.localhost:11080"
     rcaAgentApiUrl: ""
     maxConcurrentChats: 20
     authzTimeoutSeconds: 30

@@ -179,19 +179,19 @@ def test_extract_subject_context_falls_back_to_sub():
     assert ctx.entitlement_values == ["user-9"]
 
 
-# ----------------------------------------- AuthorizationChecker (mocked client)
+# ----------------------------------------- require_authz (mocked client)
 
 
 @pytest.mark.asyncio
-async def test_authorization_checker_allows_and_forwards_request():
+async def test_require_authz_allows_and_forwards_request():
     client = AsyncMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=True))
-    checker = auth.checker("finopsreport:view", "finopsreport")
+    dependency = auth.require_authz("finopsreport:view", "finopsreport")
     subject = _subject()
     req = _request({"Authorization": "Bearer tok"})
 
     with patch.object(auth, "get_authz_client", return_value=client):
-        result = await checker(req, subject)
+        result = await dependency(req, subject)
 
     assert result is subject
     sent_request, sent_token = client.evaluate.await_args.args
@@ -201,16 +201,61 @@ async def test_authorization_checker_allows_and_forwards_request():
 
 
 @pytest.mark.asyncio
-async def test_authorization_checker_denies_with_403():
+async def test_require_authz_denies_with_403():
     client = AsyncMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=False))
-    checker = auth.checker("finopsreport:view", "finopsreport")
+    dependency = auth.require_authz("finopsreport:view", "finopsreport")
 
     with (
         patch.object(auth, "get_authz_client", return_value=client),
         pytest.raises(HTTPException) as exc,
     ):
-        await checker(_request({"Authorization": "Bearer tok"}), _subject())
+        await dependency(_request({"Authorization": "Bearer tok"}), _subject())
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_authorize_result_allows_and_forwards_hierarchy():
+    client = AsyncMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=True))
+    subject = _subject()
+    result = {"reportId": "r1", "namespace": "ns", "project": "proj-a"}
+
+    with patch.object(auth, "get_authz_client", return_value=client):
+        returned = await auth.authorize_result(
+            _request({"Authorization": "Bearer tok"}),
+            subject,
+            action="finopsreport:view",
+            resource_type="finopsreport",
+            result=result,
+        )
+
+    assert returned is subject
+    sent_request, sent_token = client.evaluate.await_args.args
+    assert sent_request.action == "finopsreport:view"
+    assert sent_request.resource.type == "finopsreport"
+    assert sent_request.resource.hierarchy.namespace == "ns"
+    assert sent_request.resource.hierarchy.project == "proj-a"
+    assert sent_token == "tok"
+
+
+@pytest.mark.asyncio
+async def test_authorize_result_denies_with_403():
+    client = AsyncMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=False))
+
+    with (
+        patch.object(auth, "get_authz_client", return_value=client),
+        pytest.raises(HTTPException) as exc,
+    ):
+        await auth.authorize_result(
+            _request({"Authorization": "Bearer tok"}),
+            _subject(),
+            action="finopsreport:view",
+            resource_type="finopsreport",
+            result={"reportId": "r1", "namespace": "ns", "project": "proj-a"},
+        )
 
     assert exc.value.status_code == 403
 

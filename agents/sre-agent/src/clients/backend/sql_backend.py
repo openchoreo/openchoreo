@@ -29,11 +29,14 @@ rca_reports = Table(
     Column("status", String, nullable=False, server_default="pending"),
     Column("summary", Text, nullable=True),
     Column("timestamp", String, nullable=False),
+    Column("namespace", String, nullable=True),
+    Column("project", String, nullable=True),
     Column("environment_uid", String, nullable=True),
     Column("project_uid", String, nullable=True),
     Column("report", Text, nullable=True),
     Index("idx_alert_id", "alert_id"),
     Index("idx_project_env", "project_uid", "environment_uid"),
+    Index("idx_namespace_project", "namespace", "project"),
     Index("idx_timestamp", "timestamp"),
     Index("idx_status", "status"),
 )
@@ -68,6 +71,8 @@ class SQLReportBackend(ReportBackend):
         report: dict[str, Any] | None = None,
         summary: str | None = None,
         timestamp: datetime | None = None,
+        namespace: str | None = None,
+        project: str | None = None,
         environment_uid: str | None = None,
         project_uid: str | None = None,
     ) -> dict[str, Any]:
@@ -85,6 +90,8 @@ class SQLReportBackend(ReportBackend):
             "status": status,
             "summary": summary,
             "timestamp": ts_str,
+            "namespace": namespace,
+            "project": project,
             "environment_uid": environment_uid,
             "project_uid": project_uid,
             "report": report_json,
@@ -93,6 +100,8 @@ class SQLReportBackend(ReportBackend):
         update_values: dict[str, Any] = {
             "status": status,
             "summary": summary,
+            "namespace": namespace,
+            "project": project,
             "environment_uid": environment_uid,
             "project_uid": project_uid,
         }
@@ -181,18 +190,17 @@ class SQLReportBackend(ReportBackend):
 
 
 def _row_to_doc(row: Any) -> dict[str, Any]:
-    # ``projectUid`` / ``environmentUid`` are surfaced at the top level so
-    # callers can authorize against the report's hierarchy without having
-    # to reach into the nested ``resource`` dict. The list_rca_reports
-    # path already uses these flat keys (line 164 above); keeping them
-    # consistent across list / get is the single-key contract MCP relies
-    # on for per-report re-authorization.
+    # namespace/project (names) let callers authorize against the report's real
+    # hierarchy after fetching it by id; null on rows written before these
+    # columns existed, which then fail closed on single-report authorization.
     doc: dict[str, Any] = {
         "@timestamp": row["timestamp"],
         "reportId": row["report_id"],
         "alertId": row["alert_id"],
         "status": row["status"],
         "summary": row["summary"],
+        "namespace": row["namespace"],
+        "project": row["project"],
         "projectUid": row["project_uid"],
         "environmentUid": row["environment_uid"],
         "resource": {

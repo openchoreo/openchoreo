@@ -67,7 +67,7 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
 
 			inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("handler must not run on a rejected request")
@@ -89,8 +89,8 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 			if records[0]["result"] != "unauthenticated" {
 				t.Errorf("result = %v, want unauthenticated", records[0]["result"])
 			}
-			if records[0]["origin"] != string(audit.OriginAPI) {
-				t.Errorf("origin = %v, want %q", records[0]["origin"], audit.OriginAPI)
+			if records[0]["surface"] != string(audit.SurfaceREST) {
+				t.Errorf("surface = %v, want %q", records[0]["surface"], audit.SurfaceREST)
 			}
 			actor, ok := records[0]["actor"].(map[string]any)
 			if !ok || actor["id"] != "anonymous" {
@@ -113,7 +113,7 @@ func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
 
 	passthroughAuth := func(next http.Handler) http.Handler { return next }
 	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

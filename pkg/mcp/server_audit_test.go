@@ -264,8 +264,8 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		if record["action"] != "create_project" {
 			t.Errorf("action = %v, want create_project", record["action"])
 		}
-		if record["origin"] != "mcp" {
-			t.Errorf("origin = %v, want mcp", record["origin"])
+		if record["surface"] != "mcp" {
+			t.Errorf("surface = %v, want mcp", record["surface"])
 		}
 		if record["result"] != "success" {
 			t.Errorf("result = %v, want success", record["result"])

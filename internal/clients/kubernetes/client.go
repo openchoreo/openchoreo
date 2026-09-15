@@ -234,8 +234,9 @@ func GetK8sClientFromObservabilityPlane(
 	// Include "v2" to force cache invalidation after proxy client signature change
 	key := fmt.Sprintf("v2/observabilityplane/%s/%s", observabilityPlane.Namespace, observabilityPlane.Name)
 
-	// Agent mode - use HTTP proxy through cluster gateway
-	if observabilityPlane.Spec.ClusterAgent.ClientCA.Value != "" {
+	// Agent mode - use HTTP proxy through cluster gateway.
+	if observabilityPlane.Spec.ClusterAgent.ClientCA.Value != "" ||
+		observabilityPlane.Spec.ClusterAgent.ClientCA.SecretKeyRef != nil {
 		if gatewayURL == "" {
 			return nil, fmt.Errorf("gatewayURL is required for agent mode")
 		}
@@ -251,7 +252,13 @@ func GetK8sClientFromObservabilityPlane(
 
 		// Use GetOrAddClient to cache the proxy client
 		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-			return NewProxyClient(gatewayURL, planeIdentifier, observabilityPlane.Namespace, observabilityPlane.Name, clientMgr.ProxyTLSConfig)
+			return NewProxyClient(
+				gatewayURL,
+				planeIdentifier,
+				observabilityPlane.Namespace,
+				observabilityPlane.Name,
+				clientMgr.ProxyTLSConfig,
+			)
 		})
 	}
 
@@ -270,8 +277,9 @@ func GetK8sClientFromClusterObservabilityPlane(
 	// Cluster-scoped: no namespace in key
 	key := fmt.Sprintf("v2/clusterobservabilityplane/%s", clusterObsPlane.Name)
 
-	// Agent mode - use HTTP proxy through cluster gateway
-	if clusterObsPlane.Spec.ClusterAgent.ClientCA.Value != "" {
+	// Agent mode - use HTTP proxy through cluster gateway.
+	if clusterObsPlane.Spec.ClusterAgent.ClientCA.Value != "" ||
+		clusterObsPlane.Spec.ClusterAgent.ClientCA.SecretKeyRef != nil {
 		if gatewayURL == "" {
 			return nil, fmt.Errorf("gatewayURL is required for agent mode")
 		}

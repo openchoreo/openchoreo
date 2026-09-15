@@ -64,7 +64,10 @@ define package_binary
 	$(call log_info, Packaging binary '$(BINARY_NAME)' for $(OS)/$(ARCH))
 	if [ -f $(BIN_PATH) ]; then \
 		if [ $(OS) = "windows" ]; then \
-			zip -rj $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).zip $(BIN_PATH); \
+			( trap 'rm -f $(OUTPUT_PATH)/$(BINARY_NAME).exe' EXIT; \
+			  cp $(BIN_PATH) $(OUTPUT_PATH)/$(BINARY_NAME).exe; \
+			  zip -rj $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).zip $(OUTPUT_PATH)/$(BINARY_NAME).exe; \
+			); \
 		else \
 			 tar -zcvf $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).tar.gz -C $(OUTPUT_PATH) $(BINARY_NAME); \
 		fi; \
@@ -205,10 +208,9 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	@$(call log, "Generating Observer FinOps Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-finops-adapter-client.yaml openapi/finops-adapter-api.yaml
 
-# AUDIT_SERVICES are the API servers tools/auditgen and tools/auditcoverage
-# know how to generate for — one -service value each, matching their
-# registries (tools/auditgen/services.go, tools/auditcoverage/services.go).
-# Adding a third service is an entry here plus one in each registry.
+# AUDIT_SERVICES are the API servers tools/auditgen knows how to generate for
+# — one -service value each, matching its registry (tools/auditgen/services.go).
+# Adding a third service is an entry here plus one in that registry.
 AUDIT_SERVICES ?= openchoreo-api observer
 
 .PHONY: audit-gen
@@ -217,13 +219,6 @@ audit-gen: openapi-codegen ## Regenerate every service's audit definitions table
 	@for svc in $(AUDIT_SERVICES); do \
 		echo "  $$svc"; \
 		go run ./tools/auditgen -service $$svc || exit 1; \
-	done
-
-.PHONY: audit-coverage-matrix
-audit-coverage-matrix: ## Regenerate every service's audit coverage matrix — reporting only, not part of code.gen.
-	@$(call log, "Generating audit coverage matrices")
-	@for svc in $(AUDIT_SERVICES); do \
-		go run ./tools/auditcoverage -service $$svc || exit 1; \
 	done
 
 .PHONY: mockery-gen

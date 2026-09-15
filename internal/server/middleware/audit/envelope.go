@@ -7,7 +7,7 @@ package audit
 // carries no HTTP or MCP types — an adapter translates its surface's
 // request/response into an Envelope before calling Emit.
 type Envelope struct {
-	Origin    Origin
+	Surface   Surface
 	Actor     Actor
 	Result    Result
 	Resource  *Resource
@@ -15,5 +15,6 @@ type Envelope struct {
 	Request   RequestInfo
 	RequestID string
 	SourceIP  string
+	UserAgent string
 	Metadata  map[string]any
 }

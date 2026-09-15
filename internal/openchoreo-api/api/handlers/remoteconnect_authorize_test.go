@@ -22,7 +22,7 @@ func signTestCapability(t *testing.T, priv ed25519.PrivateKey, targets []remotec
 	t.Helper()
 	signer := &capabilitySigner{privKey: priv, keyID: "k1", issuer: "cp", ttl: time.Minute}
 	cap, err := signer.sign("user:alice", "default",
-		remoteconnect.ComponentRef{Project: "doclet", Name: "doc"}, "development", targets, nil)
+		remoteconnect.ComponentRef{Project: "doclet", Name: "doc"}, "development", targets, nil, time.Time{})
 	if err != nil {
 		t.Fatalf("sign capability: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestAuthorizeRejectsExpiredCapability(t *testing.T) {
 	signer := &capabilitySigner{privKey: priv, keyID: "k1", issuer: "cp", ttl: -time.Minute}
 	expired, err := signer.sign("user:alice", "default",
 		remoteconnect.ComponentRef{Project: "doclet", Name: "doc"}, "development",
-		[]remoteconnect.Target{{Key: "ep/greeter/greeter-svc/http", Proto: "tcp", Host: "h", Port: 8080}}, nil)
+		[]remoteconnect.Target{{Key: "ep/greeter/greeter-svc/http", Proto: "tcp", Host: "h", Port: 8080}}, nil, time.Time{})
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestAuthorizeRefreshesReadGrantsOnlyForReads(t *testing.T) {
 			Key: "ep/greeter/greeter-svc/http", Proto: "tcp", Host: "h", Port: 8080,
 			AgentNamespace: "dp-default-doclet-development",
 		}},
-		[]remoteconnect.SecretGrant{grant})
+		[]remoteconnect.SecretGrant{grant}, time.Time{})
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}

@@ -11,12 +11,12 @@ checks). Scope resolution, the report backend, and the background
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
 from common.auth.authz_models import SubjectContext
 from src.api.agent_routes import router as agent_router
-from src.auth import require_authn, require_chat_authz
+from src.auth import require_authn
 from src.helpers import AlertScope
 
 SCOPE = AlertScope(
@@ -81,6 +81,8 @@ def test_analyze_returns_pending_and_schedules_task(app):
     backend.upsert_rca_report.assert_awaited_once()
     pending = backend.upsert_rca_report.await_args.kwargs
     assert pending["status"] == "pending"
+    assert pending["namespace"] == "ns"
+    assert pending["project"] == "p"
     assert pending["project_uid"] == "proj-uid"
     assert pending["environment_uid"] == "env-uid"
 
@@ -116,10 +118,11 @@ def test_chat_streams_when_report_exists(app):
         return _subject()
 
     app.dependency_overrides[require_authn] = _fake_authn
-    app.dependency_overrides[require_chat_authz] = _subject
 
     backend = MagicMock()
-    backend.get_rca_report = AsyncMock(return_value={"reportId": "r1"})
+    backend.get_rca_report = AsyncMock(
+        return_value={"reportId": "r1", "namespace": "ns", "project": "p"}
+    )
 
     async def fake_stream(**kwargs):
         yield '{"type": "done", "message": "hi"}\n'
@@ -127,6 +130,7 @@ def test_chat_streams_when_report_exists(app):
     with (
         patch("src.api.agent_routes.get_report_backend", return_value=backend),
         patch("src.api.agent_routes.resolve_project_scope", AsyncMock(return_value=SCOPE)),
+        patch("src.api.agent_routes.auth.authorize_result", AsyncMock(return_value=None)),
         patch("src.api.agent_routes.stream_chat", fake_stream),
     ):
         resp = TestClient(app).post("/api/v1alpha1/rca-agent/chat", json=CHAT_BODY)
@@ -135,13 +139,40 @@ def test_chat_streams_when_report_exists(app):
     assert '"type": "done"' in resp.text
 
 
+def test_chat_denied_when_report_authz_rejects(app):
+    async def _fake_authn(request: Request):
+        request.state.bearer_token = "tok"
+        return _subject()
+
+    app.dependency_overrides[require_authn] = _fake_authn
+
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(
+        return_value={"reportId": "r1", "namespace": "ns-a", "project": "project-a"}
+    )
+
+    with (
+        patch("src.api.agent_routes.get_report_backend", return_value=backend),
+        patch(
+            "src.api.agent_routes.auth.authorize_result",
+            AsyncMock(
+                side_effect=HTTPException(
+                    status_code=403, detail={"error": "FORBIDDEN", "message": "Access denied"}
+                )
+            ),
+        ),
+    ):
+        resp = TestClient(app).post("/api/v1alpha1/rca-agent/chat", json=CHAT_BODY)
+
+    assert resp.status_code == 403
+
+
 def test_chat_returns_404_when_report_missing(app):
     async def _fake_authn(request: Request):
         request.state.bearer_token = "tok"
         return _subject()
 
     app.dependency_overrides[require_authn] = _fake_authn
-    app.dependency_overrides[require_chat_authz] = _subject
 
     backend = MagicMock()
     backend.get_rca_report = AsyncMock(return_value=None)

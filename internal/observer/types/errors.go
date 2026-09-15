@@ -50,6 +50,24 @@ const (
 	ErrorCodeV1PlatformLogsRetrievalFailed = "OBS-V1-CL-04"
 	ErrorCodeV1PlatformLogsNotSupported    = "OBS-V1-CL-05"
 
+	// Platform log filter values (v1alpha1) — same area, continuing the sequence.
+	ErrorCodeV1PlatformLogFilterValuesServiceNotReady = "OBS-V1-CL-06"
+	ErrorCodeV1PlatformLogFilterValuesRetrievalFailed = "OBS-V1-CL-07"
+	ErrorCodeV1PlatformLogFilterValuesNotSupported    = "OBS-V1-CL-08"
+
+	// Audit logs API (v1alpha1) internal server error codes.
+	ErrorCodeV1AuditLogsInternalGeneric = "OBS-V1-AL-01"
+	ErrorCodeV1AuditLogsAuthzInternal   = "OBS-V1-AL-02"
+	ErrorCodeV1AuditLogsServiceNotReady = "OBS-V1-AL-03"
+	ErrorCodeV1AuditLogsRetrievalFailed = "OBS-V1-AL-04"
+	ErrorCodeV1AuditLogsNotSupported    = "OBS-V1-AL-05"
+	// ErrorCodeV1AuditLogsFilterValuesNotSupported is distinct from
+	// ErrorCodeV1AuditLogsNotSupported: an adapter may serve audit records
+	// while being unable to aggregate them, so a client seeing this one should
+	// fall back to free-text entry on that filter rather than conclude the
+	// trail is unreadable.
+	ErrorCodeV1AuditLogsFilterValuesNotSupported = "OBS-V1-AL-07"
+
 	// Scope resolution auth failure — shared across all APIs.
 	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"
 )

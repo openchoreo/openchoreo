@@ -270,12 +270,12 @@ func TestSignerTightensTTLForSecretGrants(t *testing.T) {
 	pub := priv.Public().(ed25519.PublicKey)
 
 	tunnelOnly, err := s.sign("user:alice", "default", comp, "development",
-		[]remoteconnect.Target{{Key: "ep/a/b", Host: "h", Port: 1}}, nil)
+		[]remoteconnect.Target{{Key: "ep/a/b", Host: "h", Port: 1}}, nil, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	withGrants, err := s.sign("user:alice", "default", comp, "development", nil,
-		[]remoteconnect.SecretGrant{{Key: "sec/r/o", SourceKind: remoteconnect.SourceKindSecret, SourceName: "s", SourceKey: "k"}})
+		[]remoteconnect.SecretGrant{{Key: "sec/r/o", SourceKind: remoteconnect.SourceKindSecret, SourceName: "s", SourceKey: "k"}}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +306,7 @@ func TestAuthorizeKeySpacesDoNotCross(t *testing.T) {
 	fetchKey := remoteconnect.SecretGrantKey(docletPostgres, "password")
 	// The same key is signed as a DIAL target, not as a grant.
 	token, err := signer.sign("user:alice", "default", comp, "development",
-		[]remoteconnect.Target{{Key: fetchKey, Proto: "tcp", Host: "pg", Port: 5432, AgentNamespace: "dp-ns"}}, nil)
+		[]remoteconnect.Target{{Key: fetchKey, Proto: "tcp", Host: "pg", Port: 5432, AgentNamespace: "dp-ns"}}, nil, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestAuthorizeDialKeyDoesNotResolveFromGrants(t *testing.T) {
 		[]remoteconnect.SecretGrant{{
 			Key: "ep/doclet/backend-api/http", AgentNamespace: "dp-ns",
 			SourceKind: remoteconnect.SourceKindSecret, SourceName: "pg-secret", SourceKey: "password",
-		}})
+		}}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestAuthorizeReturnsGrantCoordinatesOnly(t *testing.T) {
 		[]remoteconnect.SecretGrant{{
 			Key: key, AgentNamespace: "dp-ns",
 			SourceKind: remoteconnect.SourceKindSecret, SourceName: "pg-secret", SourceKey: "password",
-		}})
+		}}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,7 +10,6 @@ func buildToolSpecs() []toolTestSpec {
 	specs := make([]toolTestSpec, 0, 12)
 	specs = append(specs, buildWorkflowRunSpecs()...)
 	specs = append(specs, buildWorkflowSpecs()...)
-	specs = append(specs, buildClusterWorkflowSpecs()...)
 	return specs
 }
 
@@ -180,55 +179,6 @@ func buildWorkflowSpecs() []toolTestSpec {
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != "build-workflow" {
 					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
-}
-
-func buildClusterWorkflowSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_cluster_workflows",
-			toolset:             "build",
-			descriptionKeywords: []string{"cluster", "workflow"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterWorkflows",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_workflow",
-			toolset:             "build",
-			descriptionKeywords: []string{"cluster", "workflow"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": "build-go",
-			},
-			expectedMethod: "GetClusterWorkflow",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "build-go" {
-					t.Errorf("Expected name %q, got %v", "build-go", args[0])
-				}
-			},
-		},
-		{
-			name:                "get_cluster_workflow_schema",
-			toolset:             "build",
-			descriptionKeywords: []string{"cluster", "workflow", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			testArgs: map[string]any{
-				"name": "build-go",
-			},
-			expectedMethod: "GetClusterWorkflowSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "build-go" {
-					t.Errorf("Expected name %q, got %v", "build-go", args[0])
 				}
 			},
 		},

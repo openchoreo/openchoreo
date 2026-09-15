@@ -209,3 +209,19 @@ async def test_list_sort_order(backend):
     assert [r["reportId"] for r in desc["reports"]] == ["b", "a"]
     asc = await _list(backend, sort="asc")
     assert [r["reportId"] for r in asc["reports"]] == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_upsert_stores_namespace_and_project(backend):
+    await backend.upsert_rca_report(
+        report_id="r1",
+        alert_id="a1",
+        timestamp=_ts(1),
+        namespace="ns",
+        project="proj",
+        project_uid="proj-uid",
+        environment_uid="env-uid",
+    )
+    doc = await backend.get_rca_report("r1")
+    assert doc["namespace"] == "ns"
+    assert doc["project"] == "proj"

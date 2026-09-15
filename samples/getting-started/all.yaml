@@ -206,7 +206,13 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: health-probes
+    - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"
@@ -380,7 +386,13 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: health-probes
+    - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -651,7 +663,13 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: health-probes
+    - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
@@ -3056,3 +3074,593 @@ spec:
               enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
               triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: health-probes
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      $defs:
+        Handler:
+          title: Handler
+          description: "Select the type of probe to use and configure its parameters"
+          x-openchoreo-backstage-portal:
+            ui:options:
+              hideError: true
+          oneOf:
+            - title: None
+              type: object
+              maxProperties: 0
+            - title: HTTP GET
+              required:
+                - httpGet
+              properties:
+                httpGet:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+                    path:
+                      type: string
+                      default: "/"
+                      title: Path
+            - title: TCP socket
+              required:
+                - tcpSocket
+              properties:
+                tcpSocket:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+            - title: gRPC
+              required:
+                - grpc
+              properties:
+                grpc:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+                    service:
+                      type: string
+                      title: Service
+                      description: "Optional name of the service to check. When unset, the overall gRPC health is used."
+            - title: Exec
+              required:
+                - exec
+              properties:
+                exec:
+                  type: object
+                  title: ""
+                  properties:
+                    command:
+                      type: array
+                      title: Command
+                      description: "Command to run inside the container. A zero exit code means healthy."
+                      items:
+                        type: string
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - containerName
+          - liveness
+          - readiness
+          - startup
+      properties:
+        containerName:
+          type: string
+          default: main
+          title: Container name
+          description: "Name of the container the probes are attached to. Defaults to 'main'."
+        liveness:
+          type: object
+          default: {}
+          title: Liveness probe
+          description: "Restarts the container when it stops being healthy."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 3
+              minimum: 1
+              title: Failure threshold
+        readiness:
+          type: object
+          default: {}
+          title: Readiness probe
+          description: "Removes the pod from service endpoints while it is not ready to receive traffic."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+              - successThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 3
+              minimum: 1
+              title: Failure threshold
+            successThreshold:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Success threshold
+              description: "Consecutive successes before the pod is considered ready."
+        startup:
+          type: object
+          default: {}
+          title: Startup probe
+          description: "Holds off the liveness and readiness probes until the container has finished starting."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 30
+              minimum: 1
+              title: Failure threshold
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Master switch for this environment. When disabled, none of the probes are configured here."
+          x-openchoreo-backstage-portal:
+            ui:widget: checkbox
+
+  validations:
+    - rule: "${!parameters.liveness.enabled || (has(parameters.liveness.handler) && size([has(parameters.liveness.handler.httpGet), has(parameters.liveness.handler.tcpSocket), has(parameters.liveness.handler.grpc), has(parameters.liveness.handler.exec)].filter(x, x)) == 1 && (!has(parameters.liveness.handler.httpGet) || (has(parameters.liveness.handler.httpGet.port) && parameters.liveness.handler.httpGet.port >= 1 && parameters.liveness.handler.httpGet.port <= 65535)) && (!has(parameters.liveness.handler.tcpSocket) || (has(parameters.liveness.handler.tcpSocket.port) && parameters.liveness.handler.tcpSocket.port >= 1 && parameters.liveness.handler.tcpSocket.port <= 65535)) && (!has(parameters.liveness.handler.grpc) || (has(parameters.liveness.handler.grpc.port) && parameters.liveness.handler.grpc.port >= 1 && parameters.liveness.handler.grpc.port <= 65535)) && (!has(parameters.liveness.handler.exec) || size(parameters.liveness.handler.exec.command) > 0))}"
+      message: "When the liveness probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+    - rule: "${!parameters.readiness.enabled || (has(parameters.readiness.handler) && size([has(parameters.readiness.handler.httpGet), has(parameters.readiness.handler.tcpSocket), has(parameters.readiness.handler.grpc), has(parameters.readiness.handler.exec)].filter(x, x)) == 1 && (!has(parameters.readiness.handler.httpGet) || (has(parameters.readiness.handler.httpGet.port) && parameters.readiness.handler.httpGet.port >= 1 && parameters.readiness.handler.httpGet.port <= 65535)) && (!has(parameters.readiness.handler.tcpSocket) || (has(parameters.readiness.handler.tcpSocket.port) && parameters.readiness.handler.tcpSocket.port >= 1 && parameters.readiness.handler.tcpSocket.port <= 65535)) && (!has(parameters.readiness.handler.grpc) || (has(parameters.readiness.handler.grpc.port) && parameters.readiness.handler.grpc.port >= 1 && parameters.readiness.handler.grpc.port <= 65535)) && (!has(parameters.readiness.handler.exec) || size(parameters.readiness.handler.exec.command) > 0))}"
+      message: "When the readiness probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+    - rule: "${!parameters.startup.enabled || (has(parameters.startup.handler) && size([has(parameters.startup.handler.httpGet), has(parameters.startup.handler.tcpSocket), has(parameters.startup.handler.grpc), has(parameters.startup.handler.exec)].filter(x, x)) == 1 && (!has(parameters.startup.handler.httpGet) || (has(parameters.startup.handler.httpGet.port) && parameters.startup.handler.httpGet.port >= 1 && parameters.startup.handler.httpGet.port <= 65535)) && (!has(parameters.startup.handler.tcpSocket) || (has(parameters.startup.handler.tcpSocket.port) && parameters.startup.handler.tcpSocket.port >= 1 && parameters.startup.handler.tcpSocket.port <= 65535)) && (!has(parameters.startup.handler.grpc) || (has(parameters.startup.handler.grpc.port) && parameters.startup.handler.grpc.port >= 1 && parameters.startup.handler.grpc.port <= 65535)) && (!has(parameters.startup.handler.exec) || size(parameters.startup.handler.exec.command) > 0))}"
+      message: "When the startup probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+
+
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.liveness.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe
+          value: ${parameters.liveness.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/initialDelaySeconds
+          value: ${parameters.liveness.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/periodSeconds
+          value: ${parameters.liveness.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/timeoutSeconds
+          value: ${parameters.liveness.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/failureThreshold
+          value: ${parameters.liveness.failureThreshold}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.readiness.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe
+          value: ${parameters.readiness.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/initialDelaySeconds
+          value: ${parameters.readiness.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/periodSeconds
+          value: ${parameters.readiness.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/timeoutSeconds
+          value: ${parameters.readiness.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/failureThreshold
+          value: ${parameters.readiness.failureThreshold}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/successThreshold
+          value: ${parameters.readiness.successThreshold}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.startup.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe
+          value: ${parameters.startup.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/initialDelaySeconds
+          value: ${parameters.startup.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/periodSeconds
+          value: ${parameters.startup.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/timeoutSeconds
+          value: ${parameters.startup.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/failureThreshold
+          value: ${parameters.startup.failureThreshold}
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: horizontal-pod-autoscaler
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - replicas
+          - targetUtilization
+      properties:
+        replicas:
+          type: object
+          default: {}
+          title: Replicas
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - min
+              - max
+          properties:
+            min:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Minimum
+            max:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Maximum
+          required:
+            - min
+            - max
+        targetUtilization:
+          type: object
+          default: {}
+          title: Target utilization
+          description: "Target utilization levels the autoscaler maintains by adding or removing replicas."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - cpu
+              - memory
+          properties:
+            cpu:
+              type: integer
+              default: 80
+              minimum: 1
+              maximum: 100
+              title: CPU
+              description: "Average CPU across pods, as a percentage of the pod's CPU request."
+            memory:
+              type: integer
+              minimum: 1
+              maximum: 100
+              title: Memory
+              description: "Average memory across pods, as a percentage of the pod's memory request. Optional; when unset, memory is not used for scaling."
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - minReplicas
+          - maxReplicas
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether autoscaling is active in this environment. When disabled, no HorizontalPodAutoscaler is created."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        minReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the lower replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+        maxReplicas:
+          type: integer
+          minimum: 1
+          description: "Optional per-environment override for the upper replica bound."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+
+  validations:
+    - rule: "${(has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max) >= (has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min)}"
+      message: "maxReplicas must be greater than or equal to minReplicas."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${metadata.name}
+          minReplicas: |
+            ${has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.replicas.min}
+          maxReplicas: |
+            ${has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.replicas.max}
+          metrics: |
+            ${[
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "cpu",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.cpu}
+                }
+              }
+            ] + (has(parameters.targetUtilization.memory) ? [
+              {
+                "type": "Resource",
+                "resource": {
+                  "name": "memory",
+                  "target": {"type": "Utilization", "averageUtilization": parameters.targetUtilization.memory}
+                }
+              }
+            ] : [])}
+
+  # Remove the ComponentType's static replica count so it doesn't interfere with the HPA.
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: remove
+          path: /spec/replicas
+
+---
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: persistent-volume-claim
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - containerName
+          - mountPath
+          - subPath
+          - accessMode
+          - readOnly
+      properties:
+        containerName:
+          type: string
+          default: main
+          title: Container name
+          description: "Name of the container the volume is mounted into. Defaults to 'main'."
+        mountPath:
+          type: string
+          title: Mount path
+          description: "Absolute path inside the container where the volume is mounted (e.g. /data)."
+        subPath:
+          type: string
+          title: Sub path
+          description: "Optional path within the volume to mount instead of its root."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Mounts the volume root when empty"
+        accessMode:
+          type: string
+          title: Access mode
+          default: ReadWriteOnce
+          enum:
+            - ReadWriteOnce
+            - ReadOnlyMany
+            - ReadWriteMany
+            - ReadWriteOncePod
+        readOnly:
+          type: boolean
+          default: false
+          title: Read only
+          description: "Mounts the volume as read-only in the container."
+      required:
+        - mountPath
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - size
+          - storageClass
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether persistent storage is provisioned in this environment. When disabled, no PersistentVolumeClaim is created and the volume is not mounted."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        size:
+          type: string
+          default: "1Gi"
+          description: "Requested storage capacity for the volume (e.g. 1Gi, 10Gi)."
+        storageClass:
+          type: string
+          description: "Optional storage class for the volume. When unset, the cluster's default storage class is used."
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the cluster's default storage class"
+
+  validations:
+    - rule: "${parameters.mountPath.startsWith('/')}"
+      message: "mountPath must be an absolute path starting with '/'."
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          accessModes:
+            - ${parameters.accessMode}
+          resources:
+            requests:
+              storage: ${environmentConfigs.size}
+          storageClassName: |
+            ${has(environmentConfigs.storageClass) && environmentConfigs.storageClass != '' ? environmentConfigs.storageClass : oc_omit()}
+
+  patches:
+    # Attach the PVC to the pod as a named volume.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${trait.instanceName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${trait.instanceName}
+
+    # Mount the volume into the target container.
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${trait.instanceName}
+            mountPath: ${parameters.mountPath}
+            readOnly: ${parameters.readOnly}
+            subPath: |
+              ${has(parameters.subPath) ? parameters.subPath : oc_omit()}

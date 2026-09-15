@@ -98,7 +98,10 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/ci-workflows/gcp-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/ballerina-buildpack-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/dockerfile-builder.yaml \
-	$(GETTING_STARTED_DIR)/component-traits/alert-rule-trait.yaml
+	$(GETTING_STARTED_DIR)/component-traits/alert-rule-trait.yaml \
+	$(GETTING_STARTED_DIR)/component-traits/health-probes-trait.yaml \
+	$(GETTING_STARTED_DIR)/component-traits/hpa-trait.yaml \
+	$(GETTING_STARTED_DIR)/component-traits/pvc-trait.yaml
 
 .PHONY: samples-gen
 samples-gen: ## Generate samples/getting-started/all.yaml from individual files

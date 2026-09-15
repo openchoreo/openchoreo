@@ -756,10 +756,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
-		if err := r.reconcileDelivery(
-			ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, true); err != nil {
-			return ctrl.Result{}, err
-		}
+		r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, true)
 		return ctrl.Result{}, nil
 	}
 
@@ -780,10 +777,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
 
-	if err := r.reconcileDelivery(
-		ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, false); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, false)
 
 	return ctrl.Result{}, nil
 }
