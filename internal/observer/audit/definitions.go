@@ -13,12 +13,12 @@ import (
 )
 
 // GetOperations returns every audited Operation across both of observer's
-// generated specs. Observer has no mutating MCP tools (see MCPToolNames), so
-// unlike openchoreo-api there is no MCP bindings step: generatedOperationDefs()
-// is the complete table. Middleware wiring uses OperationsIn instead, since
-// each port needs only its own spec's share.
+// generated specs, in the surface-neutral shape the REST resolver consumes.
+// The MCP fields audit.Operations drops reach their surface through
+// MCPBindings. Middleware wiring uses OperationsIn instead, since each port
+// needs only its own spec's share.
 func GetOperations() []audit.Operation {
-	return audit.Operations(generatedOperationDefs())
+	return audit.Operations(operationDefs())
 }
 
 // OperationsIn returns the subset of GetOperations() whose operationId
