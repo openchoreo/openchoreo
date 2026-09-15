@@ -743,12 +743,12 @@ func TestReadSchemaFile(t *testing.T) {
 	t.Run("reads schema content", func(t *testing.T) {
 		dir := t.TempDir()
 		testutil.WriteYAML(t, dir, "schema.json", `{"openapi":"3.0.0"}`)
-		content, err := readSchemaFile(filepath.Join(dir, "schema.json"))
+		content, err := readSchemaFile(dir, "schema.json")
 		require.NoError(t, err)
 		assert.Equal(t, `{"openapi":"3.0.0"}`, content)
 	})
 	t.Run("returns error for missing file", func(t *testing.T) {
-		_, err := readSchemaFile("/nonexistent/schema.json")
+		_, err := readSchemaFile(t.TempDir(), "nonexistent.json")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read schema file")
 	})
