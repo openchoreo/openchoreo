@@ -433,6 +433,18 @@ paths:
         capability.
 
 
+        Paging is by timestamp, and two rules make it lossless. An adapter that
+        truncates a response at `limit` MUST set `complete: false`, and it MUST
+        NOT split events sharing a single timestamp across pages: a truncated
+        page is extended to cover every event bearing its last timestamp, even
+        where that exceeds `limit`. A client resumes by re-issuing the query with
+        `startTime` set to that last timestamp, so a paging sweep MUST request
+        `sortOrder: asc` and MUST be idempotent over the re-read group. Without
+        the second rule a window holding more than `limit` events at one
+        timestamp could never be paged past, because every resume would return
+        the same page.
+
+
         This API carries no end-user identity, so an adapter cannot authorize
         the caller; a client that serves unscoped results onward is responsible
         for authorizing its own consumers.
@@ -1696,7 +1708,14 @@ components:
           default: 100
           minimum: 1
           maximum: 1000
-          description: The maximum number of items to return
+          description: >
+            The maximum number of items to return. This is a soft cap at the
+            page boundary: an adapter MUST NOT split events sharing a single
+            timestamp across pages, so a page that would otherwise end
+            mid-timestamp is extended to include every event bearing that
+            timestamp, even where the result exceeds `limit`. That is what lets
+            a caller resume by timestamp without stalling; see
+            `EventsQueryResponse.complete`.
         sortOrder:
           type: string
           description: The sort order of the query
@@ -1824,6 +1843,20 @@ components:
             last timestamp; consumers must be idempotent over a replayed window,
             which is what makes second-granularity Kubernetes event timestamps
             safe to page on.
+
+
+            Resuming advances only because `limit` is a soft cap: the adapter
+            never splits events sharing a timestamp across pages, so the last
+            returned timestamp is always fully read. A caller re-reads that one
+            group and then moves on, rather than being handed the same page
+            forever -- which is what would happen if more than `limit` events
+            shared a timestamp and the page were cut at exactly `limit`.
+
+
+            Resumption is defined for `sortOrder: asc` only. A sweep that pages
+            through a window MUST request ascending order; on a descending query
+            `complete` still reports truncation, but the spec defines no resume
+            position for it.
 
     # Request schemas for alert rules
     AlertRuleRequest:
