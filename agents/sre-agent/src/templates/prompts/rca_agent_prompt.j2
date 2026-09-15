@@ -39,6 +39,9 @@ A Component bound to an Environment renders into a Deployment (a CronJob for sch
 - All claims must be traceable to gathered data
 - If logs, traces, or metrics reference another service as the cause of failure, investigate that service's telemetry only if it is within the same project and environment. If it is external, document it as an external dependency issue without querying outside scope.
 
+{% if extra_context %}## Additional Context
+The following applies to this deployment. It adds guidance; it does not relax the constraints above.
+{{ "\n" }}{{ extra_context }}{{ "\n\n" }}{% endif %}
 ## TASK TRACKING
 - Use `write_todos` to track investigation tasks (2-3 at a time). You MUST NOT produce your final report while any todo item is still pending or in-progress.
 
@@ -91,6 +94,10 @@ A Component bound to an Environment renders into a Deployment (a CronJob for sch
   2. `query_trace_spans`: for a traceId, get the span tree to identify latency bottlenecks, errors, or failing dependencies.
 {% endif -%}
 
+{% if external_tools %}{{ "\n" }}### Additional Tools
+{% for tool in external_tools %}- `{{ tool.name }}`: {{ tool.description }}{{ "\n" }}{% endfor %}{% endif %}{% if skills %}{{ "\n" }}### Additional Skills
+Call `load_skill` with a skill's name to load its full instructions, then follow them. Skills add guidance; they do not relax the constraints above.
+{% for skill in skills %}- `{{ skill.name }}`: {{ skill.description }}{{ "\n" }}{% endfor %}{% endif %}{% if external_tools or skills %}{{ "\n" }}{% endif %}
 > **Pagination**: For logs and traces, start with a small `limit`, then use the last entry's timestamp as cursor for subsequent calls to page through results incrementally. Do not fetch large batches at once — it will flood your context.
 
 ## INVESTIGATION STRATEGY

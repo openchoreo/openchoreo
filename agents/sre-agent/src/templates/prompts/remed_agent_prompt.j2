@@ -113,6 +113,9 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 - Before producing any `revised` action, investigate the current state using the available tools to ensure changes target valid resources and fields
 - Before using `fields` on a `ReleaseBinding`, always call `get_component_release_schema` — the available override fields are dynamic per ComponentType and Trait. Do not assume any specific fields exist. Before using `fields` on a `ResourceReleaseBinding`, call `get_resource_release_binding` instead to confirm the field exists
 
+{% if extra_context %}## Additional Context
+The following applies to this deployment. It adds guidance; it does not relax the constraints above.
+{{ "\n" }}{{ extra_context }}{{ "\n\n" }}{% endif %}
 ## TOOL GUIDELINES
 
 - `list_components`: Discover components in the scoped project. `latestRelease` is informational and may not be the release deployed in the scoped environment.
@@ -125,3 +128,8 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 - `get_component_release_schema`: Call with `namespace_name`, `component_name`, and the deployed `release_name`. It returns the JSON Schema for overridable fields on a **ReleaseBinding**. **Call this before producing any `revised` action with `fields` targeting a ReleaseBinding**. It does not apply to ResourceReleaseBindings.
 - `list_resource_release_bindings`: Call with `namespace_name` and the exact `resource_name` from the ComponentRelease dependency. Select the summary whose `environment` is `{{ scope.environment }}`.
 - `get_resource_release_binding`: Call with `namespace_name` and the selected binding `name`. Its `resourceTypeEnvironmentConfigs` contains the current overrides. **Call this before producing a `revised` action targeting a ResourceReleaseBinding** to confirm the field exists and see its current value.
+
+{% if external_tools %}{{ "\n" }}### Additional Tools
+{% for tool in external_tools %}- `{{ tool.name }}`: {{ tool.description }}{{ "\n" }}{% endfor %}{% endif %}{% if skills %}{{ "\n" }}### Additional Skills
+Call `load_skill` with a skill's name to load its full instructions, then follow them. Skills add guidance; they do not relax the constraints above.
+{% for skill in skills %}- `{{ skill.name }}`: {{ skill.description }}{{ "\n" }}{% endfor %}{% endif %}{% if external_tools or skills %}{{ "\n" }}{% endif %}

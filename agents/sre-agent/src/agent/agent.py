@@ -33,6 +33,7 @@ from src.agent.tool_registry import (
 from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
+from src.extensions import apply_extensions
 from src.helpers import AlertScope
 from src.logging_config import request_id_context
 from src.models import ChatResponse, RCAReport
@@ -47,6 +48,7 @@ class Agent:
     def __init__(
         self,
         *,
+        name: str,
         template: str,
         tools: set[str],
         middleware: list[type],
@@ -54,6 +56,7 @@ class Agent:
         recursion_limit: int,
         use_summarization: bool = False,
     ):
+        self.name = name
         self.template = template
         self.tools = tools
         self.response_format = response_format
@@ -83,12 +86,16 @@ class Agent:
                     sorted(missing),
                 )
 
+        extension_tools, extension_context = await apply_extensions(self.name)
+        tools = tools + extension_tools
+
         logger.debug("Total tools: %d — %s", len(tools), [t.name for t in tools])
 
         template_context = {
             "tools": tools,
             "observability_tools": [t for t in tools if t.name in OBSERVABILITY_TOOLS],
             "openchoreo_tools": [t for t in tools if t.name in OPENCHOREO_TOOLS],
+            **extension_context,
         }
         if context:
             template_context.update(context)
@@ -116,6 +123,7 @@ class Agent:
 
 
 RCA_AGENT = Agent(
+    name="rca",
     template="prompts/rca_agent_prompt.j2",
     tools={
         TOOLS.QUERY_COMPONENT_LOGS,
@@ -143,6 +151,7 @@ RCA_AGENT = Agent(
 )
 
 REMED_AGENT = Agent(
+    name="remediation",
     template="prompts/remed_agent_prompt.j2",
     tools={
         TOOLS.LIST_COMPONENTS,
@@ -165,6 +174,7 @@ REMED_AGENT = Agent(
 )
 
 CHAT_AGENT = Agent(
+    name="chat",
     template="prompts/chat_agent_prompt.j2",
     tools={
         TOOLS.QUERY_COMPONENT_LOGS,

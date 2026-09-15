@@ -37,6 +37,7 @@ def _tool(name):
 
 def _make_agent(**overrides):
     kwargs = {
+        "name": "rca",
         "template": "prompts/x.j2",
         "tools": {"query_traces"},
         "middleware": [LoggingMiddleware],
