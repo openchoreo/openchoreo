@@ -556,56 +556,52 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 	// Tool: query_audit_logs
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name: "query_audit_logs",
-		Description: "Query OpenChoreo's audit trail - the record of who did what, to which resource, " +
-			"through which surface, and whether it succeeded. Answers questions about people and " +
-			"authority rather than about workloads: who deleted a component, which actions a subject " +
-			"took in one login, what was denied to whom. This is not a log search - it reads structured " +
-			"records emitted by the platform's own services, so use query_component_logs or " +
-			"query_platform_logs for application and platform output. Multi-value filters match any of " +
-			"their values, and different filters must all match. Requires the cluster-scoped " +
-			"'auditlogs:view' permission, which is evaluated before any filter below is read: naming a " +
-			"namespace narrows the results, it does not grant access to that namespace's trail. " +
-			"Reading the trail is itself recorded in it.",
+		Description: "Query OpenChoreo's audit trail: who did what, to which resource, and whether it " +
+			"succeeded. Use it for questions about people and authority - who deleted a component, " +
+			"what one subject did in a single login, what was denied to whom. For application or " +
+			"platform output use query_component_logs or query_platform_logs instead. " +
+			"Filter semantics: values within one filter are OR-ed, separate filters are AND-ed, and an " +
+			"omitted filter constrains nothing - so actor_id ['alice','bob'] with result ['denied'] " +
+			"means (alice OR bob) AND denied. " +
+			"Requires the cluster-scoped 'auditlogs:view' permission, evaluated before any filter is " +
+			"read, so resource_namespace narrows the results but grants no access. Reading the trail " +
+			"is itself audited.",
 		InputSchema: createSchema(map[string]any{
 			"start_time": stringProperty(
-				"Inclusive start of the event window, RFC3339 (e.g., 2026-08-14T16:30:00Z). " +
-					"The window may span at most 366 days; page a longer investigation a year at a time"),
+				"Inclusive start of the event window, RFC3339 (e.g. 2026-08-14T16:30:00Z). " +
+					"At most 366 days wide; page a longer investigation a year at a time"),
 			"end_time": stringProperty(
 				"Exclusive end of the event window, RFC3339, strictly after start_time"),
 
 			"actor_id": arrayProperty(
-				"Subject identifiers (e.g. ['alice@example.com']). An ID is unique only within an " +
-					"issuer, so on a deployment with more than one identity provider pair this with " +
-					"actor_issuer, or two different subjects sharing a 'sub' are conflated"),
+				"Subject identifiers (e.g. ['alice@example.com']). Unique only within an issuer, so " +
+					"pair with actor_issuer where more than one identity provider is configured"),
 			"actor_type":   arrayProperty("Kinds of subject, e.g. ['user', 'service_account', 'anonymous']"),
 			"actor_issuer": arrayProperty("Token issuers - the namespace an actor_id is unique within"),
 			"actor_session_id": arrayProperty(
-				"Identity-provider session IDs, from the token's 'sid' claim. This is what joins every " +
-					"action taken in one login into a sequence. Absent for client-credentials tokens, so " +
-					"a session filter selects human activity and excludes service accounts"),
+				"Session IDs from the token's 'sid' claim, joining every action taken in one login. " +
+					"Absent for client-credentials tokens, so this selects human activity only"),
 			"actor_entitlements": arrayProperty(
 				"Entitlement values such as a group name (e.g. ['platform-engineer']). Matched across " +
-					"every claim in the record's entitlements map rather than one named claim, since the " +
-					"key varies by subject kind"),
+					"every claim in the entitlements map, not one named claim"),
 
 			"resource_type":      arrayProperty("Resource kinds the action targeted (e.g. ['project'])"),
 			"resource_namespace": arrayProperty("OpenChoreo namespaces (e.g. ['default'])"),
 			"resource_environment": arrayProperty(
-				"Environments in the dual-scoped '{namespace}/{name}' form the record stores " +
-					"(e.g. ['default/development']). A bare environment name will not match"),
+				"Environments in '{namespace}/{name}' form (e.g. ['default/development']). " +
+					"A bare environment name will not match"),
 			"resource_project":   arrayProperty("Projects"),
 			"resource_component": arrayProperty("Components"),
 			"resource_name":      arrayProperty("Resource names"),
 
-			"action": arrayProperty(
-				"Semantic action names (e.g. ['create_project', 'delete_component'])"),
+			"action": arrayProperty("Semantic action names (e.g. ['create_project', 'delete_component'])"),
 			"category": enumArrayProperty(
-				"Event categories. 'access' is what separates disclosure from change - reading the "+
-					"trail is recorded under it, so filtering it out leaves only what altered something",
+				"Event categories. 'access' is disclosure rather than change; reading the trail is "+
+					"recorded under it",
 				handlers.AuditLogCategoryValues()),
 			"result": enumArrayProperty(
-				"Outcomes. 'denied' is an authenticated subject the policy refused; 'unauthenticated' "+
-					"is a call with no usable identity; 'failure' is an error",
+				"Outcomes. 'denied' is a subject the policy refused, 'unauthenticated' a call with no "+
+					"usable identity, 'failure' an error",
 				handlers.AuditLogResultValues()),
 			"producer": arrayProperty("Emitting services (e.g. ['openchoreo-api'])"),
 			"surface": enumArrayProperty(
@@ -613,11 +609,10 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 				handlers.AuditLogSurfaceValues()),
 			"operation_id": arrayProperty("Canonical operation identifiers (e.g. ['CreateProject'])"),
 			"request_id": arrayProperty(
-				"Correlation IDs, matched exactly. This is the pivot from an access log line to the " +
-					"audit record for the same request"),
+				"Correlation IDs, matched exactly. The pivot from an access log line to its audit record"),
 			"event_id": arrayProperty("Record identifiers, for fetching known records directly"),
 			"source_ip": arrayProperty(
-				"Client addresses, matched exactly rather than by network range - behind a proxy the " +
+				"Client addresses, matched exactly rather than by network range. Behind a proxy the " +
 					"recorded value is the proxy"),
 			"user_agent": arrayProperty(
 				"Client identifications, matched exactly. Agent strings vary by version, so " +
@@ -629,14 +624,12 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 
 			"include_timeline": booleanProperty(
 				"Also return per-interval counts across the whole window, broken down by result. " +
-					"A page of records cannot be bucketed into a histogram - it is the newest or oldest " +
-					"'limit' records, not a sample of the window - so ask for this to see when activity " +
-					"happened. To get only the shape, set limit to 1 so the records cost nothing"),
+					"A page of records cannot be bucketed into a histogram, so ask for this to see when " +
+					"activity happened. Set limit to 1 for the shape alone"),
 			"timeline_interval": stringProperty(
-				"Bucket width for the timeline, <count><unit> where unit is m, h, d or w (e.g. '15m'). " +
-					"Ignored unless include_timeline is true; defaults to a width chosen from the window. " +
-					"A width producing more than 500 buckets is coarsened rather than rejected, so read " +
-					"the width actually used back from timeline.interval"),
+				"Bucket width, <count><unit> where unit is m, h, d or w (e.g. '15m'). Ignored unless " +
+					"include_timeline is true. A width exceeding 500 buckets is coarsened, so read the " +
+					"width actually used from timeline.interval"),
 		}, []string{"start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args AuditLogsQueryArgs) (
 		*mcpsdk.CallToolResult, any, error,
