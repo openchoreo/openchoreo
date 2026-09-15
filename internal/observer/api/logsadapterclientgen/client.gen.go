@@ -843,7 +843,7 @@ type EventsQueryRequest struct {
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
 
-	// Limit The maximum number of items to return. This is a soft cap at the page boundary: an adapter MUST NOT split events sharing a single timestamp across pages, so a page that would otherwise end mid-timestamp is extended to include every event bearing that timestamp, even where the result exceeds `limit`. That is what lets a caller resume by timestamp without stalling; see `EventsQueryResponse.complete`.
+	// Limit The maximum number of items to return. This is a soft cap at the page boundary: an adapter MUST NOT split events sharing a single timestamp across pages, so a page that would otherwise end mid-timestamp is extended to include every event bearing that timestamp, even where the result exceeds `limit`. That is what lets a caller resume by timestamp without stalling; see the rules on `queryEvents`.
 	Limit *int `json:"limit,omitempty"`
 
 	// Reasons Optional server-side filter on the event reason field. The adapter returns only events whose reason exactly matches one of the supplied values. Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded). The list is bounded so that the filter stays cheap for the adapter to evaluate.
@@ -869,25 +869,18 @@ type EventsQueryRequestSortOrder string
 
 // EventsQueryResponse defines model for EventsQueryResponse.
 type EventsQueryResponse struct {
-	// Complete Whether this response covers the whole requested window. False means the adapter stopped at `limit` before reaching `endTime`, so the caller must resume from the last returned event's timestamp rather than treating `endTime` as read.
-	//
-	// Absent is read as false, which is the safe direction. An adapter that forgets to set it makes the caller re-read rather than skip, and a sweep that cannot advance is reported loudly instead of silently dropping the remainder.
-	//
-	// There is deliberately no continuation token. Resumption is by timestamp, which every backend can express -- CloudWatch Logs Insights, for instance, has no cursor at all. Because the start of the window is inclusive, resuming re-reads the events sharing the last timestamp; consumers must be idempotent over a replayed window, which is what makes second-granularity Kubernetes event timestamps safe to page on.
-	//
-	// Resuming advances only because `limit` is a soft cap: the adapter never splits events sharing a timestamp across pages, so the last returned timestamp is always fully read. A caller re-reads that one group and then moves on, rather than being handed the same page forever -- which is what would happen if more than `limit` events shared a timestamp and the page were cut at exactly `limit`.
-	//
-	// Resumption is defined for `sortOrder: asc` only. A sweep that pages through a window MUST request ascending order; on a descending query `complete` still reports truncation, but the spec defines no resume position for it.
-	Complete *bool `json:"complete,omitempty"`
-
 	// Events The events queried successfully
 	Events *[]EventEntry `json:"events,omitempty"`
 
 	// TookMs The time taken to query the events in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of matching events, capped at 1000
-	Total *int `json:"total,omitempty"`
+	// Total How many events matched the query, independent of `limit`.
+	//
+	// This is how a caller learns whether it read the whole window: `total` equal to the number of returned events means it did, and a greater value means the read stopped short and must be resumed. The adapter MUST therefore count at least as far as `limit + 1`, so that "exactly a full page" and "more than a page" are distinguishable. A backend that caps its match counting must raise that cap above `limit` -- OpenSearch stops at 10000 by default and needs `track_total_hits` set accordingly.
+	//
+	// An adapter that cannot count that far cannot report whether a sweep was truncated, and so cannot serve one safely: it MUST reject an unscoped request with 501 rather than return a total it cannot stand behind. Understating `total` makes a caller treat a truncated read as complete and advance past events it never saw.
+	Total int `json:"total"`
 }
 
 // LogsQueryRequest defines model for LogsQueryRequest.
