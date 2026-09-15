@@ -1,0 +1,15 @@
+openchoreoApi:
+  config:
+    resourceTree:
+      rules:
+        - root: {group: extensions.agents.x-k8s.io, version: v1alpha1, kind: SandboxClaim, resource: sandboxclaims}
+          children:
+            - kind: {group: agents.x-k8s.io, version: v1alpha1, kind: Sandbox, resource: sandboxes}
+              children:
+                - kind: {version: v1, kind: Pod, resource: pods}
+                - kind: {version: v1, kind: Service, resource: services}
+        - root: {group: extensions.agents.x-k8s.io, version: v1alpha1, kind: SandboxWarmPool, resource: sandboxwarmpools}
+          children:
+            - kind: {group: agents.x-k8s.io, version: v1alpha1, kind: Sandbox, resource: sandboxes}
+              children:
+                - kind: {version: v1, kind: Pod, resource: pods}

@@ -3417,6 +3417,17 @@
                   "additionalProperties": false,
                   "description": "Container image for the provisioned remote-agent Deployment",
                   "properties": {
+                    "pullPolicy": {
+                      "default": "IfNotPresent",
+                      "description": "Image pull policy. Set Always when the tag is floating, so a rebuilt agent is fetched.",
+                      "enum": [
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                      ],
+                      "required": [],
+                      "title": "pullPolicy"
+                    },
                     "repository": {
                       "default": "ghcr.io/openchoreo/remote-agent",
                       "description": "Remote-agent image repository",
@@ -3483,6 +3494,13 @@
                   "title": "keyId",
                   "type": "string"
                 },
+                "maxSessionSeconds": {
+                  "default": 43200,
+                  "description": "Total length one `occ remote` session may reach across renewals, measured from\nits first resolve. Every renewal re-runs the full authorization check, so the\nrevocation window stays the renewal interval however long a session runs. This\nbounds a forgotten session rather than acting as an access control, and a\nrefused session can always be restarted. Must be at least ttlSeconds, or the\nfirst renewal of every session is refused. 0 means unbounded.\n",
+                  "minimum": 0,
+                  "title": "maxSessionSeconds",
+                  "type": "integer"
+                },
                 "reaperIntervalSeconds": {
                   "default": 300,
                   "description": "How often the idle-remote-agent reaper runs, in seconds.",
@@ -3535,6 +3553,99 @@
               },
               "required": [],
               "title": "remoteConnect",
+              "type": "object"
+            },
+            "resourceTree": {
+              "additionalProperties": false,
+              "description": "How the release resource tree walks from a root workload resource down to its children. The built-in rules live in the chart file files/resource-tree-builtin-rules.yaml and are not settable here; rules below are appended to them.",
+              "properties": {
+                "disableBuiltInRules": {
+                  "default": false,
+                  "description": "Drop the chart's built-in traversal rules from the rendered config. When true, rules below becomes the complete rule set, and leaving it empty disables child discovery entirely.",
+                  "title": "disableBuiltInRules",
+                  "type": "boolean"
+                },
+                "rules": {
+                  "default": [],
+                  "description": "Additional traversal rules, appended after the chart's built-in rules. A rule whose root duplicates a built-in root fails API server startup validation - to run a different set, set disableBuiltInRules to true and supply the complete set here.",
+                  "items": {
+                    "properties": {
+                      "children": {
+                        "description": "Child edges walked from the root. Each entry is {kind, matcher, label_selector, metadata_only, hide, children}; children nest recursively, which JSON Schema generation cannot express, so nested levels are unconstrained here and validated by the API server at startup.",
+                        "items": {
+                          "additionalProperties": true,
+                          "properties": {
+                            "kind": {
+                              "description": "The child kind this edge matches",
+                              "properties": {
+                                "group": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "resource": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "version",
+                                "kind",
+                                "resource"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "root": {
+                        "description": "Root workload kind the rule applies to",
+                        "properties": {
+                          "group": {
+                            "description": "API group, omitted or empty for the core group",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "description": "Kind name",
+                            "type": "string"
+                          },
+                          "resource": {
+                            "description": "Plural REST resource name, required because it is not derivable for arbitrary CRDs",
+                            "type": "string"
+                          },
+                          "version": {
+                            "description": "API version",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "version",
+                          "kind",
+                          "resource"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "root",
+                      "children"
+                    ],
+                    "type": "object"
+                  },
+                  "title": "rules",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "resourceTree",
               "type": "object"
             },
             "security": {
@@ -3983,8 +4094,8 @@
                       "type": "string"
                     },
                     "write": {
-                      "default": "15s",
-                      "description": "Maximum duration before timing out writes of the response",
+                      "default": "65s",
+                      "description": "Maximum duration before timing out writes of the response. Must outlast the resource tree walk budget (60s, the top of the ladder agent 25s \u003c gateway 28s \u003c client 30s \u003c walk 60s), or a legitimate tree response is cut off while the walk is still within its budget.",
                       "title": "write",
                       "type": "string"
                     }

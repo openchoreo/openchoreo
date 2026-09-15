@@ -84,10 +84,26 @@ type CapabilityClaims struct {
 	Component ComponentRef `json:"component"`
 	Env       string       `json:"env"`
 	Targets   []Target     `json:"targets"`
+	// SessionStart is when the `occ remote` session this capability belongs to first
+	// resolved. Copied forward unchanged across renewals so the control plane can bound
+	// a whole session (remote_connect.max_session_seconds), not just one capability.
+	SessionStart *jwt.NumericDate `json:"sessionStart,omitempty"`
 	// Secrets authorizes reads of secret- and configmap-backed resource outputs. Empty
 	// for a capability that only tunnels, and for any capability minted while
 	// remote_connect.secrets_enabled is off.
 	Secrets []SecretGrant `json:"secrets,omitempty"`
+}
+
+// SessionStartOrIssued returns the session's start time, falling back to IssuedAt and
+// then to now, so a capability without either leaves the session bound inert.
+func (c *CapabilityClaims) SessionStartOrIssued() time.Time {
+	if c.SessionStart != nil {
+		return c.SessionStart.Time
+	}
+	if c.IssuedAt != nil {
+		return c.IssuedAt.Time
+	}
+	return time.Now()
 }
 
 // TargetByKey returns the authorized target with the given key, if present.

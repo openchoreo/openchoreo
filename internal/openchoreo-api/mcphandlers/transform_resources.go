@@ -817,6 +817,36 @@ func resourceTreeDetail(result *k8sresourcessvc.K8sResourceTreeResult) map[strin
 				}
 				node["health"] = h
 			}
+			// The Object blob is dropped above, so metadata_only would otherwise be
+			// invisible here; it still matters because it tells the caller the node's
+			// spec and status were never read, not merely omitted from this view.
+			if n.MetadataOnly {
+				node["metadata_only"] = true
+			}
+			// Only heuristic matches carry this, so its presence is the warning that
+			// the node may not really belong to its parent.
+			if n.MatchedBy != "" {
+				node["matched_by"] = n.MatchedBy
+			}
+			if len(n.ChildrenStatus) > 0 {
+				statuses := make([]map[string]any, 0, len(n.ChildrenStatus))
+				for j := range n.ChildrenStatus {
+					s := &n.ChildrenStatus[j]
+					status := map[string]any{
+						"version": s.Version,
+						"kind":    s.Kind,
+						"state":   s.State,
+					}
+					if s.Group != "" {
+						status["group"] = s.Group
+					}
+					if s.Message != "" {
+						status["message"] = s.Message
+					}
+					statuses = append(statuses, status)
+				}
+				node["children_status"] = statuses
+			}
 			nodes = append(nodes, node)
 		}
 		entry["nodes"] = nodes

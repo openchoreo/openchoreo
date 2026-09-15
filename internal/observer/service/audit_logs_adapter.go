@@ -228,7 +228,6 @@ func toAuditLogRecord(r logsadapterclientgen.AuditLogRecord) observability.Audit
 		Resource:    toAuditLogResource(r.Resource),
 		Metadata:    derefAnyMap(r.Metadata),
 		Collector:   toAuditLogCollectorInfo(r.Collector),
-		Log:         deref(r.Log),
 	}
 }
 
