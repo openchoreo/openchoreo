@@ -1,11 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-from common.auth.runtime import (
-    AuthRuntime,
-    hierarchy_from_body,
-    hierarchy_from_path,
-)
+from common.auth.runtime import AuthRuntime, hierarchy_from_query
 from src.config import settings
 
 auth = AuthRuntime(settings, service_name="rca-agent")
@@ -16,14 +12,8 @@ get_oauth2_auth = auth.get_oauth2_auth
 check_oauth2_connection = auth.check_oauth2_connection
 require_authn = auth.require_authn
 
-require_chat_authz = auth.checker(
+require_reports_authz = auth.require_authz(
     "rcareport:view",
     "rcareport",
-    hierarchy=hierarchy_from_body(project="projectUid", component="componentUid"),
-)
-require_reports_authz = auth.checker(
-    "rcareport:view", "rcareport", hierarchy=hierarchy_from_path(project="project_id")
-)
-require_reports_update_authz = auth.checker(
-    "rcareport:update", "rcareport", hierarchy=hierarchy_from_path(project="project_id")
+    hierarchy=hierarchy_from_query(project="project", namespace="namespace"),
 )

@@ -51,6 +51,7 @@ from common.auth.authz_models import (
     ResourceHierarchy,
     SubjectContext,
 )
+from common.auth.runtime import MissingReportHierarchy, hierarchy_from_result
 from src.agent import run_analysis
 from src.auth import get_authz_client, require_authn
 from src.clients import get_report_backend
@@ -223,7 +224,7 @@ async def list_rca_reports(
     await _authorize(
         "rcareport:view",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid),
+        ResourceHierarchy(namespace=scope.namespace, project=scope.project),
     )
     report_backend = get_report_backend()
     result = await report_backend.list_rca_reports(
@@ -259,28 +260,14 @@ async def get_rca_report(
     result = await report_backend.get_rca_report(report_id)
     if not result:
         raise _MCPNotFoundError(f"RCA report not found: {report_id}")
-    # Re-authorize against the report's own project — the user might be
-    # entitled to one project's reports but not another's, and we don't
-    # want list_rca_reports to be the only gate. Single-key contract:
-    # backends MUST emit ``projectUid`` at the top level of the doc
-    # (see sql_backend._row_to_doc). A missing/empty value would mean
-    # we can't make an authz decision — fail closed with FORBIDDEN
-    # rather than degrading to "authorize against project=None" or
-    # leaking the report's existence via NOT_FOUND.
-    project_uid = result.get("projectUid")
-    if not project_uid:
-        logger.error(
-            "RCA report %s has no projectUid — refusing to authorize",
-            report_id,
-        )
-        raise _MCPAuthzError(
-            f"FORBIDDEN: report {report_id} has no project hierarchy"
-        )
-    await _authorize(
-        "rcareport:view",
-        "rcareport",
-        ResourceHierarchy(project=project_uid),
-    )
+    # Re-authorize against the report's own project — the user might be entitled
+    # to one project's reports but not another's. A report with no project on
+    # record (predates the name columns) fails closed.
+    try:
+        hierarchy = hierarchy_from_result(result)
+    except MissingReportHierarchy as e:
+        raise _MCPAuthzError(f"FORBIDDEN: report {report_id} has no project hierarchy") from e
+    await _authorize("rcareport:view", "rcareport", hierarchy)
     return {
         "alertId": result.get("alertId"),
         "reportId": result.get("reportId"),
@@ -332,7 +319,9 @@ async def analyze_runtime_state(
     await _authorize(
         "rcareport:update",
         "rcareport",
-        ResourceHierarchy(project=scope.project_uid, component=scope.component_uid),
+        ResourceHierarchy(
+            namespace=scope.namespace, project=scope.project, component=scope.component
+        ),
     )
 
     timestamp = datetime.now(timezone.utc)
@@ -367,6 +356,8 @@ async def analyze_runtime_state(
                 alert_id=alert_id,
                 status="pending",
                 timestamp=timestamp,
+                namespace=scope.namespace,
+                project=scope.project,
                 environment_uid=scope.environment_uid,
                 project_uid=scope.project_uid,
             ),

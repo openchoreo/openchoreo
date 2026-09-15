@@ -41,11 +41,12 @@ from src.auth import (
 from src.config import settings
 
 
-def _request(headers=None, path_params=None, body=None):
+def _request(headers=None, path_params=None, query_params=None, body=None):
     return SimpleNamespace(
         headers=headers or {},
         state=SimpleNamespace(),
         path_params=path_params or {},
+        query_params=query_params or {},
         json=AsyncMock(return_value=body or {}),
     )
 
@@ -166,36 +167,36 @@ async def test_require_authn_success_returns_subject(monkeypatch):
     assert req.state.bearer_token == "tok"
 
 
-# ----------------------------------------------- authorization checker
+# ----------------------------------------------- require_authz
 
 
 @pytest.mark.asyncio
-async def test_authorization_checker_allows(monkeypatch):
+async def test_require_authz_allows(monkeypatch):
     client = MagicMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=True))
     monkeypatch.setattr(auth, "get_authz_client", lambda: client)
-    checker = auth.checker("rcareport:view", "rcareport")
+    dependency = auth.require_authz("rcareport:view", "rcareport")
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
-    result = await checker(
+    result = await dependency(
         _request({"Authorization": "Bearer t"}, body={"projectUid": "p"}), subject
     )
     assert result is subject
 
 
 @pytest.mark.asyncio
-async def test_authorization_checker_denies(monkeypatch):
+async def test_require_authz_denies(monkeypatch):
     client = MagicMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=False))
     monkeypatch.setattr(auth, "get_authz_client", lambda: client)
-    checker = auth.checker("rcareport:view", "rcareport")
+    dependency = auth.require_authz("rcareport:view", "rcareport")
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
     with pytest.raises(HTTPException) as exc:
-        await checker(_request({"Authorization": "Bearer t"}, body={}), subject)
+        await dependency(_request({"Authorization": "Bearer t"}, body={}), subject)
     assert exc.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_report_checker_extracts_project_from_path(monkeypatch):
+async def test_report_require_authz_extracts_project_from_query(monkeypatch):
     captured = {}
 
     async def fake_eval(request, token):
@@ -205,12 +206,17 @@ async def test_report_checker_extracts_project_from_path(monkeypatch):
     client = MagicMock()
     client.evaluate = AsyncMock(side_effect=fake_eval)
     monkeypatch.setattr(auth, "get_authz_client", lambda: client)
-    checker = require_reports_authz
+    dependency = require_reports_authz
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
-    await checker(
-        _request({"Authorization": "Bearer t"}, path_params={"project_id": "proj-9"}), subject
+    await dependency(
+        _request(
+            {"Authorization": "Bearer t"},
+            query_params={"project": "proj-9", "namespace": "ns-1"},
+        ),
+        subject,
     )
     assert captured["hierarchy"].project == "proj-9"
+    assert captured["hierarchy"].namespace == "ns-1"
 
 
 # --------------------------------------------------------- authz client
@@ -374,14 +380,6 @@ def test_load_auth_config_rejects_malformed_subject_types(tmp_path):
     p.write_text("auth:\n  subject_types:\n    - not-a-mapping\n")
     with pytest.raises(ValueError, match="list of mappings"):
         common_deps.load_auth_config(str(p))
-
-
-def test_hierarchy_from_path_keeps_falsy_values():
-    from common.auth.runtime import hierarchy_from_path
-
-    extract = hierarchy_from_path(project="project_id")
-    req = _request({}, path_params={"project_id": 0})
-    assert extract(req).project == "0"
 
 
 @pytest.mark.asyncio
