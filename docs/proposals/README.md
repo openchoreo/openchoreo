@@ -33,7 +33,7 @@ Once the discussion reaches consensus:
 3. If your proposal includes diagrams or images:
    - Create a directory `<issue-number>-assets/` (e.g., `0245-assets/`)
    - Place all images, diagrams, and other assets in this directory
-   - Reference them from your proposal using relative paths (e.g., `![Architecture](0245-assets/architecture.png)`)
+   - Reference them from your proposal using relative paths (e.g., `![Architecture](0159-assets/direct-access.png)`)
 4. Fill out all sections of the template
 5. Reference both the GitHub issue and discussion if applicable
 
