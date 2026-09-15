@@ -311,6 +311,10 @@ func (p *Processor) applyPatchOnce(
 		targets = matchedResources
 	}
 
+	if len(targets) == 0 {
+		return nil
+	}
+
 	// Render patch operations with CEL
 	renderedOps, err := p.renderOperations(ctx, traitPatch.Operations, celContext, traitName, patchIndex)
 	if err != nil {

@@ -1,0 +1,319 @@
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: health-probes
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      $defs:
+        Handler:
+          title: Handler
+          description: "Select the type of probe to use and configure its parameters"
+          x-openchoreo-backstage-portal:
+            ui:options:
+              hideError: true
+          oneOf:
+            - title: None
+              type: object
+              maxProperties: 0
+            - title: HTTP GET
+              required:
+                - httpGet
+              properties:
+                httpGet:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+                    path:
+                      type: string
+                      default: "/"
+                      title: Path
+            - title: TCP socket
+              required:
+                - tcpSocket
+              properties:
+                tcpSocket:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+            - title: gRPC
+              required:
+                - grpc
+              properties:
+                grpc:
+                  type: object
+                  title: ""
+                  properties:
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      title: Port
+                    service:
+                      type: string
+                      title: Service
+                      description: "Optional name of the service to check. When unset, the overall gRPC health is used."
+            - title: Exec
+              required:
+                - exec
+              properties:
+                exec:
+                  type: object
+                  title: ""
+                  properties:
+                    command:
+                      type: array
+                      title: Command
+                      description: "Command to run inside the container. A zero exit code means healthy."
+                      items:
+                        type: string
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - containerName
+          - liveness
+          - readiness
+          - startup
+      properties:
+        containerName:
+          type: string
+          default: main
+          title: Container name
+          description: "Name of the container the probes are attached to. Defaults to 'main'."
+        liveness:
+          type: object
+          default: {}
+          title: Liveness probe
+          description: "Restarts the container when it stops being healthy."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 3
+              minimum: 1
+              title: Failure threshold
+        readiness:
+          type: object
+          default: {}
+          title: Readiness probe
+          description: "Removes the pod from service endpoints while it is not ready to receive traffic."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+              - successThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 3
+              minimum: 1
+              title: Failure threshold
+            successThreshold:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Success threshold
+              description: "Consecutive successes before the pod is considered ready."
+        startup:
+          type: object
+          default: {}
+          title: Startup probe
+          description: "Holds off the liveness and readiness probes until the container has finished starting."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - enabled
+              - handler
+              - initialDelaySeconds
+              - periodSeconds
+              - timeoutSeconds
+              - failureThreshold
+          properties:
+            enabled:
+              type: boolean
+              default: false
+              title: Enabled
+              x-openchoreo-backstage-portal:
+                ui:widget: checkbox
+            handler:
+              $ref: "#/$defs/Handler"
+            initialDelaySeconds:
+              type: integer
+              default: 0
+              minimum: 0
+              title: Initial delay seconds
+              description: "Seconds to wait after the container starts before the first probe."
+            periodSeconds:
+              type: integer
+              default: 10
+              minimum: 1
+              title: Period seconds
+            timeoutSeconds:
+              type: integer
+              default: 1
+              minimum: 1
+              title: Timeout seconds
+            failureThreshold:
+              type: integer
+              default: 30
+              minimum: 1
+              title: Failure threshold
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Master switch for this environment. When disabled, none of the probes are configured here."
+          x-openchoreo-backstage-portal:
+            ui:widget: checkbox
+
+  validations:
+    - rule: "${!parameters.liveness.enabled || (has(parameters.liveness.handler) && size([has(parameters.liveness.handler.httpGet), has(parameters.liveness.handler.tcpSocket), has(parameters.liveness.handler.grpc), has(parameters.liveness.handler.exec)].filter(x, x)) == 1 && (!has(parameters.liveness.handler.httpGet) || (has(parameters.liveness.handler.httpGet.port) && parameters.liveness.handler.httpGet.port >= 1 && parameters.liveness.handler.httpGet.port <= 65535)) && (!has(parameters.liveness.handler.tcpSocket) || (has(parameters.liveness.handler.tcpSocket.port) && parameters.liveness.handler.tcpSocket.port >= 1 && parameters.liveness.handler.tcpSocket.port <= 65535)) && (!has(parameters.liveness.handler.grpc) || (has(parameters.liveness.handler.grpc.port) && parameters.liveness.handler.grpc.port >= 1 && parameters.liveness.handler.grpc.port <= 65535)) && (!has(parameters.liveness.handler.exec) || size(parameters.liveness.handler.exec.command) > 0))}"
+      message: "When the liveness probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+    - rule: "${!parameters.readiness.enabled || (has(parameters.readiness.handler) && size([has(parameters.readiness.handler.httpGet), has(parameters.readiness.handler.tcpSocket), has(parameters.readiness.handler.grpc), has(parameters.readiness.handler.exec)].filter(x, x)) == 1 && (!has(parameters.readiness.handler.httpGet) || (has(parameters.readiness.handler.httpGet.port) && parameters.readiness.handler.httpGet.port >= 1 && parameters.readiness.handler.httpGet.port <= 65535)) && (!has(parameters.readiness.handler.tcpSocket) || (has(parameters.readiness.handler.tcpSocket.port) && parameters.readiness.handler.tcpSocket.port >= 1 && parameters.readiness.handler.tcpSocket.port <= 65535)) && (!has(parameters.readiness.handler.grpc) || (has(parameters.readiness.handler.grpc.port) && parameters.readiness.handler.grpc.port >= 1 && parameters.readiness.handler.grpc.port <= 65535)) && (!has(parameters.readiness.handler.exec) || size(parameters.readiness.handler.exec.command) > 0))}"
+      message: "When the readiness probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+    - rule: "${!parameters.startup.enabled || (has(parameters.startup.handler) && size([has(parameters.startup.handler.httpGet), has(parameters.startup.handler.tcpSocket), has(parameters.startup.handler.grpc), has(parameters.startup.handler.exec)].filter(x, x)) == 1 && (!has(parameters.startup.handler.httpGet) || (has(parameters.startup.handler.httpGet.port) && parameters.startup.handler.httpGet.port >= 1 && parameters.startup.handler.httpGet.port <= 65535)) && (!has(parameters.startup.handler.tcpSocket) || (has(parameters.startup.handler.tcpSocket.port) && parameters.startup.handler.tcpSocket.port >= 1 && parameters.startup.handler.tcpSocket.port <= 65535)) && (!has(parameters.startup.handler.grpc) || (has(parameters.startup.handler.grpc.port) && parameters.startup.handler.grpc.port >= 1 && parameters.startup.handler.grpc.port <= 65535)) && (!has(parameters.startup.handler.exec) || size(parameters.startup.handler.exec.command) > 0))}"
+      message: "When the startup probe is enabled, its handler must specify exactly one action (httpGet, tcpSocket, gRPC, or Exec) with a port between 1 and 65535, or a non-empty command for Exec."
+
+
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.liveness.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe
+          value: ${parameters.liveness.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/initialDelaySeconds
+          value: ${parameters.liveness.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/periodSeconds
+          value: ${parameters.liveness.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/timeoutSeconds
+          value: ${parameters.liveness.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/livenessProbe/failureThreshold
+          value: ${parameters.liveness.failureThreshold}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.readiness.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe
+          value: ${parameters.readiness.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/initialDelaySeconds
+          value: ${parameters.readiness.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/periodSeconds
+          value: ${parameters.readiness.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/timeoutSeconds
+          value: ${parameters.readiness.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/failureThreshold
+          value: ${parameters.readiness.failureThreshold}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/readinessProbe/successThreshold
+          value: ${parameters.readiness.successThreshold}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+        where: ${environmentConfigs.enabled && parameters.startup.enabled}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe
+          value: ${parameters.startup.handler}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/initialDelaySeconds
+          value: ${parameters.startup.initialDelaySeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/periodSeconds
+          value: ${parameters.startup.periodSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/timeoutSeconds
+          value: ${parameters.startup.timeoutSeconds}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/startupProbe/failureThreshold
+          value: ${parameters.startup.failureThreshold}
