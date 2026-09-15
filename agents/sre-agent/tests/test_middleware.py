@@ -107,6 +107,57 @@ def test_process_trace_spans_empty_returns_sentinel():
     assert ot._process_trace_spans({"spans": []}) == "No spans found"
 
 
+def _span(span_id="s1", **overrides):
+    return {
+        "spanId": span_id,
+        "spanName": "pg.query",
+        "durationNs": 1_000_000,
+        "resourceAttributes": {"service.name": "svc"},
+        "attributes": {},
+        **overrides,
+    }
+
+
+def _trace(trace_id, has_errors):
+    return {
+        "traceId": trace_id,
+        "traceName": "t",
+        "spanCount": 1,
+        "durationNs": 1_000_000,
+        "startTime": "t",
+        "hasErrors": has_errors,
+    }
+
+
+def test_process_trace_spans_renders_one_span_per_line():
+    spans = [_span("s1", spanName="root"), _span("s2", spanName="child", parentSpanId="s1")]
+
+    lines = ot._process_trace_spans({"total": 2, "spans": spans}).splitlines()
+
+    assert lines[-2] == "root [svc] 1.00ms"
+    assert lines[-1] == "  child [svc] 1.00ms"
+
+
+def test_process_trace_spans_surfaces_error_status_and_kind():
+    span = _span(spanKind="client", status={"code": "error", "message": "connection refused"})
+
+    out = ot._process_trace_spans({"total": 1, "spans": [span]})
+
+    assert "[ERROR]" in out
+    assert "kind=client" in out
+    assert "connection refused" in out
+
+
+def test_process_traces_flags_which_traces_failed():
+    traces = [_trace("failing", True), _trace("healthy", False)]
+
+    out = ot._process_traces({"total": 2, "traces": traces})
+    rows = {line.split(" | ")[0]: line for line in out.splitlines() if " | " in line}
+
+    assert "| yes |" in rows["failing"]
+    assert "| no |" in rows["healthy"]
+
+
 def test_get_processor_unknown_tool_falls_back_to_json():
     processor = ot.get_processor("not-a-known-tool")
     assert processor({"x": 1}) == json.dumps({"x": 1})
