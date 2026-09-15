@@ -32,8 +32,10 @@ const (
 	// pollLimit is the page size of a --follow poll. Combined with ascending order it
 	// means a burst larger than one page is delivered oldest-first and the next poll
 	// resumes where this one stopped, instead of skipping past the gap.
-	pollLimit    = 1000
-	pollInterval = 2 * time.Second
+	pollLimit = 1000
+
+	// maxPollFailures bounds how long a --follow session keeps retrying.
+	maxPollFailures = 10
 
 	outputText = "text"
 	outputJSON = "json"
@@ -42,6 +44,9 @@ const (
 	// rejected user sees tells them what to ask for.
 	viewAction = "platformlogs:view"
 )
+
+// pollInterval is how often a --follow session asks for newer entries.
+var pollInterval = 2 * time.Second
 
 // validLevels are the severities the observer accepts, in the order it documents them.
 var validLevels = []string{"DEBUG", "INFO", "WARN", "ERROR"}
@@ -145,11 +150,14 @@ func (p *PlatformLogs) followLogs(ctx context.Context, api observerAPI, params L
 	if err := printLogs(logs, params.Output); err != nil {
 		return err
 	}
-	startTime = nextStart(logs, endTime)
+
+	cursor := newBoundary(startTime)
+	cursor.advance(logs)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	failures := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -157,27 +165,34 @@ func (p *PlatformLogs) followLogs(ctx context.Context, api observerAPI, params L
 			return nil
 		case <-ticker.C:
 			endTime = time.Now()
-			if !endTime.After(startTime) {
+			pollStart := cursor.start(endTime)
+			if !endTime.After(pollStart) {
 				continue
 			}
 
-			// Polls read ascending so entries print in order and the window can advance
-			// past the newest one seen; --tail applies to the initial page only.
-			logs, err := p.fetchLogs(ctx, api, params, levels, startTime, endTime,
+			// Polls read ascending so entries print in order and a burst larger than one
+			// page resumes where this one stopped; --tail applies to the initial page only.
+			logs, err := p.fetchLogs(ctx, api, params, levels, pollStart, endTime,
 				pollLimit, obsgen.GetPlatformLogsParamsSortOrderAsc)
 			if err != nil {
 				if ctx.Err() != nil {
 					return nil
 				}
-				// A failed poll is transient; report it and keep the window where it was
-				// so the next poll picks up whatever was missed.
+				failures++
+				if failures >= maxPollFailures {
+					return fmt.Errorf("giving up after %d consecutive failed polls: %w", failures, err)
+				}
+				// Report it and hold the boundary, so the next poll re-reads whatever this one missed.
 				fmt.Fprintf(os.Stderr, "Error fetching logs: %v\n", err)
 				continue
 			}
+			failures = 0
+
+			logs = cursor.filterNew(logs)
 			if err := printLogs(logs, params.Output); err != nil {
 				return err
 			}
-			startTime = nextStart(logs, endTime)
+			cursor.advance(logs)
 		}
 	}
 }
@@ -363,13 +378,74 @@ func logSource(log obsgen.PlatformLog) string {
 	}
 }
 
-// nextStart advances the window past the newest entry already printed so that the next
-// poll cannot repeat it. Entries are chronological by this point, so the last is newest.
-func nextStart(logs []obsgen.PlatformLog, fallback time.Time) time.Time {
-	if len(logs) == 0 {
-		return fallback
+// boundary is a --follow session's position in the log stream: the newest instant printed,
+// plus the records printed at exactly that instant.
+type boundary struct {
+	ts   time.Time
+	seen map[string]struct{}
+}
+
+func newBoundary(start time.Time) *boundary {
+	return &boundary{ts: start}
+}
+
+// start is the inclusive lower bound of the next poll.
+func (b *boundary) start(now time.Time) time.Time {
+	if oldest := now.Add(-maxWindow); b.ts.Before(oldest) {
+		return oldest
 	}
-	return logs[len(logs)-1].Timestamp.Add(time.Millisecond)
+	return b.ts
+}
+
+// filterNew drops the records already printed at the boundary instant.
+func (b *boundary) filterNew(logs []obsgen.PlatformLog) []obsgen.PlatformLog {
+	if len(b.seen) == 0 {
+		return logs
+	}
+	fresh := make([]obsgen.PlatformLog, 0, len(logs))
+	for _, log := range logs {
+		if log.Timestamp.Equal(b.ts) {
+			if _, printed := b.seen[recordKey(log)]; printed {
+				continue
+			}
+		}
+		fresh = append(fresh, log)
+	}
+	return fresh
+}
+
+// advance moves the boundary to the newest record printed, remembering everything printed
+// at that instant.
+func (b *boundary) advance(logs []obsgen.PlatformLog) {
+	if len(logs) == 0 {
+		return
+	}
+
+	newest := logs[len(logs)-1].Timestamp
+	if newest.Before(b.ts) {
+		return
+	}
+	if newest.After(b.ts) || b.seen == nil {
+		b.ts = newest
+		b.seen = make(map[string]struct{})
+	}
+	for _, log := range logs {
+		if log.Timestamp.Equal(b.ts) {
+			b.seen[recordKey(log)] = struct{}{}
+		}
+	}
+}
+
+// recordKey identifies a record within one instant. The API returns no unique key, so
+// identity is the coordinates plus the message.
+func recordKey(log obsgen.PlatformLog) string {
+	return strings.Join([]string{
+		deref(log.ClusterInstance),
+		deref(log.NamespaceName),
+		deref(log.PodName),
+		deref(log.ContainerName),
+		log.Log,
+	}, "\x00")
 }
 
 // tailLimit resolves --tail into a page size, an unset flag meaning the default page.

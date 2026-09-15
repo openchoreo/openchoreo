@@ -4,6 +4,9 @@
 package platformlogs
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -390,18 +393,96 @@ func TestLogs_ObserverErrors(t *testing.T) {
 
 // --- follow bookkeeping ---
 
-func TestNextStart(t *testing.T) {
-	fallback := mustTime(t, "2026-01-01T00:05:00Z")
-
-	assert.Equal(t, fallback, nextStart(nil, fallback),
-		"an empty poll must leave the window where it was")
-
-	logs := []obsgen.PlatformLog{
-		{Timestamp: mustTime(t, "2026-01-01T00:00:00Z")},
-		{Timestamp: mustTime(t, "2026-01-01T00:01:00Z")},
+// rec builds a record whose identity is its timestamp plus message.
+func rec(t *testing.T, ts, log string) obsgen.PlatformLog {
+	t.Helper()
+	return obsgen.PlatformLog{
+		Timestamp: mustTime(t, ts),
+		Log:       log,
+		PodName:   strPtr("pod-1"),
 	}
-	assert.Equal(t, mustTime(t, "2026-01-01T00:01:00Z").Add(time.Millisecond), nextStart(logs, fallback),
-		"the window must advance past the newest entry already printed")
+}
+
+func TestBoundary_HoldsTheInstantRatherThanSteppingOverIt(t *testing.T) {
+	start := mustTime(t, "2026-01-01T00:00:00Z")
+	b := newBoundary(start)
+
+	// Microsecond resolution: advancing by a fixed millisecond would blind the cursor to
+	// everything between .423511 and .424511.
+	batch := []obsgen.PlatformLog{
+		rec(t, "2026-01-01T00:00:01.423511Z", "first"),
+	}
+	b.advance(batch)
+
+	now := mustTime(t, "2026-01-01T00:00:05Z")
+	assert.Equal(t, mustTime(t, "2026-01-01T00:00:01.423511Z"), b.start(now),
+		"the next poll must re-query the boundary instant, not skip past it")
+}
+
+func TestBoundary_FiltersOnlyWhatWasPrintedAtTheBoundary(t *testing.T) {
+	b := newBoundary(mustTime(t, "2026-01-01T00:00:00Z"))
+	b.advance([]obsgen.PlatformLog{
+		rec(t, "2026-01-01T00:00:01.100000Z", "old"),
+		rec(t, "2026-01-01T00:00:01.500000Z", "boundary-a"),
+		rec(t, "2026-01-01T00:00:01.500000Z", "boundary-b"),
+	})
+
+	// The re-query returns the boundary instant again, plus records that fall inside the
+	// sub-millisecond gap a fixed increment would have skipped, plus something newer.
+	got := b.filterNew([]obsgen.PlatformLog{
+		rec(t, "2026-01-01T00:00:01.500000Z", "boundary-a"),
+		rec(t, "2026-01-01T00:00:01.500000Z", "boundary-b"),
+		rec(t, "2026-01-01T00:00:01.500001Z", "inside-the-gap"),
+		rec(t, "2026-01-01T00:00:02.000000Z", "newer"),
+	})
+
+	msgs := make([]string, 0, len(got))
+	for _, l := range got {
+		msgs = append(msgs, l.Log)
+	}
+	assert.Equal(t, []string{"inside-the-gap", "newer"}, msgs)
+}
+
+func TestBoundary_RecordsSharingTheBoundaryInstantAreNotLost(t *testing.T) {
+	b := newBoundary(mustTime(t, "2026-01-01T00:00:00Z"))
+	// A page that ends mid-instant: only one of the two records at .500000 fitted.
+	b.advance([]obsgen.PlatformLog{rec(t, "2026-01-01T00:00:01.500000Z", "a")})
+
+	got := b.filterNew([]obsgen.PlatformLog{
+		rec(t, "2026-01-01T00:00:01.500000Z", "a"),
+		rec(t, "2026-01-01T00:00:01.500000Z", "b"),
+	})
+	require.Len(t, got, 1)
+	assert.Equal(t, "b", got[0].Log, "the tie that did not fit in the page must still arrive")
+}
+
+func TestBoundary_EmptyPollHoldsThePosition(t *testing.T) {
+	b := newBoundary(mustTime(t, "2026-01-01T00:00:00Z"))
+	b.advance([]obsgen.PlatformLog{rec(t, "2026-01-01T00:00:01Z", "first")})
+	now := mustTime(t, "2026-01-01T00:00:30Z")
+	before := b.start(now)
+
+	// Records are indexed after the event they describe, so an empty poll must not move
+	// the cursor to "now" - that would skip whatever is still arriving behind it.
+	b.advance(nil)
+	assert.Equal(t, before, b.start(now))
+}
+
+func TestBoundary_OutOfOrderBatchDoesNotRewind(t *testing.T) {
+	b := newBoundary(mustTime(t, "2026-01-01T00:00:00Z"))
+	b.advance([]obsgen.PlatformLog{rec(t, "2026-01-01T00:00:05Z", "newest")})
+	b.advance([]obsgen.PlatformLog{rec(t, "2026-01-01T00:00:02Z", "older")})
+
+	assert.Equal(t, mustTime(t, "2026-01-01T00:00:05Z"), b.start(mustTime(t, "2026-01-01T00:01:00Z")))
+}
+
+func TestBoundary_ClampsAnIdleSessionToTheObserverWindow(t *testing.T) {
+	now := time.Now()
+	b := newBoundary(now.Add(-100 * 24 * time.Hour))
+
+	// Left following for longer than the observer accepts, the lower bound would otherwise
+	// drift into a query the server rejects.
+	assert.WithinDuration(t, now.Add(-maxWindow), b.start(now), time.Second)
 }
 
 func TestTailLimit(t *testing.T) {
@@ -418,4 +499,131 @@ func splitNonEmptyLines(s string) []string {
 		}
 	}
 	return lines
+}
+
+// --- follow loop behavior ---
+
+// stubAPI drives followLogs one poll at a time.
+type stubAPI struct {
+	calls  int
+	params []*obsgen.GetPlatformLogsParams
+	fn     func(call int) (*obsgen.GetPlatformLogsResp, error)
+}
+
+func (s *stubAPI) GetPlatformLogsWithResponse(_ context.Context, params *obsgen.GetPlatformLogsParams,
+	_ ...obsgen.RequestEditorFn,
+) (*obsgen.GetPlatformLogsResp, error) {
+	s.calls++
+	s.params = append(s.params, params)
+	return s.fn(s.calls)
+}
+
+func okResp(logs ...obsgen.PlatformLog) *obsgen.GetPlatformLogsResp {
+	return &obsgen.GetPlatformLogsResp{
+		HTTPResponse: &http.Response{StatusCode: http.StatusOK},
+		JSON200:      &obsgen.PlatformLogsResponse{Logs: logs, Total: int64(len(logs))},
+	}
+}
+
+func statusResp(status int, message string) *obsgen.GetPlatformLogsResp {
+	body, _ := json.Marshal(obsgen.ErrorResponse{Message: &message})
+	return &obsgen.GetPlatformLogsResp{
+		HTTPResponse: &http.Response{StatusCode: status},
+		Body:         body,
+	}
+}
+
+// fastPolls shortens the follow interval so a test drives the loop in milliseconds.
+func fastPolls(t *testing.T) {
+	t.Helper()
+	original := pollInterval
+	pollInterval = 2 * time.Millisecond
+	t.Cleanup(func() { pollInterval = original })
+}
+
+func runFollow(t *testing.T, api observerAPI, params LogsParams) (string, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var err error
+	now := time.Now()
+	out := testutil.CaptureStdout(t, func() {
+		err = New(nil).followLogs(ctx, api, params, nil, now.Add(-time.Hour), now)
+	})
+	return out, err
+}
+
+func TestFollowLogs_RetriesRecoverableErrors(t *testing.T) {
+	fastPolls(t)
+	now := time.Now().UTC()
+	api := &stubAPI{fn: func(call int) (*obsgen.GetPlatformLogsResp, error) {
+		switch call {
+		case 1:
+			return okResp(obsgen.PlatformLog{Timestamp: now.Add(-time.Minute), Log: "first"}), nil
+		case 2:
+			return statusResp(http.StatusServiceUnavailable, "try later"), nil
+		case 3:
+			return okResp(obsgen.PlatformLog{Timestamp: now.Add(-30 * time.Second), Log: "after recovery"}), nil
+		default:
+			// Keep failing so the session ends by exhausting its retry budget.
+			return statusResp(http.StatusServiceUnavailable, "try later"), nil
+		}
+	}}
+
+	out, err := runFollow(t, api, LogsParams{PlaneName: "default", Output: outputText})
+
+	assert.Contains(t, out, "after recovery", "a single 503 must not end the session")
+	assert.ErrorContains(t, err, "giving up after")
+}
+
+func TestFollowLogs_GivesUpAfterRepeatedRecoverableFailures(t *testing.T) {
+	fastPolls(t)
+	api := &stubAPI{fn: func(call int) (*obsgen.GetPlatformLogsResp, error) {
+		if call == 1 {
+			return okResp(), nil
+		}
+		// A refresh token that has stopped working looks recoverable forever.
+		return nil, errors.New("failed to refresh token: invalid_grant")
+	}}
+
+	_, err := runFollow(t, api, LogsParams{PlaneName: "default", Output: outputText})
+
+	assert.ErrorContains(t, err, "giving up after")
+	assert.ErrorContains(t, err, "invalid_grant")
+	assert.Equal(t, maxPollFailures+1, api.calls, "retries must be bounded")
+}
+
+func TestFollowLogs_ReQueriesTheBoundaryInsteadOfSteppingOverIt(t *testing.T) {
+	fastPolls(t)
+
+	// Realistic follow timestamps: within the window, microseconds apart. A fixed
+	// millisecond advance would put the next lower bound past inGap and lose it.
+	boundary := time.Now().Add(-time.Minute).UTC().Truncate(time.Microsecond)
+	inGap := boundary.Add(389 * time.Microsecond)
+
+	at := func(ts time.Time, msg string) obsgen.PlatformLog {
+		return obsgen.PlatformLog{Timestamp: ts, Log: msg, PodName: strPtr("pod-1")}
+	}
+
+	api := &stubAPI{fn: func(call int) (*obsgen.GetPlatformLogsResp, error) {
+		switch call {
+		case 1:
+			return okResp(at(boundary, "first")), nil
+		case 2:
+			// The re-query returns the boundary record again plus one inside the gap.
+			return okResp(at(boundary, "first"), at(inGap, "would-have-been-skipped")), nil
+		default:
+			return statusResp(http.StatusForbidden, "stop"), nil
+		}
+	}}
+
+	out, _ := runFollow(t, api, LogsParams{PlaneName: "default", Output: outputText})
+
+	require.GreaterOrEqual(t, len(api.params), 2)
+	assert.True(t, api.params[1].StartTime.Equal(boundary),
+		"the second poll must start at the boundary instant itself, got %s want %s",
+		api.params[1].StartTime, boundary)
+	assert.Contains(t, out, "would-have-been-skipped")
+	assert.Equal(t, 1, strings.Count(out, "first"), "the boundary record must not print twice")
 }
