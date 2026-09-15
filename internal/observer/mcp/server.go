@@ -592,6 +592,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 					"A bare environment name will not match"),
 			"resource_project":   arrayProperty("Projects"),
 			"resource_component": arrayProperty("Components"),
+			"resource_resource":  arrayProperty("Resources, the hierarchy level that is a sibling of component"),
 			"resource_name":      arrayProperty("Resource names"),
 
 			"action": arrayProperty("Semantic action names (e.g. ['create_project', 'delete_component'])"),

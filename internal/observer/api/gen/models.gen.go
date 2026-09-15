@@ -61,6 +61,7 @@ const (
 	ResourceName        AuditLogFilterValuesRequestFilter = "resource.name"
 	ResourceNamespace   AuditLogFilterValuesRequestFilter = "resource.namespace"
 	ResourceProject     AuditLogFilterValuesRequestFilter = "resource.project"
+	ResourceResource    AuditLogFilterValuesRequestFilter = "resource.resource"
 	ResourceType        AuditLogFilterValuesRequestFilter = "resource.type"
 	Result              AuditLogFilterValuesRequestFilter = "result"
 	SourceIp            AuditLogFilterValuesRequestFilter = "source_ip"
@@ -443,12 +444,14 @@ type AuditLogFilterValuesRequest struct {
 	// Authorization is evaluated at cluster scope before any of them is read, so
 	// naming a namespace here does not entitle the caller to that namespace's trail.
 	//
-	// Two record fields have no filter. `resource.uid` is absent on deletes and on
-	// non-CRUD mutations, so filtering by it would silently exclude the operations an
+	// `resource.uid` has no filter. It is absent on deletes and on non-CRUD
+	// mutations, so filtering by it would silently exclude the operations an
 	// investigation most often wants — filter by `resource.name` and read `uid` off
-	// the returned record. `resource.resource`, the fourth hierarchy level, is set
-	// only where it duplicates `resource.name` today, so a filter for it would be a
-	// second spelling of one already here.
+	// the returned record.
+	//
+	// `resource.resource` is the Resource level of the hierarchy, a sibling of
+	// `component`. It differs from `resource.name` on a release or binding, where it
+	// is the parent Resource.
 	Query AuditLogsQueryRequest `json:"query"`
 
 	// ValueSearch Return only values containing this text, case-insensitively. This is how a
@@ -593,8 +596,10 @@ type AuditLogResource struct {
 	Name        *string                 `json:"name,omitempty"`
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
-	Resource    *string                 `json:"resource,omitempty"`
-	Type        *string                 `json:"type,omitempty"`
+
+	// Resource The Resource level of the hierarchy, a sibling of `component`.
+	Resource *string `json:"resource,omitempty"`
+	Type     *string `json:"type,omitempty"`
 
 	// Uid Server-generated identifier that is never reused. Absent when the operation
 	// returned no object — a delete, or a non-CRUD mutation.
@@ -699,12 +704,14 @@ type AuditLogsActorFilter struct {
 // Authorization is evaluated at cluster scope before any of them is read, so
 // naming a namespace here does not entitle the caller to that namespace's trail.
 //
-// Two record fields have no filter. `resource.uid` is absent on deletes and on
-// non-CRUD mutations, so filtering by it would silently exclude the operations an
+// `resource.uid` has no filter. It is absent on deletes and on non-CRUD
+// mutations, so filtering by it would silently exclude the operations an
 // investigation most often wants — filter by `resource.name` and read `uid` off
-// the returned record. `resource.resource`, the fourth hierarchy level, is set
-// only where it duplicates `resource.name` today, so a filter for it would be a
-// second spelling of one already here.
+// the returned record.
+//
+// `resource.resource` is the Resource level of the hierarchy, a sibling of
+// `component`. It differs from `resource.name` on a release or binding, where it
+// is the parent Resource.
 type AuditLogsQueryRequest struct {
 	// Action Semantic action names.
 	Action *[]string `json:"action,omitempty"`
@@ -848,6 +855,9 @@ type AuditLogsResourceFilter struct {
 
 	// Project Projects.
 	Project *[]string `json:"project,omitempty"`
+
+	// Resource Resources, the hierarchy level that is a sibling of `component`.
+	Resource *[]string `json:"resource,omitempty"`
 
 	// Type Resource kinds.
 	Type *[]string `json:"type,omitempty"`
