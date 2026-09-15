@@ -126,6 +126,10 @@ backstage:
     hostnames:
     - openchoreo.localhost
 
+portalAssistant:
+  config:
+    observerApiUrl: "http://observer.openchoreo.localhost:11080"
+
 features:
   secretManagement:
     enabled: true
