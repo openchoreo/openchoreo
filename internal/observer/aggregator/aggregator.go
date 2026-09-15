@@ -24,9 +24,11 @@ package aggregator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,14 +45,26 @@ const (
 	// watermark - Overlap. Zero means the last sweep covered its whole window.
 	watermarkSourceEventsResume = "events_resume"
 
+	// watermarkSourceIncidentsResume holds the position a page-capped incident sweep
+	// stopped at, so the next tick continues from there instead of restarting at the
+	// head of the lookback window. Zero means the last sweep covered its whole window
+	// and the next one re-scans it in full.
+	watermarkSourceIncidentsResume = "incidents_resume"
+
 	// incidentQueryLimit bounds a single incident read. The lookback window is paged
 	// through at this size rather than truncated: the window start is derived from the
 	// tick time, not from the watermark, so a truncated read would re-read the same
 	// first page every tick and never attribute the remainder.
-	incidentQueryLimit = 10000
+	//
+	// It is the store's own cap rather than a matching literal. Paging stops on a
+	// short page, so a page size the store silently clamps would end every sweep
+	// after page one -- processing only the oldest slice of the window, with no
+	// warning. Taking the cap from the store makes that a compile-time link.
+	incidentQueryLimit = incidententry.MaxQueryLimit
 
 	// incidentMaxPages bounds one tick's paging so a pathological window cannot spin
-	// the tick forever. Hitting it is logged, and the remainder is picked up next tick.
+	// the tick forever. Hitting it stores a resume position and the next tick carries
+	// on from there.
 	incidentMaxPages = 50
 )
 
@@ -182,8 +196,7 @@ func (a *Aggregator) tick(ctx context.Context) {
 		return
 	}
 	held, err := a.store.AcquireLease(
-		ctx, aggregationLease, a.holder,
-		a.now().UTC().UnixMilli(), a.leaseTTL().Milliseconds(),
+		ctx, aggregationLease, a.holder, a.leaseTTL().Milliseconds(),
 	)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -218,7 +231,10 @@ func (a *Aggregator) tick(ctx context.Context) {
 	case err == nil:
 	case ctx.Err() != nil:
 		// The aggregator is shutting down; not a tick failure.
-	case tickCtx.Err() != nil:
+	case tickCtx.Err() != nil, errors.Is(err, deliveryinsights.ErrLeaseNotHeld):
+		// Either the renewer cancelled the tick, or a watermark write was refused
+		// because the lease had already moved on. Both mean another replica owns the
+		// work now, and neither is a failure worth retrying here.
 		a.logger.Warn("DORA aggregation tick abandoned after losing the lease", "holder", a.holder)
 	default:
 		a.logger.Error("DORA aggregation tick failed", "error", err)
@@ -246,8 +262,7 @@ func (a *Aggregator) holdLease(ctx context.Context, lost func()) <-chan struct{}
 				return
 			case <-ticker.C:
 				held, err := a.store.AcquireLease(
-					ctx, aggregationLease, a.holder,
-					a.now().UTC().UnixMilli(), a.leaseTTL().Milliseconds(),
+					ctx, aggregationLease, a.holder, a.leaseTTL().Milliseconds(),
 				)
 				if ctx.Err() != nil {
 					return
@@ -295,7 +310,7 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	tickStart := a.now().UTC()
 	var touched []int64
 
-	incidentTouched, err := a.processIncidents(ctx, tickStart)
+	incidentTouched, incidentResumeMs, err := a.processIncidents(ctx, tickStart)
 	if err != nil {
 		return fmt.Errorf("incidents: %w", err)
 	}
@@ -320,17 +335,23 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	}
 
 	// Watermarks advance last: a failure above re-processes the window next tick.
-	if err := a.store.SetWatermark(ctx, watermarkSourceIncidents, tickStart.UnixMilli()); err != nil {
+	if err := a.store.SetWatermark(ctx, watermarkSourceIncidents, tickStart.UnixMilli(), aggregationLease, a.holder); err != nil {
+		return err
+	}
+	// Zero when the sweep covered its whole window; otherwise the position it
+	// stopped at, so the next tick carries on instead of restarting at the head and
+	// never reaching the newest entries.
+	if err := a.store.SetWatermark(ctx, watermarkSourceIncidentsResume, incidentResumeMs, aggregationLease, a.holder); err != nil {
 		return err
 	}
 	if a.events != nil {
 		// Advance only as far as the sweep reached, so a capped sweep resumes from
 		// where it stopped rather than jumping the unread remainder.
-		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsProg.watermarkMs); err != nil {
+		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsProg.watermarkMs, aggregationLease, a.holder); err != nil {
 			return err
 		}
 		// Zero when the window was fully swept, which re-arms the ingest-lag overlap.
-		if err := a.store.SetWatermark(ctx, watermarkSourceEventsResume, eventsProg.resumeMs); err != nil {
+		if err := a.store.SetWatermark(ctx, watermarkSourceEventsResume, eventsProg.resumeMs, aggregationLease, a.holder); err != nil {
 			return err
 		}
 	}
@@ -349,10 +370,20 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 // facts. Returns the epoch-ms moments whose rollup buckets were touched — only
 // for incidents that are new or changed since the last tick, so an unchanged
 // window recomputes nothing.
-func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) ([]int64, error) {
+func (a *Aggregator) processIncidents(
+	ctx context.Context, tickStart time.Time,
+) (touchedOut []int64, resumeMs int64, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceIncidents)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	// Non-zero when the previous sweep hit the page cap. Resuming there trades one
+	// pass of the rolling rescan for finishing the backlog: until the sweep gets
+	// through the window once, re-reading its head is what stops it ever reaching
+	// the tail. It resets to zero on the first sweep that completes.
+	resumeFrom, err := a.store.Watermark(ctx, watermarkSourceIncidentsResume)
+	if err != nil {
+		return nil, 0, err
 	}
 	// First run backfills all history (incidents are durable — no retention
 	// constraint); afterwards a rolling lookback window is rescanned every tick.
@@ -371,7 +402,13 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 	var touched []int64
 	seen := make(map[string]struct{})
 	cursorMs := fromMs
+	if resumeFrom > cursorMs {
+		cursorMs = resumeFrom
+	}
 	processed := 0
+	// Set when the loop leaves without exhausting the window, so the next tick picks
+	// up where this one stopped.
+	stoppedAtMs := int64(0)
 
 	for page := 0; page < incidentMaxPages; page++ {
 		entries, _, queryErr := a.incidents.QueryIncidentEntries(ctx, incidententry.QueryParams{
@@ -381,7 +418,7 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 			SortOrder: "ASC",
 		})
 		if queryErr != nil {
-			return nil, fmt.Errorf("query incident entries: %w", queryErr)
+			return nil, 0, fmt.Errorf("query incident entries: %w", queryErr)
 		}
 		if len(entries) == 0 {
 			break
@@ -390,7 +427,7 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 		pageTouched, count, lastIngestedMs, foldErr := a.foldIncidentPage(
 			ctx, entries, seen, changedSinceMs, tickStart)
 		if foldErr != nil {
-			return nil, foldErr
+			return nil, 0, foldErr
 		}
 		touched = append(touched, pageTouched...)
 		processed += count
@@ -404,18 +441,26 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 			// bail out rather than spin.
 			a.logger.Warn("Incident page did not advance the cursor; stopping this tick",
 				"cursorMs", cursorMs, "pageSize", len(entries))
+			stoppedAtMs = cursorMs
 			break
 		}
 		cursorMs = lastIngestedMs
 
 		if page == incidentMaxPages-1 {
-			a.logger.Warn("Incident window paging hit its page cap; remainder processed on later ticks",
-				"pages", incidentMaxPages, "processed", processed)
+			// The window holds more than incidentMaxPages x incidentQueryLimit
+			// entries. Record where the sweep stopped: without it the next tick
+			// restarts at the head of the lookback window, re-reads the same oldest
+			// pages, and never reaches the newest entries for as long as the volume
+			// keeps up -- while the watermark advances regardless, so those entries
+			// are later folded as unchanged and their rollup buckets never recomputed.
+			a.logger.Warn("Incident window paging hit its page cap; resuming from this position next tick",
+				"pages", incidentMaxPages, "processed", processed, "resumeMs", cursorMs)
+			stoppedAtMs = cursorMs
 		}
 	}
 
 	a.logger.Debug("Processed incidents", "incidents", processed)
-	return touched, nil
+	return touched, stoppedAtMs, nil
 }
 
 // foldIncidentPage attributes one page of incidents and upserts their recovery facts.
@@ -466,6 +511,27 @@ func (a *Aggregator) foldIncidentPage(
 		if attribution.Attributed {
 			attributedCount++
 			touched = append(touched, attribution.OccurredMs)
+		}
+
+		// Skipping here rather than letting the store reject the fact is the point:
+		// UpsertRecoveryFacts validates the whole slice before writing any of it and
+		// returns on the first error, so one incident missing this field writes none
+		// of the batch and fails the tick with the watermark unmoved. The incident
+		// window is a rolling rescan, not watermark-incremental, so the same row
+		// comes back on every tick until it ages out -- nothing aggregates, incidents
+		// or events, for the whole lookback period.
+		//
+		// It is reachable from one missing label: the namespace is read out of the
+		// alert's label map (service/alerts.go), with no default.
+		//
+		// Attribution above is deliberately kept. It is keyed by component and
+		// environment, which this entry does have, so the deployment still counts
+		// against change failure rate; only the recovery episode behind MTTR is lost,
+		// and that genuinely cannot be scoped without a namespace.
+		if strings.TrimSpace(entry.NamespaceName) == "" {
+			a.logger.Warn("Skipping recovery fact for incident with no namespace; it cannot be scoped",
+				"incident", entry.ID, "component", entry.ComponentID)
+			continue
 		}
 
 		fact := deliveryinsights.RecoveryFact{
