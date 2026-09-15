@@ -843,9 +843,14 @@ type EventsQueryRequest struct {
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
 
-	// Limit The maximum number of items to return
-	Limit       *int                           `json:"limit,omitempty"`
-	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+	// Limit The maximum number of items to return. This is a soft cap at the page boundary: an adapter MUST NOT split events sharing a single timestamp across pages, so a page that would otherwise end mid-timestamp is extended to include every event bearing that timestamp, even where the result exceeds `limit`. That is what lets a caller resume by timestamp without stalling; see the rules on `queryEvents`.
+	Limit *int `json:"limit,omitempty"`
+
+	// Reasons Optional server-side filter on the event reason field. The adapter returns only events whose reason exactly matches one of the supplied values. Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded). The list is bounded so that the filter stays cheap for the adapter to evaluate.
+	Reasons *[]string `json:"reasons,omitempty"`
+
+	// SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
+	SearchScope *EventsQueryRequest_SearchScope `json:"searchScope,omitempty"`
 
 	// SortOrder The sort order of the query
 	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
@@ -854,7 +859,7 @@ type EventsQueryRequest struct {
 	StartTime time.Time `json:"startTime"`
 }
 
-// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+// EventsQueryRequest_SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability; see the queryEvents description for the rules that apply.
 type EventsQueryRequest_SearchScope struct {
 	union json.RawMessage
 }
@@ -870,8 +875,12 @@ type EventsQueryResponse struct {
 	// TookMs The time taken to query the events in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of matching events, capped at 1000
-	Total *int `json:"total,omitempty"`
+	// Total How many events matched the query, independent of `limit`.
+	//
+	// This is how a caller learns whether it read the whole window: `total` equal to the number of returned events means it did, and a greater value means the read stopped short and must be resumed. The adapter MUST therefore count at least as far as `limit + 1`, so that "exactly a full page" and "more than a page" are distinguishable. A backend that caps its match counting must raise that cap above `limit` -- OpenSearch stops at 10000 by default and needs `track_total_hits` set accordingly.
+	//
+	// An adapter that cannot count that far cannot report whether a sweep was truncated, and so cannot serve one safely: it MUST reject an unscoped request with 501 rather than return a total it cannot stand behind. Understating `total` makes a caller treat a truncated read as complete and advance past events it never saw.
+	Total int `json:"total"`
 }
 
 // LogsQueryRequest defines model for LogsQueryRequest.

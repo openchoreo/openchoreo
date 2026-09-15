@@ -402,7 +402,81 @@ paths:
       tags:
         - Events
       summary: Query events
-      description: Query Kubernetes events from the observer service
+      description: >
+        Query Kubernetes events from the logging backend. This endpoint is
+        served by the adapter; the Observer is the client.
+
+
+        `searchScope` is optional, but omitting it is legal only together with
+        `reasons` (an unscoped, reason-filtered sweep, used by machine consumers
+        such as the delivery insights aggregator). Because a missing scope
+        otherwise widens a query to every namespace, adapters MUST apply all
+        three rules below:
+
+
+        1. A request with neither `searchScope` nor `reasons` MUST be rejected
+        with 400. A missing scope MUST NEVER be treated as "all namespaces" on
+        its own.
+
+        2. Unscoped sweeps are an OPTIONAL capability. An adapter that does not
+        implement them MUST reject an unscoped request with 501, rather than
+        ignoring the omission and running a broader query than the caller asked
+        for.
+
+        3. An unscoped sweep MUST filter to the requested `reasons`, and MUST
+        NOT be widened by any scope inferred from the request.
+
+
+        Clients MUST treat a 501 on an unscoped sweep as "capability
+        unavailable" and fall back rather than retrying. A 400 always means the
+        request itself was rejected and MUST NOT be read as an unsupported
+        capability.
+
+
+        **Reading a window in parts.** A caller that cannot take the whole
+        window at once resumes by timestamp; there is deliberately no
+        continuation token, because resumption by timestamp is the one mechanism
+        every backend can express -- CloudWatch Logs Insights, for instance, has
+        no cursor at all. Four rules make that lossless, and an adapter serving
+        unscoped sweeps MUST honour all four.
+
+
+        1. `total` counts the whole match set, not the returned page. A caller
+        compares it against the number of events returned: equal means the window
+        was read, greater means the read stopped short and must be resumed rather
+        than `endTime` treated as read. This is why `total` must be counted to at
+        least `limit + 1`; see its description.
+
+
+        2. `sortOrder` is applied **before** truncating, so the events dropped
+        are those furthest from the sort direction. Resuming from the last
+        returned timestamp is only safe because of this -- truncating an unsorted
+        match set would make the caller skip events.
+
+
+        3. `limit` is a soft cap at the boundary: the adapter MUST NOT split
+        events sharing a single timestamp across reads, so a read that would
+        otherwise end mid-timestamp is extended to cover every event bearing that
+        timestamp, even where that exceeds `limit`. Without this a window holding
+        more than `limit` events at one timestamp could never be read past,
+        because every resume would return the same events.
+
+
+        4. Resumption is defined for `sortOrder: asc` only. A sweep that reads a
+        window in parts MUST request ascending order; on a descending query
+        `total` still reveals truncation, but the spec defines no resume position
+        for it.
+
+
+        Because the window start is inclusive, a resumed read repeats the events
+        sharing its last timestamp. Consumers must be idempotent over a replayed
+        window, which is what makes second-granularity Kubernetes event
+        timestamps safe to resume on.
+
+
+        This API carries no end-user identity, so an adapter cannot authorize
+        the caller; a client that serves unscoped results onward is responsible
+        for authorizing its own consumers.
       operationId: queryEvents
       requestBody:
         required: true
@@ -423,10 +497,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "badRequest"
-                errorCode: ""
-                message: "Missing required fields 'startTime' and 'endTime'"
+              examples:
+                missingRequiredFields:
+                  summary: startTime/endTime absent
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "Missing required fields 'startTime' and 'endTime'"
+                unscopedWithoutReasons:
+                  summary: No searchScope and no reasons filter
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "searchScope is required unless reasons is set for an unscoped sweep"
         "401":
           description: Unauthorized
           content:
@@ -463,10 +546,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "notImplemented"
-                errorCode: ""
-                message: "Events query is not implemented by this adapter"
+              examples:
+                eventsNotImplemented:
+                  summary: Adapter implements no events query at all
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "Events query is not implemented by this adapter"
+                unscopedNotSupported:
+                  summary: Adapter implements scoped queries but not unscoped sweeps
+                  value:
+                    title: "notImplemented"
+                    errorCode: ""
+                    message: "Unscoped event queries are not supported by this adapter; set searchScope"
 
   /api/v1alpha1/alerts/rules:
     post:
@@ -1639,7 +1731,14 @@ components:
           default: 100
           minimum: 1
           maximum: 1000
-          description: The maximum number of items to return
+          description: >
+            The maximum number of items to return. This is a soft cap at the
+            page boundary: an adapter MUST NOT split events sharing a single
+            timestamp across pages, so a page that would otherwise end
+            mid-timestamp is extended to include every event bearing that
+            timestamp, even where the result exceeds `limit`. That is what lets
+            a caller resume by timestamp without stalling; see the rules on
+            `queryEvents`.
         sortOrder:
           type: string
           description: The sort order of the query
@@ -1647,11 +1746,34 @@ components:
             - asc
             - desc
           default: desc
+        reasons:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          minItems: 1
+          maxItems: 32
+          description: >
+            Optional server-side filter on the event reason field. The adapter
+            returns only events whose reason exactly matches one of the supplied
+            values. Used by machine consumers such as the delivery insights
+            aggregator to sweep specific controller-emitted events
+            (e.g. DeploymentSucceeded). The list is bounded so that the filter
+            stays cheap for the adapter to evaluate.
         searchScope:
           oneOf:
             - $ref: "#/components/schemas/ComponentSearchScope"
             - $ref: "#/components/schemas/WorkflowSearchScope"
-      required: [startTime, endTime, searchScope]
+          description: >
+            Scope of the query. Omitting it requests an unscoped sweep, which is
+            permitted only together with `reasons` (machine consumers reading
+            controller-emitted events across all namespaces). Interactive queries
+            must always be scoped. Unscoped sweeps are an OPTIONAL adapter
+            capability; see the queryEvents description for the rules that apply.
+      # The "unscoped only with reasons" rule cannot be expressed here without
+      # changing the generated request type, so it is stated normatively in the
+      # queryEvents description and enforced by the adapter.
+      required: [startTime, endTime]
 
     # Response schemas for events
     EventEntry:
@@ -1718,10 +1840,29 @@ components:
           description: The events queried successfully
         total:
           type: integer
-          description: The total number of matching events, capped at 1000
+          description: >
+            How many events matched the query, independent of `limit`.
+
+
+            This is how a caller learns whether it read the whole window:
+            `total` equal to the number of returned events means it did, and a
+            greater value means the read stopped short and must be resumed. The
+            adapter MUST therefore count at least as far as `limit + 1`, so that
+            "exactly a full page" and "more than a page" are distinguishable. A
+            backend that caps its match counting must raise that cap above
+            `limit` -- OpenSearch stops at 10000 by default and needs
+            `track_total_hits` set accordingly.
+
+
+            An adapter that cannot count that far cannot report whether a sweep
+            was truncated, and so cannot serve one safely: it MUST reject an
+            unscoped request with 501 rather than return a total it cannot stand
+            behind. Understating `total` makes a caller treat a truncated read
+            as complete and advance past events it never saw.
         tookMs:
           type: integer
           description: The time taken to query the events in milliseconds
+      required: [total]
 
     # Request schemas for alert rules
     AlertRuleRequest:
