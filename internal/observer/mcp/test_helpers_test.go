@@ -23,6 +23,7 @@ type handlerTestDeps struct {
 	traces       service.TracesQuerier
 	finops       service.FinOpsQuerier
 	auditLogs    service.AuditLogsQuerier
+	insights     service.DeliveryInsightsService
 }
 
 // newTestMCPHandler builds an MCPHandler with mockery mocks by default; options override individual deps.
@@ -38,6 +39,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 		traces:       servicemocks.NewMockTracesQuerier(t),
 		finops:       servicemocks.NewMockFinOpsQuerier(t),
 		auditLogs:    servicemocks.NewMockAuditLogsQuerier(t),
+		insights:     servicemocks.NewMockDeliveryInsightsService(t),
 	}
 	for _, o := range opts {
 		o(&d)
@@ -48,7 +50,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	require.NoError(t, err)
 
 	h, err := NewMCPHandler(healthSvc, d.logs, d.platformLogs, d.events, d.metrics, d.alerts, d.traces,
-		d.finops, d.auditLogs, logger)
+		d.finops, d.auditLogs, d.insights, logger)
 	require.NoError(t, err)
 	return h
 }
@@ -83,4 +85,8 @@ func withFinOpsService(s service.FinOpsQuerier) func(*handlerTestDeps) {
 
 func withAuditLogsService(s service.AuditLogsQuerier) func(*handlerTestDeps) {
 	return func(d *handlerTestDeps) { d.auditLogs = s }
+}
+
+func withDeliveryInsightsService(s service.DeliveryInsightsService) func(*handlerTestDeps) {
+	return func(d *handlerTestDeps) { d.insights = s }
 }

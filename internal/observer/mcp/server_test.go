@@ -447,6 +447,54 @@ func (m *MockFinOpsQuerier) reset() {
 	m.recommendationsRequests = nil
 }
 
+type MockDeliveryInsightsService struct {
+	doraMetricsRequests     []gen.DoraMetricsQueryRequest
+	doraDeploymentsRequests []gen.DoraDeploymentsQueryRequest
+	doraMetricsResponse     *gen.DoraMetricsQueryResponse
+	doraDeploymentsResponse *gen.DoraDeploymentsQueryResponse
+	queryDoraMetricsErr     error
+	queryDoraDeploymentsErr error
+}
+
+func NewMockDeliveryInsightsService() *MockDeliveryInsightsService {
+	return &MockDeliveryInsightsService{
+		doraMetricsResponse:     &gen.DoraMetricsQueryResponse{},
+		doraDeploymentsResponse: &gen.DoraDeploymentsQueryResponse{},
+	}
+}
+
+func (m *MockDeliveryInsightsService) QueryDoraMetrics(
+	_ context.Context, req gen.DoraMetricsQueryRequest,
+) (*gen.DoraMetricsQueryResponse, error) {
+	m.doraMetricsRequests = append(m.doraMetricsRequests, req)
+	if m.queryDoraMetricsErr != nil {
+		return nil, m.queryDoraMetricsErr
+	}
+	return m.doraMetricsResponse, nil
+}
+
+func (m *MockDeliveryInsightsService) QueryDoraDeployments(
+	_ context.Context, req gen.DoraDeploymentsQueryRequest,
+) (*gen.DoraDeploymentsQueryResponse, error) {
+	m.doraDeploymentsRequests = append(m.doraDeploymentsRequests, req)
+	if m.queryDoraDeploymentsErr != nil {
+		return nil, m.queryDoraDeploymentsErr
+	}
+	return m.doraDeploymentsResponse, nil
+}
+
+func (m *MockDeliveryInsightsService) lastDoraMetricsRequest() *gen.DoraMetricsQueryRequest {
+	if len(m.doraMetricsRequests) == 0 {
+		return nil
+	}
+	return &m.doraMetricsRequests[len(m.doraMetricsRequests)-1]
+}
+
+func (m *MockDeliveryInsightsService) reset() {
+	m.doraMetricsRequests = nil
+	m.doraDeploymentsRequests = nil
+}
+
 // ---- Test harness ----
 
 type testServices struct {
@@ -458,6 +506,7 @@ type testServices struct {
 	alertsIncidents *MockAlertIncidentService
 	finops          *MockFinOpsQuerier
 	auditLogs       *MockAuditLogsQuerier
+	insights        *MockDeliveryInsightsService
 }
 
 func newTestServices() *testServices {
@@ -470,6 +519,7 @@ func newTestServices() *testServices {
 		alertsIncidents: NewMockAlertIncidentService(),
 		finops:          NewMockFinOpsQuerier(),
 		auditLogs:       NewMockAuditLogsQuerier(),
+		insights:        NewMockDeliveryInsightsService(),
 	}
 }
 
@@ -482,6 +532,7 @@ func (s *testServices) resetAll() {
 	s.alertsIncidents.reset()
 	s.finops.reset()
 	s.auditLogs.reset()
+	s.insights.reset()
 }
 
 func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
@@ -491,7 +542,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 		return nil, err
 	}
 	return NewMCPHandler(healthSvc, svcs.logs, svcs.platformLogs, svcs.events, svcs.metrics, svcs.alertsIncidents,
-		svcs.traces, svcs.finops, svcs.auditLogs, logger)
+		svcs.traces, svcs.finops, svcs.auditLogs, svcs.insights, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -1078,6 +1129,45 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, "15m", req.TimelineInterval)
 		},
 	},
+	{
+		name:                "query_dora_metrics",
+		descriptionKeywords: []string{"dora", "lead time"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "granularity", "metrics"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"granularity": "weekly",
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"metrics":     []any{"leadTime", "mttr"},
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.insights.lastDoraMetricsRequest()
+			require.NotNil(t, req, "Expected QueryDoraMetrics to be called")
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			require.NotNil(t, req.SearchScope.Project)
+			assert.Equal(t, testProject, *req.SearchScope.Project)
+			require.NotNil(t, req.SearchScope.Component)
+			assert.Equal(t, testComponent, *req.SearchScope.Component)
+			require.NotNil(t, req.SearchScope.Environment)
+			assert.Equal(t, testEnvironment, *req.SearchScope.Environment)
+			require.NotNil(t, req.Granularity)
+			assert.Equal(t, "weekly", string(*req.Granularity))
+			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
+			assert.True(t, req.StartTime.Equal(expectedStart), "Expected start_time %v, got %v", expectedStart, req.StartTime)
+			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
+			assert.True(t, req.EndTime.Equal(expectedEnd), "Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			require.NotNil(t, req.Metrics)
+			require.Len(t, *req.Metrics, 2)
+			assert.Equal(t, "leadTime", string((*req.Metrics)[0]))
+			assert.Equal(t, "mttr", string((*req.Metrics)[1]))
+		},
+	},
 }
 
 // ---- Tests ----
@@ -1087,6 +1177,7 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	logger := slog.Default()
 	healthSvc, _ := service.NewHealthService(logger)
 	alertIncidentSvc := NewMockAlertIncidentService()
+	deliveryInsightsSvc := NewMockDeliveryInsightsService()
 	logs := NewMockLogsQuerier()
 	platformLogs := NewMockPlatformLogsQuerier()
 	events := NewMockEventsQuerier()
@@ -1106,24 +1197,26 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 		traces               service.TracesQuerier
 		finops               service.FinOpsQuerier
 		auditLogs            service.AuditLogsQuerier
+		insights             service.DeliveryInsightsService
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
-		{"nil logsService", healthSvc, nil, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
-		{"nil platformLogsService", healthSvc, logs, nil, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
-		{"nil eventsService", healthSvc, logs, platformLogs, nil, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
-		{"nil metricsService", healthSvc, logs, platformLogs, events, nil, alertIncidentSvc, traces, finops, auditLogs, logger},
-		{"nil alertIncidentService", healthSvc, logs, platformLogs, events, metrics, nil, traces, finops, auditLogs, logger},
-		{"nil tracesService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, nil, finops, auditLogs, logger},
-		{"nil finopsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, nil, auditLogs, logger},
-		{"nil auditLogsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, nil, logger},
-		{"nil logger", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, nil},
+		{"nil healthService", nil, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil logsService", healthSvc, nil, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil platformLogsService", healthSvc, logs, nil, events, metrics, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil eventsService", healthSvc, logs, platformLogs, nil, metrics, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil metricsService", healthSvc, logs, platformLogs, events, nil, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil alertIncidentService", healthSvc, logs, platformLogs, events, metrics, nil, traces, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil tracesService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, nil, finops, auditLogs, deliveryInsightsSvc, logger},
+		{"nil finopsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, nil, auditLogs, deliveryInsightsSvc, logger},
+		{"nil auditLogsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, nil, deliveryInsightsSvc, logger},
+		{"nil deliveryInsightsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, nil, logger},
+		{"nil logger", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, deliveryInsightsSvc, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewMCPHandler(tt.health, tt.logs, tt.platformLogs, tt.events, tt.metrics,
-				tt.alertIncidentService, tt.traces, tt.finops, tt.auditLogs, tt.log)
+				tt.alertIncidentService, tt.traces, tt.finops, tt.auditLogs, tt.insights, tt.log)
 			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}
@@ -1431,6 +1524,15 @@ func TestMinimalParameterSets(t *testing.T) {
 				"end_time":   testEndTime,
 			},
 		},
+		{
+			name:     "query_dora_metrics_minimal",
+			toolName: "query_dora_metrics",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+		},
 	}
 
 	for _, tt := range minimalTests {
@@ -1581,6 +1683,28 @@ func TestHandlerErrorPropagation(t *testing.T) {
 				"end_time":   testEndTime,
 			},
 			setupErr: func(s *testServices) { s.alertsIncidents.queryIncidentsErr = errors.New("incident store unavailable") },
+		},
+		{
+			name:     "dora_metrics_service_error",
+			toolName: "query_dora_metrics",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) {
+				s.insights.queryDoraMetricsErr = errors.New("delivery insights store unavailable")
+			},
+		},
+		{
+			name:     "dora_metrics_invalid_start_time",
+			toolName: "query_dora_metrics",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": "not-a-time",
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) {}, // error comes from time parsing, not service
 		},
 		{
 			name:     "alerts_invalid_start_time",
@@ -1790,6 +1914,21 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				assert.Equal(t, 100, *req.Limit)
 				require.NotNil(t, req.SortOrder)
 				assert.Equal(t, sortOrderDesc, string(*req.SortOrder))
+			},
+		},
+		{
+			name:     "dora_metrics_no_granularity_or_metrics_filter",
+			toolName: "query_dora_metrics",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.insights.lastDoraMetricsRequest()
+				require.NotNil(t, req, "Expected QueryDoraMetrics to be called")
+				assert.Nil(t, req.Granularity, "Expected granularity to be left unset for the service's own default")
+				assert.Nil(t, req.Metrics, "Expected metrics to be left unset for the service's own all-four default")
 			},
 		},
 	}

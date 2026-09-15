@@ -9,21 +9,23 @@ import (
 	"log/slog"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	apihandlers "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 type MCPHandler struct {
-	healthService        *service.HealthService
-	logsService          service.LogsQuerier
-	platformLogsService  service.PlatformLogsQuerier
-	eventsService        service.EventsQuerier
-	metricsService       service.MetricsQuerier
-	alertIncidentService service.AlertIncidentService
-	tracesService        service.TracesQuerier
-	finopsService        service.FinOpsQuerier
-	auditLogsService     service.AuditLogsQuerier
-	logger               *slog.Logger
+	healthService           *service.HealthService
+	logsService             service.LogsQuerier
+	platformLogsService     service.PlatformLogsQuerier
+	eventsService           service.EventsQuerier
+	metricsService          service.MetricsQuerier
+	alertIncidentService    service.AlertIncidentService
+	tracesService           service.TracesQuerier
+	finopsService           service.FinOpsQuerier
+	auditLogsService        service.AuditLogsQuerier
+	deliveryInsightsService service.DeliveryInsightsService
+	logger                  *slog.Logger
 }
 
 func NewMCPHandler(
@@ -36,6 +38,7 @@ func NewMCPHandler(
 	tracesService service.TracesQuerier,
 	finopsService service.FinOpsQuerier,
 	auditLogsService service.AuditLogsQuerier,
+	deliveryInsightsService service.DeliveryInsightsService,
 	logger *slog.Logger,
 ) (*MCPHandler, error) {
 	if healthService == nil {
@@ -65,20 +68,24 @@ func NewMCPHandler(
 	if auditLogsService == nil {
 		return nil, fmt.Errorf("missing auditLogsService")
 	}
+	if deliveryInsightsService == nil {
+		return nil, fmt.Errorf("missing deliveryInsightsService")
+	}
 	if logger == nil {
 		return nil, fmt.Errorf("missing logger")
 	}
 	return &MCPHandler{
-		healthService:        healthService,
-		logsService:          logsService,
-		platformLogsService:  platformLogsService,
-		eventsService:        eventsService,
-		metricsService:       metricsService,
-		alertIncidentService: alertIncidentService,
-		tracesService:        tracesService,
-		finopsService:        finopsService,
-		auditLogsService:     auditLogsService,
-		logger:               logger,
+		healthService:           healthService,
+		logsService:             logsService,
+		platformLogsService:     platformLogsService,
+		eventsService:           eventsService,
+		metricsService:          metricsService,
+		alertIncidentService:    alertIncidentService,
+		tracesService:           tracesService,
+		finopsService:           finopsService,
+		auditLogsService:        auditLogsService,
+		deliveryInsightsService: deliveryInsightsService,
+		logger:                  logger,
 	}, nil
 }
 
@@ -341,4 +348,49 @@ func (h *MCPHandler) QueryRecommendations(ctx context.Context, namespace, enviro
 		EndTime:     endTime,
 	}
 	return h.finopsService.GetRecommendations(ctx, req)
+}
+
+func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, component, environment,
+	granularity, startTime, endTime string, metrics []string) (any, error) {
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+
+	req := gen.DoraMetricsQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		SearchScope: gen.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     strPtr(project),
+			Component:   strPtr(component),
+			Environment: strPtr(environment),
+		},
+	}
+	if granularity != "" {
+		g := gen.DoraMetricsQueryRequestGranularity(granularity)
+		req.Granularity = &g
+	}
+	if len(metrics) > 0 {
+		typed := make([]gen.DoraMetricsQueryRequestMetrics, len(metrics))
+		for i, m := range metrics {
+			typed[i] = gen.DoraMetricsQueryRequestMetrics(m)
+		}
+		req.Metrics = &typed
+	}
+
+	// The same validator the HTTP path runs. Without it this path had no 400-day
+	// window cap, no endTime > startTime check and no granularity/metrics enum
+	// check, so an unbounded window reached buildFrequencySeries and produced one
+	// point per bucket to the requested end -- twice over, since the payload is
+	// JSON round-tripped.
+	if err := apihandlers.ValidateDoraMetricsQueryRequest(&req); err != nil {
+		return nil, err
+	}
+
+	return h.deliveryInsightsService.QueryDoraMetrics(ctx, req)
 }

@@ -150,3 +150,4 @@ packages:
       IncidentsUpdater:
       AlertIncidentService:
       AlertRuleService:
+      DeliveryInsightsService:

@@ -9,6 +9,7 @@ package deliveryinsights
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -186,6 +187,12 @@ type AttributionResult struct {
 	Attributed bool
 }
 
+// ErrLeaseNotHeld reports a write refused because this replica no longer holds the
+// aggregation lease. It is not a failure of the write itself: another replica has
+// taken over and is responsible for the work, so the caller should abandon its tick
+// rather than retry.
+var ErrLeaseNotHeld = errors.New("delivery insights aggregation lease not held")
+
 // Store persists delivery facts and metric rollups behind a pluggable SQL backend.
 type Store interface {
 	Initialize(ctx context.Context) error
@@ -208,11 +215,18 @@ type Store interface {
 	QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error)
 	QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error)
 	Watermark(ctx context.Context, source string) (int64, error)
-	SetWatermark(ctx context.Context, source string, watermarkMs int64) error
-	// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs,
+	// SetWatermark advances a watermark, but only while leaseHolder still holds
+	// leaseName, returning ErrLeaseNotHeld if it does not. Writing a watermark is
+	// the one thing a replica that has lost the lease must not still be doing, and
+	// lease renewal alone cannot guarantee that. An empty leaseName writes
+	// unconditionally and is for tests and maintenance, not the aggregation loop.
+	SetWatermark(ctx context.Context, source string, watermarkMs int64, leaseName, leaseHolder string) error
+	// AcquireLease takes or renews the named lease for holder for a further ttlMs,
 	// reporting whether it is held. Renewal by the current holder always succeeds;
-	// a lease held by anyone else is only taken once it has expired.
-	AcquireLease(ctx context.Context, name, holder string, nowMs, ttlMs int64) (bool, error)
+	// a lease held by anyone else is only taken once it has expired. Expiry is
+	// measured on the database clock, so no replica's wall clock can shorten or
+	// extend another's lease.
+	AcquireLease(ctx context.Context, name, holder string, ttlMs int64) (bool, error)
 	// ReleaseLease drops the named lease if holder still owns it.
 	ReleaseLease(ctx context.Context, name, holder string) error
 	Close() error

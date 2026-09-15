@@ -123,7 +123,26 @@ var migrations = []migration{
 			);`,
 		},
 	},
+	{
+		version: 3,
+		statements: []string{
+			// The rollup recompute reads a time range across every scope, so none of
+			// the indexes above apply: each is led by a scope column, and the range is
+			// over an expression rather than a raw one. That left the hottest read in
+			// the aggregator a full scan plus sort, repeated per page. These two index
+			// exactly what it filters and orders by.
+			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_occurred
+				ON deployment_fact((COALESCE(ready_ms, started_ms, updated_at_ms)));`,
+			`CREATE INDEX IF NOT EXISTS idx_recovery_fact_started
+				ON recovery_fact(failure_started_ms);`,
+		},
+	},
 }
+
+// migrationAdvisoryLockKey namespaces the PostgreSQL advisory lock that serializes
+// migrations. Arbitrary but fixed, and distinct from any other advisory lock the
+// process takes; advisory locks share one key space per database.
+const migrationAdvisoryLockKey = 6_021_974_118_403_551
 
 const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insights_schema_version (
 	version       INTEGER PRIMARY KEY,
@@ -247,17 +266,39 @@ const setWatermarkQuery = `INSERT INTO delivery_insights_watermark (source, wate
 VALUES (?, ?)
 ON CONFLICT (source) DO UPDATE SET watermark_ms = excluded.watermark_ms;`
 
-// acquireLeaseQuery takes or renews a lease in one statement, so two replicas
+// acquireLeaseQueryFmt takes or renews a lease in one statement, so two replicas
 // racing cannot both believe they hold it. The DO UPDATE fires only when the
 // current lease has expired or is already ours, which makes RowsAffected the
 // answer: 1 acquired or renewed, 0 held by someone else.
-const acquireLeaseQuery = `INSERT INTO delivery_insights_lease (name, holder, expires_ms)
-VALUES (?, ?, ?)
+//
+// Both the expiry it writes and the expiry it compares against come from the
+// database clock (%[1]s), not from the caller's. Expiry is otherwise evaluated by
+// whichever replica happens to ask, against a value written by a different one, so
+// a replica whose clock ran ahead would see a live lease as expired and take it
+// while the incumbent still believed it held it. One clock for every replica
+// removes that, and the database is the one thing they demonstrably share.
+const acquireLeaseQueryFmt = `INSERT INTO delivery_insights_lease (name, holder, expires_ms)
+VALUES (?, ?, %[1]s + ?)
 ON CONFLICT (name) DO UPDATE SET
 	holder = excluded.holder,
 	expires_ms = excluded.expires_ms
-WHERE delivery_insights_lease.expires_ms <= ?
+WHERE delivery_insights_lease.expires_ms <= %[1]s
 	OR delivery_insights_lease.holder = excluded.holder;`
+
+// setWatermarkFencedQueryFmt only advances a watermark while this replica still
+// holds the lease, which is the fence the lease itself cannot provide. Renewal
+// narrows the window in which a stalled holder keeps writing but does not close
+// it, and an unfenced write is not harmless: the resume watermarks encode how far
+// a capped sweep reached, so a zombie replica reporting a completed sweep erases
+// the position the live one stored and the unread remainder is skipped silently.
+//
+// The SELECT carries its own WHERE, which SQLite needs to tell the upsert's ON
+// from a join's ON. RowsAffected is 0 when the lease has moved on.
+const setWatermarkFencedQueryFmt = `INSERT INTO delivery_insights_watermark (source, watermark_ms)
+SELECT ?, ? WHERE EXISTS (
+	SELECT 1 FROM delivery_insights_lease WHERE name = ? AND holder = ?
+)
+ON CONFLICT (source) DO UPDATE SET watermark_ms = excluded.watermark_ms;`
 
 // releaseLeaseQuery only clears a lease we still hold, so a holder that stalled
 // past expiry cannot delete the lease its successor has already taken.
@@ -269,6 +310,11 @@ type sqlStore struct {
 	backend string
 	dsn     string
 	logger  *slog.Logger
+	// nowMsOverride replaces the database clock in lease expiry when non-zero. It
+	// exists so tests in this package can step time without sleeping; nothing
+	// outside the package can set it, so production always reads the one clock every
+	// replica shares.
+	nowMsOverride int64
 }
 
 func newSQLStore(backend, dsn string, logger *slog.Logger) (Store, error) {
@@ -340,6 +386,24 @@ func (s *sqlStore) applyMigrations(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to begin migration %d: %w", m.version, err)
 		}
+		// Serialize this migration across replicas. CREATE TABLE/INDEX IF NOT EXISTS
+		// is not atomic against a concurrent create on PostgreSQL: both sessions see
+		// no relation, both proceed, and the loser fails on a duplicate key in the
+		// catalog rather than doing nothing -- so the replica refuses to start, on
+		// exactly the multi-replica cold start the lease exists to support. Taking the
+		// lock first means the second replica only reaches the DDL once the first has
+		// committed, where IF NOT EXISTS genuinely sees the relation. The lock is held
+		// for the transaction and released by COMMIT or ROLLBACK.
+		if s.backend == BackendPostgreSQL {
+			if _, err := tx.ExecContext(ctx,
+				"SELECT pg_advisory_xact_lock($1);", migrationAdvisoryLockKey); err != nil {
+				if rbErr := tx.Rollback(); rbErr != nil {
+					s.logger.Error("Failed to roll back after migration lock",
+						"version", m.version, "error", rbErr)
+				}
+				return fmt.Errorf("failed to lock for migration %d: %w", m.version, err)
+			}
+		}
 		if err := s.applyMigration(ctx, tx, m); err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
 				s.logger.Error("Failed to roll back delivery insights migration",
@@ -372,6 +436,16 @@ func (s *sqlStore) applyMigration(ctx context.Context, tx *sql.Tx, m migration) 
 		return fmt.Errorf("failed to record migration %d: %w", m.version, err)
 	}
 	return nil
+}
+
+// nowMsExpr is the SQL expression for the database's own clock in epoch
+// milliseconds. Lease expiry is compared against it so that no replica's wall
+// clock can shorten or extend another's lease.
+func (s *sqlStore) nowMsExpr() string {
+	if s.backend == BackendPostgreSQL {
+		return "(EXTRACT(EPOCH FROM now()) * 1000)::bigint"
+	}
+	return "CAST((julianday('now') - 2440587.5) * 86400000 AS BIGINT)"
 }
 
 // rebind converts '?' placeholders to PostgreSQL's positional '$N' form. Statements in
@@ -541,12 +615,6 @@ func (s *sqlStore) QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]Dep
 	args = append(args, q.StartMs, q.EndMs)
 	where := " WHERE " + strings.Join(conditions, " AND ")
 
-	countQuery := s.rebind("SELECT COUNT(*) FROM deployment_fact" + where + ";")
-	var total int
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("failed to count deployment facts: %w", err)
-	}
-
 	base := `SELECT release_uid, org_namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
@@ -565,7 +633,16 @@ FROM deployment_fact` + where +
 		if err != nil {
 			return nil, 0, err
 		}
-		return facts, total, nil
+		// An All read returns every matching row, so its length is the count. Running
+		// COUNT(*) as well would scan the same rows a second time to learn what the
+		// read already established.
+		return facts, len(facts), nil
+	}
+
+	countQuery := s.rebind("SELECT COUNT(*) FROM deployment_fact" + where + ";")
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count deployment facts: %w", err)
 	}
 
 	query := s.rebind(base + " LIMIT " + strconv.Itoa(limit) + ";")
@@ -839,20 +916,43 @@ func (s *sqlStore) Watermark(ctx context.Context, source string) (int64, error) 
 	return watermark, nil
 }
 
-func (s *sqlStore) SetWatermark(ctx context.Context, source string, watermarkMs int64) error {
+// SetWatermark advances a watermark, but only while leaseHolder still holds
+// leaseName. See setWatermarkFencedQueryFmt for why an unfenced write is not safe.
+// Passing an empty lease name writes unconditionally, which is for tests and
+// one-off maintenance -- the aggregator always fences.
+func (s *sqlStore) SetWatermark(
+	ctx context.Context, source string, watermarkMs int64, leaseName, leaseHolder string,
+) error {
 	if strings.TrimSpace(source) == "" {
 		return fmt.Errorf("watermark source is required")
 	}
-	query := s.rebind(setWatermarkQuery)
-	if _, err := s.db.ExecContext(ctx, query, source, watermarkMs); err != nil {
+	if strings.TrimSpace(leaseName) == "" {
+		query := s.rebind(setWatermarkQuery)
+		if _, err := s.db.ExecContext(ctx, query, source, watermarkMs); err != nil {
+			return fmt.Errorf("failed to set delivery insights watermark %q: %w", source, err)
+		}
+		return nil
+	}
+
+	query := s.rebind(setWatermarkFencedQueryFmt)
+	result, err := s.db.ExecContext(ctx, query, source, watermarkMs, leaseName, leaseHolder)
+	if err != nil {
 		return fmt.Errorf("failed to set delivery insights watermark %q: %w", source, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read watermark write result for %q: %w", source, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("%w: watermark %q not advanced", ErrLeaseNotHeld, source)
 	}
 	return nil
 }
 
-// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs.
+// AcquireLease takes or renews the named lease for holder for a further ttlMs,
+// measured on the database clock rather than this process's.
 func (s *sqlStore) AcquireLease(
-	ctx context.Context, name, holder string, nowMs, ttlMs int64,
+	ctx context.Context, name, holder string, ttlMs int64,
 ) (bool, error) {
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(holder) == "" {
 		return false, fmt.Errorf("lease name and holder are required")
@@ -860,8 +960,19 @@ func (s *sqlStore) AcquireLease(
 	if ttlMs <= 0 {
 		return false, fmt.Errorf("lease ttl must be positive, got %d", ttlMs)
 	}
-	query := s.rebind(acquireLeaseQuery)
-	result, err := s.db.ExecContext(ctx, query, name, holder, nowMs+ttlMs, nowMs)
+
+	args := []any{name, holder}
+	nowExpr := s.nowMsExpr()
+	if s.nowMsOverride > 0 {
+		// Tests only; see the field comment.
+		nowExpr = "?"
+		args = append(args, s.nowMsOverride, ttlMs, s.nowMsOverride)
+	} else {
+		args = append(args, ttlMs)
+	}
+
+	query := s.rebind(fmt.Sprintf(acquireLeaseQueryFmt, nowExpr))
+	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return false, fmt.Errorf("failed to acquire delivery insights lease %q: %w", name, err)
 	}
@@ -870,6 +981,23 @@ func (s *sqlStore) AcquireLease(
 		return false, fmt.Errorf("failed to read lease acquisition result for %q: %w", name, err)
 	}
 	return affected > 0, nil
+}
+
+// LeaseHolder reports who currently holds the named lease, or "" if nobody does.
+// It is a read: unlike AcquireLease it does not renew the expiry, which makes it
+// the safe way to answer "which replica is aggregating" from a debug endpoint or a
+// test. It is deliberately not on the Store interface -- the aggregation loop must
+// decide on AcquireLease's answer, not on a separate read it could race.
+func (s *sqlStore) LeaseHolder(ctx context.Context, name string) (string, error) {
+	query := s.rebind(`SELECT holder FROM delivery_insights_lease WHERE name = ?;`)
+	var holder string
+	switch err := s.db.QueryRowContext(ctx, query, name).Scan(&holder); {
+	case errors.Is(err, sql.ErrNoRows):
+		return "", nil
+	case err != nil:
+		return "", fmt.Errorf("failed to read delivery insights lease %q: %w", name, err)
+	}
+	return holder, nil
 }
 
 // ReleaseLease drops the named lease if holder still owns it, so the next tick

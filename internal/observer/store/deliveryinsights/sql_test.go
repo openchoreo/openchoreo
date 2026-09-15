@@ -17,6 +17,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// leaseClock points the store's lease expiry at a simulated clock, so the lease
+// tests can step time instead of sleeping. Production reads the database clock;
+// only this package can set the override.
+func leaseClock(t *testing.T, store Store, nowMs int64) {
+	t.Helper()
+	sqlS, ok := store.(*sqlStore)
+	require.True(t, ok, "lease tests need the SQL store")
+	sqlS.nowMsOverride = nowMs
+}
+
+// acquire sets the simulated clock and then takes or renews the lease, which is
+// what the per-call nowMs argument used to do before expiry moved to the database
+// clock.
+func acquire(t *testing.T, store Store, holder string, nowMs, ttlMs int64) (bool, error) {
+	t.Helper()
+	leaseClock(t, store, nowMs)
+	return store.AcquireLease(context.Background(), "dora-aggregation", holder, ttlMs)
+}
+
 func newTestStore(t *testing.T) Store {
 	t.Helper()
 
@@ -420,9 +439,9 @@ func TestWatermark(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), wm, "missing watermark must read as zero")
 
-	require.NoError(t, store.SetWatermark(ctx, "events", 1_000))
-	require.NoError(t, store.SetWatermark(ctx, "events", 2_000))
-	require.NoError(t, store.SetWatermark(ctx, "incidents", 500))
+	require.NoError(t, store.SetWatermark(ctx, "events", 1_000, "", ""))
+	require.NoError(t, store.SetWatermark(ctx, "events", 2_000, "", ""))
+	require.NoError(t, store.SetWatermark(ctx, "incidents", 500, "", ""))
 
 	wm, err = store.Watermark(ctx, "events")
 	require.NoError(t, err)
@@ -847,67 +866,67 @@ func TestAggregationLeaseIsExclusive(t *testing.T) {
 
 	t.Run("first caller takes it, second is refused", func(t *testing.T) {
 		store := newTestStore(t)
-		got, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		got, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "an unheld lease must be grantable")
 
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err = acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "a lease held by another replica must not be grantable")
 	})
 
 	t.Run("the holder renews rather than locking itself out", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
-		got, err := store.AcquireLease(ctx, lease, "replica-a", now+ttl/2, ttl)
+		got, err := acquire(t, store, "replica-a", now+ttl/2, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "the current holder must be able to renew")
 
 		// The renewal has to have moved the expiry, or the holder would lose the
 		// lease mid-run at the original deadline.
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now+ttl, ttl)
+		got, err = acquire(t, store, "replica-b", now+ttl, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "renewal must extend the expiry, not leave it in place")
 	})
 
 	t.Run("an expired lease is taken over", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
-		got, err := store.AcquireLease(ctx, lease, "replica-b", now+ttl-1, ttl)
+		got, err := acquire(t, store, "replica-b", now+ttl-1, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "the lease must hold right up to its expiry")
 
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now+ttl, ttl)
+		got, err = acquire(t, store, "replica-b", now+ttl, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "a holder that died must not block aggregation forever")
 	})
 
 	t.Run("release hands over immediately, and only by the owner", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
 		// A stalled predecessor must not be able to delete its successor's lease.
 		require.NoError(t, store.ReleaseLease(ctx, lease, "replica-b"))
-		got, err := store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err := acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "releasing a lease owned by someone else must be a no-op")
 
 		require.NoError(t, store.ReleaseLease(ctx, lease, "replica-a"))
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err = acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "a released lease must be available before its TTL expires")
 	})
 
 	t.Run("rejects an unusable lease request", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "", now, ttl)
+		_, err := acquire(t, store, "", now, ttl)
 		require.Error(t, err, "an empty holder would make every replica look like the same one")
-		_, err = store.AcquireLease(ctx, lease, "replica-a", now, 0)
+		_, err = acquire(t, store, "replica-a", now, 0)
 		require.Error(t, err, "a zero TTL would expire on arrival")
 	})
 }

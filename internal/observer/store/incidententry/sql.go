@@ -20,9 +20,14 @@ import (
 
 const (
 	initializeTimeout = 30 * time.Second
-	maxQueryLimit     = 10000
 	sortOrderDesc     = "DESC"
 )
+
+// MaxQueryLimit is the largest page QueryIncidentEntries will return. A larger
+// requested limit is silently clamped to it, so a paging caller has to size its
+// pages by this value: a page size above the cap never comes back full, and a
+// caller that treats a short page as "window exhausted" would stop after one.
+const MaxQueryLimit = 10000
 
 type sqlStore struct {
 	db      *sql.DB
@@ -351,7 +356,7 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	}
 
 	limitPh := nextPlaceholder()
-	limit := maxQueryLimit
+	limit := MaxQueryLimit
 	if params.Limit > 0 && params.Limit < limit {
 		limit = params.Limit
 	}
