@@ -120,6 +120,10 @@ git push -f origin feature-branch
 
 ## Before Opening a PR
 
+Before opening a pull request, we kindly ask that the issue you are addressing is **assigned to you** — this way, no
+two contributors accidentally spend time on the same thing. If you would like to know more about how issue
+assignment works, the [Contribution Process Guide](contribution-process.md) walks you through it.
+
 Before opening a pull request, make sure the following pass locally:
 
 ```sh

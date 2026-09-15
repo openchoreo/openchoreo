@@ -6,6 +6,7 @@ Welcome! We're excited that you're interested in contributing to OpenChoreo. Whe
 
 Before you start contributing, check out our guidelines:
 
+- **[Contribution Process](./contribution-process.md)** – Understand how to find and claim issues, how issue assignment works, and the guidelines for pull requests.
 - **[Contribution Guide](./contribute.md)** – Learn how to setup the development environment, make changes, and submit pull requests.
 - **[GitHub Workflow](./github_workflow.md)** – Understand our GitHub workflow for submitting pull requests.
 - **[AI Policy](./AI-POLICY.md)** – Expectations for using AI tools (Copilot, Claude, ChatGPT, and similar) when contributing.
