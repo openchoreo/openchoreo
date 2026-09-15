@@ -64,6 +64,10 @@ data:
 
     audit:
       enabled: {{ .Values.openchoreoApi.config.audit.enabled }}
+      observability_plane_ref:
+        kind: {{ .Values.openchoreoApi.config.audit.observabilityPlaneRef.kind | quote }}
+        name: {{ .Values.openchoreoApi.config.audit.observabilityPlaneRef.name | quote }}
+        namespace: {{ .Values.openchoreoApi.config.audit.observabilityPlaneRef.namespace | quote }}
       defaults:
         {{- toYaml .Values.openchoreoApi.config.audit.defaults | nindent 8 }}
       policies:

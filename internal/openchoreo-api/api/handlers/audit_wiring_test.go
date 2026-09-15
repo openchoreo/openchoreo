@@ -400,7 +400,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 		Logger:         logger,
 		AuthMiddleware: rejectingAuth,
 		AuditEmitter:   emitter,
-		AuditEnabled:   auditCfg.Enabled,
+		AuditEnabled:   true,
 	})
 	require.NoError(t, err)
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{BaseRouter: mux, Middlewares: middlewares})
