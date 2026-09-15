@@ -464,6 +464,16 @@ func assertDeployableBuildSpec(spec buildSpec) {
 		framework.AssertWorkflowRunSucceeded(g, kubeContext, cpNs, runName)
 	}, buildTimeout, 10*time.Second).Should(Succeed())
 
+	By("declared results are recorded on the WorkflowRun")
+	// Every shipped builder declares image and git-revision. Both were already
+	// produced as Argo step outputs before results existed; this asserts the
+	// controller now surfaces them on the WorkflowRun, which is what lets a
+	// consumer read them without pod logs or the Argo resource.
+	Eventually(func(g Gomega) {
+		framework.AssertWorkflowRunResult(g, kubeContext, cpNs, runName, "image")
+		framework.AssertWorkflowRunResult(g, kubeContext, cpNs, runName, "git-revision")
+	}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
 	By("ComponentRelease appears for the component")
 	Eventually(func(g Gomega) {
 		framework.AssertComponentReleasePresent(g, kubeContext, cpNs, spec.component)

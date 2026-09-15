@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -50,6 +51,19 @@ type Reconciler struct {
 	// pipeline at construction; this reconciler also applies it directly around the
 	// externalRef name evaluations, which run on the template engine, not the pipeline.
 	RenderTimeout time.Duration
+
+	// ResultLimits bounds what one run may write into status.results. Zero fields select
+	// the built-in defaults.
+	ResultLimits ResultLimits
+
+	// ResultEngine evaluates result expressions. It is built on first use from
+	// CELCostLimit; tests may inject one.
+	ResultEngine *template.Engine
+
+	// Recorder reports result extraction problems against the WorkflowRun. Extraction
+	// failures are never reconcile errors, so an Event is the only place an author learns
+	// that a result they declared did not resolve.
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -193,7 +207,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}, runResource)
 
 		if err == nil {
-			return r.syncWorkflowRunStatus(workflowRun, runResource), nil
+			return r.syncWorkflowRunStatus(ctx, workflowRun, workflow, runResource), nil
 		} else if !errors.IsNotFound(err) {
 			logger.Error(err, "failed to get run resource",
 				"runName", workflowRun.Status.RunReference.Name,
@@ -321,7 +335,9 @@ func (r *Reconciler) ensureRunResource(
 }
 
 func (r *Reconciler) syncWorkflowRunStatus(
+	ctx context.Context,
 	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	workflow *openchoreodevv1alpha1.Workflow,
 	runResource *argoproj.Workflow,
 ) ctrl.Result {
 	// Extract and update tasks from argo workflow nodes
@@ -333,14 +349,36 @@ func (r *Reconciler) syncWorkflowRunStatus(
 		setWorkflowRunningCondition(workflowRun)
 		return ctrl.Result{RequeueAfter: 20 * time.Second}
 	case argoproj.WorkflowSucceeded:
+		r.recordResults(ctx, workflowRun, workflow, runResource)
 		setWorkflowSucceededCondition(workflowRun)
 		return ctrl.Result{Requeue: true}
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
+		// A failed run still records its results. A test step that ran and reported 40%
+		// coverage before the build failed is exactly the case the coverage work exists
+		// for, and discarding it would leave the operator back in the pod logs.
+		r.recordResults(ctx, workflowRun, workflow, runResource)
 		setWorkflowFailedCondition(workflowRun)
 		return ctrl.Result{}
 	default:
 		return ctrl.Result{Requeue: true}
 	}
+}
+
+// recordResults resolves the workflow's declared results against the finished run and
+// writes them to status. This is the only pass that gets the chance: the reconcile returns
+// early once the run is marked complete, so results are resolved in the same pass that sets
+// the terminal condition, and the deferred status update persists both together.
+func (r *Reconciler) recordResults(
+	ctx context.Context,
+	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	workflow *openchoreodevv1alpha1.Workflow,
+	runResource *argoproj.Workflow,
+) {
+	if workflow == nil || len(workflow.Spec.Results) == 0 {
+		return
+	}
+	workflowRun.Status.Results = r.resolveResults(
+		ctx, workflowRun, workflow, workflow.Spec.Results, newArgoResultExtractor(runResource))
 }
 
 func (r *Reconciler) applyRenderedRunResource(
@@ -488,11 +526,19 @@ func (r *Reconciler) getWorkflowPlaneClient(workflowPlaneResult *controller.Work
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("workflowrun-controller")
+	}
 	if r.Pipeline == nil {
 		r.Pipeline = workflowpipeline.NewPipeline(
 			workflowpipeline.WithCostLimit(r.CELCostLimit),
 			workflowpipeline.WithRenderTimeout(r.RenderTimeout),
 		)
+	}
+	if r.ResultEngine == nil {
+		// Built once here rather than on first use: reconciles run concurrently, so a lazy
+		// assignment to this field would race.
+		r.ResultEngine = template.NewEngineWithOptions(template.WithCostLimit(r.CELCostLimit))
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -644,20 +690,23 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 	// Collect Pod nodes with their order index
 	tasksWithOrder := make([]taskWithOrder, 0, len(nodes))
 
+	// A retried step keeps every attempt as a Pod node. Listing all of them would report a
+	// step that eventually succeeded as also having failed, and would put tasks in status
+	// that the result extractor - which resolves a retry to its final attempt - does not
+	// know about. Both sides drop the same superseded attempts.
+	superseded := supersededAttempts(nodes)
+	retryNames := retryAttemptNames(nodes)
+
 	for _, node := range nodes {
 		// Only consider Pod nodes - these are the actual step executions
-		if node.Type != argoproj.NodeTypePod {
+		if node.Type != argoproj.NodeTypePod || superseded[node.ID] {
 			continue
 		}
 
 		// Extract order from node name (e.g., "workflow-name[0].step-name" -> 0)
 		order := extractArgoStepOrderFromNodeName(node.Name)
 
-		// Extract task name: prefer DisplayName, fallback to parsing node name
-		taskName := node.DisplayName
-		if taskName == "" {
-			taskName = extractTaskNameFromArgoNodeName(node.Name)
-		}
+		taskName := argoTaskNameFor(node, retryNames)
 
 		task := openchoreodevv1alpha1.WorkflowTask{
 			Name:    taskName,
@@ -727,6 +776,27 @@ func extractArgoStepOrderFromNodeName(nodeName string) int {
 	}
 
 	return order
+}
+
+// argoTaskName is the single place an Argo node is turned into a task name. Both the task
+// list in status and the result extractor go through it, so a task an operator can see in
+// status.tasks[].name is always nameable from results[].valueFrom.taskResult.task. Changing
+// the rule here changes both at once, which is the point.
+// argoTaskNameFor resolves a node to the task name status and results both use. A retry
+// attempt is named after its Retry parent, so a retried step appears under the name an
+// author actually writes in a declaration rather than "<step>(N)".
+func argoTaskNameFor(node argoproj.NodeStatus, retryNames map[string]string) string {
+	if name, ok := retryNames[node.ID]; ok {
+		return name
+	}
+	return argoTaskName(node)
+}
+
+func argoTaskName(node argoproj.NodeStatus) string {
+	if node.DisplayName != "" {
+		return node.DisplayName
+	}
+	return extractTaskNameFromArgoNodeName(node.Name)
 }
 
 // extractTaskNameFromArgoNodeName extracts the task name from an Argo node name.
