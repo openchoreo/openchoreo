@@ -13,7 +13,7 @@ import (
 )
 
 // captureHandler is a tiny http.Handler that records the request context it
-// observed, so tests can assert that withSessionQueryParams populated it
+// observed, so tests can assert that withRequestQueryParams populated it
 // correctly.
 type captureHandler struct {
 	requestedToolsets map[tools.ToolsetType]bool
@@ -27,7 +27,7 @@ func (h *captureHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 	h.filterByAuthz, h.hasFilter = tools.FilterByAuthzFromContext(r.Context())
 }
 
-func TestWithSessionQueryParamsParsesToolsets(t *testing.T) {
+func TestWithRequestQueryParamsParsesToolsets(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -65,7 +65,7 @@ func TestWithSessionQueryParamsParsesToolsets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cap := &captureHandler{}
-			h := withSessionQueryParams(cap)
+			h := withRequestQueryParams(cap)
 
 			req := httptest.NewRequest(http.MethodPost, tt.url, http.NoBody)
 			h.ServeHTTP(httptest.NewRecorder(), req)
@@ -80,7 +80,7 @@ func TestWithSessionQueryParamsParsesToolsets(t *testing.T) {
 	}
 }
 
-func TestWithSessionQueryParamsAbsentToolsets(t *testing.T) {
+func TestWithRequestQueryParamsAbsentToolsets(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -93,7 +93,7 @@ func TestWithSessionQueryParamsAbsentToolsets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cap := &captureHandler{}
-			h := withSessionQueryParams(cap)
+			h := withRequestQueryParams(cap)
 			req := httptest.NewRequest(http.MethodPost, tt.url, http.NoBody)
 			h.ServeHTTP(httptest.NewRecorder(), req)
 			if cap.hasRequested {
@@ -103,7 +103,7 @@ func TestWithSessionQueryParamsAbsentToolsets(t *testing.T) {
 	}
 }
 
-func TestWithSessionQueryParamsParsesFilterByAuthz(t *testing.T) {
+func TestWithRequestQueryParamsParsesFilterByAuthz(t *testing.T) {
 	tests := []struct {
 		name      string
 		url       string
@@ -122,7 +122,7 @@ func TestWithSessionQueryParamsParsesFilterByAuthz(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cap := &captureHandler{}
-			h := withSessionQueryParams(cap)
+			h := withRequestQueryParams(cap)
 			req := httptest.NewRequest(http.MethodPost, tt.url, http.NoBody)
 			h.ServeHTTP(httptest.NewRecorder(), req)
 			if cap.hasFilter != tt.wantSet {
@@ -135,9 +135,9 @@ func TestWithSessionQueryParamsParsesFilterByAuthz(t *testing.T) {
 	}
 }
 
-func TestWithSessionQueryParamsCombined(t *testing.T) {
+func TestWithRequestQueryParamsCombined(t *testing.T) {
 	cap := &captureHandler{}
-	h := withSessionQueryParams(cap)
+	h := withRequestQueryParams(cap)
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/mcp?toolsets=namespace,component,pe&filterByAuthz=false",

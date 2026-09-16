@@ -271,12 +271,16 @@ func TestMCPAuditWiring(t *testing.T) {
 		var buf bytes.Buffer
 		session, _ := setup(t, &buf)
 
-		_, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
+		result, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
 			Name:      "query_audit_logs",
 			Arguments: map[string]any{"start_time": auditStart, "end_time": auditEnd, "limit": 5000},
 		})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "limit", "the error should name the offending argument")
+		require.NoError(t, err)
+		require.True(t, result.IsError)
+		require.NotEmpty(t, result.Content)
+		text, ok := result.Content[0].(*mcpsdk.TextContent)
+		require.True(t, ok, "Expected TextContent")
+		assert.Contains(t, text.Text, "limit", "the error should name the offending argument")
 
 		records := auditRecordsFrom(t, &buf)
 		require.Len(t, records, 1)

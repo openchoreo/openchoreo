@@ -36,7 +36,7 @@ func NewHTTPServer(handler *MCPHandler, auditOpts mcpaudit.MiddlewareOptions) (h
 
 	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
 		return server
-	}, nil), nil
+	}, &mcpsdk.StreamableHTTPOptions{Stateless: true}), nil
 }
 
 // NewServer creates the MCP server with every observer tool registered, and no
