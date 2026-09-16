@@ -7,10 +7,12 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from src.agent.agent import CHAT_AGENT, RCA_AGENT, REMED_AGENT
 from src.api import agent_router, report_router
 from src.auth import auth as _auth
 from src.auth import check_oauth2_connection, get_jwt_validator, get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
+from src.extensions import read_extensions
 from src.config import settings
 from src.logging_config import setup_logging
 from src.mcp_server import drain_background_tasks, make_mcp_app, mcp_server
@@ -70,6 +72,15 @@ async def lifespan(_app: FastAPI):
     except Exception as e:
         logger.error("MCP initialization failed: %s", e)
         raise RuntimeError(f"MCP initialization failed: {e}") from e
+
+    # Reported here so a malformed directory is visible at boot rather than
+    # first surfacing as a failed analysis. Unlike the checks above this does
+    # not abort startup: the agent is fully usable without extensions, and
+    # refusing to serve because an optional file is wrong would be worse than
+    # serving without it.
+    logger.info("Loading extensions...")
+    for agent in (RCA_AGENT, REMED_AGENT, CHAT_AGENT):
+        read_extensions(agent.name)
 
     # Enter the FastMCP streamable-HTTP session manager so the /mcp sub-app
     # can serve requests. Without this, requests to /mcp 500 with

@@ -23,6 +23,11 @@ class TOOLS:
     QUERY_WORKFLOW_LOGS = Tool(
         "query_workflow_logs", server=OBSERVABILITY, active_form="Fetching workflow logs..."
     )
+    QUERY_COMPONENT_EVENTS = Tool(
+        "query_component_events",
+        server=OBSERVABILITY,
+        active_form="Checking component events...",
+    )
     QUERY_RESOURCE_METRICS = Tool(
         "query_resource_metrics",
         server=OBSERVABILITY,

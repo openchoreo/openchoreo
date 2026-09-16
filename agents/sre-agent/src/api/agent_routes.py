@@ -30,7 +30,7 @@ class AlertRuleCondition(BaseModel):
     window: str
     interval: str
     operator: str
-    threshold: int
+    threshold: float
 
 
 class AlertRuleInfo(BaseModel):
@@ -43,7 +43,7 @@ class AlertRuleInfo(BaseModel):
 
 class AlertContext(BaseModel):
     id: str
-    value: int | str
+    value: int | float | str
     timestamp: str
     rule: AlertRuleInfo
 

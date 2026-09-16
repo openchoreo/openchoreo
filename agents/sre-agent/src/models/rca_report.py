@@ -40,7 +40,7 @@ class AlertCondition(BaseModel):
     window: str = Field(..., description="Time window for the condition")
     interval: str = Field(..., description="Evaluation interval")
     operator: str = Field(..., description="Comparison operator")
-    threshold: int = Field(..., description="Threshold value that was exceeded")
+    threshold: float = Field(..., description="Threshold value that was exceeded")
 
 
 class ReportAlertContext(BaseModel):

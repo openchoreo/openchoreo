@@ -35,6 +35,8 @@ class Settings(CommonSettings):
     sql_backend_uri: str = ""
 
 
+    extensions_dir: str = "/etc/openchoreo/sre-agent"
+
     max_concurrent_analyses: int = 5
     analysis_timeout_seconds: int = 1500
     remed_agent: bool = False

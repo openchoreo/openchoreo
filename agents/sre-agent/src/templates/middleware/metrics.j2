@@ -45,29 +45,29 @@ Time Range: {{ stats.cpuUsage.start_time }} to {{ stats.cpuUsage.end_time }}
 
 {% if stats.memoryUsage -%}
 **Memory Usage:**
-- Mean: {{ "%.0f"|format(stats.memoryUsage.mean) }} bytes ({{ "%.2f"|format(stats.memoryUsage.mean / 1024 / 1024) }} MB)
-- Median: {{ "%.0f"|format(stats.memoryUsage.median) }} bytes ({{ "%.2f"|format(stats.memoryUsage.median / 1024 / 1024) }} MB)
-- Range: {{ "%.0f"|format(stats.memoryUsage.min) }} - {{ "%.0f"|format(stats.memoryUsage.max) }} bytes ({{ "%.2f"|format(stats.memoryUsage.min / 1024 / 1024) }} - {{ "%.2f"|format(stats.memoryUsage.max / 1024 / 1024) }} MB)
+- Mean: {{ "%.0f"|format(stats.memoryUsage.mean) }} bytes ({{ "%.2f"|format(stats.memoryUsage.mean / 1024 / 1024) }} MiB)
+- Median: {{ "%.0f"|format(stats.memoryUsage.median) }} bytes ({{ "%.2f"|format(stats.memoryUsage.median / 1024 / 1024) }} MiB)
+- Range: {{ "%.0f"|format(stats.memoryUsage.min) }} - {{ "%.0f"|format(stats.memoryUsage.max) }} bytes ({{ "%.2f"|format(stats.memoryUsage.min / 1024 / 1024) }} - {{ "%.2f"|format(stats.memoryUsage.max / 1024 / 1024) }} MiB)
 - Std Dev: {{ "%.0f"|format(stats.memoryUsage.std_dev) }} bytes, CV: {{ "%.2f"|format(stats.memoryUsage.coefficient_of_variation) }}
-- P90: {{ "%.2f"|format(stats.memoryUsage.p90 / 1024 / 1024) }} MB, P95: {{ "%.2f"|format(stats.memoryUsage.p95 / 1024 / 1024) }} MB
+- P90: {{ "%.2f"|format(stats.memoryUsage.p90 / 1024 / 1024) }} MiB, P95: {{ "%.2f"|format(stats.memoryUsage.p95 / 1024 / 1024) }} MiB
 
 {% if anomalies.memoryUsage.spike_count > 0 -%}
 - **Anomalies Detected:** {{ anomalies.memoryUsage.spike_count }} spike(s)
   - Max spike magnitude: {{ "%.2f"|format(anomalies.memoryUsage.max_spike_magnitude) }} σ
   {% if anomalies.memoryUsage.largest_drop < -1000000 -%}
-  - Largest drop: {{ "%.2f"|format(anomalies.memoryUsage.largest_drop / 1024 / 1024) }} MB
+  - Largest drop: {{ "%.2f"|format(anomalies.memoryUsage.largest_drop / 1024 / 1024) }} MiB
   {% endif -%}
 {% endif -%}
 {% endif -%}
 
 {% if config_values.memoryRequests -%}
 **Memory Requests (configured):**
-- Value: {{ "%.0f"|format(config_values.memoryRequests) }} bytes ({{ "%.2f"|format(config_values.memoryRequests / 1024 / 1024) }} MB)
+- Value: {{ "%.0f"|format(config_values.memoryRequests) }} bytes ({{ "%.2f"|format(config_values.memoryRequests / 1024 / 1024) }} MiB)
 {% endif -%}
 
 {% if config_values.memoryLimits -%}
 **Memory Limits (configured):**
-- Value: {{ "%.0f"|format(config_values.memoryLimits) }} bytes ({{ "%.2f"|format(config_values.memoryLimits / 1024 / 1024) }} MB)
+- Value: {{ "%.0f"|format(config_values.memoryLimits) }} bytes ({{ "%.2f"|format(config_values.memoryLimits / 1024 / 1024) }} MiB)
 {% endif -%}
 
 {% if memory_pressure -%}

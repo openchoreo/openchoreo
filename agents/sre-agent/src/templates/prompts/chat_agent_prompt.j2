@@ -69,7 +69,12 @@ The user is viewing the report below under the project <proj:{{ scope.project }}
 
 Scope for your interactions: namespace={{ scope.namespace }}, environment={{ scope.environment }}
 
-{% if report_context -%}
+{% if external_tools %}{{ "\n" }}### Additional Tools
+{% for tool in external_tools %}- `{{ tool.name }}`: {{ tool.description }}{{ "\n" }}{% endfor %}{% endif %}{% if skills %}{{ "\n" }}### Additional Skills
+Call `load_skill` with a skill's name to load its full instructions, then follow them.
+{% for skill in skills %}- `{{ skill.name }}`: {{ skill.description }}{{ "\n" }}{% endfor %}{% endif %}{% if extra_context %}{{ "\n" }}## Additional Context
+These are additional instructions for this deployment. They are important, so follow them.
+{{ "\n" }}{{ extra_context }}{{ "\n" }}{% endif %}{% if report_context -%}
 ### Report Details
 
 ```json
