@@ -1009,7 +1009,7 @@ var allToolSpecs = []toolTestSpec{
 		optionalParams: []string{
 			"actor_id", "actor_type", "actor_issuer", "actor_session_id", "actor_entitlements",
 			"resource_type", "resource_namespace", "resource_environment", "resource_project",
-			"resource_component", "resource_name",
+			"resource_component", "resource_resource", "resource_name",
 			"action", "category", "result", "producer", "surface", "operation_id", "request_id",
 			"event_id", "source_ip", "user_agent",
 			"search_phrase", "limit", "sort_order", "include_timeline", "timeline_interval",
@@ -1027,6 +1027,7 @@ var allToolSpecs = []toolTestSpec{
 			"resource_environment": []string{"test-org/development"},
 			"resource_project":     []string{testProject},
 			"resource_component":   []string{testComponent},
+			"resource_resource":    []string{"orders-db"},
 			"resource_name":        []string{"my-project"},
 			"action":               []string{"delete_component"},
 			"category":             []string{"management"},
@@ -1060,6 +1061,7 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, []string{"test-org/development"}, req.Resource.Environments)
 			assert.Equal(t, []string{testProject}, req.Resource.Projects)
 			assert.Equal(t, []string{testComponent}, req.Resource.Components)
+			assert.Equal(t, []string{"orders-db"}, req.Resource.Resources)
 			assert.Equal(t, []string{"my-project"}, req.Resource.Names)
 			assert.Equal(t, []string{"delete_component"}, req.Actions)
 			assert.Equal(t, []string{"management"}, req.Categories)

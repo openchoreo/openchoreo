@@ -151,6 +151,7 @@ func toAuditLogsParams(req *types.AuditLogsQueryRequest) (observability.AuditLog
 			Environments: req.Resource.Environments,
 			Projects:     req.Resource.Projects,
 			Components:   req.Resource.Components,
+			Resources:    req.Resource.Resources,
 			Names:        req.Resource.Names,
 		},
 		Actions:          req.Actions,

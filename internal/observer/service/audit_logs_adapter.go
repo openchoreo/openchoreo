@@ -142,6 +142,7 @@ func auditLogsRequestBody(params observability.AuditLogsParams) logsadapterclien
 	setIfNotEmpty(&resource.Environment, params.Resource.Environments)
 	setIfNotEmpty(&resource.Project, params.Resource.Projects)
 	setIfNotEmpty(&resource.Component, params.Resource.Components)
+	setIfNotEmpty(&resource.Resource, params.Resource.Resources)
 	setIfNotEmpty(&resource.Name, params.Resource.Names)
 	if resource != (logsadapterclientgen.AuditLogsResourceFilter{}) {
 		body.Resource = &resource

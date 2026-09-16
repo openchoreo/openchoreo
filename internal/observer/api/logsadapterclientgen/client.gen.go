@@ -80,6 +80,7 @@ const (
 	ResourceName        AuditLogFilterValuesRequestFilter = "resource.name"
 	ResourceNamespace   AuditLogFilterValuesRequestFilter = "resource.namespace"
 	ResourceProject     AuditLogFilterValuesRequestFilter = "resource.project"
+	ResourceResource    AuditLogFilterValuesRequestFilter = "resource.resource"
 	ResourceType        AuditLogFilterValuesRequestFilter = "resource.type"
 	Result              AuditLogFilterValuesRequestFilter = "result"
 	SourceIp            AuditLogFilterValuesRequestFilter = "source_ip"
@@ -377,8 +378,7 @@ type AuditLogFilterValuesRequest struct {
 	// scope before it reaches this adapter, so an adapter must not treat them as a
 	// permission.
 	//
-	// `resource.uid` and `resource.resource` have no filter; see the observer spec
-	// for why.
+	// `resource.uid` has no filter; see the observer spec for why.
 	Query AuditLogsQueryRequest `json:"query"`
 
 	// ValueSearch Return only values containing this text, case-insensitively. Narrows the
@@ -586,8 +586,7 @@ type AuditLogsActorFilter struct {
 // scope before it reaches this adapter, so an adapter must not treat them as a
 // permission.
 //
-// `resource.uid` and `resource.resource` have no filter; see the observer spec
-// for why.
+// `resource.uid` has no filter; see the observer spec for why.
 type AuditLogsQueryRequest struct {
 	// Action Semantic action names, e.g. `create_project`
 	Action *[]string `json:"action,omitempty"`
@@ -696,6 +695,7 @@ type AuditLogsResourceFilter struct {
 	// Namespace OpenChoreo namespaces
 	Namespace *[]string `json:"namespace,omitempty"`
 	Project   *[]string `json:"project,omitempty"`
+	Resource  *[]string `json:"resource,omitempty"`
 
 	// Type Resource kinds
 	Type *[]string `json:"type,omitempty"`

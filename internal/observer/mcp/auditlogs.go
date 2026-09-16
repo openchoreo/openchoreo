@@ -37,6 +37,7 @@ type AuditLogsQueryArgs struct {
 	ResourceEnvironments []string `json:"resource_environment"`
 	ResourceProjects     []string `json:"resource_project"`
 	ResourceComponents   []string `json:"resource_component"`
+	ResourceResources    []string `json:"resource_resource"`
 	ResourceNames        []string `json:"resource_name"`
 
 	Actions      []string `json:"action"`
@@ -76,6 +77,7 @@ func (h *MCPHandler) QueryAuditLogs(ctx context.Context, args AuditLogsQueryArgs
 			Environments: args.ResourceEnvironments,
 			Projects:     args.ResourceProjects,
 			Components:   args.ResourceComponents,
+			Resources:    args.ResourceResources,
 			Names:        args.ResourceNames,
 		},
 		Actions:          args.Actions,

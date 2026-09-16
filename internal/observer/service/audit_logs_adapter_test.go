@@ -40,6 +40,7 @@ func fullAuditLogsParams() observability.AuditLogsParams {
 			Environments: []string{"default/production"},
 			Projects:     []string{"payments"},
 			Components:   []string{"checkout"},
+			Resources:    []string{"orders-db"},
 			Names:        []string{"checkout"},
 		},
 		Actions:          []string{"create_project"},
@@ -102,6 +103,7 @@ func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, []any{"default/production"}, resource["environment"])
 	assert.Equal(t, []any{"payments"}, resource["project"])
 	assert.Equal(t, []any{"checkout"}, resource["component"])
+	assert.Equal(t, []any{"orders-db"}, resource["resource"])
 	assert.Equal(t, []any{"checkout"}, resource["name"])
 
 	assert.Equal(t, []any{"create_project"}, gotBody["action"])

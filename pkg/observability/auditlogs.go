@@ -30,6 +30,7 @@ type AuditLogsResourceFilter struct {
 	Environments []string `json:"environments"`
 	Projects     []string `json:"projects"`
 	Components   []string `json:"components"`
+	Resources    []string `json:"resources"`
 	Names        []string `json:"names"`
 }
 
