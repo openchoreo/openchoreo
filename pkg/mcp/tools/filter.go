@@ -110,9 +110,8 @@ func filterListTools(
 
 	requested, hasRequested := RequestedToolsetsFromContext(ctx)
 	authzActive := authzFilteringActive(ctx, pdp)
-	includeDeprecated := IncludeDeprecatedToolsFromContext(ctx)
 
-	if !hasRequested && !authzActive && includeDeprecated {
+	if !hasRequested && !authzActive {
 		// Nothing to filter on — return the result as-is.
 		return listResult, nil
 	}
@@ -138,9 +137,6 @@ func filterListTools(
 
 	filtered := listResult.Tools[:0:0]
 	for _, tool := range listResult.Tools {
-		if !includeDeprecated && IsDeprecatedTool(tool.Name) {
-			continue
-		}
 		if hasRequested && !toolInRequestedToolsets(tool.Name, toolToToolsets, requested) {
 			continue
 		}

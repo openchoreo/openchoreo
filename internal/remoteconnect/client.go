@@ -21,12 +21,19 @@ import (
 type TunnelClient struct {
 	conn    net.Conn
 	session *yamux.Session
+	// capability supplies the capability to authorize each stream with. A function, so a
+	// renewal takes effect on the next stream without touching this client.
+	capability func() string
 }
 
 // NewTunnelClient runs the Hello/HelloResult handshake over an already-established
 // connection (TLS in production; plain in tests) and layers a yamux client session.
-func NewTunnelClient(conn net.Conn, capability string) (*TunnelClient, error) {
-	if err := WriteMessage(conn, Hello{ProtocolVersion: ProtocolVersion, Capability: capability}); err != nil {
+// capability is called once per stream opened on this tunnel; it must not be nil.
+func NewTunnelClient(conn net.Conn, capability func() string) (*TunnelClient, error) {
+	if capability == nil {
+		return nil, errors.New("remoteconnect: capability provider is required")
+	}
+	if err := WriteMessage(conn, Hello{ProtocolVersion: ProtocolVersion}); err != nil {
 		return nil, fmt.Errorf("remoteconnect: send hello: %w", err)
 	}
 	var res HelloResult
@@ -43,7 +50,7 @@ func NewTunnelClient(conn net.Conn, capability string) (*TunnelClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("remoteconnect: yamux client: %w", err)
 	}
-	return &TunnelClient{conn: conn, session: session}, nil
+	return &TunnelClient{conn: conn, session: session, capability: capability}, nil
 }
 
 // DialTunnel dials the remote-agent endpoint over TLS and constructs a TunnelClient.
@@ -51,7 +58,7 @@ func NewTunnelClient(conn net.Conn, capability string) (*TunnelClient, error) {
 // CA, so occ pins caBundle and verifies against serverName (a fixed SAN baked into
 // the cert, decoupled from the runtime L4 address, which is unknown at cert-generation
 // time). If caBundle is empty, the system roots and endpoint host are used.
-func DialTunnel(ctx context.Context, endpoint, caBundle, serverName, capability string) (*TunnelClient, error) {
+func DialTunnel(ctx context.Context, endpoint, caBundle, serverName string, capability func() string) (*TunnelClient, error) {
 	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	if caBundle != "" {
 		pool := x509.NewCertPool()
@@ -78,11 +85,16 @@ func DialTunnel(ctx context.Context, endpoint, caBundle, serverName, capability 
 // OpenStream opens a multiplexed stream and requests the target identified by key.
 // The returned net.Conn is a transparent byte pipe to the dialed dependency.
 func (c *TunnelClient) OpenStream(key string) (net.Conn, error) {
+	return c.OpenStreamWith(key, c.capability())
+}
+
+// OpenStreamWith is OpenStream authorized by an explicit capability.
+func (c *TunnelClient) OpenStreamWith(key, capability string) (net.Conn, error) {
 	stream, err := c.session.OpenStream()
 	if err != nil {
 		return nil, fmt.Errorf("remoteconnect: open stream: %w", err)
 	}
-	if err := WriteMessage(stream, StreamOpen{Key: key}); err != nil {
+	if err := WriteMessage(stream, StreamOpen{Key: key, Capability: capability}); err != nil {
 		_ = stream.Close()
 		return nil, err
 	}
@@ -115,7 +127,7 @@ func (c *TunnelClient) Fetch(key string) ([]byte, error) {
 	}
 	defer stream.Close()
 
-	if err := WriteMessage(stream, StreamOpen{Key: key}); err != nil {
+	if err := WriteMessage(stream, StreamOpen{Key: key, Capability: c.capability()}); err != nil {
 		return nil, err
 	}
 	var res SecretResult

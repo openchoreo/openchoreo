@@ -40,7 +40,7 @@ func (p *LogsAdapter) GetComponentEvents(
 
 	return &observability.ComponentEventsResult{
 		Events:     toObservabilityEvents(adapterResp.Events),
-		TotalCount: intPtrVal(adapterResp.Total),
+		TotalCount: adapterResp.Total,
 		Took:       intPtrVal(adapterResp.TookMs),
 	}, nil
 }
@@ -67,7 +67,7 @@ func (p *LogsAdapter) GetWorkflowEvents(
 
 	return &observability.WorkflowEventsResult{
 		Events:     toObservabilityEvents(adapterResp.Events),
-		TotalCount: intPtrVal(adapterResp.Total),
+		TotalCount: adapterResp.Total,
 		Took:       intPtrVal(adapterResp.TookMs),
 	}, nil
 }
@@ -83,7 +83,7 @@ func (p *LogsAdapter) queryEvents(
 	adapterReq := logsadapterclientgen.EventsQueryRequest{
 		StartTime:   startTime,
 		EndTime:     endTime,
-		SearchScope: scope,
+		SearchScope: &scope,
 	}
 	if limit > 0 {
 		adapterReq.Limit = &limit

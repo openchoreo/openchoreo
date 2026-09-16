@@ -80,7 +80,7 @@ func main() {
 		bootLogger.Error("Failed to unmarshal configuration", "error", err)
 		os.Exit(1)
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateWithRaw(loader); err != nil {
 		var validationErrs coreconfig.ValidationErrors
 		if errors.As(err, &validationErrs) {
 			for _, e := range validationErrs {
@@ -187,7 +187,8 @@ func main() {
 
 	// Initialize all handler services
 	services := handlerservices.NewServices(
-		k8sClient, runtime.pap, runtime.pdp, planeClientProvider, cfg.SecretManagement, logger, gwClient, webhookProcessor,
+		k8sClient, runtime.pap, runtime.pdp, planeClientProvider, cfg.SecretManagement, logger, gwClient,
+		webhookProcessor, cfg.ResourceTree, cfg.Audit,
 	)
 
 	// Initialize OpenAPI handlers

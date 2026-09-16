@@ -23,11 +23,10 @@ var httpClientWithTimeout = &http.Client{Timeout: mcpCallTimeout}
 
 // MCPClientConfig holds configuration for creating an MCP client session.
 type MCPClientConfig struct {
-	Endpoint               string
-	Token                  string
-	Toolsets               []string
-	FilterByAuthz          *bool
-	IncludeDeprecatedTools *bool
+	Endpoint      string
+	Token         string
+	Toolsets      []string
+	FilterByAuthz *bool
 }
 
 // bearerTransport injects an Authorization header into every outgoing request.
@@ -48,7 +47,7 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // The caller must close the returned session when done.
 func NewMCPSession(ctx context.Context, cfg MCPClientConfig) (*mcp.ClientSession, error) {
 	endpoint := cfg.Endpoint
-	if len(cfg.Toolsets) > 0 || cfg.FilterByAuthz != nil || cfg.IncludeDeprecatedTools != nil {
+	if len(cfg.Toolsets) > 0 || cfg.FilterByAuthz != nil {
 		u, err := url.Parse(endpoint)
 		if err != nil {
 			return nil, fmt.Errorf("invalid MCP endpoint URL: %w", err)
@@ -59,9 +58,6 @@ func NewMCPSession(ctx context.Context, cfg MCPClientConfig) (*mcp.ClientSession
 		}
 		if cfg.FilterByAuthz != nil {
 			q.Set("filterByAuthz", fmt.Sprintf("%t", *cfg.FilterByAuthz))
-		}
-		if cfg.IncludeDeprecatedTools != nil {
-			q.Set("includeDeprecatedTools", fmt.Sprintf("%t", *cfg.IncludeDeprecatedTools))
 		}
 		u.RawQuery = q.Encode()
 		endpoint = u.String()

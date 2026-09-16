@@ -37,6 +37,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -228,6 +229,9 @@ func main() {
 	authzPlatformLogsService := service.NewPlatformLogsServiceWithAuthz(
 		service.NewPlatformLogsService(concreteLogsAdapter, logger.With("component", "platform-logs")),
 		authzClient, logger.With("component", "authz-platform-logs"))
+	authzAuditLogsService := service.NewAuditLogsServiceWithAuthz(
+		service.NewAuditLogsService(concreteLogsAdapter, logger.With("component", "audit-logs")),
+		authzClient, logger.With("component", "authz-audit-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
 		eventsService, authzClient, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
@@ -244,6 +248,7 @@ func main() {
 		healthService,
 		authzLogsService,
 		authzPlatformLogsService,
+		authzAuditLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
@@ -295,17 +300,33 @@ func main() {
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
+		authzPlatformLogsService,
 		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
 		authzFinOpsService,
+		authzAuditLogsService,
 		logger.With("component", "mcp-handler"),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create MCP handler: %v", err)
 	}
-	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
+
+	mcpBindings, err := observeraudit.MCPBindings()
+	if err != nil {
+		logger.Error("Failed to build MCP audit bindings", "error", err)
+		os.Exit(1)
+	}
+	newMCPServer, err := observermcp.NewHTTPServer(newMCPHandler, mcpaudit.MiddlewareOptions{
+		Emitter:  auditEmitter,
+		Bindings: mcpBindings,
+		Enabled:  cfg.Audit.Enabled,
+	})
+	if err != nil {
+		logger.Error("Failed to create MCP server", "error", err)
+		os.Exit(1)
+	}
 
 	// MCP endpoint. Ordering lives in apihandler.MCPMiddlewares, matching the
 	// two generated-route composers — main.go supplies dependencies only.

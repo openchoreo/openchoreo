@@ -52,7 +52,7 @@ func TestDialRemoteAgentTunnelHonoursCancel(t *testing.T) {
 
 	agent := remoteconnect.AgentEndpoint{Endpoint: ln.Addr().String(), ServerName: "agent.remote-connect"}
 	start := time.Now()
-	_, derr := dialRemoteAgentTunnel(ctx, agent, "capability")
+	_, derr := dialRemoteAgentTunnel(ctx, agent, func() string { return "capability" })
 	elapsed := time.Since(start)
 
 	if derr == nil {

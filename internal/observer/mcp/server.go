@@ -6,21 +6,41 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/openchoreo/openchoreo/internal/observer/api/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 )
 
-// NewHTTPServer creates a new MCP HTTP server for the observer API
-func NewHTTPServer(handler *MCPHandler) http.Handler {
+// NewHTTPServer creates a new MCP HTTP server for the observer API.
+//
+// auditOpts.Emitter should be the same *audit.Emitter the REST chain uses and
+// its Bindings should come from observeraudit.MCPBindings(), so one policy and
+// one operation table cover both surfaces.
+//
+// This is the only constructor that installs audit; NewServer registers tools
+// and nothing else. Serving a *mcpsdk.Server built any other way leaves
+// query_audit_logs reading the trail without appending to it.
+func NewHTTPServer(handler *MCPHandler, auditOpts mcpaudit.MiddlewareOptions) (http.Handler, error) {
 	server := NewServer(handler)
+
+	auditMw, err := mcpaudit.NewMiddleware(auditOpts)
+	if err != nil {
+		return nil, fmt.Errorf("create MCP audit middleware: %w", err)
+	}
+	server.AddReceivingMiddleware(auditMw)
 
 	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
 		return server
-	}, &mcpsdk.StreamableHTTPOptions{Stateless: true})
+	}, &mcpsdk.StreamableHTTPOptions{Stateless: true}), nil
 }
 
-// NewServer creates the MCP server with every observer tool registered.
+// NewServer creates the MCP server with every observer tool registered, and no
+// middleware. See NewHTTPServer, which adds audit.
 //
 // Exported so the audit coverage gate can enumerate the registered tools over
 // the protocol rather than trusting a hand-maintained list — the SDK offers no
@@ -122,6 +142,69 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.WorkflowRunName, args.TaskName,
 			args.StartTime, args.EndTime, args.SearchPhrase,
 			args.LogLevels, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool: query_platform_logs
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name: "query_platform_logs",
+		Description: "Query logs from OpenChoreo's own platform components - the control plane " +
+			"(controller-manager, openchoreo-api, cluster-gateway), the data plane agents and gateways, " +
+			"and the workflow and observability plane infrastructure. This is the operator's view of the " +
+			"platform itself, not of user workloads: it is addressed by raw Kubernetes coordinates rather " +
+			"than by project, component and environment, so use query_component_logs for a deployed " +
+			"component's runtime logs. Multi-value filters match any of their values, and different " +
+			"filters must all match. Requires the cluster-scoped 'platformlogs:view' permission.",
+		InputSchema: createSchema(map[string]any{
+			"cluster_instance": arrayProperty(
+				"Clusters the logs were collected from, as named on each cluster's logs collector (e.g. ['cluster1'])"),
+			"kubernetes_namespace": arrayProperty(
+				"Kubernetes namespaces of the pods (e.g. ['openchoreo-control-plane']). " +
+					"This is a Kubernetes namespace, not the OpenChoreo organization namespace other tools take"),
+			"pod_name":       arrayProperty("Pod names (e.g. ['controller-manager-7f58b689b5-pwsb5'])"),
+			"container_name": arrayProperty("Container names within the pods (e.g. ['manager'])"),
+			"labels": stringProperty(
+				"Kubernetes label selector over the pod labels, as 'key=value' pairs joined by commas, " +
+					"where a comma means AND (the syntax 'kubectl -l' accepts). This is how a plane is selected: " +
+					"'openchoreo.dev/plane=controlplane' (or dataplane, workflowplane, observabilityplane), " +
+					"narrowed further with 'openchoreo.dev/plane-id=<planeID>'. Components OpenChoreo does not " +
+					"ship carry no plane label"),
+			"start_time":    stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":      stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"search_phrase": stringProperty("Text to search within log messages"),
+			"log_levels":    arrayProperty("Log levels to filter (e.g., ['ERROR', 'WARN', 'INFO', 'DEBUG']). Default: all levels"),
+			"limit":         limitLogsProperty(),
+			"sort_order":    sortOrderProperty(),
+			"include_sources": enumArrayProperty(
+				"Also return a breakdown of which coordinates produced the matching logs, as the distinct "+
+					"values each named coordinate takes with a count for each, ordered by count descending. "+
+					"Use it to find where a problem is concentrated - include_sources ['pod_name'] with "+
+					"log_levels ['ERROR'] answers which pods are erroring and how much. To get only the "+
+					"breakdown, set limit to 1 so the log entries themselves cost nothing",
+				platformLogSourceFieldNames),
+			"max_sources": maxSourcesProperty(),
+		}, []string{"start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		ClusterInstance     []string `json:"cluster_instance"`
+		KubernetesNamespace []string `json:"kubernetes_namespace"`
+		PodName             []string `json:"pod_name"`
+		ContainerName       []string `json:"container_name"`
+		Labels              string   `json:"labels"`
+		StartTime           string   `json:"start_time"`
+		EndTime             string   `json:"end_time"`
+		SearchPhrase        string   `json:"search_phrase"`
+		LogLevels           []string `json:"log_levels"`
+		Limit               int      `json:"limit"`
+		SortOrder           string   `json:"sort_order"`
+		IncludeSources      []string `json:"include_sources"`
+		MaxSources          int      `json:"max_sources"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.QueryPlatformLogs(ctx,
+			args.ClusterInstance, args.KubernetesNamespace, args.PodName, args.ContainerName,
+			args.Labels, args.StartTime, args.EndTime, args.SearchPhrase,
+			args.LogLevels, args.Limit, args.SortOrder,
+			args.IncludeSources, args.MaxSources,
 		)
 		return handleToolResult(result, err)
 	})
@@ -469,6 +552,92 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		)
 		return handleToolResult(result, err)
 	})
+
+	// Tool: query_audit_logs
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name: "query_audit_logs",
+		Description: "Query OpenChoreo's audit trail: who did what, to which resource, and whether it " +
+			"succeeded. Use it for questions about people and authority - who deleted a component, " +
+			"what one subject did in a single login, what was denied to whom. For application or " +
+			"platform output use query_component_logs or query_platform_logs instead. " +
+			"Filter semantics: values within one filter are OR-ed, separate filters are AND-ed, and an " +
+			"omitted filter constrains nothing - so actor_id ['alice','bob'] with result ['denied'] " +
+			"means (alice OR bob) AND denied. " +
+			"Requires the cluster-scoped 'auditlogs:view' permission, evaluated before any filter is " +
+			"read, so resource_namespace narrows the results but grants no access. Reading the trail " +
+			"is itself audited.",
+		InputSchema: createSchema(map[string]any{
+			"start_time": stringProperty(
+				"Inclusive start of the event window, RFC3339 (e.g. 2026-08-14T16:30:00Z). " +
+					"At most 366 days wide; page a longer investigation a year at a time"),
+			"end_time": stringProperty(
+				"Exclusive end of the event window, RFC3339, strictly after start_time"),
+
+			"actor_id": arrayProperty(
+				"Subject identifiers (e.g. ['alice@example.com']). Unique only within an issuer, so " +
+					"pair with actor_issuer where more than one identity provider is configured"),
+			"actor_type":   arrayProperty("Kinds of subject, e.g. ['user', 'service_account', 'anonymous']"),
+			"actor_issuer": arrayProperty("Token issuers - the namespace an actor_id is unique within"),
+			"actor_session_id": arrayProperty(
+				"Session IDs from the token's 'sid' claim, joining every action taken in one login. " +
+					"Absent for client-credentials tokens, so this selects human activity only"),
+			"actor_entitlements": arrayProperty(
+				"Entitlement values such as a group name (e.g. ['platform-engineer']). Matched across " +
+					"every claim in the entitlements map, not one named claim"),
+
+			"resource_type":      arrayProperty("Resource kinds the action targeted (e.g. ['project'])"),
+			"resource_namespace": arrayProperty("OpenChoreo namespaces (e.g. ['default'])"),
+			"resource_environment": arrayProperty(
+				"Environments in '{namespace}/{name}' form (e.g. ['default/development']). " +
+					"A bare environment name will not match"),
+			"resource_project":   arrayProperty("Projects"),
+			"resource_component": arrayProperty("Components"),
+			"resource_resource":  arrayProperty("Resources, the hierarchy level that is a sibling of component"),
+			"resource_name":      arrayProperty("Resource names"),
+
+			"action": arrayProperty("Semantic action names (e.g. ['create_project', 'delete_component'])"),
+			"category": enumArrayProperty(
+				"Event categories. 'access' is disclosure rather than change; reading the trail is "+
+					"recorded under it",
+				handlers.AuditLogCategoryValues()),
+			"result": enumArrayProperty(
+				"Outcomes. 'denied' is a subject the policy refused, 'unauthenticated' a call with no "+
+					"usable identity, 'failure' an error",
+				handlers.AuditLogResultValues()),
+			"producer": arrayProperty("Emitting services (e.g. ['openchoreo-api'])"),
+			"surface": enumArrayProperty(
+				"Surfaces the call arrived through. MCP wraps the same API, so the REST value is 'rest'",
+				handlers.AuditLogSurfaceValues()),
+			"operation_id": arrayProperty("Canonical operation identifiers (e.g. ['CreateProject'])"),
+			"request_id": arrayProperty(
+				"Correlation IDs, matched exactly. The pivot from an access log line to its audit record"),
+			"event_id": arrayProperty("Record identifiers, for fetching known records directly"),
+			"source_ip": arrayProperty(
+				"Client addresses, matched exactly rather than by network range. Behind a proxy the " +
+					"recorded value is the proxy"),
+			"user_agent": arrayProperty(
+				"Client identifications, matched exactly. Agent strings vary by version, so " +
+					"search_phrase is usually the better tool for 'anything occ'"),
+
+			"search_phrase": stringProperty("Free text to match within the record"),
+			"limit":         auditLimitProperty(),
+			"sort_order":    sortOrderProperty(),
+
+			"include_timeline": booleanProperty(
+				"Also return per-interval counts across the whole window, broken down by result. " +
+					"A page of records cannot be bucketed into a histogram, so ask for this to see when " +
+					"activity happened. Set limit to 1 for the shape alone"),
+			"timeline_interval": stringProperty(
+				"Bucket width, <count><unit> where unit is m, h, d or w (e.g. '15m'). Ignored unless " +
+					"include_timeline is true. A width exceeding 500 buckets is coarsened, so read the " +
+					"width actually used from timeline.interval"),
+		}, []string{"start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args AuditLogsQueryArgs) (
+		*mcpsdk.CallToolResult, any, error,
+	) {
+		result, err := handler.QueryAuditLogs(ctx, args)
+		return handleToolResult(result, err)
+	})
 }
 
 // Helper functions for schema creation
@@ -505,6 +674,46 @@ func limitProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
 		"description": "Maximum number of entries to return. Default: 100",
+	}
+}
+
+// auditLimitProperty declares the cap as well as the default, unlike
+// limitProperty: exceeding it is an error rather than a clamp, so a caller that
+// cannot see the ceiling only learns it from a failed call.
+func auditLimitProperty() map[string]any {
+	return map[string]any{
+		"type": "number",
+		"description": fmt.Sprintf(
+			"Maximum number of records to return. Default: 100, maximum: %d. Page a larger "+
+				"investigation by narrowing the window rather than raising this",
+			config.MaxLimit),
+		"maximum": config.MaxLimit,
+	}
+}
+
+func maxSourcesProperty() map[string]any {
+	return map[string]any{
+		"type": "number",
+		"description": fmt.Sprintf(
+			"Maximum number of values to return per coordinate in 'sources'. Default: %d", defaultMaxSources),
+	}
+}
+
+func enumArrayProperty(description string, values []string) map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": description,
+		"items": map[string]any{
+			"type": "string",
+			"enum": values,
+		},
+	}
+}
+
+func booleanProperty(description string) map[string]any {
+	return map[string]any{
+		"type":        "boolean",
+		"description": description,
 	}
 }
 

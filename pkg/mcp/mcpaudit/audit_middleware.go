@@ -86,7 +86,7 @@ func newAuditMiddleware(
 					panic(p)
 				}
 				audit.EmitFromContext(
-					ctx, emitter, op, audit.SurfaceMCP, classifyResult(res, err), auditData, requestHeader(req), "",
+					ctx, emitter, op, audit.SurfaceMCP, resultFor(auditData, res, err), auditData, requestHeader(req), "",
 				)
 			}()
 
@@ -94,6 +94,21 @@ func newAuditMiddleware(
 			return res, err
 		}
 	}
+}
+
+// resultFor classifies a tools/call outcome, letting a handler that called
+// audit.SetResult override it, the same precedence the REST middleware applies.
+//
+// The override exists because classifyResult only sees what survives the
+// go-sdk's tools/call dispatch, which turns a handler-returned error into
+// CallToolResult.IsError and discards its identity. A server whose only authz
+// check lives inside the tool handler (observer's) would otherwise record every
+// policy denial as "failure", indistinguishable from a backend outage.
+func resultFor(auditData *audit.AuditData, res mcp.Result, err error) audit.Result {
+	if auditData.Result != nil {
+		return *auditData.Result
+	}
+	return classifyResult(res, err)
 }
 
 // classifyResult maps a tools/call outcome to an audit Result.
@@ -107,14 +122,14 @@ func newAuditMiddleware(
 // default: every session unless it opts out via ?filterByAuthz=false — see
 // server.QueryParamFilterByAuthz). A denial raised by the service layer
 // itself — reachable in a filterByAuthz=false session, where the service
-// layer is the only authz enforcement left — surfaces as a tool execution
-// error and is recorded as "failure", not "denied": the go-sdk's tools/call
-// dispatch converts a handler-returned error into CallToolResult.IsError
-// before this middleware ever sees it, discarding the original error's
-// identity (e.g. services.ErrForbidden) along the way. There is no local
-// hook to recover it without wrapping every MCP tool handler, so this is
-// documented as a known asymmetry with REST (which classifies purely by
-// status code, see middleware.go's determineResult) rather than fixed.
+// layer is the only authz enforcement left — reaches here as "failure": the
+// go-sdk's tools/call dispatch converts a handler-returned error into
+// CallToolResult.IsError before this middleware sees it, discarding the
+// original error's identity (e.g. services.ErrForbidden) along the way.
+//
+// A handler that knows better says so with audit.SetResult, which resultFor
+// prefers over this classification — the escape hatch for a server whose only
+// authz check is inside the tool handler.
 func classifyResult(res mcp.Result, err error) audit.Result {
 	switch {
 	case errors.Is(err, tools.ErrNoSubject):

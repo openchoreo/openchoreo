@@ -160,31 +160,11 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 // through a different, canonical tool name (the "N tools -> 1 operation"
 // fan-in case) — see audit.MCPAlias's doc comment.
 //
-// Two shapes:
-//   - trigger_workflow_run: a genuine second entry point with a different
-//     argument shape, reaching the same CreateWorkflowRun operation as
-//     create_workflow_run.
-//   - The 9 deprecated cluster-prefixed aliases (register.go's
-//     deprecatedToolNames): each routes to the cluster branch of a
-//     scope-collapsed tool's canonical operation. Scope is deliberately ""
-//     (not "cluster"): these tools take no scope argument at all, so
-//     mcpaudit's resolveBinding must resolve them on its first, unscoped
-//     lookup — giving them Scope: "cluster" here would make that lookup
-//     miss and fall through to resolving scope from a call that has no
-//     scope argument, defaulting to namespace and binding the wrong
-//     operation.
+// trigger_workflow_run is a genuine second entry point with a different
+// argument shape, reaching the same CreateWorkflowRun operation as
+// create_workflow_run.
 var mcpAliases = []audit.MCPAlias{
 	{OperationID: "CreateWorkflowRun", ToolName: "trigger_workflow_run"},
-
-	{OperationID: "CreateClusterComponentType", ToolName: "create_cluster_component_type", ResourceArg: "name"},
-	{OperationID: "UpdateClusterComponentType", ToolName: "update_cluster_component_type", ResourceArg: "name"},
-	{OperationID: "DeleteClusterComponentType", ToolName: "delete_cluster_component_type", ResourceArg: "name"},
-	{OperationID: "CreateClusterTrait", ToolName: "create_cluster_trait", ResourceArg: "name"},
-	{OperationID: "UpdateClusterTrait", ToolName: "update_cluster_trait", ResourceArg: "name"},
-	{OperationID: "DeleteClusterTrait", ToolName: "delete_cluster_trait", ResourceArg: "name"},
-	{OperationID: "CreateClusterWorkflow", ToolName: "create_cluster_workflow", ResourceArg: "name"},
-	{OperationID: "UpdateClusterWorkflow", ToolName: "update_cluster_workflow", ResourceArg: "name"},
-	{OperationID: "DeleteClusterWorkflow", ToolName: "delete_cluster_workflow", ResourceArg: "name"},
 }
 
 // validateEnrichmentKeys reports an error if any key in enrichment doesn't

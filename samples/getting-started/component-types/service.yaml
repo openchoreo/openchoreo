@@ -19,7 +19,13 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
+      name: health-probes
+    - kind: ClusterTrait
+      name: horizontal-pod-autoscaler
+    - kind: ClusterTrait
       name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume-claim
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

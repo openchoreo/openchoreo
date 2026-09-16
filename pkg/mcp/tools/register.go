@@ -7,56 +7,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// deprecatedToolNames is the set of MCP tool names that are kept registered only
-// as backward-compatibility aliases for callers that have pinned the old
-// cluster-prefixed names. Each one routes to the canonical scope-collapsed tool
-// with scope="cluster" (see scoped.go) and returns a deprecation warning.
-//
-// Visibility lifecycle:
-//   - v1.1: listed in tools/list by default with a "[DEPRECATED ...]" description
-//     banner and a structured _meta marker so existing clients see a migration
-//     signal before the surface changes.
-//   - v1.2 (current): hidden from the default tools/list response. Still callable;
-//     the description banner / _meta and the runtime deprecation_warning remain.
-//     Clients that have not yet migrated can opt back in with
-//     ?includeDeprecatedTools=true to keep listing the aliases.
-//   - v1.3: removed entirely.
-var deprecatedToolNames = map[string]bool{
-	"list_cluster_component_types":               true,
-	"get_cluster_component_type":                 true,
-	"get_cluster_component_type_schema":          true,
-	"get_cluster_component_type_creation_schema": true,
-	"create_cluster_component_type":              true,
-	"update_cluster_component_type":              true,
-	"delete_cluster_component_type":              true,
-	"list_cluster_traits":                        true,
-	"get_cluster_trait":                          true,
-	"get_cluster_trait_schema":                   true,
-	"get_cluster_trait_creation_schema":          true,
-	"create_cluster_trait":                       true,
-	"update_cluster_trait":                       true,
-	"delete_cluster_trait":                       true,
-	"list_cluster_workflows":                     true,
-	"get_cluster_workflow":                       true,
-	"get_cluster_workflow_schema":                true,
-	"get_cluster_workflow_creation_schema":       true,
-	"create_cluster_workflow":                    true,
-	"update_cluster_workflow":                    true,
-	"delete_cluster_workflow":                    true,
-	"list_cluster_dataplanes":                    true,
-	"get_cluster_dataplane":                      true,
-	"list_cluster_workflowplanes":                true,
-	"get_cluster_workflowplane":                  true,
-	"list_cluster_observability_planes":          true,
-	"get_cluster_observability_plane":            true,
-}
-
-// IsDeprecatedTool reports whether the named tool is a deprecated
-// compatibility-alias tool.
-func IsDeprecatedTool(name string) bool {
-	return deprecatedToolNames[name]
-}
-
 // namespaceToolRegistrations returns the list of namespace toolset registration functions
 func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
@@ -103,13 +53,6 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterListTraits,
 		t.RegisterGetTrait,
 		t.RegisterGetTraitSchema,
-		// Deprecated cluster-prefixed aliases (hidden from the default tools/list).
-		t.RegisterListClusterComponentTypes,
-		t.RegisterGetClusterComponentType,
-		t.RegisterGetClusterComponentTypeSchema,
-		t.RegisterListClusterTraits,
-		t.RegisterGetClusterTrait,
-		t.RegisterGetClusterTraitSchema,
 	}
 }
 
@@ -154,10 +97,6 @@ func (t *Toolsets) buildToolRegistrations() []RegisterFunc {
 		t.RegisterListWorkflows,
 		t.RegisterGetWorkflow,
 		t.RegisterGetWorkflowSchema,
-		// Deprecated cluster-prefixed aliases (hidden from the default tools/list).
-		t.RegisterListClusterWorkflows,
-		t.RegisterGetClusterWorkflow,
-		t.RegisterGetClusterWorkflowSchema,
 	}
 }
 
@@ -199,14 +138,6 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterListObservabilityPlanes,
 		t.RegisterGetObservabilityPlane,
 
-		// Deprecated cluster-prefixed plane aliases (hidden from the default tools/list).
-		t.RegisterListClusterDataPlanes,
-		t.RegisterGetClusterDataPlane,
-		t.RegisterListClusterWorkflowPlanes,
-		t.RegisterGetClusterWorkflowPlane,
-		t.RegisterListClusterObservabilityPlanes,
-		t.RegisterGetClusterObservabilityPlane,
-
 		// Platform standards (scope-collapsed: pass scope="cluster" for the platform-wide resource).
 		t.RegisterPEListComponentTypes,
 		t.RegisterPEGetComponentType,
@@ -246,29 +177,6 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterCreateProjectType,
 		t.RegisterUpdateProjectType,
 		t.RegisterDeleteProjectType,
-
-		// Deprecated cluster-prefixed platform-standards aliases (hidden from the default tools/list).
-		t.RegisterGetClusterComponentTypeCreationSchema,
-		t.RegisterGetClusterTraitCreationSchema,
-		t.RegisterGetClusterWorkflowCreationSchema,
-		t.RegisterPEListClusterComponentTypes,
-		t.RegisterPEGetClusterComponentType,
-		t.RegisterPEGetClusterComponentTypeSchema,
-		t.RegisterPEListClusterTraits,
-		t.RegisterPEGetClusterTrait,
-		t.RegisterPEGetClusterTraitSchema,
-		t.RegisterPEListClusterWorkflows,
-		t.RegisterPEGetClusterWorkflow,
-		t.RegisterPEGetClusterWorkflowSchema,
-		t.RegisterCreateClusterComponentType,
-		t.RegisterUpdateClusterComponentType,
-		t.RegisterDeleteClusterComponentType,
-		t.RegisterCreateClusterTrait,
-		t.RegisterUpdateClusterTrait,
-		t.RegisterDeleteClusterTrait,
-		t.RegisterCreateClusterWorkflow,
-		t.RegisterUpdateClusterWorkflow,
-		t.RegisterDeleteClusterWorkflow,
 
 		// Authz roles (scope-collapsed)
 		t.RegisterListAuthzRoles,

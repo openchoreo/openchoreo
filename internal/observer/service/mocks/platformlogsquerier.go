@@ -23,6 +23,65 @@ func (_m *MockPlatformLogsQuerier) EXPECT() *MockPlatformLogsQuerier_Expecter {
 	return &MockPlatformLogsQuerier_Expecter{mock: &_m.Mock}
 }
 
+// QueryPlatformLogFilterValues provides a mock function with given fields: ctx, req
+func (_m *MockPlatformLogsQuerier) QueryPlatformLogFilterValues(ctx context.Context, req *types.PlatformLogFilterValuesRequest) (*types.PlatformLogFilterValuesResponse, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for QueryPlatformLogFilterValues")
+	}
+
+	var r0 *types.PlatformLogFilterValuesResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.PlatformLogFilterValuesRequest) (*types.PlatformLogFilterValuesResponse, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.PlatformLogFilterValuesRequest) *types.PlatformLogFilterValuesResponse); ok {
+		r0 = rf(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.PlatformLogFilterValuesResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.PlatformLogFilterValuesRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QueryPlatformLogFilterValues'
+type MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call struct {
+	*mock.Call
+}
+
+// QueryPlatformLogFilterValues is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *types.PlatformLogFilterValuesRequest
+func (_e *MockPlatformLogsQuerier_Expecter) QueryPlatformLogFilterValues(ctx interface{}, req interface{}) *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call {
+	return &MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call{Call: _e.mock.On("QueryPlatformLogFilterValues", ctx, req)}
+}
+
+func (_c *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call) Run(run func(ctx context.Context, req *types.PlatformLogFilterValuesRequest)) *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*types.PlatformLogFilterValuesRequest))
+	})
+	return _c
+}
+
+func (_c *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call) Return(_a0 *types.PlatformLogFilterValuesResponse, _a1 error) *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call) RunAndReturn(run func(context.Context, *types.PlatformLogFilterValuesRequest) (*types.PlatformLogFilterValuesResponse, error)) *MockPlatformLogsQuerier_QueryPlatformLogFilterValues_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // QueryPlatformLogs provides a mock function with given fields: ctx, req
 func (_m *MockPlatformLogsQuerier) QueryPlatformLogs(ctx context.Context, req *types.PlatformLogsQueryRequest) (*types.PlatformLogsResponse, error) {
 	ret := _m.Called(ctx, req)

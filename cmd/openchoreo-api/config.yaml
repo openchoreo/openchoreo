@@ -27,7 +27,13 @@ server:
     read: 15s
 
     # Maximum duration before timing out writes of the response.
-    write: 15s
+    #
+    # Must outlast the resource tree walk budget, the top of the timeout ladder
+    # (agent 25s < gateway 28s < client 30s < walk 60s), or a legitimate tree
+    # response is cut off while the walk is still within its budget. Keep this
+    # at or above the derived Go default in
+    # internal/openchoreo-api/config.TimeoutsDefaults.
+    write: 65s
 
     # Maximum amount of time to wait for the next request when keep-alives are enabled.
     idle: 60s
@@ -188,8 +194,9 @@ logging:
   add_source: false
 
 audit:
-  # Enable audit event emission for state-modifying API requests.
-  enabled: true
+  # Enable audit event emission for state-modifying API requests. Requires
+  # observability_plane_ref.
+  enabled: false
 
   # Settings applied when no policy below matches.
   defaults:

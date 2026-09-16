@@ -33,10 +33,6 @@ type requestedToolsetsCtxKey struct{}
 // filterByAuthz flag from the ?filterByAuthz= query param.
 type filterByAuthzCtxKey struct{}
 
-// includeDeprecatedToolsCtxKey is the context key used to carry the per-request
-// includeDeprecatedTools flag from the ?includeDeprecatedTools= query param.
-type includeDeprecatedToolsCtxKey struct{}
-
 // WithRequestedToolsets returns a copy of ctx that carries the set of toolsets
 // the client requested. Empty or nil set means "no narrowing" — the middleware
 // will not apply a toolset filter.
@@ -68,29 +64,6 @@ func WithFilterByAuthz(ctx context.Context, filter bool) context.Context {
 func FilterByAuthzFromContext(ctx context.Context) (bool, bool) {
 	v, ok := ctx.Value(filterByAuthzCtxKey{}).(bool)
 	return v, ok
-}
-
-// WithIncludeDeprecatedTools returns a copy of ctx carrying the per-request
-// decision of whether tools/list should include deprecated compatibility-alias
-// tools. The default (no value in ctx) is false as of v1.2: deprecated aliases
-// are hidden from tools/list, though they remain callable and still return a
-// runtime deprecation warning. Clients that have not yet migrated can set this
-// to true to keep listing the aliases (each carrying a description-level
-// deprecation banner and a structured _meta marker) until they are removed in
-// v1.3.
-func WithIncludeDeprecatedTools(ctx context.Context, include bool) context.Context {
-	return context.WithValue(ctx, includeDeprecatedToolsCtxKey{}, include)
-}
-
-// IncludeDeprecatedToolsFromContext reports whether tools/list should include
-// the deprecated compatibility-alias tools for this request. Defaults to false
-// when the client did not set the flag.
-func IncludeDeprecatedToolsFromContext(ctx context.Context) bool {
-	v, ok := ctx.Value(includeDeprecatedToolsCtxKey{}).(bool)
-	if !ok {
-		return false
-	}
-	return v
 }
 
 // DefaultPageSize is the default number of items per page for MCP list operations.

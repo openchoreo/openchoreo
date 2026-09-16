@@ -6,7 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from common.auth import dependencies as deps
 from common.auth.authz_client import AuthzClient
@@ -21,45 +21,28 @@ logger = logging.getLogger(__name__)
 HierarchyExtractor = Callable[[Request], ResourceHierarchy | Awaitable[ResourceHierarchy]]
 
 
+class MissingReportHierarchy(Exception):
+    pass
+
+
+def hierarchy_from_result(
+    result: dict[str, Any], *, id_field: str = "reportId"
+) -> ResourceHierarchy:
+    namespace = result.get("namespace")
+    project = result.get("project")
+    if not namespace or not project:
+        logger.error(
+            "Resource %s has no project/namespace on record — refusing to authorize",
+            result.get(id_field),
+        )
+        raise MissingReportHierarchy(result.get(id_field))
+    return ResourceHierarchy(namespace=namespace, project=project)
+
+
 def hierarchy_from_query(**fields: str) -> HierarchyExtractor:
     def extract(request: Request) -> ResourceHierarchy:
         return ResourceHierarchy(
             **{name: request.query_params.get(param) for name, param in fields.items()}
-        )
-
-    return extract
-
-
-def hierarchy_from_path(**fields: str) -> HierarchyExtractor:
-    def extract(request: Request) -> ResourceHierarchy:
-        values = {name: request.path_params.get(param) for name, param in fields.items()}
-        return ResourceHierarchy(
-            **{k: str(v) if v is not None else None for k, v in values.items()}
-        )
-
-    return extract
-
-
-async def read_cached_body(request: Request) -> dict[str, Any]:
-    if hasattr(request.state, "_parsed_body"):
-        return request.state._parsed_body
-
-    try:
-        body = await request.json()
-        request.state._parsed_body = body
-        return body
-    except Exception as e:
-        logger.warning(
-            "Failed to parse request body for hierarchy extraction: %s", type(e).__name__
-        )
-        return {}
-
-
-def hierarchy_from_body(**fields: str) -> HierarchyExtractor:
-    async def extract(request: Request) -> ResourceHierarchy:
-        body = await read_cached_body(request)
-        return ResourceHierarchy(
-            **{name: body.get(param) for name, param in fields.items()}
         )
 
     return extract
@@ -114,7 +97,7 @@ class AuthRuntime:
             extract_subject=self.extract_subject_context,
         )
 
-    def checker(
+    def require_authz(
         self,
         action: str,
         resource_type: str,
@@ -142,6 +125,31 @@ class AuthRuntime:
             )
 
         return dependency
+
+    async def authorize_result(
+        self,
+        request: Request,
+        subject: SubjectContext,
+        *,
+        action: str,
+        resource_type: str,
+        result: dict[str, Any],
+    ) -> SubjectContext:
+        try:
+            hierarchy = hierarchy_from_result(result)
+        except MissingReportHierarchy as e:
+            raise HTTPException(
+                status_code=403, detail={"error": "FORBIDDEN", "message": "Access denied"}
+            ) from e
+        token = getattr(request.state, "bearer_token", None) or deps.extract_bearer_token(request)
+        return await deps.enforce_authz(
+            client=self.get_authz_client(),
+            subject=subject,
+            token=token,
+            action=action,
+            resource_type=resource_type,
+            hierarchy=hierarchy,
+        )
 
     def _require_oauth_settings(self) -> None:
         s = self._settings

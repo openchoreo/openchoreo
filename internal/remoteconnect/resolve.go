@@ -8,9 +8,18 @@ import (
 	"strings"
 )
 
+// Purposes a resolve call may declare. Recorded in the control plane's logs and never
+// consulted for an authorization decision.
+const (
+	PurposeConnect = "connect"
+	PurposeRenew   = "renew"
+)
+
 // ResolveRequest is what occ sends to the control plane's remote-connect resolve
 // endpoint. It is built from the local workload.yaml: the consuming
-// component's identity plus its declared dependencies, resolved for one environment.
+// component's identity plus its declared dependencies, resolved for one environment. occ
+// sends the same request again to renew a live session, so a renewal runs exactly the
+// checks, target resolution and agent refresh a fresh connect runs.
 type ResolveRequest struct {
 	// Namespace is the control-plane namespace (org) the component lives in.
 	Namespace   string        `json:"namespace"`
@@ -19,6 +28,24 @@ type ResolveRequest struct {
 	Environment string        `json:"environment"`
 	Endpoints   []EndpointDep `json:"endpoints,omitempty"`
 	Resources   []ResourceDep `json:"resources,omitempty"`
+
+	// Purpose is PurposeConnect (or empty, meaning the same) for a new session and
+	// PurposeRenew when refreshing a live one. Logging and audit only.
+	Purpose string `json:"purpose,omitempty"`
+
+	// SkipSecrets asks the control plane to sign no value-fetch grants, whatever the
+	// caller is authorized to read. occ sets it on a renewal (values are materialized
+	// once at session start) and under --no-secrets.
+	//
+	// A capability carrying grants is minted with the shorter secret_ttl_seconds, so
+	// suppressing unused grants also restores the full ttl_seconds for the dial path.
+	SkipSecrets bool `json:"skipSecrets,omitempty"`
+
+	// PreviousCapability is the capability this call is renewing, when Purpose is
+	// PurposeRenew. It supplies only the session's start time, so an absolute session
+	// bound can be enforced across renewals. It is not an authorization input: every
+	// target and grant in the reply is resolved and authorized from scratch.
+	PreviousCapability string `json:"previousCapability,omitempty"`
 }
 
 // EndpointDep mirrors a workload endpoint dependency (spec.dependencies.endpoints[]).
@@ -69,6 +96,12 @@ type ResolveResponse struct {
 	// dials for the targets that name it. Each target's AgentID indexes this map. Empty
 	// when there is nothing tunnellable, in which case occ opens no tunnels.
 	Agents map[string]AgentEndpoint `json:"agents,omitempty"`
+
+	// RenewAfterSeconds is how long occ should wait before renewing this capability. The
+	// server sets it because the cadence has to beat both the capability's expiry and
+	// reaper_ttl_seconds, and only the control plane knows the latter. Zero means the
+	// server did not say, and occ falls back to a fraction of the remaining lifetime.
+	RenewAfterSeconds int `json:"renewAfterSeconds,omitempty"`
 }
 
 // AgentEndpoint is one remote-agent occ dials over TLS (layering yamux on top). With the

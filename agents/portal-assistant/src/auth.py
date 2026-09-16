@@ -12,4 +12,4 @@ require_authn = auth.require_authn
 
 # Coarse gate used by /chat and /warmup; fine-grained checks happen per-tool
 # in the openchoreo MCP layer.
-require_invoke_authz = auth.checker("portal-assistant:invoke", "portal-assistant")
+require_invoke_authz = auth.require_authz("portal-assistant:invoke", "portal-assistant")

@@ -22,10 +22,37 @@ import (
 var observerExcludedOperationIDs = excludedOperationIDs(observeraudit.RESTExemptions)
 
 // observerPublicResourceCategories maps each resource kind a non-excluded
-// public operation can target to its Category. UpdateIncident is the only such
-// operation, so "incidents" is the only kind this pass ever sees.
+// public operation can target to its Category. UpdateIncident is the only
+// operation deriveDefinition ever sees here, so "incidents" is the only kind
+// this table needs — the audit-log read is overridden below and so never
+// reaches the lookup.
+//
+// Do not add "query" for it. BuildDefinitions records the kind segment before
+// the override branch, so "query" already counts as used and an entry would
+// pass checkNoOrphanCategories while nothing ever reads it.
 var observerPublicResourceCategories = map[string]string{
 	"incidents": "CategoryManagement",
+}
+
+// observerAuditReadOverrides define the audit trail's own read, so querying the
+// trail appends to it.
+//
+// Derivation cannot produce this. It reads the kind segment of
+// /api/v1alpha1/audit-logs/query as "query", which singularize rejects, no
+// ResourceCategories entry covers, and whose POST yields the verb "create"
+// against an operationId saying otherwise. It also has no vocabulary for a read
+// verb or for CategoryAccess, both introduced here — the other two categories
+// mean state change and authorization change, and filing a trail read under
+// management would make Category useless for telling disclosure apart from
+// change.
+//
+// QueryAuditLogFilterValues is deliberately not here — see its entry in
+// internal/observer/audit's RESTExemptions.
+var observerAuditReadOverrides = []auditgen.OperationDef{
+	{
+		ID: "QueryAuditLogs", Action: "read_audit_log", ResourceType: "auditlog",
+		Category: "CategoryAccess",
+	},
 }
 
 // observerInternalResourceCategories is empty because every operation on the
@@ -38,9 +65,14 @@ var observerInternalResourceCategories = map[string]string{}
 
 // observerPublicConfig returns the Config for openapi/observer-api.yaml.
 func observerPublicConfig() auditgen.Config {
+	overrides := make(map[string]auditgen.OperationDef, len(observerAuditReadOverrides))
+	for _, def := range observerAuditReadOverrides {
+		overrides[def.ID] = def
+	}
 	return auditgen.Config{
 		ResourceCategories:   observerPublicResourceCategories,
 		ExcludedOperationIDs: observerExcludedOperationIDs,
+		Overrides:            overrides,
 	}
 }
 

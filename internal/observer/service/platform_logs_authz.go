@@ -50,3 +50,22 @@ func (s *platformLogsServiceWithAuthz) QueryPlatformLogs(
 	}
 	return s.internal.QueryPlatformLogs(ctx, req)
 }
+
+// --- filter values ---
+
+func (s *platformLogsServiceWithAuthz) QueryPlatformLogFilterValues(
+	ctx context.Context,
+	req *types.PlatformLogFilterValuesRequest,
+) (*types.PlatformLogFilterValuesResponse, error) {
+	// The same action and the same cluster scope as the platform logs themselves.
+	// An empty hierarchy maps to "*", which only a cluster-scoped binding satisfies.
+	if err := observerAuthz.CheckAuthorization(
+		ctx, s.logger, s.pdp,
+		observerAuthz.ActionViewPlatformLogs,
+		observerAuthz.ResourceTypePlatform, "", authzcore.ResourceHierarchy{},
+		authzcore.Context{},
+	); err != nil {
+		return nil, err
+	}
+	return s.internal.QueryPlatformLogFilterValues(ctx, req)
+}

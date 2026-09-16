@@ -82,9 +82,14 @@ func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map
 func TestHTTPServersStatelessProtocols(t *testing.T) {
 	api := newTestMCPHandler(t, &tools.Toolsets{ProjectToolset: &fakeProjectToolset{}}, nil,
 		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
+	observer, err := observermcp.NewHTTPServer(nil,
+		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for name, handler := range map[string]http.Handler{
 		"api":      api,
-		"observer": observermcp.NewHTTPServer(nil),
+		"observer": observer,
 	} {
 		t.Run(name, func(t *testing.T) {
 			discover := statelessRPC(t, handler, "", "2026-07-28",
@@ -136,15 +141,14 @@ func TestHTTPServerFiltersEveryRequest(t *testing.T) {
 	for _, version := range []string{"2025-06-18", "2026-07-28"} {
 		t.Run(version, func(t *testing.T) {
 			for _, tc := range []struct {
-				query                            string
-				project, environment, deprecated bool
+				query                string
+				project, environment bool
 			}{
-				{"?filterByAuthz=false&includeDeprecatedTools=true", true, true, true},
-				{"?filterByAuthz=false&toolsets=project", true, false, false},
-				{"?filterByAuthz=false&toolsets=pe", false, true, false},
-				{"?filterByAuthz=false", true, true, false},
-				{"?filterByAuthz=true", false, false, false},
-				{"", false, false, false},
+				{"?filterByAuthz=false&toolsets=project", true, false},
+				{"?filterByAuthz=false&toolsets=pe", false, true},
+				{"?filterByAuthz=false", true, true},
+				{"?filterByAuthz=true", false, false},
+				{"", false, false},
 			} {
 				response := statelessRPC(t, handler, tc.query, version,
 					`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
@@ -159,15 +163,14 @@ func TestHTTPServerFiltersEveryRequest(t *testing.T) {
 				if err := json.Unmarshal(response["result"], &result); err != nil {
 					t.Fatal(err)
 				}
-				var project, environment, deprecated bool
+				var project, environment bool
 				for _, tool := range result.Tools {
 					project = project || tool.Name == "create_project"
 					environment = environment || tool.Name == "create_environment"
-					deprecated = deprecated || tools.IsDeprecatedTool(tool.Name)
 				}
-				if project != tc.project || environment != tc.environment || deprecated != tc.deprecated {
-					t.Fatalf("%s: project/environment/deprecated = %v/%v/%v, want %v/%v/%v",
-						tc.query, project, environment, deprecated, tc.project, tc.environment, tc.deprecated)
+				if project != tc.project || environment != tc.environment {
+					t.Fatalf("%s: project/environment = %v/%v, want %v/%v",
+						tc.query, project, environment, tc.project, tc.environment)
 				}
 			}
 		})

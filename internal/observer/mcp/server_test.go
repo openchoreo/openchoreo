@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 )
 
 const (
@@ -34,6 +36,14 @@ const (
 	testSpanID      = "span-def456"
 	sortOrderAsc    = "asc"
 	sortOrderDesc   = "desc"
+	logLevelError   = "ERROR"
+	logLevelWarn    = "WARN"
+
+	testClusterInstance = "cluster1"
+	testK8sNamespace    = "openchoreo-control-plane"
+	testPodName         = "controller-manager-7f58b689b5-pwsb5"
+	testContainerName   = "manager"
+	testLabelSelector   = "openchoreo.dev/plane=controlplane"
 )
 
 // ---- Mock service implementations ----
@@ -70,6 +80,108 @@ func (m *MockLogsQuerier) lastRequest() *types.LogsQueryRequest {
 }
 
 func (m *MockLogsQuerier) reset() { m.requests = nil }
+
+type MockPlatformLogsQuerier struct {
+	logsRequests   []*types.PlatformLogsQueryRequest
+	valuesRequests []*types.PlatformLogFilterValuesRequest
+	logsResponse   *types.PlatformLogsResponse
+	valuesResponse *types.PlatformLogFilterValuesResponse
+	logsErr        error
+	valuesErr      error
+}
+
+func NewMockPlatformLogsQuerier() *MockPlatformLogsQuerier {
+	return &MockPlatformLogsQuerier{
+		logsResponse: &types.PlatformLogsResponse{
+			Logs: []types.PlatformLog{
+				{Timestamp: testStartTime, Log: "reconcile failed", Level: logLevelError, PodName: testPodName},
+			},
+			Total:  1,
+			TookMs: 4,
+		},
+		valuesResponse: &types.PlatformLogFilterValuesResponse{
+			Values:      []types.PlatformLogFilterValue{{Value: testPodName, Count: 1}},
+			TotalValues: 1,
+			TookMs:      2,
+		},
+	}
+}
+
+func (m *MockPlatformLogsQuerier) QueryPlatformLogs(_ context.Context, req *types.PlatformLogsQueryRequest) (*types.PlatformLogsResponse, error) {
+	m.logsRequests = append(m.logsRequests, req)
+	if m.logsErr != nil {
+		return nil, m.logsErr
+	}
+	return m.logsResponse, nil
+}
+
+func (m *MockPlatformLogsQuerier) QueryPlatformLogFilterValues(_ context.Context, req *types.PlatformLogFilterValuesRequest) (*types.PlatformLogFilterValuesResponse, error) {
+	m.valuesRequests = append(m.valuesRequests, req)
+	if m.valuesErr != nil {
+		return nil, m.valuesErr
+	}
+	return m.valuesResponse, nil
+}
+
+func (m *MockPlatformLogsQuerier) lastRequest() *types.PlatformLogsQueryRequest {
+	if len(m.logsRequests) == 0 {
+		return nil
+	}
+	return m.logsRequests[len(m.logsRequests)-1]
+}
+
+func (m *MockPlatformLogsQuerier) reset() {
+	m.logsRequests = nil
+	m.valuesRequests = nil
+}
+
+// MockAuditLogsQuerier implements service.AuditLogsQuerier. There is no
+// filter-values tool, so QueryAuditLogFilterValues only satisfies the interface
+// and fails loudly if something calls it.
+type MockAuditLogsQuerier struct {
+	requests []*types.AuditLogsQueryRequest
+	response *types.AuditLogsResponse
+	err      error
+}
+
+func NewMockAuditLogsQuerier() *MockAuditLogsQuerier {
+	return &MockAuditLogsQuerier{
+		response: &types.AuditLogsResponse{
+			Records: []types.AuditLogRecord{{
+				SchemaVersion: "v1",
+				EventID:       "01JCZ8P0000000000000000000",
+				EventTime:     testStartTime,
+				Actor:         types.AuditLogActor{Type: "user", ID: "alice@example.com"},
+				Action:        "delete_component",
+				Category:      "management",
+				Result:        "success",
+			}},
+			Total:  1,
+			TookMs: 7,
+		},
+	}
+}
+
+func (m *MockAuditLogsQuerier) QueryAuditLogs(_ context.Context, req *types.AuditLogsQueryRequest) (*types.AuditLogsResponse, error) {
+	m.requests = append(m.requests, req)
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.response, nil
+}
+
+func (m *MockAuditLogsQuerier) QueryAuditLogFilterValues(_ context.Context, _ *types.AuditLogFilterValuesRequest) (*types.AuditLogFilterValuesResponse, error) {
+	return nil, errors.New("QueryAuditLogFilterValues is not exposed over MCP")
+}
+
+func (m *MockAuditLogsQuerier) lastRequest() *types.AuditLogsQueryRequest {
+	if len(m.requests) == 0 {
+		return nil
+	}
+	return m.requests[len(m.requests)-1]
+}
+
+func (m *MockAuditLogsQuerier) reset() { m.requests = nil }
 
 type MockEventsQuerier struct {
 	requests []*types.EventsQueryRequest
@@ -339,31 +451,37 @@ func (m *MockFinOpsQuerier) reset() {
 
 type testServices struct {
 	logs            *MockLogsQuerier
+	platformLogs    *MockPlatformLogsQuerier
 	events          *MockEventsQuerier
 	metrics         *MockMetricsQuerier
 	traces          *MockTracesQuerier
 	alertsIncidents *MockAlertIncidentService
 	finops          *MockFinOpsQuerier
+	auditLogs       *MockAuditLogsQuerier
 }
 
 func newTestServices() *testServices {
 	return &testServices{
 		logs:            NewMockLogsQuerier(),
+		platformLogs:    NewMockPlatformLogsQuerier(),
 		events:          NewMockEventsQuerier(),
 		metrics:         NewMockMetricsQuerier(),
 		traces:          NewMockTracesQuerier(),
 		alertsIncidents: NewMockAlertIncidentService(),
 		finops:          NewMockFinOpsQuerier(),
+		auditLogs:       NewMockAuditLogsQuerier(),
 	}
 }
 
 func (s *testServices) resetAll() {
 	s.logs.reset()
+	s.platformLogs.reset()
 	s.events.reset()
 	s.metrics.reset()
 	s.traces.reset()
 	s.alertsIncidents.reset()
 	s.finops.reset()
+	s.auditLogs.reset()
 }
 
 func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
@@ -372,7 +490,8 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewMCPHandler(healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, svcs.finops, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.platformLogs, svcs.events, svcs.metrics, svcs.alertsIncidents,
+		svcs.traces, svcs.finops, svcs.auditLogs, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -439,7 +558,7 @@ var allToolSpecs = []toolTestSpec{
 			"start_time":    testStartTime,
 			"end_time":      testEndTime,
 			"search_phrase": "error",
-			"log_levels":    []any{"ERROR", "WARN"},
+			"log_levels":    []any{logLevelError, logLevelWarn},
 			"limit":         50,
 			"sort_order":    sortOrderAsc,
 		},
@@ -457,7 +576,7 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, testStartTime, req.StartTime)
 			assert.Equal(t, testEndTime, req.EndTime)
 			assert.Equal(t, "error", req.SearchPhrase)
-			if diff := cmp.Diff([]string{"ERROR", "WARN"}, req.LogLevels); diff != "" {
+			if diff := cmp.Diff([]string{logLevelError, logLevelWarn}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
 			assert.Equal(t, 50, req.Limit)
@@ -477,7 +596,7 @@ var allToolSpecs = []toolTestSpec{
 			"start_time":        testStartTime,
 			"end_time":          testEndTime,
 			"search_phrase":     "failed",
-			"log_levels":        []any{"ERROR"},
+			"log_levels":        []any{logLevelError},
 			"limit":             75,
 			"sort_order":        sortOrderDesc,
 		},
@@ -492,11 +611,69 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, "my-workflow-run", scope.WorkflowRunName)
 			assert.Equal(t, "build-step", scope.TaskName)
 			assert.Equal(t, "failed", req.SearchPhrase)
-			if diff := cmp.Diff([]string{"ERROR"}, req.LogLevels); diff != "" {
+			if diff := cmp.Diff([]string{logLevelError}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
 			assert.Equal(t, 75, req.Limit)
 			assert.Equal(t, sortOrderDesc, req.SortOrder)
+		},
+	},
+	{
+		name:                "query_platform_logs",
+		descriptionKeywords: []string{"platform", "control plane"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"start_time", "end_time"},
+		optionalParams: []string{
+			"cluster_instance", "kubernetes_namespace", "pod_name", "container_name", "labels",
+			"search_phrase", "log_levels", "limit", "sort_order", "include_sources", "max_sources",
+		},
+		testArgs: map[string]any{
+			"cluster_instance":     []any{testClusterInstance},
+			"kubernetes_namespace": []any{testK8sNamespace},
+			"pod_name":             []any{testPodName},
+			"container_name":       []any{testContainerName},
+			"labels":               testLabelSelector,
+			"start_time":           testStartTime,
+			"end_time":             testEndTime,
+			"search_phrase":        "reconcile",
+			"log_levels":           []any{logLevelError},
+			"limit":                50,
+			"sort_order":           sortOrderAsc,
+			"include_sources":      []any{"pod_name"},
+			"max_sources":          5,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.platformLogs.lastRequest()
+			require.NotNil(t, req, "Expected QueryPlatformLogs to be called")
+			if diff := cmp.Diff([]string{testClusterInstance}, req.ClusterInstances); diff != "" {
+				t.Errorf("cluster_instance mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff([]string{testK8sNamespace}, req.Namespaces); diff != "" {
+				t.Errorf("kubernetes_namespace mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff([]string{testPodName}, req.PodNames); diff != "" {
+				t.Errorf("pod_name mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff([]string{testContainerName}, req.ContainerNames); diff != "" {
+				t.Errorf("container_name mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(map[string]string{"openchoreo.dev/plane": "controlplane"}, req.Labels); diff != "" {
+				t.Errorf("labels mismatch (-want +got):\n%s", diff)
+			}
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, "reconcile", req.SearchPhrase)
+			if diff := cmp.Diff([]string{logLevelError}, req.LogLevels); diff != "" {
+				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
+			}
+			assert.Equal(t, 50, req.Limit)
+			assert.Equal(t, sortOrderAsc, req.SortOrder)
+
+			require.Len(t, svcs.platformLogs.valuesRequests, 1, "include_sources should trigger one aggregation")
+			values := svcs.platformLogs.valuesRequests[0]
+			assert.Equal(t, "podName", values.Filter)
+			assert.Equal(t, 5, values.MaxValues)
 		},
 	},
 	{
@@ -822,6 +999,87 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, testEndTime, req.EndTime)
 		},
 	},
+	{
+		name:                "query_audit_logs",
+		descriptionKeywords: []string{"audit"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"start_time", "end_time"},
+		// Every filter, so a renamed or dropped argument fails here rather than
+		// silently becoming a filter nobody can reach.
+		optionalParams: []string{
+			"actor_id", "actor_type", "actor_issuer", "actor_session_id", "actor_entitlements",
+			"resource_type", "resource_namespace", "resource_environment", "resource_project",
+			"resource_component", "resource_resource", "resource_name",
+			"action", "category", "result", "producer", "surface", "operation_id", "request_id",
+			"event_id", "source_ip", "user_agent",
+			"search_phrase", "limit", "sort_order", "include_timeline", "timeline_interval",
+		},
+		testArgs: map[string]any{
+			"start_time":           testStartTime,
+			"end_time":             testEndTime,
+			"actor_id":             []string{"alice@example.com"},
+			"actor_type":           []string{"user"},
+			"actor_issuer":         []string{"https://idp.example.com"},
+			"actor_session_id":     []string{"sid-1"},
+			"actor_entitlements":   []string{"platform-engineer"},
+			"resource_type":        []string{"project"},
+			"resource_namespace":   []string{testNamespace},
+			"resource_environment": []string{"test-org/development"},
+			"resource_project":     []string{testProject},
+			"resource_component":   []string{testComponent},
+			"resource_resource":    []string{"orders-db"},
+			"resource_name":        []string{"my-project"},
+			"action":               []string{"delete_component"},
+			"category":             []string{"management"},
+			"result":               []string{"denied"},
+			"producer":             []string{"openchoreo-api"},
+			"surface":              []string{"rest"},
+			"operation_id":         []string{"CreateProject"},
+			"request_id":           []string{"req-1"},
+			"event_id":             []string{"evt-1"},
+			"source_ip":            []string{"10.0.0.1"},
+			"user_agent":           []string{"occ/1.0"},
+			"search_phrase":        "failed",
+			"limit":                25,
+			"sort_order":           sortOrderAsc,
+			"include_timeline":     true,
+			"timeline_interval":    "15m",
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.auditLogs.lastRequest()
+			require.NotNil(t, req, "Expected QueryAuditLogs to be called")
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, []string{"alice@example.com"}, req.Actor.IDs)
+			assert.Equal(t, []string{"user"}, req.Actor.Types)
+			assert.Equal(t, []string{"https://idp.example.com"}, req.Actor.Issuers)
+			assert.Equal(t, []string{"sid-1"}, req.Actor.SessionIDs)
+			assert.Equal(t, []string{"platform-engineer"}, req.Actor.Entitlements)
+			assert.Equal(t, []string{"project"}, req.Resource.Types)
+			assert.Equal(t, []string{testNamespace}, req.Resource.Namespaces)
+			assert.Equal(t, []string{"test-org/development"}, req.Resource.Environments)
+			assert.Equal(t, []string{testProject}, req.Resource.Projects)
+			assert.Equal(t, []string{testComponent}, req.Resource.Components)
+			assert.Equal(t, []string{"orders-db"}, req.Resource.Resources)
+			assert.Equal(t, []string{"my-project"}, req.Resource.Names)
+			assert.Equal(t, []string{"delete_component"}, req.Actions)
+			assert.Equal(t, []string{"management"}, req.Categories)
+			assert.Equal(t, []string{"denied"}, req.Results)
+			assert.Equal(t, []string{"openchoreo-api"}, req.Producers)
+			assert.Equal(t, []string{"rest"}, req.Surfaces)
+			assert.Equal(t, []string{"CreateProject"}, req.OperationIDs)
+			assert.Equal(t, []string{"req-1"}, req.RequestIDs)
+			assert.Equal(t, []string{"evt-1"}, req.EventIDs)
+			assert.Equal(t, []string{"10.0.0.1"}, req.SourceIPs)
+			assert.Equal(t, []string{"occ/1.0"}, req.UserAgents)
+			assert.Equal(t, "failed", req.SearchPhrase)
+			assert.Equal(t, 25, req.Limit)
+			assert.Equal(t, sortOrderAsc, req.SortOrder)
+			assert.True(t, req.IncludeTimeline)
+			assert.Equal(t, "15m", req.TimelineInterval)
+		},
+	},
 }
 
 // ---- Tests ----
@@ -832,35 +1090,42 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	healthSvc, _ := service.NewHealthService(logger)
 	alertIncidentSvc := NewMockAlertIncidentService()
 	logs := NewMockLogsQuerier()
+	platformLogs := NewMockPlatformLogsQuerier()
 	events := NewMockEventsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()
 	finops := NewMockFinOpsQuerier()
+	auditLogs := NewMockAuditLogsQuerier()
 
 	tests := []struct {
 		name                 string
 		health               *service.HealthService
 		logs                 service.LogsQuerier
+		platformLogs         service.PlatformLogsQuerier
 		events               service.EventsQuerier
 		metrics              service.MetricsQuerier
 		alertIncidentService service.AlertIncidentService
 		traces               service.TracesQuerier
 		finops               service.FinOpsQuerier
+		auditLogs            service.AuditLogsQuerier
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, finops, logger},
-		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, finops, logger},
-		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, finops, logger},
-		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, finops, logger},
-		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, finops, logger},
-		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, finops, logger},
-		{"nil finopsService", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil, logger},
-		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, finops, nil},
+		{"nil healthService", nil, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
+		{"nil logsService", healthSvc, nil, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
+		{"nil platformLogsService", healthSvc, logs, nil, events, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
+		{"nil eventsService", healthSvc, logs, platformLogs, nil, metrics, alertIncidentSvc, traces, finops, auditLogs, logger},
+		{"nil metricsService", healthSvc, logs, platformLogs, events, nil, alertIncidentSvc, traces, finops, auditLogs, logger},
+		{"nil alertIncidentService", healthSvc, logs, platformLogs, events, metrics, nil, traces, finops, auditLogs, logger},
+		{"nil tracesService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, nil, finops, auditLogs, logger},
+		{"nil finopsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, nil, auditLogs, logger},
+		{"nil auditLogsService", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, nil, logger},
+		{"nil logger", healthSvc, logs, platformLogs, events, metrics, alertIncidentSvc, traces, finops, auditLogs, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewMCPHandler(tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.finops, tt.log)
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.platformLogs, tt.events, tt.metrics,
+				tt.alertIncidentService, tt.traces, tt.finops, tt.auditLogs, tt.log)
 			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}
@@ -1095,6 +1360,14 @@ func TestMinimalParameterSets(t *testing.T) {
 			toolName: "query_workflow_logs",
 			args: map[string]any{
 				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+		},
+		{
+			name:     "query_platform_logs_minimal",
+			toolName: "query_platform_logs",
+			args: map[string]any{
 				"start_time": testStartTime,
 				"end_time":   testEndTime,
 			},
@@ -1380,11 +1653,23 @@ func TestNewHTTPServer(t *testing.T) {
 	handler, err := buildMCPHandler(svcs)
 	require.NoError(t, err, "Failed to build MCPHandler")
 
-	httpHandler := NewHTTPServer(handler)
+	httpHandler, err := NewHTTPServer(handler, newTestAuditOptions(t, io.Discard))
+	require.NoError(t, err)
 
 	require.NotNil(t, httpHandler)
 
 	var _ http.Handler = httpHandler
+}
+
+// TestNewHTTPServerRejectsMisconfiguredAudit pins that the constructor reports
+// a bad audit configuration rather than serving without audit.
+func TestNewHTTPServerRejectsMisconfiguredAudit(t *testing.T) {
+	svcs := newTestServices()
+	handler, err := buildMCPHandler(svcs)
+	require.NoError(t, err, "Failed to build MCPHandler")
+
+	_, err = NewHTTPServer(handler, mcpaudit.MiddlewareOptions{})
+	require.Error(t, err)
 }
 
 // TestOptionalParametersDefaults verifies that optional parameters have sensible defaults.
@@ -1429,6 +1714,23 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				require.NotNil(t, req, "Expected QueryLogs to be called")
 				assert.Equal(t, 100, req.Limit)
 				assert.Equal(t, sortOrderDesc, req.SortOrder)
+			},
+		},
+		{
+			name:     "platform_logs_default_limit_and_sort",
+			toolName: "query_platform_logs",
+			args: map[string]any{
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.platformLogs.lastRequest()
+				require.NotNil(t, req, "Expected QueryPlatformLogs to be called")
+				assert.Equal(t, 100, req.Limit)
+				assert.Equal(t, sortOrderDesc, req.SortOrder)
+				assert.Empty(t, req.Labels)
+				assert.Empty(t, svcs.platformLogs.valuesRequests,
+					"no include_sources means no aggregation is issued")
 			},
 		},
 		{
@@ -1579,6 +1881,21 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"log_levels":        "array",
 			"limit":             "number",
 			"sort_order":        "string",
+		},
+		"query_platform_logs": {
+			"cluster_instance":     "array",
+			"kubernetes_namespace": "array",
+			"pod_name":             "array",
+			"container_name":       "array",
+			"labels":               "string",
+			"start_time":           "string",
+			"end_time":             "string",
+			"search_phrase":        "string",
+			"log_levels":           "array",
+			"limit":                "number",
+			"sort_order":           "string",
+			"include_sources":      "array",
+			"max_sources":          "number",
 		},
 		"query_component_events": {
 			"namespace":   "string",

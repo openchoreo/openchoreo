@@ -95,7 +95,7 @@ func main() {
 	)
 
 	// Create Kubernetes client (in-cluster or from kubeconfig)
-	k8sClient, k8sConfig, err := createKubernetesClient(kubeconfig)
+	k8sClient, dynamicClient, k8sConfig, err := createKubernetesClient(kubeconfig)
 	if err != nil {
 		logger.Error("failed to create Kubernetes client", "error", err)
 		os.Exit(1)
@@ -121,7 +121,7 @@ func main() {
 		Routes:            []agentclient.RouteConfig{}, // Empty for now, can be loaded from config file later
 	}
 
-	agent, err := agentclient.New(config, k8sClient, k8sConfig, logger)
+	agent, err := agentclient.New(config, k8sClient, k8sConfig, dynamicClient, logger)
 	if err != nil {
 		logger.Error("failed to create agent", "error", err)
 		os.Exit(1)

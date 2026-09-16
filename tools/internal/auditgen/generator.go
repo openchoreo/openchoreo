@@ -189,9 +189,11 @@ func deriveDefinition(method, path, operationID string, cfg Config) (OperationDe
 }
 
 // actionFromOperationID derives the operator-facing action string by
-// word-splitting the operationId's PascalCase, e.g. "CreateClusterComponentType"
-// becomes "create_cluster_component_type" — matching pkg/mcp/tools' MCP tool
-// naming for the same operations.
+// word-splitting the operationId's PascalCase, e.g. "CreateComponentType"
+// becomes "create_component_type" — the snake_case spelling pkg/mcp/tools also
+// uses for its tool names. The two are independent: an action is emitted on
+// audit events and matched by audit policy, and it exists for every operation
+// whether or not an MCP tool reaches it.
 //
 // ResourceType is untouched and keeps its plain concatenated form (e.g.
 // "clustercomponenttype"), since SetResource override tables, resource:verb

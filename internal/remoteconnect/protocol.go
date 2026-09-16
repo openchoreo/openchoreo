@@ -12,7 +12,8 @@ import (
 )
 
 // ProtocolVersion is the wire-protocol version of the occ <-> remote-agent tunnel. occ
-// sends it in Hello so the agent can reject incompatible clients.
+// sends it in Hello and the agent requires an exact match, so a stale agent image fails
+// with "unsupported protocol version" rather than a run of authorization failures.
 const ProtocolVersion = 1
 
 // maxMessageSize bounds a single control message (handshake / stream-open / fetch
@@ -29,14 +30,11 @@ const maxMessageSize = 2 << 20 // 2 MiB
 const MaxSecretValueSize = 1 << 20 // 1 MiB
 
 // Hello is the first message occ sends on a freshly dialed (TLS) connection, before
-// yamux is layered on. It presents the CP-signed capability, which the remote-agent
-// stores for the lifetime of the session and replays to the control plane's
-// authorize endpoint on each StreamOpen (see stream.go).
+// yamux is layered on. It carries no capability: session admission is the TLS handshake
+// against the agent's pinned certificate, and authorization is per stream (see
+// StreamOpen).
 type Hello struct {
 	ProtocolVersion int `json:"protocolVersion"`
-	// Capability is the compact JWT minted by the control plane's resolve endpoint
-	// (see capability.go).
-	Capability string `json:"capability"`
 }
 
 // HelloResult is the agent's reply to Hello. On OK, both sides layer yamux over the
@@ -49,9 +47,13 @@ type HelloResult struct {
 // StreamOpen is the first message on each yamux stream. Key identifies which of the
 // capability's authorized targets to dial; occ never sends a free-form host. The
 // agent resolves Key to a concrete host:port by calling the control plane's
-// authorize endpoint with the session capability.
+// authorize endpoint with the capability carried here.
 type StreamOpen struct {
 	Key string `json:"key"`
+	// Capability authorizes this stream. Sent per stream so a renewal authorizes the
+	// next connection without re-establishing the tunnel. Required: the agent holds no
+	// capability of its own to fall back to.
+	Capability string `json:"capability"`
 }
 
 // StreamResult is the agent's reply to StreamOpen. After OK, the stream is a raw
