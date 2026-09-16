@@ -11,6 +11,6 @@ Adding your organization is a small contribution that has a big impact. You can 
 
 ## Field reference
 
-**Adopter Category** follows the [CNCF TOC definition of an adopter](https://github.com/cncf/toc/blob/main/FAQ.md#what-is-the-definition-of-an-adopter): End-User Member, end user, Service Provider, Consultancy, or Another Project. An organization that fits several categories lists all that apply.
+**Adopter Category** follows the [CNCF TOC definition of an adopter](https://github.com/cncf/toc/blob/main/FAQ.md#what-is-the-definition-of-an-adopter): `End-User` (a member of the CNCF End User community), `end user` (any other organization using OpenChoreo internally), `Service Provider`, `Consultancy`, or `Another Project`. An organization that fits several categories lists all that apply.
 
 **Adoption Level** is one of Production, Dev / Trial, or Integration. Integration is used for projects and products that integrate with OpenChoreo without running it.
