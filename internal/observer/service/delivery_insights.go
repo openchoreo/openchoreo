@@ -62,9 +62,12 @@ type DoraMetricsService struct {
 	store    deliveryinsights.Store
 	resolver ScopeUIDResolver
 	logger   *slog.Logger
-	// Reported on every metrics response. Without it an empty result is
-	// ambiguous: a scope that deployed nothing is indistinguishable from an
-	// observer that is not collecting, and a client can only guess which.
+	// collecting is whether this observer derives delivery facts at all
+	// (observer.deliveryInsights.enabled). False means nothing is being written,
+	// so every metric stays empty however much is deployed. Reads are served
+	// either way, which is why it has to be reported: without it an empty result
+	// is ambiguous, a scope that deployed nothing being indistinguishable from an
+	// observer that was never asked to collect.
 	collecting bool
 	// eventsAvailable reports whether the deployed adapter can actually serve the
 	// event sweep. Read per request rather than captured, because the aggregator
