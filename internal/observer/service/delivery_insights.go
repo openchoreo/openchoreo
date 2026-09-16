@@ -62,11 +62,15 @@ type DoraMetricsService struct {
 	store    deliveryinsights.Store
 	resolver ScopeUIDResolver
 	logger   *slog.Logger
-	// collection is reported on every metrics response. Without it an empty
-	// result is ambiguous: a scope that deployed nothing is indistinguishable
-	// from an observer that was never configured to collect, and a client can
-	// only guess which it is looking at.
-	collection doraCollectionPayload
+	// Reported on every metrics response. Without it an empty result is
+	// ambiguous: a scope that deployed nothing is indistinguishable from an
+	// observer that is not collecting, and a client can only guess which.
+	collecting bool
+	// eventsAvailable reports whether the deployed adapter can actually serve the
+	// event sweep. Read per request rather than captured, because the aggregator
+	// only discovers it from the adapter's first 501, which is after this service
+	// is built. Nil when nothing is collecting.
+	eventsAvailable func() bool
 }
 
 var _ DeliveryInsightsService = (*DoraMetricsService)(nil)
@@ -74,16 +78,14 @@ var _ DeliveryInsightsService = (*DoraMetricsService)(nil)
 // NewDeliveryInsightsService creates the delivery insights query service.
 func NewDeliveryInsightsService(
 	store deliveryinsights.Store, resolver ScopeUIDResolver, logger *slog.Logger,
-	aggregationEnabled, eventsSourceEnabled bool,
+	collecting bool, eventsAvailable func() bool,
 ) *DoraMetricsService {
 	return &DoraMetricsService{
-		store:    store,
-		resolver: resolver,
-		logger:   logger,
-		collection: doraCollectionPayload{
-			AggregationEnabled:  aggregationEnabled,
-			EventsSourceEnabled: eventsSourceEnabled,
-		},
+		store:           store,
+		resolver:        resolver,
+		logger:          logger,
+		collecting:      collecting,
+		eventsAvailable: eventsAvailable,
 	}
 }
 
@@ -241,8 +243,12 @@ type doraSeriesPayload struct {
 // on every response; they travel with the metrics so a client needs no second
 // call to interpret an empty one.
 type doraCollectionPayload struct {
-	AggregationEnabled  bool `json:"aggregationEnabled"`
-	EventsSourceEnabled bool `json:"eventsSourceEnabled"`
+	// Whether this observer derives delivery facts at all.
+	Enabled bool `json:"enabled"`
+	// Whether the deployed adapter can serve the delivery event sweep. False
+	// leaves deployment frequency, lead time and change failure rate without
+	// input; mean time to recovery comes from incidents and is unaffected.
+	EventsSourceAvailable bool `json:"eventsSourceAvailable"`
 }
 
 type doraMetricsResponsePayload struct {
@@ -252,6 +258,14 @@ type doraMetricsResponsePayload struct {
 	Window      doraWindowPayload        `json:"window"`
 	Summary     doraSummaryPayload       `json:"summary"`
 	Series      doraSeriesPayload        `json:"series"`
+}
+
+// collectionState reports what this observer is collecting right now.
+func (s *DoraMetricsService) collectionState() doraCollectionPayload {
+	return doraCollectionPayload{
+		Enabled:               s.collecting,
+		EventsSourceAvailable: s.eventsAvailable != nil && s.eventsAvailable(),
+	}
 }
 
 // QueryDoraMetrics computes the requested DORA metrics for a scope and window.
@@ -301,7 +315,7 @@ func (s *DoraMetricsService) QueryDoraMetrics(
 	}
 
 	payload := doraMetricsResponsePayload{
-		Collection:  s.collection,
+		Collection:  s.collectionState(),
 		Scope:       req.SearchScope,
 		Granularity: granularity,
 		Window: doraWindowPayload{

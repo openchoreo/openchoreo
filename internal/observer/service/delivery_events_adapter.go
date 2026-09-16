@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -62,6 +63,12 @@ func (p *LogsAdapter) FetchDeliveryEvents(
 		return decodeEventsResponse(resp)
 	}()
 	if err != nil {
+		// 501 is the contract's "capability unavailable", not a failure: this
+		// adapter cannot serve an unscoped sweep at all. Report it as such so the
+		// aggregator stops asking rather than failing a tick every interval.
+		if errors.Is(err, ErrEventsNotImplemented) {
+			return nil, false, fmt.Errorf("%w: %w", aggregator.ErrEventsSourceUnavailable, err)
+		}
 		return nil, false, err
 	}
 

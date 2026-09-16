@@ -6,6 +6,7 @@ package aggregator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,20 @@ type DeliveryEvent struct {
 	// Message carries the emitter's JSON payload (deliveryEventPayload).
 	Message string
 }
+
+// ErrEventsSourceUnavailable reports that the deployed adapter cannot serve the
+// sweep at all -- it answers 501 to an unscoped, reason-filtered query, which the
+// contract defines as "capability unavailable" rather than a failure.
+//
+// Declared here rather than in the service package because the adapter that
+// returns it imports this one; the service translates its own 501 sentinel into
+// this on the way out.
+//
+// The aggregator stops attempting the sweep on it. Retrying would fail the tick
+// forever, and because the tick folds incidents before events and recomputes
+// rollups after both, that would take Mean Time to Recovery down with it -- a
+// metric derived entirely from incidents and needing no adapter support.
+var ErrEventsSourceUnavailable = errors.New("delivery events source unavailable")
 
 // EventsSource reads delivery lifecycle events from the observability event store.
 //

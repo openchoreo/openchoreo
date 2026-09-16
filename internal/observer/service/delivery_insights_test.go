@@ -36,7 +36,10 @@ func newDeliveryInsightsTestService(t *testing.T, store deliveryinsights.Store) 
 	// Collection flags on: the tests below assert computed metrics, not the
 	// configuration report. TestCollectionFlagsTravelWithEveryResponse covers
 	// that separately.
-	return NewDeliveryInsightsService(store, NewPassthroughUIDResolver(), slog.Default(), true, true)
+	return NewDeliveryInsightsService(
+		store, NewPassthroughUIDResolver(), slog.Default(),
+		true, func() bool { return true },
+	)
 }
 
 // TestLeadTimePercentilesUseTheWholeWindow is the regression test for the paging
@@ -255,14 +258,16 @@ func TestCollectionFlagsTravelWithEveryResponse(t *testing.T) {
 		aggregation bool
 		events      bool
 	}{
-		{"both on", true, true},
-		{"aggregation off", false, false},
-		{"aggregating but no events source", true, false},
+		{"collecting, adapter serves the sweep", true, true},
+		{"not collecting", false, false},
+		{"collecting, adapter cannot serve the sweep", true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store := newDeliveryInsightsTestStore(t)
 			svc := NewDeliveryInsightsService(
-				store, NewPassthroughUIDResolver(), slog.Default(), tc.aggregation, tc.events)
+				store, NewPassthroughUIDResolver(), slog.Default(),
+				tc.aggregation, func() bool { return tc.events },
+			)
 
 			start := time.Now().UTC().AddDate(0, 0, -7)
 			resp, err := svc.QueryDoraMetrics(context.Background(), gen.DoraMetricsQueryRequest{
@@ -276,10 +281,10 @@ func TestCollectionFlagsTravelWithEveryResponse(t *testing.T) {
 
 			// Reported even with an empty store -- that is precisely the case the
 			// client cannot otherwise interpret.
-			require.NotNil(t, resp.Collection.AggregationEnabled)
-			require.Equal(t, tc.aggregation, *resp.Collection.AggregationEnabled)
-			require.NotNil(t, resp.Collection.EventsSourceEnabled)
-			require.Equal(t, tc.events, *resp.Collection.EventsSourceEnabled)
+			require.NotNil(t, resp.Collection.Enabled)
+			require.Equal(t, tc.aggregation, *resp.Collection.Enabled)
+			require.NotNil(t, resp.Collection.EventsSourceAvailable)
+			require.Equal(t, tc.events, *resp.Collection.EventsSourceAvailable)
 		})
 	}
 }

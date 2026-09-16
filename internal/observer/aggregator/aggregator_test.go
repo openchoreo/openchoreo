@@ -1218,3 +1218,43 @@ func TestACappedIncidentSweepResumesRatherThanRestarting(t *testing.T) {
 	require.Len(t, facts, total,
 		"every incident in the window must be folded across the two ticks")
 }
+
+// unavailableEventsSource stands for an adapter that answers 501 to an unscoped
+// sweep: the contract calls that "capability unavailable", not a failure.
+type unavailableEventsSource struct{ calls int }
+
+func (u *unavailableEventsSource) FetchDeliveryEvents(
+	_ context.Context, _, _ int64,
+) ([]DeliveryEvent, bool, error) {
+	u.calls++
+	return nil, false, fmt.Errorf("%w: adapter returned 501", ErrEventsSourceUnavailable)
+}
+
+// TestUnservableEventsSourceDoesNotStopIncidents is why collection is one switch
+// rather than one per source. The tick folds incidents first, events second, and
+// recomputes rollups after both -- so an events error that fails the tick takes
+// Mean Time to Recovery down with it, even though MTTR needs no adapter support
+// at all. An adapter that cannot serve the sweep has to be stood down, not
+// retried.
+func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
+	store, incidents := newTestStores(t)
+	now := time.Now().UTC()
+	events := &unavailableEventsSource{}
+	a := newTestAggregator(store, incidents, events, now)
+
+	require.True(t, a.EventsActive(), "the sweep is attempted until the adapter refuses it")
+
+	// The tick has to succeed despite the events source refusing.
+	require.NoError(t, runOnce(t, a), "a 501 from the adapter must not fail the tick")
+	require.False(t, a.EventsActive(), "the sweep should be stood down after a 501")
+	require.Equal(t, 1, events.calls)
+
+	// And stay stood down, rather than being retried every interval.
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 1, events.calls, "a refused sweep must not be retried")
+
+	// The incident watermark still advances, which is what keeps MTTR working.
+	wm, err := store.Watermark(context.Background(), watermarkSourceIncidents)
+	require.NoError(t, err)
+	require.Positive(t, wm, "incidents must still be folded and their watermark advanced")
+}

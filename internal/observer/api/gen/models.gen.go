@@ -1085,11 +1085,11 @@ type DoraMetricsQueryRequestMetrics string
 type DoraMetricsQueryResponse struct {
 	// Collection What this observer is currently collecting. An empty result is otherwise ambiguous: a scope that has genuinely deployed nothing looks identical to one whose observer was never configured to collect. Clients use this to tell the two apart and say so.
 	Collection *struct {
-		// AggregationEnabled Whether the DORA aggregator runs on this observer (`observer.deliveryInsights.aggregationEnabled`). False means nothing is being written, so every metric stays empty however much is deployed.
-		AggregationEnabled *bool `json:"aggregationEnabled,omitempty"`
+		// Enabled Whether this observer derives delivery facts at all (`observer.deliveryInsights.enabled`). False means nothing is being written, so every metric stays empty however much is deployed.
+		Enabled *bool `json:"enabled,omitempty"`
 
-		// EventsSourceEnabled Whether the aggregator reads delivery lifecycle events (`observer.deliveryInsights.eventsSourceEnabled`). False leaves deployment frequency, lead time and change failure rate without input; mean time to recovery is derived from incidents and is unaffected.
-		EventsSourceEnabled *bool `json:"eventsSourceEnabled,omitempty"`
+		// EventsSourceAvailable Whether the deployed logs adapter can serve the delivery event sweep. Observed rather than configured: an adapter that cannot answers 501, and the aggregator stands the sweep down. False leaves deployment frequency, lead time and change failure rate without input; mean time to recovery comes from incidents and is unaffected.
+		EventsSourceAvailable *bool `json:"eventsSourceAvailable,omitempty"`
 	} `json:"collection,omitempty"`
 	Granularity *DoraMetricsQueryResponseGranularity `json:"granularity,omitempty"`
 	Scope       *ComponentSearchScope                `json:"scope,omitempty"`

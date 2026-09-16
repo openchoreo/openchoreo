@@ -29,6 +29,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,6 +95,9 @@ const aggregationLease = "dora-aggregation"
 type Aggregator struct {
 	store     deliveryinsights.Store
 	incidents incidententry.IncidentEntryStore
+	// eventsUnavailable latches once the adapter reports it cannot serve the
+	// sweep, so the attempt is not repeated every tick for the life of the process.
+	eventsUnavailable atomic.Bool
 	// events is nil when the deployed logs adapter cannot filter events by reason, or
 	// cannot return them across every namespace in one query -- the sweep covers the
 	// whole install on a timer, so asking scope by scope is not an option. That is why
@@ -156,6 +160,14 @@ func (a *Aggregator) leaseTTL() time.Duration {
 		ttl = time.Minute
 	}
 	return ttl
+}
+
+// EventsActive reports whether the events sweep is being attempted: an aggregator
+// is running, a source is configured, and the adapter has not told us it cannot
+// serve one. Nil-safe, so a caller holding a not-yet-started aggregator -- or none
+// at all, when collection is off -- can ask without guarding first.
+func (a *Aggregator) EventsActive() bool {
+	return a != nil && a.events != nil && !a.eventsUnavailable.Load()
 }
 
 // Run ticks until ctx is cancelled. A failed tick logs and retries on the next
@@ -319,13 +331,28 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	// eventsProgress records how far the events sweep got, which is short of tickStart
 	// when the page cap cut it off.
 	eventsProg := eventsProgress{watermarkMs: tickStart.UnixMilli()}
-	if a.events != nil {
+	eventsActive := a.EventsActive()
+	if eventsActive {
 		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart)
-		if eventsErr != nil {
+		switch {
+		case errors.Is(eventsErr, ErrEventsSourceUnavailable):
+			// The adapter cannot serve the sweep at all. Retrying would fail every
+			// tick, and since rollups are recomputed after both sources, that would
+			// stop Mean Time to Recovery too -- which needs no adapter support.
+			// Stand the sweep down and carry on with incidents.
+			a.eventsUnavailable.Store(true)
+			eventsActive = false
+			a.logger.Warn("Delivery events source is unavailable on this adapter; "+
+				"continuing with incidents alone. Deployment frequency, lead time and "+
+				"change failure rate will have no input until an adapter that serves "+
+				"unscoped, reason-filtered event queries is deployed.",
+				"error", eventsErr)
+		case eventsErr != nil:
 			return fmt.Errorf("events: %w", eventsErr)
+		default:
+			touched = append(touched, eventTouched...)
+			eventsProg = progress
 		}
-		touched = append(touched, eventTouched...)
-		eventsProg = progress
 	}
 
 	if len(touched) > 0 {
@@ -344,7 +371,7 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	if err := a.store.SetWatermark(ctx, watermarkSourceIncidentsResume, incidentResumeMs, aggregationLease, a.holder); err != nil {
 		return err
 	}
-	if a.events != nil {
+	if eventsActive {
 		// Advance only as far as the sweep reached, so a capped sweep resumes from
 		// where it stopped rather than jumping the unread remainder.
 		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsProg.watermarkMs, aggregationLease, a.holder); err != nil {

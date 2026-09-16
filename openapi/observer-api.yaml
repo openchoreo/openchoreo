@@ -3688,20 +3688,21 @@ components:
             looks identical to one whose observer was never configured to
             collect. Clients use this to tell the two apart and say so.
           properties:
-            aggregationEnabled:
+            enabled:
               type: boolean
               description: >
-                Whether the DORA aggregator runs on this observer
-                (`observer.deliveryInsights.aggregationEnabled`). False means
-                nothing is being written, so every metric stays empty however
-                much is deployed.
-            eventsSourceEnabled:
+                Whether this observer derives delivery facts at all
+                (`observer.deliveryInsights.enabled`). False means nothing is
+                being written, so every metric stays empty however much is
+                deployed.
+            eventsSourceAvailable:
               type: boolean
               description: >
-                Whether the aggregator reads delivery lifecycle events
-                (`observer.deliveryInsights.eventsSourceEnabled`). False leaves
-                deployment frequency, lead time and change failure rate without
-                input; mean time to recovery is derived from incidents and is
+                Whether the deployed logs adapter can serve the delivery event
+                sweep. Observed rather than configured: an adapter that cannot
+                answers 501, and the aggregator stands the sweep down. False
+                leaves deployment frequency, lead time and change failure rate
+                without input; mean time to recovery comes from incidents and is
                 unaffected.
         scope:
           $ref: "#/components/schemas/ComponentSearchScope"

@@ -239,7 +239,22 @@ func main() {
 		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
-	deliveryInsightsService := newDeliveryInsightsService(cfg, deliveryInsightsStore, uidResolver, logger)
+	// Assigned once the aggregator is started, below, and nil when collection is
+	// off. The service reads it through a closure rather than a method value,
+	// which would bind the nil receiver here and never see the assignment.
+	//
+	// It only reads while serving a request, which cannot happen before the server
+	// goroutine starts, so the write is ordered ahead of every read.
+	var (
+		doraAggregator *aggregator.Aggregator
+		backgroundWG   *sync.WaitGroup
+	)
+
+	deliveryInsightsService := newDeliveryInsightsService(
+		cfg, deliveryInsightsStore, uidResolver,
+		func() bool { return doraAggregator.EventsActive() },
+		logger,
+	)
 
 	// Wrap services with authorization checks.
 	// Both the API handler and MCP handler share the same authz-wrapped instances
@@ -468,7 +483,7 @@ func main() {
 	defer stop()
 
 	// Start the DORA aggregator, which folds delivery signals into the delivery insights store.
-	backgroundWG := startDoraAggregator(
+	backgroundWG, doraAggregator = startDoraAggregator(
 		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
 
 	// Start main server
@@ -574,6 +589,7 @@ func newDeliveryInsightsService(
 	cfg *config.Config,
 	store deliveryinsights.Store,
 	uidResolver service.ScopeUIDResolver,
+	eventsAvailable func() bool,
 	logger *slog.Logger,
 ) *service.DoraMetricsService {
 	resolver := uidResolver
@@ -581,12 +597,12 @@ func newDeliveryInsightsService(
 		logger.Warn("Delivery Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
 		resolver = service.NewPassthroughUIDResolver()
 	}
-	// The two collection flags travel with every metrics response so the client
-	// can tell "nothing was deployed" from "nothing is being collected".
+	// What this observer is collecting travels with every metrics response, so a
+	// client can tell "nothing was deployed" from "nothing is being collected".
 	return service.NewDeliveryInsightsService(
 		store, resolver, logger.With("component", "delivery-insights-service"),
-		cfg.DeliveryInsights.AggregationEnabled,
-		cfg.DeliveryInsights.EventsSourceEnabled,
+		cfg.DeliveryInsights.Enabled,
+		eventsAvailable,
 	)
 }
 
@@ -600,19 +616,16 @@ func startDoraAggregator(
 	incidents incidententry.IncidentEntryStore,
 	logsAdapter aggregator.EventsSource,
 	logger *slog.Logger,
-) *sync.WaitGroup {
+) (*sync.WaitGroup, *aggregator.Aggregator) {
 	var wg sync.WaitGroup
-	if !cfg.DeliveryInsights.AggregationEnabled {
-		logger.Info("DORA aggregator is disabled (DELIVERY_INSIGHTS_AGGREGATION_ENABLED=false)")
-		return &wg
+	if !cfg.DeliveryInsights.Enabled {
+		logger.Info("Delivery Insights is disabled (DELIVERY_INSIGHTS_ENABLED=false)")
+		return &wg, nil
 	}
 
-	// The events source needs a logs adapter with the reasons filter and
-	// searchAfter pagination; keep it opt-in until the deployed adapter has them.
-	var eventsSource aggregator.EventsSource
-	if cfg.DeliveryInsights.EventsSourceEnabled {
-		eventsSource = logsAdapter
-	}
+	// The sweep is always attempted. Whether the deployed adapter can serve it is
+	// discovered from a 501 on the first tick, not declared up front.
+	eventsSource := logsAdapter
 
 	doraAggregator := aggregator.New(
 		store,
@@ -632,7 +645,7 @@ func startDoraAggregator(
 		defer wg.Done()
 		doraAggregator.Run(ctx)
 	}()
-	return &wg
+	return &wg, doraAggregator
 }
 
 // waitForGroup waits for wg, returning false if ctx is done first.
