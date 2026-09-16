@@ -376,6 +376,8 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 	rollup := MetricRollup{
 		ScopeType:     ScopeTypeComponent,
 		ScopeUID:      "comp-1",
+		Namespace:     "default",
+		ProjectUID:    "proj-1",
 		Granularity:   GranularityDaily,
 		BucketStartMs: day1,
 		DeployTotal:   5,
@@ -394,6 +396,8 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 	got, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType:   ScopeTypeComponent,
 		ScopeUID:    "comp-1",
+		Namespace:   "default",
+		ProjectUID:  "proj-1",
 		Granularity: GranularityDaily,
 		StartMs:     day1,
 		EndMs:       day2,
@@ -414,6 +418,7 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 
 	unsliced, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType: ScopeTypeComponent, ScopeUID: "comp-1",
+		Namespace: "default", ProjectUID: "proj-1",
 		Granularity: GranularityDaily, StartMs: day1, EndMs: day2,
 	})
 	require.NoError(t, err)
@@ -422,6 +427,7 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 
 	prodSlice, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType: ScopeTypeComponent, ScopeUID: "comp-1", EnvironmentUID: "env-prod",
+		Namespace: "default", ProjectUID: "proj-1",
 		Granularity: GranularityDaily, StartMs: day1, EndMs: day2,
 	})
 	require.NoError(t, err)
@@ -701,6 +707,7 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 		rollups, err := store.QueryRollups(ctx, RollupQuery{
 			ScopeType:   ScopeTypeNamespace,
 			ScopeUID:    "default",
+			Namespace:   "default",
 			Granularity: g,
 			StartMs:     BucketStartMs(g, start),
 			EndMs:       end,
@@ -929,4 +936,57 @@ func TestAggregationLeaseIsExclusive(t *testing.T) {
 		_, err = acquire(t, store, "replica-a", now, 0)
 		require.Error(t, err, "a zero TTL would expire on arrival")
 	})
+}
+
+// TestRollupsAreNotAddressableByScopeUIDAlone pins the rollup read against the
+// shape a project-scoped grant authorizes. Component names are unique per
+// namespace, not per project, and the authorization decision is made on the
+// project the caller named -- so a caller holding a grant on one project can ask
+// for a component that belongs to another. The fact reads already refuse that by
+// ANDing the whole scope; the rollup read has to refuse it too, or the series
+// comes back populated while the rest of the response is empty.
+func TestRollupsAreNotAddressableByScopeUIDAlone(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	day := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+
+	require.NoError(t, store.UpsertRollups(ctx, []MetricRollup{{
+		ScopeType:     ScopeTypeComponent,
+		ScopeUID:      "comp-in-p2",
+		Namespace:     "acme",
+		ProjectUID:    "p2",
+		Granularity:   GranularityDaily,
+		BucketStartMs: day,
+		DeployTotal:   7,
+		ComputedAtMs:  day,
+	}}))
+
+	// The owning project: the rollups are readable.
+	owned, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "acme", ProjectUID: "p2",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, owned, 1)
+	assert.Equal(t, 7, owned[0].DeployTotal)
+
+	// A neighboring project in the same namespace, naming the component it does
+	// not own. This is the exact request a grant on p1 authorizes.
+	crossProject, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "acme", ProjectUID: "p1",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, crossProject, "a component's rollups must not be readable through another project")
+
+	// And from another namespace entirely.
+	crossNamespace, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "other", ProjectUID: "p2",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, crossNamespace, "a component's rollups must not be readable through another namespace")
 }

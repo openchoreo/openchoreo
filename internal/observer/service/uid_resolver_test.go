@@ -389,3 +389,42 @@ func TestFetchResourceUID_BadClientCredentialsAfterInvalidation(t *testing.T) {
 		t.Errorf("expected 1 API call, got %d", n)
 	}
 }
+
+// TestGetComponentUIDRejectsAComponentOfAnotherProject pins the membership check.
+// Components are namespace-scoped, so the name alone addresses one whatever
+// project the caller names -- and the project the caller names is what the
+// authorization decision was made on, a project-scoped grant matching every
+// component path beneath it. Resolving a component owned elsewhere would hand
+// back a UID the grant never covered.
+func TestGetComponentUIDRejectsAComponentOfAnotherProject(t *testing.T) {
+	tokens := newAlwaysOKTokenServer(t)
+	defer tokens.Close()
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// The component exists in the namespace, but project p2 owns it.
+		_, _ = w.Write([]byte(`{
+			"metadata": {"uid": "comp-uid-1"},
+			"spec": {"owner": {"projectName": "p2"}}
+		}`))
+	}))
+	defer api.Close()
+
+	r := newTestResolver(t, api, tokens, nil)
+
+	uid, err := r.GetComponentUID(context.Background(), "acme", "p2", "payments-api")
+	if err != nil {
+		t.Fatalf("the owning project must resolve: %v", err)
+	}
+	if uid != "comp-uid-1" {
+		t.Fatalf("expected comp-uid-1, got %q", uid)
+	}
+
+	_, err = r.GetComponentUID(context.Background(), "acme", "p1", "payments-api")
+	if err == nil {
+		t.Fatal("a project that does not own the component must not resolve it")
+	}
+	if !errors.Is(err, ErrResourceNotFound) {
+		t.Fatalf("expected ErrResourceNotFound, got %v", err)
+	}
+}

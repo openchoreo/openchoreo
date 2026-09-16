@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
@@ -287,4 +288,53 @@ func TestDataAvailabilityTravelsWithEveryResponse(t *testing.T) {
 			require.Equal(t, tc.events, *resp.DataAvailability.DeliveryEvents)
 		})
 	}
+}
+
+// TestDeploymentsDrillDownHonoursLimit pins the page cap on the list endpoint.
+// The metrics above it read every row on purpose -- a cap there biases the
+// percentiles -- and this endpoint shares that query builder, so the cap has to
+// be reinstated rather than merely set. Left unset, limit is ignored outright and
+// a request for ten rows answers with the entire window.
+func TestDeploymentsDrillDownHonoursLimit(t *testing.T) {
+	ctx := context.Background()
+	store := newDeliveryInsightsTestStore(t)
+
+	const count = 40
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	facts := make([]deliveryinsights.DeploymentFact, 0, count)
+	for i := 0; i < count; i++ {
+		readyMs := start.Add(time.Duration(i) * time.Hour).UnixMilli()
+		facts = append(facts, deliveryinsights.DeploymentFact{
+			ReleaseUID:      fmt.Sprintf("rollout-%03d", i),
+			Namespace:       "acme",
+			ProjectUID:      "shop",
+			ComponentUID:    "checkout",
+			EnvironmentUID:  "prod",
+			ProjectName:     "shop",
+			ComponentName:   "checkout",
+			EnvironmentName: "prod",
+			ReadyMs:         &readyMs,
+			Outcome:         deliveryinsights.OutcomeSuccess,
+			UpdatedAtMs:     readyMs,
+		})
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+
+	svc := newDeliveryInsightsTestService(t, store)
+	limit := 10
+	resp, err := svc.QueryDoraDeployments(ctx, gen.DoraDeploymentsQueryRequest{
+		StartTime:   start.Add(-time.Hour),
+		EndTime:     start.Add(time.Duration(count+1) * time.Hour),
+		SearchScope: gen.ComponentSearchScope{Namespace: "acme"},
+		Limit:       &limit,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.Deployments)
+	assert.Len(t, *resp.Deployments, limit, "the page must be capped at limit")
+
+	// The count describes the window, not the page, so a client can tell there is
+	// more behind it.
+	require.NotNil(t, resp.TotalCount)
+	assert.Equal(t, count, *resp.TotalCount)
 }

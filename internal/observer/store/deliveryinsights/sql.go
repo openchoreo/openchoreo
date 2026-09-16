@@ -87,6 +87,11 @@ var migrations = []migration{
 				scope_type       TEXT NOT NULL,
 				scope_uid        TEXT NOT NULL,
 				environment_uid  TEXT NOT NULL DEFAULT '',
+				-- Where the scope sits. Not part of the key, which scope_uid already
+				-- settles; they are here so a read can require the caller's namespace
+				-- and project to be the ones the row was written under.
+				namespace        TEXT NOT NULL DEFAULT '',
+				project_uid      TEXT NOT NULL DEFAULT '',
 				granularity      TEXT NOT NULL,
 				bucket_start_ms  BIGINT NOT NULL,
 				deploy_total     INTEGER NOT NULL DEFAULT 0,
@@ -245,12 +250,14 @@ ON CONFLICT (id) DO UPDATE SET
 	updated_at_ms = excluded.updated_at_ms;`
 
 const upsertRollupQuery = `INSERT INTO delivery_metric_rollup (
-	scope_type, scope_uid, environment_uid, granularity, bucket_start_ms,
+	scope_type, scope_uid, environment_uid, namespace, project_uid, granularity, bucket_start_ms,
 	deploy_total, deploy_success, deploy_failed,
 	lead_time_p50_ms, lead_time_p75_ms, lead_time_p95_ms,
 	mttr_mean_ms, mttr_p50_ms, recovery_count, computed_at_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (scope_type, scope_uid, environment_uid, granularity, bucket_start_ms) DO UPDATE SET
+	namespace = excluded.namespace,
+	project_uid = excluded.project_uid,
 	deploy_total = excluded.deploy_total,
 	deploy_success = excluded.deploy_success,
 	deploy_failed = excluded.deploy_failed,
@@ -350,10 +357,10 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if err := s.db.PingContext(initCtx); err != nil {
 		return fmt.Errorf("failed to ping delivery insights store: %w", err)
 	}
-	if _, err := s.db.ExecContext(initCtx, createSchemaVersionTableQuery); err != nil {
-		return fmt.Errorf("failed to create delivery insights schema version table: %w", err)
-	}
-
+	// The version table is created inside applyMigrations, under the same advisory
+	// lock: CREATE TABLE IF NOT EXISTS is not atomic against a concurrent one, and
+	// serializing the migrations while racing on the table that records them would
+	// leave the race the lock was added to close.
 	return s.applyMigrations(initCtx)
 }
 
@@ -370,7 +377,44 @@ func (s *sqlStore) enableSQLiteWAL(ctx context.Context) error {
 
 // applyMigrations runs every migration with a version greater than the recorded maximum,
 // each inside its own transaction so a failure leaves the schema at a known version.
+// createSchemaVersionTable creates the table the migration log lives in, under the
+// same advisory lock the migrations take. It is the first DDL a replica runs, so
+// it meets the same non-atomic CREATE TABLE IF NOT EXISTS race on PostgreSQL that
+// the lock exists to close -- serializing every migration but not the table that
+// records them would leave the cold start failing on the first statement instead
+// of a later one.
+func (s *sqlStore) createSchemaVersionTable(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin schema version table creation: %w", err)
+	}
+	rollback := func() {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			s.logger.Error("Failed to roll back schema version table creation", "error", rbErr)
+		}
+	}
+	if s.backend == BackendPostgreSQL {
+		if _, err := tx.ExecContext(ctx,
+			"SELECT pg_advisory_xact_lock($1);", migrationAdvisoryLockKey); err != nil {
+			rollback()
+			return fmt.Errorf("failed to lock for schema version table creation: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, createSchemaVersionTableQuery); err != nil {
+		rollback()
+		return fmt.Errorf("failed to create delivery insights schema version table: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit schema version table creation: %w", err)
+	}
+	return nil
+}
+
 func (s *sqlStore) applyMigrations(ctx context.Context) error {
+	if err := s.createSchemaVersionTable(ctx); err != nil {
+		return err
+	}
+
 	var current sql.NullInt64
 	row := s.db.QueryRowContext(ctx, "SELECT MAX(version) FROM delivery_insights_schema_version;")
 	if err := row.Scan(&current); err != nil {
@@ -542,7 +586,8 @@ func (s *sqlStore) UpsertRollups(ctx context.Context, rollups []MetricRollup) er
 		for i := range rollups {
 			r := &rollups[i]
 			_, err := tx.ExecContext(ctx, query,
-				r.ScopeType, r.ScopeUID, r.EnvironmentUID, r.Granularity, r.BucketStartMs,
+				r.ScopeType, r.ScopeUID, r.EnvironmentUID, r.Namespace, r.ProjectUID,
+				r.Granularity, r.BucketStartMs,
 				r.DeployTotal, r.DeploySuccess, r.DeployFailed,
 				nullableInt64(r.LeadTimeP50Ms), nullableInt64(r.LeadTimeP75Ms),
 				nullableInt64(r.LeadTimeP95Ms), nullableInt64(r.MTTRMeanMs),
@@ -562,17 +607,23 @@ func (s *sqlStore) QueryRollups(ctx context.Context, q RollupQuery) ([]MetricRol
 		return nil, err
 	}
 
-	query := s.rebind(`SELECT scope_type, scope_uid, environment_uid, granularity, bucket_start_ms,
+	// namespace and project_uid are required to match, not merely carried: a
+	// component UID addresses one component whatever project the caller named, and
+	// the caller's project is what the authorization decision was made on.
+	query := s.rebind(`SELECT scope_type, scope_uid, environment_uid, namespace, project_uid,
+	granularity, bucket_start_ms,
 	deploy_total, deploy_success, deploy_failed,
 	lead_time_p50_ms, lead_time_p75_ms, lead_time_p95_ms,
 	mttr_mean_ms, mttr_p50_ms, recovery_count, computed_at_ms
 FROM delivery_metric_rollup
 WHERE scope_type = ? AND scope_uid = ? AND environment_uid = ? AND granularity = ?
+	AND namespace = ? AND project_uid = ?
 	AND bucket_start_ms >= ? AND bucket_start_ms < ?
 ORDER BY bucket_start_ms ASC;`)
 
 	rows, err := s.db.QueryContext(ctx, query,
-		q.ScopeType, q.ScopeUID, q.EnvironmentUID, q.Granularity, q.StartMs, q.EndMs)
+		q.ScopeType, q.ScopeUID, q.EnvironmentUID, q.Granularity,
+		q.Namespace, q.ProjectUID, q.StartMs, q.EndMs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query delivery metric rollups: %w", err)
 	}
@@ -582,7 +633,8 @@ ORDER BY bucket_start_ms ASC;`)
 	for rows.Next() {
 		var r MetricRollup
 		var p50, p75, p95, mttrMean, mttrP50 sql.NullInt64
-		if err := rows.Scan(&r.ScopeType, &r.ScopeUID, &r.EnvironmentUID, &r.Granularity,
+		if err := rows.Scan(&r.ScopeType, &r.ScopeUID, &r.EnvironmentUID,
+			&r.Namespace, &r.ProjectUID, &r.Granularity,
 			&r.BucketStartMs, &r.DeployTotal, &r.DeploySuccess, &r.DeployFailed,
 			&p50, &p75, &p95, &mttrMean, &mttrP50, &r.RecoveryCount, &r.ComputedAtMs); err != nil {
 			return nil, fmt.Errorf("failed to scan delivery metric rollup: %w", err)

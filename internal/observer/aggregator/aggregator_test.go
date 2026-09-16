@@ -166,6 +166,8 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, deployedAt.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -187,6 +189,8 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 	rollups2, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, deployedAt.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -377,6 +381,8 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, started.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -639,6 +645,8 @@ func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
 		got, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 			ScopeType:   deliveryinsights.ScopeTypeComponent,
 			ScopeUID:    "checkout-api",
+			Namespace:   "default",
+			ProjectUID:  "checkout",
 			Granularity: deliveryinsights.GranularityWeekly,
 			StartMs:     weekStartMs,
 			EndMs:       weekStartMs + 1,
@@ -1256,4 +1264,80 @@ func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
 	wm, err := store.Watermark(context.Background(), watermarkSourceIncidents)
 	require.NoError(t, err)
 	require.Positive(t, wm, "incidents must still be folded and their watermark advanced")
+}
+
+// TestACappedIncidentSweepRecomputesTheResumedBacklogsBuckets covers the half of
+// the resume that facts alone do not show. The rollups the API reads are
+// recomputed only for the buckets a tick reports as touched, and a tick reports
+// only what changed since its watermark. A capped sweep that still advanced the
+// watermark to its own start would put the backlog it did not reach behind the
+// next tick's changed-since line: the facts land, the buckets holding them are
+// never recomputed, and every metric derived from those buckets stays as it was.
+//
+// The entries are spaced by the hour rather than the minute so the backlog falls
+// outside the overlap. Inside it they would count as changed anyway, and a daily
+// bucket recomputed for any one moment is recomputed for all of them, so a
+// minute-spaced run passes whether or not the watermark is held back.
+func TestACappedIncidentSweepRecomputesTheResumedBacklogsBuckets(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	const perPage = 2
+	total := incidentMaxPages + 10
+	first := now.Add(-time.Duration(total+1) * time.Hour)
+	for i := 0; i < total; i++ {
+		at := first.Add(time.Duration(i) * time.Hour)
+		resolved := at.Add(30 * time.Minute)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:       fmt.Sprintf("alert-%d", i),
+			Timestamp:     at.Format(time.RFC3339Nano),
+			Status:        incidententry.StatusResolved,
+			TriggeredAt:   at.Format(time.RFC3339Nano),
+			ResolvedAt:    resolved.Format(time.RFC3339Nano),
+			NamespaceName: "default",
+			ComponentID:   "checkout-api",
+			EnvironmentID: "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg))
+
+	resume, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.NotZero(t, resume, "the sweep must have been capped for this to test anything")
+
+	agg2 := newTestAggregator(store, incidents, nil, now.Add(time.Minute))
+	agg2.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg2))
+
+	facts, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: first.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.Add(time.Hour).UnixMilli(),
+		AllRows: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, total, "every incident must be folded across the two ticks")
+
+	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
+		ScopeType:   deliveryinsights.ScopeTypeComponent,
+		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		Granularity: deliveryinsights.GranularityDaily,
+		StartMs: deliveryinsights.BucketStartMs(
+			deliveryinsights.GranularityDaily, first.Add(-time.Hour).UnixMilli()),
+		EndMs: now.Add(time.Hour).UnixMilli(),
+	})
+	require.NoError(t, err)
+	recovered := 0
+	for _, r := range rollups {
+		recovered += r.RecoveryCount
+	}
+	require.Equal(t, total, recovered,
+		"the resumed backlog's buckets must be recomputed, not only its facts")
 }

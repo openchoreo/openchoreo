@@ -79,6 +79,13 @@ type rollupScope struct {
 	scopeType      string
 	scopeUID       string
 	environmentUID string
+	// Where the scope sits, carried so a rollup row cannot be addressed by its
+	// scope UID alone. A component UID names one component whatever project the
+	// caller claims it is in, and the claim is what authorization was decided on,
+	// so the read has to be able to reject a mismatched pair the way the fact
+	// reads already do.
+	namespace  string
+	projectUID string
 }
 
 // scopesForFact returns every rollup a fact contributes to: namespace, project, and component
@@ -86,16 +93,18 @@ type rollupScope struct {
 func scopesForFact(namespace, projectUID, componentUID, environmentUID string) []rollupScope {
 	scopes := make([]rollupScope, 0, 6)
 	for _, s := range []rollupScope{
-		{ScopeTypeNamespace, namespace, ""},
-		{ScopeTypeProject, projectUID, ""},
-		{ScopeTypeComponent, componentUID, ""},
+		{ScopeTypeNamespace, namespace, "", namespace, ""},
+		{ScopeTypeProject, projectUID, "", namespace, projectUID},
+		{ScopeTypeComponent, componentUID, "", namespace, projectUID},
 	} {
 		if s.scopeUID == "" {
 			continue
 		}
 		scopes = append(scopes, s)
 		if environmentUID != "" {
-			scopes = append(scopes, rollupScope{s.scopeType, s.scopeUID, environmentUID})
+			sliced := s
+			sliced.environmentUID = environmentUID
+			scopes = append(scopes, sliced)
 		}
 	}
 	return scopes
@@ -175,6 +184,8 @@ func BuildRollups(facts []DeploymentFact, recoveries []RecoveryFact, computedAtM
 			ScopeType:      key.scope.scopeType,
 			ScopeUID:       key.scope.scopeUID,
 			EnvironmentUID: key.scope.environmentUID,
+			Namespace:      key.scope.namespace,
+			ProjectUID:     key.scope.projectUID,
 			Granularity:    key.granularity,
 			BucketStartMs:  key.bucketStart,
 			DeployTotal:    a.deployTotal,

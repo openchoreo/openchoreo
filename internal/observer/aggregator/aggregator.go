@@ -364,7 +364,16 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	}
 
 	// Watermarks advance last: a failure above re-processes the window next tick.
-	if err := a.store.SetWatermark(ctx, watermarkSourceIncidents, tickStart.UnixMilli(), aggregationLease, a.holder); err != nil {
+	//
+	// A capped sweep holds the watermark where it stopped, as the events path does.
+	// Advancing to tickStart regardless would leave the resumed backlog older than
+	// the next tick's changed-since line, so its entries fold as unchanged: their
+	// recovery facts are written but their buckets never reach recomputeRollups.
+	incidentWatermarkMs := tickStart.UnixMilli()
+	if incidentResumeMs > 0 {
+		incidentWatermarkMs = incidentResumeMs
+	}
+	if err := a.store.SetWatermark(ctx, watermarkSourceIncidents, incidentWatermarkMs, aggregationLease, a.holder); err != nil {
 		return err
 	}
 	// Zero when the sweep covered its whole window; otherwise the position it

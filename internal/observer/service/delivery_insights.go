@@ -380,6 +380,11 @@ func (s *DoraMetricsService) QueryDoraDeployments(
 
 	start := time.Now()
 	query := rs.factQuery(req.StartTime.UTC().UnixMilli(), req.EndTime.UTC().UnixMilli())
+	// factQuery reads every row because the metrics above are statistics over the
+	// window. This is a page of rows for a list, so the cap is the point: leaving
+	// AllRows set would ignore Limit outright and answer every request with the
+	// whole window.
+	query.AllRows = false
 	query.Limit = intPtrValue(req.Limit, defaultQueryLimit)
 	if req.SortOrder != nil {
 		query.SortOrder = string(*req.SortOrder)
@@ -449,6 +454,11 @@ func (s *DoraMetricsService) queryRollupsByBucket(
 		Granularity:    granularity,
 		StartMs:        startMs,
 		EndMs:          endMs,
+		// Placed the same way the fact reads are, so a scope whose project and
+		// component do not belong together returns nothing here too rather than
+		// only from the fact-backed halves of the response.
+		Namespace:  rs.namespace,
+		ProjectUID: rs.projectUID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("query delivery metric rollups: %w", err)

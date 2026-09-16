@@ -116,6 +116,8 @@ type MetricRollup struct {
 	ScopeType      string
 	ScopeUID       string
 	EnvironmentUID string
+	Namespace      string
+	ProjectUID     string
 	Granularity    string
 	BucketStartMs  int64
 	DeployTotal    int
@@ -139,6 +141,12 @@ type RollupQuery struct {
 	Granularity    string
 	StartMs        int64
 	EndMs          int64
+	// Namespace and ProjectUID place the scope. They are filtered on rather than
+	// taken on trust: the scope UID alone would return a component's rollups to a
+	// caller who named a project the component is not in, which is the shape a
+	// project-scoped grant authorizes.
+	Namespace  string
+	ProjectUID string
 }
 
 // FactQuery filters fact rows by scope and time range. Empty scope fields are not

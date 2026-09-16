@@ -149,8 +149,10 @@ func (a *Aggregator) processEvents(
 	// The !complete branch runs before the empty-result return on purpose. An
 	// incomplete sweep that yielded no events must not advance the watermark to
 	// tickStart and clear resumeMs, which would skip the remainder it stopped
-	// short of. Unreachable with the current adapter (20 pages x 1000), but the
-	// ordering is what makes it safe rather than the adapter's shape.
+	// short of. The current adapter reads one page and reports incomplete only
+	// alongside the events it did return, so this needs an adapter that
+	// understates its page to reach -- the ordering is what makes it safe rather
+	// than any adapter's shape.
 	if !complete && len(events) == 0 {
 		progress.watermarkMs = watermark
 		progress.resumeMs = priorResumeMs

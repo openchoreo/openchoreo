@@ -120,7 +120,7 @@ func (r *ResourceUIDResolver) GetComponentUID(
 	path := fmt.Sprintf("/api/v1/namespaces/%s/components/%s",
 		url.PathEscape(namespaceName),
 		url.PathEscape(componentName))
-	uid, err := r.fetchResourceUID(ctx, path)
+	res, err := r.fetchResource(ctx, path)
 	if err != nil {
 		return "", fmt.Errorf(
 			"failed to resolve component UID for namespace %q project %q component %q: %w",
@@ -131,7 +131,21 @@ func (r *ResourceUIDResolver) GetComponentUID(
 		)
 	}
 
-	return uid, nil
+	// Components are namespace-scoped, so the name alone addresses one whatever
+	// project the caller named. The caller's project is not decoration: it is what
+	// the authorization decision was made on, and a project-scoped grant matches by
+	// hierarchy prefix. Resolving a component that some other project owns would
+	// hand back data the grant never covered, so the claim is checked against the
+	// component's own owner rather than trusted.
+	if owner := strings.TrimSpace(res.ownerProject); owner != "" &&
+		projectName != "" && owner != projectName {
+		return "", fmt.Errorf(
+			"%w: component %q in namespace %q belongs to project %q, not %q",
+			ErrResourceNotFound, componentName, namespaceName, owner, projectName,
+		)
+	}
+
+	return res.uid, nil
 }
 
 // GetEnvironmentUID resolves an environment name to its UID within a namespace.
@@ -158,32 +172,47 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 }
 
 // fetchResourceUID makes an HTTP GET request to the openchoreo-api and extracts data.uid
-func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string) (string, error) {
+// resolvedResource is what a scope lookup reads back: the UID the store is keyed
+// by, and for a component the project that owns it, which is the only authority
+// on which project a component is actually in.
+type resolvedResource struct {
+	uid          string
+	ownerProject string
+}
+
+func (r *ResourceUIDResolver) fetchResource(ctx context.Context, path string) (resolvedResource, error) {
 	// Skip API call if not configured
 	if r.config.OpenChoreoAPIURL == "" {
-		return "", fmt.Errorf("openchoreo API URL not configured")
+		return resolvedResource{}, fmt.Errorf("openchoreo API URL not configured")
 	}
 
 	// Build request URL
 	reqURL := strings.TrimSuffix(r.config.OpenChoreoAPIURL, "/") + path
 	for attempt := 0; attempt < (r.config.MaxAuthRetry + 1); attempt++ {
-		uid, err, retry := r.doFetchResourceUID(ctx, reqURL, path, attempt)
+		res, err, retry := r.doFetchResourceUID(ctx, reqURL, path, attempt)
 		if retry {
 			continue
 		}
-		return uid, err
+		return res, err
 	}
 	// Unreachable: every loop iteration either returns or continues (401 retry path).
 	// Kept as a defensive fallback.
-	return "", fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
+	return resolvedResource{}, fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
+}
+
+func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string) (string, error) {
+	res, err := r.fetchResource(ctx, path)
+	return res.uid, err
 }
 
 // doFetchResourceUID performs a single HTTP attempt to fetch a resource UID.
 // It returns (uid, err, retry) where retry=true signals the caller to retry (401 case).
-func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, path string, attempt int) (string, error, bool) {
+func (r *ResourceUIDResolver) doFetchResourceUID(
+	ctx context.Context, reqURL, path string, attempt int,
+) (resolvedResource, error, bool) {
 	token, err := r.getAccessToken(ctx)
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to obtain access token: %w", ErrScopeAuthFailed, err), false
+		return resolvedResource{}, fmt.Errorf("%w: failed to obtain access token: %w", ErrScopeAuthFailed, err), false
 	}
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, r.config.Timeout)
@@ -191,7 +220,7 @@ func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, pa
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err), false
+		return resolvedResource{}, fmt.Errorf("failed to create request: %w", err), false
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -201,7 +230,7 @@ func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, pa
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err), false
+		return resolvedResource{}, fmt.Errorf("request failed: %w", err), false
 	}
 	defer resp.Body.Close()
 
@@ -209,7 +238,7 @@ func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, pa
 	case http.StatusOK:
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("failed to read response body: %w", err), false
+			return resolvedResource{}, fmt.Errorf("failed to read response body: %w", err), false
 		}
 
 		r.logger.Debug("Raw UID resolver response", "path", path, "status", resp.StatusCode, "body", string(body))
@@ -218,25 +247,33 @@ func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, pa
 			Metadata struct {
 				UID string `json:"uid"`
 			} `json:"metadata"`
+			Spec struct {
+				Owner struct {
+					ProjectName string `json:"projectName"`
+				} `json:"owner"`
+			} `json:"spec"`
 		}
 
 		if err := json.Unmarshal(body, &response); err != nil {
-			return "", fmt.Errorf("failed to decode response: %w", err), false
+			return resolvedResource{}, fmt.Errorf("failed to decode response: %w", err), false
 		}
 
 		if response.Metadata.UID == "" {
-			return "", fmt.Errorf("uid not found in response"), false
+			return resolvedResource{}, fmt.Errorf("uid not found in response"), false
 		}
 
 		r.logger.Debug("Resolved resource UID",
 			"path", path,
 			"uid", response.Metadata.UID)
 
-		return response.Metadata.UID, nil, false
+		return resolvedResource{
+			uid:          response.Metadata.UID,
+			ownerProject: response.Spec.Owner.ProjectName,
+		}, nil, false
 
 	case http.StatusNotFound:
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return "", fmt.Errorf("%w: %s", ErrResourceNotFound, path), false
+		return resolvedResource{}, fmt.Errorf("%w: %s", ErrResourceNotFound, path), false
 
 	case http.StatusUnauthorized:
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -249,16 +286,16 @@ func (r *ResourceUIDResolver) doFetchResourceUID(ctx context.Context, reqURL, pa
 		if remaining > 0 {
 			r.logger.Debug("Received 401 from openchoreo-api; invalidating cached token and retrying",
 				"path", path, "attempt", attempt+1, "remaining_retries", remaining)
-			return "", nil, true
+			return resolvedResource{}, nil, true
 		}
 
 		r.logger.Error("Received 401 from openchoreo-api and retries are exhausted",
 			"path", path, "max_auth_retry", r.config.MaxAuthRetry)
-		return "", fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1), false
+		return resolvedResource{}, fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1), false
 
 	default:
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return "", fmt.Errorf("API returned status %d", resp.StatusCode), false
+		return resolvedResource{}, fmt.Errorf("API returned status %d", resp.StatusCode), false
 	}
 }
 
