@@ -1,0 +1,147 @@
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: vertical-pod-autoscaler
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - updateMode
+          - containerName
+          - controlledResources
+          - minAllowed
+          - maxAllowed
+      properties:
+        updateMode:
+          type: string
+          default: Auto
+          title: Update mode
+          description: "How the autoscaler applies its recommendations. 'Auto' and 'Recreate' evict and recreate pods to apply new resource requests, 'Initial' applies them only when a pod is first created, and 'Off' only reports recommendations without changing running pods."
+          enum:
+            - "Off"
+            - Initial
+            - Recreate
+            - Auto
+        containerName:
+          type: string
+          default: "*"
+          title: Container name
+          description: "Name of the container the recommendations apply to. Use '*' to target every container in the pod."
+        controlledResources:
+          type: array
+          title: Controlled resources
+          description: "Which compute resources the autoscaler manages for the container."
+          default:
+            - cpu
+            - memory
+          items:
+            type: string
+            enum:
+              - cpu
+              - memory
+        minAllowed:
+          type: object
+          title: Minimum allowed
+          description: "Lower bound on the resource requests the autoscaler may recommend. Optional; when unset, no lower bound is enforced."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - cpu
+              - memory
+          properties:
+            cpu:
+              type: string
+              title: CPU
+              x-openchoreo-backstage-portal:
+                ui:placeholder: "e.g. 100m"
+            memory:
+              type: string
+              title: Memory
+              x-openchoreo-backstage-portal:
+                ui:placeholder: "e.g. 128Mi"
+        maxAllowed:
+          type: object
+          title: Maximum allowed
+          description: "Upper bound on the resource requests the autoscaler may recommend. Optional; when unset, no upper bound is enforced."
+          x-openchoreo-backstage-portal:
+            ui:order:
+              - cpu
+              - memory
+          properties:
+            cpu:
+              type: string
+              title: CPU
+              x-openchoreo-backstage-portal:
+                ui:placeholder: "e.g. 1"
+            memory:
+              type: string
+              title: Memory
+              x-openchoreo-backstage-portal:
+                ui:placeholder: "e.g. 512Mi"
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      x-openchoreo-backstage-portal:
+        ui:order:
+          - enabled
+          - updateMode
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether vertical autoscaling is active in this environment. When disabled, no VerticalPodAutoscaler is created."
+          x-openchoreo-backstage-portal:
+            ui:widget: radio
+        updateMode:
+          type: string
+          description: "Optional per-environment override for the update mode."
+          enum:
+            - "Off"
+            - Initial
+            - Recreate
+            - Auto
+          x-openchoreo-backstage-portal:
+            ui:placeholder: "Defaults to the value set in parameters"
+
+  creates:
+    - includeWhen: ${environmentConfigs.enabled}
+      template:
+        apiVersion: autoscaling.k8s.io/v1
+        kind: VerticalPodAutoscaler
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          targetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${metadata.name}
+          updatePolicy:
+            updateMode: |
+              ${has(environmentConfigs.updateMode) ? environmentConfigs.updateMode : parameters.updateMode}
+          resourcePolicy:
+            containerPolicies:
+              - containerName: ${parameters.containerName}
+                controlledResources: ${parameters.controlledResources}
+                minAllowed: |
+                  ${(has(parameters.minAllowed) &&
+                      ((has(parameters.minAllowed.cpu) && parameters.minAllowed.cpu != '') ||
+                       (has(parameters.minAllowed.memory) && parameters.minAllowed.memory != '')))
+                    ? {
+                        "cpu": has(parameters.minAllowed.cpu) && parameters.minAllowed.cpu != '' ? parameters.minAllowed.cpu : oc_omit(),
+                        "memory": has(parameters.minAllowed.memory) && parameters.minAllowed.memory != '' ? parameters.minAllowed.memory : oc_omit()
+                      }
+                    : oc_omit()}
+                maxAllowed: |
+                  ${(has(parameters.maxAllowed) &&
+                      ((has(parameters.maxAllowed.cpu) && parameters.maxAllowed.cpu != '') ||
+                       (has(parameters.maxAllowed.memory) && parameters.maxAllowed.memory != '')))
+                    ? {
+                        "cpu": has(parameters.maxAllowed.cpu) && parameters.maxAllowed.cpu != '' ? parameters.maxAllowed.cpu : oc_omit(),
+                        "memory": has(parameters.maxAllowed.memory) && parameters.maxAllowed.memory != '' ? parameters.maxAllowed.memory : oc_omit()
+                      }
+                    : oc_omit()}
