@@ -6,10 +6,11 @@
 // Each tick it reads incidents and delivery lifecycle events since its per-source
 // watermark, normalizes them into deployment/recovery facts, attributes incidents to
 // the deployment live at trigger time, and recomputes the metric rollups for every
-// bucket it touched. The events source is opt-in
-// (DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED) because it needs a logs adapter carrying the
-// reasons filter, and able to return them across every namespace in one query
-// rather than a scope at a time; without it only the incident path runs.
+// bucket it touched. DELIVERY_INSIGHTS_ENABLED turns the whole thing on; there is no
+// separate switch for the events path, since partial DORA metrics are not worth
+// configuring. The sweep does need a logs adapter carrying the reasons filter and
+// able to return events across every namespace in one query rather than a scope at
+// a time -- an adapter that cannot answers 501, and only the incident path runs.
 //
 // Correctness rests on the store's semantics, not on tick bookkeeping: facts
 // upsert on stable keys with sticky-failure merge rules, rollups are recomputed
@@ -98,11 +99,12 @@ type Aggregator struct {
 	// eventsUnavailable latches once the adapter reports it cannot serve the
 	// sweep, so the attempt is not repeated every tick for the life of the process.
 	eventsUnavailable atomic.Bool
-	// events is nil when the deployed logs adapter cannot filter events by reason, or
-	// cannot return them across every namespace in one query -- the sweep covers the
-	// whole install on a timer, so asking scope by scope is not an option. That is why
-	// it stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED, and the events path is
-	// skipped when nil.
+	// events is the sweep source, and the events path is skipped while it is nil.
+	// Production always supplies one: whether the deployed adapter can actually serve
+	// the sweep is answered by the adapter itself (501, latched in eventsUnavailable
+	// above) rather than by configuration, because the sweep covers the whole install
+	// on a timer and needs a reasons filter across every namespace -- something the
+	// operator cannot be expected to know about their logging backend.
 	events           EventsSource
 	cfg              Config
 	logger           *slog.Logger

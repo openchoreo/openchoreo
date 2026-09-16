@@ -58,11 +58,14 @@ var ErrEventsSourceUnavailable = errors.New("delivery events source unavailable"
 // logs-adapter `reasons` filter and its ability to return events across every
 // namespace in one query rather than a scope at a time, which the adapter contract
 // gains with #4597. A deployed adapter without those extensions cannot serve the
-// sweep, which is why the source stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED
-// even though an implementation now exists.
+// sweep -- it answers 501, and the aggregator stands the sweep down for the life of
+// the process. That is discovered on the first tick rather than configured: the
+// operator enabling Delivery Insights has no reliable way to know what the backing
+// logs adapter supports, so asking it is more honest than asking them.
 //
 // The aggregator skips the events path while this is nil, and folds incidents alone —
-// see New.
+// see New. In production it is never nil; that path is for tests and for a build
+// wired without an adapter.
 type EventsSource interface {
 	// FetchDeliveryEvents returns delivery lifecycle events in [fromMs, toMs),
 	// ordered by timestamp ascending (phase merges assume chronological folding).
