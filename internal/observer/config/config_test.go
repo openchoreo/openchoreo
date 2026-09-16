@@ -248,7 +248,7 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.False(t, cfg.DeliveryInsights.Enabled,
-		"collection must default off; it is opt-in per deployment")
+		"Delivery Insights must default off; it is opt-in per deployment")
 	assert.Equal(t, uidResolutionResolver, cfg.DeliveryInsights.UIDResolution,
 		"passthrough is a seeded-data shortcut and must not be the default")
 }

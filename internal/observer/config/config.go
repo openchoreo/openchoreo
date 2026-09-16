@@ -154,10 +154,13 @@ type DeliveryInsightsConfig struct {
 	// rollups the Delivery Insights API reads. Reads are served whether or not it
 	// runs; this only controls whether new facts are derived.
 	//
-	// One switch rather than one per source: partial DORA is not a state anyone
-	// asks for, and whether the deployed adapter can serve the event sweep is
-	// something the aggregator discovers from a 501 rather than something an
-	// operator should have to declare.
+	// This is the whole feature's switch. There is deliberately no separate
+	// control for the delivery event sweep: metrics derived from only some of
+	// their sources are not a state worth offering. Whether the deployed logs
+	// adapter can serve that sweep is discovered at runtime -- one that cannot
+	// answers 501 and the aggregator stands the sweep down -- rather than being
+	// something an operator has to know about their logging backend and declare
+	// here.
 	Enabled bool `koanf:"enabled"`
 	// AggregationInterval is the aggregator tick interval.
 	AggregationInterval time.Duration `koanf:"aggregation.interval"`

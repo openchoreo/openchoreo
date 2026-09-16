@@ -1230,12 +1230,11 @@ func (u *unavailableEventsSource) FetchDeliveryEvents(
 	return nil, false, fmt.Errorf("%w: adapter returned 501", ErrEventsSourceUnavailable)
 }
 
-// TestUnservableEventsSourceDoesNotStopIncidents is why collection is one switch
-// rather than one per source. The tick folds incidents first, events second, and
-// recomputes rollups after both -- so an events error that fails the tick takes
-// Mean Time to Recovery down with it, even though MTTR needs no adapter support
-// at all. An adapter that cannot serve the sweep has to be stood down, not
-// retried.
+// TestUnservableEventsSourceDoesNotStopIncidents pins why an unservable sweep is
+// stood down rather than left to fail the tick. The tick folds incidents first,
+// events second, and recomputes rollups after both -- so an events error that
+// fails the tick takes Mean Time to Recovery down with it, even though MTTR is
+// derived from incidents and needs no adapter support at all.
 func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
 	store, incidents := newTestStores(t)
 	now := time.Now().UTC()
