@@ -26,6 +26,8 @@ spec:
       name: observability-alert-rule
     - kind: ClusterTrait
       name: persistent-volume-claim
+    - kind: ClusterTrait
+      name: vertical-pod-autoscaler
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

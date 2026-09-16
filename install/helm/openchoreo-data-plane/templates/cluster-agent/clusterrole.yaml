@@ -74,6 +74,10 @@ rules:
   resources:
   - horizontalpodautoscalers
   verbs: ["*"]
+- apiGroups: ["autoscaling.k8s.io"]
+  resources:
+  - verticalpodautoscalers
+  verbs: ["*"]
 # Policy
 - apiGroups: ["policy"]
   resources:
