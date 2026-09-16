@@ -107,6 +107,8 @@ func setupFlags() (*pflag.FlagSet, *cliFlags) {
 		"The agent's own data-plane namespace, sent in heartbeats (defaults to the POD_NAMESPACE downward-API env)")
 	flags.Int("max-streams-per-session", agentDefaults.MaxStreamsPerSession,
 		"Maximum concurrent streams per tunnel connection (0 = unlimited)")
+	flags.Int("max-sessions", agentDefaults.MaxSessions,
+		"Maximum concurrent tunnel connections served by this agent (0 = unlimited)")
 	flags.Duration("handshake-timeout", agentDefaults.HandshakeTimeout, "Timeout for the Hello handshake")
 	flags.Duration("stream-open-timeout", agentDefaults.StreamOpenTimeout,
 		"Timeout for a client to send StreamOpen after opening a stream")
@@ -118,7 +120,11 @@ func setupFlags() (*pflag.FlagSet, *cliFlags) {
 	flags.Bool("authorize-insecure", authorizeDefaults.InsecureSkipVerify,
 		"Skip TLS verification of the control plane (development only)")
 	flags.Duration("authorize-timeout", authorizeDefaults.Timeout,
-		"Timeout for a single authorize call to the control plane")
+		"Timeout for a single authorize call to the control plane, and for the wait to start one")
+	flags.Float64("authorize-rate", authorizeDefaults.RatePerSecond,
+		"Sustained authorize calls per second this agent may make to the control plane (0 = unlimited)")
+	flags.Int("authorize-burst", authorizeDefaults.Burst,
+		"Authorize calls allowed at once before --authorize-rate applies")
 	flags.String("heartbeat-url", heartbeatDefaults.URL,
 		"Control-plane heartbeat endpoint URL (POST), called periodically to keep this "+
 			"agent alive while it has live sessions (empty disables)")

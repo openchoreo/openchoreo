@@ -4,6 +4,7 @@
 package config
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -45,6 +46,20 @@ func TestRemoteConnectValidateRejectsUnusableNumbers(t *testing.T) {
 		{"secret ttl over capability ttl", func(c *RemoteConnectConfig) {
 			c.TTLSeconds, c.SecretTTLSeconds = 600, 1800
 		}, "secret_ttl_seconds"},
+		{"negative agent max sessions", func(c *RemoteConnectConfig) { c.AgentMaxSessions = -1 }, "agent_max_sessions"},
+		{"negative agent authorize rate", func(c *RemoteConnectConfig) { c.AgentAuthorizeRate = -1 }, "agent_authorize_rate"},
+		// NaN slips past an ordered comparison, so it needs its own check.
+		{"nan agent authorize rate", func(c *RemoteConnectConfig) {
+			c.AgentAuthorizeRate = math.NaN()
+		}, "agent_authorize_rate"},
+		{"infinite agent authorize rate", func(c *RemoteConnectConfig) {
+			c.AgentAuthorizeRate = math.Inf(1)
+		}, "agent_authorize_rate"},
+		{"negative agent authorize burst", func(c *RemoteConnectConfig) { c.AgentAuthorizeBurst = -1 }, "agent_authorize_burst"},
+		// The agent floors a zero burst to one, so the pairing is rejected here.
+		{"agent authorize rate without burst", func(c *RemoteConnectConfig) {
+			c.AgentAuthorizeRate, c.AgentAuthorizeBurst = 20, 0
+		}, "agent_authorize_burst"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -89,6 +104,23 @@ func TestRemoteConnectDefaultsAreUsable(t *testing.T) {
 	}
 	if d.ReaperTTL() <= 0 {
 		t.Errorf("default reaper TTL = %v, must be positive", d.ReaperTTL())
+	}
+	// Defaults must bound an agent, not leave the limits opt-in.
+	if d.AgentMaxSessions <= 0 {
+		t.Errorf("default agent max sessions = %d, must bound a shared agent", d.AgentMaxSessions)
+	}
+	if d.AgentAuthorizeRate <= 0 || d.AgentAuthorizeBurst < 1 {
+		t.Errorf("default agent authorize limit = %v/s burst %d, must pace the control plane",
+			d.AgentAuthorizeRate, d.AgentAuthorizeBurst)
+	}
+}
+
+// Zero means unlimited for both limits, and must clear the bounds.
+func TestRemoteConnectValidateAcceptsUnlimitedAgentLimits(t *testing.T) {
+	c := validRemoteConnect()
+	c.AgentMaxSessions, c.AgentAuthorizeRate, c.AgentAuthorizeBurst = 0, 0, 0
+	if errs := c.Validate(coreconfig.NewPath("remote_connect")); len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs.Error())
 	}
 }
 

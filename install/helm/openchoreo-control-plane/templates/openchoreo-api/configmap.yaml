@@ -140,6 +140,9 @@ alone therefore lets a `null` or `[]` file through as zero rules.
       agent_image: "{{ include "openchoreo-control-plane.image" (dict "context" $ "image" .agentImage) }}"
       agent_image_pull_policy: {{ .agentImage.pullPolicy | quote }}
       agent_listen_port: {{ .agentListenPort }}
+      agent_max_sessions: {{ .agentMaxSessions }}
+      agent_authorize_rate: {{ .agentAuthorizeRate }}
+      agent_authorize_burst: {{ .agentAuthorizeBurst }}
       entrypoint_address: {{ .entrypointAddress | quote }}
       sni_suffix: {{ .sniSuffix | quote }}
       authorize_url: {{ .authorizeUrl | quote }}

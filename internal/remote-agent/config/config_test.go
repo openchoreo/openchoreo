@@ -4,6 +4,7 @@
 package config
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,6 +23,9 @@ func testFlags(t *testing.T, args ...string) *pflag.FlagSet {
 	flags.String("listen", AgentDefaults().ListenAddr, "")
 	flags.String("namespace", AgentDefaults().Namespace, "")
 	flags.Int("max-streams-per-session", AgentDefaults().MaxStreamsPerSession, "")
+	flags.Int("max-sessions", AgentDefaults().MaxSessions, "")
+	flags.Float64("authorize-rate", AuthorizeDefaults().RatePerSecond, "")
+	flags.Int("authorize-burst", AuthorizeDefaults().Burst, "")
 	flags.Duration("dial-timeout", AgentDefaults().DialTimeout, "")
 	flags.String("authorize-url", "", "")
 	flags.Bool("authorize-insecure", false, "")
@@ -45,6 +49,9 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, ":8443", cfg.Agent.ListenAddr)
 	assert.Equal(t, "/certs/tls.crt", cfg.Agent.TLSCertPath)
 	assert.Equal(t, 256, cfg.Agent.MaxStreamsPerSession)
+	assert.Equal(t, 64, cfg.Agent.MaxSessions)
+	assert.Equal(t, float64(20), cfg.Authorize.RatePerSecond)
+	assert.Equal(t, 40, cfg.Authorize.Burst)
 	assert.Equal(t, 10*time.Second, cfg.Agent.DialTimeout)
 	assert.Equal(t, time.Minute, cfg.Heartbeat.Interval)
 	assert.Equal(t, "info", cfg.Logging.Level)
@@ -57,12 +64,18 @@ func TestFlagsDecodeToTypedFields(t *testing.T) {
 	cfg := load(t, "", testFlags(t,
 		"--authorize-insecure",
 		"--max-streams-per-session=32",
+		"--max-sessions=8",
+		"--authorize-rate=2.5",
+		"--authorize-burst=5",
 		"--dial-timeout=45s",
 		"--authorize-url=https://cp/authorize",
 	))
 
 	assert.True(t, cfg.Authorize.InsecureSkipVerify)
 	assert.Equal(t, 32, cfg.Agent.MaxStreamsPerSession)
+	assert.Equal(t, 8, cfg.Agent.MaxSessions)
+	assert.Equal(t, 2.5, cfg.Authorize.RatePerSecond)
+	assert.Equal(t, 5, cfg.Authorize.Burst)
 	assert.Equal(t, 45*time.Second, cfg.Agent.DialTimeout)
 	assert.Equal(t, "https://cp/authorize", cfg.Authorize.URL)
 }
@@ -127,8 +140,27 @@ func TestValidate(t *testing.T) {
 		"empty listen addr":     {mutate: func(c *Config) { c.Agent.ListenAddr = "" }, wantErr: "agent.listen_addr"},
 		"empty tls cert":        {mutate: func(c *Config) { c.Agent.TLSCertPath = "" }, wantErr: "agent.tls_cert_path"},
 		"negative max streams":  {mutate: func(c *Config) { c.Agent.MaxStreamsPerSession = -1 }, wantErr: "agent.max_streams_per_session"},
-		"zero dial timeout":     {mutate: func(c *Config) { c.Agent.DialTimeout = 0 }, wantErr: "agent.dial_timeout"},
-		"bad log level":         {mutate: func(c *Config) { c.Logging.Level = "trace" }, wantErr: "logging.level"},
+		"negative max sessions": {mutate: func(c *Config) { c.Agent.MaxSessions = -1 }, wantErr: "agent.max_sessions"},
+		"unlimited sessions":    {mutate: func(c *Config) { c.Agent.MaxSessions = 0 }},
+		"negative authorize rate": {
+			mutate: func(c *Config) { c.Authorize.RatePerSecond = -1 }, wantErr: "authorize.rate_per_second",
+		},
+		// NaN slips past an ordered comparison, so it needs its own check.
+		"nan authorize rate": {
+			mutate: func(c *Config) { c.Authorize.RatePerSecond = math.NaN() }, wantErr: "authorize.rate_per_second",
+		},
+		"infinite authorize rate": {
+			mutate: func(c *Config) { c.Authorize.RatePerSecond = math.Inf(1) }, wantErr: "authorize.rate_per_second",
+		},
+		"unlimited authorize rate": {
+			mutate: func(c *Config) { c.Authorize.RatePerSecond, c.Authorize.Burst = 0, 0 },
+		},
+		// The agent would floor this to a burst of one; report it instead.
+		"authorize rate without burst": {
+			mutate: func(c *Config) { c.Authorize.Burst = 0 }, wantErr: "authorize.burst",
+		},
+		"zero dial timeout": {mutate: func(c *Config) { c.Agent.DialTimeout = 0 }, wantErr: "agent.dial_timeout"},
+		"bad log level":     {mutate: func(c *Config) { c.Logging.Level = "trace" }, wantErr: "logging.level"},
 		// A zero interval panics the heartbeat ticker, but only once heartbeats are on.
 		"zero heartbeat interval without url": {mutate: func(c *Config) { c.Heartbeat.Interval = 0 }},
 		"zero heartbeat interval with url": {
@@ -160,6 +192,9 @@ func TestToAgentConfig(t *testing.T) {
 	cfg.Agent.ListenAddr = ":9443"
 	cfg.Agent.Namespace = "dp-doclet-development"
 	cfg.Agent.MaxStreamsPerSession = 16
+	cfg.Agent.MaxSessions = 12
+	cfg.Authorize.RatePerSecond = 7
+	cfg.Authorize.Burst = 9
 	cfg.Authorize.URL = "https://cp/authorize"
 	cfg.Authorize.CABundlePath = "/ca/ca.crt"
 	cfg.Authorize.InsecureSkipVerify = true
@@ -181,4 +216,7 @@ func TestToAgentConfig(t *testing.T) {
 	assert.Equal(t, 10*time.Second, got.AuthorizeTimeout)
 	assert.Equal(t, 10*time.Second, got.DialTimeout)
 	assert.Equal(t, 16, got.MaxStreamsPerSession)
+	assert.Equal(t, 12, got.MaxSessions)
+	assert.Equal(t, float64(7), got.AuthorizeRatePerSecond)
+	assert.Equal(t, 9, got.AuthorizeBurst)
 }
