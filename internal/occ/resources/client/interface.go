@@ -13,6 +13,8 @@ import (
 // Interface defines all API client methods used by occ commands.
 // The concrete *Client type satisfies this interface.
 type Interface interface {
+	GetMetadata(ctx context.Context) (*gen.MetadataResponse, error)
+
 	ListNamespaces(ctx context.Context, params *gen.ListNamespacesParams) (*gen.NamespaceList, error)
 	GetNamespace(ctx context.Context, namespaceName string) (*gen.Namespace, error)
 	DeleteNamespace(ctx context.Context, namespaceName string) error

@@ -16,8 +16,8 @@ import (
 	"time"
 
 	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
-	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/observerclient"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -97,7 +97,7 @@ func (p *PlatformLogs) Logs(params LogsParams) error {
 		return fmt.Errorf("no current credential available")
 	}
 
-	api, err := newObserverAPIClient(observerURL, credential.Token)
+	api, err := observerclient.New(observerURL, credential.Token)
 	if err != nil {
 		return fmt.Errorf("failed to create observer client: %w", err)
 	}
@@ -262,32 +262,6 @@ func (p *PlatformLogs) resolveObserverURL(ctx context.Context, params LogsParams
 		return "", fmt.Errorf("observer URL not configured in cluster observability plane %s", params.PlaneName)
 	}
 	return *cop.Spec.ObserverURL, nil
-}
-
-// newObserverAPIClient builds an observer client that carries the current credential and
-// refreshes it when it has expired, matching how the control plane client is built.
-func newObserverAPIClient(observerURL, token string) (*obsgen.ClientWithResponses, error) {
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-
-	return obsgen.NewClientWithResponses(
-		observerURL,
-		obsgen.WithHTTPClient(httpClient),
-		obsgen.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-			currentToken := token
-			if currentToken != "" && auth.IsTokenExpired(currentToken) {
-				newToken, err := auth.RefreshToken()
-				if err != nil {
-					return fmt.Errorf("failed to refresh token: %w", err)
-				}
-				currentToken = newToken
-				token = newToken
-			}
-			if currentToken != "" {
-				req.Header.Set("Authorization", "Bearer "+currentToken)
-			}
-			return nil
-		}),
-	)
 }
 
 // observerError turns a non-200 platform logs response into a message that says what to
