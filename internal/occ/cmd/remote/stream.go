@@ -5,6 +5,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -47,7 +48,8 @@ func dialRemoteAgentTunnel(ctx context.Context, agent remoteconnect.AgentEndpoin
 			return client, nil
 		}
 		lastErr = err
-		if time.Now().After(deadline) {
+		var rejected *remoteconnect.HandshakeRejectedError
+		if errors.As(err, &rejected) || time.Now().After(deadline) {
 			return nil, fmt.Errorf("connect to remote-agent %s (%s): %w", endpoint, agent.ServerName, lastErr)
 		}
 		select {

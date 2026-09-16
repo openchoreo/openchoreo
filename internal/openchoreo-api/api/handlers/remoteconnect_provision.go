@@ -394,6 +394,13 @@ func (p *remoteAgentProvisioner) applyDeployment(ctx context.Context, dpClient c
 	if p.cfg.AuthorizeInsecure {
 		args = append(args, "--authorize-insecure")
 	}
+	// Passed explicitly, zero (unlimited) included, so the agent's own defaults cannot
+	// override the configured value.
+	args = append(args,
+		"--max-sessions="+strconv.Itoa(p.cfg.AgentMaxSessions),
+		"--authorize-rate="+strconv.FormatFloat(p.cfg.AgentAuthorizeRate, 'f', -1, 64),
+		"--authorize-burst="+strconv.Itoa(p.cfg.AgentAuthorizeBurst),
+	)
 	// The heartbeat endpoint shares the authorize URL's host; derive it by swapping the
 	// path. If the authorize URL isn't the standard path, heartbeats stay off (the agent
 	// warns) rather than pointing at the wrong endpoint.
