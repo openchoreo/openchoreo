@@ -238,33 +238,34 @@ type doraSeriesPayload struct {
 	MTTR                *[]doraMTTRPointPayload      `json:"mttr,omitempty"`
 }
 
-// doraCollectionPayload mirrors the observer's delivery insights configuration.
-// Both flags are deployment configuration rather than data, so they are the same
-// on every response; they travel with the metrics so a client needs no second
-// call to interpret an empty one.
-type doraCollectionPayload struct {
+// doraDataAvailabilityPayload answers why the metrics beside it might be empty.
+// A scope that has deployed nothing and an observer that is not collecting both
+// return a success with empty series, so without this a client cannot say which
+// it is showing. Neither field depends on the query, so both travel with every
+// response rather than costing a second call.
+type doraDataAvailabilityPayload struct {
 	// Whether this observer derives delivery facts at all.
-	Enabled bool `json:"enabled"`
+	Collecting bool `json:"collecting"`
 	// Whether the deployed adapter can serve the delivery event sweep. False
 	// leaves deployment frequency, lead time and change failure rate without
 	// input; mean time to recovery comes from incidents and is unaffected.
-	EventsSourceAvailable bool `json:"eventsSourceAvailable"`
+	DeliveryEvents bool `json:"deliveryEvents"`
 }
 
 type doraMetricsResponsePayload struct {
-	Collection  doraCollectionPayload    `json:"collection"`
-	Scope       gen.ComponentSearchScope `json:"scope"`
-	Granularity string                   `json:"granularity"`
-	Window      doraWindowPayload        `json:"window"`
-	Summary     doraSummaryPayload       `json:"summary"`
-	Series      doraSeriesPayload        `json:"series"`
+	DataAvailability doraDataAvailabilityPayload `json:"dataAvailability"`
+	Scope            gen.ComponentSearchScope    `json:"scope"`
+	Granularity      string                      `json:"granularity"`
+	Window           doraWindowPayload           `json:"window"`
+	Summary          doraSummaryPayload          `json:"summary"`
+	Series           doraSeriesPayload           `json:"series"`
 }
 
-// collectionState reports what this observer is collecting right now.
-func (s *DoraMetricsService) collectionState() doraCollectionPayload {
-	return doraCollectionPayload{
-		Enabled:               s.collecting,
-		EventsSourceAvailable: s.eventsAvailable != nil && s.eventsAvailable(),
+// dataAvailability reports what this observer can currently produce.
+func (s *DoraMetricsService) dataAvailability() doraDataAvailabilityPayload {
+	return doraDataAvailabilityPayload{
+		Collecting:     s.collecting,
+		DeliveryEvents: s.eventsAvailable != nil && s.eventsAvailable(),
 	}
 }
 
@@ -315,9 +316,9 @@ func (s *DoraMetricsService) QueryDoraMetrics(
 	}
 
 	payload := doraMetricsResponsePayload{
-		Collection:  s.collectionState(),
-		Scope:       req.SearchScope,
-		Granularity: granularity,
+		DataAvailability: s.dataAvailability(),
+		Scope:            req.SearchScope,
+		Granularity:      granularity,
 		Window: doraWindowPayload{
 			StartTime:   req.StartTime.UTC().Format(time.RFC3339),
 			EndTime:     req.EndTime.UTC().Format(time.RFC3339),

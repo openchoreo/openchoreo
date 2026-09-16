@@ -33,8 +33,8 @@ func newDeliveryInsightsTestStore(t *testing.T) deliveryinsights.Store {
 
 func newDeliveryInsightsTestService(t *testing.T, store deliveryinsights.Store) DeliveryInsightsService {
 	t.Helper()
-	// Collection flags on: the tests below assert computed metrics, not the
-	// configuration report. TestCollectionFlagsTravelWithEveryResponse covers
+	// Collecting, with the sweep available: the tests below assert computed
+	// metrics, not availability. TestDataAvailabilityTravelsWithEveryResponse covers
 	// that separately.
 	return NewDeliveryInsightsService(
 		store, NewPassthroughUIDResolver(), slog.Default(),
@@ -249,10 +249,10 @@ func TestDistributionReadsAreNotCapped(t *testing.T) {
 	require.InDelta(t, 1.0, *lt.Coverage, 0.001)
 }
 
-// TestCollectionFlagsTravelWithEveryResponse pins that a client can tell an empty
+// TestDataAvailabilityTravelsWithEveryResponse pins that a client can tell an empty
 // result caused by configuration from one caused by no activity. Without this the
 // two are indistinguishable over the wire, and the UI can only guess.
-func TestCollectionFlagsTravelWithEveryResponse(t *testing.T) {
+func TestDataAvailabilityTravelsWithEveryResponse(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		aggregation bool
@@ -277,14 +277,14 @@ func TestCollectionFlagsTravelWithEveryResponse(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
-			require.NotNil(t, resp.Collection)
+			require.NotNil(t, resp.DataAvailability)
 
 			// Reported even with an empty store -- that is precisely the case the
 			// client cannot otherwise interpret.
-			require.NotNil(t, resp.Collection.Enabled)
-			require.Equal(t, tc.aggregation, *resp.Collection.Enabled)
-			require.NotNil(t, resp.Collection.EventsSourceAvailable)
-			require.Equal(t, tc.events, *resp.Collection.EventsSourceAvailable)
+			require.NotNil(t, resp.DataAvailability.Collecting)
+			require.Equal(t, tc.aggregation, *resp.DataAvailability.Collecting)
+			require.NotNil(t, resp.DataAvailability.DeliveryEvents)
+			require.Equal(t, tc.events, *resp.DataAvailability.DeliveryEvents)
 		})
 	}
 }

@@ -1474,7 +1474,7 @@
           "properties": {
             "enabled": {
               "default": false,
-              "description": "Collect Delivery Insights (DORA metrics) in the Observer process. It runs a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. The read API is served by every replica either way, though with nothing collecting there are no facts to return. Reading delivery events needs a logs adapter that can filter by reason and answer across every namespace in one query; where the deployed adapter cannot, it says so and the loop continues with incidents alone, which leaves Mean Time to Recovery working and the other three metrics without input. This is safe to enable alongside more than one replica, since every replica runs the loop but only the holder of the aggregation lease ticks; note that scaling the Observer past one replica also requires alertStoreBackend postgresql, because the default sqlite alert store is backed by a ReadWriteOnce volume.",
+              "description": "Collect DORA delivery metrics in the Observer. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql.",
               "title": "enabled",
               "type": "boolean"
             }

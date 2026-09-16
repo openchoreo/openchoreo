@@ -1093,14 +1093,14 @@ type DoraMetricsQueryRequestMetrics string
 
 // DoraMetricsQueryResponse defines model for DoraMetricsQueryResponse.
 type DoraMetricsQueryResponse struct {
-	// Collection What this observer is currently collecting. An empty result is otherwise ambiguous: a scope that has genuinely deployed nothing looks identical to one whose observer was never configured to collect. Clients use this to tell the two apart and say so.
-	Collection *struct {
-		// Enabled Whether this observer derives delivery facts at all (`observer.deliveryInsights.enabled`). False means nothing is being written, so every metric stays empty however much is deployed.
-		Enabled *bool `json:"enabled,omitempty"`
+	// DataAvailability Why these metrics might be empty. A scope that has deployed nothing and an observer that is not collecting return the same thing -- a success with empty series -- so this is the only way a client can tell them apart and say which it is showing.
+	DataAvailability *struct {
+		// Collecting Whether this observer derives delivery facts at all (`observer.deliveryInsights.enabled`). False means nothing is being written, so every metric stays empty however much is deployed.
+		Collecting *bool `json:"collecting,omitempty"`
 
-		// EventsSourceAvailable Whether the deployed logs adapter can serve the delivery event sweep. Observed rather than configured: an adapter that cannot answers 501, and the aggregator stands the sweep down. False leaves deployment frequency, lead time and change failure rate without input; mean time to recovery comes from incidents and is unaffected.
-		EventsSourceAvailable *bool `json:"eventsSourceAvailable,omitempty"`
-	} `json:"collection,omitempty"`
+		// DeliveryEvents Whether the deployed logs adapter can serve the delivery event sweep. Observed rather than configured -- an adapter that cannot answers 501, and the aggregator stands the sweep down. False leaves deployment frequency, lead time and change failure rate without input; mean time to recovery comes from incidents and is unaffected.
+		DeliveryEvents *bool `json:"deliveryEvents,omitempty"`
+	} `json:"dataAvailability,omitempty"`
 	Granularity *DoraMetricsQueryResponseGranularity `json:"granularity,omitempty"`
 	Scope       *ComponentSearchScope                `json:"scope,omitempty"`
 
