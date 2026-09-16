@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	testNamespace   = "test-org"
+	testNamespace   = "test-namespace"
 	testProject     = "test-project"
 	testComponent   = "test-component"
 	testEnvironment = "development"
@@ -1075,7 +1075,7 @@ var allToolSpecs = []toolTestSpec{
 			"actor_entitlements":   []string{"platform-engineer"},
 			"resource_type":        []string{"project"},
 			"resource_namespace":   []string{testNamespace},
-			"resource_environment": []string{"test-org/development"},
+			"resource_environment": []string{"test-namespace/development"},
 			"resource_project":     []string{testProject},
 			"resource_component":   []string{testComponent},
 			"resource_resource":    []string{"orders-db"},
@@ -1109,7 +1109,7 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, []string{"platform-engineer"}, req.Actor.Entitlements)
 			assert.Equal(t, []string{"project"}, req.Resource.Types)
 			assert.Equal(t, []string{testNamespace}, req.Resource.Namespaces)
-			assert.Equal(t, []string{"test-org/development"}, req.Resource.Environments)
+			assert.Equal(t, []string{"test-namespace/development"}, req.Resource.Environments)
 			assert.Equal(t, []string{testProject}, req.Resource.Projects)
 			assert.Equal(t, []string{testComponent}, req.Resource.Components)
 			assert.Equal(t, []string{"orders-db"}, req.Resource.Resources)
@@ -1960,7 +1960,7 @@ func TestParameterMappingRegression(t *testing.T) {
 	_, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 		Name: "query_component_logs",
 		Arguments: map[string]any{
-			"namespace":     "my-org",
+			"namespace":     "my-namespace",
 			"project":       "my-project",
 			"component":     "my-service",
 			"environment":   "production",
@@ -1978,7 +1978,7 @@ func TestParameterMappingRegression(t *testing.T) {
 	require.NotNil(t, req.SearchScope.Component)
 
 	scope := req.SearchScope.Component
-	assert.Equal(t, "my-org", scope.Namespace)
+	assert.Equal(t, "my-namespace", scope.Namespace)
 	assert.Equal(t, "my-project", scope.Project)
 	assert.Equal(t, "my-service", scope.Component)
 	assert.Equal(t, "production", scope.Environment)

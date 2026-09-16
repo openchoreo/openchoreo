@@ -65,7 +65,7 @@ func TestFetchDeliveryEvents(t *testing.T) {
 		}
 
 		if _, hasScope := gotRequest["searchScope"]; hasScope {
-			t.Error("expected request without searchScope for the org-wide sweep")
+			t.Error("expected request without searchScope for the install-wide sweep")
 		}
 		reasons, ok := gotRequest["reasons"].([]any)
 		if !ok || len(reasons) != 4 {

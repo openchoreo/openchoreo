@@ -565,7 +565,7 @@ func (a *Aggregator) foldIncidentPage(
 
 		fact := deliveryinsights.RecoveryFact{
 			ID:               "incident-" + entry.ID,
-			OrgNamespace:     entry.NamespaceName,
+			Namespace:        entry.NamespaceName,
 			ProjectUID:       entry.ProjectID,
 			ComponentUID:     entry.ComponentID,
 			EnvironmentUID:   entry.EnvironmentID,
@@ -633,7 +633,7 @@ func (a *Aggregator) recomputeRollups(ctx context.Context, touchedMs []int64, ti
 	factQuery := deliveryinsights.FactQuery{
 		StartMs: readStartMs,
 		EndMs:   endMs,
-		All:     true,
+		AllRows: true,
 		// Deployment moment ascending keeps the read deterministic.
 		SortOrder: "ASC",
 	}

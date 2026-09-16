@@ -93,7 +93,7 @@ func NewDeliveryInsightsService(
 type resolvedDeliveryInsightsScope struct {
 	scopeType      string
 	scopeUID       string
-	orgNamespace   string
+	namespace      string
 	projectUID     string
 	componentUID   string
 	environmentUID string
@@ -108,9 +108,9 @@ func (s *DoraMetricsService) resolveScope(
 	environment := strings.TrimSpace(stringPtrValue(scope.Environment))
 
 	rs := resolvedDeliveryInsightsScope{
-		scopeType:    deliveryinsights.ScopeTypeOrg,
-		scopeUID:     namespace,
-		orgNamespace: namespace,
+		scopeType: deliveryinsights.ScopeTypeNamespace,
+		scopeUID:  namespace,
+		namespace: namespace,
 	}
 
 	if project != "" {
@@ -143,7 +143,7 @@ func (s *DoraMetricsService) resolveScope(
 
 func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) deliveryinsights.FactQuery {
 	return deliveryinsights.FactQuery{
-		OrgNamespace:   rs.orgNamespace,
+		Namespace:      rs.namespace,
 		ProjectUID:     rs.projectUID,
 		ComponentUID:   rs.componentUID,
 		EnvironmentUID: rs.environmentUID,
@@ -154,7 +154,7 @@ func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) delivery
 		// other, so percentiles come out biased while CountDeployments stays exact --
 		// the two would disagree, and raising the cap would only move the point at
 		// which they start to.
-		All: true,
+		AllRows: true,
 	}
 }
 

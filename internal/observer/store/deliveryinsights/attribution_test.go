@@ -101,7 +101,7 @@ func TestRecoveryUpsertDerivesDurationFromMergedRow(t *testing.T) {
 
 	// Phase 1: the Failed event opens the episode.
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{{
-		ID: "health-rel-1", OrgNamespace: "default", ComponentUID: "comp-1",
+		ID: "health-rel-1", Namespace: "default", ComponentUID: "comp-1",
 		EnvironmentUID: "env-prod", Source: RecoverySourceHealth,
 		FailureStartedMs: failedAt,
 	}}))
@@ -109,7 +109,7 @@ func TestRecoveryUpsertDerivesDurationFromMergedRow(t *testing.T) {
 	// Phase 2: the Recovered event closes it — carrying its own timestamp as the
 	// failure start (the folder has no memory of the original Failed event).
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{{
-		ID: "health-rel-1", OrgNamespace: "default", ComponentUID: "comp-1",
+		ID: "health-rel-1", Namespace: "default", ComponentUID: "comp-1",
 		EnvironmentUID: "env-prod", Source: RecoverySourceHealth,
 		FailureStartedMs: recoveredAt, RecoveredMs: &recoveredAt,
 	}}))

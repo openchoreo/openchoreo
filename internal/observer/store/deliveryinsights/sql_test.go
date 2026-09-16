@@ -59,7 +59,7 @@ func testFact(releaseUID string, readyMs int64) DeploymentFact {
 	lead := readyMs - authored
 	return DeploymentFact{
 		ReleaseUID:       releaseUID,
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ProjectUID:       "proj-1",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
@@ -117,9 +117,9 @@ func TestUpsertDeploymentFactIsIdempotent(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{fact}))
 
 	facts, total, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      ready - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   ready - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total, "duplicate upsert must collapse to one fact")
@@ -147,9 +147,9 @@ func TestUpsertDeploymentFactFailureIsSticky(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{success}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      ready - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   ready - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -169,7 +169,7 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	// Phase 1: DeploymentStarted — only start time known.
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -181,7 +181,7 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	// Phase 2: DeploymentSucceeded — ready time arrives; started must be preserved.
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -191,9 +191,9 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	}}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   started - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -219,7 +219,7 @@ func TestUpsertDeploymentFactMergeIsOrderIndependent(t *testing.T) {
 
 	base := DeploymentFact{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -246,9 +246,9 @@ func TestUpsertDeploymentFactMergeIsOrderIndependent(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{restarted}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started - 1000,
-		EndMs:        later + 1000,
+		Namespace: "default",
+		StartMs:   started - 1000,
+		EndMs:     later + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -277,7 +277,7 @@ func TestQueryDeploymentFactsScopeFilters(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{prod, dev, otherComponent}))
 
 	all, total, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000,
+		Namespace: "default", StartMs: base, EndMs: base + 10_000,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 3, total)
@@ -294,7 +294,7 @@ func TestQueryDeploymentFactsScopeFilters(t *testing.T) {
 	// Default sort order is DESC on the deployment moment.
 	assert.Equal(t, "rel-other", all[0].ReleaseUID)
 	asc, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000, SortOrder: "asc",
+		Namespace: "default", StartMs: base, EndMs: base + 10_000, SortOrder: "asc",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "rel-prod", asc[0].ReleaseUID)
@@ -317,7 +317,7 @@ func TestQueryLeadTimesExcludesMissingAndNegative(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{withLead, noProvenance, negative}))
 
 	leadTimes, err := store.QueryLeadTimes(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000,
+		Namespace: "default", StartMs: base, EndMs: base + 10_000,
 	})
 	require.NoError(t, err)
 	require.Len(t, leadTimes, 1, "missing and negative lead times must be excluded")
@@ -334,7 +334,7 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 
 	closed := RecoveryFact{
 		ID:               "inc-1",
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ProjectUID:       "proj-1",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
@@ -347,7 +347,7 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 	}
 	open := RecoveryFact{
 		ID:               "inc-2",
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
 		Source:           RecoverySourceHealth,
@@ -356,9 +356,9 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{closed, open}))
 
 	durations, err := store.QueryRecoveryDurations(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      failureStart - 1000,
-		EndMs:        failureStart + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   failureStart - 1000,
+		EndMs:     failureStart + time.Hour.Milliseconds(),
 	})
 	require.NoError(t, err)
 	require.Len(t, durations, 1, "open failures must be excluded from MTTR")
@@ -458,16 +458,16 @@ func TestValidationErrors(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	err := store.UpsertDeploymentFacts(ctx, []DeploymentFact{{OrgNamespace: "default"}})
+	err := store.UpsertDeploymentFacts(ctx, []DeploymentFact{{Namespace: "default"}})
 	require.Error(t, err, "missing release UID must be rejected")
 
 	err = store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
-		ReleaseUID: "rel-1", OrgNamespace: "default", Outcome: "unknown",
+		ReleaseUID: "rel-1", Namespace: "default", Outcome: "unknown",
 	}})
 	require.Error(t, err, "unsupported outcome must be rejected")
 
 	err = store.UpsertRecoveryFacts(ctx, []RecoveryFact{{
-		ID: "r-1", OrgNamespace: "default", Source: "guess", FailureStartedMs: 1,
+		ID: "r-1", Namespace: "default", Source: "guess", FailureStartedMs: 1,
 	}})
 	require.Error(t, err, "unsupported recovery source must be rejected")
 
@@ -477,7 +477,7 @@ func TestValidationErrors(t *testing.T) {
 	require.Error(t, err, "unsupported scope type must be rejected")
 
 	_, err = store.QueryRollups(ctx, RollupQuery{
-		ScopeType: ScopeTypeOrg, ScopeUID: "default", Granularity: "hourly",
+		ScopeType: ScopeTypeNamespace, ScopeUID: "default", Granularity: "hourly",
 		StartMs: 0, EndMs: 1,
 	})
 	require.Error(t, err, "unsupported granularity must be rejected")
@@ -540,7 +540,7 @@ func TestBuildRollups(t *testing.T) {
 	recovered := day.Add(3 * time.Hour).UnixMilli()
 	duration := 45 * time.Minute.Milliseconds()
 	recovery := RecoveryFact{
-		ID: "inc-1", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "inc-1", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod",
 		Source:           RecoverySourceIncident,
 		FailureStartedMs: day.Add(2 * time.Hour).UnixMilli(),
@@ -593,7 +593,7 @@ func TestCountDeploymentsUsesExactWindow(t *testing.T) {
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
 
-	base := FactQuery{OrgNamespace: "default"}
+	base := FactQuery{Namespace: "default"}
 
 	// A window starting after day 1 must not include it, even though day 1 shares a
 	// week/month bucket with the rest — this is what rollup summing got wrong.
@@ -626,9 +626,9 @@ func TestCountDeploymentsSplitsOutcomes(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{success, failed, inProgress}))
 
 	counts, err := store.CountDeployments(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      at - time.Hour.Milliseconds(),
-		EndMs:        at + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   at - time.Hour.Milliseconds(),
+		EndMs:     at + time.Hour.Milliseconds(),
 	})
 	require.NoError(t, err)
 	// In-progress deployments are excluded, matching BuildRollups.
@@ -649,9 +649,9 @@ func TestCountDeploymentsHonoursScope(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{mine, other}))
 
 	q := FactQuery{
-		OrgNamespace: "default",
-		StartMs:      at - time.Hour.Milliseconds(),
-		EndMs:        at + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   at - time.Hour.Milliseconds(),
+		EndMs:     at + time.Hour.Milliseconds(),
 	}
 	nsCounts, err := store.CountDeployments(ctx, q)
 	require.NoError(t, err)
@@ -689,7 +689,7 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 	end := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC).UnixMilli()
 
 	counts, err := store.CountDeployments(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: start, EndMs: end,
+		Namespace: "default", StartMs: start, EndMs: end,
 	})
 	require.NoError(t, err)
 	// Jul 9..31 = 23 days, Aug 1..4 = 4 days.
@@ -699,7 +699,7 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 	// granularity-dependent answer — which is why summaries no longer do that.
 	for _, g := range []string{GranularityDaily, GranularityWeekly, GranularityMonthly} {
 		rollups, err := store.QueryRollups(ctx, RollupQuery{
-			ScopeType:   ScopeTypeOrg,
+			ScopeType:   ScopeTypeNamespace,
 			ScopeUID:    "default",
 			Granularity: g,
 			StartMs:     BucketStartMs(g, start),
@@ -743,7 +743,7 @@ func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
 
-	q := FactQuery{OrgNamespace: "default", StartMs: readyMs - 1, EndMs: readyMs + 1, All: true}
+	q := FactQuery{Namespace: "default", StartMs: readyMs - 1, EndMs: readyMs + 1, AllRows: true}
 
 	leads, err := store.QueryLeadTimes(ctx, q)
 	require.NoError(t, err)
@@ -773,7 +773,7 @@ func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
 // TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout pins that a later
 // phase missing its scope labels cannot blank what an earlier one recorded.
 //
-// Only the release UID and the org namespace are required of a fact, and the
+// Only the release UID and the namespace are required of a fact, and the
 // scope UIDs travel as `omitempty` payload fields that not every render path
 // stamps. Overwriting unconditionally meant one such event erased the UIDs:
 // scopesForFact then drops those scopes from every rollup it computes, and
@@ -793,16 +793,16 @@ func TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout(t *testing.T) {
 
 	// The same rollout, folded again from an event that carried no scope labels.
 	bare := DeploymentFact{
-		ReleaseUID:   "rel-scope",
-		OrgNamespace: "default", // the one scope the validator insists on
-		ReadyMs:      &ready,
-		Outcome:      OutcomeSuccess,
-		UpdatedAtMs:  ready + 1,
+		ReleaseUID:  "rel-scope",
+		Namespace:   "default", // the one scope the validator insists on
+		ReadyMs:     &ready,
+		Outcome:     OutcomeSuccess,
+		UpdatedAtMs: ready + 1,
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{bare}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: started - 1000, EndMs: ready + 1000,
+		Namespace: "default", StartMs: started - 1000, EndMs: ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -831,21 +831,21 @@ func TestQueryRecoveryDurationsExcludesNegative(t *testing.T) {
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 
 	good := RecoveryFact{
-		ID: "rec-ok", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "rec-ok", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
 		FailureStartedMs: base + 1000, RecoveredMs: msPtr(base + 61_000), UpdatedAtMs: base,
 	}
 	// Recovered before it failed: clock skew between the alert source and the
 	// store, or delivery events arriving out of order.
 	skewed := RecoveryFact{
-		ID: "rec-skewed", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "rec-skewed", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
 		FailureStartedMs: base + 5000, RecoveredMs: msPtr(base + 2000), UpdatedAtMs: base,
 	}
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{good, skewed}))
 
 	durations, err := store.QueryRecoveryDurations(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 100_000,
+		Namespace: "default", StartMs: base, EndMs: base + 100_000,
 	})
 	require.NoError(t, err)
 	require.Len(t, durations, 1, "a negative duration must not reach MTTR")

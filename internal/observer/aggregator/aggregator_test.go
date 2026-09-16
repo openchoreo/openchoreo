@@ -97,7 +97,7 @@ func successFact(releaseUID string, readyMs int64) deliveryinsights.DeploymentFa
 	ready := readyMs
 	return deliveryinsights.DeploymentFact{
 		ReleaseUID:     releaseUID,
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "checkout",
 		ComponentUID:   "checkout-api",
 		EnvironmentUID: "production",
@@ -141,9 +141,9 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 
 	// The deployment is now failed-by-incident.
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      deployedAt.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   deployedAt.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -152,9 +152,9 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 
 	// An incident-sourced recovery fact exists with the resolved duration.
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      deployedAt.UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   deployedAt.UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 1)
@@ -340,10 +340,10 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	require.NoError(t, runOnce(t, agg))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli(),
-		SortOrder:    "ASC",
+		Namespace: "default",
+		StartMs:   started.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli(),
+		SortOrder: "ASC",
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 2)
@@ -363,9 +363,9 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	assert.Equal(t, "CrashLoopBackOff", facts[1].FailureReason)
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started.UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   started.UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 1)
@@ -452,9 +452,9 @@ func TestProcessIncidentsPagesThroughTheWindow(t *testing.T) {
 	require.NoError(t, runOnce(t, agg))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli() + 1,
+		Namespace: "default",
+		StartMs:   now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli() + 1,
 	})
 	require.NoError(t, err)
 	assert.Len(t, recoveries, incidentCount,
@@ -496,10 +496,10 @@ func TestRunOnceHoldsEventsWatermarkBackOnCappedSweep(t *testing.T) {
 	require.NoError(t, runOnce(t, agg))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      first.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli() + 1,
-		SortOrder:    "ASC",
+		Namespace: "default",
+		StartMs:   first.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli() + 1,
+		SortOrder: "ASC",
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 3, "the event skipped by the cap must be picked up next tick")
@@ -534,9 +534,9 @@ func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
 		require.NoError(t, runOnce(t, agg))
 
 		facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-			OrgNamespace: "default",
-			StartMs:      now.Add(-time.Hour).UnixMilli(),
-			EndMs:        tick.UnixMilli() + 1,
+			Namespace: "default",
+			StartMs:   now.Add(-time.Hour).UnixMilli(),
+			EndMs:     tick.UnixMilli() + 1,
 		})
 		require.NoError(t, err)
 		if len(facts) == eventCount {
@@ -546,9 +546,9 @@ func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
 	}
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-time.Hour).UnixMilli(),
-		EndMs:        tick.UnixMilli() + 1,
+		Namespace: "default",
+		StartMs:   now.Add(-time.Hour).UnixMilli(),
+		EndMs:     tick.UnixMilli() + 1,
 	})
 	require.NoError(t, err)
 	t.Fatalf("capped sweep never drained the overlap window: folded %d of %d events",
@@ -591,7 +591,7 @@ func TestSuccessiveFailureEpisodesStayDistinct(t *testing.T) {
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: failed1.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		All:     true,
+		AllRows: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 2, "each failure->recovery cycle is its own MTTR sample")
@@ -662,7 +662,7 @@ func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
 }
 
 // TestOneUnattributableEventDoesNotWedgeTheTick pins that a single event with no
-// org namespace cannot stall ingestion.
+// namespace cannot stall ingestion.
 //
 // UpsertDeploymentFacts validates the whole slice before writing any of it and
 // returns on the first error, so one such event used to write none of the batch,
@@ -698,7 +698,7 @@ func TestOneUnattributableEventDoesNotWedgeTheTick(t *testing.T) {
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: good.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		All:     true,
+		AllRows: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1, "the good event must still be written")
@@ -786,9 +786,9 @@ func TestProcessIncidentsPagesOnIngestionTimeNotTriggerTime(t *testing.T) {
 	require.NoError(t, runOnce(t, agg))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
-		EndMs:        now.Add(24 * time.Hour).UnixMilli(),
+		Namespace: "default",
+		StartMs:   now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:     now.Add(24 * time.Hour).UnixMilli(),
 	})
 	require.NoError(t, err)
 	assert.Len(t, recoveries, incidentCount,
@@ -1066,7 +1066,7 @@ func TestASkippedTickIsVisible(t *testing.T) {
 
 // TestAnIncidentWithNoNamespaceDoesNotWedgeTheSweep pins the failure this guard
 // exists for. UpsertRecoveryFacts validates the whole batch before writing any of
-// it, and an empty org namespace is rejected, so one such incident used to fail the
+// it, and an empty namespace is rejected, so one such incident used to fail the
 // tick with the watermark unmoved. The incident window is a rolling rescan rather
 // than watermark-incremental, so the same row came back on the next tick and every
 // tick after it: nothing aggregated, incidents or events, until it aged out of the
@@ -1212,7 +1212,7 @@ func TestACappedIncidentSweepResumesRatherThanRestarting(t *testing.T) {
 	facts, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: first.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.Add(time.Hour).UnixMilli(),
-		All:     true,
+		AllRows: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, total,

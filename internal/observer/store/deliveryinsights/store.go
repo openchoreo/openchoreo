@@ -41,7 +41,7 @@ const (
 
 // Rollup scope types.
 const (
-	ScopeTypeOrg       = "org"
+	ScopeTypeNamespace = "namespace"
 	ScopeTypeProject   = "project"
 	ScopeTypeComponent = "component"
 )
@@ -58,7 +58,7 @@ const (
 // into it via upsert. All timestamps are epoch milliseconds (UTC); nil means unknown.
 type DeploymentFact struct {
 	ReleaseUID       string
-	OrgNamespace     string
+	Namespace        string
 	ProjectUID       string
 	ComponentUID     string
 	EnvironmentUID   string
@@ -94,7 +94,7 @@ func (f *DeploymentFact) OccurredMs() int64 {
 // from workload health transitions. RecoveredMs/DurationMs are nil while still failing.
 type RecoveryFact struct {
 	ID               string
-	OrgNamespace     string
+	Namespace        string
 	ProjectUID       string
 	ComponentUID     string
 	EnvironmentUID   string
@@ -145,7 +145,7 @@ type RollupQuery struct {
 // filtered on; StartMs is inclusive and EndMs exclusive. Time filtering applies to the
 // deployment moment for deployment facts and to failure start for recovery facts.
 type FactQuery struct {
-	OrgNamespace   string
+	Namespace      string
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
@@ -157,12 +157,12 @@ type FactQuery struct {
 	// It must not be used for a read that feeds a statistic over the whole window.
 	// The reads are ordered, so a cap keeps one end of the distribution and drops
 	// the other -- percentiles, means and rollup counts computed from it are biased,
-	// not merely based on fewer rows, while CountDeployments stays exact. Set All
+	// not merely based on fewer rows, while CountDeployments stays exact. Set AllRows
 	// instead.
 	Limit int
-	// All reads every matching row, paging internally, and ignores Limit. Callers
+	// AllRows reads every matching row, paging internally, and ignores Limit. Callers
 	// computing a statistic over the window use it so there is no cap to bias.
-	All       bool
+	AllRows   bool
 	SortOrder string
 }
 

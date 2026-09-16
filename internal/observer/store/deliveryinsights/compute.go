@@ -81,12 +81,12 @@ type rollupScope struct {
 	environmentUID string
 }
 
-// scopesForFact returns every rollup a fact contributes to: org, project, and component
+// scopesForFact returns every rollup a fact contributes to: namespace, project, and component
 // scope, each both unsliced (environmentUID "") and sliced by the fact's environment.
-func scopesForFact(orgNamespace, projectUID, componentUID, environmentUID string) []rollupScope {
+func scopesForFact(namespace, projectUID, componentUID, environmentUID string) []rollupScope {
 	scopes := make([]rollupScope, 0, 6)
 	for _, s := range []rollupScope{
-		{ScopeTypeOrg, orgNamespace, ""},
+		{ScopeTypeNamespace, namespace, ""},
 		{ScopeTypeProject, projectUID, ""},
 		{ScopeTypeComponent, componentUID, ""},
 	} {
@@ -143,7 +143,7 @@ func BuildRollups(facts []DeploymentFact, recoveries []RecoveryFact, computedAtM
 		if f.Outcome == OutcomeInProgress {
 			continue
 		}
-		scopes := scopesForFact(f.OrgNamespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID)
+		scopes := scopesForFact(f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID)
 		occurred := f.OccurredMs()
 		accumulate(scopes, occurred, func(a *rollupAccumulator) {
 			a.deployTotal++
@@ -160,7 +160,7 @@ func BuildRollups(facts []DeploymentFact, recoveries []RecoveryFact, computedAtM
 
 	for i := range recoveries {
 		r := &recoveries[i]
-		scopes := scopesForFact(r.OrgNamespace, r.ProjectUID, r.ComponentUID, r.EnvironmentUID)
+		scopes := scopesForFact(r.Namespace, r.ProjectUID, r.ComponentUID, r.EnvironmentUID)
 		accumulate(scopes, r.FailureStartedMs, func(a *rollupAccumulator) {
 			a.recoveryCount++
 			if r.DurationMs != nil && *r.DurationMs >= 0 {

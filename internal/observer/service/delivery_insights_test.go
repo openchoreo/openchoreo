@@ -63,7 +63,7 @@ func TestLeadTimePercentilesUseTheWholeWindow(t *testing.T) {
 		authored := readyMs - lead
 		facts = append(facts, deliveryinsights.DeploymentFact{
 			ReleaseUID:       fmt.Sprintf("rollout-%03d", i),
-			OrgNamespace:     "acme",
+			Namespace:        "acme",
 			ProjectUID:       "shop",
 			ComponentUID:     "checkout",
 			EnvironmentUID:   "prod",
@@ -200,7 +200,7 @@ func TestDistributionReadsAreNotCapped(t *testing.T) {
 		authored := readyMs - lead
 		facts = append(facts, deliveryinsights.DeploymentFact{
 			ReleaseUID:       fmt.Sprintf("rollout-%05d", i),
-			OrgNamespace:     "acme",
+			Namespace:        "acme",
 			ProjectUID:       "shop",
 			ComponentUID:     "checkout",
 			EnvironmentUID:   "prod",

@@ -41,7 +41,7 @@ var migrations = []migration{
 		statements: []string{
 			`CREATE TABLE IF NOT EXISTS deployment_fact (
 				release_uid        TEXT PRIMARY KEY,
-				org_namespace      TEXT NOT NULL,
+				namespace      TEXT NOT NULL,
 				project_uid        TEXT NOT NULL,
 				component_uid      TEXT NOT NULL,
 				environment_uid    TEXT NOT NULL,
@@ -64,11 +64,11 @@ var migrations = []migration{
 				ON deployment_fact(component_uid, environment_uid, ready_ms);`,
 			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_project_ready
 				ON deployment_fact(project_uid, ready_ms);`,
-			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_org_ready
-				ON deployment_fact(org_namespace, ready_ms);`,
+			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_namespace_ready
+				ON deployment_fact(namespace, ready_ms);`,
 			`CREATE TABLE IF NOT EXISTS recovery_fact (
 				id                 TEXT PRIMARY KEY,
-				org_namespace      TEXT NOT NULL,
+				namespace      TEXT NOT NULL,
 				project_uid        TEXT NOT NULL DEFAULT '',
 				component_uid      TEXT NOT NULL DEFAULT '',
 				environment_uid    TEXT NOT NULL DEFAULT '',
@@ -165,7 +165,7 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 //     so the deployment would vanish from every bucket.
 //   - scope and descriptor columns: a non-empty incoming value wins over a stored
 //     one, and an empty one never erases what is stored. Only the release UID and
-//     the org namespace are required of a fact, so an event that reaches the fold
+//     the namespace are required of a fact, so an event that reaches the fold
 //     without its scope labels -- they travel as `omitempty` payload fields, and
 //     not every render path stamps them -- would otherwise blank the UIDs an
 //     earlier phase of the same rollout recorded. That is not a cosmetic loss:
@@ -173,14 +173,14 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 //     and AttributeIncident can no longer match the deployment by
 //     (component_uid, environment_uid).
 const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
-	release_uid, org_namespace, project_uid, component_uid, environment_uid,
+	release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (release_uid) DO UPDATE SET
-	org_namespace = CASE WHEN excluded.org_namespace <> ''
-		THEN excluded.org_namespace ELSE deployment_fact.org_namespace END,
+	namespace = CASE WHEN excluded.namespace <> ''
+		THEN excluded.namespace ELSE deployment_fact.namespace END,
 	project_uid = CASE WHEN excluded.project_uid <> ''
 		THEN excluded.project_uid ELSE deployment_fact.project_uid END,
 	component_uid = CASE WHEN excluded.component_uid <> ''
@@ -222,7 +222,7 @@ ON CONFLICT (release_uid) DO UPDATE SET
 	updated_at_ms = excluded.updated_at_ms;`
 
 const upsertRecoveryFactQuery = `INSERT INTO recovery_fact (
-	id, org_namespace, project_uid, component_uid, environment_uid,
+	id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -485,7 +485,7 @@ func (s *sqlStore) UpsertDeploymentFacts(ctx context.Context, facts []Deployment
 		for i := range facts {
 			f := &facts[i]
 			_, err := tx.ExecContext(ctx, query,
-				f.ReleaseUID, f.OrgNamespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
+				f.ReleaseUID, f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
 				f.ProjectName, f.ComponentName, f.EnvironmentName, f.ComponentRelease,
 				f.CommitSHA, nullableInt64(f.CommitAuthoredMs), nullableInt64(f.StartedMs),
 				nullableInt64(f.ReadyMs), f.Outcome, f.FailedBy, f.FailureReason,
@@ -514,7 +514,7 @@ func (s *sqlStore) UpsertRecoveryFacts(ctx context.Context, facts []RecoveryFact
 		for i := range facts {
 			f := &facts[i]
 			_, err := tx.ExecContext(ctx, query,
-				f.ID, f.OrgNamespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
+				f.ID, f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
 				f.ReleaseUID, f.IncidentID, f.Severity, f.Source,
 				f.FailureStartedMs, nullableInt64(f.RecoveredMs), nullableInt64(f.DurationMs),
 				f.UpdatedAtMs,
@@ -615,7 +615,7 @@ func (s *sqlStore) QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]Dep
 	args = append(args, q.StartMs, q.EndMs)
 	where := " WHERE " + strings.Join(conditions, " AND ")
 
-	base := `SELECT release_uid, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
@@ -625,7 +625,7 @@ FROM deployment_fact` + where +
 		// rollout puts many facts in the same millisecond.
 		" ORDER BY " + occurredMsExpr + " " + orderClause + ", release_uid ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		facts, err := pageAll(func(limit, offset int) ([]DeploymentFact, error) {
 			return s.scanDeploymentFacts(ctx, query, withLimitOffset(args, limit, offset))
@@ -667,7 +667,7 @@ func (s *sqlStore) scanDeploymentFacts(
 	for rows.Next() {
 		var f DeploymentFact
 		var authored, started, ready, leadTime sql.NullInt64
-		if err := rows.Scan(&f.ReleaseUID, &f.OrgNamespace, &f.ProjectUID, &f.ComponentUID,
+		if err := rows.Scan(&f.ReleaseUID, &f.Namespace, &f.ProjectUID, &f.ComponentUID,
 			&f.EnvironmentUID, &f.ProjectName, &f.ComponentName, &f.EnvironmentName,
 			&f.ComponentRelease, &f.CommitSHA, &authored, &started, &ready,
 			&f.Outcome, &f.FailedBy, &f.FailureReason, &f.IncidentID, &leadTime,
@@ -754,13 +754,13 @@ func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]Recov
 	conditions = append(conditions, "failure_started_ms >= ?", "failure_started_ms < ?")
 	args = append(args, q.StartMs, q.EndMs)
 
-	base := `SELECT id, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 		" ORDER BY failure_started_ms ASC, id ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]RecoveryFact, error) {
 			return s.scanRecoveryFacts(ctx, query, withLimitOffset(args, limit, offset))
@@ -791,7 +791,7 @@ func (s *sqlStore) scanRecoveryFacts(
 	for rows.Next() {
 		var f RecoveryFact
 		var recovered, duration sql.NullInt64
-		if err := rows.Scan(&f.ID, &f.OrgNamespace, &f.ProjectUID, &f.ComponentUID,
+		if err := rows.Scan(&f.ID, &f.Namespace, &f.ProjectUID, &f.ComponentUID,
 			&f.EnvironmentUID, &f.ReleaseUID, &f.IncidentID, &f.Severity, &f.Source,
 			&f.FailureStartedMs, &recovered, &duration, &f.UpdatedAtMs); err != nil {
 			return nil, fmt.Errorf("failed to scan recovery fact: %w", err)
@@ -851,7 +851,7 @@ func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, er
 	base := "SELECT lead_time_ms FROM deployment_fact WHERE " +
 		strings.Join(conditions, " AND ") + " ORDER BY ready_ms ASC, release_uid ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]int64, error) {
 			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "lead times")
@@ -886,7 +886,7 @@ func (s *sqlStore) QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]i
 	base := "SELECT duration_ms FROM recovery_fact WHERE " +
 		strings.Join(conditions, " AND ") + " ORDER BY failure_started_ms ASC, id ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]int64, error) {
 			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "recovery durations")
@@ -1015,7 +1015,7 @@ func (s *sqlStore) Close() error {
 }
 
 // factScopeConditions builds the WHERE fragment shared by all fact queries. Empty scope
-// fields are not filtered on, so one query shape serves org, project, component, and
+// fields are not filtered on, so one query shape serves namespace, project, component, and
 // per-environment reads.
 func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 	conditions := make([]string, 0, 6)
@@ -1024,7 +1024,7 @@ func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 		column string
 		value  string
 	}{
-		{"org_namespace", q.OrgNamespace},
+		{"namespace", q.Namespace},
 		{"project_uid", q.ProjectUID},
 		{"component_uid", q.ComponentUID},
 		{"environment_uid", q.EnvironmentUID},
@@ -1080,8 +1080,8 @@ func validateDeploymentFact(f *DeploymentFact) error {
 	if strings.TrimSpace(f.ReleaseUID) == "" {
 		return fmt.Errorf("deployment fact release UID is required")
 	}
-	if strings.TrimSpace(f.OrgNamespace) == "" {
-		return fmt.Errorf("deployment fact %q: org namespace is required", f.ReleaseUID)
+	if strings.TrimSpace(f.Namespace) == "" {
+		return fmt.Errorf("deployment fact %q: namespace is required", f.ReleaseUID)
 	}
 	if f.Outcome == "" {
 		f.Outcome = OutcomeInProgress
@@ -1106,8 +1106,8 @@ func validateRecoveryFact(f *RecoveryFact) error {
 	if strings.TrimSpace(f.ID) == "" {
 		return fmt.Errorf("recovery fact ID is required")
 	}
-	if strings.TrimSpace(f.OrgNamespace) == "" {
-		return fmt.Errorf("recovery fact %q: org namespace is required", f.ID)
+	if strings.TrimSpace(f.Namespace) == "" {
+		return fmt.Errorf("recovery fact %q: namespace is required", f.ID)
 	}
 	switch f.Source {
 	case RecoverySourceIncident, RecoverySourceHealth:
@@ -1161,7 +1161,7 @@ func validateRollupQuery(q *RollupQuery) error {
 
 func validateScopeType(scopeType string) error {
 	switch scopeType {
-	case ScopeTypeOrg, ScopeTypeProject, ScopeTypeComponent:
+	case ScopeTypeNamespace, ScopeTypeProject, ScopeTypeComponent:
 		return nil
 	default:
 		return fmt.Errorf("unsupported rollup scope type %q", scopeType)
@@ -1188,7 +1188,7 @@ func normalizeSortOrder(sortOrder string) (string, error) {
 	}
 }
 
-// factPageSize is how many rows an exhaustive (FactQuery.All) read fetches per
+// factPageSize is how many rows an exhaustive (FactQuery.AllRows) read fetches per
 // round trip. It bounds the query, not the result: pageAll keeps going until a
 // short page arrives, so the caller still sees every matching row.
 const factPageSize = 5000

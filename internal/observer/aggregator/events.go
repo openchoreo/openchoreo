@@ -28,7 +28,7 @@ type DeliveryEvent struct {
 	Reason string
 	// TimestampMs is the event's occurrence time (epoch ms).
 	TimestampMs int64
-	// Namespace is the org namespace the event was enriched with.
+	// Namespace is the namespace the event was enriched with.
 	Namespace string
 	// Names for display, from enrichment.
 	ProjectName     string
@@ -245,7 +245,7 @@ func (a *Aggregator) foldEvent(
 
 	fact := deliveryinsights.DeploymentFact{
 		ReleaseUID:       payload.RolloutID,
-		OrgNamespace:     namespaceName,
+		Namespace:        namespaceName,
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
 		EnvironmentUID:   payload.EnvironmentUID,
@@ -281,7 +281,7 @@ func (a *Aggregator) foldEvent(
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
 			ID:               healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
-			OrgNamespace:     namespaceName,
+			Namespace:        namespaceName,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
@@ -294,7 +294,7 @@ func (a *Aggregator) foldEvent(
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
 			ID:             healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
-			OrgNamespace:   namespaceName,
+			Namespace:      namespaceName,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,
