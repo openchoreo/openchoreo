@@ -185,6 +185,46 @@ func TestListNamespaces_APIError(t *testing.T) {
 	require.ErrorContains(t, err, "internal error")
 }
 
+// --- GetMetadata ---
+
+func TestGetMetadata_Success(t *testing.T) {
+	observerURL := "http://observer.test"
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetMetadataWithResponse(mock.Anything).Return(&gen.GetMetadataResp{
+		HTTPResponse: httpResp(http.StatusOK),
+		JSON200: &gen.MetadataResponse{Features: gen.MetadataFeatures{
+			AuditLogs: gen.AuditLogsFeature{Enabled: true, ObserverURL: &observerURL},
+		}},
+	}, nil)
+
+	c := newMockClient(m)
+	result, err := c.GetMetadata(context.Background())
+	require.NoError(t, err)
+	assert.True(t, result.Features.AuditLogs.Enabled)
+	assert.Equal(t, observerURL, *result.Features.AuditLogs.ObserverURL)
+}
+
+func TestGetMetadata_TransportError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetMetadataWithResponse(mock.Anything).Return(nil, fmt.Errorf("timeout"))
+
+	c := newMockClient(m)
+	_, err := c.GetMetadata(context.Background())
+	require.ErrorContains(t, err, "failed to get platform metadata")
+}
+
+func TestGetMetadata_APIError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetMetadataWithResponse(mock.Anything).Return(&gen.GetMetadataResp{
+		HTTPResponse: httpResp(http.StatusUnauthorized),
+		Body:         []byte(`{"error":"unauthorized"}`),
+	}, nil)
+
+	c := newMockClient(m)
+	_, err := c.GetMetadata(context.Background())
+	require.ErrorContains(t, err, "unauthorized")
+}
+
 // --- GetNamespace ---
 
 func TestGetNamespace_Success(t *testing.T) {

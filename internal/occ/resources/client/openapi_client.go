@@ -93,6 +93,18 @@ func (c *Client) GetClient() *gen.ClientWithResponses {
 	return c.client.(*gen.ClientWithResponses)
 }
 
+// GetMetadata retrieves how the platform is configured, such as where audit logs are served
+func (c *Client) GetMetadata(ctx context.Context) (*gen.MetadataResponse, error) {
+	resp, err := c.client.GetMetadataWithResponse(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get platform metadata: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
 // ListNamespaces retrieves all namespaces
 func (c *Client) ListNamespaces(ctx context.Context, params *gen.ListNamespacesParams) (*gen.NamespaceList, error) {
 	resp, err := c.client.ListNamespacesWithResponse(ctx, params)
