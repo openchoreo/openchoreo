@@ -490,6 +490,13 @@ func (m *MockDeliveryInsightsService) lastDoraMetricsRequest() *gen.DoraMetricsQ
 	return &m.doraMetricsRequests[len(m.doraMetricsRequests)-1]
 }
 
+func (m *MockDeliveryInsightsService) lastDoraDeploymentsRequest() *gen.DoraDeploymentsQueryRequest {
+	if len(m.doraDeploymentsRequests) == 0 {
+		return nil
+	}
+	return &m.doraDeploymentsRequests[len(m.doraDeploymentsRequests)-1]
+}
+
 func (m *MockDeliveryInsightsService) reset() {
 	m.doraMetricsRequests = nil
 	m.doraDeploymentsRequests = nil
@@ -1168,6 +1175,45 @@ var allToolSpecs = []toolTestSpec{
 			require.Len(t, *req.Metrics, 2)
 			assert.Equal(t, "leadTime", string((*req.Metrics)[0]))
 			assert.Equal(t, "mttr", string((*req.Metrics)[1]))
+		},
+	},
+	{
+		name:                "query_dora_deployments",
+		descriptionKeywords: []string{"deployment", "outcome"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       25,
+			"sort_order":  sortOrderAsc,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.insights.lastDoraDeploymentsRequest()
+			require.NotNil(t, req, "Expected QueryDoraDeployments to be called")
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			require.NotNil(t, req.SearchScope.Project)
+			assert.Equal(t, testProject, *req.SearchScope.Project)
+			require.NotNil(t, req.SearchScope.Component)
+			assert.Equal(t, testComponent, *req.SearchScope.Component)
+			require.NotNil(t, req.SearchScope.Environment)
+			assert.Equal(t, testEnvironment, *req.SearchScope.Environment)
+			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
+			assert.True(t, req.StartTime.Equal(expectedStart), "Expected start_time %v, got %v", expectedStart, req.StartTime)
+			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
+			assert.True(t, req.EndTime.Equal(expectedEnd), "Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			// The page cap and ordering reach the service: this is the list behind
+			// the numbers, so both are the point of asking.
+			require.NotNil(t, req.Limit)
+			assert.Equal(t, 25, *req.Limit)
+			require.NotNil(t, req.SortOrder)
+			assert.Equal(t, sortOrderAsc, string(*req.SortOrder))
 		},
 	},
 }

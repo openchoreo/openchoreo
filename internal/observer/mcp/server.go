@@ -681,6 +681,45 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		)
 		return handleToolResult(result, err)
 	})
+
+	// Tool 13: query_dora_deployments
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name: "query_dora_deployments",
+		Description: "List the individual deployments behind the DORA metrics: each rollout with when it " +
+			"was deployed, its project, component and environment, the commit it carried, its outcome " +
+			"(succeeded or failed) and its lead time. Use this after query_dora_metrics to show the work " +
+			"behind a number -- which deployments failed, what shipped in a window, or which rollout took " +
+			"longest -- and to answer questions like 'what did we deploy to production last week' or " +
+			"'which deployments failed'.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Namespace (required)"),
+			"project":     stringProperty("Project name to scope the deployments to"),
+			"component":   stringProperty("Component name to scope the deployments to (requires project)"),
+			"environment": stringProperty("Environment name to scope the deployments to (e.g., 'development', 'production')"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.QueryDoraDeployments(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.SortOrder, args.Limit,
+		)
+		return handleToolResult(result, err)
+	})
 }
 
 // Helper functions for schema creation

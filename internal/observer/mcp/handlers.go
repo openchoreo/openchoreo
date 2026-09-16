@@ -394,3 +394,45 @@ func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, c
 
 	return h.deliveryInsightsService.QueryDoraMetrics(ctx, req)
 }
+
+// QueryDoraDeployments lists the individual deployments behind the DORA numbers:
+// the rollouts themselves, with their outcome, lead time and commit. It is what
+// turns "change failure rate is 25%" into which four rollouts failed.
+func (h *MCPHandler) QueryDoraDeployments(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime, sortOrder string, limit int) (any, error) {
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+
+	req := gen.DoraDeploymentsQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		SearchScope: gen.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     strPtr(project),
+			Component:   strPtr(component),
+			Environment: strPtr(environment),
+		},
+	}
+	if limit > 0 {
+		req.Limit = &limit
+	}
+	if sortOrder != "" {
+		o := gen.DoraDeploymentsQueryRequestSortOrder(sortOrder)
+		req.SortOrder = &o
+	}
+
+	// The same validator the HTTP path runs, for the same reason the metrics tool
+	// runs its own: this path would otherwise have no window cap, no ordering
+	// check and no limit bound.
+	if err := apihandlers.ValidateDoraDeploymentsQueryRequest(&req); err != nil {
+		return nil, err
+	}
+
+	return h.deliveryInsightsService.QueryDoraDeployments(ctx, req)
+}

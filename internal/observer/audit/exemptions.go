@@ -101,4 +101,5 @@ var MCPToolExemptions = map[string]string{
 	"query_costs":            reasonTelemetryRead,
 	"query_recommendations":  reasonTelemetryRead,
 	"query_dora_metrics":     reasonTelemetryRead,
+	"query_dora_deployments": reasonTelemetryRead,
 }
