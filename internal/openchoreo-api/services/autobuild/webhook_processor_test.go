@@ -718,6 +718,45 @@ func TestWebhookProviderFilter_Mismatch(t *testing.T) {
 	}
 }
 
+// TestWebhookProviderFilter_UnsupportedHost verifies a component on a host outside
+// the supported set is not built, whichever provider sent the webhook.
+func TestWebhookProviderFilter_UnsupportedHost(t *testing.T) {
+	makeRaw := func(v interface{}) *runtime.RawExtension {
+		b, _ := json.Marshal(v)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	scheme := newTestSchemeForWebhook(t)
+	const (
+		selfHostedRepo   = "https://git.corp.example/team/payments-service"
+		selfHostedBranch = "release/v1"
+	)
+	comp := makeAutoBuildComponent("payments", "ns2", "wf2", selfHostedRepo, selfHostedBranch, makeRaw)
+	workflow := makeWorkflowWithBranch("wf2", "ns2")
+
+	for _, webhookAs := range []git.ProviderType{
+		git.ProviderGitHub, git.ProviderGitLab, git.ProviderBitbucket,
+	} {
+		t.Run(string(webhookAs), func(t *testing.T) {
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(comp.DeepCopy(), workflow.DeepCopy()).Build()
+			svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
+
+			affected, err := svc.findAffectedComponents(context.Background(), &git.WebhookEvent{
+				Provider:      string(webhookAs),
+				RepositoryURL: selfHostedRepo,
+				Branch:        selfHostedBranch,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(affected) != 0 {
+				t.Fatalf("expected 0 affected components for an unsupported repository host, got %d", len(affected))
+			}
+		})
+	}
+}
+
 func TestWebhookBranchFilter_Mismatch(t *testing.T) {
 	makeRaw := func(v interface{}) *runtime.RawExtension {
 		b, _ := json.Marshal(v)

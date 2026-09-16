@@ -146,13 +146,10 @@ func (s *webhookProcessor) findAffectedComponents(ctx context.Context, event *gi
 			continue
 		}
 
-		// Ensure the authenticated webhook provider matches the provider that hosts the
-		// component's repository. The webhook was validated against a specific provider's
-		// secret; without this check a webhook validated for one provider could trigger
-		// builds for components hosted on a different provider that share a repository URL.
-		// For hosts that don't map to a known SaaS provider (e.g. self-hosted), the provider
-		// cannot be inferred and no additional check is enforced.
-		if expected := providerFromRepoURL(repoURL); expected != "" && string(expected) != event.Provider {
+		// Ensure the webhook provider matches the provider hosting the component's
+		// repository. Autobuild supports github.com, gitlab.com and bitbucket.org; a
+		// repository on any other host infers no provider and matches nothing.
+		if expected := providerFromRepoURL(repoURL); string(expected) != event.Provider {
 			s.logger.Info("Skipping component: provider mismatch",
 				"component", comp.Name,
 				"expectedProvider", expected,
@@ -320,8 +317,8 @@ func getSchemaFieldDefault(schema *runtime.RawExtension, dottedPath string) stri
 }
 
 // providerFromRepoURL infers the git provider from a repository URL's host.
-// It returns "" for hosts that don't map to a known SaaS provider (e.g. self-hosted
-// installations), in which case callers should not enforce a provider-consistency check.
+// It returns "" for hosts outside the supported set (e.g. self-hosted
+// installations); such a repository matches no webhook provider.
 func providerFromRepoURL(repoURL string) git.ProviderType {
 	// Inspect the URL host only. Matching against the full URL (e.g. via substring)
 	// would misclassify a repository whose org/name path contains another provider's
