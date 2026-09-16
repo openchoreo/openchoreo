@@ -559,9 +559,10 @@ func shutdownServers(
 // defers that function.
 //
 // The alert and incident stores are initialized inline in main, and this would
-// read better beside them. It cannot be: main sits at the gocyclo limit of 30,
-// so the two extra failure branches inlining this adds take it to 32. The same
-// applies to newDeliveryInsightsService below.
+// read better beside them. It cannot be: main sits at exactly the gocyclo limit
+// of 30, and the two extra failure branches inlining this adds take it to 32.
+// newDeliveryInsightsService below is the same story -- inlining it alone gives
+// 31, and inlining both gives 33.
 func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -596,8 +597,8 @@ func newDeliveryInsightsService(
 		logger.Warn("Delivery Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
 		resolver = service.NewPassthroughUIDResolver()
 	}
-	// What this observer is collecting travels with every metrics response, so a
-	// client can tell "nothing was deployed" from "nothing is being collected".
+	// Data availability travels with every metrics response, so a client can tell
+	// "nothing was deployed" from "nothing is being collected".
 	return service.NewDeliveryInsightsService(
 		store, resolver, logger.With("component", "delivery-insights-service"),
 		cfg.DeliveryInsights.Enabled,
