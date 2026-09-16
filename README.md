@@ -79,7 +79,7 @@ The diagram below illustrates some of the core concepts of the Platform API and 
 
 ## Getting Started
 
-The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
+The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up OpenChoreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
 For a deeper understanding of OpenChoreo's architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/category/concepts/)**.
 
@@ -101,7 +101,7 @@ We’d love for you to be part of OpenChoreo’s journey!
 Whether you’re fixing a bug, improving documentation, or suggesting new features, every contribution counts.
 
 - **[Contributor Guide](./docs/contributors/README.md)** – Learn how to get started.
-- **[Report an Issue](https://github.com/openchoreo/openchoreo/issues)** – Help us improve Choreo.
+- **[Report an Issue](https://github.com/openchoreo/openchoreo/issues)** – Help us improve OpenChoreo.
 - **[Join our Slack](https://cloud-native.slack.com/archives/C0ABYRG1MND)** – Be part of the community.
 
 We’re excited to have you onboard!
