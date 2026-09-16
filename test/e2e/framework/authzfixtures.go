@@ -34,7 +34,7 @@ spec:
 }
 
 // ClusterAuthzRoleBindingYAML renders a ClusterAuthzRoleBinding mapping the
-// entitlement claim `sub` == subject to the named ClusterAuthzRole.
+// entitlement claim `client_id` == subject to the named ClusterAuthzRole.
 // effect is "allow" or "deny".
 func ClusterAuthzRoleBindingYAML(name, labelKey, labelValue, roleName, subject, effect string) string {
 	return fmt.Sprintf(`apiVersion: openchoreo.dev/v1alpha1
@@ -49,7 +49,7 @@ spec:
         name: %s
         kind: ClusterAuthzRole
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, labelKey, labelValue, roleName, subject, effect)
@@ -72,7 +72,7 @@ spec:
       scope:
         namespace: %s
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, labelKey, labelValue, roleName, scopeNamespace, subject, effect)

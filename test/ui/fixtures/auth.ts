@@ -32,10 +32,12 @@ export const cryptoUUIDPolyfill = `
 })();
 `;
 
-// Identity catalogue. PE + Dev are seeded by Thunder's bootstrap script
-// (install/k3d/common/values-thunder.yaml → 50-user-schema-and-users.sh).
-// The ABAC identity is provisioned by test/ui/scripts/seed-idp-users.sh
-// because the bootstrap script does not know about it.
+// Identity catalogue. PE + Dev are seeded by ThunderID's bootstrap resources
+// (install/k3d/common/values-thunder.yaml → 50-user-schema-and-users.yaml).
+// The ABAC identity comes from the e2e overlay's bootstrap resources
+// (test/e2e/k3d/values-thunder.yaml → 52-abac-user.yaml), applied by the
+// setup Job on a fresh install; test/ui/scripts/seed-idp-users.sh re-runs
+// that Job against an already-installed cluster.
 export type Role = 'pe' | 'dev' | 'abac';
 
 export interface RoleCreds {

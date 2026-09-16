@@ -36,6 +36,14 @@ backstage:
 openchoreoApi:
   config:
     security:
+      # The chart default keys service accounts off ThunderID's client_id claim;
+      # Dex identifies the client_credentials caller through sub instead.
+      subjects:
+        service_account:
+          mechanisms:
+            jwt:
+              entitlement:
+                claim: "sub"
       authorization:
         bootstrap:
           mappings:

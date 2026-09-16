@@ -1,4 +1,4 @@
-# Thunder IdP overrides for the multi-cluster e2e setup.
+# ThunderID IdP overrides for the multi-cluster e2e setup.
 # Applied on top of install/k3d/common/values-thunder.yaml.
 
 httproute:
@@ -13,10 +13,15 @@ configuration:
     hostname: "thunder.e2e-mc-cp.local"
     port: 38080
 
-  cors:
-    allowedOrigins:
-      - "http://openchoreo.e2e-mc-cp.local:38080"
-
   passkey:
     allowedOrigins:
       - "http://openchoreo.e2e-mc-cp.local:38080"
+
+bootstrap:
+  scripts:
+    49-cors.yaml: |
+      resource_type: server_config
+      name: cors
+      value:
+        allowedOrigins:
+          - "http://openchoreo.e2e-mc-cp.local:38080"

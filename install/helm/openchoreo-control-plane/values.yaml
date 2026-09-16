@@ -1188,7 +1188,7 @@ openchoreoApi:
           mechanisms:
             jwt:
               entitlement:
-                claim: "sub"
+                claim: "client_id"
                 display_name: "Client ID"
       # @schema
       # type: object
@@ -1783,7 +1783,7 @@ openchoreoApi:
                     name: admin
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: service_mcp_client
               effect: allow
 
@@ -1796,7 +1796,7 @@ openchoreoApi:
                     name: backstage-catalog-reader
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: openchoreo-backstage-client
               effect: allow
 
@@ -1809,7 +1809,7 @@ openchoreoApi:
                     name: finops-agent
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: openchoreo-finops-agent
               effect: allow
 
@@ -1822,7 +1822,7 @@ openchoreoApi:
                     name: rca-agent
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: openchoreo-rca-agent
               effect: allow
 
@@ -1835,7 +1835,7 @@ openchoreoApi:
                     name: workload-publisher
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: openchoreo-workload-publisher-client
               effect: allow
 
@@ -1848,7 +1848,7 @@ openchoreoApi:
                     name: observer-resource-reader
                     kind: ClusterAuthzRole
               entitlement:
-                claim: sub
+                claim: client_id
                 value: openchoreo-observer-resource-reader-client
               effect: allow
     # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients

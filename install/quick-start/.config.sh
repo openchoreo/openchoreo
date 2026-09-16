@@ -28,8 +28,8 @@ ESO_REPO="oci://ghcr.io/external-secrets/charts"
 # kgateway configuration
 KGATEWAY_VERSION="v2.3.1"
 
-# Thunder configuration
-THUNDER_VERSION="0.28.0"
+# ThunderID configuration
+THUNDER_VERSION="1.0.1"
 
 # Observability module versions (community-modules)
 LOGS_OPENSEARCH_VERSION="0.5.3"

@@ -8,7 +8,7 @@ const (
 	// EnvServerBaseURL is the base URL for the API server (used for OAuth metadata)
 	EnvServerBaseURL = "SERVER_BASE_URL"
 
-	// EnvAuthServerBaseURL is the base URL for Asgardeo Thunder (authorization server)
+	// EnvAuthServerBaseURL is the base URL for ThunderID (authorization server)
 	EnvAuthServerBaseURL = "AUTH_SERVER_BASE_URL"
 
 	// EnvJWKSURL is the JWKS URL for JWT validation

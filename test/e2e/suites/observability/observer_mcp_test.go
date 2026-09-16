@@ -30,8 +30,8 @@ const (
 	obsAdminClientID     = "service_mcp_client"
 	obsAdminClientSecret = "service_mcp_client_secret" //nolint:gosec
 
-	// Subject identity (mcp-e2e-subject-client) is seeded unbound by the Thunder
-	// bootstrap (install/k3d/common/values-thunder.yaml `61-mcp-e2e-subject-app.sh`)
+	// Subject identity (mcp-e2e-subject-client) is seeded unbound by the ThunderID
+	// bootstrap (install/k3d/common/values-thunder.yaml `61-mcp-e2e-subject-app.yaml`)
 	// and uses client_secret_post. It is the same permission-less subject the
 	// control-plane MCP suite owns; the observer's PDP is the same CP authz API,
 	// so grants/denials on it are controlled by ClusterAuthzRole(Binding) CRs on

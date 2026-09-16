@@ -12,7 +12,7 @@ CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"
 KGATEWAY_VERSION="v2.3.1"
 OPENBAO_CHART_VERSION="0.25.6"
-THUNDER_VERSION="0.28.0"
+THUNDER_VERSION="1.0.1"
 LOGS_OPENSEARCH_VERSION="0.5.3"
 TRACES_OPENSEARCH_VERSION="0.6.0"
 METRICS_PROMETHEUS_VERSION="0.7.0"
@@ -220,12 +220,12 @@ EOF
 
 install_control_plane() {
     step "Installing ThunderID (identity provider)"
-    $HELM upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+    $HELM upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
         --namespace "$THUNDER_NS" --create-namespace \
         --version "$THUNDER_VERSION" \
         --values "$(asset install/k3d/common/values-thunder.yaml)"
     $KUBECTL wait -n "$THUNDER_NS" \
-        --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunder
+        --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunderid
 
     step "Creating backstage ExternalSecret"
     $KUBECTL apply -f - <<EOF

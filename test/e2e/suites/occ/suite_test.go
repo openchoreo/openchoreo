@@ -76,7 +76,7 @@ spec:
         name: admin
         kind: ClusterAuthzRole
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: allow`, clusterAuthzBindingName, clientID)
 	out, err = framework.KubectlApplyLiteral(kubeContext, abacBinding)

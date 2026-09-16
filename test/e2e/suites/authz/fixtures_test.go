@@ -91,7 +91,7 @@ spec:
         name: %s
         kind: ClusterAuthzRole
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, labels["e2e-authz/run"], roleName, subjectClientID, effect)
@@ -114,7 +114,7 @@ spec:
       scope:
         namespace: %s
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, labels["e2e-authz/run"], roleName, scopeNs, subjectClientID, effect)
@@ -167,7 +167,7 @@ spec:
         name: %s
         kind: AuthzRole
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, ns, roleName, subjectClientID, effect)
@@ -259,7 +259,7 @@ spec:
             - %q
           expression: %q
   entitlement:
-    claim: sub
+    claim: client_id
     value: %s
   effect: %s
 `, name, labels["e2e-authz/run"], roleName, condActions, condExpr, subjectClientID, effect)
