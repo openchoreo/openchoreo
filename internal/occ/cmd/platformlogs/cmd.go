@@ -14,29 +14,33 @@ import (
 
 const shortDesc = "Query platform logs collected by this observability plane"
 
-// longDesc explains what platform logs are and how they differ from the component logs
-// the CLI already serves, since `<resource> logs` elsewhere in occ means the logs of
-// that resource rather than the logs it holds.
-const longDesc = `Query logs from OpenChoreo's own platform components - the control plane
-(controller-manager, openchoreo-api, cluster-gateway), the data plane agents and gateways,
-and the workflow and observability plane infrastructure.
+// longDesc sets expectations this command's name does not. `<resource> logs` elsewhere in
+// occ means the logs of that resource, whereas here the plane is the source; and the store
+// it reads holds every container the plane's collector sees, not only OpenChoreo's own.
+const longDesc = `Query logs by raw Kubernetes coordinates from everything the named observability
+plane collects. That is OpenChoreo's own components - the control plane's controller-manager,
+openchoreo-api and cluster-gateway, the data plane agents and gateways, the workflow and
+observability plane infrastructure - and also the third-party infrastructure deployed
+alongside them, and the workloads running on the planes it watches.
 
-This is the operator's view of the platform itself, not of user workloads. Entries are
-addressed by raw Kubernetes coordinates rather than by project, component and environment,
-so use 'occ component logs' for a deployed component's runtime logs.
+Entries come back with no ownership check, so this reads user workload logs as well. That
+is why it needs the cluster-scoped 'platformlogs:view' permission, which is granted to the
+platform-engineer and admin roles only. Treat the output as privileged, and use
+'occ component logs' for a single component's runtime logs, correlated by project,
+component and environment and checked against ownership.
 
-Logs are read from the store held by the named observability plane; each plane holds its
-own store, so --cluster selects between the clusters feeding this one. Multi-value filters
-match any of their values, and different filters must all match.
+Each observability plane holds its own store, so --cluster selects between the clusters
+feeding this one. Multi-value filters match any of their values, and different filters
+must all match.
 
-Plane attribution is expressed through --selector, which OpenChoreo stamps on its own pods:
+Narrow to OpenChoreo's own components with --selector, which reads the labels OpenChoreo
+stamps on its own pods:
   openchoreo.dev/plane=controlplane|dataplane|workflowplane|observabilityplane
   openchoreo.dev/plane-id=<planeID>   narrows to one instance of a plane
 
-The control plane is a singleton and carries no plane-id. Components OpenChoreo does not
-ship carry no plane label at all, and are reached by --pod-namespace or their own labels.
-
-Requires the cluster-scoped 'platformlogs:view' permission.`
+The control plane is a singleton and carries no plane-id. Everything OpenChoreo does not
+ship - third-party infrastructure and user workloads alike - carries no plane label at all,
+and is reached by --pod-namespace, --pod or its own labels.`
 
 const clusterPlaneExample = `  # Control plane components over the last 10 minutes
   occ clusterobservabilityplane logs default --selector openchoreo.dev/plane=controlplane --since 10m

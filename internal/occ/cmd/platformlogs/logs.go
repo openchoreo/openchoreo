@@ -129,7 +129,7 @@ func (p *PlatformLogs) fetchAndPrintLogs(ctx context.Context, api observerAPI, p
 	}
 	// Reported on stderr so that an empty result does not disturb a JSON pipeline.
 	if len(logs) == 0 {
-		fmt.Fprintln(os.Stderr, "No platform logs matched the query.")
+		fmt.Fprintln(os.Stderr, "No logs matched the query.")
 	}
 	return nil
 }
