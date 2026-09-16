@@ -999,3 +999,84 @@ func ValidatePlatformLogFilterValuesRequest(req *types.PlatformLogFilterValuesRe
 	}
 	return nil
 }
+
+// deliveryInsightsMaxQueryTimeRange caps DORA queries. Deliberately much larger than the 30-day
+// raw-event cap: metric rollups are durable and outlive raw-event retention.
+const deliveryInsightsMaxQueryTimeRange = 400 * 24 * time.Hour
+
+// ValidateDoraMetricsQueryRequest validates the DoraMetricsQueryRequest.
+func ValidateDoraMetricsQueryRequest(req *gen.DoraMetricsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if err := validateDoraScopeAndWindow(&req.SearchScope, req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if req.Granularity != nil {
+		granularity := string(*req.Granularity)
+		valid := []string{"daily", "weekly", "monthly"}
+		if granularity != "" && !slices.Contains(valid, granularity) {
+			return fmt.Errorf("granularity must be one of: %s", strings.Join(valid, ", "))
+		}
+	}
+	if req.Metrics != nil {
+		valid := []string{"deploymentFrequency", "leadTime", "changeFailureRate", "mttr"}
+		for _, m := range *req.Metrics {
+			if !slices.Contains(valid, string(m)) {
+				return fmt.Errorf("metrics must be a subset of: %s", strings.Join(valid, ", "))
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateDoraDeploymentsQueryRequest validates the DoraDeploymentsQueryRequest.
+func ValidateDoraDeploymentsQueryRequest(req *gen.DoraDeploymentsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if err := validateDoraScopeAndWindow(&req.SearchScope, req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if req.Limit != nil {
+		if *req.Limit <= 0 {
+			return fmt.Errorf("limit must be a positive integer greater than zero")
+		}
+		if *req.Limit > config.MaxLimit {
+			return fmt.Errorf("limit cannot exceed %d", config.MaxLimit)
+		}
+	}
+	if req.SortOrder != nil {
+		order := string(*req.SortOrder)
+		if order != sortOrderAsc && order != defaultSortOrder {
+			return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
+		}
+	}
+	return nil
+}
+
+func validateDoraScopeAndWindow(scope *gen.ComponentSearchScope, startTime, endTime time.Time) error {
+	if startTime.IsZero() {
+		return fmt.Errorf("startTime is required")
+	}
+	if endTime.IsZero() {
+		return fmt.Errorf("endTime is required")
+	}
+	if !endTime.After(startTime) {
+		return fmt.Errorf("endTime must be after startTime")
+	}
+	if endTime.Sub(startTime) > deliveryInsightsMaxQueryTimeRange {
+		return fmt.Errorf("query time range cannot exceed %d days",
+			int(deliveryInsightsMaxQueryTimeRange/(24*time.Hour)))
+	}
+
+	scope.Namespace = strings.TrimSpace(scope.Namespace)
+	if scope.Namespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	if scope.Component != nil && strings.TrimSpace(*scope.Component) != "" &&
+		(scope.Project == nil || strings.TrimSpace(*scope.Project) == "") {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	return nil
+}
