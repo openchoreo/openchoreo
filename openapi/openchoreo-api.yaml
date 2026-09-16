@@ -185,6 +185,36 @@ paths:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
   # =============================================================================
+  # Platform Metadata
+  # =============================================================================
+
+  /api/v1alpha1/metadata:
+    get:
+      operationId: getMetadata
+      summary: Get platform metadata
+      description: |
+        Returns how this OpenChoreo installation is configured, so clients can adapt
+        their behavior — for example, whether audit logs can be queried and which
+        observer serves them.
+
+        Requires authentication but no specific permission. The document grants no
+        access: querying audit logs still requires `auditlogs:view` on the observer.
+
+        Clients must ignore fields they do not recognize.
+      tags: [Operations]
+      responses:
+        '200':
+          description: Platform metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Namespace Endpoints
   # =============================================================================
 
@@ -6955,6 +6985,43 @@ components:
           type: string
           description: Human-readable message
           example: "Project is ready"
+
+    # -------------------------------------------------------------------------
+    # Platform Metadata
+    # -------------------------------------------------------------------------
+    MetadataResponse:
+      type: object
+      description: How this OpenChoreo installation is configured
+      required:
+        - features
+      properties:
+        features:
+          $ref: '#/components/schemas/MetadataFeatures'
+
+    MetadataFeatures:
+      type: object
+      description: Optional platform features and how clients reach them
+      required:
+        - auditLogs
+      properties:
+        auditLogs:
+          $ref: '#/components/schemas/AuditLogsFeature'
+
+    AuditLogsFeature:
+      type: object
+      description: Audit trail read path
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Whether audit logging is enabled
+          example: true
+        observerURL:
+          type: string
+          format: uri
+          description: Base URL of the observer that serves audit logs. Omitted when audit logging is disabled or the referenced observability plane is not found.
+          example: https://observer.example.com
 
     # -------------------------------------------------------------------------
     # Version

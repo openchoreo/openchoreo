@@ -17,6 +17,9 @@ func TestAuditConfig_ValidPoliciesRoundTrip(t *testing.T) {
 	cfg := loadAuditTestConfig(t, `
 audit:
   enabled: true
+  observability_plane_ref:
+    kind: ClusterObservabilityPlane
+    name: default
   defaults:
     publish: true
   policies:
@@ -54,6 +57,9 @@ func TestAuditConfig_ExecAndWirelogsAreSelectable(t *testing.T) {
 	cfg := loadAuditTestConfig(t, `
 audit:
   enabled: true
+  observability_plane_ref:
+    kind: ClusterObservabilityPlane
+    name: default
   defaults:
     publish: true
   policies:

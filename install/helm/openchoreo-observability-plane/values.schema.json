@@ -1418,7 +1418,7 @@
               "type": "object"
             },
             "enabled": {
-              "default": true,
+              "default": false,
               "description": "Enable audit event emission for state-modifying observer API requests",
               "title": "enabled",
               "type": "boolean"

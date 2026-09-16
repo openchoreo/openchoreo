@@ -1885,10 +1885,33 @@ openchoreoApi:
     audit:
       # @schema
       # type: boolean
-      # description: Enable audit event emission for state-modifying API requests
-      # default: true
+      # description: Enable audit event emission for state-modifying API requests. Requires observabilityPlaneRef.
+      # default: false
       # @schema
-      enabled: true
+      enabled: false
+      # @schema
+      # type: object
+      # description: Reference to the observability plane where audit logs are stored
+      # @schema
+      observabilityPlaneRef:
+        # @schema
+        # enum: ["", ObservabilityPlane, ClusterObservabilityPlane]
+        # description: Kind of the referenced observability plane. Required when enabled is true.
+        # default: ""
+        # @schema
+        kind: ""
+        # @schema
+        # type: string
+        # description: Name of the referenced observability plane. Required when enabled is true.
+        # default: ""
+        # @schema
+        name: ""
+        # @schema
+        # type: string
+        # description: Namespace of the referenced ObservabilityPlane. Not used for ClusterObservabilityPlane.
+        # default: ""
+        # @schema
+        namespace: ""
       # @schema
       # type: object
       # description: Policy settings applied when no policies entry matches

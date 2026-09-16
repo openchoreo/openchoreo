@@ -836,6 +836,9 @@ type ClientInterface interface {
 
 	HandleAutoBuild(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetMetadata request
+	GetMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListGitSecrets request
 	ListGitSecrets(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4150,6 +4153,18 @@ func (c *Client) HandleAutoBuildWithBody(ctx context.Context, params *HandleAuto
 
 func (c *Client) HandleAutoBuild(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleAutoBuildRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMetadataRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -14923,6 +14938,33 @@ func NewHandleAutoBuildRequestWithBody(server string, params *HandleAutoBuildPar
 	return req, nil
 }
 
+// NewGetMetadataRequest generates requests for GetMetadata
+func NewGetMetadataRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/metadata")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListGitSecretsRequest generates requests for ListGitSecrets
 func NewListGitSecretsRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
 	var err error
@@ -16251,6 +16293,9 @@ type ClientWithResponsesInterface interface {
 	HandleAutoBuildWithBodyWithResponse(ctx context.Context, params *HandleAutoBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
 
 	HandleAutoBuildWithResponse(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
+
+	// GetMetadataWithResponse request
+	GetMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMetadataResp, error)
 
 	// ListGitSecretsWithResponse request
 	ListGitSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListGitSecretsResp, error)
@@ -21642,6 +21687,30 @@ func (r HandleAutoBuildResp) StatusCode() int {
 	return 0
 }
 
+type GetMetadataResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MetadataResponse
+	JSON401      *Unauthorized
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMetadataResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMetadataResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListGitSecretsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -24356,6 +24425,15 @@ func (c *ClientWithResponses) HandleAutoBuildWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseHandleAutoBuildResp(rsp)
+}
+
+// GetMetadataWithResponse request returning *GetMetadataResp
+func (c *ClientWithResponses) GetMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMetadataResp, error) {
+	rsp, err := c.GetMetadata(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMetadataResp(rsp)
 }
 
 // ListGitSecretsWithResponse request returning *ListGitSecretsResp
@@ -36160,6 +36238,46 @@ func ParseHandleAutoBuildResp(rsp *http.Response) (*HandleAutoBuildResp, error) 
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMetadataResp parses an HTTP response from a GetMetadataWithResponse call
+func ParseGetMetadataResp(rsp *http.Response) (*GetMetadataResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMetadataResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MetadataResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

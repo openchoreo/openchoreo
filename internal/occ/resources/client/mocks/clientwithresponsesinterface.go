@@ -10664,6 +10664,79 @@ func (_c *MockClientWithResponsesInterface_GetHealthWithResponse_Call) RunAndRet
 	return _c
 }
 
+// GetMetadataWithResponse provides a mock function with given fields: ctx, reqEditors
+func (_m *MockClientWithResponsesInterface) GetMetadataWithResponse(ctx context.Context, reqEditors ...gen.RequestEditorFn) (*gen.GetMetadataResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMetadataWithResponse")
+	}
+
+	var r0 *gen.GetMetadataResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ...gen.RequestEditorFn) (*gen.GetMetadataResp, error)); ok {
+		return rf(ctx, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ...gen.RequestEditorFn) *gen.GetMetadataResp); ok {
+		r0 = rf(ctx, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetMetadataResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetMetadataWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMetadataWithResponse'
+type MockClientWithResponsesInterface_GetMetadataWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetMetadataWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetMetadataWithResponse(ctx interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetMetadataWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetMetadataWithResponse_Call{Call: _e.mock.On("GetMetadataWithResponse",
+		append([]interface{}{ctx}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetMetadataWithResponse_Call) Run(run func(ctx context.Context, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetMetadataWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-1)
+		for i, a := range args[1:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetMetadataWithResponse_Call) Return(_a0 *gen.GetMetadataResp, _a1 error) *MockClientWithResponsesInterface_GetMetadataWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetMetadataWithResponse_Call) RunAndReturn(run func(context.Context, ...gen.RequestEditorFn) (*gen.GetMetadataResp, error)) *MockClientWithResponsesInterface_GetMetadataWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetNamespaceRoleBindingWithResponse provides a mock function with given fields: ctx, namespaceName, name, reqEditors
 func (_m *MockClientWithResponsesInterface) GetNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName string, name string, reqEditors ...gen.RequestEditorFn) (*gen.GetNamespaceRoleBindingResp, error) {
 	_va := make([]interface{}, len(reqEditors))
