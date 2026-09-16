@@ -43,6 +43,8 @@ Dependencies you cannot reach are listed as unavailable and the rest still tunne
 
 A session is capped by the capability lifetime (`remoteConnect.ttlSeconds`, 30 minutes by default — or `secretTtlSeconds`, 10 minutes, when it also authorizes reading output values). Connections already open keep working, but new ones stop being accepted once it lapses and `occ remote` prints `session expired`. Exit the subshell and re-run to reconnect. Revoking a role also only takes effect at the next session, for the same reason.
 
+One remote-agent serves every session for a project and environment, so it also caps how many it runs at once (`remoteConnect.agentMaxSessions`, 64 by default) and how fast it may ask the control plane to authorize new connections (`remoteConnect.agentAuthorizeRate` and `remoteConnect.agentAuthorizeBurst`, 20 per second with a burst of 40). Past the session cap `occ remote` refuses to start and says the agent is already serving its maximum number of sessions, so wait for a colleague's session to end or raise the cap. Past the authorize rate a single new connection is refused with `too many requests` while the rest of the session keeps working. Both limits accept 0 to mean unlimited.
+
 ### Permissions for this sample
 
 Grants are per dependency, bound to that dependency or to a scope above it (its project, its namespace, or cluster-wide). The component you are running needs no grant of its own. For this sample:

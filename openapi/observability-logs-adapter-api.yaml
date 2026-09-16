@@ -1122,8 +1122,7 @@ components:
         scope before it reaches this adapter, so an adapter must not treat them as a
         permission.
 
-        `resource.uid` and `resource.resource` have no filter; see the observer spec
-        for why.
+        `resource.uid` has no filter; see the observer spec for why.
       properties:
         startTime:
           type: string
@@ -1297,6 +1296,7 @@ components:
             - resource.environment
             - resource.project
             - resource.component
+            - resource.resource
             - resource.name
             - action
             - category
@@ -1451,6 +1451,12 @@ components:
           items:
             type: string
         component:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+        resource:
           type: array
           uniqueItems: true
           maxItems: 20

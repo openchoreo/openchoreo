@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
+	remoteagent "github.com/openchoreo/openchoreo/internal/remote-agent"
 )
 
 // maxSessionSecondsCeiling is the largest value MaxSession can express without
@@ -61,6 +62,15 @@ type RemoteConnectConfig struct {
 	// AgentListenPort is the TLS tunnel port the remote-agent listens on (ClusterIP
 	// Service targets it; the shared SNI router forwards to it).
 	AgentListenPort int `koanf:"agent_listen_port"`
+	// AgentMaxSessions caps concurrent `occ remote` sessions one provisioned
+	// remote-agent serves. Zero means unlimited.
+	AgentMaxSessions int `koanf:"agent_max_sessions"`
+	// AgentAuthorizeRate caps the sustained authorize calls per second one remote-agent
+	// makes back to this control plane. Zero means unlimited.
+	AgentAuthorizeRate float64 `koanf:"agent_authorize_rate"`
+	// AgentAuthorizeBurst is how many authorize calls a remote-agent may make at once
+	// before AgentAuthorizeRate applies.
+	AgentAuthorizeBurst int `koanf:"agent_authorize_burst"`
 	// EntrypointAddress is the "host:port" of the shared remote-connect SNI router that
 	// occ dials — a single per-data-plane L4 entrypoint that routes to each agent by
 	// SNI. resolve returns this as the agent endpoint for every project+env.
@@ -93,6 +103,9 @@ func RemoteConnectDefaults() RemoteConnectConfig {
 		SecretsEnabled:        true,
 		AgentImagePullPolicy:  string(corev1.PullIfNotPresent),
 		AgentListenPort:       8443,
+		AgentMaxSessions:      remoteagent.DefaultMaxSessions,
+		AgentAuthorizeRate:    remoteagent.DefaultAuthorizeRatePerSecond,
+		AgentAuthorizeBurst:   remoteagent.DefaultAuthorizeBurst,
 		SNISuffix:             "remote-connect",
 		ReaperIntervalSeconds: 300,  // 5 minutes
 		ReaperTTLSeconds:      1800, // 30 minutes idle
@@ -241,6 +254,22 @@ func (c *RemoteConnectConfig) Validate(path *coreconfig.Path) coreconfig.Validat
 	}
 	if err := coreconfig.MustBeInRange(path.Child("agent_listen_port"), c.AgentListenPort, 1, 65535); err != nil {
 		errs = append(errs, err)
+	}
+	if err := coreconfig.MustBeNonNegative(path.Child("agent_max_sessions"), c.AgentMaxSessions); err != nil {
+		errs = append(errs, err)
+	}
+	if math.IsNaN(c.AgentAuthorizeRate) || math.IsInf(c.AgentAuthorizeRate, 0) {
+		errs = append(errs, coreconfig.Invalid(path.Child("agent_authorize_rate"), "must be a finite number"))
+	} else if err := coreconfig.MustBeNonNegative(path.Child("agent_authorize_rate"), c.AgentAuthorizeRate); err != nil {
+		errs = append(errs, err)
+	}
+	if err := coreconfig.MustBeNonNegative(path.Child("agent_authorize_burst"), c.AgentAuthorizeBurst); err != nil {
+		errs = append(errs, err)
+	}
+	// The agent floors a zero burst to 1, so reject the pairing rather than provisioning
+	// agents that differ from the configuration.
+	if c.AgentAuthorizeRate > 0 && c.AgentAuthorizeBurst < 1 {
+		errs = append(errs, coreconfig.MustBeGreaterThan(path.Child("agent_authorize_burst"), c.AgentAuthorizeBurst, 0))
 	}
 	return errs
 }

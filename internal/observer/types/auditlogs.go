@@ -20,8 +20,7 @@ type AuditLogsActorFilter struct {
 
 // AuditLogsResourceFilter filters the record's resource group.
 //
-// No uid: absent on deletes and non-CRUD mutations. No resource: set only where
-// it duplicates the name.
+// No uid: absent on deletes and non-CRUD mutations.
 type AuditLogsResourceFilter struct {
 	Types      []string `json:"type,omitempty"`
 	Namespaces []string `json:"namespace,omitempty"`
@@ -30,6 +29,7 @@ type AuditLogsResourceFilter struct {
 	Environments []string `json:"environment,omitempty"`
 	Projects     []string `json:"project,omitempty"`
 	Components   []string `json:"component,omitempty"`
+	Resources    []string `json:"resource,omitempty"`
 	Names        []string `json:"name,omitempty"`
 }
 

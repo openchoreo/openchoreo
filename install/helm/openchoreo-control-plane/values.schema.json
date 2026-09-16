@@ -3319,10 +3319,42 @@
                   "type": "object"
                 },
                 "enabled": {
-                  "default": true,
-                  "description": "Enable audit event emission for state-modifying API requests",
+                  "default": false,
+                  "description": "Enable audit event emission for state-modifying API requests. Requires observabilityPlaneRef.",
                   "title": "enabled",
                   "type": "boolean"
+                },
+                "observabilityPlaneRef": {
+                  "additionalProperties": false,
+                  "description": "Reference to the observability plane where audit logs are stored",
+                  "properties": {
+                    "kind": {
+                      "default": "",
+                      "description": "Kind of the referenced observability plane. Required when enabled is true.",
+                      "enum": [
+                        "",
+                        "ObservabilityPlane",
+                        "ClusterObservabilityPlane"
+                      ],
+                      "required": [],
+                      "title": "kind"
+                    },
+                    "name": {
+                      "default": "",
+                      "description": "Name of the referenced observability plane. Required when enabled is true.",
+                      "title": "name",
+                      "type": "string"
+                    },
+                    "namespace": {
+                      "default": "",
+                      "description": "Namespace of the referenced ObservabilityPlane. Not used for ClusterObservabilityPlane.",
+                      "title": "namespace",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "observabilityPlaneRef",
+                  "type": "object"
                 },
                 "policies": {
                   "default": [],
@@ -3413,6 +3445,20 @@
               "additionalProperties": false,
               "description": "`occ remote` remote-connect: resolve/authorize endpoints + the per-project+env remote-agent the control plane provisions into the data plane.",
               "properties": {
+                "agentAuthorizeBurst": {
+                  "default": 40,
+                  "description": "Authorize calls a remote-agent may make at once before agentAuthorizeRate\napplies, sized so a session opening a stream per dependency at start-up is not\nthrottled. Must be at least 1 whenever agentAuthorizeRate is set.\n",
+                  "minimum": 0,
+                  "title": "agentAuthorizeBurst",
+                  "type": "integer"
+                },
+                "agentAuthorizeRate": {
+                  "default": 20,
+                  "description": "Sustained authorize calls per second one remote-agent may make back to\nopenchoreo-api. Each new dependency connection costs one call, so this is what\nkeeps a local client that reconnects per request from turning into control-plane\nload. Calls over the rate wait, and are refused once the wait would exceed the\nagent's authorize timeout. 0 means unlimited.\n",
+                  "minimum": 0,
+                  "title": "agentAuthorizeRate",
+                  "type": "number"
+                },
                 "agentImage": {
                   "additionalProperties": false,
                   "description": "Container image for the provisioned remote-agent Deployment",
@@ -3450,6 +3496,13 @@
                   "maximum": 65535,
                   "minimum": 1,
                   "title": "agentListenPort",
+                  "type": "integer"
+                },
+                "agentMaxSessions": {
+                  "default": 64,
+                  "description": "Concurrent `occ remote` sessions one provisioned remote-agent will serve. One\nagent is shared by every session for a project+env, so this bounds what a single\nproject can cost its data plane. Sessions beyond the cap are refused with a\nreason occ prints, rather than queued. 0 means unlimited.\n",
+                  "minimum": 0,
+                  "title": "agentMaxSessions",
                   "type": "integer"
                 },
                 "authorizeInsecure": {

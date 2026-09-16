@@ -66,6 +66,15 @@ type Config struct {
 	// MaxStreamsPerSession caps concurrent streams on a single tunnel connection
 	// (0 = unlimited).
 	MaxStreamsPerSession int
+	// MaxSessions caps concurrent tunnel connections to this agent (0 = unlimited).
+	// One agent serves a whole project+env.
+	MaxSessions int
+	// AuthorizeRatePerSecond caps the sustained rate of authorize calls to the control
+	// plane (0 = unlimited). Every new stream costs one call.
+	AuthorizeRatePerSecond float64
+	// AuthorizeBurst is how many authorize calls may arrive at once before the rate
+	// applies. Ignored when AuthorizeRatePerSecond is 0.
+	AuthorizeBurst int
 }
 
 // Default timeouts / limits.
@@ -78,6 +87,14 @@ const (
 	// DefaultHeartbeatInterval is comfortably under the control plane's default reaper
 	// TTL (30 min), so a couple of missed heartbeats don't reap a live agent.
 	DefaultHeartbeatInterval = 60 * time.Second
+	// DefaultMaxSessions bounds concurrent sessions on one project+env agent.
+	DefaultMaxSessions = 64
+	// DefaultAuthorizeRatePerSecond bounds the steady authorize load one agent puts on
+	// the control plane.
+	DefaultAuthorizeRatePerSecond = 20
+	// DefaultAuthorizeBurst absorbs a session's start-up fan-out without raising the
+	// sustained rate.
+	DefaultAuthorizeBurst = 40
 )
 
 // withDefaults returns a copy of the config with zero-valued timeouts filled in.

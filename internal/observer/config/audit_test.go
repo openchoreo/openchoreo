@@ -25,14 +25,14 @@ func writeAuthConfig(t *testing.T, body string) string {
 }
 
 // TestLoadAuditConfig_NoFileKeepsDefaults covers the common deployment: no
-// supplementary YAML at all. Audit must come up enabled and publishing — a
-// zero AuditConfig would silently disable audit entirely.
+// supplementary YAML at all. Audit must come up disabled but publishing, so
+// enabling it takes only audit.enabled.
 func TestLoadAuditConfig_NoFileKeepsDefaults(t *testing.T) {
 	var cfg auditconfig.AuditConfig
 	require.NoError(t, loadAuditConfig(filepath.Join(t.TempDir(), "absent.yaml"), &cfg))
 
 	assert.Equal(t, auditconfig.AuditDefaults(), cfg)
-	assert.True(t, cfg.Enabled)
+	assert.False(t, cfg.Enabled)
 	assert.True(t, cfg.Defaults.Publish)
 }
 

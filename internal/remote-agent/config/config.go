@@ -9,6 +9,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -52,6 +53,8 @@ type AgentConfig struct {
 	Namespace string `koanf:"namespace"`
 	// MaxStreamsPerSession caps concurrent streams on one tunnel (0 = unlimited).
 	MaxStreamsPerSession int `koanf:"max_streams_per_session"`
+	// MaxSessions caps concurrent tunnel connections to this agent (0 = unlimited).
+	MaxSessions int `koanf:"max_sessions"`
 	// HandshakeTimeout bounds the Hello/HelloResult exchange.
 	HandshakeTimeout time.Duration `koanf:"handshake_timeout"`
 	// StreamOpenTimeout bounds how long occ may take to send StreamOpen.
@@ -72,8 +75,15 @@ type AuthorizeConfig struct {
 	// InsecureSkipVerify disables TLS verification of the control plane
 	// (development only).
 	InsecureSkipVerify bool `koanf:"insecure_skip_verify"`
-	// Timeout bounds a single authorize call.
+	// Timeout bounds a single authorize call, and the wait for a rate-limit slot
+	// before it.
 	Timeout time.Duration `koanf:"timeout"`
+	// RatePerSecond caps the sustained rate of authorize calls this agent makes
+	// (0 = unlimited).
+	RatePerSecond float64 `koanf:"rate_per_second"`
+	// Burst is how many authorize calls may arrive at once before RatePerSecond
+	// applies. Ignored when RatePerSecond is 0.
+	Burst int `koanf:"burst"`
 }
 
 // HeartbeatConfig configures the liveness refresh sent while sessions are live.
@@ -112,6 +122,7 @@ func AgentDefaults() AgentConfig {
 		TLSKeyPath:           "/certs/tls.key",
 		Namespace:            os.Getenv(namespaceEnv),
 		MaxStreamsPerSession: 256,
+		MaxSessions:          remoteagent.DefaultMaxSessions,
 		HandshakeTimeout:     remoteagent.DefaultHandshakeTimeout,
 		StreamOpenTimeout:    remoteagent.DefaultStreamOpenTimeout,
 		DialTimeout:          remoteagent.DefaultDialTimeout,
@@ -121,7 +132,11 @@ func AgentDefaults() AgentConfig {
 
 // AuthorizeDefaults returns the default authorize configuration.
 func AuthorizeDefaults() AuthorizeConfig {
-	return AuthorizeConfig{Timeout: remoteagent.DefaultAuthorizeTimeout}
+	return AuthorizeConfig{
+		Timeout:       remoteagent.DefaultAuthorizeTimeout,
+		RatePerSecond: remoteagent.DefaultAuthorizeRatePerSecond,
+		Burst:         remoteagent.DefaultAuthorizeBurst,
+	}
 }
 
 // HeartbeatDefaults returns the default heartbeat configuration.
@@ -141,6 +156,7 @@ var flagMappings = map[string]string{
 	"tls-key":                 "agent.tls_key_path",
 	"namespace":               "agent.namespace",
 	"max-streams-per-session": "agent.max_streams_per_session",
+	"max-sessions":            "agent.max_sessions",
 	"handshake-timeout":       "agent.handshake_timeout",
 	"stream-open-timeout":     "agent.stream_open_timeout",
 	"dial-timeout":            "agent.dial_timeout",
@@ -148,6 +164,8 @@ var flagMappings = map[string]string{
 	"authorize-ca":            "authorize.ca_bundle_path",
 	"authorize-insecure":      "authorize.insecure_skip_verify",
 	"authorize-timeout":       "authorize.timeout",
+	"authorize-rate":          "authorize.rate_per_second",
+	"authorize-burst":         "authorize.burst",
 	"heartbeat-url":           "heartbeat.url",
 	"heartbeat-interval":      "heartbeat.interval",
 	"log-level":               "logging.level",
@@ -207,6 +225,9 @@ func (c *AgentConfig) Validate(path *coreconfig.Path) coreconfig.ValidationError
 	if err := coreconfig.MustBeNonNegative(path.Child("max_streams_per_session"), c.MaxStreamsPerSession); err != nil {
 		errs = append(errs, err)
 	}
+	if err := coreconfig.MustBeNonNegative(path.Child("max_sessions"), c.MaxSessions); err != nil {
+		errs = append(errs, err)
+	}
 	// A non-positive timeout expires before the exchange it bounds can complete, so
 	// every tunnel would be dropped. Reject at startup rather than serving nothing.
 	if err := coreconfig.MustBeGreaterThan(path.Child("handshake_timeout"), c.HandshakeTimeout, time.Duration(0)); err != nil {
@@ -235,6 +256,18 @@ func (c *AuthorizeConfig) Validate(path *coreconfig.Path) coreconfig.ValidationE
 	}
 	if err := coreconfig.MustBeGreaterThan(path.Child("timeout"), c.Timeout, time.Duration(0)); err != nil {
 		errs = append(errs, err)
+	}
+	if math.IsNaN(c.RatePerSecond) || math.IsInf(c.RatePerSecond, 0) {
+		errs = append(errs, coreconfig.Invalid(path.Child("rate_per_second"), "must be a finite number"))
+	} else if err := coreconfig.MustBeNonNegative(path.Child("rate_per_second"), c.RatePerSecond); err != nil {
+		errs = append(errs, err)
+	}
+	if err := coreconfig.MustBeNonNegative(path.Child("burst"), c.Burst); err != nil {
+		errs = append(errs, err)
+	}
+	// The agent floors a zero burst to 1, so reject the pairing at startup.
+	if c.RatePerSecond > 0 && c.Burst < 1 {
+		errs = append(errs, coreconfig.MustBeGreaterThan(path.Child("burst"), c.Burst, 0))
 	}
 
 	return errs
@@ -292,5 +325,8 @@ func (c *Config) ToAgentConfig() remoteagent.Config {
 		DialTimeout:                 c.Agent.DialTimeout,
 		ReadTimeout:                 c.Agent.ReadTimeout,
 		MaxStreamsPerSession:        c.Agent.MaxStreamsPerSession,
+		MaxSessions:                 c.Agent.MaxSessions,
+		AuthorizeRatePerSecond:      c.Authorize.RatePerSecond,
+		AuthorizeBurst:              c.Authorize.Burst,
 	}
 }

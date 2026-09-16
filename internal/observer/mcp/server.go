@@ -149,13 +149,17 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 	// Tool: query_platform_logs
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name: "query_platform_logs",
-		Description: "Query logs from OpenChoreo's own platform components - the control plane " +
+		Description: "Query platform logs: everything one observability plane collects, addressed by raw " +
+			"Kubernetes coordinates. That covers OpenChoreo's own components - the control plane " +
 			"(controller-manager, openchoreo-api, cluster-gateway), the data plane agents and gateways, " +
-			"and the workflow and observability plane infrastructure. This is the operator's view of the " +
-			"platform itself, not of user workloads: it is addressed by raw Kubernetes coordinates rather " +
-			"than by project, component and environment, so use query_component_logs for a deployed " +
-			"component's runtime logs. Multi-value filters match any of their values, and different " +
-			"filters must all match. Requires the cluster-scoped 'platformlogs:view' permission.",
+			"and the workflow and observability plane infrastructure - and also the third-party " +
+			"infrastructure deployed alongside them and the workloads running on the planes it watches. " +
+			"Entries come back with no ownership check, so this reads user workload logs too: treat the " +
+			"output as privileged, and use query_component_logs for one deployed component's runtime logs, " +
+			"correlated by project, component and environment and checked against ownership. To restrict " +
+			"this tool to OpenChoreo's own components, pass the 'labels' selector. Multi-value filters " +
+			"match any of their values, and different filters must all match. Requires the cluster-scoped " +
+			"'platformlogs:view' permission.",
 		InputSchema: createSchema(map[string]any{
 			"cluster_instance": arrayProperty(
 				"Clusters the logs were collected from, as named on each cluster's logs collector (e.g. ['cluster1'])"),
@@ -592,6 +596,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 					"A bare environment name will not match"),
 			"resource_project":   arrayProperty("Projects"),
 			"resource_component": arrayProperty("Components"),
+			"resource_resource":  arrayProperty("Resources, the hierarchy level that is a sibling of component"),
 			"resource_name":      arrayProperty("Resource names"),
 
 			"action": arrayProperty("Semantic action names (e.g. ['create_project', 'delete_component'])"),

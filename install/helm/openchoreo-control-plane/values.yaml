@@ -1885,10 +1885,33 @@ openchoreoApi:
     audit:
       # @schema
       # type: boolean
-      # description: Enable audit event emission for state-modifying API requests
-      # default: true
+      # description: Enable audit event emission for state-modifying API requests. Requires observabilityPlaneRef.
+      # default: false
       # @schema
-      enabled: true
+      enabled: false
+      # @schema
+      # type: object
+      # description: Reference to the observability plane where audit logs are stored
+      # @schema
+      observabilityPlaneRef:
+        # @schema
+        # enum: ["", ObservabilityPlane, ClusterObservabilityPlane]
+        # description: Kind of the referenced observability plane. Required when enabled is true.
+        # default: ""
+        # @schema
+        kind: ""
+        # @schema
+        # type: string
+        # description: Name of the referenced observability plane. Required when enabled is true.
+        # default: ""
+        # @schema
+        name: ""
+        # @schema
+        # type: string
+        # description: Namespace of the referenced ObservabilityPlane. Not used for ClusterObservabilityPlane.
+        # default: ""
+        # @schema
+        namespace: ""
       # @schema
       # type: object
       # description: Policy settings applied when no policies entry matches
@@ -2039,6 +2062,39 @@ openchoreoApi:
       # maximum: 65535
       # @schema
       agentListenPort: 8443
+      # @schema
+      # type: integer
+      # description: |
+      #   Concurrent `occ remote` sessions one provisioned remote-agent will serve. One
+      #   agent is shared by every session for a project+env, so this bounds what a single
+      #   project can cost its data plane. Sessions beyond the cap are refused with a
+      #   reason occ prints, rather than queued. 0 means unlimited.
+      # default: 64
+      # minimum: 0
+      # @schema
+      agentMaxSessions: 64
+      # @schema
+      # type: number
+      # description: |
+      #   Sustained authorize calls per second one remote-agent may make back to
+      #   openchoreo-api. Each new dependency connection costs one call, so this is what
+      #   keeps a local client that reconnects per request from turning into control-plane
+      #   load. Calls over the rate wait, and are refused once the wait would exceed the
+      #   agent's authorize timeout. 0 means unlimited.
+      # default: 20
+      # minimum: 0
+      # @schema
+      agentAuthorizeRate: 20
+      # @schema
+      # type: integer
+      # description: |
+      #   Authorize calls a remote-agent may make at once before agentAuthorizeRate
+      #   applies, sized so a session opening a stream per dependency at start-up is not
+      #   throttled. Must be at least 1 whenever agentAuthorizeRate is set.
+      # default: 40
+      # minimum: 0
+      # @schema
+      agentAuthorizeBurst: 40
       # @schema
       # type: string
       # description: |

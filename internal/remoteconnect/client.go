@@ -26,6 +26,17 @@ type TunnelClient struct {
 	capability func() string
 }
 
+// HandshakeRejectedError reports that the remote-agent answered Hello with a refusal,
+// such as the session limit or an unsupported protocol version. The agent is reachable
+// and has given its answer, so redialing cannot change it.
+type HandshakeRejectedError struct {
+	Reason string
+}
+
+func (e *HandshakeRejectedError) Error() string {
+	return "remoteconnect: tunnel handshake rejected: " + e.Reason
+}
+
 // NewTunnelClient runs the Hello/HelloResult handshake over an already-established
 // connection (TLS in production; plain in tests) and layers a yamux client session.
 // capability is called once per stream opened on this tunnel; it must not be nil.
@@ -41,7 +52,7 @@ func NewTunnelClient(conn net.Conn, capability func() string) (*TunnelClient, er
 		return nil, fmt.Errorf("remoteconnect: read hello result: %w", err)
 	}
 	if !res.OK {
-		return nil, fmt.Errorf("remoteconnect: tunnel handshake rejected: %s", res.Error)
+		return nil, &HandshakeRejectedError{Reason: res.Error}
 	}
 
 	ycfg := yamux.DefaultConfig()

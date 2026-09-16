@@ -518,9 +518,9 @@ observer:
     # @schema
     # type: boolean
     # description: Enable audit event emission for state-modifying observer API requests
-    # default: true
+    # default: false
     # @schema
-    enabled: true
+    enabled: false
     # @schema
     # type: object
     # description: Policy settings applied when no policies entry matches

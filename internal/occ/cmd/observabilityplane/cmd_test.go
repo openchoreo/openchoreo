@@ -44,7 +44,7 @@ func TestNewObservabilityPlaneCmd_Subcommands(t *testing.T) {
 	for _, sub := range cmd.Commands() {
 		names = append(names, sub.Name())
 	}
-	assert.ElementsMatch(t, []string{"list", "get", "delete"}, names)
+	assert.ElementsMatch(t, []string{"list", "get", "delete", "logs"}, names)
 }
 
 // --- list ---

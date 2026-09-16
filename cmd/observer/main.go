@@ -559,10 +559,9 @@ func shutdownServers(
 // defers that function.
 //
 // The alert and incident stores are initialized inline in main, and this would
-// read better beside them. It cannot be: main is at the gocyclo limit of 30, and
-// the three failure branches here take it to 33. The same applies to
-// newDeliveryInsightsService below, whose passthrough branch alone takes it
-// to 31.
+// read better beside them. It cannot be: main sits at the gocyclo limit of 30,
+// so the two extra failure branches inlining this adds take it to 32. The same
+// applies to newDeliveryInsightsService below.
 func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,

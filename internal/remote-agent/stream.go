@@ -35,6 +35,10 @@ func (s *Server) handleStream(ctx context.Context, stream net.Conn, sessionID ui
 		return
 	}
 
+	if !s.awaitAuthorizeSlot(ctx, open.Key, stream) {
+		return
+	}
+
 	authCtx, cancelAuth := context.WithTimeout(ctx, s.cfg.AuthorizeTimeout)
 	target, err := s.auth.authorize(authCtx, open.Capability, open.Key)
 	cancelAuth()
@@ -97,6 +101,25 @@ func (s *Server) handleStream(ctx context.Context, stream net.Conn, sessionID ui
 	}
 	s.log.Debug("stream connected", "key", open.Key, "addr", addr)
 	remoteconnect.Pipe(stream, upstream)
+}
+
+// awaitAuthorizeSlot blocks until this stream may spend one of the agent's authorize
+// calls, and reports whether it may proceed. Bursts wait; the limiter refuses any wait
+// it cannot finish within the authorize budget.
+func (s *Server) awaitAuthorizeSlot(ctx context.Context, key string, stream net.Conn) bool {
+	if s.authLimiter == nil {
+		return true
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, s.cfg.AuthorizeTimeout)
+	defer cancel()
+	if err := s.authLimiter.Wait(waitCtx); err != nil {
+		s.log.Warn("stream refused: authorize rate limit", "key", key, "error", err)
+		_ = remoteconnect.WriteMessage(stream, remoteconnect.StreamResult{
+			OK: false, Error: "too many requests to this remote-agent; retry shortly",
+		})
+		return false
+	}
+	return true
 }
 
 // serveFetch answers one value-fetch stream: read the authorized key from the agent's own
