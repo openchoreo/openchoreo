@@ -31,10 +31,10 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 	// Update the status
 	release.Status.Resources = resourceStatuses
 
-	// Sync conditions in old to match release before comparison, because conditions
-	// (e.g., ResourcesApplied) were already persisted earlier in the reconcile loop.
-	// Without this, DeepEqual sees a false diff and triggers a redundant status update.
-	old.Status.Conditions = release.Status.Conditions
+	// Conditions are deliberately part of the comparison. The apply-success
+	// condition is no longer persisted mid-reconcile, so this update is what
+	// publishes it -- masking it here would drop it whenever the resource
+	// statuses happened not to change.
 
 	// Check if the entire status actually changed and skip update if not
 	if apiequality.Semantic.DeepEqual(old.Status, release.Status) {
@@ -114,6 +114,18 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 				healthStatus = openchoreov1alpha1.HealthStatusUnknown
 			}
 
+			// The live snapshot can predate the apply this reconcile just made:
+			// server-side apply is a quorum write, while List is served from the
+			// API server's watch cache, which can lag it. Judging that snapshot
+			// reports the previous revision's health under the current generation
+			// -- for a Deployment mid-rollout, Healthy for a revision whose new
+			// ReplicaSet does not exist yet. The apply response carries the
+			// server's generation for the spec that was written, so a live object
+			// behind it has not been observed yet.
+			if snapshotPrecedesApply(desiredObj, liveResource) {
+				healthStatus = openchoreov1alpha1.HealthStatusProgressing
+			}
+
 			// Check if this resource existed before and if its status changed
 			if oldResource, exists := oldResourceMap[resourceID]; exists {
 				// Check if the resource status has actually changed
@@ -147,6 +159,19 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 	}
 
 	return resourceStatuses
+}
+
+// snapshotPrecedesApply reports whether live was read before the spec that
+// applied wrote became visible.
+//
+// applied is the object handed to server-side apply, which controller-runtime
+// replaces with the server's response, so its generation is the one the write
+// produced. Generation is absent for kinds that do not track it (ConfigMap,
+// Secret, HTTPRoute status aside), which reads as zero on both sides and so
+// never trips this.
+func snapshotPrecedesApply(applied, live *unstructured.Unstructured) bool {
+	appliedGen, liveGen := applied.GetGeneration(), live.GetGeneration()
+	return appliedGen > 0 && liveGen > 0 && liveGen < appliedGen
 }
 
 // hasTransitioningResources checks if any resources are in a transitioning state
