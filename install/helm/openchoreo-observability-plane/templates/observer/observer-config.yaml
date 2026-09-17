@@ -22,7 +22,7 @@ data:
   INTERNAL_PORT: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 | quote }}{{ else }}"8081"{{ end }}
   LOG_LEVEL: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
   AI_RCA_ENABLED: {{ .Values.rca.enabled | default false | quote }}
-  DELIVERY_INSIGHTS_ENABLED: {{ .Values.observer.deliveryInsights.enabled | default false | quote }}
+  FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED: {{ .Values.observer.featurePreview.deliveryInsights.enabled | default false | quote }}
   ALERT_STORE_BACKEND: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
   ALERT_SUPPRESSION_WINDOW: {{ .Values.observer.alertSuppressionWindow | quote }}
   OBSERVER_AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml

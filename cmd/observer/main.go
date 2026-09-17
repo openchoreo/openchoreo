@@ -628,7 +628,7 @@ func startDoraAggregator(
 ) (*sync.WaitGroup, *aggregator.Aggregator) {
 	var wg sync.WaitGroup
 	if !cfg.DeliveryInsights.Enabled {
-		logger.Info("Delivery Insights is disabled (DELIVERY_INSIGHTS_ENABLED=false)")
+		logger.Info("Delivery Insights is disabled (FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED=false)")
 		return &wg, nil
 	}
 

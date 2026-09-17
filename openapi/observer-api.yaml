@@ -3703,7 +3703,7 @@ components:
               type: boolean
               description: >
                 Whether this observer derives delivery facts at all
-                (`observer.deliveryInsights.enabled`). False means nothing is
+                (`observer.featurePreview.deliveryInsights.enabled`). False means nothing is
                 being written, so every metric stays empty however much is
                 deployed.
             deliveryEvents:

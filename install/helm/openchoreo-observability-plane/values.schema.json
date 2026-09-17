@@ -1468,21 +1468,6 @@
           "title": "cors",
           "type": "object"
         },
-        "deliveryInsights": {
-          "additionalProperties": false,
-          "description": "Delivery Insights (DORA metrics).",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Collect DORA delivery metrics in the Observer. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql.",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "deliveryInsights",
-          "type": "object"
-        },
         "extraEnvs": {
           "description": "Extra environment variables for the Observer container",
           "items": {
@@ -1501,6 +1486,30 @@
           },
           "title": "extraEnvs",
           "type": "array"
+        },
+        "featurePreview": {
+          "additionalProperties": false,
+          "description": "Delivery Insights (DORA metrics).",
+          "properties": {
+            "deliveryInsights": {
+              "additionalProperties": false,
+              "description": "Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Feature preview, not recommended for production. Collect DORA delivery metrics in the Observer. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql. Maps to FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED in the Observer container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "deliveryInsights",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "featurePreview",
+          "type": "object"
         },
         "finOpsAdapter": {
           "additionalProperties": false,
@@ -1844,7 +1853,7 @@
         }
       },
       "required": [
-        "deliveryInsights"
+        "featurePreview"
       ],
       "title": "observer",
       "type": "object"

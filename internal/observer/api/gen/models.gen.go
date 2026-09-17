@@ -1095,7 +1095,7 @@ type DoraMetricsQueryRequestMetrics string
 type DoraMetricsQueryResponse struct {
 	// DataAvailability Why these metrics might be empty. A scope that has deployed nothing and an observer that is not collecting return the same thing -- a success with empty series -- so this is the only way a client can tell them apart and say which it is showing.
 	DataAvailability *struct {
-		// Collecting Whether this observer derives delivery facts at all (`observer.deliveryInsights.enabled`). False means nothing is being written, so every metric stays empty however much is deployed.
+		// Collecting Whether this observer derives delivery facts at all (`observer.featurePreview.deliveryInsights.enabled`). False means nothing is being written, so every metric stays empty however much is deployed.
 		Collecting *bool `json:"collecting,omitempty"`
 
 		// DeliveryEvents Whether the deployed logs adapter can serve the delivery event sweep. Observed rather than configured -- an adapter that cannot answers 501, and the aggregator stands the sweep down. False leaves deployment frequency, lead time and change failure rate without input; mean time to recovery comes from incidents and is unaffected.

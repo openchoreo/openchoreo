@@ -63,7 +63,8 @@ type DoraMetricsService struct {
 	resolver ScopeUIDResolver
 	logger   *slog.Logger
 	// collecting is whether this observer derives delivery facts at all
-	// (observer.deliveryInsights.enabled). False means nothing is being written,
+	// (observer.featurePreview.deliveryInsights.enabled). False means nothing is
+	// being written,
 	// so every metric stays empty however much is deployed. Reads are served
 	// either way, which is why it has to be reported: without it an empty result
 	// is ambiguous, a scope that deployed nothing being indistinguishable from an

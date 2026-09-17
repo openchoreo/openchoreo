@@ -6,7 +6,8 @@
 // Each tick it reads incidents and delivery lifecycle events since its per-source
 // watermark, normalizes them into deployment/recovery facts, attributes incidents to
 // the deployment live at trigger time, and recomputes the metric rollups for every
-// bucket it touched. DELIVERY_INSIGHTS_ENABLED turns the whole thing on; there is no
+// bucket it touched. FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED turns the whole thing
+// on; there is no
 // separate switch for the events path, since partial DORA metrics are not worth
 // configuring. The sweep does need a logs adapter carrying the reasons filter and
 // able to return events across every namespace in one query rather than a scope at
