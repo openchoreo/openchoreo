@@ -424,21 +424,22 @@ observer:
   # @schema
   replicas: 1
 
-  # Delivery Insights (DORA metrics).
-  deliveryInsights:
+  # @schema
+  # type: object
+  # description: Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.
+  # @schema
+  featurePreview:
     # @schema
-    # type: boolean
-    # description: Run the DORA aggregator in the Observer process. It is a background loop that periodically reads delivery lifecycle events (DeploymentStarted/Succeeded/Failed/Recovered, emitted per rollout by the releasebinding controller) from the logging backend, folds them into durable SQL facts, and pre-computes the daily, weekly and monthly rollups the Delivery Insights API serves; observability-plane incidents are folded in the same pass to derive Change Failure Rate and Mean Time to Recovery. It governs aggregation only - the read API is served by every replica either way. This is safe to enable alongside more than one replica, since every replica runs the loop but only the holder of the aggregation lease ticks; note that scaling the Observer past one replica also requires alertStoreBackend postgresql, because the default sqlite alert store is backed by a ReadWriteOnce volume.
-    # default: false
+    # type: object
+    # description: Delivery Insights (DORA metrics) collection in the Observer.
     # @schema
-    aggregationEnabled: false
-
-    # @schema
-    # type: boolean
-    # description: Feed the aggregator delivery lifecycle events from the logs adapter. Requires an adapter that can filter events by reason and return matches across every namespace in one query, because the aggregator sweeps the whole installation on a timer rather than one component at a time. Without such an adapter, Deployment Frequency, Lead Time and Change Failure Rate have no data; Mean Time to Recovery still works, since it can be derived from incidents alone.
-    # default: false
-    # @schema
-    eventsSourceEnabled: false
+    deliveryInsights:
+      # @schema
+      # type: boolean
+      # description: Feature preview, not recommended for production. Collect DORA delivery metrics in the Observer. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql. Maps to FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED in the Observer container.
+      # default: false
+      # @schema
+      enabled: false
 
   # @schema
   # description: Alert entry storage backend for fired alerts

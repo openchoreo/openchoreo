@@ -54,11 +54,50 @@ func newTestAggregator(
 	return a
 }
 
+// runOnce runs one sweep with the aggregation lease held, which is the state
+// tick() establishes before it calls RunOnce. Watermark writes are fenced on the
+// lease, so a sweep driven directly has to hold it too.
+//
+// It takes the lease off whichever aggregator held it last: several tests run a
+// second aggregator over the same store to model a later tick, and in production
+// that is a handover, not contention. Tests about the lease itself drive tick()
+// and never come through here.
+func runOnce(t *testing.T, a *Aggregator) error {
+	t.Helper()
+	ctx := context.Background()
+	if holder := holderOf(ctx, a.store); holder != "" && holder != a.holder {
+		require.NoError(t, a.store.ReleaseLease(ctx, aggregationLease, holder))
+	}
+	held, err := a.store.AcquireLease(
+		ctx, aggregationLease, a.holder, int64(time.Hour/time.Millisecond))
+	require.NoError(t, err)
+	require.True(t, held, "the sweep under test must hold the lease")
+	return a.RunOnce(ctx)
+}
+
+// holderOf reports who currently holds the aggregation lease. Reading it directly
+// keeps AcquireLease out of the path, which would otherwise renew the very expiry
+// some tests depend on.
+func holderOf(ctx context.Context, store deliveryinsights.Store) string {
+	type leaseReader interface {
+		LeaseHolder(ctx context.Context, name string) (string, error)
+	}
+	r, ok := store.(leaseReader)
+	if !ok {
+		return ""
+	}
+	holder, err := r.LeaseHolder(ctx, aggregationLease)
+	if err != nil {
+		return ""
+	}
+	return holder
+}
+
 func successFact(releaseUID string, readyMs int64) deliveryinsights.DeploymentFact {
 	ready := readyMs
 	return deliveryinsights.DeploymentFact{
 		ReleaseUID:     releaseUID,
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "checkout",
 		ComponentUID:   "checkout-api",
 		EnvironmentUID: "production",
@@ -98,13 +137,13 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 
 	agg := newTestAggregator(store, incidents, nil, now)
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	// The deployment is now failed-by-incident.
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      deployedAt.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   deployedAt.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -113,9 +152,9 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 
 	// An incident-sourced recovery fact exists with the resolved duration.
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      deployedAt.UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   deployedAt.UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 1)
@@ -127,6 +166,8 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, deployedAt.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -144,10 +185,12 @@ func TestRunOnceProcessesIncidentsEndToEnd(t *testing.T) {
 
 	// A second tick over the same data changes nothing (idempotency).
 	agg2 := newTestAggregator(store, incidents, nil, now.Add(5*time.Minute))
-	require.NoError(t, agg2.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg2))
 	rollups2, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, deployedAt.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -177,7 +220,7 @@ func TestRunOnceResolvesIncidentOnLaterTick(t *testing.T) {
 	require.NoError(t, err)
 
 	agg := newTestAggregator(store, incidents, nil, now)
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: triggered.Add(-time.Minute).UnixMilli(), EndMs: now.UnixMilli(),
@@ -197,7 +240,7 @@ func TestRunOnceResolvesIncidentOnLaterTick(t *testing.T) {
 
 	// Second tick: the lookback rescan picks the resolution up and closes the episode.
 	agg2 := newTestAggregator(store, incidents, nil, now.Add(5*time.Minute))
-	require.NoError(t, agg2.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg2))
 
 	recoveries, err = store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: triggered.Add(-time.Minute).UnixMilli(), EndMs: now.Add(time.Hour).UnixMilli(),
@@ -298,13 +341,13 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	}}
 
 	agg := newTestAggregator(store, incidents, source, now)
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli(),
-		SortOrder:    "ASC",
+		Namespace: "default",
+		StartMs:   started.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli(),
+		SortOrder: "ASC",
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 2)
@@ -324,9 +367,9 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	assert.Equal(t, "CrashLoopBackOff", facts[1].FailureReason)
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started.UnixMilli(),
-		EndMs:        now.UnixMilli(),
+		Namespace: "default",
+		StartMs:   started.UnixMilli(),
+		EndMs:     now.UnixMilli(),
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 1)
@@ -338,6 +381,8 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 		ScopeType:   deliveryinsights.ScopeTypeComponent,
 		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
 		Granularity: deliveryinsights.GranularityDaily,
 		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, started.UnixMilli()),
 		EndMs:       now.UnixMilli() + 1,
@@ -369,7 +414,7 @@ func TestRunOnceSkipsMalformedEvents(t *testing.T) {
 	}}
 
 	agg := newTestAggregator(store, incidents, source, now)
-	require.NoError(t, agg.RunOnce(ctx), "malformed events must not fail the tick")
+	require.NoError(t, runOnce(t, agg), "malformed events must not fail the tick")
 
 	_, total, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: 0, EndMs: now.UnixMilli(),
@@ -410,12 +455,12 @@ func TestProcessIncidentsPagesThroughTheWindow(t *testing.T) {
 
 	agg := newTestAggregator(store, incidents, nil, now)
 	agg.incidentPageSize = 2 // force several pages
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli() + 1,
+		Namespace: "default",
+		StartMs:   now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli() + 1,
 	})
 	require.NoError(t, err)
 	assert.Len(t, recoveries, incidentCount,
@@ -445,7 +490,7 @@ func TestRunOnceHoldsEventsWatermarkBackOnCappedSweep(t *testing.T) {
 	}
 
 	agg := newTestAggregator(store, incidents, source, now)
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	watermark, err := store.Watermark(ctx, watermarkSourceEvents)
 	require.NoError(t, err)
@@ -454,13 +499,13 @@ func TestRunOnceHoldsEventsWatermarkBackOnCappedSweep(t *testing.T) {
 
 	// The next tick, now uncapped, must still see the event the cap left behind.
 	source.pageCap = 0
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      first.Add(-time.Hour).UnixMilli(),
-		EndMs:        now.UnixMilli() + 1,
-		SortOrder:    "ASC",
+		Namespace: "default",
+		StartMs:   first.Add(-time.Hour).UnixMilli(),
+		EndMs:     now.UnixMilli() + 1,
+		SortOrder: "ASC",
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 3, "the event skipped by the cap must be picked up next tick")
@@ -492,12 +537,12 @@ func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
 	tick := now
 	for i := 0; i < 10; i++ {
 		agg := newTestAggregator(store, incidents, source, tick)
-		require.NoError(t, agg.RunOnce(ctx))
+		require.NoError(t, runOnce(t, agg))
 
 		facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-			OrgNamespace: "default",
-			StartMs:      now.Add(-time.Hour).UnixMilli(),
-			EndMs:        tick.UnixMilli() + 1,
+			Namespace: "default",
+			StartMs:   now.Add(-time.Hour).UnixMilli(),
+			EndMs:     tick.UnixMilli() + 1,
 		})
 		require.NoError(t, err)
 		if len(facts) == eventCount {
@@ -507,9 +552,9 @@ func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
 	}
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-time.Hour).UnixMilli(),
-		EndMs:        tick.UnixMilli() + 1,
+		Namespace: "default",
+		StartMs:   now.Add(-time.Hour).UnixMilli(),
+		EndMs:     tick.UnixMilli() + 1,
 	})
 	require.NoError(t, err)
 	t.Fatalf("capped sweep never drained the overlap window: folded %d of %d events",
@@ -547,12 +592,12 @@ func TestSuccessiveFailureEpisodesStayDistinct(t *testing.T) {
 	}}
 
 	a := newTestAggregator(store, incidents, source, now)
-	require.NoError(t, a.RunOnce(ctx))
+	require.NoError(t, runOnce(t, a))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: failed1.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		All:     true,
+		AllRows: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, recoveries, 2, "each failure->recovery cycle is its own MTTR sample")
@@ -594,12 +639,14 @@ func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
 	}}
 
 	// First tick folds both deployments and builds the week correctly.
-	require.NoError(t, newTestAggregator(store, incidents, source,
-		sep01.Add(time.Hour)).RunOnce(ctx))
+	require.NoError(t, runOnce(t, newTestAggregator(store, incidents, source,
+		sep01.Add(time.Hour))))
 	weekly := func() deliveryinsights.MetricRollup {
 		got, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
 			ScopeType:   deliveryinsights.ScopeTypeComponent,
 			ScopeUID:    "checkout-api",
+			Namespace:   "default",
+			ProjectUID:  "checkout",
 			Granularity: deliveryinsights.GranularityWeekly,
 			StartMs:     weekStartMs,
 			EndMs:       weekStartMs + 1,
@@ -615,15 +662,15 @@ func TestRecomputeKeepsWeeksStraddlingAMonthBoundaryWhole(t *testing.T) {
 	source.events = append(source.events,
 		deliveryEvent(ReasonDeploymentSucceeded, "rel-sep02",
 			time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC), nil))
-	require.NoError(t, newTestAggregator(store, incidents, source,
-		time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC)).RunOnce(ctx))
+	require.NoError(t, runOnce(t, newTestAggregator(store, incidents, source,
+		time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC))))
 
 	require.Equal(t, 3, weekly().DeployTotal,
 		"the Aug-31 week must still count its August deployment after a September tick")
 }
 
 // TestOneUnattributableEventDoesNotWedgeTheTick pins that a single event with no
-// org namespace cannot stall ingestion.
+// namespace cannot stall ingestion.
 //
 // UpsertDeploymentFacts validates the whole slice before writing any of it and
 // returns on the first error, so one such event used to write none of the batch,
@@ -654,12 +701,12 @@ func TestOneUnattributableEventDoesNotWedgeTheTick(t *testing.T) {
 	}}
 
 	a := newTestAggregator(store, incidents, source, now)
-	require.NoError(t, a.RunOnce(ctx), "one unattributable event must not fail the tick")
+	require.NoError(t, runOnce(t, a), "one unattributable event must not fail the tick")
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
 		StartMs: good.Add(-time.Hour).UnixMilli(),
 		EndMs:   now.UnixMilli(),
-		All:     true,
+		AllRows: true,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1, "the good event must still be written")
@@ -682,7 +729,7 @@ func TestIncompleteSweepWithNoEventsHoldsPosition(t *testing.T) {
 
 	// Reports itself incomplete while returning nothing.
 	source := &emptyIncompleteSource{}
-	require.NoError(t, newTestAggregator(store, incidents, source, now).RunOnce(ctx))
+	require.NoError(t, runOnce(t, newTestAggregator(store, incidents, source, now)))
 
 	wm, err := store.Watermark(ctx, watermarkSourceEvents)
 	require.NoError(t, err)
@@ -744,12 +791,12 @@ func TestProcessIncidentsPagesOnIngestionTimeNotTriggerTime(t *testing.T) {
 
 	agg := newTestAggregator(store, incidents, nil, now)
 	agg.incidentPageSize = 2 // force several pages
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
-		OrgNamespace: "default",
-		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
-		EndMs:        now.Add(24 * time.Hour).UnixMilli(),
+		Namespace: "default",
+		StartMs:   now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:     now.Add(24 * time.Hour).UnixMilli(),
 	})
 	require.NoError(t, err)
 	assert.Len(t, recoveries, incidentCount,
@@ -812,7 +859,7 @@ func TestLeaseHandsOverWhenTheHolderStops(t *testing.T) {
 	// Same instant, so nothing has expired: the successor can only get in because
 	// the lease was handed back.
 	successor.tick(ctx)
-	held, err := store.AcquireLease(ctx, aggregationLease, successor.holder, now.UnixMilli(), 1)
+	held, err := store.AcquireLease(ctx, aggregationLease, successor.holder, 1)
 	require.NoError(t, err)
 	require.True(t, held, "a released lease must be takeable before its TTL elapses")
 }
@@ -849,7 +896,7 @@ type leaseErrorStore struct {
 }
 
 func (s leaseErrorStore) AcquireLease(
-	context.Context, string, string, int64, int64,
+	context.Context, string, string, int64,
 ) (bool, error) {
 	return true, errors.New("lease store unavailable")
 }
@@ -864,7 +911,7 @@ type handoverStore struct {
 }
 
 func (s *handoverStore) AcquireLease(
-	context.Context, string, string, int64, int64,
+	context.Context, string, string, int64,
 ) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -989,7 +1036,6 @@ func containsMessage(msgs []string, substr string) bool {
 // for evidence the aggregator is running, and finding silence reads as a hang —
 // it cost a real debugging session on a cluster that was working correctly.
 func TestAnIdleTickStillReportsItself(t *testing.T) {
-	ctx := context.Background()
 	store, incidents := newTestStores(t)
 	capture := &captureHandler{}
 
@@ -997,7 +1043,7 @@ func TestAnIdleTickStillReportsItself(t *testing.T) {
 	agg.logger = slog.New(capture)
 
 	// No incidents, no events: a tick with nothing to fold.
-	require.NoError(t, agg.RunOnce(ctx))
+	require.NoError(t, runOnce(t, agg))
 
 	msgs := capture.messagesAtLeast(slog.LevelInfo)
 	require.True(t, containsMessage(msgs, "tick complete"),
@@ -1024,4 +1070,304 @@ func TestASkippedTickIsVisible(t *testing.T) {
 	msgs := capture.messagesAtLeast(slog.LevelInfo)
 	require.True(t, containsMessage(msgs, "Another replica holds"),
 		"a replica standing down must say so at info level; got %v", msgs)
+}
+
+// TestAnIncidentWithNoNamespaceDoesNotWedgeTheSweep pins the failure this guard
+// exists for. UpsertRecoveryFacts validates the whole batch before writing any of
+// it, and an empty namespace is rejected, so one such incident used to fail the
+// tick with the watermark unmoved. The incident window is a rolling rescan rather
+// than watermark-incremental, so the same row came back on the next tick and every
+// tick after it: nothing aggregated, incidents or events, until it aged out of the
+// lookback window 30 days later.
+//
+// It is reachable from one missing label — the namespace is read straight out of
+// the alert's label map, with no default — so the sweep has to survive it.
+func TestAnIncidentWithNoNamespaceDoesNotWedgeTheSweep(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	deployedAt := now.Add(-2 * time.Hour)
+	triggered := deployedAt.Add(30 * time.Minute)
+
+	require.NoError(t, store.UpsertDeploymentFacts(ctx,
+		[]deliveryinsights.DeploymentFact{successFact("rel-1", deployedAt.UnixMilli())}))
+
+	// No NamespaceName: the alert rule carried no namespace label.
+	_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+		AlertID:       "alert-no-ns",
+		Timestamp:     triggered.Format(time.RFC3339Nano),
+		Status:        incidententry.StatusActive,
+		TriggeredAt:   triggered.Format(time.RFC3339Nano),
+		ComponentID:   "checkout-api",
+		EnvironmentID: "production",
+	})
+	require.NoError(t, err)
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	require.NoError(t, runOnce(t, agg),
+		"one incident with no namespace must not fail the tick")
+	require.Equal(t, now.UnixMilli(), mustWatermark(t, store),
+		"the watermark must advance, or the same row wedges every later tick")
+
+	// Attribution is keyed by component and environment, which this incident does
+	// have, so the deployment still counts against change failure rate. Only the
+	// recovery episode behind MTTR is dropped, and that genuinely cannot be scoped.
+	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: deployedAt.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.UnixMilli(),
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	require.Equal(t, deliveryinsights.FailedByIncident, facts[0].FailedBy,
+		"attribution does not need the incident's namespace and must still happen")
+}
+
+// TestWatermarksAreFencedOnTheLease pins that losing the lease stops the writes
+// that matter. Renewal narrows the window in which a stalled holder keeps running
+// but cannot close it, and an unfenced watermark write is not harmless: the resume
+// sources encode how far a capped sweep reached, so a replica that no longer holds
+// the lease reporting a completed sweep erases the live holder's position and the
+// unread remainder is skipped in silence.
+func TestWatermarksAreFencedOnTheLease(t *testing.T) {
+	t.Parallel()
+
+	store, _ := newTestStores(t)
+	ctx := context.Background()
+	const lease = aggregationLease
+
+	held, err := store.AcquireLease(ctx, lease, "replica-a", 60_000)
+	require.NoError(t, err)
+	require.True(t, held)
+
+	require.NoError(t, store.SetWatermark(ctx, watermarkSourceEventsResume, 500, lease, "replica-a"),
+		"the holder must be able to advance a watermark")
+
+	// replica-a stalls; replica-b takes over after the lease expires.
+	require.NoError(t, store.ReleaseLease(ctx, lease, "replica-a"))
+	held, err = store.AcquireLease(ctx, lease, "replica-b", 60_000)
+	require.NoError(t, err)
+	require.True(t, held)
+
+	err = store.SetWatermark(ctx, watermarkSourceEventsResume, 0, lease, "replica-a")
+	require.ErrorIs(t, err, deliveryinsights.ErrLeaseNotHeld,
+		"a replica that lost the lease must not be able to write a watermark")
+
+	got, err := store.Watermark(ctx, watermarkSourceEventsResume)
+	require.NoError(t, err)
+	require.Equal(t, int64(500), got,
+		"the resume position of the live holder must survive a zombie's write")
+}
+
+// TestACappedIncidentSweepResumesRatherThanRestarting pins that a window larger
+// than one tick can page through can still be finished.
+//
+// The window start is derived from the tick time and the cursor used to reset with
+// it, so a sweep that hit the page cap re-read its oldest pages on every tick and
+// never reached the newest entries — while the watermark advanced to the tick time
+// regardless, so those entries were later folded as unchanged and their rollup
+// buckets never recomputed. The cap is reached here by shrinking the page rather
+// than by writing incidentMaxPages x incidentQueryLimit rows.
+func TestACappedIncidentSweepResumesRatherThanRestarting(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	// The cursor is inclusive, so a page re-reads its own last entry and advances by
+	// perPage-1 entries. Two per page is the smallest size that still advances, and
+	// makes the cap bite after roughly incidentMaxPages entries.
+	const perPage = 2
+	total := incidentMaxPages + 10
+	first := now.Add(-time.Duration(total+1) * time.Minute)
+	for i := 0; i < total; i++ {
+		at := first.Add(time.Duration(i) * time.Minute)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:       fmt.Sprintf("alert-%d", i),
+			Timestamp:     at.Format(time.RFC3339Nano),
+			Status:        incidententry.StatusActive,
+			TriggeredAt:   at.Format(time.RFC3339Nano),
+			NamespaceName: "default",
+			ComponentID:   "checkout-api",
+			EnvironmentID: "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg))
+
+	resume, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.NotZero(t, resume,
+		"a sweep stopped by the page cap must record where it got to")
+	require.Less(t, resume, now.UnixMilli(),
+		"the resume position must be inside the window, not at its end")
+
+	// A second tick carries on from there and drains the rest.
+	agg2 := newTestAggregator(store, incidents, nil, now.Add(time.Minute))
+	agg2.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg2))
+
+	drained, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.Zero(t, drained,
+		"once the window is swept the resume position must clear, re-arming the rolling rescan")
+
+	facts, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: first.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.Add(time.Hour).UnixMilli(),
+		AllRows: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, total,
+		"every incident in the window must be folded across the two ticks")
+}
+
+// unavailableEventsSource stands for an adapter that answers 501 to an unscoped
+// sweep: the contract calls that "capability unavailable", not a failure.
+type unavailableEventsSource struct{ calls int }
+
+func (u *unavailableEventsSource) FetchDeliveryEvents(
+	_ context.Context, _, _ int64,
+) ([]DeliveryEvent, bool, error) {
+	u.calls++
+	return nil, false, fmt.Errorf("%w: adapter returned 501", ErrEventsSourceUnavailable)
+}
+
+// TestUnservableEventsSourceDoesNotStopIncidents pins why an unservable sweep is
+// stood down rather than left to fail the tick. The tick folds incidents first,
+// events second, and recomputes rollups after both -- so an events error that
+// fails the tick takes Mean Time to Recovery down with it, even though MTTR is
+// derived from incidents and needs no adapter support at all.
+func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
+	store, incidents := newTestStores(t)
+	now := time.Now().UTC()
+	events := &unavailableEventsSource{}
+	a := newTestAggregator(store, incidents, events, now)
+
+	require.True(t, a.EventsActive(), "the sweep is attempted until the adapter refuses it")
+
+	// The tick has to succeed despite the events source refusing.
+	require.NoError(t, runOnce(t, a), "a 501 from the adapter must not fail the tick")
+	require.False(t, a.EventsActive(), "the sweep should be stood down after a 501")
+	require.Equal(t, 1, events.calls)
+
+	// And stay stood down for the interval, rather than being retried every tick.
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 1, events.calls, "a refused sweep must not be retried every tick")
+
+	// The incident watermark still advances, which is what keeps MTTR working.
+	wm, err := store.Watermark(context.Background(), watermarkSourceIncidents)
+	require.NoError(t, err)
+	require.Positive(t, wm, "incidents must still be folded and their watermark advanced")
+}
+
+// TestACappedIncidentSweepRecomputesTheResumedBacklogsBuckets covers the half of
+// the resume that facts alone do not show. The rollups the API reads are
+// recomputed only for the buckets a tick reports as touched, and a tick reports
+// only what changed since its watermark. A capped sweep that still advanced the
+// watermark to its own start would put the backlog it did not reach behind the
+// next tick's changed-since line: the facts land, the buckets holding them are
+// never recomputed, and every metric derived from those buckets stays as it was.
+//
+// The entries are spaced by the hour rather than the minute so the backlog falls
+// outside the overlap. Inside it they would count as changed anyway, and a daily
+// bucket recomputed for any one moment is recomputed for all of them, so a
+// minute-spaced run passes whether or not the watermark is held back.
+func TestACappedIncidentSweepRecomputesTheResumedBacklogsBuckets(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	const perPage = 2
+	total := incidentMaxPages + 10
+	first := now.Add(-time.Duration(total+1) * time.Hour)
+	for i := 0; i < total; i++ {
+		at := first.Add(time.Duration(i) * time.Hour)
+		resolved := at.Add(30 * time.Minute)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:       fmt.Sprintf("alert-%d", i),
+			Timestamp:     at.Format(time.RFC3339Nano),
+			Status:        incidententry.StatusResolved,
+			TriggeredAt:   at.Format(time.RFC3339Nano),
+			ResolvedAt:    resolved.Format(time.RFC3339Nano),
+			NamespaceName: "default",
+			ComponentID:   "checkout-api",
+			EnvironmentID: "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg))
+
+	resume, err := store.Watermark(ctx, watermarkSourceIncidentsResume)
+	require.NoError(t, err)
+	require.NotZero(t, resume, "the sweep must have been capped for this to test anything")
+
+	agg2 := newTestAggregator(store, incidents, nil, now.Add(time.Minute))
+	agg2.incidentPageSize = perPage
+	require.NoError(t, runOnce(t, agg2))
+
+	facts, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		StartMs: first.Add(-time.Hour).UnixMilli(),
+		EndMs:   now.Add(time.Hour).UnixMilli(),
+		AllRows: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, total, "every incident must be folded across the two ticks")
+
+	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
+		ScopeType:   deliveryinsights.ScopeTypeComponent,
+		ScopeUID:    "checkout-api",
+		Namespace:   "default",
+		Granularity: deliveryinsights.GranularityDaily,
+		StartMs: deliveryinsights.BucketStartMs(
+			deliveryinsights.GranularityDaily, first.Add(-time.Hour).UnixMilli()),
+		EndMs: now.Add(time.Hour).UnixMilli(),
+	})
+	require.NoError(t, err)
+	recovered := 0
+	for _, r := range rollups {
+		recovered += r.RecoveryCount
+	}
+	require.Equal(t, total, recovered,
+		"the resumed backlog's buckets must be recomputed, not only its facts")
+}
+
+// TestARefusedSweepIsRetriedRatherThanLatched covers the upgrade path. The logs
+// adapter is a separately deployed module, so an install can enable Delivery
+// Insights before the adapter that can serve the sweep is in place. A stand-down
+// that never expired would leave that install on incidents alone until someone
+// restarted the observer -- long after the adapter was upgraded, and with nothing
+// on screen tying the two together.
+func TestARefusedSweepIsRetriedRatherThanLatched(t *testing.T) {
+	store, incidents := newTestStores(t)
+	start := time.Now().UTC()
+	events := &unavailableEventsSource{}
+	a := newTestAggregator(store, incidents, events, start)
+
+	require.NoError(t, runOnce(t, a))
+	require.False(t, a.EventsActive(), "stood down after the 501")
+	require.Equal(t, 1, events.calls)
+
+	// Still inside the stand-down: not asked again.
+	a.now = func() time.Time { return start.Add(eventsUnavailableRetryAfter - time.Minute) }
+	require.False(t, a.EventsActive())
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 1, events.calls, "must not be retried before the interval elapses")
+
+	// Past it: asked again, so an adapter deployed in the meantime is picked up
+	// without restarting the observer.
+	a.now = func() time.Time { return start.Add(eventsUnavailableRetryAfter + time.Minute) }
+	require.True(t, a.EventsActive(), "the sweep is attempted again once the interval elapses")
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 2, events.calls, "the sweep must be retried after the interval")
 }

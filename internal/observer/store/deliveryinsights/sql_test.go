@@ -17,6 +17,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// leaseClock points the store's lease expiry at a simulated clock, so the lease
+// tests can step time instead of sleeping. Production reads the database clock;
+// only this package can set the override.
+func leaseClock(t *testing.T, store Store, nowMs int64) {
+	t.Helper()
+	sqlS, ok := store.(*sqlStore)
+	require.True(t, ok, "lease tests need the SQL store")
+	sqlS.nowMsOverride = nowMs
+}
+
+// acquire sets the simulated clock and then takes or renews the lease, which is
+// what the per-call nowMs argument used to do before expiry moved to the database
+// clock.
+func acquire(t *testing.T, store Store, holder string, nowMs, ttlMs int64) (bool, error) {
+	t.Helper()
+	leaseClock(t, store, nowMs)
+	return store.AcquireLease(context.Background(), "dora-aggregation", holder, ttlMs)
+}
+
 func newTestStore(t *testing.T) Store {
 	t.Helper()
 
@@ -40,7 +59,7 @@ func testFact(releaseUID string, readyMs int64) DeploymentFact {
 	lead := readyMs - authored
 	return DeploymentFact{
 		ReleaseUID:       releaseUID,
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ProjectUID:       "proj-1",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
@@ -98,9 +117,9 @@ func TestUpsertDeploymentFactIsIdempotent(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{fact}))
 
 	facts, total, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      ready - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   ready - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total, "duplicate upsert must collapse to one fact")
@@ -128,9 +147,9 @@ func TestUpsertDeploymentFactFailureIsSticky(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{success}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      ready - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   ready - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -150,7 +169,7 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	// Phase 1: DeploymentStarted — only start time known.
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -162,7 +181,7 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	// Phase 2: DeploymentSucceeded — ready time arrives; started must be preserved.
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -172,9 +191,9 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	}}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started - 1000,
-		EndMs:        ready + 1000,
+		Namespace: "default",
+		StartMs:   started - 1000,
+		EndMs:     ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -200,7 +219,7 @@ func TestUpsertDeploymentFactMergeIsOrderIndependent(t *testing.T) {
 
 	base := DeploymentFact{
 		ReleaseUID:     "rel-1",
-		OrgNamespace:   "default",
+		Namespace:      "default",
 		ProjectUID:     "proj-1",
 		ComponentUID:   "comp-1",
 		EnvironmentUID: "env-prod",
@@ -227,9 +246,9 @@ func TestUpsertDeploymentFactMergeIsOrderIndependent(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{restarted}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      started - 1000,
-		EndMs:        later + 1000,
+		Namespace: "default",
+		StartMs:   started - 1000,
+		EndMs:     later + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -258,7 +277,7 @@ func TestQueryDeploymentFactsScopeFilters(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{prod, dev, otherComponent}))
 
 	all, total, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000,
+		Namespace: "default", StartMs: base, EndMs: base + 10_000,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 3, total)
@@ -275,7 +294,7 @@ func TestQueryDeploymentFactsScopeFilters(t *testing.T) {
 	// Default sort order is DESC on the deployment moment.
 	assert.Equal(t, "rel-other", all[0].ReleaseUID)
 	asc, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000, SortOrder: "asc",
+		Namespace: "default", StartMs: base, EndMs: base + 10_000, SortOrder: "asc",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "rel-prod", asc[0].ReleaseUID)
@@ -298,7 +317,7 @@ func TestQueryLeadTimesExcludesMissingAndNegative(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{withLead, noProvenance, negative}))
 
 	leadTimes, err := store.QueryLeadTimes(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 10_000,
+		Namespace: "default", StartMs: base, EndMs: base + 10_000,
 	})
 	require.NoError(t, err)
 	require.Len(t, leadTimes, 1, "missing and negative lead times must be excluded")
@@ -315,7 +334,7 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 
 	closed := RecoveryFact{
 		ID:               "inc-1",
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ProjectUID:       "proj-1",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
@@ -328,7 +347,7 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 	}
 	open := RecoveryFact{
 		ID:               "inc-2",
-		OrgNamespace:     "default",
+		Namespace:        "default",
 		ComponentUID:     "comp-1",
 		EnvironmentUID:   "env-prod",
 		Source:           RecoverySourceHealth,
@@ -337,9 +356,9 @@ func TestRecoveryFactsAndDurations(t *testing.T) {
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{closed, open}))
 
 	durations, err := store.QueryRecoveryDurations(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      failureStart - 1000,
-		EndMs:        failureStart + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   failureStart - 1000,
+		EndMs:     failureStart + time.Hour.Milliseconds(),
 	})
 	require.NoError(t, err)
 	require.Len(t, durations, 1, "open failures must be excluded from MTTR")
@@ -357,6 +376,8 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 	rollup := MetricRollup{
 		ScopeType:     ScopeTypeComponent,
 		ScopeUID:      "comp-1",
+		Namespace:     "default",
+		ProjectUID:    "proj-1",
 		Granularity:   GranularityDaily,
 		BucketStartMs: day1,
 		DeployTotal:   5,
@@ -375,6 +396,8 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 	got, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType:   ScopeTypeComponent,
 		ScopeUID:    "comp-1",
+		Namespace:   "default",
+		ProjectUID:  "proj-1",
 		Granularity: GranularityDaily,
 		StartMs:     day1,
 		EndMs:       day2,
@@ -395,6 +418,7 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 
 	unsliced, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType: ScopeTypeComponent, ScopeUID: "comp-1",
+		Namespace: "default", ProjectUID: "proj-1",
 		Granularity: GranularityDaily, StartMs: day1, EndMs: day2,
 	})
 	require.NoError(t, err)
@@ -403,6 +427,7 @@ func TestRollupUpsertAndQuery(t *testing.T) {
 
 	prodSlice, err := store.QueryRollups(ctx, RollupQuery{
 		ScopeType: ScopeTypeComponent, ScopeUID: "comp-1", EnvironmentUID: "env-prod",
+		Namespace: "default", ProjectUID: "proj-1",
 		Granularity: GranularityDaily, StartMs: day1, EndMs: day2,
 	})
 	require.NoError(t, err)
@@ -420,9 +445,9 @@ func TestWatermark(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), wm, "missing watermark must read as zero")
 
-	require.NoError(t, store.SetWatermark(ctx, "events", 1_000))
-	require.NoError(t, store.SetWatermark(ctx, "events", 2_000))
-	require.NoError(t, store.SetWatermark(ctx, "incidents", 500))
+	require.NoError(t, store.SetWatermark(ctx, "events", 1_000, "", ""))
+	require.NoError(t, store.SetWatermark(ctx, "events", 2_000, "", ""))
+	require.NoError(t, store.SetWatermark(ctx, "incidents", 500, "", ""))
 
 	wm, err = store.Watermark(ctx, "events")
 	require.NoError(t, err)
@@ -439,16 +464,16 @@ func TestValidationErrors(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	err := store.UpsertDeploymentFacts(ctx, []DeploymentFact{{OrgNamespace: "default"}})
+	err := store.UpsertDeploymentFacts(ctx, []DeploymentFact{{Namespace: "default"}})
 	require.Error(t, err, "missing release UID must be rejected")
 
 	err = store.UpsertDeploymentFacts(ctx, []DeploymentFact{{
-		ReleaseUID: "rel-1", OrgNamespace: "default", Outcome: "unknown",
+		ReleaseUID: "rel-1", Namespace: "default", Outcome: "unknown",
 	}})
 	require.Error(t, err, "unsupported outcome must be rejected")
 
 	err = store.UpsertRecoveryFacts(ctx, []RecoveryFact{{
-		ID: "r-1", OrgNamespace: "default", Source: "guess", FailureStartedMs: 1,
+		ID: "r-1", Namespace: "default", Source: "guess", FailureStartedMs: 1,
 	}})
 	require.Error(t, err, "unsupported recovery source must be rejected")
 
@@ -458,7 +483,7 @@ func TestValidationErrors(t *testing.T) {
 	require.Error(t, err, "unsupported scope type must be rejected")
 
 	_, err = store.QueryRollups(ctx, RollupQuery{
-		ScopeType: ScopeTypeOrg, ScopeUID: "default", Granularity: "hourly",
+		ScopeType: ScopeTypeNamespace, ScopeUID: "default", Granularity: "hourly",
 		StartMs: 0, EndMs: 1,
 	})
 	require.Error(t, err, "unsupported granularity must be rejected")
@@ -521,7 +546,7 @@ func TestBuildRollups(t *testing.T) {
 	recovered := day.Add(3 * time.Hour).UnixMilli()
 	duration := 45 * time.Minute.Milliseconds()
 	recovery := RecoveryFact{
-		ID: "inc-1", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "inc-1", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod",
 		Source:           RecoverySourceIncident,
 		FailureStartedMs: day.Add(2 * time.Hour).UnixMilli(),
@@ -574,7 +599,7 @@ func TestCountDeploymentsUsesExactWindow(t *testing.T) {
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
 
-	base := FactQuery{OrgNamespace: "default"}
+	base := FactQuery{Namespace: "default"}
 
 	// A window starting after day 1 must not include it, even though day 1 shares a
 	// week/month bucket with the rest — this is what rollup summing got wrong.
@@ -607,9 +632,9 @@ func TestCountDeploymentsSplitsOutcomes(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{success, failed, inProgress}))
 
 	counts, err := store.CountDeployments(ctx, FactQuery{
-		OrgNamespace: "default",
-		StartMs:      at - time.Hour.Milliseconds(),
-		EndMs:        at + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   at - time.Hour.Milliseconds(),
+		EndMs:     at + time.Hour.Milliseconds(),
 	})
 	require.NoError(t, err)
 	// In-progress deployments are excluded, matching BuildRollups.
@@ -630,9 +655,9 @@ func TestCountDeploymentsHonoursScope(t *testing.T) {
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{mine, other}))
 
 	q := FactQuery{
-		OrgNamespace: "default",
-		StartMs:      at - time.Hour.Milliseconds(),
-		EndMs:        at + time.Hour.Milliseconds(),
+		Namespace: "default",
+		StartMs:   at - time.Hour.Milliseconds(),
+		EndMs:     at + time.Hour.Milliseconds(),
 	}
 	nsCounts, err := store.CountDeployments(ctx, q)
 	require.NoError(t, err)
@@ -670,7 +695,7 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 	end := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC).UnixMilli()
 
 	counts, err := store.CountDeployments(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: start, EndMs: end,
+		Namespace: "default", StartMs: start, EndMs: end,
 	})
 	require.NoError(t, err)
 	// Jul 9..31 = 23 days, Aug 1..4 = 4 days.
@@ -680,8 +705,9 @@ func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
 	// granularity-dependent answer — which is why summaries no longer do that.
 	for _, g := range []string{GranularityDaily, GranularityWeekly, GranularityMonthly} {
 		rollups, err := store.QueryRollups(ctx, RollupQuery{
-			ScopeType:   ScopeTypeOrg,
+			ScopeType:   ScopeTypeNamespace,
 			ScopeUID:    "default",
+			Namespace:   "default",
 			Granularity: g,
 			StartMs:     BucketStartMs(g, start),
 			EndMs:       end,
@@ -724,7 +750,7 @@ func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
 
-	q := FactQuery{OrgNamespace: "default", StartMs: readyMs - 1, EndMs: readyMs + 1, All: true}
+	q := FactQuery{Namespace: "default", StartMs: readyMs - 1, EndMs: readyMs + 1, AllRows: true}
 
 	leads, err := store.QueryLeadTimes(ctx, q)
 	require.NoError(t, err)
@@ -754,7 +780,7 @@ func TestExhaustiveReadPagesTiesWithoutLossOrDuplication(t *testing.T) {
 // TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout pins that a later
 // phase missing its scope labels cannot blank what an earlier one recorded.
 //
-// Only the release UID and the org namespace are required of a fact, and the
+// Only the release UID and the namespace are required of a fact, and the
 // scope UIDs travel as `omitempty` payload fields that not every render path
 // stamps. Overwriting unconditionally meant one such event erased the UIDs:
 // scopesForFact then drops those scopes from every rollup it computes, and
@@ -774,16 +800,16 @@ func TestUpsertDeploymentFactKeepsScopesWhenAPhaseArrivesWithout(t *testing.T) {
 
 	// The same rollout, folded again from an event that carried no scope labels.
 	bare := DeploymentFact{
-		ReleaseUID:   "rel-scope",
-		OrgNamespace: "default", // the one scope the validator insists on
-		ReadyMs:      &ready,
-		Outcome:      OutcomeSuccess,
-		UpdatedAtMs:  ready + 1,
+		ReleaseUID:  "rel-scope",
+		Namespace:   "default", // the one scope the validator insists on
+		ReadyMs:     &ready,
+		Outcome:     OutcomeSuccess,
+		UpdatedAtMs: ready + 1,
 	}
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{bare}))
 
 	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: started - 1000, EndMs: ready + 1000,
+		Namespace: "default", StartMs: started - 1000, EndMs: ready + 1000,
 	})
 	require.NoError(t, err)
 	require.Len(t, facts, 1)
@@ -812,21 +838,21 @@ func TestQueryRecoveryDurationsExcludesNegative(t *testing.T) {
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 
 	good := RecoveryFact{
-		ID: "rec-ok", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "rec-ok", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
 		FailureStartedMs: base + 1000, RecoveredMs: msPtr(base + 61_000), UpdatedAtMs: base,
 	}
 	// Recovered before it failed: clock skew between the alert source and the
 	// store, or delivery events arriving out of order.
 	skewed := RecoveryFact{
-		ID: "rec-skewed", OrgNamespace: "default", ProjectUID: "proj-1",
+		ID: "rec-skewed", Namespace: "default", ProjectUID: "proj-1",
 		ComponentUID: "comp-1", EnvironmentUID: "env-prod", Source: RecoverySourceIncident,
 		FailureStartedMs: base + 5000, RecoveredMs: msPtr(base + 2000), UpdatedAtMs: base,
 	}
 	require.NoError(t, store.UpsertRecoveryFacts(ctx, []RecoveryFact{good, skewed}))
 
 	durations, err := store.QueryRecoveryDurations(ctx, FactQuery{
-		OrgNamespace: "default", StartMs: base, EndMs: base + 100_000,
+		Namespace: "default", StartMs: base, EndMs: base + 100_000,
 	})
 	require.NoError(t, err)
 	require.Len(t, durations, 1, "a negative duration must not reach MTTR")
@@ -847,67 +873,120 @@ func TestAggregationLeaseIsExclusive(t *testing.T) {
 
 	t.Run("first caller takes it, second is refused", func(t *testing.T) {
 		store := newTestStore(t)
-		got, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		got, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "an unheld lease must be grantable")
 
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err = acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "a lease held by another replica must not be grantable")
 	})
 
 	t.Run("the holder renews rather than locking itself out", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
-		got, err := store.AcquireLease(ctx, lease, "replica-a", now+ttl/2, ttl)
+		got, err := acquire(t, store, "replica-a", now+ttl/2, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "the current holder must be able to renew")
 
 		// The renewal has to have moved the expiry, or the holder would lose the
 		// lease mid-run at the original deadline.
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now+ttl, ttl)
+		got, err = acquire(t, store, "replica-b", now+ttl, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "renewal must extend the expiry, not leave it in place")
 	})
 
 	t.Run("an expired lease is taken over", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
-		got, err := store.AcquireLease(ctx, lease, "replica-b", now+ttl-1, ttl)
+		got, err := acquire(t, store, "replica-b", now+ttl-1, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "the lease must hold right up to its expiry")
 
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now+ttl, ttl)
+		got, err = acquire(t, store, "replica-b", now+ttl, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "a holder that died must not block aggregation forever")
 	})
 
 	t.Run("release hands over immediately, and only by the owner", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "replica-a", now, ttl)
+		_, err := acquire(t, store, "replica-a", now, ttl)
 		require.NoError(t, err)
 
 		// A stalled predecessor must not be able to delete its successor's lease.
 		require.NoError(t, store.ReleaseLease(ctx, lease, "replica-b"))
-		got, err := store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err := acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.False(t, got, "releasing a lease owned by someone else must be a no-op")
 
 		require.NoError(t, store.ReleaseLease(ctx, lease, "replica-a"))
-		got, err = store.AcquireLease(ctx, lease, "replica-b", now, ttl)
+		got, err = acquire(t, store, "replica-b", now, ttl)
 		require.NoError(t, err)
 		require.True(t, got, "a released lease must be available before its TTL expires")
 	})
 
 	t.Run("rejects an unusable lease request", func(t *testing.T) {
 		store := newTestStore(t)
-		_, err := store.AcquireLease(ctx, lease, "", now, ttl)
+		_, err := acquire(t, store, "", now, ttl)
 		require.Error(t, err, "an empty holder would make every replica look like the same one")
-		_, err = store.AcquireLease(ctx, lease, "replica-a", now, 0)
+		_, err = acquire(t, store, "replica-a", now, 0)
 		require.Error(t, err, "a zero TTL would expire on arrival")
 	})
+}
+
+// TestRollupsAreNotAddressableByScopeUIDAlone pins the rollup read against the
+// shape a project-scoped grant authorizes. Component names are unique per
+// namespace, not per project, and the authorization decision is made on the
+// project the caller named -- so a caller holding a grant on one project can ask
+// for a component that belongs to another. The fact reads already refuse that by
+// ANDing the whole scope; the rollup read has to refuse it too, or the series
+// comes back populated while the rest of the response is empty.
+func TestRollupsAreNotAddressableByScopeUIDAlone(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	day := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+
+	require.NoError(t, store.UpsertRollups(ctx, []MetricRollup{{
+		ScopeType:     ScopeTypeComponent,
+		ScopeUID:      "comp-in-p2",
+		Namespace:     "acme",
+		ProjectUID:    "p2",
+		Granularity:   GranularityDaily,
+		BucketStartMs: day,
+		DeployTotal:   7,
+		ComputedAtMs:  day,
+	}}))
+
+	// The owning project: the rollups are readable.
+	owned, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "acme", ProjectUID: "p2",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, owned, 1)
+	assert.Equal(t, 7, owned[0].DeployTotal)
+
+	// A neighboring project in the same namespace, naming the component it does
+	// not own. This is the exact request a grant on p1 authorizes.
+	crossProject, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "acme", ProjectUID: "p1",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, crossProject, "a component's rollups must not be readable through another project")
+
+	// And from another namespace entirely.
+	crossNamespace, err := store.QueryRollups(ctx, RollupQuery{
+		ScopeType: ScopeTypeComponent, ScopeUID: "comp-in-p2",
+		Namespace: "other", ProjectUID: "p2",
+		Granularity: GranularityDaily, StartMs: day, EndMs: day + 1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, crossNamespace, "a component's rollups must not be readable through another namespace")
 }

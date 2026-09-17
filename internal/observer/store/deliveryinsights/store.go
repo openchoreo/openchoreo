@@ -9,6 +9,7 @@ package deliveryinsights
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -40,7 +41,7 @@ const (
 
 // Rollup scope types.
 const (
-	ScopeTypeOrg       = "org"
+	ScopeTypeNamespace = "namespace"
 	ScopeTypeProject   = "project"
 	ScopeTypeComponent = "component"
 )
@@ -57,7 +58,7 @@ const (
 // into it via upsert. All timestamps are epoch milliseconds (UTC); nil means unknown.
 type DeploymentFact struct {
 	ReleaseUID       string
-	OrgNamespace     string
+	Namespace        string
 	ProjectUID       string
 	ComponentUID     string
 	EnvironmentUID   string
@@ -93,7 +94,7 @@ func (f *DeploymentFact) OccurredMs() int64 {
 // from workload health transitions. RecoveredMs/DurationMs are nil while still failing.
 type RecoveryFact struct {
 	ID               string
-	OrgNamespace     string
+	Namespace        string
 	ProjectUID       string
 	ComponentUID     string
 	EnvironmentUID   string
@@ -115,6 +116,8 @@ type MetricRollup struct {
 	ScopeType      string
 	ScopeUID       string
 	EnvironmentUID string
+	Namespace      string
+	ProjectUID     string
 	Granularity    string
 	BucketStartMs  int64
 	DeployTotal    int
@@ -138,13 +141,19 @@ type RollupQuery struct {
 	Granularity    string
 	StartMs        int64
 	EndMs          int64
+	// Namespace and ProjectUID place the scope. They are filtered on rather than
+	// taken on trust: the scope UID alone would return a component's rollups to a
+	// caller who named a project the component is not in, which is the shape a
+	// project-scoped grant authorizes.
+	Namespace  string
+	ProjectUID string
 }
 
 // FactQuery filters fact rows by scope and time range. Empty scope fields are not
 // filtered on; StartMs is inclusive and EndMs exclusive. Time filtering applies to the
 // deployment moment for deployment facts and to failure start for recovery facts.
 type FactQuery struct {
-	OrgNamespace   string
+	Namespace      string
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
@@ -156,12 +165,12 @@ type FactQuery struct {
 	// It must not be used for a read that feeds a statistic over the whole window.
 	// The reads are ordered, so a cap keeps one end of the distribution and drops
 	// the other -- percentiles, means and rollup counts computed from it are biased,
-	// not merely based on fewer rows, while CountDeployments stays exact. Set All
+	// not merely based on fewer rows, while CountDeployments stays exact. Set AllRows
 	// instead.
 	Limit int
-	// All reads every matching row, paging internally, and ignores Limit. Callers
+	// AllRows reads every matching row, paging internally, and ignores Limit. Callers
 	// computing a statistic over the window use it so there is no cap to bias.
-	All       bool
+	AllRows   bool
 	SortOrder string
 }
 
@@ -186,6 +195,12 @@ type AttributionResult struct {
 	Attributed bool
 }
 
+// ErrLeaseNotHeld reports a write refused because this replica no longer holds the
+// aggregation lease. It is not a failure of the write itself: another replica has
+// taken over and is responsible for the work, so the caller should abandon its tick
+// rather than retry.
+var ErrLeaseNotHeld = errors.New("delivery insights aggregation lease not held")
+
 // Store persists delivery facts and metric rollups behind a pluggable SQL backend.
 type Store interface {
 	Initialize(ctx context.Context) error
@@ -208,11 +223,18 @@ type Store interface {
 	QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error)
 	QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error)
 	Watermark(ctx context.Context, source string) (int64, error)
-	SetWatermark(ctx context.Context, source string, watermarkMs int64) error
-	// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs,
+	// SetWatermark advances a watermark, but only while leaseHolder still holds
+	// leaseName, returning ErrLeaseNotHeld if it does not. Writing a watermark is
+	// the one thing a replica that has lost the lease must not still be doing, and
+	// lease renewal alone cannot guarantee that. An empty leaseName writes
+	// unconditionally and is for tests and maintenance, not the aggregation loop.
+	SetWatermark(ctx context.Context, source string, watermarkMs int64, leaseName, leaseHolder string) error
+	// AcquireLease takes or renews the named lease for holder for a further ttlMs,
 	// reporting whether it is held. Renewal by the current holder always succeeds;
-	// a lease held by anyone else is only taken once it has expired.
-	AcquireLease(ctx context.Context, name, holder string, nowMs, ttlMs int64) (bool, error)
+	// a lease held by anyone else is only taken once it has expired. Expiry is
+	// measured on the database clock, so no replica's wall clock can shorten or
+	// extend another's lease.
+	AcquireLease(ctx context.Context, name, holder string, ttlMs int64) (bool, error)
 	// ReleaseLease drops the named lease if holder still owns it.
 	ReleaseLease(ctx context.Context, name, holder string) error
 	Close() error

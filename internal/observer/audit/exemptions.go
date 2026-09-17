@@ -45,6 +45,8 @@ var RESTExemptions = map[string]string{
 
 	// Public spec — reads expressed as POST, to carry a query body.
 	"QueryAlerts":          reasonReadAsPOST,
+	"QueryDoraDeployments": reasonReadAsPOST,
+	"QueryDoraMetrics":     reasonReadAsPOST,
 	"QueryEvents":          reasonReadAsPOST,
 	"QueryIncidents":       reasonReadAsPOST,
 	"QueryLogs":            reasonReadAsPOST,
@@ -98,4 +100,6 @@ var MCPToolExemptions = map[string]string{
 	"query_incidents":        reasonTelemetryRead,
 	"query_costs":            reasonTelemetryRead,
 	"query_recommendations":  reasonTelemetryRead,
+	"query_dora_metrics":     reasonTelemetryRead,
+	"query_dora_deployments": reasonTelemetryRead,
 }

@@ -235,10 +235,9 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 		"DELIVERY_INSIGHTS_STORE_BACKEND",
 		"DELIVERY_INSIGHTS_STORE_DSN",
 		"DELIVERY_INSIGHTS_UID_RESOLUTION",
-		"DELIVERY_INSIGHTS_AGGREGATION_ENABLED",
+		"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED",
 		"DELIVERY_INSIGHTS_AGGREGATION_INTERVAL",
 		"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP",
-		"DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED",
 		"DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW",
 		"DELIVERY_INSIGHTS_INCIDENT_LOOKBACK",
 	} {
@@ -248,10 +247,8 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
-	assert.False(t, cfg.DeliveryInsights.AggregationEnabled,
-		"aggregation must default off; enabling it caps the observer at one replica")
-	assert.False(t, cfg.DeliveryInsights.EventsSourceEnabled,
-		"the events source must default off until a log module implements the sweep")
+	assert.False(t, cfg.DeliveryInsights.Enabled,
+		"Delivery Insights must default off; it is opt-in per deployment")
 	assert.Equal(t, uidResolutionResolver, cfg.DeliveryInsights.UIDResolution,
 		"passthrough is a seeded-data shortcut and must not be the default")
 }
@@ -344,7 +341,7 @@ func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 		c.Alerting.AlertStoreBackend = "sqlite"
 		c.Alerting.AlertStoreDSN = "file:/data/alerts.db"
 		c.DeliveryInsights.UIDResolution = uidResolutionResolver
-		c.DeliveryInsights.AggregationEnabled = true
+		c.DeliveryInsights.Enabled = true
 		c.DeliveryInsights.AggregationInterval = interval
 		c.DeliveryInsights.AggregationOverlap = overlap
 		// Valid values for the bounds this case is not exercising, so a failure
@@ -356,7 +353,7 @@ func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 
 	t.Run("aggregation bounds are not checked while it is disabled", func(t *testing.T) {
 		c := newConfig(0, -time.Second)
-		c.DeliveryInsights.AggregationEnabled = false
+		c.DeliveryInsights.Enabled = false
 		require.NoError(t, c.validateDeliveryInsights(),
 			"an install that never enables aggregation must not have to supply its timings")
 	})

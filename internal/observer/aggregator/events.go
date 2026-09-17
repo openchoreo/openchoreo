@@ -6,6 +6,7 @@ package aggregator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -27,7 +28,7 @@ type DeliveryEvent struct {
 	Reason string
 	// TimestampMs is the event's occurrence time (epoch ms).
 	TimestampMs int64
-	// Namespace is the org namespace the event was enriched with.
+	// Namespace is the namespace the event was enriched with.
 	Namespace string
 	// Names for display, from enrichment.
 	ProjectName     string
@@ -37,18 +38,34 @@ type DeliveryEvent struct {
 	Message string
 }
 
+// ErrEventsSourceUnavailable reports that the deployed adapter cannot serve the
+// sweep at all -- it answers 501 to an unscoped, reason-filtered query, which the
+// contract defines as "capability unavailable" rather than a failure.
+//
+// Declared here rather than in the service package because the adapter that
+// returns it imports this one; the service translates its own 501 sentinel into
+// this on the way out.
+//
+// The aggregator stops attempting the sweep on it. Retrying would fail the tick
+// forever, and because the tick folds incidents before events and recomputes
+// rollups after both, that would take Mean Time to Recovery down with it -- a
+// metric derived entirely from incidents and needing no adapter support.
+var ErrEventsSourceUnavailable = errors.New("delivery events source unavailable")
+
 // EventsSource reads delivery lifecycle events from the observability event store.
 //
-// Nothing implements it yet in this tree: the implementation sweeps the event index
-// using the logs-adapter `reasons` filter and its ability to return events across
-// every namespace in one query rather than a scope at a time, which the adapter
-// contract only gains with #4597, so it arrives with the logs-adapter client that
-// carries them. A deployed adapter without those extensions cannot serve the sweep
-// either, which is why the source stays behind DELIVERY_INSIGHTS_EVENTS_SOURCE_ENABLED
-// even once it exists.
+// service.LogsAdapter implements it. The sweep reads the event index using the
+// logs-adapter `reasons` filter and its ability to return events across every
+// namespace in one query rather than a scope at a time, which the adapter contract
+// gains with #4597. A deployed adapter without those extensions cannot serve the
+// sweep -- it answers 501, and the aggregator stands the sweep down for the life of
+// the process. That is discovered on the first tick rather than configured: the
+// operator enabling Delivery Insights has no reliable way to know what the backing
+// logs adapter supports, so asking it is more honest than asking them.
 //
 // The aggregator skips the events path while this is nil, and folds incidents alone —
-// see New.
+// see New. In production it is never nil; that path is for tests and for a build
+// wired without an adapter.
 type EventsSource interface {
 	// FetchDeliveryEvents returns delivery lifecycle events in [fromMs, toMs),
 	// ordered by timestamp ascending (phase merges assume chronological folding).
@@ -132,8 +149,10 @@ func (a *Aggregator) processEvents(
 	// The !complete branch runs before the empty-result return on purpose. An
 	// incomplete sweep that yielded no events must not advance the watermark to
 	// tickStart and clear resumeMs, which would skip the remainder it stopped
-	// short of. Unreachable with the current adapter (20 pages x 1000), but the
-	// ordering is what makes it safe rather than the adapter's shape.
+	// short of. The current adapter reads one page and reports incomplete only
+	// alongside the events it did return, so this needs an adapter that
+	// understates its page to reach -- the ordering is what makes it safe rather
+	// than any adapter's shape.
 	if !complete && len(events) == 0 {
 		progress.watermarkMs = watermark
 		progress.resumeMs = priorResumeMs
@@ -228,7 +247,7 @@ func (a *Aggregator) foldEvent(
 
 	fact := deliveryinsights.DeploymentFact{
 		ReleaseUID:       payload.RolloutID,
-		OrgNamespace:     namespaceName,
+		Namespace:        namespaceName,
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
 		EnvironmentUID:   payload.EnvironmentUID,
@@ -264,7 +283,7 @@ func (a *Aggregator) foldEvent(
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{
 			ID:               healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
-			OrgNamespace:     namespaceName,
+			Namespace:        namespaceName,
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
@@ -277,7 +296,7 @@ func (a *Aggregator) foldEvent(
 		// Only closes the episode — the deployment fact keeps its failure.
 		return nil, &deliveryinsights.RecoveryFact{
 			ID:             healthRecoveryID(payload.RolloutID, payload.FailureEpisode),
-			OrgNamespace:   namespaceName,
+			Namespace:      namespaceName,
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,

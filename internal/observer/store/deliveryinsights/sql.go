@@ -41,7 +41,7 @@ var migrations = []migration{
 		statements: []string{
 			`CREATE TABLE IF NOT EXISTS deployment_fact (
 				release_uid        TEXT PRIMARY KEY,
-				org_namespace      TEXT NOT NULL,
+				namespace      TEXT NOT NULL,
 				project_uid        TEXT NOT NULL,
 				component_uid      TEXT NOT NULL,
 				environment_uid    TEXT NOT NULL,
@@ -64,11 +64,11 @@ var migrations = []migration{
 				ON deployment_fact(component_uid, environment_uid, ready_ms);`,
 			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_project_ready
 				ON deployment_fact(project_uid, ready_ms);`,
-			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_org_ready
-				ON deployment_fact(org_namespace, ready_ms);`,
+			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_namespace_ready
+				ON deployment_fact(namespace, ready_ms);`,
 			`CREATE TABLE IF NOT EXISTS recovery_fact (
 				id                 TEXT PRIMARY KEY,
-				org_namespace      TEXT NOT NULL,
+				namespace      TEXT NOT NULL,
 				project_uid        TEXT NOT NULL DEFAULT '',
 				component_uid      TEXT NOT NULL DEFAULT '',
 				environment_uid    TEXT NOT NULL DEFAULT '',
@@ -87,6 +87,11 @@ var migrations = []migration{
 				scope_type       TEXT NOT NULL,
 				scope_uid        TEXT NOT NULL,
 				environment_uid  TEXT NOT NULL DEFAULT '',
+				-- Where the scope sits. Not part of the key, which scope_uid already
+				-- settles; they are here so a read can require the caller's namespace
+				-- and project to be the ones the row was written under.
+				namespace        TEXT NOT NULL DEFAULT '',
+				project_uid      TEXT NOT NULL DEFAULT '',
 				granularity      TEXT NOT NULL,
 				bucket_start_ms  BIGINT NOT NULL,
 				deploy_total     INTEGER NOT NULL DEFAULT 0,
@@ -123,7 +128,26 @@ var migrations = []migration{
 			);`,
 		},
 	},
+	{
+		version: 3,
+		statements: []string{
+			// The rollup recompute reads a time range across every scope, so none of
+			// the indexes above apply: each is led by a scope column, and the range is
+			// over an expression rather than a raw one. That left the hottest read in
+			// the aggregator a full scan plus sort, repeated per page. These two index
+			// exactly what it filters and orders by.
+			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_occurred
+				ON deployment_fact((COALESCE(ready_ms, started_ms, updated_at_ms)));`,
+			`CREATE INDEX IF NOT EXISTS idx_recovery_fact_started
+				ON recovery_fact(failure_started_ms);`,
+		},
+	},
 }
+
+// migrationAdvisoryLockKey namespaces the PostgreSQL advisory lock that serializes
+// migrations. Arbitrary but fixed, and distinct from any other advisory lock the
+// process takes; advisory locks share one key space per database.
+const migrationAdvisoryLockKey = 6_021_974_118_403_551
 
 const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insights_schema_version (
 	version       INTEGER PRIMARY KEY,
@@ -146,7 +170,7 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 //     so the deployment would vanish from every bucket.
 //   - scope and descriptor columns: a non-empty incoming value wins over a stored
 //     one, and an empty one never erases what is stored. Only the release UID and
-//     the org namespace are required of a fact, so an event that reaches the fold
+//     the namespace are required of a fact, so an event that reaches the fold
 //     without its scope labels -- they travel as `omitempty` payload fields, and
 //     not every render path stamps them -- would otherwise blank the UIDs an
 //     earlier phase of the same rollout recorded. That is not a cosmetic loss:
@@ -154,14 +178,14 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 //     and AttributeIncident can no longer match the deployment by
 //     (component_uid, environment_uid).
 const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
-	release_uid, org_namespace, project_uid, component_uid, environment_uid,
+	release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (release_uid) DO UPDATE SET
-	org_namespace = CASE WHEN excluded.org_namespace <> ''
-		THEN excluded.org_namespace ELSE deployment_fact.org_namespace END,
+	namespace = CASE WHEN excluded.namespace <> ''
+		THEN excluded.namespace ELSE deployment_fact.namespace END,
 	project_uid = CASE WHEN excluded.project_uid <> ''
 		THEN excluded.project_uid ELSE deployment_fact.project_uid END,
 	component_uid = CASE WHEN excluded.component_uid <> ''
@@ -203,7 +227,7 @@ ON CONFLICT (release_uid) DO UPDATE SET
 	updated_at_ms = excluded.updated_at_ms;`
 
 const upsertRecoveryFactQuery = `INSERT INTO recovery_fact (
-	id, org_namespace, project_uid, component_uid, environment_uid,
+	id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -226,12 +250,14 @@ ON CONFLICT (id) DO UPDATE SET
 	updated_at_ms = excluded.updated_at_ms;`
 
 const upsertRollupQuery = `INSERT INTO delivery_metric_rollup (
-	scope_type, scope_uid, environment_uid, granularity, bucket_start_ms,
+	scope_type, scope_uid, environment_uid, namespace, project_uid, granularity, bucket_start_ms,
 	deploy_total, deploy_success, deploy_failed,
 	lead_time_p50_ms, lead_time_p75_ms, lead_time_p95_ms,
 	mttr_mean_ms, mttr_p50_ms, recovery_count, computed_at_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (scope_type, scope_uid, environment_uid, granularity, bucket_start_ms) DO UPDATE SET
+	namespace = excluded.namespace,
+	project_uid = excluded.project_uid,
 	deploy_total = excluded.deploy_total,
 	deploy_success = excluded.deploy_success,
 	deploy_failed = excluded.deploy_failed,
@@ -247,17 +273,39 @@ const setWatermarkQuery = `INSERT INTO delivery_insights_watermark (source, wate
 VALUES (?, ?)
 ON CONFLICT (source) DO UPDATE SET watermark_ms = excluded.watermark_ms;`
 
-// acquireLeaseQuery takes or renews a lease in one statement, so two replicas
+// acquireLeaseQueryFmt takes or renews a lease in one statement, so two replicas
 // racing cannot both believe they hold it. The DO UPDATE fires only when the
 // current lease has expired or is already ours, which makes RowsAffected the
 // answer: 1 acquired or renewed, 0 held by someone else.
-const acquireLeaseQuery = `INSERT INTO delivery_insights_lease (name, holder, expires_ms)
-VALUES (?, ?, ?)
+//
+// Both the expiry it writes and the expiry it compares against come from the
+// database clock (%[1]s), not from the caller's. Expiry is otherwise evaluated by
+// whichever replica happens to ask, against a value written by a different one, so
+// a replica whose clock ran ahead would see a live lease as expired and take it
+// while the incumbent still believed it held it. One clock for every replica
+// removes that, and the database is the one thing they demonstrably share.
+const acquireLeaseQueryFmt = `INSERT INTO delivery_insights_lease (name, holder, expires_ms)
+VALUES (?, ?, %[1]s + ?)
 ON CONFLICT (name) DO UPDATE SET
 	holder = excluded.holder,
 	expires_ms = excluded.expires_ms
-WHERE delivery_insights_lease.expires_ms <= ?
+WHERE delivery_insights_lease.expires_ms <= %[1]s
 	OR delivery_insights_lease.holder = excluded.holder;`
+
+// setWatermarkFencedQueryFmt only advances a watermark while this replica still
+// holds the lease, which is the fence the lease itself cannot provide. Renewal
+// narrows the window in which a stalled holder keeps writing but does not close
+// it, and an unfenced write is not harmless: the resume watermarks encode how far
+// a capped sweep reached, so a zombie replica reporting a completed sweep erases
+// the position the live one stored and the unread remainder is skipped silently.
+//
+// The SELECT carries its own WHERE, which SQLite needs to tell the upsert's ON
+// from a join's ON. RowsAffected is 0 when the lease has moved on.
+const setWatermarkFencedQueryFmt = `INSERT INTO delivery_insights_watermark (source, watermark_ms)
+SELECT ?, ? WHERE EXISTS (
+	SELECT 1 FROM delivery_insights_lease WHERE name = ? AND holder = ?
+)
+ON CONFLICT (source) DO UPDATE SET watermark_ms = excluded.watermark_ms;`
 
 // releaseLeaseQuery only clears a lease we still hold, so a holder that stalled
 // past expiry cannot delete the lease its successor has already taken.
@@ -269,6 +317,11 @@ type sqlStore struct {
 	backend string
 	dsn     string
 	logger  *slog.Logger
+	// nowMsOverride replaces the database clock in lease expiry when non-zero. It
+	// exists so tests in this package can step time without sleeping; nothing
+	// outside the package can set it, so production always reads the one clock every
+	// replica shares.
+	nowMsOverride int64
 }
 
 func newSQLStore(backend, dsn string, logger *slog.Logger) (Store, error) {
@@ -304,10 +357,10 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if err := s.db.PingContext(initCtx); err != nil {
 		return fmt.Errorf("failed to ping delivery insights store: %w", err)
 	}
-	if _, err := s.db.ExecContext(initCtx, createSchemaVersionTableQuery); err != nil {
-		return fmt.Errorf("failed to create delivery insights schema version table: %w", err)
-	}
-
+	// The version table is created inside applyMigrations, under the same advisory
+	// lock: CREATE TABLE IF NOT EXISTS is not atomic against a concurrent one, and
+	// serializing the migrations while racing on the table that records them would
+	// leave the race the lock was added to close.
 	return s.applyMigrations(initCtx)
 }
 
@@ -324,7 +377,44 @@ func (s *sqlStore) enableSQLiteWAL(ctx context.Context) error {
 
 // applyMigrations runs every migration with a version greater than the recorded maximum,
 // each inside its own transaction so a failure leaves the schema at a known version.
+// createSchemaVersionTable creates the table the migration log lives in, under the
+// same advisory lock the migrations take. It is the first DDL a replica runs, so
+// it meets the same non-atomic CREATE TABLE IF NOT EXISTS race on PostgreSQL that
+// the lock exists to close -- serializing every migration but not the table that
+// records them would leave the cold start failing on the first statement instead
+// of a later one.
+func (s *sqlStore) createSchemaVersionTable(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin schema version table creation: %w", err)
+	}
+	rollback := func() {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			s.logger.Error("Failed to roll back schema version table creation", "error", rbErr)
+		}
+	}
+	if s.backend == BackendPostgreSQL {
+		if _, err := tx.ExecContext(ctx,
+			"SELECT pg_advisory_xact_lock($1);", migrationAdvisoryLockKey); err != nil {
+			rollback()
+			return fmt.Errorf("failed to lock for schema version table creation: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, createSchemaVersionTableQuery); err != nil {
+		rollback()
+		return fmt.Errorf("failed to create delivery insights schema version table: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit schema version table creation: %w", err)
+	}
+	return nil
+}
+
 func (s *sqlStore) applyMigrations(ctx context.Context) error {
+	if err := s.createSchemaVersionTable(ctx); err != nil {
+		return err
+	}
+
 	var current sql.NullInt64
 	row := s.db.QueryRowContext(ctx, "SELECT MAX(version) FROM delivery_insights_schema_version;")
 	if err := row.Scan(&current); err != nil {
@@ -339,6 +429,24 @@ func (s *sqlStore) applyMigrations(ctx context.Context) error {
 		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("failed to begin migration %d: %w", m.version, err)
+		}
+		// Serialize this migration across replicas. CREATE TABLE/INDEX IF NOT EXISTS
+		// is not atomic against a concurrent create on PostgreSQL: both sessions see
+		// no relation, both proceed, and the loser fails on a duplicate key in the
+		// catalog rather than doing nothing -- so the replica refuses to start, on
+		// exactly the multi-replica cold start the lease exists to support. Taking the
+		// lock first means the second replica only reaches the DDL once the first has
+		// committed, where IF NOT EXISTS genuinely sees the relation. The lock is held
+		// for the transaction and released by COMMIT or ROLLBACK.
+		if s.backend == BackendPostgreSQL {
+			if _, err := tx.ExecContext(ctx,
+				"SELECT pg_advisory_xact_lock($1);", migrationAdvisoryLockKey); err != nil {
+				if rbErr := tx.Rollback(); rbErr != nil {
+					s.logger.Error("Failed to roll back after migration lock",
+						"version", m.version, "error", rbErr)
+				}
+				return fmt.Errorf("failed to lock for migration %d: %w", m.version, err)
+			}
 		}
 		if err := s.applyMigration(ctx, tx, m); err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
@@ -372,6 +480,16 @@ func (s *sqlStore) applyMigration(ctx context.Context, tx *sql.Tx, m migration) 
 		return fmt.Errorf("failed to record migration %d: %w", m.version, err)
 	}
 	return nil
+}
+
+// nowMsExpr is the SQL expression for the database's own clock in epoch
+// milliseconds. Lease expiry is compared against it so that no replica's wall
+// clock can shorten or extend another's lease.
+func (s *sqlStore) nowMsExpr() string {
+	if s.backend == BackendPostgreSQL {
+		return "(EXTRACT(EPOCH FROM now()) * 1000)::bigint"
+	}
+	return "CAST((julianday('now') - 2440587.5) * 86400000 AS BIGINT)"
 }
 
 // rebind converts '?' placeholders to PostgreSQL's positional '$N' form. Statements in
@@ -411,7 +529,7 @@ func (s *sqlStore) UpsertDeploymentFacts(ctx context.Context, facts []Deployment
 		for i := range facts {
 			f := &facts[i]
 			_, err := tx.ExecContext(ctx, query,
-				f.ReleaseUID, f.OrgNamespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
+				f.ReleaseUID, f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
 				f.ProjectName, f.ComponentName, f.EnvironmentName, f.ComponentRelease,
 				f.CommitSHA, nullableInt64(f.CommitAuthoredMs), nullableInt64(f.StartedMs),
 				nullableInt64(f.ReadyMs), f.Outcome, f.FailedBy, f.FailureReason,
@@ -440,7 +558,7 @@ func (s *sqlStore) UpsertRecoveryFacts(ctx context.Context, facts []RecoveryFact
 		for i := range facts {
 			f := &facts[i]
 			_, err := tx.ExecContext(ctx, query,
-				f.ID, f.OrgNamespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
+				f.ID, f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
 				f.ReleaseUID, f.IncidentID, f.Severity, f.Source,
 				f.FailureStartedMs, nullableInt64(f.RecoveredMs), nullableInt64(f.DurationMs),
 				f.UpdatedAtMs,
@@ -468,7 +586,8 @@ func (s *sqlStore) UpsertRollups(ctx context.Context, rollups []MetricRollup) er
 		for i := range rollups {
 			r := &rollups[i]
 			_, err := tx.ExecContext(ctx, query,
-				r.ScopeType, r.ScopeUID, r.EnvironmentUID, r.Granularity, r.BucketStartMs,
+				r.ScopeType, r.ScopeUID, r.EnvironmentUID, r.Namespace, r.ProjectUID,
+				r.Granularity, r.BucketStartMs,
 				r.DeployTotal, r.DeploySuccess, r.DeployFailed,
 				nullableInt64(r.LeadTimeP50Ms), nullableInt64(r.LeadTimeP75Ms),
 				nullableInt64(r.LeadTimeP95Ms), nullableInt64(r.MTTRMeanMs),
@@ -488,17 +607,23 @@ func (s *sqlStore) QueryRollups(ctx context.Context, q RollupQuery) ([]MetricRol
 		return nil, err
 	}
 
-	query := s.rebind(`SELECT scope_type, scope_uid, environment_uid, granularity, bucket_start_ms,
+	// namespace and project_uid are required to match, not merely carried: a
+	// component UID addresses one component whatever project the caller named, and
+	// the caller's project is what the authorization decision was made on.
+	query := s.rebind(`SELECT scope_type, scope_uid, environment_uid, namespace, project_uid,
+	granularity, bucket_start_ms,
 	deploy_total, deploy_success, deploy_failed,
 	lead_time_p50_ms, lead_time_p75_ms, lead_time_p95_ms,
 	mttr_mean_ms, mttr_p50_ms, recovery_count, computed_at_ms
 FROM delivery_metric_rollup
 WHERE scope_type = ? AND scope_uid = ? AND environment_uid = ? AND granularity = ?
+	AND namespace = ? AND project_uid = ?
 	AND bucket_start_ms >= ? AND bucket_start_ms < ?
 ORDER BY bucket_start_ms ASC;`)
 
 	rows, err := s.db.QueryContext(ctx, query,
-		q.ScopeType, q.ScopeUID, q.EnvironmentUID, q.Granularity, q.StartMs, q.EndMs)
+		q.ScopeType, q.ScopeUID, q.EnvironmentUID, q.Granularity,
+		q.Namespace, q.ProjectUID, q.StartMs, q.EndMs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query delivery metric rollups: %w", err)
 	}
@@ -508,7 +633,8 @@ ORDER BY bucket_start_ms ASC;`)
 	for rows.Next() {
 		var r MetricRollup
 		var p50, p75, p95, mttrMean, mttrP50 sql.NullInt64
-		if err := rows.Scan(&r.ScopeType, &r.ScopeUID, &r.EnvironmentUID, &r.Granularity,
+		if err := rows.Scan(&r.ScopeType, &r.ScopeUID, &r.EnvironmentUID,
+			&r.Namespace, &r.ProjectUID, &r.Granularity,
 			&r.BucketStartMs, &r.DeployTotal, &r.DeploySuccess, &r.DeployFailed,
 			&p50, &p75, &p95, &mttrMean, &mttrP50, &r.RecoveryCount, &r.ComputedAtMs); err != nil {
 			return nil, fmt.Errorf("failed to scan delivery metric rollup: %w", err)
@@ -541,13 +667,7 @@ func (s *sqlStore) QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]Dep
 	args = append(args, q.StartMs, q.EndMs)
 	where := " WHERE " + strings.Join(conditions, " AND ")
 
-	countQuery := s.rebind("SELECT COUNT(*) FROM deployment_fact" + where + ";")
-	var total int
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("failed to count deployment facts: %w", err)
-	}
-
-	base := `SELECT release_uid, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
 	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
@@ -557,7 +677,7 @@ FROM deployment_fact` + where +
 		// rollout puts many facts in the same millisecond.
 		" ORDER BY " + occurredMsExpr + " " + orderClause + ", release_uid ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		facts, err := pageAll(func(limit, offset int) ([]DeploymentFact, error) {
 			return s.scanDeploymentFacts(ctx, query, withLimitOffset(args, limit, offset))
@@ -565,7 +685,16 @@ FROM deployment_fact` + where +
 		if err != nil {
 			return nil, 0, err
 		}
-		return facts, total, nil
+		// An All read returns every matching row, so its length is the count. Running
+		// COUNT(*) as well would scan the same rows a second time to learn what the
+		// read already established.
+		return facts, len(facts), nil
+	}
+
+	countQuery := s.rebind("SELECT COUNT(*) FROM deployment_fact" + where + ";")
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count deployment facts: %w", err)
 	}
 
 	query := s.rebind(base + " LIMIT " + strconv.Itoa(limit) + ";")
@@ -590,7 +719,7 @@ func (s *sqlStore) scanDeploymentFacts(
 	for rows.Next() {
 		var f DeploymentFact
 		var authored, started, ready, leadTime sql.NullInt64
-		if err := rows.Scan(&f.ReleaseUID, &f.OrgNamespace, &f.ProjectUID, &f.ComponentUID,
+		if err := rows.Scan(&f.ReleaseUID, &f.Namespace, &f.ProjectUID, &f.ComponentUID,
 			&f.EnvironmentUID, &f.ProjectName, &f.ComponentName, &f.EnvironmentName,
 			&f.ComponentRelease, &f.CommitSHA, &authored, &started, &ready,
 			&f.Outcome, &f.FailedBy, &f.FailureReason, &f.IncidentID, &leadTime,
@@ -677,13 +806,13 @@ func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]Recov
 	conditions = append(conditions, "failure_started_ms >= ?", "failure_started_ms < ?")
 	args = append(args, q.StartMs, q.EndMs)
 
-	base := `SELECT id, org_namespace, project_uid, component_uid, environment_uid,
+	base := `SELECT id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 		" ORDER BY failure_started_ms ASC, id ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]RecoveryFact, error) {
 			return s.scanRecoveryFacts(ctx, query, withLimitOffset(args, limit, offset))
@@ -714,7 +843,7 @@ func (s *sqlStore) scanRecoveryFacts(
 	for rows.Next() {
 		var f RecoveryFact
 		var recovered, duration sql.NullInt64
-		if err := rows.Scan(&f.ID, &f.OrgNamespace, &f.ProjectUID, &f.ComponentUID,
+		if err := rows.Scan(&f.ID, &f.Namespace, &f.ProjectUID, &f.ComponentUID,
 			&f.EnvironmentUID, &f.ReleaseUID, &f.IncidentID, &f.Severity, &f.Source,
 			&f.FailureStartedMs, &recovered, &duration, &f.UpdatedAtMs); err != nil {
 			return nil, fmt.Errorf("failed to scan recovery fact: %w", err)
@@ -774,7 +903,7 @@ func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, er
 	base := "SELECT lead_time_ms FROM deployment_fact WHERE " +
 		strings.Join(conditions, " AND ") + " ORDER BY ready_ms ASC, release_uid ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]int64, error) {
 			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "lead times")
@@ -809,7 +938,7 @@ func (s *sqlStore) QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]i
 	base := "SELECT duration_ms FROM recovery_fact WHERE " +
 		strings.Join(conditions, " AND ") + " ORDER BY failure_started_ms ASC, id ASC"
 
-	if q.All {
+	if q.AllRows {
 		query := s.rebind(base + " LIMIT ? OFFSET ?;")
 		return pageAll(func(limit, offset int) ([]int64, error) {
 			return s.queryInt64s(ctx, query, withLimitOffset(args, limit, offset), "recovery durations")
@@ -839,20 +968,43 @@ func (s *sqlStore) Watermark(ctx context.Context, source string) (int64, error) 
 	return watermark, nil
 }
 
-func (s *sqlStore) SetWatermark(ctx context.Context, source string, watermarkMs int64) error {
+// SetWatermark advances a watermark, but only while leaseHolder still holds
+// leaseName. See setWatermarkFencedQueryFmt for why an unfenced write is not safe.
+// Passing an empty lease name writes unconditionally, which is for tests and
+// one-off maintenance -- the aggregator always fences.
+func (s *sqlStore) SetWatermark(
+	ctx context.Context, source string, watermarkMs int64, leaseName, leaseHolder string,
+) error {
 	if strings.TrimSpace(source) == "" {
 		return fmt.Errorf("watermark source is required")
 	}
-	query := s.rebind(setWatermarkQuery)
-	if _, err := s.db.ExecContext(ctx, query, source, watermarkMs); err != nil {
+	if strings.TrimSpace(leaseName) == "" {
+		query := s.rebind(setWatermarkQuery)
+		if _, err := s.db.ExecContext(ctx, query, source, watermarkMs); err != nil {
+			return fmt.Errorf("failed to set delivery insights watermark %q: %w", source, err)
+		}
+		return nil
+	}
+
+	query := s.rebind(setWatermarkFencedQueryFmt)
+	result, err := s.db.ExecContext(ctx, query, source, watermarkMs, leaseName, leaseHolder)
+	if err != nil {
 		return fmt.Errorf("failed to set delivery insights watermark %q: %w", source, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read watermark write result for %q: %w", source, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("%w: watermark %q not advanced", ErrLeaseNotHeld, source)
 	}
 	return nil
 }
 
-// AcquireLease takes or renews the named lease for holder until nowMs+ttlMs.
+// AcquireLease takes or renews the named lease for holder for a further ttlMs,
+// measured on the database clock rather than this process's.
 func (s *sqlStore) AcquireLease(
-	ctx context.Context, name, holder string, nowMs, ttlMs int64,
+	ctx context.Context, name, holder string, ttlMs int64,
 ) (bool, error) {
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(holder) == "" {
 		return false, fmt.Errorf("lease name and holder are required")
@@ -860,8 +1012,19 @@ func (s *sqlStore) AcquireLease(
 	if ttlMs <= 0 {
 		return false, fmt.Errorf("lease ttl must be positive, got %d", ttlMs)
 	}
-	query := s.rebind(acquireLeaseQuery)
-	result, err := s.db.ExecContext(ctx, query, name, holder, nowMs+ttlMs, nowMs)
+
+	args := []any{name, holder}
+	nowExpr := s.nowMsExpr()
+	if s.nowMsOverride > 0 {
+		// Tests only; see the field comment.
+		nowExpr = "?"
+		args = append(args, s.nowMsOverride, ttlMs, s.nowMsOverride)
+	} else {
+		args = append(args, ttlMs)
+	}
+
+	query := s.rebind(fmt.Sprintf(acquireLeaseQueryFmt, nowExpr))
+	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return false, fmt.Errorf("failed to acquire delivery insights lease %q: %w", name, err)
 	}
@@ -870,6 +1033,23 @@ func (s *sqlStore) AcquireLease(
 		return false, fmt.Errorf("failed to read lease acquisition result for %q: %w", name, err)
 	}
 	return affected > 0, nil
+}
+
+// LeaseHolder reports who currently holds the named lease, or "" if nobody does.
+// It is a read: unlike AcquireLease it does not renew the expiry, which makes it
+// the safe way to answer "which replica is aggregating" from a debug endpoint or a
+// test. It is deliberately not on the Store interface -- the aggregation loop must
+// decide on AcquireLease's answer, not on a separate read it could race.
+func (s *sqlStore) LeaseHolder(ctx context.Context, name string) (string, error) {
+	query := s.rebind(`SELECT holder FROM delivery_insights_lease WHERE name = ?;`)
+	var holder string
+	switch err := s.db.QueryRowContext(ctx, query, name).Scan(&holder); {
+	case errors.Is(err, sql.ErrNoRows):
+		return "", nil
+	case err != nil:
+		return "", fmt.Errorf("failed to read delivery insights lease %q: %w", name, err)
+	}
+	return holder, nil
 }
 
 // ReleaseLease drops the named lease if holder still owns it, so the next tick
@@ -887,7 +1067,7 @@ func (s *sqlStore) Close() error {
 }
 
 // factScopeConditions builds the WHERE fragment shared by all fact queries. Empty scope
-// fields are not filtered on, so one query shape serves org, project, component, and
+// fields are not filtered on, so one query shape serves namespace, project, component, and
 // per-environment reads.
 func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 	conditions := make([]string, 0, 6)
@@ -896,7 +1076,7 @@ func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 		column string
 		value  string
 	}{
-		{"org_namespace", q.OrgNamespace},
+		{"namespace", q.Namespace},
 		{"project_uid", q.ProjectUID},
 		{"component_uid", q.ComponentUID},
 		{"environment_uid", q.EnvironmentUID},
@@ -952,8 +1132,8 @@ func validateDeploymentFact(f *DeploymentFact) error {
 	if strings.TrimSpace(f.ReleaseUID) == "" {
 		return fmt.Errorf("deployment fact release UID is required")
 	}
-	if strings.TrimSpace(f.OrgNamespace) == "" {
-		return fmt.Errorf("deployment fact %q: org namespace is required", f.ReleaseUID)
+	if strings.TrimSpace(f.Namespace) == "" {
+		return fmt.Errorf("deployment fact %q: namespace is required", f.ReleaseUID)
 	}
 	if f.Outcome == "" {
 		f.Outcome = OutcomeInProgress
@@ -978,8 +1158,8 @@ func validateRecoveryFact(f *RecoveryFact) error {
 	if strings.TrimSpace(f.ID) == "" {
 		return fmt.Errorf("recovery fact ID is required")
 	}
-	if strings.TrimSpace(f.OrgNamespace) == "" {
-		return fmt.Errorf("recovery fact %q: org namespace is required", f.ID)
+	if strings.TrimSpace(f.Namespace) == "" {
+		return fmt.Errorf("recovery fact %q: namespace is required", f.ID)
 	}
 	switch f.Source {
 	case RecoverySourceIncident, RecoverySourceHealth:
@@ -1033,7 +1213,7 @@ func validateRollupQuery(q *RollupQuery) error {
 
 func validateScopeType(scopeType string) error {
 	switch scopeType {
-	case ScopeTypeOrg, ScopeTypeProject, ScopeTypeComponent:
+	case ScopeTypeNamespace, ScopeTypeProject, ScopeTypeComponent:
 		return nil
 	default:
 		return fmt.Errorf("unsupported rollup scope type %q", scopeType)
@@ -1060,7 +1240,7 @@ func normalizeSortOrder(sortOrder string) (string, error) {
 	}
 }
 
-// factPageSize is how many rows an exhaustive (FactQuery.All) read fetches per
+// factPageSize is how many rows an exhaustive (FactQuery.AllRows) read fetches per
 // round trip. It bounds the query, not the result: pageAll keeps going until a
 // short page arrives, so the caller still sees every matching row.
 const factPageSize = 5000
