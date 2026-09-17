@@ -97,10 +97,9 @@ const (
 
 // Defines values for AuditLogsQueryRequestResult.
 const (
-	AuditLogsQueryRequestResultDenied          AuditLogsQueryRequestResult = "denied"
-	AuditLogsQueryRequestResultFailure         AuditLogsQueryRequestResult = "failure"
-	AuditLogsQueryRequestResultSuccess         AuditLogsQueryRequestResult = "success"
-	AuditLogsQueryRequestResultUnauthenticated AuditLogsQueryRequestResult = "unauthenticated"
+	AuditLogsQueryRequestResultDenied  AuditLogsQueryRequestResult = "denied"
+	AuditLogsQueryRequestResultFailure AuditLogsQueryRequestResult = "failure"
+	AuditLogsQueryRequestResultSuccess AuditLogsQueryRequestResult = "success"
 )
 
 // Defines values for AuditLogsQueryRequestSortOrder.
@@ -476,8 +475,8 @@ type AuditLogRecord struct {
 	// authorized at. Absent on a rejection that resolved no operation.
 	Resource *AuditLogResource `json:"resource,omitempty"`
 
-	// Result Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
-	// policy) or `unauthenticated` (no subject at all) at schema 1.0.
+	// Result Outcome. `success`, `failure` or `denied` (an authenticated subject refused by
+	// policy) at schema 1.0.
 	Result string `json:"result"`
 
 	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed value representation, minor on an addition.

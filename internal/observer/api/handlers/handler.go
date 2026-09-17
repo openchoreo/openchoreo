@@ -132,16 +132,16 @@ type ObserverMiddlewareOptions struct {
 //
 // oapi-codegen applies these last-to-first, so the last entry is outermost:
 //
-//	logger → recovery → unauthenticatedAudit → auth → audit → contentType → handler
+//	logger → recovery → auth → audit → contentType → handler
 //
 // audit sits inside auth so SubjectContext is already populated for it: it
 // captures its context before calling next, and the JWT middleware populates a
 // child context that never propagates back. Outside auth, every event would
 // emit as anonymous with nothing failing.
 //
-// unauthenticatedAudit sits outside auth — the only position that can see a
-// request auth itself rejects, since auth short-circuits and never calls next.
-// contentType stays innermost so an unauthenticated caller cannot probe it.
+// A request auth rejects never reaches audit; the access log is its only
+// record. contentType stays innermost so an unauthenticated caller cannot
+// probe it.
 //
 // Auth wraps every generated route; auth.OpenAPIAuth decides per request from
 // the scopes context key the generated wrapper sets, so which routes are
@@ -163,28 +163,23 @@ func ObserverMiddlewares(opts ObserverMiddlewareOptions) ([]gen.MiddlewareFunc, 
 	if err != nil {
 		return nil, err
 	}
-	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(
-		opts.AuditEmitter, audit.SurfaceREST, opts.AuditConfig)
 
 	return []gen.MiddlewareFunc{
 		RequireJSONContentType(opts.Logger),
 		auditMw.Handler,
 		opts.AuthMiddleware,
-		unauthenticatedAuditMw,
 		observermiddleware.Recovery(opts.Logger),
 		apilogger.Middleware(opts.Logger),
 	}, nil
 }
 
-// MCPMiddlewareOptions carries the dependencies MCPMiddlewares needs. All
-// three must be non-nil.
+// MCPMiddlewareOptions carries the dependencies MCPMiddlewares needs. Both
+// must be non-nil.
 type MCPMiddlewareOptions struct {
 	// Auth401 is mcpmiddleware.Auth401Interceptor in production.
 	Auth401 func(http.Handler) http.Handler
 	// JWTAuth is the same JWT middleware the public REST chain wraps.
-	JWTAuth      func(http.Handler) http.Handler
-	AuditEmitter *audit.Emitter
-	AuditConfig  audit.MiddlewareConfig
+	JWTAuth func(http.Handler) http.Handler
 }
 
 // MCPMiddlewares returns the middlewares to group onto /mcp, on top of the
@@ -194,21 +189,11 @@ type MCPMiddlewareOptions struct {
 // the generated servers' slices. cmd/observer holds both conventions, which is
 // why this ordering lives here rather than inline at the call site:
 //
-//	logger → recovery → unauthenticatedAudit → auth401 → jwt → handler
+//	logger → recovery → auth401 → jwt → handler
 //
-// unauthenticatedAudit sits outside jwt for the same reason as in
-// ObserverMiddlewares. Reverse the two and an MCP token rejection silently
-// emits nothing.
-//
-// The SurfaceMCP instance is separate from ObserverMiddlewares' SurfaceREST one:
-// sharing would misattribute MCP rejections to REST, and nesting would
-// double-emit. They never stack, since /mcp is registered on the base mux.
-//
-// No operation-level audit middleware here. That one needs the tool name and
+// No audit middleware here. The operation-level one needs the tool name and
 // arguments, which this chain only sees as a JSON-RPC body, so it is installed
-// inside the MCP server itself (observermcp.NewHTTPServer). The two are
-// complementary: this middleware records the rejections that never reach a
-// tool, that one records the calls on tools bound to an audited operation.
+// inside the MCP server itself (observermcp.NewHTTPServer).
 func MCPMiddlewares(opts MCPMiddlewareOptions) ([]middleware.Middleware, error) {
 	if opts.Auth401 == nil {
 		return nil, errors.New("observer: MCPMiddlewareOptions.Auth401 must not be nil")
@@ -216,12 +201,8 @@ func MCPMiddlewares(opts MCPMiddlewareOptions) ([]middleware.Middleware, error) 
 	if opts.JWTAuth == nil {
 		return nil, errors.New("observer: MCPMiddlewareOptions.JWTAuth must not be nil")
 	}
-	if opts.AuditEmitter == nil {
-		return nil, errors.New("observer: MCPMiddlewareOptions.AuditEmitter must not be nil")
-	}
 
 	return []middleware.Middleware{
-		audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.SurfaceMCP, opts.AuditConfig),
 		opts.Auth401,
 		opts.JWTAuth,
 	}, nil
@@ -252,8 +233,7 @@ type InternalMiddlewareOptions struct {
 // Audit is wired even though every operation here is exempted today — with no
 // auth there is no actor to record — so coverage becomes automatic if an
 // exemption lifts. Until then OperationsIn resolves to an empty set and the
-// middleware is a pass-through. No unauthenticated-audit middleware, since
-// without auth there is no 401 to observe.
+// middleware is a pass-through.
 //
 // This is the single definition of the chain — main.go supplies dependencies
 // but owns no ordering.

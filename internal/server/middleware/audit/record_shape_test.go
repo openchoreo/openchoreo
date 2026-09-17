@@ -41,8 +41,7 @@ type recordCase struct {
 }
 
 // recordCases covers the branches the render takes: every field populated, a
-// nil Resource carrying only a hierarchy, a rejection that resolved no
-// operation, a sub-second timestamp, both metadata groups, and both presence
+// nil Resource carrying only a hierarchy, a sub-second timestamp, both metadata groups, and both presence
 // and absence of the http group.
 func recordCases() []recordCase {
 	return []recordCase{
@@ -115,56 +114,6 @@ func recordCases() []recordCase {
 				`"user_agent":"",` +
 				`"producer":"openchoreo-api","surface":"mcp","operation_id":"UpdateProject",` +
 				`"resource":{"type":"projects","namespace":"ns-1","project":"p1"}}` + "\n",
-		},
-		{
-			name: "unauthenticated with no operation",
-			event: &Event{
-				EventID:   "01920000-0000-7000-8000-000000000003",
-				EventTime: fixedTime,
-				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
-				Result:    ResultUnauthenticated,
-				RequestID: "33333333-3333-4333-8333-333333333333",
-				SourceIP:  "10.0.0.3",
-				Producer:  "openchoreo-api",
-				// http is present where operation_id is not: the rejection
-				// resolved no operation but did have a request line.
-				HTTP: &HTTPInfo{Method: "POST", Path: "/api/v1/namespaces/ns-1/projects"},
-			},
-			// No "resource" at all: nothing resource-shaped was resolved.
-			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"event_id":"01920000-0000-7000-8000-000000000003",` +
-				`"event_time":"2026-09-07T12:30:45Z",` +
-				`"actor":{"type":"anonymous","id":"anonymous"},` +
-				`"action":"","category":"","result":"unauthenticated",` +
-				`"request_id":"33333333-3333-4333-8333-333333333333","source_ip":"10.0.0.3",` +
-				`"user_agent":"",` +
-				`"producer":"openchoreo-api",` +
-				`"http":{"method":"POST","path":"/api/v1/namespaces/ns-1/projects"}}` + "\n",
-		},
-		{
-			// Paired with "mcp tool call omits the http group": together they
-			// pin that http's presence is not derivable from origin.
-			name: "mcp rejection at the http boundary carries the http group",
-			event: &Event{
-				EventID:   "01920000-0000-7000-8000-000000000008",
-				EventTime: fixedTime,
-				Actor:     Actor{Type: "anonymous", ID: "anonymous"},
-				Surface:   SurfaceMCP,
-				Result:    ResultUnauthenticated,
-				RequestID: "88888888-8888-4888-8888-888888888888",
-				SourceIP:  "10.0.0.8",
-				Producer:  "openchoreo-api",
-				HTTP:      &HTTPInfo{Method: "POST", Path: "/mcp"},
-			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
-				`"event_id":"01920000-0000-7000-8000-000000000008",` +
-				`"event_time":"2026-09-07T12:30:45Z",` +
-				`"actor":{"type":"anonymous","id":"anonymous"},` +
-				`"action":"","category":"","result":"unauthenticated",` +
-				`"request_id":"88888888-8888-4888-8888-888888888888","source_ip":"10.0.0.8",` +
-				`"user_agent":"",` +
-				`"producer":"openchoreo-api","surface":"mcp",` +
-				`"http":{"method":"POST","path":"/mcp"}}` + "\n",
 		},
 		{
 			name: "sub-second timestamp",

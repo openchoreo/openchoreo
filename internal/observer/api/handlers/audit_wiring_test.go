@@ -21,8 +21,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
-	"github.com/openchoreo/openchoreo/internal/server/middleware"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -232,11 +230,10 @@ func TestUpdateIncidentAuditEventOnDenial(t *testing.T) {
 	assert.Equal(t, "comp-c", resource["component"])
 }
 
-// TestAuthRejectionEmitsUnauthenticatedEvent covers a 401 on a protected
-// route being recorded, stamped OriginAPI. Only works with the
-// unauthenticated-audit middleware outside auth — auth never calls next, so
-// the inner audit middleware cannot see the rejection.
-func TestAuthRejectionEmitsUnauthenticatedEvent(t *testing.T) {
+// TestAuthRejectionEmitsNoAuditEvent pins that a 401 on a protected route is
+// left to the access log: auth short-circuits before the audit middleware, so
+// nothing is emitted.
+func TestAuthRejectionEmitsNoAuditEvent(t *testing.T) {
 	t.Parallel()
 
 	rejectAll := func(http.Handler) http.Handler {
@@ -254,74 +251,7 @@ func TestAuthRejectionEmitsUnauthenticatedEvent(t *testing.T) {
 	srv.ServeHTTP(rr, updateIncidentRequest())
 	require.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	events := auditEvents(t, sink)
-	require.Len(t, events, 1,
-		"a 401 must emit exactly one event — two would mean the inner and outer audit "+
-			"middlewares both fired for the same request")
-	event := events[0]
-
-	assert.Equal(t, "rest", event["surface"], "a REST rejection must not be stamped as MCP")
-	assert.Equal(t, "unauthenticated", event["result"])
-
-	actor, ok := event["actor"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "anonymous", actor["id"],
-		"a rejected request has no subject, so the actor is genuinely anonymous here")
-
-	// Emitted with a nil Operation, so such an event is selectable only by
-	// origins/results/actor_types/actors — see the coverage matrix.
-	assert.NotContains(t, event, "operation_id")
-}
-
-// TestMCPMiddlewaresAuditUnauthenticated covers the MCP counterpart of
-// TestAuthRejectionEmitsUnauthenticatedEvent, and the ordering hazard behind
-// it: MCPMiddlewares is Chain-ordered (first
-// outermost) while the generated slices are the reverse. Get it backwards and
-// JWTAuth short-circuits before the audit middleware runs, so an MCP token
-// rejection emits nothing.
-//
-// Driven through middleware.Chain, as routes.Group(...).Handle does in
-// production, rather than restating the slice's contents.
-func TestMCPMiddlewaresAuditUnauthenticated(t *testing.T) {
-	t.Parallel()
-
-	rejectAll := func(http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		})
-	}
-	passThrough := func(next http.Handler) http.Handler { return next }
-
-	emitter, sink := newAuditSink(t)
-	mws, err := MCPMiddlewares(MCPMiddlewareOptions{
-		Auth401:      passThrough,
-		JWTAuth:      rejectAll,
-		AuditEmitter: emitter,
-		AuditConfig:  audit.MiddlewareConfig{Enabled: true},
-	})
-	require.NoError(t, err)
-
-	reached := false
-	handler := middleware.Chain(mws...)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		reached = true
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{}`)))
-
-	require.Equal(t, http.StatusUnauthorized, rr.Code)
-	require.False(t, reached, "auth must short-circuit before the MCP server")
-
-	events := auditEvents(t, sink)
-	require.Len(t, events, 1,
-		"an MCP 401 must emit exactly one event — none means the audit middleware sits inside "+
-			"auth and never runs; two means it is nested with another instance")
-
-	event := events[0]
-	assert.Equal(t, "mcp", event["surface"],
-		"an MCP rejection stamped as api would misattribute it to the REST surface")
-	assert.Equal(t, "unauthenticated", event["result"])
+	assert.Empty(t, auditEvents(t, sink))
 }
 
 // TestMCPMiddlewaresRequireDependencies pins that every dependency is checked
@@ -331,9 +261,8 @@ func TestMCPMiddlewaresRequireDependencies(t *testing.T) {
 
 	passThrough := func(next http.Handler) http.Handler { return next }
 	full := MCPMiddlewareOptions{
-		Auth401:      passThrough,
-		JWTAuth:      passThrough,
-		AuditEmitter: noopAuditEmitter(t),
+		Auth401: passThrough,
+		JWTAuth: passThrough,
 	}
 
 	missingAuth401 := full
@@ -345,11 +274,6 @@ func TestMCPMiddlewaresRequireDependencies(t *testing.T) {
 	missingJWT.JWTAuth = nil
 	_, err = MCPMiddlewares(missingJWT)
 	require.Error(t, err, "a nil JWTAuth must be rejected")
-
-	missingEmitter := full
-	missingEmitter.AuditEmitter = nil
-	_, err = MCPMiddlewares(missingEmitter)
-	require.Error(t, err, "a nil AuditEmitter must be rejected")
 }
 
 // TestInternalSpecHasNoAuditedOperationsToday pins that the internal port's

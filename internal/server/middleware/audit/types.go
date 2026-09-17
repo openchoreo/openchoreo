@@ -82,13 +82,10 @@ const (
 	ResultSuccess Result = "success"
 	ResultFailure Result = "failure"
 	// ResultDenied means an authenticated subject was refused by policy
-	// (e.g. a PDP denial). Distinguished from ResultUnauthenticated so a
-	// misconfigured client's expired-token retries don't read the same as a
-	// real authorization refusal.
+	// (e.g. a PDP denial). A request with no authenticated subject is a
+	// failure instead, so a misconfigured client's expired-token retries don't
+	// read the same as a real authorization refusal.
 	ResultDenied Result = "denied"
-	// ResultUnauthenticated means the request carried no authenticated
-	// subject at all — REST's 401, or MCP's tools.ErrNoSubject.
-	ResultUnauthenticated Result = "unauthenticated"
 )
 
 // Surface identifies which surface of the API a call arrived through. MCP
@@ -214,7 +211,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 
 // resolvedResource folds ResourceType and Hierarchy into the published
 // "resource" group, returning nil when the event has nothing resource-shaped
-// to report (a rejection that resolved no operation).
+// to report (no resource type, resource or hierarchy).
 //
 // Resource.Namespace wins over the hierarchy's when set. buildEvent already
 // applies that precedence via withHierarchyNamespaceFallback, so this repeats

@@ -1198,11 +1198,11 @@ components:
         result:
           type: array
           uniqueItems: true
-          maxItems: 4
+          maxItems: 3
           description: Outcomes. Closed, for the same reason as `category`.
           items:
             type: string
-            enum: ["success", "failure", "denied", "unauthenticated"]
+            enum: ["success", "failure", "denied"]
         producer:
           type: array
           uniqueItems: true
@@ -1515,8 +1515,8 @@ components:
         result:
           type: string
           description: |
-            Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
-            policy) or `unauthenticated` (no subject at all) at schema 1.0.
+            Outcome. `success`, `failure` or `denied` (an authenticated subject refused by
+            policy) at schema 1.0.
         request_id:
           type: string
           description: Correlates this record with the access log line for the same request

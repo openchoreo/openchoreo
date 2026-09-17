@@ -369,21 +369,17 @@ func TestAuditMiddlewareWired_DeniedRequestCarriesResource(t *testing.T) {
 // writes 401 and returns without calling next, and — unlike
 // injectTestSubject — never sets a SubjectContext. This is what a real JWT
 // rejection (missing/invalid/expired token) looks like to everything
-// downstream, and is the only way to reach NewUnauthenticatedMiddleware's
-// emitting branch in a test, since the inner Middleware instance runs
-// strictly inside auth and never sees a request auth itself rejects.
+// downstream.
 var rejectingAuth gen.MiddlewareFunc = func(_ http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 }
 
-// TestAuditMiddlewareWired_UnauthenticatedRejection proves the outer
-// NewUnauthenticatedMiddleware instance is really wired into the production
-// chain (OpenAPIMiddlewares) and fires exactly once on a real auth rejection —
-// a gap the inner instance alone can't close, since auth short-circuits
-// before ever calling next.
-func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
+// TestAuditMiddlewareWired_AuthRejectionEmitsNoRecord pins that a request
+// auth rejects is left to the access log: the audit middleware runs inside
+// auth, so the production chain (OpenAPIMiddlewares) emits nothing for it.
+func TestAuditMiddlewareWired_AuthRejectionEmitsNoRecord(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
@@ -408,22 +404,13 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 	_, rec := doRequest(t, mux, http.MethodPost, "/api/v1/namespaces/"+testNS+"/projects", []byte(`{"metadata":{"name":"x"}}`))
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 
-	records := auditRecords(t, &buf)
-	require.Len(t, records, 1, "expected exactly one AUDIT-LOG record for a rejected request, got:\n%s", buf.String())
-
-	record := records[0]
-	assert.Equal(t, "unauthenticated", record["result"])
-	assert.Equal(t, "", record["action"], "a rejection has no resolved operation")
-	assert.Equal(t, "", record["category"], "a rejection has no resolved operation")
-	assert.NotContains(t, record, "resource", "a rejection has no resolved operation, so no resource to seed")
+	assert.Empty(t, auditRecords(t, &buf), "expected no AUDIT-LOG record for a rejected request, got:\n%s", buf.String())
 }
 
-// TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce is the
-// full-stack double-emission regression test: a real derived-request auth
-// success (injectTestSubject, shaped exactly like the production JWT
-// middleware) reaching a handler that panics on a resolved operation must
-// produce exactly one AUDIT-LOG record, from the inner instance, with the
-// outer NewUnauthenticatedMiddleware staying silent.
+// TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce: a real
+// derived-request auth success (injectTestSubject, shaped exactly like the
+// production JWT middleware) reaching a handler that panics on a resolved
+// operation must produce exactly one AUDIT-LOG record, recorded as a failure.
 func TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))

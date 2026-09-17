@@ -174,7 +174,6 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		// behavior above is unchanged.
 		defer func() {
 			if p := recover(); p != nil {
-				markEmitted(ctx)
 				EmitFromContext(
 					ctx, m.emitter, m.config.ActorIDClaim, op, SurfaceREST, ResultFailure, auditData, r.Header, r.RemoteAddr,
 				)
@@ -189,7 +188,6 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			if auditData.Result != nil {
 				result = *auditData.Result
 			}
-			markEmitted(ctx)
 			EmitFromContext(ctx, m.emitter, m.config.ActorIDClaim, op, SurfaceREST, result, auditData, r.Header, r.RemoteAddr)
 		}()
 
@@ -202,8 +200,6 @@ func determineResult(statusCode int) Result {
 	switch {
 	case statusCode >= 200 && statusCode < 300:
 		return ResultSuccess
-	case statusCode == 401:
-		return ResultUnauthenticated
 	case statusCode == 403:
 		return ResultDenied
 	default:

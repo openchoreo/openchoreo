@@ -392,7 +392,7 @@ func TestMiddleware_Handler_ResultClassification(t *testing.T) {
 		want       Result
 	}{
 		{name: "2xx is success", statusCode: http.StatusOK, want: ResultSuccess},
-		{name: "401 is unauthenticated", statusCode: http.StatusUnauthorized, want: ResultUnauthenticated},
+		{name: "401 is failure", statusCode: http.StatusUnauthorized, want: ResultFailure},
 		{name: "403 is denied", statusCode: http.StatusForbidden, want: ResultDenied},
 		{name: "500 is failure", statusCode: http.StatusInternalServerError, want: ResultFailure},
 	}

@@ -114,11 +114,11 @@ func resultFor(auditData *audit.AuditData, res mcp.Result, err error) audit.Resu
 }
 
 // classifyResult maps a tools/call outcome to an audit Result.
-// ErrNoSubject (no authenticated subject) is distinguished from ErrForbidden
-// (an authenticated subject the PDP refused) — see ResultUnauthenticated's
-// doc comment — and both are distinguished from failure (ErrPDPFailure, any
-// other protocol error, or a tool-execution error) so a PDP outage is never
-// recorded as if the user had actually been denied by policy.
+// Only ErrForbidden (an authenticated subject the PDP refused) is denied —
+// see ResultDenied's doc comment. ErrNoSubject, ErrPDPFailure, any other
+// protocol error and a tool-execution error are all failure, so neither a
+// missing subject nor a PDP outage is recorded as if the user had actually
+// been denied by policy.
 //
 // This only recognizes denials raised by the MCP-layer authz filter (the
 // default: every session unless it opts out via ?filterByAuthz=false — see
@@ -134,8 +134,6 @@ func resultFor(auditData *audit.AuditData, res mcp.Result, err error) audit.Resu
 // authz check is inside the tool handler.
 func classifyResult(res mcp.Result, err error) audit.Result {
 	switch {
-	case errors.Is(err, tools.ErrNoSubject):
-		return audit.ResultUnauthenticated
 	case errors.Is(err, tools.ErrForbidden):
 		return audit.ResultDenied
 	case err != nil:

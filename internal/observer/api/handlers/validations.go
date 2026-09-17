@@ -356,7 +356,7 @@ var auditLogsFilterMaxItems = map[string]int{
 	"resource.name":        20,
 	"action":               20,
 	"category":             3,
-	"result":               4,
+	"result":               3,
 	"surface":              2,
 	"producer":             20,
 	"operation_id":         20,
@@ -396,10 +396,8 @@ var auditLogsFilterPaths = map[string]bool{
 
 var (
 	auditLogCategories = map[string]bool{"management": true, "authorization": true, "access": true}
-	auditLogResults    = map[string]bool{
-		"success": true, "failure": true, "denied": true, "unauthenticated": true,
-	}
-	auditLogSurfaces = map[string]bool{"rest": true, "mcp": true}
+	auditLogResults    = map[string]bool{"success": true, "failure": true, "denied": true}
+	auditLogSurfaces   = map[string]bool{"rest": true, "mcp": true}
 )
 
 // AuditLogCategoryValues returns the accepted category filter values, sorted.

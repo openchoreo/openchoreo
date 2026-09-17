@@ -605,8 +605,8 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 					"recorded under it",
 				handlers.AuditLogCategoryValues()),
 			"result": enumArrayProperty(
-				"Outcomes. 'denied' is a subject the policy refused, 'unauthenticated' a call with no "+
-					"usable identity, 'failure' an error",
+				"Outcomes. 'denied' is a subject the policy refused, 'failure' an error or a call with no "+
+					"usable identity",
 				handlers.AuditLogResultValues()),
 			"producer": arrayProperty("Emitting services (e.g. ['openchoreo-api'])"),
 			"surface": enumArrayProperty(
