@@ -99,12 +99,15 @@ KGATEWAY_VERSION       ?= v2.3.1
 OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 1.0.1
 DEX_VERSION            ?= 0.24.1
-OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.3
-OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.6.0
-OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.7.0
+
+# Observability community modules: 0.0.0-latest-dev on main, pinned on release
+# branches by hack/pin-observability-modules.sh
+OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.0.0-latest-dev
+OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.0.0-latest-dev
+OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.0.0-latest-dev
 # Tier3 multi-cluster e2e only (see _e2e.mc.install-op / _e2e.mc.install-fluent-bit):
 # logs use the OpenObserve community module there instead of OpenSearch.
-OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.5.1
+OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.0.0-latest-dev
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
@@ -633,6 +636,7 @@ _e2e.install-op:
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--set fluent-bit.enabled=true \
+		--set fluentBitCustomizations.clusterInstance=$(E2E_CLUSTER_NAME) \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_HELM) upgrade --install observability-traces-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
@@ -1074,6 +1078,7 @@ _e2e.mc.install-op:
 		--set common.openObserveStream=container-logs \
 		--set-json 'openobserve-standalone.httpRouteHostnames=["host.k3d.internal"]' \
 		--set fluent-bit.enabled=true \
+		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_OP_CLUSTER_NAME) \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
 	@# OpenObserve stores the stream as "container_logs" (hyphen -> underscore),
 	@# so the adapter must query that name even though ingest/HTTPRoute use the
@@ -1144,6 +1149,7 @@ _e2e.mc.install-fluent-bit:
 		--set openObserveSetup.enabled=false \
 		--set adapter.enabled=false \
 		--set fluent-bit.enabled=true \
+		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_DP_CLUSTER_NAME) \
 		--set common.openObserveStream=container-logs \
 		--set fluent-bit.openObserveHost=host.k3d.internal \
 		--set fluent-bit.openObservePort=31080 \
@@ -1158,6 +1164,7 @@ _e2e.mc.install-fluent-bit:
 		--set openObserveSetup.enabled=false \
 		--set adapter.enabled=false \
 		--set fluent-bit.enabled=true \
+		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_WP_CLUSTER_NAME) \
 		--set common.openObserveStream=container-logs \
 		--set fluent-bit.openObserveHost=host.k3d.internal \
 		--set fluent-bit.openObservePort=31080 \

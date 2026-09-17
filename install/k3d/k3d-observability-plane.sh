@@ -13,14 +13,18 @@ set -euo pipefail
 # -- versions (update these on release branches) --
 OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaults to main
 OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
-LOGS_OPENSEARCH_VERSION="0.5.3"
-TRACES_OPENSEARCH_VERSION="0.6.0"
-METRICS_PROMETHEUS_VERSION="0.7.0"
-EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"
+
+# -- observability modules (0.0.0-latest-dev on main; pinned on release branches
+#    by hack/pin-observability-modules.sh) --
+LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
+TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
+METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
+EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
 
 # -- derived constants --
 RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"
 OP_NS="openchoreo-observability-plane"
+CLUSTER_NAME="${CLUSTER_NAME:-openchoreo}"  # overridable via env; stamped on logs as the cluster instance
 
 step() {
   echo ""
@@ -84,7 +88,8 @@ helm upgrade observability-logs-opensearch \
   --namespace "$OP_NS" \
   --version "$LOGS_OPENSEARCH_VERSION" \
   --reuse-values \
-  --set fluent-bit.enabled=true
+  --set fluent-bit.enabled=true \
+  --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
 
 
 step "Enabling kubernetes events collection and exporting to logs module..."

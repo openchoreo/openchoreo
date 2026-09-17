@@ -31,8 +31,9 @@ KGATEWAY_VERSION="v2.3.1"
 # ThunderID configuration
 THUNDER_VERSION="1.0.1"
 
-# Observability module versions (community-modules)
-LOGS_OPENSEARCH_VERSION="0.5.3"
-TRACES_OPENSEARCH_VERSION="0.5.0"
-METRICS_PROMETHEUS_VERSION="0.7.0"
-EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"
+# Observability module versions (community-modules): 0.0.0-latest-dev on main,
+# pinned on release branches by hack/pin-observability-modules.sh
+LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
+TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
+METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
+EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"

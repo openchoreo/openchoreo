@@ -13,10 +13,13 @@ ESO_VERSION="2.0.1"
 KGATEWAY_VERSION="v2.3.1"
 OPENBAO_CHART_VERSION="0.25.6"
 THUNDER_VERSION="1.0.1"
-LOGS_OPENSEARCH_VERSION="0.5.3"
-TRACES_OPENSEARCH_VERSION="0.6.0"
-METRICS_PROMETHEUS_VERSION="0.7.0"
-EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"
+
+# -- observability modules (0.0.0-latest-dev on main; pinned on release branches
+#    by hack/pin-observability-modules.sh) --
+LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
+TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
+METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
+EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
 
 # -- config --
 CLUSTER_NAME="${CLUSTER_NAME:-openchoreo}"
@@ -468,7 +471,8 @@ EOF
     $HELM upgrade observability-logs-opensearch \
         oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
-        --reuse-values --set fluent-bit.enabled=true
+        --reuse-values --set fluent-bit.enabled=true \
+        --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
 
     # Collect Kubernetes events into the k8s-events OpenSearch index.
     $HELM upgrade --install observability-events-otel-collector \
@@ -534,6 +538,25 @@ EOF
     fi
 }
 
+# Module versions are 0.0.0-latest-dev on main; a release install should use the
+# script from its release branch, where they are pinned.
+warn_unpinned_modules() {
+    case "$OPENCHOREO_CHART_VERSION" in
+        ""|0.0.0-*) return 0 ;;
+    esac
+    case "$LOGS_OPENSEARCH_VERSION $TRACES_OPENSEARCH_VERSION $METRICS_PROMETHEUS_VERSION $EVENTS_OTEL_COLLECTOR_VERSION" in
+        *0.0.0-*) ;;
+        *) return 0 ;;
+    esac
+    local branch="its release branch"
+    if [[ "$OPENCHOREO_CHART_VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+        branch="release-v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+    fi
+    echo "WARNING: this copy of k3d-install.sh installs unpinned (0.0.0-latest-dev) observability" >&2
+    echo "         modules with OpenChoreo ${OPENCHOREO_CHART_VERSION}. Fetch the script from ${branch}" >&2
+    echo "         to get the module versions that release was tested with." >&2
+}
+
 print_summary() {
     step "OpenChoreo installation complete"
     info "Console:  http://openchoreo.localhost:8080  (log in with admin@openchoreo.dev / Admin@123)"
@@ -544,6 +567,7 @@ print_summary() {
 
 main() {
     require_tools
+    [[ "$WITH_OBSERVABILITY" == "true" ]] && warn_unpinned_modules
     create_cluster
     install_prerequisites
     install_control_plane
