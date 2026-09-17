@@ -63,8 +63,7 @@ type OpenAPIMiddlewareOptions struct {
 	// AuditEmitter is the single *audit.Emitter shared with the MCP adapter,
 	// so one policy applies identically on both surfaces. Must not be nil.
 	AuditEmitter *audit.Emitter
-	// AuditEnabled mirrors config.AuditConfig.Enabled.
-	AuditEnabled bool
+	AuditConfig  audit.MiddlewareConfig
 }
 
 // OpenAPIMiddlewares returns the ordered middleware chain for the generated
@@ -99,12 +98,12 @@ func OpenAPIMiddlewares(opts OpenAPIMiddlewareOptions) ([]gen.MiddlewareFunc, er
 		return nil, errors.New("audit: OpenAPIMiddlewareOptions.AuditEmitter must not be nil")
 	}
 
-	auditMw, err := audit.NewMiddleware(opts.Logger, apiaudit.GetOperations(), gen.GetSwagger, opts.AuditEmitter, opts.AuditEnabled)
+	auditMw, err := audit.NewMiddleware(opts.Logger, apiaudit.GetOperations(), gen.GetSwagger, opts.AuditEmitter, opts.AuditConfig)
 	if err != nil {
 		return nil, fmt.Errorf("audit: %w", err)
 	}
 
-	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.SurfaceREST, opts.AuditEnabled)
+	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.SurfaceREST, opts.AuditConfig)
 
 	loggerMw := apilogger.LoggerMiddleware(opts.Logger.With("component", "openapi"))
 

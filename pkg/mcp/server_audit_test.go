@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	jwtlib "github.com/golang-jwt/jwt/v5"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -22,6 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
@@ -235,7 +237,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		pdp := &fakeAuditPDP{profile: allowAllAuditProfile(authzcore.ActionCreateProject)}
 
 		handler := newTestMCPHandler(t, toolsets, pdp, mcpaudit.MiddlewareOptions{
-			Emitter: emitter, Bindings: auditBindingsForTest(), Enabled: true,
+			Emitter: emitter, Bindings: auditBindingsForTest(), Config: audit.MiddlewareConfig{Enabled: true},
 		})
 		server := httptest.NewServer(handler)
 		defer server.Close()
@@ -282,6 +284,58 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		}
 	})
 
+	t.Run("configured actor id claim is read from request claims", func(t *testing.T) {
+		var buf bytes.Buffer
+		emitter := newAuditTestEmitter(t, &buf)
+
+		toolsets := &tools.Toolsets{
+			ProjectToolset: &fakeCreateProjectWithUID{},
+		}
+		pdp := &fakeAuditPDP{profile: allowAllAuditProfile(authzcore.ActionCreateProject)}
+
+		server, err := NewHTTPServer(slog.Default(), toolsets, pdp, mcpaudit.MiddlewareOptions{
+			Emitter:  emitter,
+			Bindings: auditBindingsForTest(),
+			Config:   audit.MiddlewareConfig{Enabled: true, ActorIDClaim: "email"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := jwt.ContextWithClaims(r.Context(), jwtlib.MapClaims{"sub": "test-user", "email": "alice@example.com"})
+			withTestSubject(server).ServeHTTP(w, r.WithContext(ctx))
+		})
+		httpServer := httptest.NewServer(handler)
+		defer httpServer.Close()
+
+		ctx := context.Background()
+		session := connectTestClient(t, ctx, httpServer)
+		defer session.Close()
+
+		res, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name:      "create_project",
+			Arguments: map[string]any{"namespace_name": "test-ns", "name": "wired-project"},
+		})
+		if err != nil {
+			t.Fatalf("CallTool: %v", err)
+		}
+		if res.IsError {
+			t.Fatalf("CallTool returned a tool error: %+v", res)
+		}
+
+		records := auditRecordsFromLog(t, &buf)
+		if len(records) != 1 {
+			t.Fatalf("expected exactly one AUDIT-LOG record, got %d:\n%s", len(records), buf.String())
+		}
+		actor, ok := records[0]["actor"].(map[string]any)
+		if !ok {
+			t.Fatalf("actor was not populated: %v", records[0])
+		}
+		if actor["id"] != "alice@example.com" {
+			t.Errorf("actor.id = %v, want the email claim", actor["id"])
+		}
+	})
+
 	t.Run("PDP denial emits result=denied, distinguishable from failure", func(t *testing.T) {
 		var buf bytes.Buffer
 		emitter := newAuditTestEmitter(t, &buf)
@@ -296,7 +350,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		pdp := &fakeAuditPDP{profile: denyAllAuditProfile()}
 
 		handler := newTestMCPHandler(t, toolsets, pdp, mcpaudit.MiddlewareOptions{
-			Emitter: emitter, Bindings: auditBindingsForTest(), Enabled: true,
+			Emitter: emitter, Bindings: auditBindingsForTest(), Config: audit.MiddlewareConfig{Enabled: true},
 		})
 		server := httptest.NewServer(handler)
 		defer server.Close()
@@ -348,7 +402,7 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		pdp := &fakeAuditPDP{profile: allowAllAuditProfile(authzcore.ActionCreateEnvironment)}
 
 		handler := newTestMCPHandler(t, toolsets, pdp, mcpaudit.MiddlewareOptions{
-			Emitter: emitter, Bindings: auditBindingsForTest(), Enabled: true,
+			Emitter: emitter, Bindings: auditBindingsForTest(), Config: audit.MiddlewareConfig{Enabled: true},
 		})
 		server := httptest.NewServer(handler)
 		defer server.Close()
@@ -403,7 +457,7 @@ func TestNewHTTPServer_AuditDisabled(t *testing.T) {
 	pdp := &fakeAuditPDP{profile: allowAllAuditProfile(authzcore.ActionCreateProject)}
 
 	handler := newTestMCPHandler(t, toolsets, pdp, mcpaudit.MiddlewareOptions{
-		Emitter: emitter, Bindings: auditBindingsForTest(), Enabled: false,
+		Emitter: emitter, Bindings: auditBindingsForTest(), Config: audit.MiddlewareConfig{Enabled: false},
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()

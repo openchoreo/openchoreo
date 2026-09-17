@@ -317,6 +317,7 @@ func main() {
 		logger.Error("Failed to initialize audit", "error", err)
 		os.Exit(1)
 	}
+	auditMiddlewareConfig := cfg.Audit.MiddlewareConfig()
 
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(cfg, logger)
@@ -359,7 +360,7 @@ func main() {
 	newMCPServer, err := observermcp.NewHTTPServer(newMCPHandler, mcpaudit.MiddlewareOptions{
 		Emitter:  auditEmitter,
 		Bindings: mcpBindings,
-		Enabled:  cfg.Audit.Enabled,
+		Config:   auditMiddlewareConfig,
 	})
 	if err != nil {
 		logger.Error("Failed to create MCP server", "error", err)
@@ -372,7 +373,7 @@ func main() {
 		Auth401:      initMCPMiddleware(logger),
 		JWTAuth:      jwtAuth,
 		AuditEmitter: auditEmitter,
-		AuditEnabled: cfg.Audit.Enabled,
+		AuditConfig:  auditMiddlewareConfig,
 	})
 	if err != nil {
 		logger.Error("Failed to build MCP middlewares", "error", err)
@@ -396,7 +397,7 @@ func main() {
 		Logger:         publicAPILogger,
 		AuthMiddleware: authMiddleware,
 		AuditEmitter:   auditEmitter,
-		AuditEnabled:   cfg.Audit.Enabled,
+		AuditConfig:    auditMiddlewareConfig,
 	})
 	if err != nil {
 		logger.Error("Failed to build observer middlewares", "error", err)
@@ -457,7 +458,7 @@ func main() {
 	internalMiddlewares, err := apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
 		Logger:       internalAPILogger,
 		AuditEmitter: auditEmitter,
-		AuditEnabled: cfg.Audit.Enabled,
+		AuditConfig:  auditMiddlewareConfig,
 	})
 	if err != nil {
 		logger.Error("Failed to build internal middlewares", "error", err)

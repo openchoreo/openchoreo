@@ -400,7 +400,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 		Logger:         logger,
 		AuthMiddleware: rejectingAuth,
 		AuditEmitter:   emitter,
-		AuditEnabled:   true,
+		AuditConfig:    audit.MiddlewareConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{BaseRouter: mux, Middlewares: middlewares})
@@ -456,7 +456,7 @@ func TestOpenAPIMiddlewares_ErrorsOnNilEmitter(t *testing.T) {
 		Logger:         slog.Default(),
 		AuthMiddleware: injectTestSubject,
 		AuditEmitter:   nil,
-		AuditEnabled:   true,
+		AuditConfig:    audit.MiddlewareConfig{Enabled: true},
 	})
 	require.Error(t, err, "expected OpenAPIMiddlewares to error when AuditEmitter is nil")
 	assert.Nil(t, middlewares)

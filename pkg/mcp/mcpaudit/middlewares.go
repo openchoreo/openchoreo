@@ -22,10 +22,9 @@ type MiddlewareOptions struct {
 	// keyed by (tool name, scope) — see audit.MCPBindingKey. apiaudit.MCPBindings()
 	// in production.
 	Bindings map[audit.MCPBindingKey]audit.MCPBinding
-	// Enabled mirrors config.AuditConfig.Enabled. When false, the returned
-	// middleware skips all audit-related work and passes straight through,
-	// exactly like an unbound tool.
-	Enabled bool
+	// When Config.Enabled is false, the returned middleware passes straight
+	// through, exactly like an unbound tool.
+	Config audit.MiddlewareConfig
 }
 
 // NewMiddleware returns the mcp.Middleware that emits one audit event per
@@ -44,5 +43,5 @@ func NewMiddleware(opts MiddlewareOptions) (mcp.Middleware, error) {
 			return nil, fmt.Errorf("audit: MCP binding for tool %q scope %q has a nil Operation", key.ToolName, key.Scope)
 		}
 	}
-	return newAuditMiddleware(opts.Emitter, opts.Bindings, opts.Enabled), nil
+	return newAuditMiddleware(opts.Emitter, opts.Bindings, opts.Config), nil
 }

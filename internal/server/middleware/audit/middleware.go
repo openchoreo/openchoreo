@@ -11,6 +11,12 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// MiddlewareConfig holds the audit settings the surface adapters act on.
+type MiddlewareConfig struct {
+	Enabled      bool
+	ActorIDClaim string
+}
+
 // Middleware handles audit logging for HTTP requests. It is service-agnostic:
 // patternMap is built from the caller's own Operations and its own OpenAPI
 // spec (see BuildPatternMap), so any REST service can construct one of these
@@ -21,7 +27,7 @@ type Middleware struct {
 	logger     *slog.Logger // pre-flight "should never happen" logging only, see Handler
 	patternMap map[string]*Operation
 	emitter    *Emitter
-	enabled    bool
+	config     MiddlewareConfig
 }
 
 // NewMiddleware builds the pattern map from ops and the caller's OpenAPI spec
@@ -29,11 +35,11 @@ type Middleware struct {
 // constructs the Middleware. One call so each REST service doesn't repeat
 // the fetch-spec/cross-reference/wire sequence itself.
 //
-// enabled controls whether the middleware emits events; it stays in the
+// config.Enabled controls whether the middleware emits events; it stays in the
 // request chain unconditionally so no configuration path can remove audit
 // coverage without a code change.
 func NewMiddleware(
-	logger *slog.Logger, ops []Operation, getSwagger func() (*openapi3.T, error), emitter *Emitter, enabled bool,
+	logger *slog.Logger, ops []Operation, getSwagger func() (*openapi3.T, error), emitter *Emitter, config MiddlewareConfig,
 ) (*Middleware, error) {
 	swagger, err := getSwagger()
 	if err != nil {
@@ -43,19 +49,19 @@ func NewMiddleware(
 	if err != nil {
 		return nil, err
 	}
-	return newMiddleware(logger, patternMap, emitter, enabled), nil
+	return newMiddleware(logger, patternMap, emitter, config), nil
 }
 
 // newMiddleware constructs a Middleware from an already-built pattern map.
 // Exported callers go through NewMiddleware; this stays unexported so tests
 // in this package can construct one directly from a hand-built patternMap
 // without needing a real OpenAPI spec.
-func newMiddleware(logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, enabled bool) *Middleware {
+func newMiddleware(logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, config MiddlewareConfig) *Middleware {
 	return &Middleware{
 		logger:     logger,
 		patternMap: patternMap,
 		emitter:    emitter,
-		enabled:    enabled,
+		config:     config,
 	}
 }
 
@@ -69,8 +75,10 @@ func newMiddleware(logger *slog.Logger, patternMap map[string]*Operation, emitte
 // routed for that route (e.g. "GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs",
 // or a bare subtree prefix like "/exec/" for a pattern registered without a
 // method).
-func NewMiddlewareForRoutes(logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, enabled bool) *Middleware {
-	return newMiddleware(logger, patternMap, emitter, enabled)
+func NewMiddlewareForRoutes(
+	logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, config MiddlewareConfig,
+) *Middleware {
+	return newMiddleware(logger, patternMap, emitter, config)
 }
 
 // responseWriter wraps http.ResponseWriter to capture status code
@@ -106,7 +114,7 @@ func (rw *responseWriter) Unwrap() http.ResponseWriter {
 // Handler returns the HTTP middleware handler
 func (m *Middleware) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !m.enabled {
+		if !m.config.Enabled {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -167,7 +175,9 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		defer func() {
 			if p := recover(); p != nil {
 				markEmitted(ctx)
-				EmitFromContext(ctx, m.emitter, op, SurfaceREST, ResultFailure, auditData, r.Header, r.RemoteAddr)
+				EmitFromContext(
+					ctx, m.emitter, m.config.ActorIDClaim, op, SurfaceREST, ResultFailure, auditData, r.Header, r.RemoteAddr,
+				)
 				panic(p)
 			}
 			// A hijacking handler (e.g. exec's WebSocket upgrade) can call
@@ -180,7 +190,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 				result = *auditData.Result
 			}
 			markEmitted(ctx)
-			EmitFromContext(ctx, m.emitter, op, SurfaceREST, result, auditData, r.Header, r.RemoteAddr)
+			EmitFromContext(ctx, m.emitter, m.config.ActorIDClaim, op, SurfaceREST, result, auditData, r.Header, r.RemoteAddr)
 		}()
 
 		next.ServeHTTP(rw, r.WithContext(ctx))

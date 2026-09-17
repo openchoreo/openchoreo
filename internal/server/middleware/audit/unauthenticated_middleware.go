@@ -45,10 +45,10 @@ import (
 // operation-derived policy selector short-circuits on them (see
 // Selector.matches). A rejection is therefore selectable only by origins,
 // results, actor_types and actors — on either surface.
-func NewUnauthenticatedMiddleware(emitter *Emitter, surface Surface, enabled bool) func(http.Handler) http.Handler {
+func NewUnauthenticatedMiddleware(emitter *Emitter, surface Surface, config MiddlewareConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !enabled {
+			if !config.Enabled {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -78,7 +78,7 @@ func NewUnauthenticatedMiddleware(emitter *Emitter, surface Surface, enabled boo
 				}
 
 				_, auditData := NewAuditContext(r.Context(), nil, reqInfo)
-				EmitFromContext(r.Context(), emitter, nil, surface, result, auditData, r.Header, r.RemoteAddr)
+				EmitFromContext(r.Context(), emitter, config.ActorIDClaim, nil, surface, result, auditData, r.Header, r.RemoteAddr)
 
 				if p != nil {
 					panic(p)

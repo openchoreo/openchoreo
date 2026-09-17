@@ -1562,7 +1562,9 @@ components:
           description: e.g. `user`, `service_account`, `anonymous`
         id:
           type: string
-          description: The token's validated `sub` claim, or `anonymous`
+          description: |
+            The validated token claim named by the producer's `audit.actor.id_claim`
+            (`sub` by default), `unknown` when the token lacks that claim, or `anonymous`
         issuer:
           type: string
           description: The token's `iss` claim; the namespace `id` is unique within

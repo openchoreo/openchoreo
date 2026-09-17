@@ -52,6 +52,17 @@ func GetSubject(r *http.Request) (string, bool) {
 	return sub, ok
 }
 
+// GetClaimsFromContext retrieves the validated JWT claims from a context.Context
+func GetClaimsFromContext(ctx context.Context) (jwt.MapClaims, bool) {
+	claims, ok := ctx.Value(claimsContextKey).(jwt.MapClaims)
+	return claims, ok
+}
+
+// ContextWithClaims returns a copy of ctx carrying claims.
+func ContextWithClaims(ctx context.Context, claims jwt.MapClaims) context.Context {
+	return context.WithValue(ctx, claimsContextKey, claims)
+}
+
 // GetTokenFromContext retrieves the raw JWT token string from a context.Context
 func GetTokenFromContext(ctx context.Context) string {
 	token, _ := ctx.Value(tokenContextKey).(string)

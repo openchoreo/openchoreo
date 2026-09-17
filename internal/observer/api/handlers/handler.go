@@ -106,13 +106,13 @@ func newAuditMiddleware(
 	logger *slog.Logger,
 	getSwagger func() (*openapi3.T, error),
 	emitter *audit.Emitter,
-	enabled bool,
+	config audit.MiddlewareConfig,
 ) (*audit.Middleware, error) {
 	swagger, err := getSwagger()
 	if err != nil {
 		return nil, fmt.Errorf("audit: failed to load OpenAPI spec: %w", err)
 	}
-	return audit.NewMiddleware(logger, observeraudit.OperationsIn(swagger), getSwagger, emitter, enabled)
+	return audit.NewMiddleware(logger, observeraudit.OperationsIn(swagger), getSwagger, emitter, config)
 }
 
 // ObserverMiddlewareOptions carries the dependencies ObserverMiddlewares needs.
@@ -124,7 +124,7 @@ type ObserverMiddlewareOptions struct {
 	// AuditEmitter is shared with InternalMiddlewares and the /mcp chain so one
 	// policy applies across every surface. Must not be nil.
 	AuditEmitter *audit.Emitter
-	AuditEnabled bool
+	AuditConfig  audit.MiddlewareConfig
 }
 
 // ObserverMiddlewares returns the ordered middleware chain for the generated
@@ -159,12 +159,12 @@ func ObserverMiddlewares(opts ObserverMiddlewareOptions) ([]gen.MiddlewareFunc, 
 		return nil, errors.New("observer: ObserverMiddlewareOptions.AuditEmitter must not be nil")
 	}
 
-	auditMw, err := newAuditMiddleware(opts.Logger, gen.GetSwagger, opts.AuditEmitter, opts.AuditEnabled)
+	auditMw, err := newAuditMiddleware(opts.Logger, gen.GetSwagger, opts.AuditEmitter, opts.AuditConfig)
 	if err != nil {
 		return nil, err
 	}
 	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(
-		opts.AuditEmitter, audit.SurfaceREST, opts.AuditEnabled)
+		opts.AuditEmitter, audit.SurfaceREST, opts.AuditConfig)
 
 	return []gen.MiddlewareFunc{
 		RequireJSONContentType(opts.Logger),
@@ -184,7 +184,7 @@ type MCPMiddlewareOptions struct {
 	// JWTAuth is the same JWT middleware the public REST chain wraps.
 	JWTAuth      func(http.Handler) http.Handler
 	AuditEmitter *audit.Emitter
-	AuditEnabled bool
+	AuditConfig  audit.MiddlewareConfig
 }
 
 // MCPMiddlewares returns the middlewares to group onto /mcp, on top of the
@@ -221,7 +221,7 @@ func MCPMiddlewares(opts MCPMiddlewareOptions) ([]middleware.Middleware, error) 
 	}
 
 	return []middleware.Middleware{
-		audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.SurfaceMCP, opts.AuditEnabled),
+		audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.SurfaceMCP, opts.AuditConfig),
 		opts.Auth401,
 		opts.JWTAuth,
 	}, nil
@@ -233,7 +233,7 @@ type InternalMiddlewareOptions struct {
 	// AuditEmitter is the same emitter ObserverMiddlewares receives. Must not
 	// be nil.
 	AuditEmitter *audit.Emitter
-	AuditEnabled bool
+	AuditConfig  audit.MiddlewareConfig
 }
 
 // InternalMiddlewares returns the ordered middleware chain for the generated
@@ -263,7 +263,7 @@ func InternalMiddlewares(opts InternalMiddlewareOptions) ([]internalgen.Middlewa
 	}
 
 	auditMw, err := newAuditMiddleware(
-		opts.Logger, internalgen.GetSwagger, opts.AuditEmitter, opts.AuditEnabled)
+		opts.Logger, internalgen.GetSwagger, opts.AuditEmitter, opts.AuditConfig)
 	if err != nil {
 		return nil, err
 	}

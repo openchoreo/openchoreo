@@ -552,6 +552,17 @@ observer:
     # default: []
     # @schema
     policies: []
+    # @schema
+    # type: object
+    # description: Audit actor settings
+    # @schema
+    actor:
+      # @schema
+      # type: string
+      # description: Token claim recorded as actor.id and matched by policies[].match.actors
+      # default: "sub"
+      # @schema
+      idClaim: "sub"
 
   # @schema
   # type: object

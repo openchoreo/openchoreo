@@ -60,8 +60,8 @@ func chain(outer, auth func(http.Handler) http.Handler, inner *Middleware, handl
 func TestUnauthenticatedMiddleware_401NoSubjectEmits(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
-	inner := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, true)
+	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: true})
+	inner := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, MiddlewareConfig{Enabled: true})
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK) // unreachable: fakeAuth(false) rejects first
@@ -96,9 +96,9 @@ func TestUnauthenticatedMiddleware_AuthenticatedRequestEmitsExactlyOnce(t *testi
 		t.Run(http.StatusText(code), func(t *testing.T) {
 			sink := &recordingSink{}
 			emitter := newTestUnauthenticatedEmitter(t, sink)
-			outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
+			outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: true})
 			op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
-			inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, true)
+			inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, MiddlewareConfig{Enabled: true})
 
 			handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(code)
@@ -131,7 +131,7 @@ func TestUnauthenticatedMiddleware_StampsSurface(t *testing.T) {
 		t.Run(string(surface), func(t *testing.T) {
 			sink := &recordingSink{}
 			emitter := newTestUnauthenticatedEmitter(t, sink)
-			mw := NewUnauthenticatedMiddleware(emitter, surface, true)
+			mw := NewUnauthenticatedMiddleware(emitter, surface, MiddlewareConfig{Enabled: true})
 
 			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -158,7 +158,7 @@ func TestUnauthenticatedMiddleware_NonAuthFailuresDoNotEmit(t *testing.T) {
 	for _, code := range tests {
 		sink := &recordingSink{}
 		emitter := newTestUnauthenticatedEmitter(t, sink)
-		mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
+		mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: true})
 
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(code)
@@ -177,7 +177,7 @@ func TestUnauthenticatedMiddleware_NonAuthFailuresDoNotEmit(t *testing.T) {
 func TestUnauthenticatedMiddleware_Disabled(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, false)
+	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: false})
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -198,7 +198,7 @@ func TestUnauthenticatedMiddleware_Disabled(t *testing.T) {
 func TestUnauthenticatedMiddleware_PanicNoAuthEmitsFailureAndRepanics(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
+	mw := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: true})
 
 	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("boom")
@@ -230,9 +230,9 @@ func TestUnauthenticatedMiddleware_PanicNoAuthEmitsFailureAndRepanics(t *testing
 func TestUnauthenticatedMiddleware_PanicAfterAuthEmitsExactlyOnce(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := newTestUnauthenticatedEmitter(t, sink)
-	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, true)
+	outer := NewUnauthenticatedMiddleware(emitter, SurfaceREST, MiddlewareConfig{Enabled: true})
 	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
-	inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, true)
+	inner := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter, MiddlewareConfig{Enabled: true})
 
 	handler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("boom")

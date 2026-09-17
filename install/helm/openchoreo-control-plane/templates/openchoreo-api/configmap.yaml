@@ -72,6 +72,8 @@ data:
         {{- toYaml .Values.openchoreoApi.config.audit.defaults | nindent 8 }}
       policies:
         {{- toYaml .Values.openchoreoApi.config.audit.policies | nindent 8 }}
+      actor:
+        id_claim: {{ .Values.openchoreoApi.config.audit.actor.idClaim | quote }}
 
 {{- /*
 Built-in traversal rules come from the chart file

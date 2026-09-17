@@ -65,7 +65,7 @@ func newPublicServerWithAudit(
 		Logger:         logger,
 		AuthMiddleware: authMiddleware,
 		AuditEmitter:   auditEmitter,
-		AuditEnabled:   true,
+		AuditConfig:    audit.MiddlewareConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 

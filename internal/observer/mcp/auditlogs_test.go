@@ -154,7 +154,7 @@ func newTestAuditOptions(t *testing.T, sink io.Writer) mcpaudit.MiddlewareOption
 	bindings, err := observeraudit.MCPBindings()
 	require.NoError(t, err)
 
-	return mcpaudit.MiddlewareOptions{Emitter: emitter, Bindings: bindings, Enabled: true}
+	return mcpaudit.MiddlewareOptions{Emitter: emitter, Bindings: bindings, Config: audit.MiddlewareConfig{Enabled: true}}
 }
 
 // auditRecordsFrom returns the AUDIT-LOG lines the emitter wrote to buf.

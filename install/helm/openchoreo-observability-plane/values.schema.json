@@ -1402,6 +1402,21 @@
           "additionalProperties": false,
           "description": "Audit logging configuration",
           "properties": {
+            "actor": {
+              "additionalProperties": false,
+              "description": "Audit actor settings",
+              "properties": {
+                "idClaim": {
+                  "default": "sub",
+                  "description": "Token claim recorded as actor.id and matched by policies[].match.actors",
+                  "title": "idClaim",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "actor",
+              "type": "object"
+            },
             "defaults": {
               "additionalProperties": false,
               "description": "Policy settings applied when no policies entry matches",

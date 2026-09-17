@@ -22,6 +22,7 @@ import (
 	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -296,7 +297,7 @@ func TestMCPMiddlewaresAuditUnauthenticated(t *testing.T) {
 		Auth401:      passThrough,
 		JWTAuth:      rejectAll,
 		AuditEmitter: emitter,
-		AuditEnabled: true,
+		AuditConfig:  audit.MiddlewareConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 

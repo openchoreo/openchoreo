@@ -28,11 +28,11 @@ const methodCallTool = "tools/call"
 // tools/call invocations on one MCP session run in parallel goroutines
 // (verified: mcp/server.go calls jsonrpc2.Async for every tools/call).
 func newAuditMiddleware(
-	emitter *audit.Emitter, bindings map[audit.MCPBindingKey]audit.MCPBinding, enabled bool,
+	emitter *audit.Emitter, bindings map[audit.MCPBindingKey]audit.MCPBinding, config audit.MiddlewareConfig,
 ) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (res mcp.Result, err error) {
-			if !enabled || method != methodCallTool {
+			if !config.Enabled || method != methodCallTool {
 				return next(ctx, method, req)
 			}
 
@@ -81,12 +81,14 @@ func newAuditMiddleware(
 			defer func() {
 				if p := recover(); p != nil {
 					audit.EmitFromContext(
-						ctx, emitter, op, audit.SurfaceMCP, audit.ResultFailure, auditData, requestHeader(req), "",
+						ctx, emitter, config.ActorIDClaim, op, audit.SurfaceMCP, audit.ResultFailure,
+						auditData, requestHeader(req), "",
 					)
 					panic(p)
 				}
 				audit.EmitFromContext(
-					ctx, emitter, op, audit.SurfaceMCP, resultFor(auditData, res, err), auditData, requestHeader(req), "",
+					ctx, emitter, config.ActorIDClaim, op, audit.SurfaceMCP, resultFor(auditData, res, err),
+					auditData, requestHeader(req), "",
 				)
 			}()
 

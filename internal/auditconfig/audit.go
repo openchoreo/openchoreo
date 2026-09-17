@@ -25,6 +25,12 @@ type AuditConfig struct {
 	// is config-file-only: the env-var loader has no way to address list
 	// elements or fields nested inside a list element.
 	Policies []PolicyRuleConfig `koanf:"policies"`
+	Actor    ActorConfig        `koanf:"actor"`
+}
+
+// ActorConfig is the koanf-decoded shape of audit.actor.
+type ActorConfig struct {
+	IDClaim string `koanf:"id_claim"`
 }
 
 // PolicyDefaultsConfig is the koanf-decoded shape of audit.defaults. Publish
@@ -68,6 +74,9 @@ func AuditDefaults() AuditConfig {
 		Enabled: false,
 		Defaults: PolicyDefaultsConfig{
 			Publish: true,
+		},
+		Actor: ActorConfig{
+			IDClaim: audit.DefaultActorIDClaim,
 		},
 	}
 }
@@ -151,6 +160,15 @@ func (c *AuditConfig) buildPolicySet(
 		return nil, psErrs
 	}
 	return ps, nil
+}
+
+// MiddlewareConfig returns the settings the audit middlewares act on.
+func (c *AuditConfig) MiddlewareConfig() audit.MiddlewareConfig {
+	claim := c.Actor.IDClaim
+	if claim == "" {
+		claim = audit.DefaultActorIDClaim
+	}
+	return audit.MiddlewareConfig{Enabled: c.Enabled, ActorIDClaim: claim}
 }
 
 // Validate validates the audit configuration, including every policy's

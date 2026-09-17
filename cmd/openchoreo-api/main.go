@@ -216,6 +216,7 @@ func main() {
 		logger.Error("Failed to build audit emitter", slog.Any("error", err))
 		os.Exit(1)
 	}
+	auditMiddlewareConfig := cfg.Audit.MiddlewareConfig()
 
 	// Create base mux for the OpenAPI router.
 	// Non-OpenAPI routes (e.g. /mcp) are registered here before the generated
@@ -242,7 +243,7 @@ func main() {
 		mcpServer, err := mcp.NewHTTPServer(mcpLogger, toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
 			Emitter:  auditEmitter,
 			Bindings: mcpBindings,
-			Enabled:  cfg.Audit.Enabled,
+			Config:   auditMiddlewareConfig,
 		})
 		if err != nil {
 			logger.Error("Failed to build MCP HTTP server", slog.Any("error", err))
@@ -255,7 +256,7 @@ func main() {
 		// Auth401Interceptor only adds a WWW-Authenticate header; it emits
 		// nothing. SurfaceMCP so an MCP token rejection isn't recorded as if
 		// it had arrived over REST.
-		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceMCP, cfg.Audit.Enabled)
+		unauthedMCPMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceMCP, auditMiddlewareConfig)
 		mcpHandler := middleware.Chain(mcpLoggerMw, unauthedMCPMw, mcpAuth401Mw, jwtMiddleware)(mcpServer)
 
 		baseMux.Handle("/mcp", mcpHandler)
@@ -312,7 +313,7 @@ func main() {
 		Logger:         logger,
 		AuthMiddleware: authMiddleware,
 		AuditEmitter:   auditEmitter,
-		AuditEnabled:   cfg.Audit.Enabled,
+		AuditConfig:    auditMiddlewareConfig,
 	})
 	if err != nil {
 		logger.Error("Failed to build OpenAPI middlewares", slog.Any("error", err))
@@ -331,7 +332,8 @@ func main() {
 	// Authorization is enforced inside the handler via AuthzChecker (component:exec).
 	var topHandler http.Handler = handler
 	if cfg.ClusterGateway.Enabled && gatewayURL != "" {
-		execWirelogsAuditMw, err := openapihandlers.NewExecWirelogsAuditMiddleware(logger, auditEmitter, cfg.Audit.Enabled)
+		execWirelogsAuditMw, err := openapihandlers.NewExecWirelogsAuditMiddleware(
+			logger, auditEmitter, auditMiddlewareConfig)
 		if err != nil {
 			logger.Error("Failed to build exec/wirelogs audit middleware", slog.Any("error", err))
 			os.Exit(1)
@@ -342,7 +344,7 @@ func main() {
 		// two routes reach the data plane — a live shell and a live traffic
 		// stream — so a rejected attempt on them is exactly the event worth
 		// recording.
-		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceREST, cfg.Audit.Enabled)
+		unauthedExecWirelogsMw := audit.NewUnauthenticatedMiddleware(auditEmitter, audit.SurfaceREST, auditMiddlewareConfig)
 
 		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
 		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{
