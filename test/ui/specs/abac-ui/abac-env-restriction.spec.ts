@@ -152,10 +152,9 @@ spec:
 `;
 
 // Skip the entire suite when the ABAC identity isn't seeded. Fresh installs
-// provision it via the Thunder bootstrap overlay (52-abac-user.sh in
+// provision it via the ThunderID bootstrap overlay (52-abac-user.yaml in
 // test/e2e/k3d/values-thunder.yaml); clusters installed before that overlay
-// need test/ui/scripts/seed-idp-users.sh (re-runs the Thunder setup Job —
-// the admin API is auth-gated once the server is up, even from loopback).
+// need test/ui/scripts/seed-idp-users.sh (re-runs the ThunderID setup Job).
 // The other Phase 1 specs run regardless.
 import { existsSync as _existsSync } from 'node:fs';
 const ABAC_STATE = storageStateFor('abac');

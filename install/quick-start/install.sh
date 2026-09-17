@@ -161,6 +161,9 @@ else
     log_warning "occ-login.sh not found, skipping OCC CLI login"
 fi
 
+THUNDER_ADMIN_PASSWORD=$(kubectl get secret -n "$THUNDER_NS" thunder-admin-credentials \
+    -o jsonpath='{.data.admin-password}' 2>/dev/null | base64 -d 2>/dev/null || true)
+
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  Backstage UI: http://openchoreo.localhost:8080/"
@@ -174,12 +177,15 @@ log_info "        Password: Dev@123"
 log_info "      Platform Engineer:"
 log_info "        Username: platform-engineer@openchoreo.dev"
 log_info "        Password: PE@123"
+log_info "      SRE:"
+log_info "        Username: sre@openchoreo.dev"
+log_info "        Password: SRE@123"
 log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
-log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
-log_info "  Thunder Identity Provider UI: http://thunder.openchoreo.localhost:8080/console"
+log_info "  ThunderID Identity Provider: http://thunder.openchoreo.localhost:8080/"
+log_info "  ThunderID Identity Provider UI: http://thunder.openchoreo.localhost:8080/console"
 log_info "    Logins:"
 log_info "      Username: admin"
-log_info "      Password: admin"
+log_info "      Password: ${THUNDER_ADMIN_PASSWORD:-<not found; check the thunder-admin-credentials Secret in the $THUNDER_NS namespace>}"
 echo ""
 log_info "OCC CLI Login:"
 log_info "  Run the following commands to login:"

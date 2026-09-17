@@ -514,7 +514,7 @@ observer:
         auth_mechanisms:
           - type: "jwt"
             entitlement:
-              claim: "sub"
+              claim: "client_id"
               display_name: "Client ID"
 
   # @schema

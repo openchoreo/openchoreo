@@ -44,13 +44,15 @@ fi
 
 THUNDER_ENDPOINT="http://${THUNDER_URL}:8080"
 
-# Step 1: Get token using system app with scope=system
+# Step 1: Get token using system app with scope=system. The resource must match
+# the System resource server identifier seeded by values-thunder.yaml.
 TOKEN_RESPONSE=$(curl -s --max-time 10 -X POST "${THUNDER_ENDPOINT}/oauth2/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=${SYSTEM_APP_CLIENT_ID}" \
   -d "client_secret=${SYSTEM_APP_CLIENT_SECRET}" \
-  -d "scope=system")
+  -d "scope=system" \
+  -d "resource=${THUNDER_ENDPOINT}/mcp")
 
 SYSTEM_TOKEN=$(echo "${TOKEN_RESPONSE}" | jq -r '.access_token')
 
@@ -67,26 +69,29 @@ log_info "Checking if CLI application exists..."
 EXISTING_APPS=$(curl -s --max-time 10 -X GET "${THUNDER_ENDPOINT}/applications" \
   -H "Authorization: Bearer ${SYSTEM_TOKEN}")
 
-APP_ID=$(echo "${EXISTING_APPS}" | jq -r --arg cid "${CLI_CLIENT_ID}" '.applications[] | select(.client_id == $cid) | .id // empty')
+APP_ID=$(echo "${EXISTING_APPS}" | jq -r --arg cid "${CLI_CLIENT_ID}" '.applications[] | select(.clientId == $cid) | .id // empty')
 
 # Application payload
 APP_PAYLOAD=$(cat <<EOF
 {
   "name": "QuickStart CLI Application",
   "description": "OpenChoreo CLI for quickstart",
-  "inbound_auth_config": [
+  "ouId": "01900000-0000-7000-8000-000000000001",
+  "inboundAuthConfig": [
     {
       "type": "oauth2",
       "config": {
-        "client_id": "${CLI_CLIENT_ID}",
-        "grant_types": ["client_credentials"],
-        "token_endpoint_auth_method": "client_secret_post",
-        "pkce_required": false,
-        "public_client": false,
-        "client_secret": "${CLI_CLIENT_SECRET}",
+        "clientId": "${CLI_CLIENT_ID}",
+        "grantTypes": ["client_credentials"],
+        "tokenEndpointAuthMethod": "client_secret_post",
+        "pkceRequired": false,
+        "publicClient": false,
+        "clientSecret": "${CLI_CLIENT_SECRET}",
         "token": {
-          "access_token": {
-            "validity_period": 3600
+          "accessToken": {
+            "clientConfig": {
+              "validityPeriod": 3600
+            }
           }
         }
       }
@@ -116,7 +121,7 @@ HTTP_STATUS=$(echo "${HTTP_RESPONSE}" | tail -n1)
 APP_RESPONSE=$(echo "${HTTP_RESPONSE}" | sed '$d')
 
 if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-  log_error "Thunder returned HTTP ${HTTP_STATUS} while creating/updating the CLI application"
+  log_error "ThunderID returned HTTP ${HTTP_STATUS} while creating/updating the CLI application"
   log_error "Response: ${APP_RESPONSE}"
   exit 1
 fi

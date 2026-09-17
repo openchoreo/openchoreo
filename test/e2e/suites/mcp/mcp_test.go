@@ -24,8 +24,8 @@ const (
 	clientSecret = "service_mcp_client_secret"
 
 	// subjectClientID is a dedicated, permission-less client_credentials subject
-	// seeded unbound by the Thunder bootstrap (install/k3d/common/values-thunder.yaml
-	// `61-mcp-e2e-subject-app.sh`). It is OWNED EXCLUSIVELY by this MCP suite's
+	// seeded unbound by the ThunderID bootstrap (install/k3d/common/values-thunder.yaml
+	// `61-mcp-e2e-subject-app.yaml`). It is OWNED EXCLUSIVELY by this MCP suite's
 	// authorization context: the authz suite already binds/unbinds roles on
 	// `customer-portal-client`, and `make e2e.test` runs the authz and mcp suite
 	// packages concurrently (no `-p 1`), so sharing a subject would flake both.

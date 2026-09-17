@@ -42,7 +42,7 @@ get_component_display_name() {
         "kgateway") echo "KGateway" ;;
         "external_secrets") echo "External Secrets" ;;
         "openbao") echo "OpenBao" ;;
-        "thunder") echo "Thunder" ;;
+        "thunder") echo "ThunderID" ;;
         "controller_manager") echo "Controller Manager" ;;
         "api_server") echo "API Server" ;;
         "backstage") echo "Backstage" ;;
@@ -78,7 +78,7 @@ get_component_config() {
         "kgateway") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=kgateway" ;;
         "external_secrets") echo "external-secrets:app.kubernetes.io/name=external-secrets" ;;
         "openbao") echo "openbao:app.kubernetes.io/name=openbao,component=server" ;;
-        "thunder") echo "$THUNDER_NS:app.kubernetes.io/name=thunder" ;;
+        "thunder") echo "$THUNDER_NS:app.kubernetes.io/name=thunderid" ;;
         # Control Plane
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;

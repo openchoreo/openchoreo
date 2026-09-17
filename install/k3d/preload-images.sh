@@ -607,7 +607,7 @@ collect_images() {
             "oci://ghcr.io/external-secrets/charts/external-secrets --version ${ESO_VERSION} --set installCRDs=true|external-secrets|"
             "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway --version ${KGATEWAY_VERSION}|kgateway|"
             "oci://ghcr.io/openbao/charts/openbao --version ${OPENBAO_VERSION}|openbao|${OPENBAO_VALUES}"
-            "oci://ghcr.io/asgardeo/helm-charts/thunder --version ${THUNDER_VERSION}|thunder|${THUNDER_VALUES}"
+            "oci://ghcr.io/thunder-id/helm-charts/thunderid --version ${THUNDER_VERSION}|thunder|${THUNDER_VALUES}"
         )
 
         local prereq_images=()

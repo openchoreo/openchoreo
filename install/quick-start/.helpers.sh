@@ -586,9 +586,9 @@ install_kgateway() {
     log_success "kgateway installed"
 }
 
-# Install Thunder identity provider
+# Install ThunderID identity provider
 install_thunder() {
-    log_info "Installing Thunder ($THUNDER_VERSION)..."
+    log_info "Installing ThunderID ($THUNDER_VERSION)..."
 
     local thunder_values="$SCRIPT_DIR/../k3d/common/values-thunder.yaml"
     if [[ ! -f "$thunder_values" ]]; then
@@ -596,11 +596,11 @@ install_thunder() {
         thunder_values="/home/openchoreo/install/k3d/common/values-thunder.yaml"
     fi
 
-    install_helm_chart "thunder" "oci://ghcr.io/asgardeo/helm-charts/thunder" "$THUNDER_NS" "true" "false" "true" "600" \
+    install_helm_chart "thunder" "oci://ghcr.io/thunder-id/helm-charts/thunderid" "$THUNDER_NS" "true" "false" "true" "600" \
         "--version" "$THUNDER_VERSION" \
         "--values" "$thunder_values"
 
-    log_success "Thunder installed"
+    log_success "ThunderID installed"
 }
 
 # Apply CoreDNS custom config for *.openchoreo.localhost resolution

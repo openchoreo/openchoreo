@@ -97,7 +97,7 @@ CERT_MANAGER_VERSION   ?= v1.19.4
 ESO_VERSION            ?= 2.0.1
 KGATEWAY_VERSION       ?= v2.3.1
 OPENBAO_CHART_VERSION  ?= 0.25.6
-THUNDER_VERSION        ?= 0.28.0
+THUNDER_VERSION        ?= 1.0.1
 DEX_VERSION            ?= 0.24.1
 OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.3
 OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.6.0
@@ -483,11 +483,11 @@ e2e.setup-configure: ## Apply default resources, register planes, and link obser
 
 .PHONY: _e2e.install-thunder
 _e2e.install-thunder:
-	@# Thunder requires a valid /etc/machine-id on the node
+	@# ThunderID requires a valid /etc/machine-id on the node
 	docker exec k3d-$(E2E_CLUSTER_NAME)-server-0 sh -c \
 		"cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
-	@$(call log_info, Installing Thunder $(THUNDER_VERSION))
-	$(E2E_HELM) upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+	@$(call log_info, Installing ThunderID $(THUNDER_VERSION))
+	$(E2E_HELM) upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
 		--namespace thunder --create-namespace \
 		--version $(THUNDER_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-thunder.yaml \
@@ -919,11 +919,11 @@ e2e.multi.setup-configure: ## Apply default resources, register planes, link obs
 
 .PHONY: _e2e.mc.install-thunder
 _e2e.mc.install-thunder:
-	@# Thunder requires a valid /etc/machine-id on the node
+	@# ThunderID requires a valid /etc/machine-id on the node
 	docker exec k3d-$(E2E_MC_CP_CLUSTER_NAME)-server-0 sh -c \
 		"cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
-	@$(call log_info, Installing Thunder $(THUNDER_VERSION))
-	$(E2E_MC_CP_HELM) upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+	@$(call log_info, Installing ThunderID $(THUNDER_VERSION))
+	$(E2E_MC_CP_HELM) upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
 		--namespace thunder --create-namespace \
 		--version $(THUNDER_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-thunder.yaml \

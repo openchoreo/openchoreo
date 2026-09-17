@@ -78,15 +78,15 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
 
 ## 3. Setup Control Plane
 
-### Thunder (Identity Provider)
+### ThunderID (Identity Provider)
 
-Bootstrap scripts auto-configure the org, users, groups, and OAuth apps on first startup.
+Bootstrap resources auto-configure the users, groups, and OAuth apps on first install.
 
 ```bash
-helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
   --namespace thunder \
   --create-namespace \
-  --version 0.28.0 \
+  --version 1.0.1 \
   --values install/k3d/common/values-thunder.yaml
 ```
 

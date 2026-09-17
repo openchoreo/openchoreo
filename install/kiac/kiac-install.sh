@@ -24,7 +24,7 @@ CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"
 KGATEWAY_VERSION="v2.3.1"
 OPENBAO_CHART_VERSION="0.25.6"
-THUNDER_VERSION="0.28.0"
+THUNDER_VERSION="1.0.1"
 HELM3_FALLBACK="v3.16.4"
 
 # ---- defaults / flags ----
@@ -198,11 +198,11 @@ seed_optional_secrets() {
 }
 
 install_control_plane() {
-  step "Thunder (identity provider) ${THUNDER_VERSION}"
-  H upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+  step "ThunderID (identity provider) ${THUNDER_VERSION}"
+  H upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
     -n "$THUNDER_NS" --create-namespace --version "$THUNDER_VERSION" \
     --values "${RAW}/install/k3d/common/values-thunder.yaml"
-  $K wait -n "$THUNDER_NS" --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunder || true
+  $K wait -n "$THUNDER_NS" --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunderid || true
 
   step "backstage ExternalSecret"
   $K apply -f - <<EOF
