@@ -17,6 +17,17 @@ configuration:
     allowedOrigins:
       - "http://openchoreo.e2e-mc-cp.local:38080"
 
+  # Playwright's globalSetup mints each role's session once into a storageState
+  # file, and every test builds a fresh browser context from that file. Token
+  # rotation inside one context is never written back, so with the chart default
+  # (revokePreviousOnRenew: true) the first refresh revokes the token still held
+  # in the file and every later context starts with a dead credential — the suite
+  # then fails every test that needs a signed-in session. Reuse is harmless in a
+  # disposable e2e cluster; production keeps the chart default.
+  oauth:
+    refreshToken:
+      revokePreviousOnRenew: false
+
 bootstrap:
   scripts:
     49-cors.yaml: |
