@@ -435,15 +435,14 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.enabled":     false,
 		},
 		"deliveryinsights": map[string]interface{}{
-			"store.backend":                     "",
-			"store.dsn":                         "",
-			"uid.resolution":                    "resolver",
-			"aggregation.enabled":               false,
-			"aggregation.interval":              "5m",
-			"aggregation.overlap":               "10m",
-			"aggregation.attribution.window":    "24h",
-			"aggregation.incident.lookback":     "720h", // 30 days
-			"aggregation.events.source.enabled": false,
+			"store.backend":                  "",
+			"store.dsn":                      "",
+			"uid.resolution":                 "resolver",
+			"enabled":                        false,
+			"aggregation.interval":           "5m",
+			"aggregation.overlap":            "10m",
+			"aggregation.attribution.window": "24h",
+			"aggregation.incident.lookback":  "720h", // 30 days
 		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.url":        "http://logs-adapter:9098",
