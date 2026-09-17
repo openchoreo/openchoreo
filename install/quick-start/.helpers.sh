@@ -682,8 +682,8 @@ install_openbao() {
 
     # values-openbao.yaml runs OpenBao in dev mode and, via its postStart hook,
     # configures Kubernetes auth + reader/writer policies and seeds the platform
-    # secrets that the ExternalSecrets sync into each plane. Shared with the docs
-    # k3d install path (install/k3d/k3d-prerequisites.sh).
+    # secrets that the ExternalSecrets sync into each plane. Shared with the k3d
+    # installer (install/k3d/k3d-install.sh).
     local openbao_values="$SCRIPT_DIR/../k3d/common/values-openbao.yaml"
     if [[ ! -f "$openbao_values" ]]; then
         openbao_values="/home/openchoreo/install/k3d/common/values-openbao.yaml"
