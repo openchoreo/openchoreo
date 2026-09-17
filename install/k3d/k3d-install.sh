@@ -45,6 +45,7 @@ Usage: k3d-install.sh [OPTIONS]
 Options:
   --with-build             Also install the workflow plane (Argo Workflows + registry)
   --with-observability     Also install the observability plane (OpenSearch logs/traces + metrics)
+                           and enable audit logs
   --version VER            OpenChoreo version to install, e.g. 1.1.1 or latest-dev
                            (required when not running from a checkout)
   --cluster-name NAME     k3d cluster name (default: openchoreo)
@@ -260,11 +261,20 @@ EOF
         --for=condition=Ready externalsecret/backstage-secrets --timeout=120s
 
     step "Installing the control plane"
+    local audit_args=()
+    if [[ "$WITH_OBSERVABILITY" == "true" ]]; then
+        audit_args=(
+            --set openchoreoApi.config.audit.enabled=true
+            --set openchoreoApi.config.audit.observabilityPlaneRef.kind=ClusterObservabilityPlane
+            --set openchoreoApi.config.audit.observabilityPlaneRef.name=default
+        )
+    fi
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-control-plane "$HELM_REPO/openchoreo-control-plane" \
         $(chart_version_args) \
         --namespace "$CONTROL_PLANE_NS" --create-namespace \
-        --values "$(asset install/k3d/single-cluster/values-cp.yaml)"
+        --values "$(asset install/k3d/single-cluster/values-cp.yaml)" \
+        ${audit_args[@]+"${audit_args[@]}"}
     $KUBECTL wait -n "$CONTROL_PLANE_NS" \
         --for=condition=available --timeout=300s deployment --all
 
@@ -434,6 +444,7 @@ EOF
         $(chart_version_args) \
         --namespace "$OBSERVABILITY_NS" \
         --values "$(asset install/k3d/single-cluster/values-op.yaml)" \
+        --set observer.audit.enabled=true \
         --timeout 25m
 
     step "Installing observability modules"
@@ -441,7 +452,8 @@ EOF
         oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
         --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
-        --set adapter.openSearchSecretName="opensearch-admin-credentials"
+        --set adapter.openSearchSecretName="opensearch-admin-credentials" \
+        --set auditLogs.enabled=true
     $HELM upgrade --install observability-traces-opensearch \
         oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
         --namespace "$OBSERVABILITY_NS" --version "$TRACES_OPENSEARCH_VERSION" \

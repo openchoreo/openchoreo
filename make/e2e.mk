@@ -85,6 +85,14 @@ else
   E2E_CP_EXTRA_VALUES :=
 endif
 
+# Audit records are routed and stored by the observability plane, so the control
+# plane only emits them when that plane is part of the setup.
+ifeq ($(E2E_WITH_OBSERVABILITY),true)
+  E2E_CP_EXTRA_VALUES += --set openchoreoApi.config.audit.enabled=true \
+    --set openchoreoApi.config.audit.observabilityPlaneRef.kind=ClusterObservabilityPlane \
+    --set openchoreoApi.config.audit.observabilityPlaneRef.name=default
+endif
+
 # Namespaces
 E2E_CP_NS              := openchoreo-control-plane
 E2E_DP_NS              := openchoreo-data-plane
@@ -611,6 +619,7 @@ _e2e.install-op:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-op.yaml \
+		--set observer.audit.enabled=true \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_OP_NS))
 	@$(call log_info, Installing observability modules)
@@ -627,6 +636,7 @@ _e2e.install-op:
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--set fluent-bit.enabled=false \
+		--set auditLogs.enabled=true \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
 	@$(call log_info, Enabling Fluent Bit after logs module setup)
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
@@ -637,6 +647,7 @@ _e2e.install-op:
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--set fluent-bit.enabled=true \
 		--set fluentBitCustomizations.clusterInstance=$(E2E_CLUSTER_NAME) \
+		--set auditLogs.enabled=true \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_HELM) upgrade --install observability-traces-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \

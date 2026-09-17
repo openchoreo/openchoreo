@@ -908,13 +908,22 @@ ESEOF
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
+    local audit_args=()
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        audit_args=(
+            "--set" "openchoreoApi.config.audit.enabled=true"
+            "--set" "openchoreoApi.config.audit.observabilityPlaneRef.kind=ClusterObservabilityPlane"
+            "--set" "openchoreoApi.config.audit.observabilityPlaneRef.name=default"
+        )
+    fi
     # Disable --wait for control plane to avoid deadlock with webhook cert hooks
     # But keep monitoring enabled to track pod status
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "true" "1800" \
         "--values" "$SCRIPT_DIR/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "backstage.image.tag=$BACKSTAGE_VERSION"
+        "--set" "backstage.image.tag=$BACKSTAGE_VERSION" \
+        ${audit_args[@]+"${audit_args[@]}"}
 
     # Wait for cluster-gateway to be ready (required for agent connections)
     log_info "Waiting for cluster-gateway to be ready..."
@@ -1094,7 +1103,8 @@ install_observability_plane() {
 
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$SCRIPT_DIR/.values-op.yaml" \
-        "--set" "observer.image.tag=$OPENCHOREO_VERSION"
+        "--set" "observer.image.tag=$OPENCHOREO_VERSION" \
+        "--set" "observer.audit.enabled=true"
 
     # Install logs and metrics observability modules
     # See https://github.com/openchoreo/community-modules for more details
@@ -1105,7 +1115,8 @@ install_observability_plane() {
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$LOGS_OPENSEARCH_VERSION" \
         "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials" \
-        "--set" "adapter.openSearchSecretName=opensearch-admin-credentials"
+        "--set" "adapter.openSearchSecretName=opensearch-admin-credentials" \
+        "--set" "auditLogs.enabled=true"
 
     install_helm_chart "observability-traces-opensearch" "$modules_repo/observability-tracing-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$TRACES_OPENSEARCH_VERSION" \

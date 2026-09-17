@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --version VER             Specify version to install (default: latest)"
             echo "  --with-build              Install with Workflow Plane (Argo Workflows + Registry)"
-            echo "  --with-observability      Install with Observability Plane"
+            echo "  --with-observability      Install with Observability Plane (enables audit logs)"
             echo "  --skip-preload            Skip image preloading from host Docker"
             echo "  --skip-resource-check     Skip system resource validation"
             echo "  --debug                   Enable debug mode"
