@@ -19,6 +19,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -57,10 +58,15 @@ func kvNamespace(ownerNamespace string) string {
 }
 
 // remoteKeyFor maps a (namespace, secretType, name) tuple to the key path used
-// in the external secret store.
-func remoteKeyFor(namespace string, secretType corev1.SecretType, name string) string {
+// in the external secret store. prefix is the configured first segment; an
+// empty prefix omits the segment.
+func remoteKeyFor(prefix, namespace string, secretType corev1.SecretType, name string) string {
 	segment := remoteKeySegment(secretType)
-	return fmt.Sprintf("secret/%s/%s/%s", namespace, segment, name)
+	key := fmt.Sprintf("%s/%s/%s", namespace, segment, name)
+	if prefix == "" {
+		return key
+	}
+	return prefix + "/" + key
 }
 
 func remoteKeySegment(secretType corev1.SecretType) string {
@@ -83,16 +89,21 @@ type secretService struct {
 	k8sClient           client.Client
 	planeClientProvider kubernetesClient.PlaneClientProvider
 	logger              *slog.Logger
+	// remoteKeyPrefix is the first segment of every key written to the
+	// external secret store. Empty means no prefix segment.
+	remoteKeyPrefix string
 }
 
 var _ Service = (*secretService)(nil)
 
 // NewService creates a new secret service without authorization.
-func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.PlaneClientProvider, logger *slog.Logger) Service {
+// secretCfg supplies the remote key prefix used for external store keys.
+func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.PlaneClientProvider, secretCfg config.SecretManagementConfig, logger *slog.Logger) Service {
 	return &secretService{
 		k8sClient:           k8sClient,
 		planeClientProvider: planeClientProvider,
 		logger:              logger,
+		remoteKeyPrefix:     secretCfg.NormalizedRemoteKeyPrefix(),
 	}
 }
 
@@ -142,12 +153,12 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType, sortedKeys(req.Data))
+	pushSecret := buildPushSecret(s.remoteKeyPrefix, req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType, sortedKeys(req.Data))
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
 
-	secretRef := buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data), req.Labels)
+	secretRef := buildSecretReference(s.remoteKeyPrefix, namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data), req.Labels)
 	if err := s.k8sClient.Create(ctx, secretRef); err != nil {
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
 	}
@@ -195,7 +206,7 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType, newKeys)
+	pushSecret := buildPushSecret(s.remoteKeyPrefix, secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType, newKeys)
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
@@ -206,7 +217,7 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 	keysChanged := !sameStringSlice(existingKeys, newKeys)
 	labelsChanged := !maps.Equal(secretRef.Labels, newLabels)
 	if keysChanged || labelsChanged {
-		secretRef.Spec.Data = buildSecretDataSources(namespaceName, secretName, secretType, newKeys)
+		secretRef.Spec.Data = buildSecretDataSources(s.remoteKeyPrefix, namespaceName, secretName, secretType, newKeys)
 		secretRef.Labels = newLabels
 		if err := s.k8sClient.Update(ctx, secretRef); err != nil {
 			if apierrors.IsInvalid(err) {
@@ -569,8 +580,8 @@ func buildK8sSecret(name, targetNamespace string, secretType corev1.SecretType, 
 	}
 }
 
-func buildPushSecret(name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType, keys []string) *unstructured.Unstructured {
-	remoteKey := remoteKeyFor(ownerNamespace, secretType, name)
+func buildPushSecret(remoteKeyPrefix, name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType, keys []string) *unstructured.Unstructured {
+	remoteKey := remoteKeyFor(remoteKeyPrefix, ownerNamespace, secretType, name)
 
 	dataMatches := make([]map[string]any, 0, len(keys))
 	for _, k := range keys {
@@ -607,7 +618,7 @@ func buildPushSecret(name, ownerNamespace, targetNamespace, secretStoreName stri
 	return ps
 }
 
-func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {
+func buildSecretReference(remoteKeyPrefix, ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {
 	return &openchoreov1alpha1.SecretReference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: openchoreov1alpha1.GroupVersion.String(),
@@ -621,7 +632,7 @@ func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretT
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: target.Kind, Name: target.Name},
 			Template:    openchoreov1alpha1.SecretTemplate{Type: secretType},
-			Data:        buildSecretDataSources(ownerNamespace, name, secretType, keys),
+			Data:        buildSecretDataSources(remoteKeyPrefix, ownerNamespace, name, secretType, keys),
 		},
 	}
 }
@@ -638,8 +649,8 @@ func mergeManagedLabels(userLabels map[string]string) map[string]string {
 	return labels
 }
 
-func buildSecretDataSources(ownerNamespace, name string, secretType corev1.SecretType, keys []string) []openchoreov1alpha1.SecretDataSource {
-	remoteKey := remoteKeyFor(ownerNamespace, secretType, name)
+func buildSecretDataSources(remoteKeyPrefix, ownerNamespace, name string, secretType corev1.SecretType, keys []string) []openchoreov1alpha1.SecretDataSource {
+	remoteKey := remoteKeyFor(remoteKeyPrefix, ownerNamespace, secretType, name)
 	out := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
 	for _, k := range keys {
 		out = append(out, openchoreov1alpha1.SecretDataSource{
