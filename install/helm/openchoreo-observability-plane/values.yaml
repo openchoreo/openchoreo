@@ -424,11 +424,14 @@ observer:
   # @schema
   replicas: 1
 
-  # Delivery Insights (DORA metrics).
+  # @schema
+  # type: object
+  # description: Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.
+  # @schema
   featurePreview:
     # @schema
     # type: object
-    # description: Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.
+    # description: Delivery Insights (DORA metrics) collection in the Observer.
     # @schema
     deliveryInsights:
       # @schema

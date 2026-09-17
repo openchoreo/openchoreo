@@ -1489,11 +1489,11 @@
         },
         "featurePreview": {
           "additionalProperties": false,
-          "description": "Delivery Insights (DORA metrics).",
+          "description": "Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.",
           "properties": {
             "deliveryInsights": {
               "additionalProperties": false,
-              "description": "Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.",
+              "description": "Delivery Insights (DORA metrics) collection in the Observer.",
               "properties": {
                 "enabled": {
                   "default": false,
@@ -1852,9 +1852,7 @@
           "type": "object"
         }
       },
-      "required": [
-        "featurePreview"
-      ],
+      "required": [],
       "title": "observer",
       "type": "object"
     },
