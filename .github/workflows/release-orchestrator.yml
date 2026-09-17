@@ -31,6 +31,26 @@ on:
         description: 'Explicit commit SHA to tag (overrides automatic resolution)'
         required: false
         type: string
+      logs_opensearch_version:
+        description: 'observability-logs-opensearch chart version to pin (required only when creating a release branch)'
+        required: false
+        type: string
+      tracing_opensearch_version:
+        description: 'observability-tracing-opensearch chart version to pin (required only when creating a release branch)'
+        required: false
+        type: string
+      metrics_prometheus_version:
+        description: 'observability-metrics-prometheus chart version to pin (required only when creating a release branch)'
+        required: false
+        type: string
+      events_otel_collector_version:
+        description: 'observability-events-otel-collector chart version to pin (required only when creating a release branch)'
+        required: false
+        type: string
+      logs_openobserve_version:
+        description: 'observability-logs-openobserve chart version to pin (required only when creating a release branch)'
+        required: false
+        type: string
       skip_e2e:
         description: 'Skip the e2e gate (emergency releases only)'
         required: false
@@ -130,6 +150,44 @@ jobs:
           else
             echo "branch-exists=false" >> $GITHUB_OUTPUT
             echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      # main tracks 0.0.0-latest-dev module charts; a new release branch must pin
+      # released versions, which the branch job writes with the same script.
+      - name: Validate observability module versions
+        env:
+          ACTION: ${{ github.event.inputs.action }}
+          BRANCH_EXISTS: ${{ steps.check-branch.outputs.branch-exists }}
+          RELEASE_BRANCH: ${{ steps.resolve-version.outputs.release-branch }}
+          LOGS_OPENSEARCH_VERSION: ${{ github.event.inputs.logs_opensearch_version || '' }}
+          TRACING_OPENSEARCH_VERSION: ${{ github.event.inputs.tracing_opensearch_version || '' }}
+          METRICS_PROMETHEUS_VERSION: ${{ github.event.inputs.metrics_prometheus_version || '' }}
+          EVENTS_OTEL_COLLECTOR_VERSION: ${{ github.event.inputs.events_otel_collector_version || '' }}
+          LOGS_OPENOBSERVE_VERSION: ${{ github.event.inputs.logs_openobserve_version || '' }}
+        run: |
+          CREATES_BRANCH=false
+          if [[ "$ACTION" == "full" || "$ACTION" == "branch" ]] && [ "$BRANCH_EXISTS" = "false" ]; then
+            CREATES_BRANCH=true
+          fi
+
+          if [ "$CREATES_BRANCH" = "true" ]; then
+            if ! hack/pin-observability-modules.sh --validate --remote \
+              --logs-opensearch-version "$LOGS_OPENSEARCH_VERSION" \
+              --tracing-opensearch-version "$TRACING_OPENSEARCH_VERSION" \
+              --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
+              --events-otel-collector-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
+              --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION"; then
+              echo "::error::Creating ${RELEASE_BRANCH} requires a published release version for every observability module input (see log above)"
+              exit 1
+            fi
+          elif [ -n "${LOGS_OPENSEARCH_VERSION}${TRACING_OPENSEARCH_VERSION}${METRICS_PROMETHEUS_VERSION}${EVENTS_OTEL_COLLECTOR_VERSION}${LOGS_OPENOBSERVE_VERSION}" ]; then
+            if [ "$ACTION" = "tag" ]; then
+              REASON="action=tag does not create a release branch"
+            else
+              REASON="${RELEASE_BRANCH} already exists"
+            fi
+            echo "::error::Observability module version inputs only apply when creating a release branch, but ${REASON}. To change pinned versions, open a PR against ${RELEASE_BRANCH} that runs hack/pin-observability-modules.sh."
+            exit 1
           fi
 
       - name: Fail if tag mode without release branch
@@ -280,6 +338,12 @@ jobs:
           git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
 
       - name: Create release branch
+        env:
+          LOGS_OPENSEARCH_VERSION: ${{ github.event.inputs.logs_opensearch_version }}
+          TRACING_OPENSEARCH_VERSION: ${{ github.event.inputs.tracing_opensearch_version }}
+          METRICS_PROMETHEUS_VERSION: ${{ github.event.inputs.metrics_prometheus_version }}
+          EVENTS_OTEL_COLLECTOR_VERSION: ${{ github.event.inputs.events_otel_collector_version }}
+          LOGS_OPENOBSERVE_VERSION: ${{ github.event.inputs.logs_openobserve_version }}
         run: |
           BRANCH="${{ needs.validate.outputs.release-branch }}"
 
@@ -295,6 +359,19 @@ jobs:
           git add -u
           if ! git diff --cached --quiet; then
             git commit -s -m "chore: update sample URLs to ${BRANCH}"
+          fi
+
+          # Pin observability modules (0.0.0-latest-dev on main) to the versions validated above.
+          hack/pin-observability-modules.sh \
+            --logs-opensearch-version "$LOGS_OPENSEARCH_VERSION" \
+            --tracing-opensearch-version "$TRACING_OPENSEARCH_VERSION" \
+            --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
+            --events-otel-collector-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
+            --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION"
+          hack/pin-observability-modules.sh --check
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -s -m "chore: pin observability module versions for ${BRANCH}"
           fi
 
           git push origin "${BRANCH}"
@@ -356,6 +433,17 @@ jobs:
           SHORT_SHA=$(git rev-parse --short=8 "${TARGET}")
           echo "target=${TARGET}" >> $GITHUB_OUTPUT
           echo "helm-chart-version=0.0.0-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      # Never gate or tag a commit that still installs 0.0.0-latest-dev modules
+      # (e.g. a backport from main, or an explicit commit_sha on main).
+      - name: Verify observability modules are pinned at target
+        env:
+          TARGET: ${{ steps.resolve-target.outputs.target }}
+        run: |
+          if ! hack/pin-observability-modules.sh --check --ref "${TARGET}"; then
+            echo "::error::${TARGET} installs unpinned observability modules. Pin them on the release branch with hack/pin-observability-modules.sh before releasing."
+            exit 1
+          fi
 
       - name: Resolve backstage-plugins image tag
         id: backstage-tag

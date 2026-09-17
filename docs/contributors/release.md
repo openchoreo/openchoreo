@@ -53,7 +53,7 @@ The gate shards the suite into five parallel legs, each on its own runner
 and k3d cluster:
 
 | Leg         | Scope                                     | Typical | Timeout |
-|-------------|-------------------------------------------|---------|---------|
+| ----------- | ----------------------------------------- | ------- | ------- |
 | tier1       | Core platform (CP + DP)                   | ~10 min | 45 min  |
 | tier2       | API, CLI, authz, gateway (CP + DP)        | ~10 min | 45 min  |
 | tier3       | Multi-cluster (4 clusters, one per plane) | ~25 min | 90 min  |
@@ -82,3 +82,46 @@ The orchestrator exposes a `skip_e2e` input that bypasses the gate. It is
 reserved for declared emergencies (e.g. a critical security hotfix where the
 fix has been validated out of band) and should be noted on the release issue
 when used.
+
+## Default observability module versions
+
+The k3d installers, quick-start, e2e suite, and multi-cluster guide install
+observability modules from
+[community-modules](https://github.com/openchoreo/community-modules). On
+`main`, those modules are pinned to `0.0.0-latest-dev`: the chart and images
+that community-modules publishes from its own `main`. A module release therefore
+needs no change in this repo. Release branches pin released module versions
+instead.
+
+The versions live in the files tracked by
+[`hack/pin-observability-modules.sh`](../../hack/pin-observability-modules.sh).
+Run it with `--help` to list the charts and files.
+
+- **Minor releases (new branch).** Before cutting the branch, release the
+  community-modules versions this release should ship (bump `<module>/VERSION`
+  in community-modules). Then pass each version to the `Release Orchestrator`:
+
+  | Input                           | Script flag                       | Chart                                 |
+  |---------------------------------|-----------------------------------|---------------------------------------|
+  | `logs_opensearch_version`       | `--logs-opensearch-version`       | `observability-logs-opensearch`       |
+  | `tracing_opensearch_version`    | `--tracing-opensearch-version`    | `observability-tracing-opensearch`    |
+  | `metrics_prometheus_version`    | `--metrics-prometheus-version`    | `observability-metrics-prometheus`    |
+  | `events_otel_collector_version` | `--events-otel-collector-version` | `observability-events-otel-collector` |
+  | `logs_openobserve_version`      | `--logs-openobserve-version`      | `observability-logs-openobserve`      |
+
+  All five are required whenever the orchestrator creates a release branch,
+  and each version must already be published to
+  `oci://ghcr.io/openchoreo/helm-charts`. The branch job commits the pins to
+  the new branch, so the e2e gate on branch creation tests those exact
+  versions.
+
+- **Patch releases (existing branch).** Pins carry over. To change one, open a
+  PR against `release-vX.Y` that runs the script, e.g.
+  `hack/pin-observability-modules.sh --metrics-prometheus-version 0.7.1`.
+  The orchestrator rejects the module version inputs when the branch already
+  exists.
+- **Guards.** `hack/pin-observability-modules.sh --check` fails if a tracked
+  location is still unpinned. It runs in `build-and-test` for `release-v*`
+  pushes and PRs, which catches backports that carry `0.0.0-latest-dev` over
+  from `main`. The orchestrator also runs it against the target commit before
+  the gate and tag.

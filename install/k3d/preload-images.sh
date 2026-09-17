@@ -577,7 +577,7 @@ collect_images() {
         log_info "Collecting observability module images..." >&2
         local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
         local module_charts=(
-            "${modules_repo}/observability-logs-opensearch --version ${LOGS_OPENSEARCH_VERSION} --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials --set adapter.openSearchSecretName=opensearch-admin-credentials --set fluent-bit.enabled=true|observability-logs-opensearch"
+            "${modules_repo}/observability-logs-opensearch --version ${LOGS_OPENSEARCH_VERSION} --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials --set adapter.openSearchSecretName=opensearch-admin-credentials --set fluent-bit.enabled=true --set fluentBitCustomizations.clusterInstance=${CLUSTER_NAME}|observability-logs-opensearch"
             "${modules_repo}/observability-tracing-opensearch --version ${TRACES_OPENSEARCH_VERSION} --set openSearch.enabled=false --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials|observability-traces-opensearch"
             "${modules_repo}/observability-metrics-prometheus --version ${METRICS_PROMETHEUS_VERSION}|observability-metrics-prometheus"
             "${modules_repo}/observability-events-otel-collector --version ${EVENTS_OTEL_COLLECTOR_VERSION}|observability-events-kubernetes"

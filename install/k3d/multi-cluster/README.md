@@ -32,6 +32,26 @@ no need to expose Kubernetes APIs externally.
 > [!TIP]
 > For faster setup, consider using [Image Preloading](#image-preloading) after creating clusters.
 
+## Versions
+
+Export the versions used by the commands in this guide. Run this in every shell you use to follow the steps below.
+
+```bash
+export GATEWAY_API_VERSION=v1.5.1
+export CERT_MANAGER_VERSION=v1.19.4
+export ESO_VERSION=2.0.1
+export KGATEWAY_VERSION=v2.3.1
+export THUNDER_VERSION=1.0.1
+export OPENSEARCH_OPERATOR_VERSION=2.8.0
+
+# Observability community modules: 0.0.0-latest-dev (the latest build of
+# community-modules main) on main, pinned to released versions on release branches.
+export LOGS_OPENSEARCH_VERSION=0.0.0-latest-dev
+export TRACES_OPENSEARCH_VERSION=0.0.0-latest-dev
+export METRICS_PROMETHEUS_VERSION=0.0.0-latest-dev
+export EVENTS_OTEL_COLLECTOR_VERSION=0.0.0-latest-dev
+```
+
 ## 1. Control Plane
 
 ```bash
@@ -43,14 +63,14 @@ k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 ```bash
 # Gateway API CRDs
 kubectl apply --context k3d-openchoreo-cp --server-side \
-  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-cp \
   --namespace cert-manager \
   --create-namespace \
-  --version v1.19.4 \
+  --version "$CERT_MANAGER_VERSION" \
   --set crds.enabled=true
 
 kubectl --context k3d-openchoreo-cp wait --for=condition=Available deployment/cert-manager \
@@ -59,11 +79,11 @@ kubectl --context k3d-openchoreo-cp wait --for=condition=Available deployment/ce
 # kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-control-plane --kube-context k3d-openchoreo-cp \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-control-plane --create-namespace --kube-context k3d-openchoreo-cp \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 ```
 
 ### ThunderID (Identity Provider)
@@ -73,7 +93,7 @@ helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
   --kube-context k3d-openchoreo-cp \
   --namespace thunder \
   --create-namespace \
-  --version 1.0.1 \
+  --version "$THUNDER_VERSION" \
   --values install/k3d/common/values-thunder.yaml
 ```
 
@@ -134,14 +154,14 @@ docker exec k3d-openchoreo-dp-server-0 sh -c \
 ```bash
 # Gateway API CRDs
 kubectl apply --context k3d-openchoreo-dp --server-side \
-  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-dp \
   --namespace cert-manager \
   --create-namespace \
-  --version v1.19.4 \
+  --version "$CERT_MANAGER_VERSION" \
   --set crds.enabled=true
 
 kubectl --context k3d-openchoreo-dp wait --for=condition=Available deployment/cert-manager \
@@ -152,7 +172,7 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
   --kube-context k3d-openchoreo-dp \
   --namespace external-secrets \
   --create-namespace \
-  --version 2.0.1 \
+  --version "$ESO_VERSION" \
   --set installCRDs=true
 
 kubectl --context k3d-openchoreo-dp wait --for=condition=Available deployment/external-secrets \
@@ -161,11 +181,11 @@ kubectl --context k3d-openchoreo-dp wait --for=condition=Available deployment/ex
 # kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-data-plane --kube-context k3d-openchoreo-dp \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-data-plane --create-namespace --kube-context k3d-openchoreo-dp \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 ```
 
 ### CoreDNS Rewrite and Certificates
@@ -265,7 +285,7 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-wp \
   --namespace cert-manager \
   --create-namespace \
-  --version v1.19.4 \
+  --version "$CERT_MANAGER_VERSION" \
   --set crds.enabled=true
 
 kubectl --context k3d-openchoreo-wp wait --for=condition=Available deployment/cert-manager \
@@ -276,7 +296,7 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
   --kube-context k3d-openchoreo-wp \
   --namespace external-secrets \
   --create-namespace \
-  --version 2.0.1 \
+  --version "$ESO_VERSION" \
   --set installCRDs=true
 
 kubectl --context k3d-openchoreo-wp wait --for=condition=Available deployment/external-secrets \
@@ -406,23 +426,23 @@ docker exec k3d-openchoreo-op-server-0 sh -c \
 ```bash
 # Gateway API CRDs
 kubectl apply --context k3d-openchoreo-op --server-side \
-  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 # kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-observability-plane --kube-context k3d-openchoreo-op \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-observability-plane --create-namespace --kube-context k3d-openchoreo-op \
-  --version v2.3.1
+  --version "$KGATEWAY_VERSION"
 
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-op \
   --namespace cert-manager \
   --create-namespace \
-  --version v1.19.4 \
+  --version "$CERT_MANAGER_VERSION" \
   --set crds.enabled=true
 
 kubectl --context k3d-openchoreo-op wait --for=condition=Available deployment/cert-manager \
@@ -433,7 +453,7 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
   --kube-context k3d-openchoreo-op \
   --namespace external-secrets \
   --create-namespace \
-  --version 2.0.1 \
+  --version "$ESO_VERSION" \
   --set installCRDs=true
 
 kubectl --context k3d-openchoreo-op wait --for=condition=Available deployment/external-secrets \
@@ -605,7 +625,7 @@ helm upgrade --install opensearch-operator opensearch-operator/opensearch-operat
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 2.8.0 \
+  --version "$OPENSEARCH_OPERATOR_VERSION" \
   --set kubeRbacProxy.image.repository=quay.io/brancz/kube-rbac-proxy \
   --set kubeRbacProxy.image.tag=v0.15.0
 ```
@@ -618,7 +638,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.5.1 \
+  --version "$LOGS_OPENSEARCH_VERSION" \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
   --set adapter.openSearchSecretName="opensearch-admin-credentials" \
@@ -634,12 +654,13 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.5.1 \
+  --version "$LOGS_OPENSEARCH_VERSION" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
   --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
+  --set fluentBitCustomizations.clusterInstance=openchoreo-dp \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
   --set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost
@@ -653,12 +674,13 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.5.1 \
+  --version "$LOGS_OPENSEARCH_VERSION" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
   --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
+  --set fluentBitCustomizations.clusterInstance=openchoreo-wp \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
   --set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost
@@ -672,7 +694,7 @@ helm upgrade --install observability-events-otel-collector \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.1.1 \
+  --version "$EVENTS_OTEL_COLLECTOR_VERSION" \
   -f - <<'EOF'
 collector:
   extraEnv:
@@ -717,7 +739,7 @@ helm upgrade --install observability-events-otel-collector \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.1.1 \
+  --version "$EVENTS_OTEL_COLLECTOR_VERSION" \
   -f - <<'EOF'
 collector:
   extraEnv:
@@ -764,7 +786,7 @@ helm upgrade --install observability-traces-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.5.0 \
+  --version "$TRACES_OPENSEARCH_VERSION" \
   --set global.installationMode="multiClusterReceiver" \
   --set openSearch.enabled=false \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
@@ -779,7 +801,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.5.0 \
+  --version "$TRACES_OPENSEARCH_VERSION" \
   --set global.installationMode="multiClusterExporter" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
@@ -800,7 +822,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.6.1 \
+  --version "$METRICS_PROMETHEUS_VERSION" \
   --set global.installationMode="multiClusterReceiver" \
   --set-json 'prometheusCustomizations.http.hostnames=["prometheus.observability.openchoreo.localhost", "host.k3d.internal"]'
 ```
@@ -813,7 +835,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.6.1 \
+  --version "$METRICS_PROMETHEUS_VERSION" \
   --set global.installationMode="multiClusterExporter" \
   --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
   --set kube-prometheus-stack.prometheus.enabled=false \
@@ -864,7 +886,7 @@ kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n defaul
 All ports are mapped 1:1 (host:container) unless noted.
 
 | Port  | Plane         | Service                   |
-|-------|---------------|---------------------------|
+| ----- | ------------- | ------------------------- |
 | 8080  | Control       | Gateway HTTP              |
 | 8443  | Control       | Gateway HTTPS             |
 | 19080 | Data          | Gateway HTTP              |
@@ -953,6 +975,10 @@ install/k3d/preload-images.sh \
   --cluster openchoreo-op \
   --local-charts \
   --observability-plane --op-values install/k3d/multi-cluster/values-op.yaml \
+  --logs-opensearch-version "$LOGS_OPENSEARCH_VERSION" \
+  --traces-opensearch-version "$TRACES_OPENSEARCH_VERSION" \
+  --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
+  --events-otel-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
   --parallel 4
 ```
 

@@ -1142,7 +1142,8 @@ install_observability_plane() {
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$LOGS_OPENSEARCH_VERSION" \
         "--reuse-values" \
-        "--set" "fluent-bit.enabled=true"
+        "--set" "fluent-bit.enabled=true" \
+        "--set" "fluentBitCustomizations.clusterInstance=$CLUSTER_NAME"
 
     # Enable Kubernetes events collection
     log_info "Enabling Kubernetes events collection..."
