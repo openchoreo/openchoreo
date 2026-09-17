@@ -115,11 +115,34 @@ Run it with `--help` to list the charts and files.
   the new branch, so the e2e gate on branch creation tests those exact
   versions.
 
-- **Patch releases (existing branch).** Pins carry over. To change one, open a
-  PR against `release-vX.Y` that runs the script, e.g.
-  `hack/pin-observability-modules.sh --metrics-prometheus-version 0.7.1`.
+- **Patch releases (existing branch).** Pins carry over from the branch cut.
   The orchestrator rejects the module version inputs when the branch already
-  exists.
+  exists, so change a pin with a PR against `release-vX.Y` before releasing:
+
+  ```sh
+  git fetch upstream
+  git switch -c pin-observability-modules-vX.Y upstream/release-vX.Y
+  # Rewrites every file that pins the module (--help lists them)
+  hack/pin-observability-modules.sh --metrics-prometheus-version 0.7.1
+  # Fails if anything is unpinned, otherwise prints the pinned versions
+  hack/pin-observability-modules.sh --check
+  git commit -s -am "chore: pin observability-metrics-prometheus 0.7.1 on release-vX.Y"
+  ```
+
+  Release lines cut before the script existed (v1.2 and older) don't have
+  it. List every line that pins a module, edit the ones for the module you are
+  changing, then commit the same way:
+
+  ```sh
+  git grep -n -E '^(export )?(OBSERVABILITY_)?(LOGS_OPENSEARCH|TRACES_OPENSEARCH|METRICS_PROMETHEUS|EVENTS_OTEL_COLLECTOR|LOGS_OPENOBSERVE)_VERSION *\??= *"?[0-9]' -- install make
+  git grep -n -A8 -E 'observability-(logs-opensearch|tracing-opensearch|metrics-prometheus|events-otel-collector|logs-openobserve)' -- install make | grep -E -- '--version"? +"?[0-9]'
+  ```
+
+- **Docs constants.** The module keys in the versioned docs'
+  `_constants.mdx` (`logsOpensearchModule`, `tracingOpensearchModule`,
+  `metricsPrometheusModule`, `eventsOtelCollectorModule`) must match the
+  release branch's pins. From an openchoreo `main` checkout, print them with
+  `hack/pin-observability-modules.sh --check --ref upstream/release-vX.Y`.
 - **Guards.** `hack/pin-observability-modules.sh --check` fails if a tracked
   location is still unpinned. It runs in `build-and-test` for `release-v*`
   pushes and PRs, which catches backports that carry `0.0.0-latest-dev` over
