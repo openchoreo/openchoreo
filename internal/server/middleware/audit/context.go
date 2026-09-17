@@ -101,38 +101,3 @@ func SetHierarchy(ctx context.Context, h Hierarchy) {
 		data.Hierarchy = h
 	}
 }
-
-// emittedMarkerKey is the context key for emittedMarker.
-type emittedMarkerKey struct{}
-
-// emittedMarker is a mutable flag shared, via context, between an outer HTTP
-// middleware (NewUnauthenticatedMiddleware) and an inner one (Middleware)
-// composed beneath it, so the outer can tell whether the inner emitted an
-// event.
-//
-// A plain re-read of r.Context() after next.ServeHTTP returns wouldn't work:
-// every http.Request.WithContext call downstream (auth setting the subject,
-// this package's own NewAuditContext) returns a new *http.Request that never
-// propagates back to a variable the outer's closure already captured.
-// Sharing a pointer sidesteps that — the outer seeds it before calling next,
-// the inner flips it when it emits, and the outer reads that same pointer
-// afterward.
-type emittedMarker struct {
-	emitted bool
-}
-
-// withEmittedMarker returns a copy of ctx carrying a fresh, unset
-// emittedMarker, plus the marker itself.
-func withEmittedMarker(ctx context.Context) (context.Context, *emittedMarker) {
-	m := &emittedMarker{}
-	return context.WithValue(ctx, emittedMarkerKey{}, m), m
-}
-
-// markEmitted flags ctx's emittedMarker, if one is present. A no-op when
-// none was seeded — e.g. a Middleware used without an enclosing
-// NewUnauthenticatedMiddleware instance, as exec/wirelogs are today.
-func markEmitted(ctx context.Context) {
-	if m, ok := ctx.Value(emittedMarkerKey{}).(*emittedMarker); ok {
-		m.emitted = true
-	}
-}

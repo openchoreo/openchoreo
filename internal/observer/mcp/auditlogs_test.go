@@ -237,17 +237,17 @@ func TestMCPAuditWiring(t *testing.T) {
 		assert.Equal(t, "failure", records[0]["result"])
 	})
 
-	// A refused read must stay distinguishable from an adapter that was down.
-	// See recordAuthzResult for why that takes work on this surface.
+	// A policy-refused read must stay distinguishable from an adapter that was
+	// down. See recordAuthzResult for why that takes work on this surface.
 	for _, tc := range []struct {
 		name string
 		err  error
 		want string
 	}{
 		{"denied", observerAuthz.ErrAuthzForbidden, "denied"},
-		{"unauthenticated", observerAuthz.ErrAuthzUnauthorized, "unauthenticated"},
+		{"unauthorized", observerAuthz.ErrAuthzUnauthorized, "failure"},
 	} {
-		t.Run("a refused read is recorded as "+tc.want, func(t *testing.T) {
+		t.Run("a "+tc.name+" read is recorded as "+tc.want, func(t *testing.T) {
 			var buf bytes.Buffer
 			session, svcs := setup(t, &buf)
 			svcs.auditLogs.err = tc.err

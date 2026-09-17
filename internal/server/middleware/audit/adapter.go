@@ -132,12 +132,10 @@ func RequestIDRejections() int64 {
 // request with an oversized or arbitrary string. Requiring a valid UUID
 // bounds it to a fixed shape.
 //
-// On REST and MCP, logger.Middleware already runs this same validation
-// against the inbound header and normalizes it before this ever executes, so
-// here it's a no-op in the common case — this stays so the audit envelope is
-// still well-formed if that ever changes. exec and wirelogs have no logger
-// middleware in front of them (see NewExecWirelogsAuditMiddleware), so this
-// is their only validation and normalization point.
+// On REST, MCP, exec and wirelogs, logger.Middleware already runs this same
+// validation against the inbound header and normalizes it before this ever
+// executes, so here it's a no-op in the common case — this stays so the audit
+// envelope is still well-formed if that ever changes.
 func RequestIDFromHeader(h http.Header) string {
 	requestID := h.Get("X-Request-ID")
 	if requestID != "" {

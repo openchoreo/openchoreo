@@ -370,10 +370,8 @@ func main() {
 	// MCP endpoint. Ordering lives in apihandler.MCPMiddlewares, matching the
 	// two generated-route composers — main.go supplies dependencies only.
 	mcpMiddlewares, err := apihandler.MCPMiddlewares(apihandler.MCPMiddlewareOptions{
-		Auth401:      initMCPMiddleware(logger),
-		JWTAuth:      jwtAuth,
-		AuditEmitter: auditEmitter,
-		AuditConfig:  auditMiddlewareConfig,
+		Auth401: initMCPMiddleware(logger),
+		JWTAuth: jwtAuth,
 	})
 	if err != nil {
 		logger.Error("Failed to build MCP middlewares", "error", err)

@@ -4,9 +4,11 @@
 package logger
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -184,5 +186,62 @@ func TestMiddleware_RejectionLogTruncatesLongValue(t *testing.T) {
 	if len(loggedValue) > maxLoggedRequestIDLen+len("...(truncated)") {
 		t.Errorf("logged value is %d bytes, want at most %d (maxLoggedRequestIDLen plus the truncation marker)",
 			len(loggedValue), maxLoggedRequestIDLen+len("...(truncated)"))
+	}
+}
+
+// TestMiddleware_ResponseControllerSeesThroughWrapper guards the streaming
+// routes behind this middleware: exec hijacks and wirelogs flushes through
+// http.ResponseController, which only reaches the real writer via Unwrap.
+func TestMiddleware_ResponseControllerSeesThroughWrapper(t *testing.T) {
+	logger, _ := newTestLogger()
+	var flushErr error
+	handler := Middleware(logger)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		flushErr = http.NewResponseController(w).Flush()
+	}))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if flushErr != nil {
+		t.Fatalf("Flush through the logger wrapper: %v", flushErr)
+	}
+	if !rec.Flushed {
+		t.Error("the underlying ResponseWriter was not flushed")
+	}
+}
+
+type hijackableRecorder struct {
+	*httptest.ResponseRecorder
+	hijacked bool
+}
+
+func (h *hijackableRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h.hijacked = true
+	return nil, nil, nil
+}
+
+// TestMiddleware_HijackLogsSwitchingProtocols covers exec's WebSocket upgrade:
+// the 101 goes straight to the hijacked connection, so the access log would
+// otherwise report the default 200.
+func TestMiddleware_HijackLogsSwitchingProtocols(t *testing.T) {
+	logger, buf := newTestLogger()
+	handler := Middleware(logger)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, _, err := http.NewResponseController(w).Hijack(); err != nil {
+			t.Fatalf("Hijack through the logger wrapper: %v", err)
+		}
+	}))
+
+	rec := &hijackableRecorder{ResponseRecorder: httptest.NewRecorder()}
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if !rec.hijacked {
+		t.Fatal("the underlying ResponseWriter was not hijacked")
+	}
+	lines := logLines(t, buf)
+	if len(lines) != 1 {
+		t.Fatalf("expected exactly one access log line, got %d", len(lines))
+	}
+	if status := lines[0]["status"]; status != float64(http.StatusSwitchingProtocols) {
+		t.Errorf("access log status = %v, want %d", status, http.StatusSwitchingProtocols)
 	}
 }

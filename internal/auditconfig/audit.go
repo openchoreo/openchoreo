@@ -87,8 +87,7 @@ var (
 	}
 	validSurfaces = []string{string(audit.SurfaceREST), string(audit.SurfaceMCP)}
 	validResults  = []string{
-		string(audit.ResultSuccess), string(audit.ResultFailure),
-		string(audit.ResultDenied), string(audit.ResultUnauthenticated),
+		string(audit.ResultSuccess), string(audit.ResultFailure), string(audit.ResultDenied),
 	}
 )
 

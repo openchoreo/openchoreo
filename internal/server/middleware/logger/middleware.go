@@ -4,7 +4,9 @@
 package logger
 
 import (
+	"bufio"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -46,6 +48,23 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// Unwrap exposes the underlying ResponseWriter to http.ResponseController, so
+// a wrapped handler can still flush (wirelogs' stream) the real connection.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
+// Hijack hands the connection to the handler (exec's WebSocket upgrade). The
+// handler writes its 101 straight to the connection, bypassing WriteHeader,
+// so the status is recorded here or the access log would report 200.
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, brw, err := http.NewResponseController(rw.ResponseWriter).Hijack()
+	if err == nil {
+		rw.statusCode = http.StatusSwitchingProtocols
+	}
+	return conn, brw, err
+}
+
 // Middleware returns an HTTP middleware that logs access logs and enriches context with request ID
 func Middleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -58,8 +77,7 @@ func Middleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
 			// normalizes X-Request-ID for every downstream consumer — the
 			// access log below and, on REST/MCP, the audit envelope built from
 			// the same header (see audit.RequestIDFromHeader, which repeats
-			// this validation as defense-in-depth and as the sole normalizer
-			// for the exec/wirelogs routes this middleware doesn't wrap).
+			// this validation as defense-in-depth).
 			// Normalizing here means both logs agree on one request ID instead
 			// of an invalid client value passing through to the access log
 			// while audit silently replaces it with a different generated one.

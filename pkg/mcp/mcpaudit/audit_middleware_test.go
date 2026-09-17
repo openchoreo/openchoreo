@@ -347,7 +347,7 @@ func TestClassifyResult(t *testing.T) {
 			name: "no error, IsError result is failure",
 			res:  &mcp.CallToolResult{IsError: true}, err: nil, want: audit.ResultFailure,
 		},
-		{name: "ErrNoSubject is unauthenticated", res: nil, err: tools.ErrNoSubject, want: audit.ResultUnauthenticated},
+		{name: "ErrNoSubject is failure, not denied", res: nil, err: tools.ErrNoSubject, want: audit.ResultFailure},
 		{name: "ErrForbidden is denied", res: nil, err: tools.ErrForbidden, want: audit.ResultDenied},
 		{name: "ErrPDPFailure is failure, not denied", res: nil, err: tools.ErrPDPFailure, want: audit.ResultFailure},
 		{

@@ -28,7 +28,7 @@ const example = `  # Everything in the last 24 hours
   occ auditlogs
 
   # Denied requests in the last 7 days
-  occ auditlogs --since 7d --result denied,unauthenticated
+  occ auditlogs --since 7d --result denied
 
   # What one user changed in a namespace, as JSON
   occ auditlogs --actor alice@example.com --namespace acme-corp --category management -o json
@@ -79,7 +79,7 @@ func addQueryFlags(cmd *cobra.Command) {
 	fl.StringSlice("entitlement", nil, "Entitlement values such as group names (comma-separated)")
 	fl.StringSlice("action", nil, "Semantic action names, e.g. create_project (comma-separated)")
 	fl.StringSlice("category", nil, "Event categories: management, authorization, access (comma-separated)")
-	fl.StringSlice("result", nil, "Outcomes: success, failure, denied, unauthenticated (comma-separated)")
+	fl.StringSlice("result", nil, "Outcomes: success, failure, denied (comma-separated)")
 	fl.StringSlice("surface", nil, "API surfaces the call arrived through: rest, mcp (comma-separated)")
 	fl.StringSlice("producer", nil, "Emitting services, e.g. openchoreo-api (comma-separated)")
 	fl.StringSlice("operation-id", nil, "Canonical operation identifiers, e.g. CreateProject (comma-separated)")

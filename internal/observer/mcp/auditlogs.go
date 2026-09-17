@@ -110,18 +110,16 @@ func (h *MCPHandler) QueryAuditLogs(ctx context.Context, args AuditLogsQueryArgs
 	return resp, nil
 }
 
-// recordAuthzResult tells the audit middleware that err was an authorization
-// outcome rather than a plain failure.
+// recordAuthzResult tells the audit middleware that err was a policy denial
+// rather than a plain failure. ErrAuthzUnauthorized is left as a failure: a
+// request with no authenticated subject is not a policy refusal.
 //
 // Observer enforces authz in the service decorators, inside the tool handler,
 // and the MCP SDK folds a handler-returned error into CallToolResult.IsError
 // before the middleware can read its identity. Without this every refused read
 // of the trail is recorded as "failure", invisible to a result=denied query.
 func recordAuthzResult(ctx context.Context, err error) {
-	switch {
-	case errors.Is(err, observerAuthz.ErrAuthzForbidden):
+	if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
 		audit.SetResult(ctx, audit.ResultDenied)
-	case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
-		audit.SetResult(ctx, audit.ResultUnauthenticated)
 	}
 }

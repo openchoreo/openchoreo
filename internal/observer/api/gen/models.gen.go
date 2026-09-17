@@ -78,10 +78,9 @@ const (
 
 // Defines values for AuditLogsQueryRequestResult.
 const (
-	Denied          AuditLogsQueryRequestResult = "denied"
-	Failure         AuditLogsQueryRequestResult = "failure"
-	Success         AuditLogsQueryRequestResult = "success"
-	Unauthenticated AuditLogsQueryRequestResult = "unauthenticated"
+	Denied  AuditLogsQueryRequestResult = "denied"
+	Failure AuditLogsQueryRequestResult = "failure"
+	Success AuditLogsQueryRequestResult = "success"
 )
 
 // Defines values for AuditLogsQueryRequestSortOrder.
@@ -609,8 +608,8 @@ type AuditLogRecord struct {
 	// authorized at. Absent on a rejection that resolved no operation.
 	Resource *AuditLogResource `json:"resource,omitempty"`
 
-	// Result Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
-	// policy) or `unauthenticated` (no subject at all) at schema 1.0.
+	// Result Outcome. `success`, `failure` or `denied` (an authenticated subject refused by
+	// policy) at schema 1.0.
 	Result string `json:"result"`
 
 	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed
@@ -679,8 +678,8 @@ type AuditLogTimeline struct {
 // AuditLogTimelineBucket One interval of the timeline.
 type AuditLogTimelineBucket struct {
 	// Counts Records in this bucket by `result`, keyed by the value itself — `success`,
-	// `failure`, `denied` and `unauthenticated` at schema 1.0. An open map rather
-	// than four declared fields, so a `result` value added in a later schema
+	// `failure` and `denied` at schema 1.0. An open map rather
+	// than three declared fields, so a `result` value added in a later schema
 	// appears here without a spec bump.
 	//
 	// **A result with no records in this bucket may be omitted, and an absent key

@@ -1874,11 +1874,11 @@ components:
         result:
           type: array
           uniqueItems: true
-          maxItems: 4
+          maxItems: 3
           description: Outcomes. Closed, for the same reason as `category`.
           items:
             type: string
-            enum: ["success", "failure", "denied", "unauthenticated"]
+            enum: ["success", "failure", "denied"]
           example: ["denied"]
         producer:
           type: array
@@ -2280,8 +2280,8 @@ components:
         result:
           type: string
           description: |
-            Outcome. `success`, `failure`, `denied` (an authenticated subject refused by
-            policy) or `unauthenticated` (no subject at all) at schema 1.0.
+            Outcome. `success`, `failure` or `denied` (an authenticated subject refused by
+            policy) at schema 1.0.
         request_id:
           type: string
           description: Correlates this record with the access log line for the same request.
@@ -2509,8 +2509,8 @@ components:
             minimum: 0
           description: |
             Records in this bucket by `result`, keyed by the value itself — `success`,
-            `failure`, `denied` and `unauthenticated` at schema 1.0. An open map rather
-            than four declared fields, so a `result` value added in a later schema
+            `failure` and `denied` at schema 1.0. An open map rather
+            than three declared fields, so a `result` value added in a later schema
             appears here without a spec bump.
 
             **A result with no records in this bucket may be omitted, and an absent key

@@ -44,7 +44,7 @@ const (
 
 var (
 	validCategories = []string{"management", "authorization", "access"}
-	validResults    = []string{"success", "failure", "denied", "unauthenticated"}
+	validResults    = []string{"success", "failure", "denied"}
 	validSurfaces   = []string{"rest", "mcp"}
 )
 
