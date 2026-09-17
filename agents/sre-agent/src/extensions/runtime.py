@@ -21,8 +21,7 @@ from src.extensions.skills import create_load_skill_tool
 
 logger = logging.getLogger(__name__)
 
-# Discovery happens while the analysis slot is already held, so it is bounded
-# well below the adapter's own read timeout.
+# Discovery holds a concurrency slot, so keep it under the adapter's read timeout.
 _DISCOVERY_TIMEOUT_SECONDS = 10
 
 

@@ -99,12 +99,14 @@ func TestReadyStatus(t *testing.T) {
 func TestConditionsSummary(t *testing.T) {
 	assert.Nil(t, conditionsSummary(nil))
 
+	transitioned := metav1.Date(2026, 9, 16, 15, 13, 42, 0, time.UTC)
 	conditions := []metav1.Condition{
 		{
-			Type:    "Ready",
-			Status:  metav1.ConditionTrue,
-			Reason:  "AllGood",
-			Message: "Everything is fine",
+			Type:               "Ready",
+			Status:             metav1.ConditionTrue,
+			Reason:             "AllGood",
+			Message:            "Everything is fine",
+			LastTransitionTime: transitioned,
 		},
 		{
 			Type:   "Reconciled",
@@ -119,9 +121,32 @@ func TestConditionsSummary(t *testing.T) {
 	assert.Equal(t, "True", result[0]["status"])
 	assert.Equal(t, "AllGood", result[0]["reason"])
 	assert.Equal(t, "Everything is fine", result[0]["message"])
+	assert.Equal(t, "2026-09-16T15:13:42Z", result[0]["lastTransitionTime"])
 
 	assert.NotContains(t, result[1], "reason")
 	assert.NotContains(t, result[1], "message")
+	assert.NotContains(t, result[1], "lastTransitionTime")
+}
+
+func TestReleaseBindingDetailAlwaysReportsOverrides(t *testing.T) {
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc-development", Namespace: "ns"},
+	}
+
+	m := releaseBindingDetail(rb)
+
+	for _, key := range []string{
+		"workloadOverrides",
+		"componentTypeEnvironmentConfigs",
+		"traitEnvironmentConfigs",
+		"resolvedConnections",
+		"pendingConnections",
+	} {
+		assert.Contains(t, m, key)
+	}
+	assert.Nil(t, m["workloadOverrides"])
+	assert.Empty(t, m["traitEnvironmentConfigs"])
+	assert.Empty(t, m["pendingConnections"])
 }
 
 func TestTransformList(t *testing.T) {
@@ -933,12 +958,13 @@ func TestReleaseBindingDetail_Minimal(t *testing.T) {
 	m := releaseBindingDetail(rb)
 	assert.NotContains(t, m, "releaseName")
 	assert.NotContains(t, m, "state")
-	assert.NotContains(t, m, "componentTypeEnvironmentConfigs")
-	assert.NotContains(t, m, "traitEnvironmentConfigs")
-	assert.NotContains(t, m, "workloadOverrides")
 	assert.NotContains(t, m, "connectionTargets")
-	assert.NotContains(t, m, "resolvedConnections")
-	assert.NotContains(t, m, "pendingConnections")
+
+	assert.Nil(t, m["componentTypeEnvironmentConfigs"])
+	assert.Empty(t, m["traitEnvironmentConfigs"])
+	assert.Nil(t, m["workloadOverrides"])
+	assert.Empty(t, m["resolvedConnections"])
+	assert.Empty(t, m["pendingConnections"])
 }
 
 func TestRawExtensionToAny(t *testing.T) {

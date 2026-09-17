@@ -17,7 +17,7 @@ class ActionStatus(StrEnum):
 class EnvVarChange(BaseModel):
     """A single environment variable change, identified by key name"""
 
-    key: str = Field(..., description="Environment variable name (e.g. 'POSTGRES_DSN')")
+    key: str = Field(..., description="Environment variable name (e.g. 'LOG_LEVEL')")
     value: str = Field(..., description="New value for the environment variable")
 
 
@@ -78,7 +78,7 @@ class ResourceChange(BaseModel):
         description=(
             "Name of the binding to modify. For target_kind 'ReleaseBinding' a Component "
             "binding (e.g. 'api-service-development'); for 'ResourceReleaseBinding' a "
-            "Resource binding (e.g. 'snip-postgres-development')."
+            "Resource binding (e.g. 'db-development')."
         ),
     )
     env: list[EnvVarChange] = Field(

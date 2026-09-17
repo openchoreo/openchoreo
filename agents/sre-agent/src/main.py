@@ -73,11 +73,7 @@ async def lifespan(_app: FastAPI):
         logger.error("MCP initialization failed: %s", e)
         raise RuntimeError(f"MCP initialization failed: {e}") from e
 
-    # Reported here so a malformed directory is visible at boot rather than
-    # first surfacing as a failed analysis. Unlike the checks above this does
-    # not abort startup: the agent is fully usable without extensions, and
-    # refusing to serve because an optional file is wrong would be worse than
-    # serving without it.
+    # Non-fatal: the agent serves fine without extensions.
     logger.info("Loading extensions...")
     for agent in (RCA_AGENT, REMED_AGENT, CHAT_AGENT):
         read_extensions(agent.name)

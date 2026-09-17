@@ -346,6 +346,10 @@ func componentReleaseDetail(cr *openchoreov1alpha1.ComponentRelease) map[string]
 	}
 	m["workloadType"] = cr.Spec.ComponentType.Spec.WorkloadType
 	m["image"] = cr.Spec.Workload.Container.Image
+	m["env"] = cr.Spec.Workload.Container.Env
+	if len(cr.Spec.Workload.Container.Files) > 0 {
+		m["files"] = cr.Spec.Workload.Container.Files
+	}
 	if len(cr.Spec.Workload.Endpoints) > 0 {
 		m["endpoints"] = cr.Spec.Workload.Endpoints
 	}
@@ -390,32 +394,28 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 	if rb.Spec.State != "" {
 		m["state"] = string(rb.Spec.State)
 	}
-	if rb.Spec.ComponentTypeEnvironmentConfigs != nil {
-		m["componentTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ComponentTypeEnvironmentConfigs)
+	// Emitted even when empty, so callers can tell unset from unreported.
+	m["componentTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ComponentTypeEnvironmentConfigs)
+	tec := make(map[string]any, len(rb.Spec.TraitEnvironmentConfigs))
+	for k, v := range rb.Spec.TraitEnvironmentConfigs {
+		tec[k] = rawExtensionToAny(&v)
 	}
-	if len(rb.Spec.TraitEnvironmentConfigs) > 0 {
-		tec := make(map[string]any, len(rb.Spec.TraitEnvironmentConfigs))
-		for k, v := range rb.Spec.TraitEnvironmentConfigs {
-			tec[k] = rawExtensionToAny(&v)
-		}
-		m["traitEnvironmentConfigs"] = tec
-	}
-	if rb.Spec.WorkloadOverrides != nil {
-		m["workloadOverrides"] = rb.Spec.WorkloadOverrides
-	}
+	m["traitEnvironmentConfigs"] = tec
+	m["workloadOverrides"] = rb.Spec.WorkloadOverrides
 	if len(rb.Status.Endpoints) > 0 {
 		m["endpoints"] = rb.Status.Endpoints
 	}
 	if len(rb.Status.ConnectionTargets) > 0 {
 		m["connectionTargets"] = rb.Status.ConnectionTargets
 	}
-	if len(rb.Status.ResolvedConnections) > 0 {
-		m["resolvedConnections"] = rb.Status.ResolvedConnections
-	}
-	if len(rb.Status.PendingConnections) > 0 {
-		m["pendingConnections"] = rb.Status.PendingConnections
-	}
+	m["resolvedConnections"] = rb.Status.ResolvedConnections
+	m["pendingConnections"] = rb.Status.PendingConnections
+	m["resourceDependencyTargets"] = rb.Status.ResourceDependencyTargets
+	m["pendingResourceDependencies"] = rb.Status.PendingResourceDependencies
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
 	return m
 }
 
@@ -488,6 +488,9 @@ func workflowDetail(wf *openchoreov1alpha1.Workflow) map[string]any {
 		m["spec"] = spec
 	}
 	setIfNotEmpty(m, "status", readyStatus(wf.Status.Conditions))
+	if conds := conditionsSummary(wf.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
 	return m
 }
 
@@ -1011,12 +1014,8 @@ func resourceReleaseBindingDetail(rb *openchoreov1alpha1.ResourceReleaseBinding)
 	if rb.Spec.RetainPolicy != "" {
 		m["retainPolicy"] = string(rb.Spec.RetainPolicy)
 	}
-	if rb.Spec.ResourceTypeEnvironmentConfigs != nil {
-		m["resourceTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ResourceTypeEnvironmentConfigs)
-	}
-	if outputs := resolvedResourceOutputs(rb.Status.Outputs); len(outputs) > 0 {
-		m["outputs"] = outputs
-	}
+	m["resourceTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ResourceTypeEnvironmentConfigs)
+	m["outputs"] = resolvedResourceOutputs(rb.Status.Outputs)
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
 	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
 		m["conditions"] = conds

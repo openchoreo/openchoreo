@@ -49,7 +49,7 @@ func readyStatus(conditions []metav1.Condition) string {
 }
 
 // conditionsSummary returns a compact representation of conditions for detail
-// views, stripping lastTransitionTime and observedGeneration.
+// views, stripping observedGeneration.
 func conditionsSummary(conditions []metav1.Condition) []map[string]any {
 	if len(conditions) == 0 {
 		return nil
@@ -65,6 +65,9 @@ func conditionsSummary(conditions []metav1.Condition) []map[string]any {
 		}
 		if conditions[i].Message != "" {
 			c["message"] = conditions[i].Message
+		}
+		if ts := conditions[i].LastTransitionTime; !ts.IsZero() {
+			c["lastTransitionTime"] = ts.UTC().Format("2006-01-02T15:04:05Z")
 		}
 		result = append(result, c)
 	}
