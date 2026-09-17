@@ -1010,6 +1010,19 @@ func (c *Client) GetReleaseBinding(ctx context.Context, namespaceName, releaseBi
 	return resp.JSON200, nil
 }
 
+// GetReleaseBindingResourceTree retrieves the Kubernetes resource tree for a
+// release binding's rendered releases, including discovered child resources.
+func (c *Client) GetReleaseBindingResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (*gen.K8sResourceTreeResponse, error) {
+	resp, err := c.client.GetReleaseBindingK8sResourceTreeWithResponse(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource tree: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
 // DeleteReleaseBinding deletes a release binding
 func (c *Client) DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error {
 	resp, err := c.client.DeleteReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName)

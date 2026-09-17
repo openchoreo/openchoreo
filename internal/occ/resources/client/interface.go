@@ -104,6 +104,7 @@ type Interface interface {
 
 	ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error)
 	GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error)
+	GetReleaseBindingResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (*gen.K8sResourceTreeResponse, error)
 	CreateReleaseBinding(ctx context.Context, namespaceName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
 	UpdateReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
 	DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error
