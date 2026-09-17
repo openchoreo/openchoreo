@@ -135,7 +135,7 @@ spec:
               targetPort: 6379
 
     - id: statefulset
-      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      readyWhen: "${has(applied.statefulset.status.readyReplicas) && has(applied.statefulset.status.replicas) && applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
       template:
         apiVersion: apps/v1
         kind: StatefulSet
