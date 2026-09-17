@@ -1145,7 +1145,7 @@ _e2e.mc.install-fluent-bit:
 	@$(E2E_MC_WP_KUBECTL) create secret generic openobserve-admin-credentials \
 		-n $(E2E_OP_NS) \
 		--from-literal=ZO_ROOT_USER_EMAIL="admin@openchoreo.localhost" \
-		--from-literal=ZO_ROOT_USER_PASSWORD="ThisIsTheOpenObservePassword1" \
+		--from-literal=ZO_ROOT_USER_PASSWORD="ThisIsTheOpenObservePassword1!" \
 		--dry-run=client -o yaml | $(E2E_MC_WP_KUBECTL) apply -f -
 	@# Fluent Bit routes logs through the OP cluster's shared kgateway HTTP listener
 	@# (port 31080 → 11080), matched by the logs module's own HTTPRoute for the
