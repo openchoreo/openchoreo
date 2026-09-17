@@ -338,3 +338,42 @@ func TestDeploymentsDrillDownHonoursLimit(t *testing.T) {
 	require.NotNil(t, resp.TotalCount)
 	assert.Equal(t, count, *resp.TotalCount)
 }
+
+// TestDisabledObserverAnswersWithoutAStore pins what an install that never turned
+// Delivery Insights on gets. The store is not opened at all in that case -- so its
+// tables are never created -- and the read API still has to answer, because the
+// client tells "switched off" from "nothing deployed" by reading availability off
+// a successful response. Failing instead would leave it unable to tell either from
+// a broken observer.
+func TestDisabledObserverAnswersWithoutAStore(t *testing.T) {
+	ctx := context.Background()
+	svc := NewDeliveryInsightsService(
+		nil, NewPassthroughUIDResolver(), slog.Default(),
+		false, func() bool { return false },
+	)
+
+	start := time.Now().UTC().AddDate(0, 0, -30)
+	resp, err := svc.QueryDoraMetrics(ctx, gen.DoraMetricsQueryRequest{
+		StartTime:   start,
+		EndTime:     time.Now().UTC(),
+		SearchScope: gen.ComponentSearchScope{Namespace: "default"},
+	})
+	require.NoError(t, err, "a switched-off observer must answer, not fail")
+	require.NotNil(t, resp)
+
+	require.NotNil(t, resp.DataAvailability)
+	require.NotNil(t, resp.DataAvailability.Collecting)
+	assert.False(t, *resp.DataAvailability.Collecting,
+		"the response has to say why it is empty")
+	assert.Equal(t, "default", resp.Scope.Namespace)
+
+	deployments, err := svc.QueryDoraDeployments(ctx, gen.DoraDeploymentsQueryRequest{
+		StartTime:   start,
+		EndTime:     time.Now().UTC(),
+		SearchScope: gen.ComponentSearchScope{Namespace: "default"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, deployments)
+	require.NotNil(t, deployments.TotalCount)
+	assert.Zero(t, *deployments.TotalCount)
+}

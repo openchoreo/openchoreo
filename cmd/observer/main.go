@@ -567,6 +567,15 @@ func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (deliveryinsights.Store, func(), error) {
+	// Delivery Insights is behind a feature flag, so nothing is set up until it
+	// is on. The read API then reports nothing collected, which matches the flag:
+	// with it off nothing is being written either.
+	//
+	// The gate is here rather than at the call site because main sits on the
+	// gocyclo limit; see the note above.
+	if !cfg.DeliveryInsights.Enabled {
+		return nil, func() {}, nil
+	}
 	store, err := deliveryinsights.New(cfg.DeliveryInsights.StoreBackend, cfg.DeliveryInsights.StoreDSN, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize delivery insights store: %w", err)

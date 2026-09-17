@@ -571,6 +571,21 @@
               "title": "auth",
               "type": "object"
             },
+            "deliveryInsights": {
+              "additionalProperties": false,
+              "description": "Delivery Insights (DORA metrics) portal page",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Show the Delivery Insights page in the portal navigation. Feature preview - off by default, and separate from the Observer flag that collects the data (observer.deliveryInsights.enabled on the observability plane). Both are needed for the page to show anything. Maps to OPENCHOREO_FEATURES_DELIVERY_INSIGHTS_ENABLED in the Backstage container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "deliveryInsights",
+              "type": "object"
+            },
             "observability": {
               "additionalProperties": false,
               "description": "Observability plane features (Metrics, Traces, Runtime Logs)",

@@ -272,12 +272,53 @@ func (s *DoraMetricsService) dataAvailability() doraDataAvailabilityPayload {
 	}
 }
 
+// emptyMetricsResponse answers a metrics query on an observer that is not
+// collecting: the window and scope as asked for, no series, and the availability
+// that explains why.
+func (s *DoraMetricsService) emptyMetricsResponse(
+	req gen.DoraMetricsQueryRequest,
+) (*gen.DoraMetricsQueryResponse, error) {
+	granularity := deliveryinsights.GranularityDaily
+	if req.Granularity != nil && *req.Granularity != "" {
+		granularity = string(*req.Granularity)
+	}
+	payload := doraMetricsResponsePayload{
+		DataAvailability: s.dataAvailability(),
+		Scope:            req.SearchScope,
+		Granularity:      granularity,
+		Window: doraWindowPayload{
+			StartTime:   req.StartTime.UTC().Format(time.RFC3339),
+			EndTime:     req.EndTime.UTC().Format(time.RFC3339),
+			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		},
+	}
+	var response gen.DoraMetricsQueryResponse
+	if err := roundTripJSON(payload, &response); err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// emptyDeploymentsResponse is emptyMetricsResponse for the drill-down list: no
+// rows, and a count that says there were none to page through.
+func (s *DoraMetricsService) emptyDeploymentsResponse(
+	_ gen.DoraDeploymentsQueryRequest,
+) (*gen.DoraDeploymentsQueryResponse, error) {
+	total := 0
+	return &gen.DoraDeploymentsQueryResponse{TotalCount: &total}, nil
+}
+
 // QueryDoraMetrics computes the requested DORA metrics for a scope and window.
 func (s *DoraMetricsService) QueryDoraMetrics(
 	ctx context.Context, req gen.DoraMetricsQueryRequest,
 ) (*gen.DoraMetricsQueryResponse, error) {
+	// No store means the feature is switched off, and its tables were never
+	// created. That is a configuration answer, not a failure: the response says
+	// nothing is being collected and carries empty series, which is what the
+	// client needs to tell "switched off" from "nothing deployed". Failing here
+	// would leave it unable to tell either from a broken observer.
 	if s.store == nil {
-		return nil, fmt.Errorf("delivery insights store is not initialized")
+		return s.emptyMetricsResponse(req)
 	}
 
 	rs, err := s.resolveScope(ctx, req.SearchScope)
@@ -369,8 +410,9 @@ func (s *DoraMetricsService) QueryDoraMetrics(
 func (s *DoraMetricsService) QueryDoraDeployments(
 	ctx context.Context, req gen.DoraDeploymentsQueryRequest,
 ) (*gen.DoraDeploymentsQueryResponse, error) {
+	// See QueryDoraMetrics: switched off is answered, not failed.
 	if s.store == nil {
-		return nil, fmt.Errorf("delivery insights store is not initialized")
+		return s.emptyDeploymentsResponse(req)
 	}
 
 	rs, err := s.resolveScope(ctx, req.SearchScope)
