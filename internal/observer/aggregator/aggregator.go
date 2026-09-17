@@ -70,6 +70,13 @@ const (
 	incidentMaxPages = 50
 )
 
+// eventsUnavailableRetryAfter is how long the sweep stands down after an adapter
+// reports it cannot serve one. Long enough that an adapter which will never serve
+// it is asked rarely, short enough that upgrading to one that can takes effect on
+// its own -- the two are indistinguishable from here, so the interval has to suit
+// both.
+const eventsUnavailableRetryAfter = time.Hour
+
 // Config tunes the aggregator loop.
 type Config struct {
 	// Interval between ticks.
@@ -96,13 +103,19 @@ const aggregationLease = "dora-aggregation"
 type Aggregator struct {
 	store     deliveryinsights.Store
 	incidents incidententry.IncidentEntryStore
-	// eventsUnavailable latches once the adapter reports it cannot serve the
-	// sweep, so the attempt is not repeated every tick for the life of the process.
-	eventsUnavailable atomic.Bool
+	// eventsUnavailableUntilMs stands the sweep down until this moment once the
+	// adapter reports it cannot serve one, so the attempt is not repeated every
+	// tick. It expires rather than latching: the adapter is a separately deployed
+	// module, and an install that enables Delivery Insights before upgrading it
+	// would otherwise stay on incidents alone until someone restarted the observer,
+	// long after the adapter that can serve the sweep was in place. Zero means
+	// available.
+	eventsUnavailableUntilMs atomic.Int64
 	// events is the sweep source, and the events path is skipped while it is nil.
 	// Production always supplies one: whether the deployed adapter can actually serve
-	// the sweep is answered by the adapter itself (501, latched in eventsUnavailable
-	// above) rather than by configuration, because the sweep covers the whole install
+	// the sweep is answered by the adapter itself (501, recorded in
+	// eventsUnavailableUntilMs above) rather than by configuration, because the
+	// sweep covers the whole install
 	// on a timer and needs a reasons filter across every namespace -- something the
 	// operator cannot be expected to know about their logging backend.
 	events           EventsSource
@@ -165,11 +178,15 @@ func (a *Aggregator) leaseTTL() time.Duration {
 }
 
 // EventsActive reports whether the events sweep is being attempted: an aggregator
-// is running, a source is configured, and the adapter has not told us it cannot
-// serve one. Nil-safe, so a caller holding a not-yet-started aggregator -- or none
-// at all, when collection is off -- can ask without guarding first.
+// is running, a source is configured, and the adapter has not recently told us it
+// cannot serve one. Nil-safe, so a caller holding a not-yet-started aggregator --
+// or none at all, when collection is off -- can ask without guarding first.
 func (a *Aggregator) EventsActive() bool {
-	return a != nil && a.events != nil && !a.eventsUnavailable.Load()
+	if a == nil || a.events == nil {
+		return false
+	}
+	until := a.eventsUnavailableUntilMs.Load()
+	return until == 0 || a.now().UnixMilli() >= until
 }
 
 // Run ticks until ctx is cancelled. A failed tick logs and retries on the next
@@ -338,11 +355,14 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart)
 		switch {
 		case errors.Is(eventsErr, ErrEventsSourceUnavailable):
-			// The adapter cannot serve the sweep at all. Retrying would fail every
-			// tick, and since rollups are recomputed after both sources, that would
-			// stop Mean Time to Recovery too -- which needs no adapter support.
-			// Stand the sweep down and carry on with incidents.
-			a.eventsUnavailable.Store(true)
+			// The adapter cannot serve the sweep at all. Retrying every tick would
+			// fail every tick, and since rollups are recomputed after both sources,
+			// that would stop Mean Time to Recovery too -- which needs no adapter
+			// support. Stand the sweep down for a while and carry on with incidents;
+			// it is retried later so that deploying an adapter which can serve it is
+			// enough, without also restarting the observer.
+			a.eventsUnavailableUntilMs.Store(
+				a.now().Add(eventsUnavailableRetryAfter).UnixMilli())
 			eventsActive = false
 			a.logger.Warn("Delivery events source is unavailable on this adapter; "+
 				"continuing with incidents alone. Deployment frequency, lead time and "+

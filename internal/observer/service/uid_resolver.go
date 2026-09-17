@@ -107,7 +107,9 @@ func (r *ResourceUIDResolver) GetProjectUID(ctx context.Context, namespaceName, 
 	return uid, nil
 }
 
-// GetComponentUID resolves a component name to its UID within a namespace and project.
+// GetComponentUID resolves a component name to its UID within a namespace and
+// project. A component the named project does not own is not found, the same as
+// one that does not exist.
 func (r *ResourceUIDResolver) GetComponentUID(
 	ctx context.Context,
 	namespaceName, projectName, componentName string,
@@ -131,12 +133,17 @@ func (r *ResourceUIDResolver) GetComponentUID(
 		)
 	}
 
-	// Components are namespace-scoped, so the name alone addresses one whatever
-	// project the caller named. The caller's project is not decoration: it is what
-	// the authorization decision was made on, and a project-scoped grant matches by
-	// hierarchy prefix. Resolving a component that some other project owns would
-	// hand back data the grant never covered, so the claim is checked against the
-	// component's own owner rather than trusted.
+	// This resolves a component "within a namespace and project", and components
+	// are namespace-scoped -- the name alone addresses one whatever project the
+	// caller named. Returning a component owned by a different project than the one
+	// asked for would not answer the question, so projectName is checked rather
+	// than carried only into the error message.
+	//
+	// It matters beyond tidiness because callers pass the pair through from a
+	// request, and the authorization decision is made on that same unverified pair:
+	// a project-scoped grant matches every component path beneath it by prefix. A
+	// resolver that ignored the project would hand back a UID the grant never
+	// covered.
 	if owner := strings.TrimSpace(res.ownerProject); owner != "" &&
 		projectName != "" && owner != projectName {
 		return "", fmt.Errorf(

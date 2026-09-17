@@ -1256,9 +1256,9 @@ func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
 	require.False(t, a.EventsActive(), "the sweep should be stood down after a 501")
 	require.Equal(t, 1, events.calls)
 
-	// And stay stood down, rather than being retried every interval.
+	// And stay stood down for the interval, rather than being retried every tick.
 	require.NoError(t, runOnce(t, a))
-	require.Equal(t, 1, events.calls, "a refused sweep must not be retried")
+	require.Equal(t, 1, events.calls, "a refused sweep must not be retried every tick")
 
 	// The incident watermark still advances, which is what keeps MTTR working.
 	wm, err := store.Watermark(context.Background(), watermarkSourceIncidents)
@@ -1340,4 +1340,34 @@ func TestACappedIncidentSweepRecomputesTheResumedBacklogsBuckets(t *testing.T) {
 	}
 	require.Equal(t, total, recovered,
 		"the resumed backlog's buckets must be recomputed, not only its facts")
+}
+
+// TestARefusedSweepIsRetriedRatherThanLatched covers the upgrade path. The logs
+// adapter is a separately deployed module, so an install can enable Delivery
+// Insights before the adapter that can serve the sweep is in place. A stand-down
+// that never expired would leave that install on incidents alone until someone
+// restarted the observer -- long after the adapter was upgraded, and with nothing
+// on screen tying the two together.
+func TestARefusedSweepIsRetriedRatherThanLatched(t *testing.T) {
+	store, incidents := newTestStores(t)
+	start := time.Now().UTC()
+	events := &unavailableEventsSource{}
+	a := newTestAggregator(store, incidents, events, start)
+
+	require.NoError(t, runOnce(t, a))
+	require.False(t, a.EventsActive(), "stood down after the 501")
+	require.Equal(t, 1, events.calls)
+
+	// Still inside the stand-down: not asked again.
+	a.now = func() time.Time { return start.Add(eventsUnavailableRetryAfter - time.Minute) }
+	require.False(t, a.EventsActive())
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 1, events.calls, "must not be retried before the interval elapses")
+
+	// Past it: asked again, so an adapter deployed in the meantime is picked up
+	// without restarting the observer.
+	a.now = func() time.Time { return start.Add(eventsUnavailableRetryAfter + time.Minute) }
+	require.True(t, a.EventsActive(), "the sweep is attempted again once the interval elapses")
+	require.NoError(t, runOnce(t, a))
+	require.Equal(t, 2, events.calls, "the sweep must be retried after the interval")
 }
