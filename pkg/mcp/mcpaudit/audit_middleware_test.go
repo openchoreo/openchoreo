@@ -134,7 +134,9 @@ func TestResolveBinding(t *testing.T) {
 func TestNewMiddleware_EmitsOnPanic(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+	mw := testMiddleware(t, MiddlewareOptions{
+		Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+	})
 
 	panicking := func(context.Context, string, mcp.Request) (mcp.Result, error) {
 		panic("handler blew up after mutating state")
@@ -180,7 +182,9 @@ func TestNewMiddleware_PassesThroughWithoutAuditing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sink := &recordingSink{}
 			emitter := testEmitter(t, sink)
-			mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: tt.enabled})
+			mw := testMiddleware(t, MiddlewareOptions{
+				Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: tt.enabled},
+			})
 
 			called := false
 			next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
@@ -206,7 +210,9 @@ func TestNewMiddleware_PassesThroughWithoutAuditing(t *testing.T) {
 func TestNewMiddleware_NonCallToolMethodPassesThrough(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+	mw := testMiddleware(t, MiddlewareOptions{
+		Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+	})
 
 	called := false
 	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
@@ -233,7 +239,9 @@ func TestNewMiddleware_NonCallToolMethodPassesThrough(t *testing.T) {
 func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+	mw := testMiddleware(t, MiddlewareOptions{
+		Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+	})
 
 	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
 		return &mcp.CallToolResult{}, nil
@@ -265,7 +273,9 @@ func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
 func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+	mw := testMiddleware(t, MiddlewareOptions{
+		Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+	})
 
 	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
 		return &mcp.CallToolResult{}, nil
@@ -299,7 +309,9 @@ func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
 func TestNewMiddleware_HandlerSetResultWins(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+	mw := testMiddleware(t, MiddlewareOptions{
+		Emitter: emitter, Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+	})
 
 	next := func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
 		audit.SetResult(ctx, audit.ResultDenied)

@@ -15,9 +15,11 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	jwtlib "github.com/golang-jwt/jwt/v5"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 // Shared fixture values for this package's tests — a stand-in operation and
@@ -95,7 +97,7 @@ func TestExtractActor(t *testing.T) {
 				ctx = auth.SetSubjectContext(ctx, tt.subjectCtx)
 			}
 
-			actor := ExtractActor(ctx)
+			actor := ExtractActor(ctx, DefaultActorIDClaim)
 
 			if actor.Type != tt.wantType {
 				t.Errorf("Type = %q, want %q", actor.Type, tt.wantType)
@@ -107,6 +109,91 @@ func TestExtractActor(t *testing.T) {
 				t.Errorf("Entitlements = %#v, want %#v", actor.Entitlements, tt.wantEntitlements)
 			}
 		})
+	}
+}
+
+func TestExtractActor_ConfiguredIDClaim(t *testing.T) {
+	subjectCtx := &auth.SubjectContext{ID: "sub-123", Type: "user"}
+
+	tests := []struct {
+		name    string
+		claims  jwtlib.MapClaims
+		idClaim string
+		wantID  string
+	}{
+		{
+			name:    "configured claim is recorded instead of sub",
+			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"},
+			idClaim: "email",
+			wantID:  "alice@example.com",
+		},
+		{
+			name:    "empty claim records sub",
+			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"},
+			idClaim: "",
+			wantID:  "sub-123",
+		},
+		{
+			name:    "missing claim records unknown without falling back to sub",
+			claims:  jwtlib.MapClaims{"sub": "sub-123"},
+			idClaim: "email",
+			wantID:  "unknown",
+		},
+		{
+			name:    "non-string claim records unknown",
+			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": []any{"alice@example.com"}},
+			idClaim: "email",
+			wantID:  "unknown",
+		},
+		{
+			name:    "no claims in context records unknown",
+			claims:  nil,
+			idClaim: "email",
+			wantID:  "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := auth.SetSubjectContext(context.Background(), subjectCtx)
+			if tt.claims != nil {
+				ctx = jwt.ContextWithClaims(ctx, tt.claims)
+			}
+
+			if got := ExtractActor(ctx, tt.idClaim).ID; got != tt.wantID {
+				t.Errorf("ID = %q, want %q", got, tt.wantID)
+			}
+		})
+	}
+}
+
+func TestMiddleware_Handler_RecordsConfiguredActorIDClaim(t *testing.T) {
+	sink := &recordingSink{}
+	policies, errs := NewPolicySet(coreconfig.NewPath("audit"), Settings{Publish: true}, nil)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
+	mw := newMiddleware(slog.Default(), map[string]*Operation{testProjectPattern: op}, emitter,
+		MiddlewareConfig{Enabled: true, ActorIDClaim: "email"})
+
+	req := httptest.NewRequest(http.MethodPost, "/projects", nil)
+	req.Pattern = testProjectPattern
+	ctx := auth.SetSubjectContext(req.Context(), &auth.SubjectContext{ID: "sub-123", Type: "user"})
+	ctx = jwt.ContextWithClaims(ctx, jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"})
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mw.Handler(next).ServeHTTP(httptest.NewRecorder(), req.WithContext(ctx))
+
+	if len(sink.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(sink.events))
+	}
+	if got := sink.events[0].Actor.ID; got != "alice@example.com" {
+		t.Errorf("actor.id = %q, want %q", got, "alice@example.com")
 	}
 }
 
@@ -122,7 +209,7 @@ func TestExtractActor_CarriesIssuerAndSession(t *testing.T) {
 		Type:      "user",
 	})
 
-	actor := ExtractActor(ctx)
+	actor := ExtractActor(ctx, DefaultActorIDClaim)
 
 	if actor.Issuer != issuer {
 		t.Errorf("Issuer = %q, want %q", actor.Issuer, issuer)
@@ -135,7 +222,7 @@ func TestExtractActor_CarriesIssuerAndSession(t *testing.T) {
 // TestExtractActor_OmitsAbsentIssuerAndSession covers an anonymous actor and
 // an authenticated one whose IdP issues no sid, which OIDC leaves optional.
 func TestExtractActor_OmitsAbsentIssuerAndSession(t *testing.T) {
-	if actor := ExtractActor(context.Background()); actor.Issuer != "" || actor.SessionID != "" {
+	if actor := ExtractActor(context.Background(), DefaultActorIDClaim); actor.Issuer != "" || actor.SessionID != "" {
 		t.Errorf("anonymous actor = %+v, want no issuer or session", actor)
 	}
 
@@ -144,7 +231,7 @@ func TestExtractActor_OmitsAbsentIssuerAndSession(t *testing.T) {
 		Issuer: "https://idp.example.com/oauth2/token",
 		Type:   "user",
 	})
-	if actor := ExtractActor(ctx); actor.SessionID != "" {
+	if actor := ExtractActor(ctx, DefaultActorIDClaim); actor.SessionID != "" {
 		t.Errorf("SessionID = %q, want empty when the IdP issued no sid", actor.SessionID)
 	}
 }
@@ -164,7 +251,7 @@ func TestMiddleware_Handler_EmitsOnPanic(t *testing.T) {
 	}
 	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	patternMap := map[string]*Operation{testProjectPattern: op}
-	mw := newMiddleware(slog.Default(), patternMap, emitter, true)
+	mw := newMiddleware(slog.Default(), patternMap, emitter, MiddlewareConfig{Enabled: true})
 
 	panicking := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("handler blew up after mutating state")
@@ -202,7 +289,7 @@ func TestMiddleware_Handler_DisabledSkipsAllAuditLogic(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	patternMap := map[string]*Operation{testProjectPattern: {ID: testProjectOpID, Category: CategoryManagement}}
-	mw := newMiddleware(slog.Default(), patternMap, emitter, false)
+	mw := newMiddleware(slog.Default(), patternMap, emitter, MiddlewareConfig{Enabled: false})
 
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +323,7 @@ func TestMiddleware_Handler_UnmatchedPatternPassesThrough(t *testing.T) {
 	}
 	// Empty pattern map: no route is audited, so every request must pass
 	// straight through with no event.
-	mw := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, true)
+	mw := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, MiddlewareConfig{Enabled: true})
 
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -275,7 +362,7 @@ func TestMiddleware_Handler_EmptyPatternLogsAndPassesThrough(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	mw := newMiddleware(logger, map[string]*Operation{}, emitter, true)
+	mw := newMiddleware(logger, map[string]*Operation{}, emitter, MiddlewareConfig{Enabled: true})
 
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -323,7 +410,7 @@ func TestMiddleware_Handler_ResultClassification(t *testing.T) {
 			}
 			op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 			patternMap := map[string]*Operation{testProjectPattern: op}
-			mw := newMiddleware(slog.Default(), patternMap, emitter, true)
+			mw := newMiddleware(slog.Default(), patternMap, emitter, MiddlewareConfig{Enabled: true})
 
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
@@ -365,7 +452,7 @@ func TestMiddleware_Handler_WriteWithoutExplicitWriteHeader(t *testing.T) {
 	}
 	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	patternMap := map[string]*Operation{testProjectPattern: op}
-	mw := newMiddleware(slog.Default(), patternMap, emitter, true)
+	mw := newMiddleware(slog.Default(), patternMap, emitter, MiddlewareConfig{Enabled: true})
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("body")) // no explicit WriteHeader call
@@ -403,7 +490,7 @@ func TestMiddleware_Handler_SetResultOverridesStatusCode(t *testing.T) {
 	}
 	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	patternMap := map[string]*Operation{testProjectPattern: op}
-	mw := newMiddleware(slog.Default(), patternMap, emitter, true)
+	mw := newMiddleware(slog.Default(), patternMap, emitter, MiddlewareConfig{Enabled: true})
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulates a hijack: the wrapped ResponseWriter never sees a
@@ -471,7 +558,7 @@ func TestNewMiddleware_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	mw, err := NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, true)
+	mw, err := NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -491,7 +578,7 @@ func TestNewMiddleware_GetSwaggerError(t *testing.T) {
 	}
 	wantErr := errors.New("spec load failed")
 
-	_, err = NewMiddleware(slog.Default(), nil, func() (*openapi3.T, error) { return nil, wantErr }, emitter, true)
+	_, err = NewMiddleware(slog.Default(), nil, func() (*openapi3.T, error) { return nil, wantErr }, emitter, MiddlewareConfig{Enabled: true})
 	if err == nil {
 		t.Fatal("expected an error when getSwagger fails, got nil")
 	}
@@ -514,7 +601,7 @@ func TestNewMiddleware_BuildPatternMapError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err = NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, true)
+	_, err = NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, MiddlewareConfig{Enabled: true})
 	if err == nil {
 		t.Fatal("expected a BuildPatternMap error to propagate, got nil")
 	}

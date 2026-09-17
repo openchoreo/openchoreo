@@ -63,11 +63,11 @@ func TestExecWirelogsAuth401IsAudited(t *testing.T) {
 			var buf bytes.Buffer
 			logger := slog.New(slog.NewJSONHandler(&buf, nil))
 			emitter := newTestAuditEmitter(t, &buf)
-			mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+			mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
+			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, audit.MiddlewareConfig{Enabled: true})
 
 			inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("handler must not run on a rejected request")
@@ -109,11 +109,11 @@ func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, true)
+	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.SurfaceREST, audit.MiddlewareConfig{Enabled: true})
 
 	passthroughAuth := func(next http.Handler) http.Handler { return next }
 	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -144,7 +144,7 @@ func TestFindFlusher_SeesThroughAuditWrapper(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestExecWirelogsAuditMiddleware_ResolvesBothRoutes(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestExecHandler_SetsResourceNameFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestWirelogsHandler_SetsResourceNamespaceFromParsedPath(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestWirelogsHandler_MalformedNamespaceNotAudited(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	emitter := newTestAuditEmitter(t, &buf)
-	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, audit.MiddlewareConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

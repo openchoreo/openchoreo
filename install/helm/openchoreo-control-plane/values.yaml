@@ -1936,6 +1936,17 @@ openchoreoApi:
       # default: []
       # @schema
       policies: []
+      # @schema
+      # type: object
+      # description: Audit actor settings
+      # @schema
+      actor:
+        # @schema
+        # type: string
+        # description: Token claim recorded as actor.id and matched by policies[].match.actors
+        # default: "sub"
+        # @schema
+        idClaim: "sub"
     # @schema
     # type: object
     # description: "`occ remote` remote-connect: resolve/authorize endpoints + the per-project+env remote-agent the control plane provisions into the data plane."

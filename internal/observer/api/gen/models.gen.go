@@ -383,7 +383,8 @@ type AuditLogActor struct {
 	// Entitlements Entitlements carried on the token, when the issuer supplies any.
 	Entitlements *map[string][]string `json:"entitlements,omitempty"`
 
-	// Id The token's validated `sub` claim, or `anonymous`.
+	// Id The validated token claim named by the producer's `audit.actor.id_claim`
+	// (`sub` by default), `unknown` when the token lacks that claim, or `anonymous`.
 	Id string `json:"id"`
 
 	// Issuer The token's `iss` claim; the namespace `id` is unique within.

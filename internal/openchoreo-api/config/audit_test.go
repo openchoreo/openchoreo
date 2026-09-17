@@ -80,6 +80,26 @@ audit:
 	}
 }
 
+func TestAuditConfig_ActorIDClaim(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{name: "defaults to sub", yaml: "audit:\n  enabled: false\n", want: "sub"},
+		{name: "decodes a configured claim", yaml: "audit:\n  actor:\n    id_claim: email\n", want: "email"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := loadAuditTestConfig(t, tt.yaml)
+			if got := cfg.Audit.Actor.IDClaim; got != tt.want {
+				t.Errorf("Audit.Actor.IDClaim = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAuditConfig_RejectsCategoryInSet(t *testing.T) {
 	cfg := loadAuditTestConfig(t, `
 audit:

@@ -21,3 +21,5 @@ data:
         {{- toYaml .Values.observer.audit.defaults | nindent 8 }}
       policies:
         {{- toYaml .Values.observer.audit.policies | nindent 8 }}
+      actor:
+        id_claim: {{ .Values.observer.audit.actor.idClaim | quote }}

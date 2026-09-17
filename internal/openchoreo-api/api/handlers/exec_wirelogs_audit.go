@@ -30,7 +30,9 @@ const (
 // table) and appear in the coverage matrix, the same as every spec-derived
 // operation. One shared instance is enough: its Handler looks up r.Pattern
 // per request, and each route's pattern is distinct.
-func NewExecWirelogsAuditMiddleware(logger *slog.Logger, emitter *audit.Emitter, enabled bool) (*audit.Middleware, error) {
+func NewExecWirelogsAuditMiddleware(
+	logger *slog.Logger, emitter *audit.Emitter, config audit.MiddlewareConfig,
+) (*audit.Middleware, error) {
 	var execOp, wirelogsOp *audit.Operation
 	for _, op := range apiaudit.GetOperations() {
 		switch op.ID {
@@ -53,5 +55,5 @@ func NewExecWirelogsAuditMiddleware(logger *slog.Logger, emitter *audit.Emitter,
 		ExecRoutePattern:     execOp,
 		WirelogsRoutePattern: wirelogsOp,
 	}
-	return audit.NewMiddlewareForRoutes(logger, patternMap, emitter, enabled), nil
+	return audit.NewMiddlewareForRoutes(logger, patternMap, emitter, config), nil
 }

@@ -204,3 +204,7 @@ audit:
 
   # Ordered, first-match-wins policy overrides. Empty by default.
   policies: []
+
+  actor:
+    # Token claim recorded as actor.id and matched by policies[].match.actors.
+    id_claim: "sub"

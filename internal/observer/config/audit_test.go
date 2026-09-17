@@ -75,6 +75,20 @@ audit:
 	assert.Equal(t, false, cfg.Policies[0].Set["publish"])
 }
 
+func TestLoadAuditConfig_DecodesActorIDClaim(t *testing.T) {
+	path := writeAuthConfig(t, `
+audit:
+  actor:
+    id_claim: email
+`)
+
+	var cfg auditconfig.AuditConfig
+	require.NoError(t, loadAuditConfig(path, &cfg))
+
+	assert.Equal(t, "email", cfg.Actor.IDClaim)
+	assert.Equal(t, "sub", auditconfig.AuditDefaults().Actor.IDClaim)
+}
+
 // TestLoadAuditConfig_RejectsUnknownKey covers the ErrorUnused decoder
 // setting. An empty match matches everything, so a typo'd selector must fail
 // startup rather than silently widen a narrowing rule into a blanket one.
