@@ -1087,7 +1087,7 @@ _e2e.mc.install-op:
 		--namespace $(E2E_OP_NS) \
 		--values $(E2E_MC_K3D_DIR)/values-op-modules.yaml \
 		--set common.openObserveStream=container-logs \
-		--set-json 'openobserve-standalone.httpRouteHostnames=["host.k3d.internal"]' \
+		--set-json 'common.httpRouteHostnames=["host.k3d.internal"]' \
 		--set fluent-bit.enabled=true \
 		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_OP_CLUSTER_NAME) \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
@@ -1162,9 +1162,9 @@ _e2e.mc.install-fluent-bit:
 		--set fluent-bit.enabled=true \
 		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_DP_CLUSTER_NAME) \
 		--set common.openObserveStream=container-logs \
-		--set fluent-bit.openObserveHost=host.k3d.internal \
-		--set fluent-bit.openObservePort=31080 \
-		--set fluent-bit.openObserveTls=Off \
+		--set common.openObserveHost=host.k3d.internal \
+		--set common.openObservePort=31080 \
+		--set common.openObserveTlsEnabled=false \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	@$(call log_info, Installing Fluent Bit in WP cluster)
 	$(E2E_MC_WP_HELM) upgrade --install observability-logs-openobserve \
@@ -1177,9 +1177,9 @@ _e2e.mc.install-fluent-bit:
 		--set fluent-bit.enabled=true \
 		--set fluentBitCustomizations.clusterInstance=$(E2E_MC_WP_CLUSTER_NAME) \
 		--set common.openObserveStream=container-logs \
-		--set fluent-bit.openObserveHost=host.k3d.internal \
-		--set fluent-bit.openObservePort=31080 \
-		--set fluent-bit.openObserveTls=Off \
+		--set common.openObserveHost=host.k3d.internal \
+		--set common.openObservePort=31080 \
+		--set common.openObserveTlsEnabled=false \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	@# Install metrics exporter in DP and WP clusters — per observability-metrics-prometheus README.
 	@# Deploys PrometheusAgent to scrape local metrics and forward to OP cluster's receiver
