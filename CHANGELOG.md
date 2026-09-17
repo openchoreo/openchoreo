@@ -29,7 +29,7 @@ Changes since [v1.2.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 ### Enhancements
 
 - **(Controller)** Reconcile concurrency is configurable. ([#4332](https://github.com/openchoreo/openchoreo/pull/4332))
-- **(SRE Agent)** Broader tooling with an extensions mechanism, and native MCP tools in place of the previous wrappers. ([#4743](https://github.com/openchoreo/openchoreo/pull/4743), [#4655](https://github.com/openchoreo/openchoreo/pull/4655))
+- **(SRE Agent)** Broader tooling, and native MCP tools in place of the previous wrappers. ([#4743](https://github.com/openchoreo/openchoreo/pull/4743), [#4655](https://github.com/openchoreo/openchoreo/pull/4655))
 - **(Observer)** The Observer API is served from its generated OpenAPI server. ([#4623](https://github.com/openchoreo/openchoreo/pull/4623))
 - **(API)** Argument overrides supported on cronjob manual triggers. ([#4572](https://github.com/openchoreo/openchoreo/pull/4572))
 - **(Helm)** A `logLevel` value for controller-manager, and the SRE role granted `resourcereleasebinding:update`. ([#4498](https://github.com/openchoreo/openchoreo/pull/4498), [#4685](https://github.com/openchoreo/openchoreo/pull/4685))
