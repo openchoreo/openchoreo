@@ -5,14 +5,14 @@ set -euo pipefail
 # the current k3d cluster.
 #
 # Designed to work with curl | bash:
-#   curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/k3d/k3d-observability-plane.sh | bash
+#   curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2/install/k3d/k3d-observability-plane.sh | bash
 #
 # Or run from a local checkout:
 #   install/k3d/k3d-observability-plane.sh
 
 # -- versions (update these on release branches) --
-OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaults to main
-OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
+OPENCHOREO_REF="${OPENCHOREO_REF:-release-v1.2}"         # overridable via env
+OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-1.2.x}"  # overridable via env; latest 1.2 patch
 LOGS_OPENSEARCH_VERSION="0.5.3"
 TRACES_OPENSEARCH_VERSION="0.6.0"
 METRICS_PROMETHEUS_VERSION="0.6.1"
