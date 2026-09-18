@@ -1943,10 +1943,10 @@ openchoreoApi:
       actor:
         # @schema
         # type: string
-        # description: Token claim recorded as actor.id and matched by policies[].match.actors
-        # default: "sub"
+        # description: Token claim recorded as actor.id and matched by policies[].match.actors. Tokens without this claim (e.g. service accounts) record "unknown"; set "sub" for the opaque subject ID
+        # default: "username"
         # @schema
-        idClaim: "sub"
+        idClaim: "username"
     # @schema
     # type: object
     # description: "`occ remote` remote-connect: resolve/authorize endpoints + the per-project+env remote-agent the control plane provisions into the data plane."
