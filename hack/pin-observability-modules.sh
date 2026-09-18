@@ -2,9 +2,14 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Pins the observability community-module chart versions used by the install
-# scripts, e2e Makefile and multi-cluster README. main tracks 0.0.0-latest-dev;
-# the release orchestrator pins released versions when it cuts a release branch.
+# Pins the community-module chart versions used by the install scripts, e2e
+# Makefile and multi-cluster README. main tracks 0.0.0-latest-dev; the release
+# orchestrator pins released versions when it cuts a release branch.
+#
+# A module whose shell and make vars are both "-" has no location in this repo,
+# because nothing here installs it. It is recorded rather than pinned: a release
+# must still name a published version, since the versioned docs' _constants.mdx
+# carries it, but there is no file to rewrite and --check cannot report it.
 
 set -euo pipefail
 
@@ -16,7 +21,8 @@ MODULES="observability-logs-opensearch|--logs-opensearch-version|LOGS_OPENSEARCH
 observability-tracing-opensearch|--tracing-opensearch-version|TRACES_OPENSEARCH_VERSION|OBSERVABILITY_TRACES_OPENSEARCH_VERSION
 observability-metrics-prometheus|--metrics-prometheus-version|METRICS_PROMETHEUS_VERSION|OBSERVABILITY_METRICS_PROMETHEUS_VERSION
 observability-events-otel-collector|--events-otel-collector-version|EVENTS_OTEL_COLLECTOR_VERSION|-
-observability-logs-openobserve|--logs-openobserve-version|-|OBSERVABILITY_LOGS_OPENOBSERVE_VERSION"
+observability-logs-openobserve|--logs-openobserve-version|-|OBSERVABILITY_LOGS_OPENOBSERVE_VERSION
+finops-opencost|--finops-opencost-version|-|-"
 
 # The README declares the shell vars as `export VAR=...` for its commands to use.
 SHELL_FILES="install/k3d/k3d-install.sh install/quick-start/.config.sh install/k3d/multi-cluster/README.md"
@@ -123,7 +129,7 @@ flag_for_chart() {
 }
 
 usage() {
-    local chart flag _
+    local chart flag shell_var make_var
     cat <<EOF
 Usage:
   $(basename "$0") --<module>-version <version> [--<module>-version <version>...]
@@ -136,7 +142,13 @@ Usage:
       --ref reads the files at a git revision instead of the working tree.
 
 Modules:
-$(while IFS='|' read -r chart flag _; do printf '  %-34s %s\n' "$flag" "$chart"; done <<< "$MODULES")
+$(while IFS='|' read -r chart flag shell_var make_var; do
+    if [[ "$shell_var" == "-" && "$make_var" == "-" ]]; then
+        printf '  %-34s %s (recorded only; not installed by this repo)\n' "$flag" "$chart"
+    else
+        printf '  %-34s %s\n' "$flag" "$chart"
+    fi
+done <<< "$MODULES")
 
 Tracked files:
 $(printf '%s' "$TRACKED_FILES" | tr ' ' '\n' | sed 's/^/  /')
@@ -250,7 +262,7 @@ validate() {
 }
 
 apply() {
-    local f tmp chart version found mismatched line status=0
+    local f tmp chart version found mismatched line tracked status=0
     parse_pins false
     tmp="$(mktemp)"
     # shellcheck disable=SC2064
@@ -268,10 +280,12 @@ apply() {
     # Every expected location must now carry the requested version, so a
     # refactor of a tracked file cannot silently turn pinning into a no-op.
     while IFS='=' read -r chart version; do
+        tracked=false
         for f in $TRACKED_FILES; do
             if ! charts_for "$f" | grep -qx "$chart"; then
                 continue
             fi
+            tracked=true
             found="$(locations "$f" | awk -F'\t' -v c="$chart" '$2 == c')"
             if [[ -z "$found" ]]; then
                 err "$f: no version location found for ${chart}"
@@ -284,7 +298,11 @@ apply() {
                 status=1
             done
         done
-        echo "pinned ${chart} ${version}"
+        if [[ "$tracked" == "true" ]]; then
+            echo "pinned ${chart} ${version}"
+        else
+            echo "recorded ${chart} ${version} (no tracked locations in this repo)"
+        fi
     done <<< "$PINS"
     return "$status"
 }

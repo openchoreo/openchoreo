@@ -108,12 +108,18 @@ Run it with `--help` to list the charts and files.
   | `metrics_prometheus_version`    | `--metrics-prometheus-version`    | `observability-metrics-prometheus`    |
   | `events_otel_collector_version` | `--events-otel-collector-version` | `observability-events-otel-collector` |
   | `logs_openobserve_version`      | `--logs-openobserve-version`      | `observability-logs-openobserve`      |
+  | `finops_opencost_version`       | `--finops-opencost-version`       | `finops-opencost`                     |
 
-  All five are required whenever the orchestrator creates a release branch,
+  All six are required whenever the orchestrator creates a release branch,
   and each version must already be published to
   `oci://ghcr.io/openchoreo/helm-charts`. The branch job commits the pins to
   the new branch, so the e2e gate on branch creation tests those exact
   versions.
+
+  `finops-opencost` is the exception: nothing in this repo installs it, so
+  there is no location to rewrite. The orchestrator still requires the input
+  and checks that the chart is published, then echoes every version into the
+  run summary for the docs constants below. `--check` cannot report it.
 
 - **Patch releases (existing branch).** Pins carry over from the branch cut.
   The orchestrator rejects the module version inputs when the branch already
@@ -143,6 +149,13 @@ Run it with `--help` to list the charts and files.
   `metricsPrometheusModule`, `eventsOtelCollectorModule`) must match the
   release branch's pins. From an openchoreo `main` checkout, print them with
   `hack/pin-observability-modules.sh --check --ref upstream/release-vX.Y`.
+
+  `finOpsOpenCostModule` is not pinned in this repo, so `--check` does not
+  print it. Take it from the `finops_opencost_version` the orchestrator run
+  recorded in its branch-job summary, or from `finops-opencost/VERSION` in
+  community-modules. For a patch release that only needs a newer FinOps
+  module, updating this constant in the docs repo is the whole change: there
+  is no pin PR against `release-vX.Y` to open.
 - **Guards.** `hack/pin-observability-modules.sh --check` fails if a tracked
   location is still unpinned. It runs in `build-and-test` for `release-v*`
   pushes and PRs, which catches backports that carry `0.0.0-latest-dev` over
