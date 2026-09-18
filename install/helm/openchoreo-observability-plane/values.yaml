@@ -549,9 +549,18 @@ observer:
     # items:
     #   type: object
     #   additionalProperties: true
-    # default: []
+    # default: [{"match":{"operations":["QueryAuditLogs"]},"set":{"publish":false}}]
     # @schema
-    policies: []
+    # QueryAuditLogs is the only read observer audits; every other read is
+    # exempt at the source. Reading the trail fires on each filter change and
+    # page of results, so publishing it buries the management events the trail
+    # is kept for. Drop this entry to record audit-log reads.
+    policies:
+      - match:
+          operations:
+            - "QueryAuditLogs"
+        set:
+          publish: false
     # @schema
     # type: object
     # description: Audit actor settings
