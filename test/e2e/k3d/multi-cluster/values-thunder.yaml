@@ -36,3 +36,22 @@ bootstrap:
       value:
         allowedOrigins:
           - "http://openchoreo.e2e-mc-cp.local:38080"
+
+    # Retarget the identifiers at this cluster's endpoints. Replaces the base
+    # document of the same key.
+    62-openchoreo-resource-servers.yaml: |
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000070
+      name: OpenChoreo Control Plane
+      description: OpenChoreo control plane MCP server
+      identifier: "http://api.e2e-mc-cp.local:38080/mcp"
+      type: MCP
+      ouHandle: default
+      ---
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000071
+      name: OpenChoreo Observability Plane
+      description: OpenChoreo observability plane MCP server
+      identifier: "http://observer.e2e-mc-op.local:31080/mcp"
+      type: MCP
+      ouHandle: default

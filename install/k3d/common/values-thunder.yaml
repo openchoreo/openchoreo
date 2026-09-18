@@ -55,6 +55,55 @@ setup:
 # the 01900000-0000-7000-8001-* block to stay clear of the ThunderID defaults.
 bootstrap:
   scripts:
+    # Allows the app logoUrls below, which the deny-first img-src baseline blocks.
+    # raw.githubusercontent.com is needed because the CDN 301s there.
+    #
+    # A path override replaces ThunderID's shipped entry instead of merging, so
+    # every directive except img-src mirrors the 1.0.1 defaults and must be
+    # re-synced against `GET /server-config/csp` on a chart upgrade.
+    48-csp.yaml: |
+      resource_type: server_config
+      name: csp
+      value:
+        paths:
+          - location: "/gate/"
+            directives:
+              img-src:
+                - "'self'"
+                - "data:"
+                - "https://cdn.statically.io"
+                - "https://raw.githubusercontent.com"
+              font-src:
+                - "'self'"
+                - "data:"
+              style-src-attr:
+                - "'self'"
+                - "'unsafe-inline'"
+              style-src-elem:
+                - "'self'"
+          - location: "/console/"
+            directives:
+              img-src:
+                - "'self'"
+                - "data:"
+                - "https://cdn.statically.io"
+                - "https://raw.githubusercontent.com"
+              font-src:
+                - "'self'"
+                - "data:"
+              connect-src:
+                - "'self'"
+                - "https://thunderid.dev"
+              style-src-attr:
+                - "'self'"
+                - "'unsafe-inline'"
+              style-src-elem:
+                - "'self'"
+                - "'unsafe-inline'"
+              worker-src:
+                - "'self'"
+                - "blob:"
+
     49-cors.yaml: |
       resource_type: server_config
       name: cors
@@ -550,3 +599,23 @@ bootstrap:
               accessToken:
                 clientConfig:
                   validityPeriod: 3600
+
+    # ThunderID answers invalid_target unless a resource server carries the
+    # `resource` an MCP client sends, so each identifier must stay identical to
+    # the plane's advertised `.well-known/oauth-protected-resource` value.
+    62-openchoreo-resource-servers.yaml: |
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000070
+      name: OpenChoreo Control Plane
+      description: OpenChoreo control plane MCP server
+      identifier: "http://api.openchoreo.localhost:8080/mcp"
+      type: MCP
+      ouHandle: default
+      ---
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000071
+      name: OpenChoreo Observability Plane
+      description: OpenChoreo observability plane MCP server
+      identifier: "http://observer.openchoreo.localhost:11080/mcp"
+      type: MCP
+      ouHandle: default

@@ -38,6 +38,25 @@ bootstrap:
         allowedOrigins:
           - "http://openchoreo.e2e-cp.local:28080"
 
+    # Retarget the identifiers at this cluster's endpoints. Replaces the base
+    # document of the same key.
+    62-openchoreo-resource-servers.yaml: |
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000070
+      name: OpenChoreo Control Plane
+      description: OpenChoreo control plane MCP server
+      identifier: "http://api.e2e-cp.local:28080/mcp"
+      type: MCP
+      ouHandle: default
+      ---
+      resource_type: resource_server
+      id: 01900000-0000-7000-8001-000000000071
+      name: OpenChoreo Observability Plane
+      description: OpenChoreo observability plane MCP server
+      identifier: "http://observer.e2e-op.local:11080/mcp"
+      type: MCP
+      ouHandle: default
+
     # Add the openchoreo.e2e-cp.local:28080 redirect URI alongside the
     # single-cluster default so ThunderID accepts the OIDC redirect-back from
     # Backstage on this cluster. Replaces the base document of the same key.
