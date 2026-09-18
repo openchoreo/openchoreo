@@ -103,7 +103,7 @@ func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.C
 	var workloadCR *openchoreov1alpha1.Workload
 
 	if params.FilePath == "" {
-		if entry, ok := idx.GetWorkloadForComponent(params.ProjectName, params.ComponentName); ok {
+		if entry, ok := idx.GetWorkloadForComponent(params.NamespaceName, params.ProjectName, params.ComponentName); ok {
 			typedWorkload, err := typed.NewWorkload(entry)
 			if err != nil {
 				return fmt.Errorf("failed to read existing workload: %w", err)

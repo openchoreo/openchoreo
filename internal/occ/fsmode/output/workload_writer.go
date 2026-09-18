@@ -76,7 +76,7 @@ func (w *WorkloadWriter) resolveOutputPath(params WorkloadWriteParams) string {
 	}
 
 	// Priority 2: Check if workload already exists for this component
-	existingWorkload, ok := w.index.GetWorkloadForComponent(params.ProjectName, params.ComponentName)
+	existingWorkload, ok := w.index.GetWorkloadForComponent(params.Namespace, params.ProjectName, params.ComponentName)
 	if ok && existingWorkload != nil {
 		// Replace existing workload file
 		return existingWorkload.FilePath
