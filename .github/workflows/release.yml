@@ -59,6 +59,27 @@ jobs:
                 echo "LATEST=false" >> $GITHUB_ENV
             fi
 
+      - name: Resolve previous release tag
+        run: |
+          # generate_release_notes picks the previous tag by walking the tagged
+          # commit's ancestry. Releases from v1.1.0 on are tagged on
+          # release-vX.Y branches whose commits never merge back to main, so
+          # nothing newer than v1.0.0 is reachable from a minor cut off main
+          # and the notes span every release since. Resolve it explicitly.
+          #
+          # A prerelease compares against the newest tag below it, prereleases
+          # included (v1.3.0-rc.2 -> v1.3.0-rc.1); a stable release ignores
+          # prereleases (v1.3.0 -> v1.2.5).
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
+            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$')
+          else
+            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
+          fi
+          PREVIOUS_TAG=$(printf '%s\n%s\n' "${CANDIDATES}" "${RELEASE_TAG}" | sort -V -u \
+            | awk -v cur="${RELEASE_TAG}" '$0==cur{exit} {p=$0} END{print p}')
+          echo "Previous release tag: ${PREVIOUS_TAG:-<none>}"
+          echo "PREVIOUS_TAG=${PREVIOUS_TAG}" >> $GITHUB_ENV
+
       - name: Validate VERSION file
         run: |
           VERSION=$(cat VERSION)
@@ -181,6 +202,7 @@ jobs:
           draft: true
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
+          previous_tag: ${{ env.PREVIOUS_TAG }}
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
             bin/dist/linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
