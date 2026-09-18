@@ -2,7 +2,7 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
-## v1.3.0-rc.1
+## v1.3.0-rc.2
 
 Changes since [v1.2.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.0).
 
