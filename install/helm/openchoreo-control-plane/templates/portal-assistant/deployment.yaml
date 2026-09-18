@@ -23,6 +23,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/portal-assistant/configmap.yaml") . | sha256sum }}
+        checksum/auth-config: {{ include (print $.Template.BasePath "/portal-assistant/auth-configmap.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: portal-assistant
@@ -119,7 +120,7 @@ spec:
         # its tokenizer downloads under XDG_CACHE_HOME=/tmp/.cache.
         - name: tmp
           mountPath: /tmp
-        {{- if .Values.portalAssistant.authConfigConfigMap }}
+        {{- if include "openchoreo-control-plane.portalAssistant.authConfigMapName" . }}
         - name: auth-config
           mountPath: /etc/openchoreo
           readOnly: true
@@ -132,9 +133,9 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}
-      {{- if .Values.portalAssistant.authConfigConfigMap }}
+      {{- with include "openchoreo-control-plane.portalAssistant.authConfigMapName" . }}
       - name: auth-config
         configMap:
-          name: {{ .Values.portalAssistant.authConfigConfigMap }}
+          name: {{ . }}
       {{- end }}
 {{- end }}

@@ -22,10 +22,10 @@ data:
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
-  {{- if .Values.portalAssistant.authConfigConfigMap }}
+  {{- if include "openchoreo-control-plane.portalAssistant.authConfigMapName" . }}
   AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
   {{- else }}
-  # No external auth-config ConfigMap mounted — use the file bundled in the image at /app/auth-config.yaml.
+  # No auth-config ConfigMap mounted — use the file bundled in the image at /app/auth-config.yaml.
   AUTH_CONFIG_PATH: /app/auth-config.yaml
   {{- end }}
   LOG_LEVEL: {{ .Values.portalAssistant.config.logLevel | quote }}

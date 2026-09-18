@@ -288,6 +288,23 @@ Portal Assistant service account name
 {{- end }}
 
 {{/*
+Name of the ConfigMap holding the Portal Assistant's auth-config.yaml, or an
+empty string when it should fall back to the file bundled in the image.
+
+An explicitly configured ConfigMap wins, so an operator can still supply a
+whole auth-config of their own. Otherwise the chart derives one from
+openchoreoApi.config.security.subjects, keeping the assistant on the same
+subject types as the API rather than on whatever the image happens to bundle.
+*/}}
+{{- define "openchoreo-control-plane.portalAssistant.authConfigMapName" -}}
+{{- if .Values.portalAssistant.authConfigConfigMap -}}
+{{- .Values.portalAssistant.authConfigConfigMap -}}
+{{- else if .Values.openchoreoApi.config.security.subjects -}}
+{{- printf "%s-auth-config" (include "openchoreo-control-plane.portalAssistant.name" .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Validate that placeholder .invalid hostnames have been replaced with real domains.
 */}}
 {{- define "openchoreo-control-plane.validateHostnames" -}}

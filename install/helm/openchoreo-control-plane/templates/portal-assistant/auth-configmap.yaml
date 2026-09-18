@@ -1,0 +1,33 @@
+{{- if and .Values.portalAssistant.enabled (not .Values.portalAssistant.authConfigConfigMap) .Values.openchoreoApi.config.security.subjects }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-control-plane.portalAssistant.authConfigMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: portal-assistant
+data:
+  # The assistant authorizes against the same subjects as openchoreo-api, so
+  # its subject types are rendered from the API's security.subjects rather
+  # than maintained separately. The map is keyed by subject type name and the
+  # agents expect a list, so it is transposed here; the agents sort by
+  # priority themselves, making the emitted order immaterial.
+  auth-config.yaml: |
+    auth:
+      subject_types:
+        {{- range $name := keys .Values.openchoreoApi.config.security.subjects | sortAlpha }}
+        {{- $subject := index $.Values.openchoreoApi.config.security.subjects $name }}
+        - type: {{ $name | quote }}
+          display_name: {{ $subject.display_name | default $name | quote }}
+          priority: {{ $subject.priority | default 0 }}
+          auth_mechanisms:
+            {{- range $mechanism := keys ($subject.mechanisms | default dict) | sortAlpha }}
+            {{- $entitlement := (index $subject.mechanisms $mechanism).entitlement }}
+            - type: {{ $mechanism | quote }}
+              entitlement:
+                claim: {{ $entitlement.claim | quote }}
+                display_name: {{ $entitlement.display_name | default $entitlement.claim | quote }}
+            {{- end }}
+        {{- end }}
+{{- end }}
