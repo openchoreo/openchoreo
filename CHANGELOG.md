@@ -2,6 +2,14 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.6
+
+Changes since [v1.2.5](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.5).
+
+### Bug Fixes
+
+- **(MCP)** The `update_resource_release_binding` tool now updates only the fields the caller supplies and keeps the rest of the existing binding. Previously every call was rejected because the tool sent an empty owner and environment. ([#4791](https://github.com/openchoreo/openchoreo/pull/4791))
+
 ## v1.2.5
 
 Changes since [v1.2.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.4).
