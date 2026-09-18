@@ -3323,8 +3323,8 @@
                   "description": "Audit actor settings",
                   "properties": {
                     "idClaim": {
-                      "default": "sub",
-                      "description": "Token claim recorded as actor.id and matched by policies[].match.actors",
+                      "default": "username",
+                      "description": "Token claim recorded as actor.id and matched by policies[].match.actors. Tokens without this claim (e.g. service accounts) record \"unknown\"; set \"sub\" for the opaque subject ID",
                       "title": "idClaim",
                       "type": "string"
                     }
