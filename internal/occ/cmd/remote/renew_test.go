@@ -467,26 +467,27 @@ func TestRenewRetriesUnreachedAgentBeforeRenewAfter(t *testing.T) {
 	defer cancel()
 	go u.renew(ctx, &scriptedResolver{steps: steps})
 
+	// The dial count races the adopt that installs the tunnel just after it, so wait on
+	// the tunnel itself.
 	deadline := time.Now().Add(5 * time.Second)
-	for {
+	var conn net.Conn
+	for conn == nil {
 		mu.Lock()
 		retried := dials >= 2
 		mu.Unlock()
 		if retried {
-			break
+			conn, _ = u.openStream("res/postgres/primary")
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the unreached agent was never re-dialed; output:\n%s", out.String())
+		if conn == nil && time.Now().After(deadline) {
+			mu.Lock()
+			n := dials
+			mu.Unlock()
+			t.Fatalf("the unreached agent was never re-dialed into a servable tunnel (%d dials); output:\n%s",
+				n, out.String())
 		}
 		time.Sleep(time.Millisecond)
 	}
-
-	// The retry installed a working tunnel, so the moved key is servable again.
-	c, err := u.openStream("res/postgres/primary")
-	if err != nil {
-		t.Fatalf("open stream after the retry: %v", err)
-	}
-	_ = c.Close()
+	_ = conn.Close()
 }
 
 // A renewal scheduled at or after the expiry cannot refresh anything, so neither the
@@ -546,5 +547,200 @@ func TestRetryIntervalStartsBeforeExpiry(t *testing.T) {
 	// Equal to the remaining life would land exactly at the expiry, so require real margin.
 	if got >= remaining*3/4 {
 		t.Errorf("retryInterval() = %s, want comfortably less than the %s remaining", got, remaining)
+	}
+}
+
+// A wait longer than one tick still ends on time, having re-measured in between.
+func TestWaitForMeasuresAgainstTheWallClock(t *testing.T) {
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: time.Millisecond,
+		waitTick:    10 * time.Millisecond,
+	}
+
+	const want = 35 * time.Millisecond // several ticks, so the loop must re-measure
+	start := time.Now()
+	if !u.waitFor(t.Context(), want, true) {
+		t.Fatal("waitFor reported a cancelled context")
+	}
+	if elapsed := time.Since(start); elapsed < want {
+		t.Errorf("returned after %s, want at least %s", elapsed, want)
+	}
+}
+
+// A refused stream cuts the wait short once the capability has lapsed.
+func TestWaitForNudgeRenewsALapsedCapability(t *testing.T) {
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: time.Millisecond,
+		waitTick:    10 * time.Millisecond,
+		expiry:      time.Now().Add(-time.Minute),
+	}
+
+	start := time.Now()
+	u.nudge()
+	if !u.waitFor(t.Context(), time.Hour, true) {
+		t.Fatal("waitFor reported a cancelled context")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("a nudge took %s to cut the wait short", elapsed)
+	}
+}
+
+// A stream refused for a reason renewing cannot fix must not become a resolve.
+func TestWaitForIgnoresNudgeWhileTheCapabilityIsGood(t *testing.T) {
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: time.Millisecond,
+		waitTick:    10 * time.Millisecond,
+		expiry:      time.Now().Add(time.Hour),
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	u.nudge()
+	if u.waitFor(ctx, time.Hour, true) {
+		t.Error("a nudge renewed a capability that had not lapsed")
+	}
+}
+
+// An app retrying a refused connection reports every attempt, so a nudge may not renew
+// faster than the floor.
+func TestWaitForFloorsNudgedRenewals(t *testing.T) {
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: 50 * time.Millisecond,
+		waitTick:    10 * time.Millisecond,
+		expiry:      time.Now().Add(-time.Minute),
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	u.nudge()
+	if u.waitFor(ctx, time.Hour, true) {
+		t.Error("a nudge renewed inside the minimum interval")
+	}
+}
+
+// A terminal refusal ends renewal, which the message a refused stream prints depends on.
+func TestRenewStopsReportingItselfWhenItGivesUp(t *testing.T) {
+	out := &syncBuf{}
+	u, _ := unitFixture(t, out)
+	u.renewAfter = time.Millisecond // the cadence is not under test here
+	if !u.renewing() {
+		t.Fatal("a fresh unit must report itself as renewing")
+	}
+
+	resolver := &scriptedResolver{
+		steps: []resolveStep{{err: &resolveStatusError{status: http.StatusUnauthorized}}},
+		done:  make(chan struct{}, 1),
+	}
+	u.renew(t.Context(), resolver)
+
+	if u.renewing() {
+		t.Error("renewal gave up but the unit still reports itself as renewing")
+	}
+	if got := out.String(); !strings.Contains(got, "session ended") {
+		t.Errorf("a terminal refusal must say so, got: %q", got)
+	}
+}
+
+// fakeClock is a wall clock a test moves by hand. Timers keep running on real time, so
+// advancing it alone reproduces a suspended host.
+type fakeClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *fakeClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *fakeClock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = c.now.Add(d)
+}
+
+// A renewal 20 minutes out, a host asleep for 32, and the wait must end as soon as the
+// host is back rather than serve out the remainder of a stalled timer.
+func TestWaitForSurvivesAHostSuspend(t *testing.T) {
+	clock := &fakeClock{now: time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)}
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: time.Millisecond,
+		waitTick:    5 * time.Millisecond,
+		now:         clock.Now,
+	}
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		clock.advance(32 * time.Minute)
+	}()
+
+	realStart := time.Now()
+	if !u.waitFor(t.Context(), 20*time.Minute, true) {
+		t.Fatal("waitFor reported a cancelled context")
+	}
+	// Real time barely moved: the wait ended on the wall clock, not on the timer.
+	if elapsed := time.Since(realStart); elapsed > 5*time.Second {
+		t.Errorf("waitFor took %s of real time; it served out the stale timer", elapsed)
+	}
+	if !clock.Now().After(clock.now.Add(-time.Nanosecond)) {
+		t.Fatal("clock did not advance")
+	}
+}
+
+// Streams refused by the same control plane a renewal is backing off from must not turn
+// the backoff into a fixed minInterval poll.
+func TestWaitForIgnoresNudgeWhileBackingOff(t *testing.T) {
+	u := &remoteUnit{
+		kick:        make(chan struct{}, 1),
+		minInterval: time.Millisecond,
+		waitTick:    5 * time.Millisecond,
+		expiry:      time.Now().Add(-time.Minute), // lapsed: only nudgeability gates it
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Millisecond)
+	defer cancel()
+	u.nudge()
+	if u.waitFor(ctx, time.Hour, false) {
+		t.Error("a nudge cut short a backoff wait")
+	}
+
+	// The nudge was held, not consumed.
+	if !u.waitFor(t.Context(), time.Hour, true) {
+		t.Error("the held nudge was dropped by the backoff wait")
+	}
+}
+
+// A unit built without newRemoteUnit must not spin on a zero-length timer.
+func TestWaitForDefaultsAZeroTick(t *testing.T) {
+	u := &remoteUnit{kick: make(chan struct{}, 1)}
+	if got := u.tick(); got != maxWaitTick {
+		t.Errorf("zero waitTick = %s, want the %s default", got, maxWaitTick)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	if u.waitFor(ctx, time.Hour, true) {
+		t.Error("waitFor returned before its deadline or the context")
+	}
+}
+
+// Sub and After use the monotonic clock when both operands carry a reading, and a fake
+// clock carries none, so nothing else in this file catches a wallClock that keeps one.
+func TestWallClockHasNoMonotonicReading(t *testing.T) {
+	u := &remoteUnit{}
+	got := u.wallClock()
+	if strings.Contains(got.String(), "m=") {
+		t.Fatalf("wallClock kept a monotonic reading (%s); comparisons would use the "+
+			"clock that stops during suspend", got)
+	}
+	// waitFor derives its deadline with Add, which propagates a reading.
+	if due := got.Add(time.Hour); strings.Contains(due.String(), "m=") {
+		t.Errorf("deadline derived from wallClock carries a monotonic reading (%s)", due)
 	}
 }

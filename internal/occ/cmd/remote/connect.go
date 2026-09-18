@@ -314,7 +314,7 @@ func (d *Remote) connectRemote(ctx context.Context, p ConnectParams, f discovere
 		// Route each target's streams to its own agent; same-namespace dependencies
 		// share a tunnel. The unit resolves key -> tunnel per connection, so the
 		// listener does not care which agent currently serves it.
-		reporter := newStreamErrorReporter(out, unit.expiresAt)
+		reporter := newStreamErrorReporter(out, unit)
 		for _, t := range resp.Targets {
 			if _, ok := agentTunnels[t.AgentID]; !ok {
 				return fmt.Errorf("resolve returned no remote-agent %q for target %s", t.AgentID, t.Key)
@@ -501,22 +501,33 @@ func forward(ln net.Listener, key string, open func() (net.Conn, error), report 
 	}
 }
 
+// renewable is the part of a remoteUnit a reporter consults.
+type renewable interface {
+	expiresAt() time.Time
+	renewing() bool
+	nudge()
+}
+
 // streamErrorReporter prints the first failure for each dependency. A dependency that
 // fails once usually fails for every subsequent connection, so repeating it would bury
 // the session in noise.
 type streamErrorReporter struct {
 	out io.Writer
-	// expiry is read per failure rather than captured, because renewal moves it.
-	expiry  func() time.Time
+	// unit is read per failure rather than captured, because renewal moves the expiry.
+	unit    renewable
 	mu      sync.Mutex
 	printed map[string]bool
 }
 
-func newStreamErrorReporter(out io.Writer, expiry func() time.Time) *streamErrorReporter {
-	return &streamErrorReporter{out: out, expiry: expiry, printed: map[string]bool{}}
+func newStreamErrorReporter(out io.Writer, unit renewable) *streamErrorReporter {
+	return &streamErrorReporter{out: out, unit: unit, printed: map[string]bool{}}
 }
 
 func (r *streamErrorReporter) report(key string, err error) {
+	// Every failure nudges, not only the first one printed; the renewal loop decides
+	// whether the capability is what is failing.
+	r.unit.nudge()
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.printed[key] {
@@ -528,8 +539,14 @@ func (r *streamErrorReporter) report(key string, err error) {
 		fmt.Fprintf(r.out, "  ! %s: %v\n", key, err)
 		return
 	}
-	if exp := r.expiry(); !exp.IsZero() && time.Now().After(exp) {
-		fmt.Fprintf(r.out, "  ! %s: the session could not be renewed before it expired at %s — "+
+	if exp := r.unit.expiresAt(); !exp.IsZero() && time.Now().After(exp) {
+		// A lapsed capability with a renewal still pending needs no action.
+		if r.unit.renewing() {
+			fmt.Fprintf(r.out, "  ! %s: the session expired at %s and is being renewed now — "+
+				"retry in a moment\n", key, exp.Local().Format(time.Kitchen))
+			return
+		}
+		fmt.Fprintf(r.out, "  ! %s: the session expired at %s and is no longer being renewed — "+
 			"exit and re-run `occ remote` to reconnect\n", key, exp.Local().Format(time.Kitchen))
 		return
 	}
