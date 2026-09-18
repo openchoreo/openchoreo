@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from src.clients.backend.report_backend import ReportBackend
 from src.config import settings
+from src.report_migration import migrate_rca_reports
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class SQLReportBackend(ReportBackend):
             if self._is_sqlite:
                 await conn.execute(text("PRAGMA journal_mode=WAL"))
             await conn.run_sync(metadata.create_all)
+        await migrate_rca_reports(self.engine, rca_reports)
         async with self.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         logger.info("SQL report backend initialized")

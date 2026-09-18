@@ -8,15 +8,31 @@ the separate connections that ``initialize`` / ``get`` / ``list`` open.
 """
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.clients.backend.sql_backend import SQLReportBackend
 
 WIDE_START = "2000-01-01T00:00:00+00:00"
 WIDE_END = "2100-01-01T00:00:00+00:00"
+
+LEGACY_SCHEMA = """
+CREATE TABLE rca_reports (
+    report_id VARCHAR NOT NULL,
+    alert_id VARCHAR NOT NULL,
+    status VARCHAR DEFAULT 'pending' NOT NULL,
+    summary TEXT,
+    timestamp VARCHAR NOT NULL,
+    environment_uid VARCHAR,
+    project_uid VARCHAR,
+    report TEXT,
+    PRIMARY KEY (report_id)
+)
+"""
 
 
 @pytest_asyncio.fixture
@@ -30,6 +46,29 @@ async def backend(tmp_path):
 
 def _ts(day: int) -> datetime:
     return datetime(2026, 6, day, tzinfo=UTC)
+
+
+async def _legacy_backend(tmp_path, rows: list[dict[str, str]]) -> SQLReportBackend:
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/legacy.db")
+    async with engine.begin() as conn:
+        await conn.execute(text(LEGACY_SCHEMA))
+        for row in rows:
+            await conn.execute(
+                text(
+                    "INSERT INTO rca_reports (report_id, alert_id, status, timestamp, "
+                    "project_uid, environment_uid) VALUES (:report_id, :alert_id, "
+                    "'completed', :timestamp, :project_uid, :environment_uid)"
+                ),
+                row,
+            )
+    backend = SQLReportBackend(engine)
+    # The naming pass has its own tests; keep this one off the network.
+    with (
+        patch("src.report_migration.get_oauth2_auth", side_effect=RuntimeError("no credentials")),
+        patch("src.report_migration.get", AsyncMock()),
+    ):
+        await backend.initialize()
+    return backend
 
 
 async def _list(backend, **overrides):
@@ -225,3 +264,36 @@ async def test_upsert_stores_namespace_and_project(backend):
     doc = await backend.get_rca_report("r1")
     assert doc["namespace"] == "ns"
     assert doc["project"] == "proj"
+
+
+@pytest.mark.asyncio
+async def test_initialize_upgrades_a_table_from_before_namespace_project(tmp_path):
+    backend = await _legacy_backend(
+        tmp_path,
+        [
+            {
+                "report_id": "legacy",
+                "alert_id": "a1",
+                "timestamp": _ts(1).isoformat(),
+                "project_uid": "proj-uid",
+                "environment_uid": "env-uid",
+            }
+        ],
+    )
+
+    legacy = await backend.get_rca_report("legacy")
+    assert legacy["namespace"] is None
+    assert legacy["project"] is None
+    assert legacy["projectUid"] == "proj-uid"
+
+    await backend.upsert_rca_report(
+        report_id="legacy",
+        alert_id="a1",
+        timestamp=_ts(1),
+        namespace="ns",
+        project="proj",
+        project_uid="proj-uid",
+        environment_uid="env-uid",
+    )
+    assert (await backend.get_rca_report("legacy"))["project"] == "proj"
+    await backend.close()
