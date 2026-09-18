@@ -15,8 +15,19 @@ class Settings(CommonSettings):
 
     # LLM — independent of rca-agent so ops can pick a cheaper model for chat.
     portal_assistant_model_name: str = ""
+    # LangChain provider id passed straight to ``init_chat_model``
+    # (google_genai, google_vertexai, openai, anthropic, ...). Empty
+    # leaves langchain to infer the provider from the model name, which
+    # only works for names it recognises. Gemini models reached through
+    # a custom deployment need it set explicitly.
+    portal_assistant_model_provider: str = ""
     portal_assistant_llm_api_key: str = ""
     portal_assistant_llm_base_url: str = ""
+    # Read by google-auth / the vertexai client out of the process
+    # environment; declared here so the chart-supplied env vars are
+    # visible in settings rather than looking like strays.
+    google_cloud_project: str = ""
+    google_cloud_location: str = ""
     # OpenAI gpt-5 / o-series reasoning effort. One of "minimal" /
     # "low" / "medium" / "high"; empty string leaves the model on its
     # default (medium for gpt-5-mini). Reasoning tokens are generated
