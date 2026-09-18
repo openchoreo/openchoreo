@@ -76,6 +76,7 @@ APP_PAYLOAD=$(cat <<EOF
 {
   "name": "QuickStart CLI Application",
   "description": "OpenChoreo CLI for quickstart",
+  "type": "custom",
   "ouId": "01900000-0000-7000-8000-000000000001",
   "inboundAuthConfig": [
     {
