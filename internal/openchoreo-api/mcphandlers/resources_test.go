@@ -682,57 +682,127 @@ func TestCreateResourceReleaseBinding(t *testing.T) {
 func TestUpdateResourceReleaseBinding(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("converts gen body to CRD", func(t *testing.T) {
-		newRelease := "analytics-shared-db-def456"
-		body := &gen.UpdateResourceReleaseBindingJSONRequestBody{
-			Metadata: gen.ObjectMeta{Name: testResourceReleaseBindingName},
-			Spec: &gen.ResourceReleaseBindingSpec{
-				Environment: testResourceEnvironment,
-				Owner: struct {
-					ProjectName  string `json:"projectName"`
-					ResourceName string `json:"resourceName"`
-				}{ProjectName: testProject, ResourceName: testResourceName},
-				ResourceRelease: &newRelease,
-			},
-		}
+	const newRelease = "analytics-shared-db-def456"
 
+	// partialUpdateBody mirrors what the update_resource_release_binding tool
+	// actually produces: only the mutable fields are set. spec.owner and
+	// spec.environment are absent, so the handler must fill them from the
+	// existing binding rather than submit them empty.
+	partialUpdateBody := func() *gen.UpdateResourceReleaseBindingJSONRequestBody {
+		pin := newRelease
+		return &gen.UpdateResourceReleaseBindingJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testResourceReleaseBindingName},
+			Spec:     &gen.ResourceReleaseBindingSpec{ResourceRelease: &pin},
+		}
+	}
+
+	existingWithMetadata := func() *openchoreov1alpha1.ResourceReleaseBinding {
+		rb := sampleResourceReleaseBinding()
+		rb.Labels = map[string]string{"team": "data"}
+		rb.Annotations = map[string]string{"note": "keep"}
+		return rb
+	}
+
+	t.Run("re-pins release and preserves owner, environment and metadata", func(t *testing.T) {
 		rbSvc := resourcereleasebindingmocks.NewMockService(t)
 		rbSvc.EXPECT().
-			UpdateResourceReleaseBinding(mock.Anything, testNS, mock.MatchedBy(
-				func(rb *openchoreov1alpha1.ResourceReleaseBinding) bool {
-					return rb.Name == testResourceReleaseBindingName &&
-						rb.Namespace == testNS &&
-						rb.Spec.ResourceRelease == newRelease
-				},
-			)).
+			GetResourceReleaseBinding(mock.Anything, testNS, testResourceReleaseBindingName).
+			Return(existingWithMetadata(), nil)
+
+		var sent *openchoreov1alpha1.ResourceReleaseBinding
+		rbSvc.EXPECT().
+			UpdateResourceReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, rb *openchoreov1alpha1.ResourceReleaseBinding) {
+				sent = rb
+			}).
 			Return(sampleResourceReleaseBinding(), nil)
 
 		h := newTestHandler(withResourceReleaseBindingService(rbSvc))
-		result, err := h.UpdateResourceReleaseBinding(ctx, testNS, body)
+		result, err := h.UpdateResourceReleaseBinding(ctx, testNS, partialUpdateBody())
 		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, newRelease, sent.Spec.ResourceRelease, "new pin must be applied")
+		assert.Equal(t, testResourceEnvironment, sent.Spec.Environment, "environment must be preserved")
+		assert.Equal(t, testProject, sent.Spec.Owner.ProjectName, "owner project must be preserved")
+		assert.Equal(t, testResourceName, sent.Spec.Owner.ResourceName, "owner resource must be preserved")
+		assert.Equal(t, "data", sent.Labels["team"], "labels must be preserved")
+		assert.Equal(t, "keep", sent.Annotations["note"], "annotations must be preserved")
+
 		m, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "updated", m["action"])
+	})
+
+	t.Run("applies retainPolicy and environment configs and preserves the existing pin", func(t *testing.T) {
+		rbSvc := resourcereleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetResourceReleaseBinding(mock.Anything, testNS, testResourceReleaseBindingName).
+			Return(sampleResourceReleaseBinding(), nil)
+
+		var sent *openchoreov1alpha1.ResourceReleaseBinding
+		rbSvc.EXPECT().
+			UpdateResourceReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, rb *openchoreov1alpha1.ResourceReleaseBinding) {
+				sent = rb
+			}).
+			Return(sampleResourceReleaseBinding(), nil)
+
+		retain := gen.ResourceReleaseBindingSpecRetainPolicyRetain
+		body := &gen.UpdateResourceReleaseBindingJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testResourceReleaseBindingName},
+			Spec: &gen.ResourceReleaseBindingSpec{
+				RetainPolicy:                   &retain,
+				ResourceTypeEnvironmentConfigs: &map[string]interface{}{"storageGB": float64(100)},
+			},
+		}
+
+		h := newTestHandler(withResourceReleaseBindingService(rbSvc))
+		_, err := h.UpdateResourceReleaseBinding(ctx, testNS, body)
+		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, testResourceEnvironment, sent.Spec.Environment)
+		assert.Equal(t, testProject, sent.Spec.Owner.ProjectName)
+		assert.Equal(t, testResourceName, sent.Spec.Owner.ResourceName)
+		assert.Equal(t, testResourceReleaseName, sent.Spec.ResourceRelease, "unset pin must keep existing value")
+		assert.Equal(t, openchoreov1alpha1.ResourceRetainPolicy("Retain"), sent.Spec.RetainPolicy)
+		require.NotNil(t, sent.Spec.ResourceTypeEnvironmentConfigs)
+		assert.JSONEq(t, `{"storageGB":100}`, string(sent.Spec.ResourceTypeEnvironmentConfigs.Raw))
+	})
+
+	t.Run("propagates get error before attempting update", func(t *testing.T) {
+		expected := errors.New("not found")
+		rbSvc := resourcereleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetResourceReleaseBinding(mock.Anything, testNS, testResourceReleaseBindingName).
+			Return(nil, expected)
+
+		h := newTestHandler(withResourceReleaseBindingService(rbSvc))
+		_, err := h.UpdateResourceReleaseBinding(ctx, testNS, partialUpdateBody())
+		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("propagates update error", func(t *testing.T) {
+		expected := errors.New("update failed")
+		rbSvc := resourcereleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetResourceReleaseBinding(mock.Anything, testNS, testResourceReleaseBindingName).
+			Return(sampleResourceReleaseBinding(), nil)
+		rbSvc.EXPECT().
+			UpdateResourceReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Return(nil, expected)
+
+		h := newTestHandler(withResourceReleaseBindingService(rbSvc))
+		_, err := h.UpdateResourceReleaseBinding(ctx, testNS, partialUpdateBody())
+		require.ErrorIs(t, err, expected)
 	})
 
 	t.Run("rejects nil body", func(t *testing.T) {
 		h := newTestHandler()
 		_, err := h.UpdateResourceReleaseBinding(ctx, testNS, nil)
 		require.Error(t, err)
-	})
-
-	t.Run("service error propagates", func(t *testing.T) {
-		expected := errors.New("update failed")
-		rbSvc := resourcereleasebindingmocks.NewMockService(t)
-		rbSvc.EXPECT().
-			UpdateResourceReleaseBinding(mock.Anything, testNS, mock.Anything).
-			Return(nil, expected)
-
-		h := newTestHandler(withResourceReleaseBindingService(rbSvc))
-		_, err := h.UpdateResourceReleaseBinding(ctx, testNS, &gen.UpdateResourceReleaseBindingJSONRequestBody{
-			Metadata: gen.ObjectMeta{Name: testResourceReleaseBindingName},
-		})
-		require.ErrorIs(t, err, expected)
+		assert.Contains(t, err.Error(), "request body is required")
 	})
 }
 
