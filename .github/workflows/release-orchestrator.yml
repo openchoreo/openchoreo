@@ -51,6 +51,10 @@ on:
         description: 'observability-logs-openobserve chart version to pin (required only when creating a release branch)'
         required: false
         type: string
+      finops_opencost_version:
+        description: 'finops-opencost chart version for the versioned docs (required only when creating a release branch; nothing in this repo installs it, so it is recorded, not pinned)'
+        required: false
+        type: string
       skip_e2e:
         description: 'Skip the e2e gate (emergency releases only)'
         required: false
@@ -164,6 +168,7 @@ jobs:
           METRICS_PROMETHEUS_VERSION: ${{ github.event.inputs.metrics_prometheus_version || '' }}
           EVENTS_OTEL_COLLECTOR_VERSION: ${{ github.event.inputs.events_otel_collector_version || '' }}
           LOGS_OPENOBSERVE_VERSION: ${{ github.event.inputs.logs_openobserve_version || '' }}
+          FINOPS_OPENCOST_VERSION: ${{ github.event.inputs.finops_opencost_version || '' }}
         run: |
           CREATES_BRANCH=false
           if [[ "$ACTION" == "full" || "$ACTION" == "branch" ]] && [ "$BRANCH_EXISTS" = "false" ]; then
@@ -176,17 +181,18 @@ jobs:
               --tracing-opensearch-version "$TRACING_OPENSEARCH_VERSION" \
               --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
               --events-otel-collector-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
-              --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION"; then
-              echo "::error::Creating ${RELEASE_BRANCH} requires a published release version for every observability module input (see log above)"
+              --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION" \
+              --finops-opencost-version "$FINOPS_OPENCOST_VERSION"; then
+              echo "::error::Creating ${RELEASE_BRANCH} requires a published release version for every community module input (see log above)"
               exit 1
             fi
-          elif [ -n "${LOGS_OPENSEARCH_VERSION}${TRACING_OPENSEARCH_VERSION}${METRICS_PROMETHEUS_VERSION}${EVENTS_OTEL_COLLECTOR_VERSION}${LOGS_OPENOBSERVE_VERSION}" ]; then
+          elif [ -n "${LOGS_OPENSEARCH_VERSION}${TRACING_OPENSEARCH_VERSION}${METRICS_PROMETHEUS_VERSION}${EVENTS_OTEL_COLLECTOR_VERSION}${LOGS_OPENOBSERVE_VERSION}${FINOPS_OPENCOST_VERSION}" ]; then
             if [ "$ACTION" = "tag" ]; then
               REASON="action=tag does not create a release branch"
             else
               REASON="${RELEASE_BRANCH} already exists"
             fi
-            echo "::error::Observability module version inputs only apply when creating a release branch, but ${REASON}. To change pinned versions, open a PR against ${RELEASE_BRANCH} that runs hack/pin-observability-modules.sh."
+            echo "::error::Community module version inputs only apply when creating a release branch, but ${REASON}. To change pinned versions, open a PR against ${RELEASE_BRANCH} that runs hack/pin-observability-modules.sh. finops-opencost is not pinned here: change it in the versioned docs' _constants.mdx."
             exit 1
           fi
 
@@ -344,6 +350,7 @@ jobs:
           METRICS_PROMETHEUS_VERSION: ${{ github.event.inputs.metrics_prometheus_version }}
           EVENTS_OTEL_COLLECTOR_VERSION: ${{ github.event.inputs.events_otel_collector_version }}
           LOGS_OPENOBSERVE_VERSION: ${{ github.event.inputs.logs_openobserve_version }}
+          FINOPS_OPENCOST_VERSION: ${{ github.event.inputs.finops_opencost_version }}
         run: |
           BRANCH="${{ needs.validate.outputs.release-branch }}"
 
@@ -362,12 +369,15 @@ jobs:
           fi
 
           # Pin observability modules (0.0.0-latest-dev on main) to the versions validated above.
+          # finops-opencost has no location in this repo, so it is only echoed back
+          # for the versioned docs' finOpsOpenCostModule constant.
           hack/pin-observability-modules.sh \
             --logs-opensearch-version "$LOGS_OPENSEARCH_VERSION" \
             --tracing-opensearch-version "$TRACING_OPENSEARCH_VERSION" \
             --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
             --events-otel-collector-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
-            --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION"
+            --logs-openobserve-version "$LOGS_OPENOBSERVE_VERSION" \
+            --finops-opencost-version "$FINOPS_OPENCOST_VERSION"
           hack/pin-observability-modules.sh --check
           git add -u
           if ! git diff --cached --quiet; then
@@ -376,6 +386,20 @@ jobs:
 
           git push origin "${BRANCH}"
           echo "Pushed branch: ${BRANCH}"
+
+          # The docs constants are set by hand from these versions; --check cannot
+          # report finops-opencost, so record it in the run summary.
+          {
+            echo "### Module versions for the ${BRANCH} docs constants"
+            echo ""
+            echo "| \`_constants.mdx\` key | Version |"
+            echo "| --- | --- |"
+            echo "| \`logsOpensearchModule\` | ${LOGS_OPENSEARCH_VERSION} |"
+            echo "| \`tracingOpensearchModule\` | ${TRACING_OPENSEARCH_VERSION} |"
+            echo "| \`metricsPrometheusModule\` | ${METRICS_PROMETHEUS_VERSION} |"
+            echo "| \`eventsOtelCollectorModule\` | ${EVENTS_OTEL_COLLECTOR_VERSION} |"
+            echo "| \`finOpsOpenCostModule\` | ${FINOPS_OPENCOST_VERSION} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ----------------------------------------------------------------
   # Resolve target: pin the exact commit to gate and tag, then wait for
