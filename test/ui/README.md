@@ -39,7 +39,7 @@ For a fresh install the test identities (PE, Dev, ABAC-restricted) are seeded au
 | `catalog/` | A Component applied with kubectl appears in the Backstage catalog |
 | `lifecycle/` | Full UI-driven journey: create project + component → deploy → delete, verified against the cluster at each step |
 | `config/` | Component configuration edits through the UI: env vars, secret env vars, file mounts, and per-environment overrides, including form validation |
-| `dev-ops/` | Developer role: can create and view Components; platform-level actions (ComponentType create) are denied server-side |
+| `dev-ops/` | Developer role: can create and view Components; platform-level actions (ComponentType create) are denied server-side. Also the build-from-source create path: the wizard's git source must land in `spec.workflow.parameters.repository`, duplicate names must be rejected, and the backend must swallow no internal-call auth failures (regression guard for backstage-plugins#725) |
 | `pe-ops/` | Platform-engineer role: full CRUD (create, update, delete) of PE-managed CRDs via a representative subset — ComponentType and Trait (namespace-scoped) + ClusterComponentType and ClusterTrait (cluster-scoped) via the YAML editor scaffolder flow, and Environment + DeploymentPipeline via the FormWithYaml scaffolder flow. The remaining CRDs (Workflow, ResourceType, ClusterWorkflow, ClusterResourceType) follow the identical YAML editor UI path and are covered implicitly. Updates are tested via the Definition tab YAML editor; ComponentType and ClusterComponentType also test invalid-edit rejection. |
 | `abac-ui/` | Environment-conditioned access: deploy/promote allowed up to staging, the production Promote button renders permission-disabled, and the shape survives relogin |
 | `observability/` | Observability panels render their UI chrome: component Logs (`/runtime-logs`), component Metrics (`/metrics`), project Logs (`/logs`), and project Traces (`/traces`). Deploys the url-shortener sample (snip-postgres + snip-redis + snip-api-service with OTEL enabled) via kubectl, waits for Active, then asserts each panel mounts its filter controls. Self-skips when `ClusterObservabilityPlane` is absent — enable with `E2E_WITH_OBSERVABILITY=true`. |
@@ -137,6 +137,20 @@ Source: [`specs/dev-ops/dev-ops-component.spec.ts:36`](specs/dev-ops/dev-ops-com
 2. kubectl confirms both the Component CR and its generated Workload CR exist; the component overview page renders
 3. Navigate directly to the ComponentType scaffolder URL (bypassing the client-side disabled card) and submit the form
 4. Assert the server rejects it: the task page shows a permission-denied error and kubectl confirms no ComponentType CR was created — the deny is enforced server-side, not just hidden in the UI
+
+</details>
+
+<details>
+<summary><b>dev-ops-component-source</b> — build-from-source create → repository params land in the CR → duplicate rejected → no swallowed auth failures</summary>
+
+Source: [`specs/dev-ops/dev-ops-component-source.spec.ts:67`](specs/dev-ops/dev-ops-component-source.spec.ts#L67)
+
+Regression guard for the backstage-plugins 1.2.1 silent-401 class (fixed by backstage-plugins#725): under an enforced auth policy the scaffolder's internal catalog reads 401'd, and because every failure is downgraded to a warning, creation still "succeeded" — minus its guarantees.
+
+1. As the Dev identity, with a PE-seeded Project (kubectl), create a Component through the scaffolder using **Build from Source** (Service template, `dockerfile-builder` workflow, the public `sample-workloads` repo)
+2. kubectl asserts the Component CR's `spec.workflow.parameters.repository` block (url / revision.branch / appPath) matches the wizard input — this block is produced from a catalog lookup of the Workflow entity's parameter-mapping annotation; under the bug it was silently dropped and builds hung in `WorkflowPending` (`no such key: repository`). The build itself is not run
+3. Re-run the wizard with the same component name and assert the scaffolder task page fails with the duplicate-name error, and the original CR's uid is unchanged — under the bug the duplicate check was silently skipped
+4. Scan the Backstage backend log (bounded to the suite's start) and assert none of the swallowed-warning signatures appear: `Failed to resolve project namespace`, `Failed to check for duplicate component name`, `Failed to fetch Workflow entity`
 
 </details>
 
