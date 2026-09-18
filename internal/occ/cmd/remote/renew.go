@@ -23,6 +23,9 @@ const (
 	// Share of a capability's remaining life to wait when the server supplied no cadence.
 	fallbackRenewFraction = 2
 	maxRenewRetryInterval = 60 * time.Second
+	// Bound on one sleep, so a wait is re-measured against the wall clock rather than
+	// served out by a monotonic timer that stops while the host is suspended.
+	maxWaitTick = 30 * time.Second
 )
 
 // remoteUnit is one resolved workload within a session: the request that resolved it,
@@ -53,9 +56,34 @@ type remoteUnit struct {
 	// running on them and are closed with the session.
 	retired []tunnel
 
-	// minInterval floors and maxRetry caps every computed wait; overridable in tests.
+	// renewStopped is set once the renewal loop returns for good.
+	renewStopped bool
+	// kick asks the renewal loop to renew now. Buffered so a nudge never blocks.
+	kick chan struct{}
+
+	// minInterval floors and maxRetry caps every computed wait, waitTick bounds one sleep
+	// within it, and now reads the wall clock; all overridable in tests.
 	minInterval time.Duration
 	maxRetry    time.Duration
+	waitTick    time.Duration
+	now         func() time.Time
+}
+
+// wallClock reads the wall clock, stripping the monotonic reading: Sub and After use the
+// monotonic clock when both operands carry one, and it stops while the host is suspended.
+func (u *remoteUnit) wallClock() time.Time {
+	if u.now == nil {
+		return time.Now().Round(0)
+	}
+	return u.now().Round(0)
+}
+
+// tick returns the sleep bound; a non-positive one would spin.
+func (u *remoteUnit) tick() time.Duration {
+	if u.waitTick <= 0 {
+		return maxWaitTick
+	}
+	return u.waitTick
 }
 
 // newRemoteUnit captures the result of a workload's first resolve. Built before the
@@ -70,12 +98,15 @@ func newRemoteUnit(req remoteconnect.ResolveRequest, resp *remoteconnect.Resolve
 		dial:          dial,
 		minInterval:   minRenewInterval,
 		maxRetry:      maxRenewRetryInterval,
+		waitTick:      maxWaitTick,
+		now:           time.Now,
 		capability:    resp.Capability,
 		tunnels:       map[string]tunnel{},
 		agents:        map[string]remoteconnect.AgentEndpoint{},
 		bound:         map[string]string{},
 		live:          map[string]string{},
 		warnedUnbound: map[string]bool{},
+		kick:          make(chan struct{}, 1),
 	}
 	for id, a := range resp.Agents {
 		u.agents[id] = a
@@ -120,6 +151,75 @@ func (u *remoteUnit) expiresAt() time.Time {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 	return u.expiry
+}
+
+// lapsed reports whether the current capability has expired, or is about to.
+func (u *remoteUnit) lapsed() bool {
+	exp := u.expiresAt()
+	return !exp.IsZero() && u.wallClock().After(exp.Add(-u.minInterval))
+}
+
+// nudge asks the renewal loop to renew now rather than wait out its interval.
+func (u *remoteUnit) nudge() {
+	select {
+	case u.kick <- struct{}{}:
+	default: // already pending
+	}
+}
+
+// renewing reports whether the renewal loop is still trying.
+func (u *remoteUnit) renewing() bool {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+	return !u.renewStopped
+}
+
+// stopRenewing marks the renewal loop as finished.
+func (u *remoteUnit) stopRenewing() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.renewStopped = true
+}
+
+// waitFor blocks until d has elapsed on the wall clock, waking every waitTick to
+// re-measure it. Reports false if ctx ended first.
+//
+// A nudge ends the wait early once the capability has lapsed and minInterval has passed;
+// it is held until then rather than dropped. Callers backing off from a failed renewal
+// pass nudgeable=false, so streams refused by the same control plane cannot replace the
+// backoff with a minInterval poll.
+func (u *remoteUnit) waitFor(ctx context.Context, d time.Duration, nudgeable bool) bool {
+	start := u.wallClock()
+	due := start.Add(d)
+	kick := u.kick
+	if !nudgeable {
+		kick = nil // blocks, leaving any nudge buffered for the next wait
+	}
+	nudged := false
+	for {
+		elapsed := u.wallClock().Sub(start)
+		if nudged && elapsed >= u.minInterval && u.lapsed() {
+			return true
+		}
+		remaining := due.Sub(u.wallClock())
+		if remaining <= 0 {
+			return true
+		}
+		if bound := u.tick(); remaining > bound {
+			remaining = bound
+		}
+		// Wake when the floor lifts, not at the next full tick.
+		if floor := u.minInterval - elapsed; nudged && floor > 0 && floor < remaining {
+			remaining = floor
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-kick:
+			nudged = true
+		case <-time.After(remaining):
+		}
+	}
 }
 
 // openStream opens a stream for one target key on whichever tunnel currently serves it.
@@ -285,22 +385,23 @@ func (u *remoteUnit) renew(ctx context.Context, resolver Resolver) {
 	wait := u.nextInterval()
 	failures := 0
 	for {
-		select {
-		case <-ctx.Done():
+		if !u.waitFor(ctx, wait, failures == 0) {
+			u.stopRenewing()
 			return
-		case <-time.After(wait):
 		}
 
 		req.PreviousCapability = u.cap()
 		resp, err := resolver.Resolve(ctx, req)
 		if err != nil {
 			if ctx.Err() != nil {
+				u.stopRenewing()
 				return
 			}
 			var statusErr *resolveStatusError
 			if errors.As(err, &statusErr) && statusErr.terminal() {
 				fmt.Fprintf(u.out, "  ! session ended for %s/%s: %s\n",
 					u.req.Project, u.req.Component, terminalReason(statusErr))
+				u.stopRenewing()
 				return
 			}
 			failures++

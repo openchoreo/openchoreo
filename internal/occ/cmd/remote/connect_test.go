@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,6 +24,17 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 )
+
+// fakeRenewable stands in for the remoteUnit a reporter consults.
+type fakeRenewable struct {
+	expiry  time.Time
+	stopped bool
+	nudges  atomic.Int32
+}
+
+func (f *fakeRenewable) expiresAt() time.Time { return f.expiry }
+func (f *fakeRenewable) renewing() bool       { return !f.stopped }
+func (f *fakeRenewable) nudge()               { f.nudges.Add(1) }
 
 type fakeResolver struct {
 	resp *remoteconnect.ResolveResponse
@@ -427,7 +439,8 @@ func TestForwardReportsExpiredSession(t *testing.T) {
 	if !ok {
 		t.Fatal("expected an expiry on the minted capability")
 	}
-	reporter := newStreamErrorReporter(out, func() time.Time { return expired })
+	unit := &fakeRenewable{expiry: expired}
+	reporter := newStreamErrorReporter(out, unit)
 	openErr := errors.New("stream rejected: not authorized")
 	reported := make(chan struct{}, 2)
 	report := func(k string, e error) { reporter.report(k, e); reported <- struct{}{} }
@@ -447,11 +460,30 @@ func TestForwardReportsExpiredSession(t *testing.T) {
 	if !strings.Contains(got, "ep/finance/ledger-svc/http") {
 		t.Errorf("output does not name the dependency: %q", got)
 	}
-	if !strings.Contains(got, "could not be renewed") || !strings.Contains(got, "occ remote") {
+	if !strings.Contains(got, "expired") || !strings.Contains(got, "being renewed now") {
 		t.Errorf("expired session must be explained with a remedy, got: %q", got)
 	}
 	if n := strings.Count(got, "ep/finance/ledger-svc/http"); n != 1 {
 		t.Errorf("reported %d times, want once per dependency", n)
+	}
+	// Every refused connection asks for a renewal, not only the one that printed.
+	if n := unit.nudges.Load(); n != 2 {
+		t.Errorf("nudged %d times, want one per refused connection", n)
+	}
+}
+
+// Once renewal has given up the remedy is to restart rather than to wait.
+func TestReportExpiredSessionAfterRenewalStopped(t *testing.T) {
+	out := &syncBuf{}
+	reporter := newStreamErrorReporter(out, &fakeRenewable{
+		expiry:  time.Now().Add(-time.Minute),
+		stopped: true,
+	})
+	reporter.report("res/local-dev-postgres/client", errors.New("stream rejected: not authorized"))
+
+	got := out.String()
+	if !strings.Contains(got, "no longer being renewed") || !strings.Contains(got, "occ remote") {
+		t.Errorf("a stopped session must tell the developer to restart, got: %q", got)
 	}
 }
 
@@ -465,7 +497,7 @@ func TestForwardReportsNonExpiryFailure(t *testing.T) {
 	t.Cleanup(func() { _ = ln.Close() })
 
 	out := &syncBuf{}
-	reporter := newStreamErrorReporter(out, func() time.Time { return time.Time{} }) // no expiry available
+	reporter := newStreamErrorReporter(out, &fakeRenewable{}) // no expiry available
 	reported := make(chan struct{}, 1)
 	report := func(k string, e error) { reporter.report(k, e); reported <- struct{}{} }
 	go forward(ln, "ep/doclet/backend-api/http", func() (net.Conn, error) {
@@ -483,7 +515,7 @@ func TestForwardReportsNonExpiryFailure(t *testing.T) {
 	if !strings.Contains(got, "connection refused") {
 		t.Errorf("underlying error not surfaced: %q", got)
 	}
-	if strings.Contains(got, "could not be renewed") {
+	if strings.Contains(got, "the session expired") {
 		t.Errorf("misreported a dial failure as expiry: %q", got)
 	}
 }
