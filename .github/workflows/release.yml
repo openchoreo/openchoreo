@@ -71,11 +71,15 @@ jobs:
           # included (v1.3.0-rc.2 -> v1.3.0-rc.1); a stable release ignores
           # prereleases (v1.3.0 -> v1.2.5).
           if [[ "${RELEASE_TAG}" == *-* ]]; then
-            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$')
+            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$')
           else
             CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
           fi
-          PREVIOUS_TAG=$(printf '%s\n%s\n' "${CANDIDATES}" "${RELEASE_TAG}" | sort -V -u \
+          # sort -V orders v1.2.0 before v1.2.0-rc.1, the opposite of semver.
+          # Map the prerelease separator to '~', which sort -V ranks below the
+          # bare version, then map it back.
+          PREVIOUS_TAG=$(printf '%s\n%s\n' "${CANDIDATES}" "${RELEASE_TAG}" \
+            | sed 's/-/~/' | sort -V -u | sed 's/~/-/' \
             | awk -v cur="${RELEASE_TAG}" '$0==cur{exit} {p=$0} END{print p}')
           echo "Previous release tag: ${PREVIOUS_TAG:-<none>}"
           echo "PREVIOUS_TAG=${PREVIOUS_TAG}" >> $GITHUB_ENV
