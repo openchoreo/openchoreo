@@ -71,9 +71,9 @@ jobs:
           # included (v1.3.0-rc.2 -> v1.3.0-rc.1); a stable release ignores
           # prereleases (v1.3.0 -> v1.2.5).
           if [[ "${RELEASE_TAG}" == *-* ]]; then
-            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$')
+            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || [[ $? -eq 1 ]])
           else
-            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
+            CANDIDATES=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || [[ $? -eq 1 ]])
           fi
           # sort -V orders v1.2.0 before v1.2.0-rc.1, the opposite of semver.
           # Map the prerelease separator to '~', which sort -V ranks below the
