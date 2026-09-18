@@ -32,7 +32,22 @@ type AgentConnection struct {
 	ValidCRs        []string          // List of CRs (namespace/name) this connection is authorized for
 	clientCert      *x509.Certificate // Client certificate for re-validation on CR updates
 	intermediates   *x509.CertPool    // Handshake intermediate CAs, used to chain the client cert on re-validation
+	draining        bool              // True after GOAWAY is sent, excluded from selection when live connections exist
 	mu              sync.Mutex
+}
+
+// SetDraining marks the connection as draining (e.g. after sending GOAWAY).
+func (ac *AgentConnection) SetDraining() {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+	ac.draining = true
+}
+
+// IsDraining reports whether the connection is marked draining.
+func (ac *AgentConnection) IsDraining() bool {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+	return ac.draining
 }
 
 // IsValidForCR checks if this connection is authorized for the specified CR
@@ -290,8 +305,54 @@ func (cm *ConnectionManager) Unregister(planeIdentifier, connID string) {
 	)
 }
 
+// SetDraining marks an agent connection as draining under the manager lock.
+// This serializes draining transitions with connection selection (Get, GetForCR).
+func (cm *ConnectionManager) SetDraining(conn *AgentConnection) {
+	if conn == nil {
+		return
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	conn.SetDraining()
+}
+
+// DrainConnection sends a GOAWAY frame and marks the connection as draining
+// under the manager lock. This ensures successful GOAWAY delivery and the
+// draining state transition are atomic with respect to connection selection (Get, GetForCR).
+func (cm *ConnectionManager) DrainConnection(conn *AgentConnection, goAway []byte) error {
+	if conn == nil {
+		return nil
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if len(goAway) > 0 {
+		if err := conn.SendRawMessage(goAway); err != nil {
+			return err
+		}
+	}
+	conn.SetDraining()
+	return nil
+}
+
+// preferLive filters candidates to non-draining connections. If all candidates
+// are draining, it falls back to returning the full slice so callers still have a
+// chance to route rather than failing outright.
+func preferLive(conns []*AgentConnection) []*AgentConnection {
+	var live []*AgentConnection
+	for _, conn := range conns {
+		if !conn.IsDraining() {
+			live = append(live, conn)
+		}
+	}
+	if len(live) > 0 {
+		return live
+	}
+	return conns
+}
+
 // Get retrieves an agent connection by plane identifier using round-robin selection
-// If multiple connections exist for the plane, it rotates between them
+// If multiple connections exist for the plane, it rotates between them, preferring live connections
 func (cm *ConnectionManager) Get(planeIdentifier string) (*AgentConnection, error) {
 	cm.mu.Lock() // Need write lock for roundRobin update
 	defer cm.mu.Unlock()
@@ -301,14 +362,16 @@ func (cm *ConnectionManager) Get(planeIdentifier string) (*AgentConnection, erro
 		return nil, fmt.Errorf("no agents found for plane %s", planeIdentifier)
 	}
 
-	idx := cm.roundRobin[planeIdentifier] % len(conns)
-	cm.roundRobin[planeIdentifier] = (idx + 1) % len(conns)
+	candidates := preferLive(conns)
+	idx := cm.roundRobin[planeIdentifier] % len(candidates)
+	cm.roundRobin[planeIdentifier] = (idx + 1) % len(candidates)
 
-	return conns[idx], nil
+	return candidates[idx], nil
 }
 
 // GetForCR retrieves an agent connection authorized for the specified CR using round-robin selection
-// Only connections where the agent's certificate is valid for the requested CR are considered
+// Only connections where the agent's certificate is valid for the requested CR are considered,
+// preferring live (non-draining) connections.
 // This enforces per-CR security boundaries in multi-tenant scenarios
 // Returns error if no authorized connections are found
 func (cm *ConnectionManager) GetForCR(planeIdentifier, crKey string) (*AgentConnection, error) {
@@ -336,19 +399,22 @@ func (cm *ConnectionManager) GetForCR(planeIdentifier, crKey string) (*AgentConn
 		return nil, fmt.Errorf("no agents authorized for CR %s", crKey)
 	}
 
-	// Round-robin among valid connections only
+	candidates := preferLive(validConns)
+
+	// Round-robin among preferred valid connections only
 	// Use CR-specific round-robin key to ensure fair distribution per CR
 	rrKey := fmt.Sprintf("%s/%s", planeIdentifier, crKey)
-	idx := cm.roundRobin[rrKey] % len(validConns)
-	cm.roundRobin[rrKey] = (idx + 1) % len(validConns)
+	idx := cm.roundRobin[rrKey] % len(candidates)
+	cm.roundRobin[rrKey] = (idx + 1) % len(candidates)
 
-	selectedConn := validConns[idx]
+	selectedConn := candidates[idx]
 
 	cm.logger.Debug("selected agent for CR",
 		"planeIdentifier", planeIdentifier,
 		"cr", crKey,
 		"connectionID", selectedConn.ID,
 		"validAgents", len(validConns),
+		"candidateAgents", len(candidates),
 		"totalAgents", len(conns),
 	)
 
