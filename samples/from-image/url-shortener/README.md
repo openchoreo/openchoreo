@@ -12,8 +12,8 @@ A sample application that demonstrates OpenChoreo's **tracing**, **alerting**, a
 ## Deploy
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/project.yaml
 ```
 
 `project.yaml` also includes the `ProjectReleaseBinding`s for each pipeline environment, which own the project's data-plane namespaces. Wait for the development one to become `Ready=True` before continuing, otherwise the Resource and Component steps below will fail to render with a `namespace ... not found` error:
@@ -27,13 +27,13 @@ Postgres is provisioned as a `Resource` from the shipped `postgres` `ClusterReso
 `initSQL` support was added to the `postgres` CRT after the initial `getting-started/all.yaml` install most setups run — if your cluster already had the CRT installed, `resources/postgres.yaml`'s `initSQL` will silently do nothing until the CRT itself is updated. Re-apply it (idempotent, safe even if already up to date) before deploying the Resource:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/cluster-resource-types/postgres.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/getting-started/cluster-resource-types/postgres.yaml
 ```
 
 Apply the Resource + binding, then promote the binding to the resource's latest release:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/resources/postgres.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/resources/postgres.yaml
 
 for i in $(seq 1 150); do release=$(kubectl get resource snip-postgres -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ] && break; sleep 2; done
 [ -n "$release" ] || { echo "Timed out waiting for snip-postgres latestRelease name"; kubectl get resource snip-postgres -n default -o yaml; exit 1; }
@@ -50,17 +50,17 @@ kubectl wait --for=condition=Ready --timeout=5m resourcereleasebinding snip-post
 The frontend component has a log-based alert rule attached (`observability-alert-rule` trait, triggers when `status=500` appears more than 5 times within 1 minute). The trait's `enabled` defaults to `true`, and a notification channel is mandatory for any enabled alert rule — so `enable-alert.yaml` (which wires the trait to the `webhook-notification-channel-development` channel) must be applied *before* `frontend.yaml`. Applying it first means `autoDeploy` finds this `ReleaseBinding` already in place when the frontend Component is created and only patches in the release name, leaving the trait config untouched. Applying it after leaves the frontend's first render permanently failing validation (`A notification channel is mandatory for alert rules`) until you apply it:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/enable-alert.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/alerting-demo/enable-alert.yaml
 ```
 
 Now deploy the components:
 
 ```bash
 kubectl apply \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/redis.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/api-service.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/analytics-service.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/frontend.yaml
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/components/redis.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/components/api-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/components/analytics-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/components/frontend.yaml
 ```
 
 This deploys the notification channel and the Postgres resource first, then four components (snip-redis, snip-api-service, snip-analytics-service, snip-frontend). The api-service and analytics-service consume Postgres via `dependencies.resources[]` — the CRT's `url` output (a full DSN) is injected as `POSTGRES_DSN`. Distributed tracing works out of the box once deployed.
@@ -80,13 +80,13 @@ A log-based alert rule on the frontend triggers when `status=500` appears more t
 Start generating traffic (auto-detects the frontend URL from the ReleaseBinding):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh | bash
+curl -sSL https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh | bash
 ```
 
 Starve Postgres of memory:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/failure-scenario.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/alerting-demo/failure-scenario.yaml
 ```
 
 After the alert fires, revert by applying the fix from the UI if suggested, or manually via:
@@ -116,8 +116,8 @@ kubectl delete -n "$ns" $(kubectl get pods -n "$ns" -o name | grep snip-postgres
 Deleting the `Project` cascades the deletion to its Components and Resources via the project finalizer — this also tears down Postgres's `StatefulSet` and its PVC (via `persistentVolumeClaimRetentionPolicy.whenDeleted: Delete`, set when `persistenceEnabled` is true):
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.3/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
 ```
 
 (`enable-alert.yaml` and `failure-scenario.yaml` reuse the same `ReleaseBinding`/`ResourceReleaseBinding` names created above, so no separate delete is needed for those.)
