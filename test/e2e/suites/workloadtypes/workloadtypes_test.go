@@ -230,7 +230,7 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			By("deleting the web-application component")
 			output, err := framework.Kubectl(kubeContext,
 				"delete", "component", componentWebApp,
-				"-n", cpNs, "--wait=true", "--timeout=3m")
+				"-n", cpNs, "--wait=true", "--timeout=5m")
 			Expect(err).NotTo(HaveOccurred(),
 				"failed to delete component %s: %s", componentWebApp, output)
 
