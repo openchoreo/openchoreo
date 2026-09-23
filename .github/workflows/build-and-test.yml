@@ -75,6 +75,7 @@ jobs:
           make go.test
 
       - name: Upload coverage to Codecov
+        if: vars.CODECOV_ENABLED != 'false'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./cover.out
@@ -175,13 +176,11 @@ jobs:
         # pre-existing src/ debt is cleaned up; this gates on pytest only.
         run: make python.test
 
-  publish:
-    name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
+  package-helm:
+    name: Package Helm Charts
     runs-on: ubuntu-24.04
+    if: github.event_name != 'push'
     needs: [ lint, gen-check, test, build, agent-tests ]
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Clone the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -189,120 +188,17 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
 
-      - name: Download occ binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: occ
-          path: bin/dist
-
-      - name: Download manager binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: manager
-          path: bin/dist
-
-      - name: Download openchoreo-api binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: openchoreo-api
-          path: bin/dist
-
-      - name: Download observer binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: observer
-          path: bin/dist
-
-      - name: Download event-forwarder binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: event-forwarder
-          path: bin/dist
-
-      - name: Download cluster-gateway binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: cluster-gateway
-          path: bin/dist
-
-      - name: Download cluster-agent binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: cluster-agent
-          path: bin/dist
-
-      - name: Download remote-agent binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: remote-agent
-          path: bin/dist
-
-      - name: Download remote-agent-router binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: remote-agent-router
-          path: bin/dist
-
-      - name: Set executable permissions
-        # See: https://github.com/actions/download-artifact/issues/14
-        run: find bin/dist -type f -exec chmod +x {} +
-          
-      - name: Login to container registry
-        if: github.event_name == 'push'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ${{ env.OCI_REGISTRY_HOST }}
-          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
-          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
-
-      - name: Setup docker multiarch
-        if: github.event_name == 'push'
-        run: make docker.setup-multiarch
-
-      - name: Set commit SHA
-        if: github.event_name == 'push'
-        run: echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
-
-      - name: Check if commit images already exist
-        if: github.event_name == 'push'
-        id: check-images
-        run: |
-          SHA=$(git rev-parse --short=8 HEAD)
-          ALL_EXIST=true
-          for IMG in controller quick-start openchoreo-api observer event-forwarder sre-agent finops-agent portal-assistant openchoreo-cli cluster-gateway cluster-agent remote-agent remote-agent-router; do
-            if docker buildx imagetools inspect "${IMAGE_REPO_PREFIX}/${IMG}:${SHA}" >/dev/null 2>&1; then
-              echo "  ✅ ${IMG}:${SHA} exists"
-            else
-              echo "  ❌ ${IMG}:${SHA} not found"
-              ALL_EXIST=false
-            fi
-          done
-          if [ "$ALL_EXIST" = "true" ]; then
-            echo "All ${SHA} images exist. Skipping build."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build and push images and helm charts
-        if: github.event_name == 'push' && steps.check-images.outputs.skip != 'true'
-        run: |
-          echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
-          make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
-
-          # Retag images as latest-dev for main branch only
-          if [[ "${GITHUB_REF}" == "refs/heads/main" && "${PUBLISH_LATEST}" == "true" ]]; then
-            make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=latest-dev
-          fi
-
-          # Package and push Helm charts
-          echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
-          make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
-
-          if [[ "${GITHUB_REF}" == "refs/heads/main" && "${PUBLISH_LATEST}" == "true" ]]; then
-            make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
-          fi
-
-      - name: Package helm charts for PR verification
-        if: github.event_name != 'push'
+      - name: Package helm charts
         run: make helm-package
+
+  publish:
+    name: Publish
+    if: github.event_name == 'push'
+    needs: [ lint, gen-check, test, build, agent-tests ]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-candidates.yml
+    secrets:
+      OCI_REGISTRY_USERNAME: ${{ secrets.OCI_REGISTRY_USERNAME }}
+      OCI_REGISTRY_PASSWORD: ${{ secrets.OCI_REGISTRY_PASSWORD }}
