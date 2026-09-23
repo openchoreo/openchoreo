@@ -210,6 +210,114 @@ func TestJWTDetectorResolvesIssuerAndSession(t *testing.T) {
 	}
 }
 
+// TestJWTDetectorResolvesReadableID covers two subject types being identified
+// by claims their own tokens actually carry, since the claim is read from
+// whichever mechanism matched.
+func TestJWTDetectorResolvesReadableID(t *testing.T) {
+	mechanism := func(readableIDClaim, entitlementClaim string) []subject.AuthMechanismConfig {
+		return []subject.AuthMechanismConfig{
+			{
+				Type:            "jwt",
+				ReadableIDClaim: readableIDClaim,
+				Entitlement: subject.EntitlementConfig{
+					Claim:       entitlementClaim,
+					DisplayName: "Entitlement",
+				},
+			},
+		}
+	}
+
+	userTypes := []subject.UserTypeConfig{
+		{Type: user, DisplayName: "Human User", Priority: 1, AuthMechanisms: mechanism("username", "groups")},
+		{Type: "service_account", DisplayName: "Service Account", Priority: 2, AuthMechanisms: mechanism("client_id", "client_id")},
+	}
+
+	detector, err := NewResolver(userTypes)
+	if err != nil {
+		t.Fatalf("Failed to create detector: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		claims         jwt.MapClaims
+		wantType       string
+		wantReadableID string
+	}{
+		{
+			name:           "user is identified by its own username claim",
+			claims:         jwt.MapClaims{"groups": "admin", "sub": "user-1", "username": "alice@example.com"},
+			wantType:       user,
+			wantReadableID: "alice@example.com",
+		},
+		{
+			// A client_credentials token carries no username, so the user
+			// type's claim would leave it unidentified.
+			name:           "service account is identified by its client_id claim",
+			claims:         jwt.MapClaims{"client_id": "system-app", "sub": "svc-1"},
+			wantType:       "service_account",
+			wantReadableID: "system-app",
+		},
+		{
+			name:           "absent claim leaves ReadableID empty for the audit fallback",
+			claims:         jwt.MapClaims{"groups": "admin", "sub": "user-1"},
+			wantType:       user,
+			wantReadableID: "",
+		},
+		{
+			name:           "non-string claim leaves ReadableID empty",
+			claims:         jwt.MapClaims{"groups": "admin", "sub": "user-1", "username": []any{"alice"}},
+			wantType:       user,
+			wantReadableID: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := detector.ResolveUserType(createTestJWT(tt.claims))
+			if err != nil {
+				t.Fatalf("ResolveUserType() error = %v", err)
+			}
+			if got.Type != tt.wantType {
+				t.Errorf("Type = %q, want %q", got.Type, tt.wantType)
+			}
+			if got.ReadableID != tt.wantReadableID {
+				t.Errorf("ReadableID = %q, want %q", got.ReadableID, tt.wantReadableID)
+			}
+		})
+	}
+}
+
+// TestJWTDetectorReadableIDUnsetLeavesEmpty guards that a mechanism naming no
+// readable_id_claim never borrows one from elsewhere — the audit fallback is
+// the only thing that fills the gap.
+func TestJWTDetectorReadableIDUnsetLeavesEmpty(t *testing.T) {
+	userTypes := []subject.UserTypeConfig{
+		{
+			Type:        user,
+			DisplayName: "Human User",
+			Priority:    1,
+			AuthMechanisms: []subject.AuthMechanismConfig{
+				{Type: "jwt", Entitlement: subject.EntitlementConfig{Claim: "groups", DisplayName: "User Group"}},
+			},
+		},
+	}
+
+	detector, err := NewResolver(userTypes)
+	if err != nil {
+		t.Fatalf("Failed to create detector: %v", err)
+	}
+
+	got, err := detector.ResolveUserType(createTestJWT(jwt.MapClaims{
+		"groups": "admin", "sub": "user-1", "username": "alice@example.com",
+	}))
+	if err != nil {
+		t.Fatalf("ResolveUserType() error = %v", err)
+	}
+	if got.ReadableID != "" {
+		t.Errorf("ReadableID = %q, want empty when the mechanism names no claim", got.ReadableID)
+	}
+}
+
 func TestJWTDetectorMissingSubClaim(t *testing.T) {
 	userTypes := []subject.UserTypeConfig{
 		{

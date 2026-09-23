@@ -225,6 +225,9 @@ func (c *SubjectConfig) Validate(path *config.Path) config.ValidationErrors {
 
 // MechanismConfig defines an authentication mechanism for a subject type.
 type MechanismConfig struct {
+	// ReadableIDClaim is the claim recorded as an audit event's actor.id.
+	// Optional: audit falls back to audit.actor.id_claim and then to sub.
+	ReadableIDClaim string `koanf:"readable_id_claim"`
 	// Entitlement defines how to extract entitlement claims.
 	Entitlement EntitlementConfig `koanf:"entitlement"`
 }
@@ -270,7 +273,8 @@ func (c *SecurityConfig) ToSubjectUserTypeConfigs() []subject.UserTypeConfig {
 		mechanisms := make([]subject.AuthMechanismConfig, 0, len(subj.Mechanisms))
 		for mechType, mech := range subj.Mechanisms {
 			mechanisms = append(mechanisms, subject.AuthMechanismConfig{
-				Type: mechType,
+				Type:            mechType,
+				ReadableIDClaim: mech.ReadableIDClaim,
 				Entitlement: subject.EntitlementConfig{
 					Claim:       mech.Entitlement.Claim,
 					DisplayName: mech.Entitlement.DisplayName,

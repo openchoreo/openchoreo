@@ -34,6 +34,116 @@ func TestSecurityConfig_KnownActorTypes_Deterministic(t *testing.T) {
 	}
 }
 
+// TestSecurityConfig_DecodesReadableIDClaim pins the koanf tag against the
+// shape cmd/openchoreo-api/config.yaml actually ships. The loader runs with
+// ErrorUnused: true, so a wrong or missing tag makes readable_id_claim an
+// unknown key and the shipped config refuses to start — a failure no
+// struct-literal test would surface.
+func TestSecurityConfig_DecodesReadableIDClaim(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+security:
+  subjects:
+    user:
+      display_name: "User"
+      priority: 1
+      mechanisms:
+        jwt:
+          readable_id_claim: "username"
+          entitlement:
+            claim: "groups"
+            display_name: "User Group"
+    service_account:
+      display_name: "Service Account"
+      priority: 2
+      mechanisms:
+        jwt:
+          entitlement:
+            claim: "client_id"
+            display_name: "Client ID"
+`)
+
+	if got := cfg.Security.Subjects["user"].Mechanisms["jwt"].ReadableIDClaim; got != "username" {
+		t.Errorf("user ReadableIDClaim = %q, want %q", got, "username")
+	}
+	// A mechanism naming no claim stays empty rather than inheriting one; the
+	// audit fallback is what fills the gap.
+	if got := cfg.Security.Subjects["service_account"].Mechanisms["jwt"].ReadableIDClaim; got != "" {
+		t.Errorf("service_account ReadableIDClaim = %q, want empty", got)
+	}
+}
+
+// TestSecurityConfig_ToSubjectUserTypeConfigs_CarriesReadableIDClaim guards
+// the map-to-slice conversion, which is the only path from the subjects
+// config into the resolver. A field added to MechanismConfig but not copied
+// here is silently dropped: config validates, startup succeeds, and the claim
+// is simply never resolved.
+func TestSecurityConfig_ToSubjectUserTypeConfigs_CarriesReadableIDClaim(t *testing.T) {
+	cfg := &SecurityConfig{
+		Subjects: map[string]SubjectConfig{
+			"user": {
+				DisplayName: "User",
+				Priority:    1,
+				Mechanisms: map[string]MechanismConfig{
+					"jwt": {
+						ReadableIDClaim: "username",
+						Entitlement:     EntitlementConfig{Claim: "groups", DisplayName: "User Group"},
+					},
+				},
+			},
+			"service_account": {
+				DisplayName: "Service Account",
+				Priority:    2,
+				Mechanisms: map[string]MechanismConfig{
+					"jwt": {
+						ReadableIDClaim: "client_id",
+						Entitlement:     EntitlementConfig{Claim: "client_id", DisplayName: "Client ID"},
+					},
+				},
+			},
+		},
+	}
+
+	got := cfg.ToSubjectUserTypeConfigs()
+
+	want := map[string]string{"user": "username", "service_account": "client_id"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d user types, want %d", len(got), len(want))
+	}
+	for _, ut := range got {
+		if len(ut.AuthMechanisms) != 1 {
+			t.Fatalf("%s: got %d mechanisms, want 1", ut.Type, len(ut.AuthMechanisms))
+		}
+		if gotClaim := ut.AuthMechanisms[0].ReadableIDClaim; gotClaim != want[ut.Type] {
+			t.Errorf("%s: ReadableIDClaim = %q, want %q", ut.Type, gotClaim, want[ut.Type])
+		}
+	}
+}
+
+// TestSecurityConfig_ToSubjectUserTypeConfigs_OmittedReadableIDClaim covers a
+// mechanism naming no claim: it must stay empty rather than inherit one, so
+// the audit fallback is what fills the gap.
+func TestSecurityConfig_ToSubjectUserTypeConfigs_OmittedReadableIDClaim(t *testing.T) {
+	cfg := &SecurityConfig{
+		Subjects: map[string]SubjectConfig{
+			"user": {
+				DisplayName: "User",
+				Priority:    1,
+				Mechanisms: map[string]MechanismConfig{
+					"jwt": {Entitlement: EntitlementConfig{Claim: "groups", DisplayName: "User Group"}},
+				},
+			},
+		},
+	}
+
+	got := cfg.ToSubjectUserTypeConfigs()
+	if len(got) != 1 || len(got[0].AuthMechanisms) != 1 {
+		t.Fatalf("unexpected conversion result: %+v", got)
+	}
+	if claim := got[0].AuthMechanisms[0].ReadableIDClaim; claim != "" {
+		t.Errorf("ReadableIDClaim = %q, want empty", claim)
+	}
+}
+
 func TestSecurityConfig_ValidateSubjects_DuplicatePriorities(t *testing.T) {
 	tests := []struct {
 		name           string

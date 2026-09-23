@@ -9,8 +9,16 @@ import (
 )
 
 // SubjectContext contains the authenticated subject's type and entitlements
+//
+// ID and ReadableID are not interchangeable. ID is the stable, issuer-scoped
+// identity and is security-load-bearing — it is the subject a remote-connect
+// capability is signed for (see RemoteConnectHandler.resolve). ReadableID is
+// a human-readable identity for display and audit only; the claim carrying it
+// is operator-configurable per auth mechanism, so it must never be used to
+// make an access decision or to bind a credential.
 type SubjectContext struct {
 	ID                string   // Unique identifier for the subject, unique only within Issuer
+	ReadableID        string   // Human-readable identity, empty unless the mechanism configures readable_id_claim
 	Issuer            string   // Identity provider that issued the credential
 	SessionID         string   // Provider-side session the credential belongs to, if it names one
 	Type              string   // Type of subject (user, service_account, etc.)
