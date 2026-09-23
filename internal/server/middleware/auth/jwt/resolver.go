@@ -93,8 +93,16 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 			subject, _ := claims["sub"].(string)
 			issuer, _ := claims["iss"].(string)
 			sessionID, _ := claims["sid"].(string)
+			// The audit layer owns the fallback for an empty result, since what
+			// it falls back to is audit configuration this package should not
+			// be reading.
+			var readableID string
+			if jwtMechanism.ReadableIDClaim != "" {
+				readableID, _ = claims[jwtMechanism.ReadableIDClaim].(string)
+			}
 			return &auth.SubjectContext{
 				ID:                subject,
+				ReadableID:        readableID,
 				Issuer:            issuer,
 				SessionID:         sessionID,
 				Type:              userTypeConfig.Type,

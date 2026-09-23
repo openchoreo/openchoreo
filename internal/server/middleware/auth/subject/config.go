@@ -17,9 +17,14 @@ type UserTypeConfig struct {
 }
 
 // AuthMechanismConfig represents configuration for a specific authentication mechanism
+//
+// ReadableIDClaim sits here rather than on the user type because naming a claim
+// only means something for a token-bearing mechanism; an api_key mechanism has
+// no claims to name.
 type AuthMechanismConfig struct {
-	Type        string            `yaml:"type" json:"type"`               // Authentication mechanism type (e.g., "jwt", "oauth2", "api_key")
-	Entitlement EntitlementConfig `yaml:"entitlement" json:"entitlement"` // Entitlement configuration for this mechanism
+	Type            string            `yaml:"type" json:"type"`                         // Authentication mechanism type (e.g., "jwt", "oauth2", "api_key")
+	ReadableIDClaim string            `yaml:"readable_id_claim" json:"readableIdClaim"` // Claim carrying a human-readable identity, recorded as audit actor.id
+	Entitlement     EntitlementConfig `yaml:"entitlement" json:"entitlement"`           // Entitlement configuration for this mechanism
 }
 
 // EntitlementConfig defines how to extract entitlement claims from authentication tokens

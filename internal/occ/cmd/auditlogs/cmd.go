@@ -72,7 +72,7 @@ func addQueryFlags(cmd *cobra.Command) {
 	fl.String("sort", sortDesc, "Order by event time: 'desc' or 'asc'")
 	fl.StringP("output", "o", outputText, "Output format: 'text' or 'json' (json emits one record per line)")
 
-	fl.StringSlice("actor", nil, "Actor IDs, the token claim set by audit.actor.id_claim ('sub' by default) (comma-separated)")
+	fl.StringSlice("actor", nil, "Actor IDs; the claim recorded depends on the subject's type, so pair with --actor-type (comma-separated)")
 	fl.StringSlice("actor-type", nil, "Kinds of subject, e.g. user, service_account, anonymous (comma-separated)")
 	fl.StringSlice("issuer", nil, "Token issuers; pair with --actor where more than one identity provider is configured (comma-separated)")
 	fl.StringSlice("session-id", nil, "Identity provider session IDs, joining the actions of one login (comma-separated)")

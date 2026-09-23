@@ -490,6 +490,9 @@ observer:
     #           type:
     #             type: string
     #             description: Authentication mechanism type (oauth2, etc.)
+    #           readable_id_claim:
+    #             type: string
+    #             description: JWT claim carrying a human-readable identity, recorded as an audit event's actor.id. Falls back to audit.actor.idClaim, then sub, when unset or absent from the token
     #           entitlement:
     #             type: object
     #             properties:
@@ -506,6 +509,7 @@ observer:
         priority: 1
         auth_mechanisms:
           - type: "jwt"
+            readable_id_claim: "username"
             entitlement:
               claim: "groups"
               display_name: "User Group"
@@ -514,6 +518,7 @@ observer:
         priority: 2
         auth_mechanisms:
           - type: "jwt"
+            readable_id_claim: "client_id"
             entitlement:
               claim: "client_id"
               display_name: "Client ID"
@@ -568,7 +573,7 @@ observer:
     actor:
       # @schema
       # type: string
-      # description: Token claim recorded as actor.id and matched by policies[].match.actors. Tokens without this claim (e.g. service accounts) record "unknown"; set "sub" for the opaque subject ID
+      # description: Fallback claim recorded as actor.id and matched by policies[].match.actors, used when the subject's mechanism sets no readable_id_claim or its token omits that claim. sub is recorded if this claim is missing too
       # default: "username"
       # @schema
       idClaim: "username"

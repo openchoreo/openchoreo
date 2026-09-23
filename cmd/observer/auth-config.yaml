@@ -7,6 +7,7 @@ auth:
       priority: 1
       auth_mechanisms:
         - type: "jwt"
+          readable_id_claim: "username"
           entitlement:
             claim: "groups"
             display_name: "User Group"
@@ -15,6 +16,7 @@ auth:
       priority: 2
       auth_mechanisms:
         - type: "jwt"
+          readable_id_claim: "client_id"
           entitlement:
             claim: "client_id"
             display_name: "Client ID"

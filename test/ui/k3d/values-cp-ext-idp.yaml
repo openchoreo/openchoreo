@@ -42,6 +42,7 @@ openchoreoApi:
         service_account:
           mechanisms:
             jwt:
+              readable_id_claim: "sub"
               entitlement:
                 claim: "sub"
       authorization:

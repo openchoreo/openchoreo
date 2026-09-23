@@ -12,7 +12,7 @@ import (
 // the same sub from two IdPs is two different subjects.
 type Actor struct {
 	Type         string              `json:"type"`                   // e.g., "user", "service_account", "anonymous"
-	ID           string              `json:"id"`                     // The token claim named by audit.actor.id_claim (sub by default), or "anonymous"
+	ID           string              `json:"id"`                     // The claim named by the subject's mechanism (readable_id_claim), else audit.actor.id_claim, else sub; or "anonymous"
 	Issuer       string              `json:"issuer,omitempty"`       // The token's iss claim; ID's namespace
 	SessionID    string              `json:"session_id,omitempty"`   // The token's sid claim, joining this event to an IdP login
 	Entitlements map[string][]string `json:"entitlements,omitempty"` // Optional entitlements associated with the actor

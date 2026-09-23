@@ -112,42 +112,74 @@ func TestExtractActor(t *testing.T) {
 	}
 }
 
-func TestExtractActor_ConfiguredIDClaim(t *testing.T) {
-	subjectCtx := &auth.SubjectContext{ID: "sub-123", Type: "user"}
-
+// TestExtractActor_IDPrecedence pins the order actor.id is resolved in, and
+// that "unknown" is reached only when nothing yields a value.
+func TestExtractActor_IDPrecedence(t *testing.T) {
 	tests := []struct {
-		name    string
-		claims  jwtlib.MapClaims
-		idClaim string
-		wantID  string
+		name       string
+		sub        string
+		readableID string
+		claims     jwtlib.MapClaims
+		idClaim    string
+		wantID     string
 	}{
 		{
-			name:    "configured claim is recorded instead of sub",
+			name:       "mechanism claim wins over the global claim and sub",
+			sub:        "sub-123",
+			readableID: "alice",
+			claims:     jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"},
+			idClaim:    "email",
+			wantID:     "alice",
+		},
+		{
+			name:    "global claim is recorded when the mechanism names none",
+			sub:     "sub-123",
 			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"},
 			idClaim: "email",
 			wantID:  "alice@example.com",
 		},
 		{
-			name:    "empty claim records sub",
+			name:    "empty global claim records sub",
+			sub:     "sub-123",
 			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": "alice@example.com"},
 			idClaim: "",
 			wantID:  "sub-123",
 		},
 		{
-			name:    "missing claim records unknown without falling back to sub",
+			// The service-account case: a client_credentials token carries
+			// neither a mechanism claim nor the deployment-wide one.
+			name:    "token lacking both configured claims records sub",
+			sub:     "sub-123",
 			claims:  jwtlib.MapClaims{"sub": "sub-123"},
-			idClaim: "email",
-			wantID:  "unknown",
+			idClaim: "username",
+			wantID:  "sub-123",
 		},
 		{
-			name:    "non-string claim records unknown",
+			name:    "non-string global claim records sub",
+			sub:     "sub-123",
 			claims:  jwtlib.MapClaims{"sub": "sub-123", "email": []any{"alice@example.com"}},
 			idClaim: "email",
-			wantID:  "unknown",
+			wantID:  "sub-123",
 		},
 		{
-			name:    "no claims in context records unknown",
+			name:    "no claims in context records sub",
+			sub:     "sub-123",
 			claims:  nil,
+			idClaim: "email",
+			wantID:  "sub-123",
+		},
+		{
+			name:       "mechanism claim is recorded even with no claims in context",
+			sub:        "",
+			readableID: "alice",
+			claims:     nil,
+			idClaim:    "email",
+			wantID:     "alice",
+		},
+		{
+			name:    "unknown only when nothing yields an identity",
+			sub:     "",
+			claims:  jwtlib.MapClaims{},
 			idClaim: "email",
 			wantID:  "unknown",
 		},
@@ -155,7 +187,11 @@ func TestExtractActor_ConfiguredIDClaim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := auth.SetSubjectContext(context.Background(), subjectCtx)
+			ctx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+				ID:         tt.sub,
+				ReadableID: tt.readableID,
+				Type:       "user",
+			})
 			if tt.claims != nil {
 				ctx = jwt.ContextWithClaims(ctx, tt.claims)
 			}
