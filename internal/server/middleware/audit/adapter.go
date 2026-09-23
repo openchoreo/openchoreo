@@ -42,10 +42,10 @@ func ExtractActor(ctx context.Context, idClaim string) Actor {
 		actorType = "user"
 	}
 
-	// A missing claim records "unknown" rather than falling back to sub. The
-	// "<nil>" check is defense-in-depth: a fabricated actor identity in an
-	// audit trail is undetectable downstream, so this guards against a future
-	// SubjectContext constructor formatting a missing claim with fmt.Sprintf.
+	// "unknown" is reached only when even sub is absent. The "<nil>" check is
+	// defense-in-depth: a fabricated actor identity in an audit trail is
+	// undetectable downstream, so this guards against a future SubjectContext
+	// constructor formatting a missing claim with fmt.Sprintf.
 	actorID := "unknown"
 	if id := actorIDFromContext(ctx, subjectCtx, idClaim); id != "" && id != "<nil>" {
 		actorID = id
@@ -67,19 +67,30 @@ func ExtractActor(ctx context.Context, idClaim string) Actor {
 	return actor
 }
 
+// The per-mechanism claim comes first because one global claim cannot identify
+// every actor type: a claim naming a person is absent from the machine tokens a
+// service account presents.
+//
+// The cost of falling through is that actor.id can be drawn from different
+// claims on different records, with nothing in the envelope recording which, so
+// policies[].match.actors selectors and --actor filters are reliable within an
+// actor type but not necessarily across types.
+//
 // The JWT middleware is the only production writer of SubjectContext and
 // stores the validated claims on the same ctx first, so wherever a subject is
 // present its claims are too.
 func actorIDFromContext(ctx context.Context, subjectCtx *auth.SubjectContext, idClaim string) string {
-	if idClaim == "" || idClaim == DefaultActorIDClaim {
-		return subjectCtx.ID
+	if subjectCtx.ReadableID != "" {
+		return subjectCtx.ReadableID
 	}
-	claims, ok := jwt.GetClaimsFromContext(ctx)
-	if !ok {
-		return ""
+	if idClaim != "" && idClaim != DefaultActorIDClaim {
+		if claims, ok := jwt.GetClaimsFromContext(ctx); ok {
+			if id, _ := claims[idClaim].(string); id != "" {
+				return id
+			}
+		}
 	}
-	id, _ := claims[idClaim].(string)
-	return id
+	return subjectCtx.ID
 }
 
 // newUUID returns a UUID v7, falling back to v4 if v7 generation fails.
