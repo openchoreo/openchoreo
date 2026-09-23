@@ -93,6 +93,7 @@ security:
       # Authentication mechanisms and how to extract entitlements from each.
       mechanisms:
         jwt:
+          readable_id_claim: "username"
           entitlement:
             # JWT claim containing the user's entitlements/roles.
             claim: "groups"
@@ -105,6 +106,7 @@ security:
       priority: 2
       mechanisms:
         jwt:
+          readable_id_claim: "client_id"
           entitlement:
             claim: "client_id"
             display_name: "Client ID"
