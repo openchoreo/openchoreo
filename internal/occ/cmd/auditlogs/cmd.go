@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -15,7 +16,8 @@ const longDesc = `Query the audit trail: who did what, from where, and whether i
 The observer that serves the trail is discovered from the control plane, so there is no
 plane to name. Reading the trail needs the cluster-scoped 'auditlogs:view' permission.
 The --namespace, --project, --component, --resource and --env filters narrow the result;
-they do not widen what you are authorized to read.
+they do not widen what you are authorized to read. They are not filled in from the current
+context, so a query without them spans the whole cluster.
 
 Multi-value filters match any of their values, and different filters must all match.
 
@@ -48,6 +50,9 @@ func NewAuditLogsCmd(f client.NewClientFunc) *cobra.Command {
 		Long:    longDesc,
 		Example: example,
 		Args:    cobra.NoArgs,
+		Annotations: map[string]string{
+			config.SkipContextDefaultsAnnotation: "",
+		},
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl, err := f()
