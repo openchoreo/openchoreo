@@ -16,6 +16,8 @@ class ReportBackend(ABC):
         report: dict[str, Any] | None = None,
         summary: str | None = None,
         timestamp: datetime | None = None,
+        namespace: str | None = None,
+        project: str | None = None,
         environment_uid: str | None = None,
         project_uid: str | None = None,
     ) -> dict[str, Any]: ...

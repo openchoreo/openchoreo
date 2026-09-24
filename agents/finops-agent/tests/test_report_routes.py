@@ -12,25 +12,43 @@ The update tests use an ``AsyncMock`` backend whose ``update_report_actions_atom
 — so the route's index-validation and state-transition logic is exercised.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.api.report_routes import router as report_router
-from src.auth import require_authn, require_reports_authz, require_reports_update_authz
+from src.auth import require_authn, require_reports_authz
+from src.auth.authz_models import Decision, SubjectContext
+
+
+def _subject():
+    return SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
 
 
 @pytest.fixture
 def app():
     application = FastAPI()
     application.include_router(report_router)
-    # Bypass authn/authz — these handlers never read the returned subject.
-    application.dependency_overrides[require_authn] = lambda: None
+    # get/put's authorize_against_report needs a real subject now that it runs
+    # for real (only the PDP client is mocked below); list's coarse dependency
+    # is bypassed since these tests never exercise it.
+    application.dependency_overrides[require_authn] = _subject
     application.dependency_overrides[require_reports_authz] = lambda: None
-    application.dependency_overrides[require_reports_update_authz] = lambda: None
     return application
+
+
+@pytest.fixture(autouse=True)
+def _allow_report_authz():
+    # get/put authorize via authorize_against_report (not a dependency), so it
+    # can't be overridden via dependency_overrides. Mock the PDP client rather
+    # than authorize_against_report itself, so its real hierarchy-extraction /
+    # fail-closed logic still runs. Default to allow.
+    client = MagicMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=True))
+    with patch("src.auth.dependencies.get_authz_client", return_value=client):
+        yield client
 
 
 # --------------------------------------------------------------------------- list
@@ -109,13 +127,91 @@ def test_get_report_404(app):
     assert resp.status_code == 404
 
 
+def test_get_report_authorizes_against_the_reports_own_project(app, _allow_report_authz):
+    backend = AsyncMock()
+    backend.get_report.return_value = {
+        "reportId": "r1",
+        "namespace": "ns-a",
+        "project": "project-a",
+        "environment": "dev",
+        "component": "comp",
+        "@timestamp": "2026-06-16T00:00:00Z",
+        "status": "completed",
+        "report": {"summary": "s"},
+    }
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        # forged query params matching an unrelated grant the caller actually has
+        resp = TestClient(app).get("/api/v1alpha1/reports/r1?project=project-b&namespace=ns-b")
+
+    assert resp.status_code == 200
+    sent_request = _allow_report_authz.evaluate.await_args.args[0]
+    assert sent_request.resource.hierarchy.project == "project-a"
+    assert sent_request.resource.hierarchy.namespace == "ns-a"
+
+
+def test_get_report_denied_when_report_authz_rejects(app, _allow_report_authz):
+    backend = AsyncMock()
+    backend.get_report.return_value = {
+        "reportId": "r1",
+        "namespace": "ns-a",
+        "project": "project-a",
+        "environment": "dev",
+        "component": "comp",
+        "@timestamp": "2026-06-16T00:00:00Z",
+        "status": "completed",
+        "report": {"summary": "s"},
+    }
+    _allow_report_authz.evaluate = AsyncMock(return_value=Decision(decision=False))
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get("/api/v1alpha1/reports/r1")
+
+    assert resp.status_code == 403
+
+
+def test_get_report_fails_closed_when_report_has_no_project(app):
+    backend = AsyncMock()
+    backend.get_report.return_value = {
+        "reportId": "r1",
+        "namespace": None,
+        "project": None,
+        "environment": "dev",
+        "component": "comp",
+        "@timestamp": "2026-06-16T00:00:00Z",
+        "status": "completed",
+        "report": {"summary": "s"},
+    }
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get("/api/v1alpha1/reports/r1")
+
+    assert resp.status_code == 403
+
+
 # ------------------------------------------------------------------------- update
 
 
 def _backend_invoking_mutate(actions, *, found=True):
-    """AsyncMock backend whose atomic update runs the route-supplied mutate_fn."""
+    # AsyncMock backend whose atomic update runs the route-supplied mutate_fn;
+    # also wires up get_report for the route's pre-mutation fetch/authz check.
     backend = AsyncMock()
     state = {"actions": actions}
+
+    backend.get_report.return_value = (
+        None
+        if not found
+        else {
+            "reportId": "r1",
+            "namespace": "ns-a",
+            "project": "project-a",
+            "environment": "dev",
+            "component": "comp",
+            "@timestamp": "2026-06-16T00:00:00Z",
+            "status": "completed",
+            "report": {"recommended_actions": actions},
+        }
+    )
 
     async def atomic(report_id, mutate_fn):
         if not found:
@@ -138,6 +234,17 @@ def test_update_applies_valid_index(app):
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
     assert backend._state["actions"][0]["status"] == "applied"
+
+
+def test_update_denied_when_report_authz_rejects(app, _allow_report_authz):
+    backend = _backend_invoking_mutate([{"status": "revised", "description": "x"}])
+    _allow_report_authz.evaluate = AsyncMock(return_value=Decision(decision=False))
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).put("/api/v1alpha1/reports/r1", json={"appliedIndices": [0]})
+
+    assert resp.status_code == 403
+    backend.update_report_actions_atomic.assert_not_called()
 
 
 def test_update_dismisses_valid_index(app):

@@ -359,6 +359,8 @@ async def analyze_runtime_state(
                 alert_id=alert_id,
                 status="pending",
                 timestamp=timestamp,
+                namespace=scope.namespace,
+                project=scope.project,
                 environment_uid=scope.environment_uid,
                 project_uid=scope.project_uid,
             ),

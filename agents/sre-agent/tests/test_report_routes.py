@@ -10,12 +10,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.api.report_routes import router as report_router
-from src.auth import (
-    require_authn,
-    require_reports_authz,
-    require_reports_update_authz,
-)
-from src.auth.authz_models import SubjectContext
+from src.auth import require_authn, require_reports_authz
+from src.auth.authz_models import Decision, SubjectContext
 from src.helpers import AlertScope
 
 SCOPE = AlertScope(
@@ -46,8 +42,19 @@ def app():
     application.include_router(report_router)
     application.dependency_overrides[require_authn] = _subject
     application.dependency_overrides[require_reports_authz] = _subject
-    application.dependency_overrides[require_reports_update_authz] = _subject
     return application
+
+
+@pytest.fixture(autouse=True)
+def _allow_report_authz():
+    # get/put authorize via authorize_against_report (not a dependency), so it
+    # can't be overridden via dependency_overrides. Mock the PDP client rather
+    # than authorize_against_report itself, so its real hierarchy-extraction /
+    # fail-closed logic still runs. Default to allow.
+    client = MagicMock()
+    client.evaluate = AsyncMock(return_value=Decision(decision=True))
+    with patch("src.auth.dependencies.get_authz_client", return_value=client):
+        yield client
 
 
 def test_list_returns_aliased_envelope(app):
@@ -83,17 +90,23 @@ def test_list_returns_aliased_envelope(app):
     assert call["environment_uid"] == "env-uid"
 
 
+def _report_doc(**overrides):
+    doc = {
+        "alertId": "a1",
+        "reportId": "r1",
+        "@timestamp": "2026-06-10T00:00:00+00:00",
+        "status": "completed",
+        "namespace": "ns",
+        "project": "p",
+        "report": {"summary": "done"},
+    }
+    doc.update(overrides)
+    return doc
+
+
 def test_get_returns_report(app):
     backend = MagicMock()
-    backend.get_rca_report = AsyncMock(
-        return_value={
-            "alertId": "a1",
-            "reportId": "r1",
-            "@timestamp": "2026-06-10T00:00:00+00:00",
-            "status": "completed",
-            "report": {"summary": "done"},
-        }
-    )
+    backend.get_rca_report = AsyncMock(return_value=_report_doc())
     with patch("src.api.report_routes.get_report_backend", return_value=backend):
         resp = TestClient(app).get(f"{BASE}/r1")
 
@@ -109,6 +122,36 @@ def test_get_returns_404_when_missing(app):
     assert resp.status_code == 404
 
 
+def test_get_authorizes_against_the_reports_own_project(app, _allow_report_authz):
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc(project="project-a"))
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get(f"{BASE}/r1")
+
+    assert resp.status_code == 200
+    sent_request = _allow_report_authz.evaluate.await_args.args[0]
+    assert sent_request.resource.hierarchy.project == "project-a"
+    assert sent_request.resource.hierarchy.namespace == "ns"
+
+
+def test_get_denied_when_report_authz_rejects(app, _allow_report_authz):
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc(project="project-a"))
+    _allow_report_authz.evaluate = AsyncMock(return_value=Decision(decision=False))
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get(f"{BASE}/r1")
+
+    assert resp.status_code == 403
+
+
+def test_get_fails_closed_when_report_has_no_project(app):
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=_report_doc(project=None, namespace=None))
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get(f"{BASE}/r1")
+    assert resp.status_code == 403
+
+
 def test_update_rejects_overlapping_indices(app):
     resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0], "dismissedIndices": [0]})
     assert resp.status_code == 400
@@ -119,6 +162,8 @@ def test_update_applies_revised_action(app):
         "reportId": "r1",
         "alertId": "a1",
         "status": "completed",
+        "namespace": "ns",
+        "project": "p",
         "resource": {
             "openchoreo.dev/environment-uid": "env-uid",
             "openchoreo.dev/project-uid": "proj-uid",
@@ -144,6 +189,30 @@ def test_update_applies_revised_action(app):
     actions = saved["report"]["result"]["recommendations"]["recommended_actions"]
     assert actions[0]["status"] == "applied"
     assert saved["project_uid"] == "proj-uid"
+    assert saved["namespace"] == "ns"
+    assert saved["project"] == "p"
+
+
+def test_update_denied_when_report_authz_rejects(app, _allow_report_authz):
+    stored = {
+        "reportId": "r1",
+        "alertId": "a1",
+        "status": "completed",
+        "namespace": "ns",
+        "project": "project-a",
+        "resource": {},
+        "report": {"result": {"recommendations": {"recommended_actions": []}}},
+    }
+    backend = MagicMock()
+    backend.get_rca_report = AsyncMock(return_value=stored)
+    backend.upsert_rca_report = AsyncMock()
+    _allow_report_authz.evaluate = AsyncMock(return_value=Decision(decision=False))
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).put(f"{BASE}/r1", json={"appliedIndices": [0]})
+
+    assert resp.status_code == 403
+    backend.upsert_rca_report.assert_not_awaited()
 
 
 def test_update_returns_404_when_report_missing(app):
@@ -159,6 +228,8 @@ def test_update_noop_does_not_upsert(app):
         "reportId": "r1",
         "alertId": "a1",
         "status": "completed",
+        "namespace": "ns",
+        "project": "p",
         "resource": {},
         "report": {
             "result": {

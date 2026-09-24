@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import Field
 
 from src.agent import run_analysis, stream_chat
-from src.auth import require_authn, require_chat_authz
+from src.auth import authorize_against_report, require_authn
 from src.auth.authz_models import SubjectContext
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope
@@ -98,6 +98,8 @@ async def analyze(
             alert_id=request.alert.id,
             status="pending",
             timestamp=timestamp,
+            namespace=scope.namespace,
+            project=scope.project,
             environment_uid=scope.environment_uid,
             project_uid=scope.project_uid,
         )
@@ -123,8 +125,7 @@ async def analyze(
 async def chat(
     request: ChatRequest,
     http_request: Request,
-    _auth: Annotated[SubjectContext, Depends(require_authn)],
-    _authz: Annotated[SubjectContext, Depends(require_chat_authz)],
+    subject: Annotated[SubjectContext, Depends(require_authn)],
 ):
     if logger.isEnabledFor(logging.DEBUG):
         body = request.model_dump_json(by_alias=True)
@@ -139,6 +140,14 @@ async def chat(
     )
     if not report_context:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await authorize_against_report(
+        http_request,
+        subject,
+        action="rcareport:view",
+        resource_type="rcareport",
+        result=report_context,
+    )
 
     scope = await resolve_project_scope(
         namespace=request.namespace,
