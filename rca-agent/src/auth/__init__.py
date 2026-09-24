@@ -11,10 +11,9 @@ from src.auth.authz_models import (
 )
 from src.auth.bearer import BearerTokenAuth
 from src.auth.dependencies import (
+    authorize_against_report,
     require_authn,
-    require_chat_authz,
     require_reports_authz,
-    require_reports_update_authz,
 )
 from src.auth.jwt import JWTValidationError, JWTValidator, get_jwt_validator
 from src.auth.oauth_client import check_oauth2_connection, get_oauth2_auth
@@ -37,7 +36,6 @@ __all__ = [
     "SubjectContext",
     # Dependencies
     "require_authn",
-    "require_chat_authz",
     "require_reports_authz",
-    "require_reports_update_authz",
+    "authorize_against_report",
 ]

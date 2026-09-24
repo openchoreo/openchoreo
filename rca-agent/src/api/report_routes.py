@@ -4,10 +4,10 @@
 import logging
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ConfigDict, Field
 
-from src.auth import require_authn, require_reports_authz, require_reports_update_authz
+from src.auth import authorize_against_report, require_authn, require_reports_authz
 from src.auth.authz_models import SubjectContext
 from src.clients import get_report_backend
 from src.helpers import resolve_project_scope, validate_time_range
@@ -94,14 +94,18 @@ async def list_rca_reports(
 )
 async def get_rca_report(
     report_id: str,
-    _auth: Annotated[SubjectContext, Depends(require_authn)],
-    _authz: Annotated[SubjectContext, Depends(require_reports_authz)],
+    request: Request,
+    subject: Annotated[SubjectContext, Depends(require_authn)],
 ):
     report_backend = get_report_backend()
     result = await report_backend.get_rca_report(report_id)
 
     if not result:
         raise HTTPException(status_code=404, detail="Report not found")
+
+    await authorize_against_report(
+        request, subject, action="rcareport:view", resource_type="rcareport", result=result
+    )
 
     return RCAReportDetailed(
         alertId=result["alertId"],
@@ -122,8 +126,8 @@ class ReportUpdateRequest(BaseModel):
 async def update_report(
     report_id: str,
     body: ReportUpdateRequest,
-    _auth: Annotated[SubjectContext, Depends(require_authn)],
-    _authz: Annotated[SubjectContext, Depends(require_reports_update_authz)],
+    request: Request,
+    subject: Annotated[SubjectContext, Depends(require_authn)],
 ):
     overlap = set(body.applied_indices) & set(body.dismissed_indices)
     if overlap:
@@ -132,6 +136,15 @@ async def update_report(
             detail=f"Indices cannot appear in both appliedIndices and dismissedIndices: {sorted(overlap)}",
         )
 
+    report_backend = get_report_backend()
+    stored = await report_backend.get_rca_report(report_id)
+    if not stored:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    await authorize_against_report(
+        request, subject, action="rcareport:update", resource_type="rcareport", result=stored
+    )
+
     logger.info(
         "Updating report %s: applied=%s dismissed=%s",
         report_id,
@@ -139,7 +152,7 @@ async def update_report(
         body.dismissed_indices,
     )
     await _update_action_statuses(
-        report_id,
+        stored,
         applied=set(body.applied_indices),
         dismissed=set(body.dismissed_indices),
     )
@@ -147,14 +160,11 @@ async def update_report(
 
 
 async def _update_action_statuses(
-    report_id: str,
+    stored: dict[str, Any],
     applied: set[int],
     dismissed: set[int],
 ) -> None:
     report_backend = get_report_backend()
-    stored = await report_backend.get_rca_report(report_id)
-    if not stored:
-        raise HTTPException(status_code=404, detail="Report not found")
 
     actions = (
         stored.get("report", {})
@@ -179,6 +189,8 @@ async def _update_action_statuses(
             alert_id=stored["alertId"],
             status=stored["status"],
             report=stored["report"],
+            namespace=stored.get("namespace"),
+            project=stored.get("project"),
             environment_uid=stored.get("resource", {}).get("openchoreo.dev/environment-uid"),
             project_uid=stored.get("resource", {}).get("openchoreo.dev/project-uid"),
         )

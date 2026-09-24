@@ -158,6 +158,74 @@ async def extract_request_body(request: Request) -> dict[str, Any]:
         return {}
 
 
+async def enforce_authz(
+    request: Request,
+    subject: SubjectContext,
+    *,
+    action: str,
+    resource_type: str,
+    hierarchy: ResourceHierarchy,
+) -> SubjectContext:
+    client = get_authz_client()
+    token = extract_bearer_token(request)
+
+    logger.info(
+        "Authorization check: action=%s, resource_type=%s, subject_type=%s",
+        action,
+        resource_type,
+        subject.type,
+    )
+
+    authz_request = EvaluateRequest(
+        subjectContext=subject,
+        resource=Resource(type=resource_type, id="", hierarchy=hierarchy),
+        action=action,
+        context={},
+    )
+    decision = await client.evaluate(authz_request, token)
+    logger.info("Authz decision: allowed=%s", decision.decision)
+
+    if not decision.decision:
+        logger.warning("Access denied: action=%s, resource_type=%s", action, resource_type)
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "FORBIDDEN", "message": "Access denied"},
+        )
+
+    return subject
+
+
+async def authorize_against_report(
+    request: Request,
+    subject: SubjectContext,
+    *,
+    action: str,
+    resource_type: str,
+    result: dict[str, Any],
+) -> None:
+    """Re-authorize against the report's own recorded namespace/project, fetched
+    by id — never against a caller-supplied claim."""
+    namespace = result.get("namespace")
+    project = result.get("project")
+    if not namespace or not project:
+        logger.error(
+            "Report %s has no project/namespace on record — refusing to authorize",
+            result.get("reportId"),
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "FORBIDDEN", "message": "Access denied"},
+        )
+
+    await enforce_authz(
+        request,
+        subject,
+        action=action,
+        resource_type=resource_type,
+        hierarchy=ResourceHierarchy(namespace=namespace, project=project),
+    )
+
+
 class AuthorizationChecker:
     def __init__(self, action: str, resource_type: str):
         self.action = action
@@ -168,51 +236,19 @@ class AuthorizationChecker:
         request: Request,
         subject: Annotated[SubjectContext, Depends(require_authn)],
     ) -> SubjectContext:
-        client = get_authz_client()
-
-        logger.info(
-            "Authorization check: action=%s, resource_type=%s, subject_type=%s",
-            self.action,
-            self.resource_type,
-            subject.type,
-        )
-
-        token = extract_bearer_token(request)
-
         hierarchy = await self._extract_hierarchy(request)
         logger.debug(
             "Resource hierarchy: project=%s, component=%s",
             hierarchy.project,
             hierarchy.component,
         )
-
-        authz_request = EvaluateRequest(
-            subjectContext=subject,
-            resource=Resource(
-                type=self.resource_type,
-                id="",
-                hierarchy=hierarchy,
-            ),
+        return await enforce_authz(
+            request,
+            subject,
             action=self.action,
-            context={},
+            resource_type=self.resource_type,
+            hierarchy=hierarchy,
         )
-
-        decision = await client.evaluate(authz_request, token)
-        logger.info("Authz decision: allowed=%s", decision.decision)
-
-        if not decision.decision:
-            logger.warning(
-                "Access denied: action=%s, resource_type=%s",
-                self.action,
-                self.resource_type,
-            )
-            raise HTTPException(
-                status_code=403,
-                detail={"error": "FORBIDDEN", "message": "Access denied"},
-            )
-
-        logger.info("Authorization successful")
-        return subject
 
     async def _extract_hierarchy(self, request: Request) -> ResourceHierarchy:
         body = await extract_request_body(request)
@@ -224,16 +260,15 @@ class AuthorizationChecker:
 
 class ReportAuthorizationChecker(AuthorizationChecker):
     async def _extract_hierarchy(self, request: Request) -> ResourceHierarchy:
-        project = request.path_params.get("project_id")
         return ResourceHierarchy(
-            project=str(project) if project else None,
+            namespace=request.query_params.get("namespace"),
+            project=request.query_params.get("project"),
         )
 
 
-require_chat_authz = AuthorizationChecker(action="rcareport:view", resource_type="rcareport")
+# Only used by the list endpoint, where the claimed hierarchy is the query
+# scope itself (and the backend filters by the same values) — never for a
+# single report fetched by id, which must authorize against its own record.
 require_reports_authz = ReportAuthorizationChecker(
     action="rcareport:view", resource_type="rcareport"
-)
-require_reports_update_authz = ReportAuthorizationChecker(
-    action="rcareport:update", resource_type="rcareport"
 )

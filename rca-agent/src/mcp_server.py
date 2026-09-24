@@ -361,6 +361,8 @@ async def analyze_runtime_state(
                 timestamp=timestamp,
                 environment_uid=scope.environment_uid,
                 project_uid=scope.project_uid,
+                namespace=scope.namespace,
+                project=scope.project,
             ),
             timeout=_UPSERT_TIMEOUT,
         )
