@@ -247,3 +247,38 @@ func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, names
 	}
 	return s.internal.TriggerWorkflow(ctx, namespaceName, projectName, componentName, commit)
 }
+
+// ResumeWorkflowRun is authorized as workflowrun:resume.
+func (s *workflowRunServiceWithAuthz) ResumeWorkflowRun(ctx context.Context, namespaceName, runName string) (*openchoreov1alpha1.WorkflowRun, error) {
+	if err := s.checkLifecycleAction(ctx, namespaceName, runName); err != nil {
+		return nil, err
+	}
+	return s.internal.ResumeWorkflowRun(ctx, namespaceName, runName)
+}
+
+// StopWorkflowRun is authorized as workflowrun:resume — resume and stop are the two
+// operator interventions on a live run and are granted together.
+func (s *workflowRunServiceWithAuthz) StopWorkflowRun(ctx context.Context, namespaceName, runName, reason string) (*openchoreov1alpha1.WorkflowRun, error) {
+	if err := s.checkLifecycleAction(ctx, namespaceName, runName); err != nil {
+		return nil, err
+	}
+	return s.internal.StopWorkflowRun(ctx, namespaceName, runName, reason)
+}
+
+func (s *workflowRunServiceWithAuthz) checkLifecycleAction(ctx context.Context, namespaceName, runName string) error {
+	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return err
+	}
+	return s.authz.Check(ctx, services.CheckRequest{
+		Action:       authz.ActionResumeWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   runName,
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Workflow: formatWorkflowAttr(namespaceName, wr.Spec.Workflow.Kind, wr.Spec.Workflow.Name),
+			},
+		},
+	})
+}

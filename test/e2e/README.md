@@ -50,6 +50,7 @@ Suites are labeled by tier on their top-level `Describe`, so CI can shard them a
 | 3 | GitOps with Flux | Deploying OpenChoreo resources through a Flux-managed Git repo |
 | 3 | Observability Signals | Logs, metrics, and traces flow into the observability plane |
 | 3 | Observability Alerts | Alert rules fire and reach notification channels |
+| 3 | Deployment Hooks | Environment-bound pre-deploy hooks (alpha) gate a promotion; retry and suspend-resume through the API |
 
 Tiers 1–2 run on the default setup; tier 3 additionally needs the workflow and observability planes. Tier 5 is the Backstage UI suite, which lives separately in [`test/ui/`](../ui/README.md).
 
@@ -260,5 +261,20 @@ Source: [`suites/alerts/alerts_test.go:40`](suites/alerts/alerts_test.go#L40)
 3. Wait for the rendered ObservabilityAlertRule to land on the observability plane
 4. Trigger the log rule by emitting the search phrase from inside the pod; poll the webhook receiver for the metric and log notifications (delivery asserted best-effort, rule presence strictly)
 5. Run a build, delete its WorkflowRun, then query the observer for the deleted run's logs — build logs stay queryable after CR cleanup
+
+</details>
+
+<details>
+<summary><b>Deployment Hooks</b> (tier 3) — bind a failing ClusterHook on staging → promotion blocked, nothing rendered → fix workflow, retry via API → renders; suspended approval resumed via API</summary>
+
+Source: [`suites/hooks/hooks_test.go`](suites/hooks/hooks_test.go)
+
+Requires the control plane installed with `controllerManager.hooks.enabled=true` (set in `k3d/values-cp.yaml`) and the workflow plane.
+
+1. Apply two ClusterWorkflows (one whose step exits 1, one with an Argo `suspend` step) and a ClusterHook around each; apply a DeploymentPipeline and a `staging` Environment whose `spec.hooks` binds them as Sync `Block` pre-deploy hooks, scoped by `appliesTo` to the `service` and `worker` ClusterComponentTypes
+2. Deploy a service and a worker from public images into `development` (the ungated root) and wait for their bindings to be Ready
+3. Pin the service's release into `staging`: assert `PreDeployHooksPassed=False/HookFailed`, the gate lists the binding as `Failed` via `GET …/releasebindings/{name}/hooks`, the hook WorkflowRun carries `openchoreo.dev/workflow-purpose=deployment-hook` and received the release image as its `image` parameter, and no RenderedRelease exists for staging
+4. Replace the check workflow with a passing one (gate key unchanged), `POST …/hooks/image-check/retry`; assert `passedKey == key`, a RenderedRelease appears and the binding is Ready
+5. Pin the worker's release into `staging`: the approval hook sits in `Running`; `POST …/workflowruns/{run}/resume` (retried until Argo reaches the suspend node); assert the run succeeds and the binding is Ready
 
 </details>

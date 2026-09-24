@@ -19,6 +19,10 @@ type EnvironmentSpec struct {
 	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction,omitempty"`
 	Gateway      GatewaySpec   `json:"gateway,omitempty"`
+	// Hooks are the pre-deploy and post-deploy hooks that run for every
+	// component deployment into this environment.
+	// +optional
+	Hooks *HookSet `json:"hooks,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment.

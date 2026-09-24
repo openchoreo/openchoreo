@@ -138,6 +138,8 @@ spec:
           value: {{ .Values.backstage.features.deliveryInsights.enabled | default false | quote }}
         - name: OPENCHOREO_FEATURES_ASSISTANT_ENABLED
           value: {{ .Values.backstage.features.assistant.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_HOOKS_ENABLED
+          value: {{ .Values.backstage.features.hooks.enabled | quote }}
         # Upstream URL the Backstage forwarder plugin posts /chat and /warmup to.
         # Only meaningful when the assistant flag above is true — the
         # plugin still loads when the URL is unset, but every chat

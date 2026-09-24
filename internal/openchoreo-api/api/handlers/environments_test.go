@@ -366,3 +366,38 @@ func TestDeleteEnvironmentHandler(t *testing.T) {
 		assert.IsType(t, gen.DeleteEnvironment403JSONResponse{}, resp)
 	})
 }
+
+// Environment create/update/get go through the generated API types; a hook
+// binding missing from them would be dropped silently and the gate would never
+// see it.
+func TestEnvironmentHooksSurviveAPIConversion(t *testing.T) {
+	env := openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{Name: "production", Namespace: "default"},
+		Spec: openchoreov1alpha1.EnvironmentSpec{
+			IsProduction: true,
+			Hooks: &openchoreov1alpha1.HookSet{
+				PreDeploy: []openchoreov1alpha1.HookBinding{{
+					Name:      "image-scan",
+					HookRef:   openchoreov1alpha1.HookRef{Kind: openchoreov1alpha1.HookRefKindClusterHook, Name: "trivy-image-scan"},
+					Mode:      openchoreov1alpha1.HookModeSync,
+					OnFailure: openchoreov1alpha1.HookFailurePolicyBlock,
+					Timeout:   "20m",
+				}},
+				PostDeploy: []openchoreov1alpha1.HookBinding{{
+					Name:    "notify",
+					HookRef: openchoreov1alpha1.HookRef{Kind: openchoreov1alpha1.HookRefKindHook, Name: "slack-notify"},
+					Mode:    openchoreov1alpha1.HookModeAsync,
+				}},
+			},
+		},
+	}
+
+	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](env)
+	require.NoError(t, err)
+	require.NotNil(t, genEnv.Spec)
+	require.NotNil(t, genEnv.Spec.Hooks)
+
+	back, err := convert[gen.Environment, openchoreov1alpha1.Environment](genEnv)
+	require.NoError(t, err)
+	assert.Equal(t, env.Spec.Hooks, back.Spec.Hooks)
+}

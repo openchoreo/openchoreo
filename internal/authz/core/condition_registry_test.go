@@ -103,9 +103,12 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		ActionViewReleaseBinding:   {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
 		ActionUpdateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
 		ActionDeleteReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionViewLogs:             {AttrResourceEnvironment, AttrResourceComponentType},
-		ActionViewMetrics:          {AttrResourceEnvironment},
-		ActionViewTraces:           {AttrResourceComponentType, attrLabel},
+		// releasebinding:* expands to every concrete releasebinding action, so the
+		// gate acknowledgement must carry the same attrs or the intersection collapses.
+		ActionAcknowledgeGateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewLogs:                      {AttrResourceEnvironment, AttrResourceComponentType},
+		ActionViewMetrics:                   {AttrResourceEnvironment},
+		ActionViewTraces:                    {AttrResourceComponentType, attrLabel},
 	})
 
 	tests := []struct {
