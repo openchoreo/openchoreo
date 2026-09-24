@@ -78,10 +78,18 @@ async def lifespan(_app: FastAPI):
         # OpenAI's /v1/responses API (max_output_tokens >= 16); using a
         # lower value (e.g. 5) trips a 400 on gpt-5*-mini variants that
         # route through the responses endpoint.
+        # Google's chat models name the same cap ``max_output_tokens`` and
+        # reject ``max_tokens`` outright, which crash-loops the pod on
+        # startup. Pick the kwarg off the instantiated class rather than the
+        # configured provider string, so it stays right whether the provider
+        # was set explicitly or inferred by langchain from the model name.
         model = get_model()
+        model_type = type(model).__name__.lower()
+        is_google = "google" in model_type or "vertex" in model_type
+        cap = "max_output_tokens" if is_google else "max_tokens"
         test_response = await model.ainvoke(
             "Reply with exactly: Pong",
-            max_tokens=16,
+            **{cap: 16},
         )
         logger.info("LLM test successful: %s", str(test_response.content)[:50])
     except Exception as e:
