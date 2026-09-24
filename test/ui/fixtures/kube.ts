@@ -127,6 +127,23 @@ export function kApplyYAML(yaml: string): KubectlResult {
   return kubectl(['apply', '-f', '-'], { input: yaml });
 }
 
+// kubectl logs for a workload (e.g. 'deploy/backstage'), optionally bounded by
+// an RFC3339 --since-time. Specs use this to assert backend-internal behavior
+// that never reaches the browser (e.g. service-to-service 401 warnings that
+// the scaffolder swallows). Bound every scan with sinceTime captured at test
+// start so earlier tests' logs can't leak in (the suite is serial).
+export function kLogs(
+  namespace: string,
+  target: string,
+  opts: { sinceTime?: Date; context?: string } = {},
+): string {
+  const args = ['logs', '-n', namespace, target, '--tail', '-1'];
+  if (opts.sinceTime) {
+    args.push('--since-time', opts.sinceTime.toISOString());
+  }
+  return kubectl(args, { context: opts.context }).stdout;
+}
+
 // kubectl delete with --ignore-not-found so teardown stays idempotent.
 // Pass namespace="" for cluster-scoped resources (Namespace,
 // ClusterAuthzRoleBinding, etc.) to omit the -n flag.
