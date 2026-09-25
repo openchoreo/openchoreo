@@ -1179,6 +1179,10 @@ openchoreoApi:
           priority: 1
           mechanisms:
             jwt:
+              # @schema
+              # type: string
+              # required: false
+              # @schema
               readable_id_claim: "username"
               entitlement:
                 claim: "groups"
@@ -1188,6 +1192,10 @@ openchoreoApi:
           priority: 2
           mechanisms:
             jwt:
+              # @schema
+              # type: string
+              # required: false
+              # @schema
               readable_id_claim: "client_id"
               entitlement:
                 claim: "client_id"
