@@ -6,6 +6,7 @@ package casbin
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -115,6 +116,7 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 			}
 
 			filteredPolicies = append(filteredPolicies, policyInfo{
+				subject:       policy[0],
 				resourcePath:  resourcePath,
 				roleName:      roleName,
 				roleNamespace: roleNamespace,
@@ -127,13 +129,18 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 	return filteredPolicies, nil
 }
 
+// resourceKey identifies one (subject, path, effect) triple within a single action.
+// The subject is part of the key because enforcement resolves allow/deny per
+// entitlement value; a deny bound to one entitlement must not cancel an allow
+// bound to another.
+type resourceKey struct {
+	subject string
+	path    string
+	effect  string
+}
+
 // buildCapabilitiesFromPolicies constructs the capabilities map from filtered policies
 func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, actionIdx actionIndex) (map[string]*authzcore.ActionCapability, error) {
-	type resourceKey struct {
-		path   string
-		effect string
-	}
-
 	roleToActions := make(map[authzcore.RoleRef][]string)
 	// actionExpressions accumulates CEL expressions per (action, resourceKey).
 	// nil slice means no conditions (unconditional);
@@ -179,7 +186,7 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 				actionExpressions[action] = make(map[resourceKey][]string)
 				unconditionalKeys[action] = make(map[resourceKey]bool)
 			}
-			key := resourceKey{path: p.resourcePath, effect: p.effect}
+			key := resourceKey{subject: p.subject, path: p.resourcePath, effect: p.effect}
 
 			// Filter conditions to only those targeting this action
 			actionConds := filterConditionsByAction(allConds, action)
@@ -200,34 +207,207 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 		}
 	}
 
-	// Convert to final capabilities structure
-	capabilities := make(map[string]*authzcore.ActionCapability)
+	// Convert to final capabilities structure, resolving allow/deny per entitlement
+	capabilities := make(map[string]*authzcore.ActionCapability, len(actionExpressions))
 	for action, resources := range actionExpressions {
-		capability := &authzcore.ActionCapability{
-			Allowed: []*authzcore.CapabilityResource{},
-			Denied:  []*authzcore.CapabilityResource{},
-		}
-
-		for res, expressions := range resources {
-			var constraints *authzcore.Constraints
-			if len(expressions) > 0 {
-				constraints = &authzcore.Constraints{Expressions: expressions}
-			}
-			capRes := &authzcore.CapabilityResource{
-				Path:        res.path,
-				Constraints: constraints,
-			}
-			if res.effect == string(authzcore.PolicyEffectAllow) {
-				capability.Allowed = append(capability.Allowed, capRes)
-			} else if res.effect == string(authzcore.PolicyEffectDeny) {
-				capability.Denied = append(capability.Denied, capRes)
-			}
-		}
-
-		capabilities[action] = capability
+		capabilities[action] = resolveCapability(resources)
 	}
 
 	return capabilities, nil
+}
+
+// capEntry is a single (path, constraints) pair for one action.
+// An empty expressions slice means the grant or denial is unconditional.
+type capEntry struct {
+	path        string
+	expressions []string
+}
+
+func (e capEntry) unconditional() bool { return len(e.expressions) == 0 }
+
+// subjectPolicies holds one entitlement's allow and deny entries for a single action.
+type subjectPolicies struct {
+	allows []capEntry
+	denies []capEntry
+}
+
+// resolveCapability turns the accumulated (subject, path, effect) entries for one action
+// into the reported capability, mirroring how enforcement resolves a request: allow and
+// deny are resolved within a single entitlement value, and the per-entitlement results
+// are unioned. A path therefore stays in Denied only while no entitlement grants it.
+//
+// The two lists are meant to be read as: a resource is allowed when some allowed entry
+// applies to it (its path covers the resource and its constraints hold) and no denied
+// entry that applies to it sits at least as deep in the hierarchy as that allowed entry.
+// A denial therefore carves out of a broader grant while a narrower grant survives a
+// broader denial, which is the only faithful flat encoding of the per-entitlement result:
+// given "s1: allow ns/a, deny ns/a/p1" and "s2: allow ns/a/p1/c1", enforcement grants
+// ns/a/p1/c1 but not ns/a/p1/c2, so dropping the deny would report c2 as allowed while
+// honoring it globally would report c1 as denied.
+//
+// Known gap: a deny survives when the only entitlement granting past it does so
+// conditionally, because "granted while the expression holds, denied otherwise" cannot be
+// expressed for a single path. That direction fails closed, matching the rest of the PDP.
+func resolveCapability(resources map[resourceKey][]string) *authzcore.ActionCapability {
+	bySubject := groupBySubject(resources)
+
+	// A deny cancels an allow only when both are bound to the same entitlement.
+	// A conditional deny never cancels outright: it carves out the resources its CEL
+	// expression matches and stays in Denied to describe that carve-out.
+	survivingAllows := make(map[string][]capEntry, len(bySubject))
+	for subject, sp := range bySubject {
+		for _, allow := range sp.allows {
+			if coveredByUnconditional(allow.path, sp.denies) {
+				continue
+			}
+			survivingAllows[subject] = append(survivingAllows[subject], allow)
+		}
+	}
+
+	allows := make([]capEntry, 0, len(resources))
+	denies := make([]capEntry, 0, len(resources))
+	for _, subject := range sortedSubjects(bySubject) {
+		allows = append(allows, survivingAllows[subject]...)
+		for _, deny := range bySubject[subject].denies {
+			// Another entitlement unconditionally grants everything this deny covers,
+			// so those resources are reachable and must not be reported as denied.
+			if neutralizedByOtherSubject(deny.path, subject, survivingAllows) {
+				continue
+			}
+			denies = append(denies, deny)
+		}
+	}
+
+	return &authzcore.ActionCapability{
+		Allowed: mergeByPath(allows),
+		Denied:  mergeByPath(denies),
+	}
+}
+
+// groupBySubject splits the accumulated entries for one action into per-entitlement
+// allow and deny lists. Entries are visited in a stable order so the reported
+// capability does not depend on map iteration order.
+func groupBySubject(resources map[resourceKey][]string) map[string]*subjectPolicies {
+	keys := make([]resourceKey, 0, len(resources))
+	for key := range resources {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].subject != keys[j].subject {
+			return keys[i].subject < keys[j].subject
+		}
+		if keys[i].path != keys[j].path {
+			return keys[i].path < keys[j].path
+		}
+		return keys[i].effect < keys[j].effect
+	})
+
+	bySubject := make(map[string]*subjectPolicies)
+	for _, key := range keys {
+		sp, ok := bySubject[key.subject]
+		if !ok {
+			sp = &subjectPolicies{}
+			bySubject[key.subject] = sp
+		}
+		entry := capEntry{path: key.path, expressions: resources[key]}
+		switch key.effect {
+		case string(authzcore.PolicyEffectAllow):
+			sp.allows = append(sp.allows, entry)
+		case string(authzcore.PolicyEffectDeny):
+			sp.denies = append(sp.denies, entry)
+		}
+	}
+	return bySubject
+}
+
+func sortedSubjects(bySubject map[string]*subjectPolicies) []string {
+	subjects := make([]string, 0, len(bySubject))
+	for subject := range bySubject {
+		subjects = append(subjects, subject)
+	}
+	sort.Strings(subjects)
+	return subjects
+}
+
+// coveredByUnconditional reports whether an unconditional entry covers path.
+// Coverage uses the same hierarchical matcher as enforcement, so a wildcard or
+// ancestor path covers everything beneath it.
+func coveredByUnconditional(path string, entries []capEntry) bool {
+	for _, entry := range entries {
+		if entry.unconditional() && resourceMatch(path, entry.path) {
+			return true
+		}
+	}
+	return false
+}
+
+// neutralizedByOtherSubject reports whether an entitlement other than owner
+// unconditionally grants every resource the given deny path covers.
+func neutralizedByOtherSubject(path, owner string, allowsBySubject map[string][]capEntry) bool {
+	for subject, allows := range allowsBySubject {
+		if subject == owner {
+			continue
+		}
+		if coveredByUnconditional(path, allows) {
+			return true
+		}
+	}
+	return false
+}
+
+// mergedEntry accumulates the constraints reported for one path.
+// unconditional is tracked separately from expressions because "no expressions"
+// is only meaningful once at least one entry has been merged in.
+type mergedEntry struct {
+	unconditional bool
+	expressions   []string
+	seen          map[string]bool
+}
+
+// mergeByPath collapses entries sharing a path into one reported resource.
+// An unconditional entry wins over conditional ones — the path is reachable without
+// satisfying any expression; otherwise the distinct expressions are OR'd together.
+func mergeByPath(entries []capEntry) []*authzcore.CapabilityResource {
+	order := make([]string, 0, len(entries))
+	byPath := make(map[string]*mergedEntry, len(entries))
+
+	for _, entry := range entries {
+		merged, ok := byPath[entry.path]
+		if !ok {
+			merged = &mergedEntry{seen: make(map[string]bool)}
+			byPath[entry.path] = merged
+			order = append(order, entry.path)
+		}
+		if merged.unconditional {
+			continue
+		}
+		if entry.unconditional() {
+			merged.unconditional = true
+			merged.expressions = nil
+			continue
+		}
+		for _, expression := range entry.expressions {
+			if merged.seen[expression] {
+				continue
+			}
+			merged.seen[expression] = true
+			merged.expressions = append(merged.expressions, expression)
+		}
+	}
+
+	resources := make([]*authzcore.CapabilityResource, 0, len(order))
+	for _, path := range order {
+		merged := byPath[path]
+		var constraints *authzcore.Constraints
+		if len(merged.expressions) > 0 {
+			constraints = &authzcore.Constraints{Expressions: merged.expressions}
+		}
+		resources = append(resources, &authzcore.CapabilityResource{
+			Path:        path,
+			Constraints: constraints,
+		})
+	}
+	return resources
 }
 
 // check performs the actual authorization check using Casbin
