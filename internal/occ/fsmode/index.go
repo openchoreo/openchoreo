@@ -5,11 +5,22 @@ package fsmode
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
+
+// nsKey builds a lookup key by joining namespace-qualified parts with "/".
+// fsmode is GitOps-only and requires every namespace-scoped resource to set
+// metadata.namespace explicitly, so callers always pass a concrete namespace as
+// the leading part. A resource that omits its namespace keys under a leading
+// "/" and simply never matches a real lookup, which is the intended outcome for
+// such invalid input.
+func nsKey(parts ...string) string {
+	return strings.Join(parts, "/")
+}
 
 // OwnerRef represents OpenChoreo-specific owner reference information
 type OwnerRef struct {
@@ -55,16 +66,18 @@ type Index struct {
 	*index.Index
 	mu sync.RWMutex
 
-	// OpenChoreo-specific indexes
-	componentsByProject   map[string][]*index.ResourceEntry // projectName -> components
-	workloadsByComponent  map[string]*index.ResourceEntry   // "project/component" -> workload
-	componentTypes        map[string]*index.ResourceEntry   // typeName -> componentType
-	traits                map[string]*index.ResourceEntry   // traitName -> trait
-	clusterComponentTypes map[string]*index.ResourceEntry   // typeName -> clusterComponentType
-	clusterTraits         map[string]*index.ResourceEntry   // traitName -> clusterTrait
-	releasesByComponent   map[string][]*index.ResourceEntry // "project/component" -> releases
-	releaseBindingsByEnv  map[string][]*index.ResourceEntry // "project/component/env" -> bindings
-	deploymentPipelines   map[string]*index.ResourceEntry   // pipelineName -> pipeline
+	// OpenChoreo-specific indexes.
+	// Namespace-scoped indexes are keyed with a leading namespace segment so that
+	// resources sharing a name across namespaces do not collide.
+	componentsByProject   map[string][]*index.ResourceEntry // "namespace/project" -> components
+	workloadsByComponent  map[string]*index.ResourceEntry   // "namespace/project/component" -> workload
+	componentTypes        map[string]*index.ResourceEntry   // "namespace/typeName" -> componentType
+	traits                map[string]*index.ResourceEntry   // "namespace/traitName" -> trait
+	clusterComponentTypes map[string]*index.ResourceEntry   // typeName -> clusterComponentType (cluster-scoped)
+	clusterTraits         map[string]*index.ResourceEntry   // traitName -> clusterTrait (cluster-scoped)
+	releasesByComponent   map[string][]*index.ResourceEntry // "namespace/project/component" -> releases
+	releaseBindingsByEnv  map[string][]*index.ResourceEntry // "namespace/project/component/env" -> bindings
+	deploymentPipelines   map[string]*index.ResourceEntry   // "namespace/pipelineName" -> pipeline
 }
 
 // WrapIndex wraps an existing generic index with OpenChoreo-specific functionality
@@ -94,32 +107,33 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 
 	switch gvk {
 	case ComponentGVK:
-		// Index by project
+		// Index by namespace and project
 		projectName := entry.GetNestedString("spec", "owner", "projectName")
 		if projectName != "" {
-			idx.componentsByProject[projectName] = append(idx.componentsByProject[projectName], entry)
+			key := nsKey(entry.Namespace(), projectName)
+			idx.componentsByProject[key] = append(idx.componentsByProject[key], entry)
 		}
 
 	case WorkloadGVK:
-		// Index by component
+		// Index by namespace and component
 		owner := ExtractOwnerRef(entry)
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
-			key := fmt.Sprintf("%s/%s", owner.ProjectName, owner.ComponentName)
+			key := nsKey(entry.Namespace(), owner.ProjectName, owner.ComponentName)
 			idx.workloadsByComponent[key] = entry
 		}
 
 	case ComponentTypeGVK:
-		// Index by type name
+		// Index by namespace and type name
 		name := entry.Name()
 		if name != "" {
-			idx.componentTypes[name] = entry
+			idx.componentTypes[nsKey(entry.Namespace(), name)] = entry
 		}
 
 	case TraitGVK:
-		// Index by trait name
+		// Index by namespace and trait name
 		name := entry.Name()
 		if name != "" {
-			idx.traits[name] = entry
+			idx.traits[nsKey(entry.Namespace(), name)] = entry
 		}
 
 	case ClusterComponentTypeGVK:
@@ -137,27 +151,27 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 		}
 
 	case ComponentReleaseGVK:
-		// Index by component
+		// Index by namespace and component
 		owner := ExtractOwnerRef(entry)
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
-			key := fmt.Sprintf("%s/%s", owner.ProjectName, owner.ComponentName)
+			key := nsKey(entry.Namespace(), owner.ProjectName, owner.ComponentName)
 			idx.releasesByComponent[key] = append(idx.releasesByComponent[key], entry)
 		}
 
 	case ReleaseBindingGVK:
-		// Index by component and environment
+		// Index by namespace, component, and environment
 		owner := ExtractOwnerRef(entry)
 		envName := entry.GetNestedString("spec", "environment")
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" && envName != "" {
-			key := fmt.Sprintf("%s/%s/%s", owner.ProjectName, owner.ComponentName, envName)
+			key := nsKey(entry.Namespace(), owner.ProjectName, owner.ComponentName, envName)
 			idx.releaseBindingsByEnv[key] = append(idx.releaseBindingsByEnv[key], entry)
 		}
 
 	case DeploymentPipelineGVK:
-		// Index by pipeline name
+		// Index by namespace and pipeline name
 		name := entry.Name()
 		if name != "" {
-			idx.deploymentPipelines[name] = entry
+			idx.deploymentPipelines[nsKey(entry.Namespace(), name)] = entry
 		}
 	}
 }
@@ -189,21 +203,21 @@ func (idx *Index) GetComponent(namespace, name string) (*index.ResourceEntry, bo
 	return idx.Index.Get(ComponentGVK, namespace, name)
 }
 
-// GetComponentType retrieves a component type by name
-func (idx *Index) GetComponentType(name string) (*index.ResourceEntry, bool) {
+// GetComponentType retrieves a component type by namespace and name
+func (idx *Index) GetComponentType(namespace, name string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	entry, ok := idx.componentTypes[name]
+	entry, ok := idx.componentTypes[nsKey(namespace, name)]
 	return entry, ok
 }
 
-// GetTrait retrieves a trait by name
-func (idx *Index) GetTrait(name string) (*index.ResourceEntry, bool) {
+// GetTrait retrieves a trait by namespace and name
+func (idx *Index) GetTrait(namespace, name string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	entry, ok := idx.traits[name]
+	entry, ok := idx.traits[nsKey(namespace, name)]
 	return entry, ok
 }
 
@@ -244,11 +258,11 @@ func (idx *Index) GetTypedClusterTrait(name string) (*typed.ClusterTrait, error)
 }
 
 // GetWorkloadForComponent retrieves the workload for a specific component
-func (idx *Index) GetWorkloadForComponent(projectName, componentName string) (*index.ResourceEntry, bool) {
+func (idx *Index) GetWorkloadForComponent(namespace, projectName, componentName string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s", projectName, componentName)
+	key := nsKey(namespace, projectName, componentName)
 	entry, ok := idx.workloadsByComponent[key]
 	return entry, ok
 }
@@ -259,11 +273,11 @@ func (idx *Index) ListComponents() []*index.ResourceEntry {
 }
 
 // ListComponentsForProject returns all components for a specific project
-func (idx *Index) ListComponentsForProject(projectName string) []*index.ResourceEntry {
+func (idx *Index) ListComponentsForProject(namespace, projectName string) []*index.ResourceEntry {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	return idx.componentsByProject[projectName]
+	return idx.componentsByProject[nsKey(namespace, projectName)]
 }
 
 // ListReleases returns all component releases
@@ -280,18 +294,18 @@ func (idx *Index) GetTypedComponent(namespace, name string) (*typed.Component, e
 	return typed.NewComponent(entry)
 }
 
-// GetTypedComponentType retrieves a component type by name and returns a typed wrapper
-func (idx *Index) GetTypedComponentType(name string) (*typed.ComponentType, error) {
-	entry, ok := idx.GetComponentType(name)
+// GetTypedComponentType retrieves a component type by namespace and name and returns a typed wrapper
+func (idx *Index) GetTypedComponentType(namespace, name string) (*typed.ComponentType, error) {
+	entry, ok := idx.GetComponentType(namespace, name)
 	if !ok {
 		return nil, fmt.Errorf("component type %q not found", name)
 	}
 	return typed.NewComponentType(entry)
 }
 
-// GetTypedTrait retrieves a trait by name and returns a typed wrapper
-func (idx *Index) GetTypedTrait(name string) (*typed.Trait, error) {
-	entry, ok := idx.GetTrait(name)
+// GetTypedTrait retrieves a trait by namespace and name and returns a typed wrapper
+func (idx *Index) GetTypedTrait(namespace, name string) (*typed.Trait, error) {
+	entry, ok := idx.GetTrait(namespace, name)
 	if !ok {
 		return nil, fmt.Errorf("trait %q not found", name)
 	}
@@ -299,8 +313,8 @@ func (idx *Index) GetTypedTrait(name string) (*typed.Trait, error) {
 }
 
 // GetTypedWorkloadForComponent retrieves the workload for a specific component and returns a typed wrapper
-func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string) (*typed.Workload, error) {
-	entry, ok := idx.GetWorkloadForComponent(projectName, componentName)
+func (idx *Index) GetTypedWorkloadForComponent(namespace, projectName, componentName string) (*typed.Workload, error) {
+	entry, ok := idx.GetWorkloadForComponent(namespace, projectName, componentName)
 	if !ok {
 		return nil, fmt.Errorf("workload for component %q (project: %q) not found", componentName, projectName)
 	}
@@ -308,11 +322,11 @@ func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string
 }
 
 // ListReleasesForComponent returns all component releases for a specific component
-func (idx *Index) ListReleasesForComponent(projectName, componentName string) []*index.ResourceEntry {
+func (idx *Index) ListReleasesForComponent(namespace, projectName, componentName string) []*index.ResourceEntry {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s", projectName, componentName)
+	key := nsKey(namespace, projectName, componentName)
 	return idx.releasesByComponent[key]
 }
 
@@ -321,12 +335,12 @@ func (idx *Index) GetProject(namespace, name string) (*index.ResourceEntry, bool
 	return idx.Index.Get(ProjectGVK, namespace, name)
 }
 
-// GetDeploymentPipeline retrieves a deployment pipeline by name
-func (idx *Index) GetDeploymentPipeline(name string) (*index.ResourceEntry, bool) {
+// GetDeploymentPipeline retrieves a deployment pipeline by namespace and name
+func (idx *Index) GetDeploymentPipeline(namespace, name string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	entry, ok := idx.deploymentPipelines[name]
+	entry, ok := idx.deploymentPipelines[nsKey(namespace, name)]
 	return entry, ok
 }
 
@@ -337,11 +351,11 @@ func (idx *Index) ListReleaseBindings() []*index.ResourceEntry {
 
 // GetReleaseBindingForEnv retrieves a release binding for a specific component and environment
 // Returns the first binding found for the given component and environment
-func (idx *Index) GetReleaseBindingForEnv(projectName, componentName, envName string) (*index.ResourceEntry, bool) {
+func (idx *Index) GetReleaseBindingForEnv(namespace, projectName, componentName, envName string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s/%s", projectName, componentName, envName)
+	key := nsKey(namespace, projectName, componentName, envName)
 	bindings := idx.releaseBindingsByEnv[key]
 	if len(bindings) == 0 {
 		return nil, false

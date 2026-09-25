@@ -102,7 +102,7 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 	}
 
 	// 4. Check if binding already exists
-	existingBinding, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
+	existingBinding, exists := g.index.GetReleaseBindingForEnv(opts.Namespace, opts.ProjectName, opts.ComponentName, opts.TargetEnv)
 
 	if exists {
 		// UPDATE mode: Read the original file from disk to preserve all fields,
@@ -142,7 +142,7 @@ func (g *BindingGenerator) GenerateBindingWithInfo(opts BindingOptions) (*Bindin
 	}
 
 	// Check if this is an update and capture existing file path
-	entry, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
+	entry, exists := g.index.GetReleaseBindingForEnv(opts.Namespace, opts.ProjectName, opts.ComponentName, opts.TargetEnv)
 	if exists {
 		info.IsUpdate = true
 		info.ExistingFilePath = entry.FilePath
@@ -158,10 +158,13 @@ func (g *BindingGenerator) GenerateBindingWithInfo(opts BindingOptions) (*Bindin
 func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, error) {
 	// If explicit release provided, validate it exists
 	if opts.ComponentRelease != "" {
-		// Validate release exists in index
+		// Validate release exists in index, scoped to the active namespace
 		releases := g.index.ListReleases()
 		found := false
 		for _, release := range releases {
+			if release.Namespace() != opts.Namespace {
+				continue
+			}
 			if release.Name() == opts.ComponentRelease {
 				// Verify it belongs to the specified component
 				owner := fsmode.ExtractOwnerRef(release)
@@ -194,7 +197,7 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 		}
 
 		// Find the existing release whose spec matches the current component state
-		releases := g.index.ListReleasesForComponent(opts.ProjectName, opts.ComponentName)
+		releases := g.index.ListReleasesForComponent(opts.Namespace, opts.ProjectName, opts.ComponentName)
 		if len(releases) == 0 {
 			return "", fmt.Errorf("no releases found for component %s/%s",
 				opts.ProjectName, opts.ComponentName)
@@ -247,7 +250,7 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 	}
 
 	// Find binding in previous environment
-	prevBinding, ok := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, prevEnv)
+	prevBinding, ok := g.index.GetReleaseBindingForEnv(opts.Namespace, opts.ProjectName, opts.ComponentName, prevEnv)
 	if !ok {
 		return "", fmt.Errorf("no ReleaseBinding found in previous environment %q for component %s/%s; "+
 			"create binding in %q first or specify --component-release explicitly",
@@ -316,9 +319,12 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 	var components []*fsmode.OwnerRef
 
 	if opts.All {
-		// Process all components in the repository
+		// Process all components in the active namespace
 		allComponents := g.index.ListComponents()
 		for _, comp := range allComponents {
+			if comp.Namespace() != opts.Namespace {
+				continue
+			}
 			owner := fsmode.ExtractOwnerRef(comp)
 			if owner != nil {
 				components = append(components, owner)
@@ -326,7 +332,7 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 		}
 	} else if opts.ProjectName != "" {
 		// Process all components in the specified project
-		projectComponents := g.index.ListComponentsForProject(opts.ProjectName)
+		projectComponents := g.index.ListComponentsForProject(opts.Namespace, opts.ProjectName)
 		for _, comp := range projectComponents {
 			owner := fsmode.ExtractOwnerRef(comp)
 			if owner != nil {
@@ -359,7 +365,7 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 		}
 
 		// Check if this is an update or create
-		entry, exists := g.index.GetReleaseBindingForEnv(owner.ProjectName, owner.ComponentName, opts.TargetEnv)
+		entry, exists := g.index.GetReleaseBindingForEnv(opts.Namespace, owner.ProjectName, owner.ComponentName, opts.TargetEnv)
 
 		bindingName := binding.GetName()
 		releaseName := getNestedString(binding.Object, "spec", "releaseName")

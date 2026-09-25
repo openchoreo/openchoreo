@@ -31,9 +31,8 @@ func newTestPipelineInfo() *pipeline.PipelineInfo {
 // generateMatchingRelease generates a ComponentRelease whose spec matches the
 // current component state, using the ReleaseGenerator. This ensures the release
 // spec is exactly what the hash-based comparison expects.
-func generateMatchingRelease(t *testing.T, idx *index.Index, releaseName, projectName, componentName string) *unstructured.Unstructured {
+func generateMatchingRelease(t *testing.T, idx *index.Index, namespace, releaseName, projectName, componentName string) *unstructured.Unstructured {
 	t.Helper()
-	const namespace = "test-ns"
 	tmpIndex := fsmode.WrapIndex(idx)
 	gen := NewReleaseGenerator(tmpIndex)
 	release, err := gen.GenerateRelease(ReleaseOptions{
@@ -64,14 +63,14 @@ func TestGenerateBindingWithInfo_Create(t *testing.T) {
 	addComponentWithKind(t, idx, namespace, componentName, projectName, componentTypeName,
 		"ComponentType",
 		"/repo/projects/my-proj/components/my-comp.yaml")
-	addComponentType(t, idx, componentTypeName, workloadType,
+	addComponentType(t, idx, namespace, componentTypeName, workloadType,
 		"/repo/component-types/my-type.yaml")
 	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 		map[string]any{"container": map[string]any{"image": image}},
 		"/repo/projects/my-proj/components/my-comp/workload.yaml")
 
 	// Generate a ComponentRelease whose spec matches the current component state
-	release := generateMatchingRelease(t, idx, releaseName, projectName, componentName)
+	release := generateMatchingRelease(t, idx, namespace, releaseName, projectName, componentName)
 
 	// Add the matching release to the index
 	releaseEntry := &index.ResourceEntry{
@@ -145,14 +144,14 @@ spec:
 	addComponentWithKind(t, idx, namespace, componentName, projectName, componentTypeName,
 		"ComponentType",
 		filepath.Join(tmpDir, "projects", projectName, "components", componentName+".yaml"))
-	addComponentType(t, idx, componentTypeName, workloadType,
+	addComponentType(t, idx, namespace, componentTypeName, workloadType,
 		filepath.Join(tmpDir, "component-types", componentTypeName+".yaml"))
 	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 		map[string]any{"container": map[string]any{"image": image}},
 		filepath.Join(tmpDir, "projects", projectName, "components", componentName, "workload.yaml"))
 
 	// Generate a ComponentRelease whose spec matches the current component state
-	release := generateMatchingRelease(t, idx, newRelease, projectName, componentName)
+	release := generateMatchingRelease(t, idx, namespace, newRelease, projectName, componentName)
 
 	// Add the matching release to the index
 	releaseEntry := &index.ResourceEntry{
@@ -231,7 +230,7 @@ func TestSelectComponentRelease_NoReleasesFound(t *testing.T) {
 	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
 		"ComponentType",
 		"/repo/projects/my-proj/components/my-comp.yaml")
-	addComponentType(t, idx, "my-type", "Deployment",
+	addComponentType(t, idx, "test-ns", "my-type", "Deployment",
 		"/repo/component-types/my-type.yaml")
 	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
 		map[string]any{"container": map[string]any{"image": "img:v1"}},
@@ -258,7 +257,7 @@ func TestSelectComponentRelease_NoMatchingRelease(t *testing.T) {
 	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
 		"ComponentType",
 		"/repo/projects/my-proj/components/my-comp.yaml")
-	addComponentType(t, idx, "my-type", "Deployment",
+	addComponentType(t, idx, "test-ns", "my-type", "Deployment",
 		"/repo/component-types/my-type.yaml")
 	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
 		map[string]any{"container": map[string]any{"image": "img:v2"}},
@@ -310,7 +309,7 @@ func TestSelectComponentRelease_CompareSpecsError(t *testing.T) {
 	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
 		"ComponentType",
 		"/repo/projects/my-proj/components/my-comp.yaml")
-	addComponentType(t, idx, "my-type", "Deployment",
+	addComponentType(t, idx, "test-ns", "my-type", "Deployment",
 		"/repo/component-types/my-type.yaml")
 	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
 		map[string]any{"container": map[string]any{"image": "img:v1"}},
@@ -423,7 +422,7 @@ func TestSelectComponentRelease_ExplicitRelease(t *testing.T) {
 	addComponentWithKind(t, idx, namespace, componentName, projectName, "my-type",
 		"ComponentType",
 		"/repo/projects/my-proj/components/my-comp.yaml")
-	addComponentType(t, idx, "my-type", "Deployment",
+	addComponentType(t, idx, "test-ns", "my-type", "Deployment",
 		"/repo/component-types/my-type.yaml")
 	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 		map[string]any{"container": map[string]any{"image": "img:v1"}},
@@ -500,7 +499,7 @@ func TestSelectComponentRelease_NonRootEnvPromotion(t *testing.T) {
 		idx := index.New("/repo")
 		addComponentWithKind(t, idx, namespace, componentName, projectName, "my-type",
 			"ComponentType", "/repo/comp.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
 
@@ -527,7 +526,7 @@ func TestSelectComponentRelease_NonRootEnvPromotion(t *testing.T) {
 		idx := index.New("/repo")
 		addComponentWithKind(t, idx, namespace, componentName, projectName, "my-type",
 			"ComponentType", "/repo/comp.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
 
@@ -549,7 +548,7 @@ func TestSelectComponentRelease_NonRootEnvPromotion(t *testing.T) {
 		idx := index.New("/repo")
 		addComponentWithKind(t, idx, namespace, componentName, projectName, "my-type",
 			"ComponentType", "/repo/comp.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
 
@@ -608,7 +607,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 		// Add two components in different projects
 		addComponentWithKind(t, idx, namespace, "comp-a", "proj-a", "my-type", "ComponentType", "/repo/comp-a.yaml")
 		addComponentWithKind(t, idx, namespace, "comp-b", "proj-b", "my-type", "ComponentType", "/repo/comp-b.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, "comp-a-workload", "proj-a", "comp-a",
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl-a.yaml")
 		addWorkload(t, idx, namespace, "comp-b-workload", "proj-b", "comp-b",
@@ -619,7 +618,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 			{"proj-a", "comp-a", "comp-a-20260101-0"},
 			{"proj-b", "comp-b", "comp-b-20260101-0"},
 		} {
-			release := generateMatchingRelease(t, idx, info.release, info.proj, info.comp)
+			release := generateMatchingRelease(t, idx, namespace, info.release, info.proj, info.comp)
 			require.NoError(t, idx.Add(&index.ResourceEntry{
 				Resource: release,
 				FilePath: "/repo/releases/" + info.release + ".yaml",
@@ -645,7 +644,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 
 		addComponentWithKind(t, idx, namespace, "comp-a", "proj-a", "my-type", "ComponentType", "/repo/comp-a.yaml")
 		addComponentWithKind(t, idx, namespace, "comp-b", "proj-a", "my-type", "ComponentType", "/repo/comp-b.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, "comp-a-workload", "proj-a", "comp-a",
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl-a.yaml")
 		addWorkload(t, idx, namespace, "comp-b-workload", "proj-a", "comp-b",
@@ -655,7 +654,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 			{"comp-a", "comp-a-20260101-0"},
 			{"comp-b", "comp-b-20260101-0"},
 		} {
-			release := generateMatchingRelease(t, idx, info.release, "proj-a", info.comp)
+			release := generateMatchingRelease(t, idx, namespace, info.release, "proj-a", info.comp)
 			require.NoError(t, idx.Add(&index.ResourceEntry{
 				Resource: release,
 				FilePath: "/repo/releases/" + info.release + ".yaml",
@@ -683,7 +682,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 		addComponentWithKind(t, idx, namespace, "comp-a", "proj-a", "my-type", "ComponentType", "/repo/comp-a.yaml")
 		addComponentWithKind(t, idx, namespace, "comp-b", "proj-a", "my-type", "ComponentType", "/repo/comp-b.yaml")
 		addComponentWithKind(t, idx, namespace, "comp-c", "proj-b", "my-type", "ComponentType", "/repo/comp-c.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, "comp-a-workload", "proj-a", "comp-a",
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl-a.yaml")
 		addWorkload(t, idx, namespace, "comp-b-workload", "proj-a", "comp-b",
@@ -696,7 +695,7 @@ func TestGenerateBulkBindings(t *testing.T) {
 			{"proj-a", "comp-b", "comp-b-20260101-0"},
 			{"proj-b", "comp-c", "comp-c-20260101-0"},
 		} {
-			release := generateMatchingRelease(t, idx, info.release, info.proj, info.comp)
+			release := generateMatchingRelease(t, idx, namespace, info.release, info.proj, info.comp)
 			require.NoError(t, idx.Add(&index.ResourceEntry{
 				Resource: release,
 				FilePath: "/repo/releases/" + info.release + ".yaml",
@@ -731,14 +730,14 @@ func TestGenerateBulkBindings(t *testing.T) {
 		// comp-a is valid, comp-b has no releases -> will error
 		addComponentWithKind(t, idx, namespace, "comp-a", "proj-a", "my-type", "ComponentType", "/repo/comp-a.yaml")
 		addComponentWithKind(t, idx, namespace, "comp-b", "proj-a", "my-type", "ComponentType", "/repo/comp-b.yaml")
-		addComponentType(t, idx, "my-type", "Deployment", "/repo/ct.yaml")
+		addComponentType(t, idx, "test-ns", "my-type", "Deployment", "/repo/ct.yaml")
 		addWorkload(t, idx, namespace, "comp-a-workload", "proj-a", "comp-a",
 			map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl-a.yaml")
 		addWorkload(t, idx, namespace, "comp-b-workload", "proj-a", "comp-b",
 			map[string]any{"container": map[string]any{"image": "img:v2"}}, "/repo/wl-b.yaml")
 
 		// Only add release for comp-a
-		release := generateMatchingRelease(t, idx, "comp-a-20260101-0", "proj-a", "comp-a")
+		release := generateMatchingRelease(t, idx, namespace, "comp-a-20260101-0", "proj-a", "comp-a")
 		require.NoError(t, idx.Add(&index.ResourceEntry{
 			Resource: release,
 			FilePath: "/repo/releases/comp-a-20260101-0.yaml",
@@ -821,10 +820,10 @@ func addTraitUsingComponent(t *testing.T, idx *index.Index, namespace, projectNa
 	}
 	require.NoError(t, idx.Add(ctEntry))
 
-	addTrait(t, idx, "logging",
+	addTrait(t, idx, namespace, "logging",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/traits/logging.yaml")
-	addTrait(t, idx, "sidecar",
+	addTrait(t, idx, namespace, "sidecar",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "Service"}}}},
 		"/repo/traits/sidecar.yaml")
 	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
@@ -881,7 +880,7 @@ func TestSelectComponentRelease_LegacyFormatRelease(t *testing.T) {
 	addTraitUsingComponent(t, idx, namespace, projectName, componentName, componentTypeName, image)
 
 	// Generate the full-spec expected release, then reduce it to the old on-disk shape.
-	expected := generateMatchingRelease(t, idx, releaseName, projectName, componentName)
+	expected := generateMatchingRelease(t, idx, namespace, releaseName, projectName, componentName)
 	legacy := stripToLegacyShape(t, expected, "sidecar")
 	require.NoError(t, idx.Add(&index.ResourceEntry{
 		Resource: legacy,
@@ -921,7 +920,7 @@ func TestSelectComponentRelease_DifferentReleaseNotLegacy(t *testing.T) {
 
 	// Build an old-shape release, then genuinely diverge it by changing the workload image
 	// so it must NOT be treated as a legacy match.
-	expected := generateMatchingRelease(t, idx, releaseName, projectName, componentName)
+	expected := generateMatchingRelease(t, idx, namespace, releaseName, projectName, componentName)
 	legacy := stripToLegacyShape(t, expected, "sidecar")
 	require.NoError(t, unstructured.SetNestedField(legacy.Object, "reg/my-comp:OTHER",
 		"spec", "workload", "container", "image"))
@@ -944,6 +943,132 @@ func TestSelectComponentRelease_DifferentReleaseNotLegacy(t *testing.T) {
 	assert.Contains(t, err.Error(), "no matching release found for current component state")
 	assert.NotContains(t, err.Error(), "older occ version",
 		"a genuinely different release must not be reported as a legacy match")
+}
+
+// TestGenerateBulkBindings_NamespaceIsolation is a regression test for issue #4148: bulk --all
+// discovery must process only components in the active namespace. Two namespaces hold identically
+// named component/project graphs with distinct workload images (and thus distinct matching
+// releases). A bulk run scoped to team-a must bind exactly team-a's component against team-a's
+// release, never team-b's. Both namespaces are populated so the ListComponents map-order path
+// cannot pass by chance: without the namespace filter the run would emit two bindings.
+func TestGenerateBulkBindings_NamespaceIsolation(t *testing.T) {
+	const (
+		projectName   = "shared-proj"
+		componentName = "web-app"
+		releaseA      = "web-app-20260101-a"
+		releaseB      = "web-app-20260101-b"
+	)
+
+	idx := index.New("/repo")
+
+	// team-a graph plus its matching release (image :a).
+	addComponentWithKind(t, idx, "team-a", componentName, projectName, "my-type",
+		"ComponentType", "/repo/team-a/projects/shared-proj/components/web-app.yaml")
+	addComponentType(t, idx, "team-a", "my-type", "Deployment", "/repo/team-a/component-types/my-type.yaml")
+	addWorkload(t, idx, "team-a", componentName+"-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/web-app:a"}},
+		"/repo/team-a/projects/shared-proj/components/web-app/workload.yaml")
+	relA := generateMatchingRelease(t, idx, "team-a", releaseA, projectName, componentName)
+	require.NoError(t, idx.Add(&index.ResourceEntry{
+		Resource: relA,
+		FilePath: "/repo/team-a/projects/shared-proj/components/web-app/releases/" + releaseA + ".yaml",
+	}))
+
+	// team-b graph with the same project/component names but a distinct image + release (image :b).
+	addComponentWithKind(t, idx, "team-b", componentName, projectName, "my-type",
+		"ComponentType", "/repo/team-b/projects/shared-proj/components/web-app.yaml")
+	addComponentType(t, idx, "team-b", "my-type", "Deployment", "/repo/team-b/component-types/my-type.yaml")
+	addWorkload(t, idx, "team-b", componentName+"-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/web-app:b"}},
+		"/repo/team-b/projects/shared-proj/components/web-app/workload.yaml")
+	relB := generateMatchingRelease(t, idx, "team-b", releaseB, projectName, componentName)
+	require.NoError(t, idx.Add(&index.ResourceEntry{
+		Resource: relB,
+		FilePath: "/repo/team-b/projects/shared-proj/components/web-app/releases/" + releaseB + ".yaml",
+	}))
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	result, err := gen.GenerateBulkBindings(BulkBindingOptions{
+		All:          true,
+		TargetEnv:    "dev",
+		PipelineInfo: newTestPipelineInfo(),
+		Namespace:    "team-a",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, result.Errors)
+	require.Len(t, result.Bindings, 1, "bulk --all must bind only the active namespace's component")
+	assert.Equal(t, projectName, result.Bindings[0].ProjectName)
+	assert.Equal(t, componentName, result.Bindings[0].ComponentName)
+	assert.Equal(t, releaseA, result.Bindings[0].ReleaseName, "must select team-a's release, not team-b's")
+}
+
+// TestSelectComponentRelease_ExplicitReleaseNamespaceIsolation is a regression test for issue
+// #4148: an explicitly named ComponentRelease must be resolved only within the active namespace.
+// Two namespaces hold a same-named release owned by the same project/component; a binding request
+// in team-a resolves and stamps the team-a namespace, while a request in a namespace that has no
+// such release must fail rather than borrow another namespace's identically named release (the
+// cross-namespace leak that existed before the namespace filter on ListReleases).
+func TestSelectComponentRelease_ExplicitReleaseNamespaceIsolation(t *testing.T) {
+	const (
+		releaseName   = "web-app-20260101-0"
+		projectName   = "shared-proj"
+		componentName = "web-app"
+	)
+
+	idx := index.New("/repo")
+
+	// Same-named release owned by the same project/component, present in two namespaces.
+	addOwnedRelease := func(namespace, filePath string) {
+		t.Helper()
+		require.NoError(t, idx.Add(&index.ResourceEntry{
+			Resource: &unstructured.Unstructured{
+				Object: map[string]any{
+					"apiVersion": "openchoreo.dev/v1alpha1",
+					"kind":       "ComponentRelease",
+					"metadata":   map[string]any{"name": releaseName, "namespace": namespace},
+					"spec": map[string]any{
+						"owner": map[string]any{
+							"projectName":   projectName,
+							"componentName": componentName,
+						},
+					},
+				},
+			},
+			FilePath: filePath,
+		}))
+	}
+	addOwnedRelease("team-a", "/repo/team-a/releases/"+releaseName+".yaml")
+	addOwnedRelease("team-b", "/repo/team-b/releases/"+releaseName+".yaml")
+
+	gen := NewBindingGenerator(fsmode.WrapIndex(idx))
+
+	// A request in team-a resolves against team-a's release and stamps the team-a namespace.
+	binding, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:      projectName,
+		ComponentName:    componentName,
+		ComponentRelease: releaseName,
+		TargetEnv:        "dev",
+		PipelineInfo:     newTestPipelineInfo(),
+		Namespace:        "team-a",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, releaseName, getNestedString(binding.Object, "spec", "releaseName"))
+	assert.Equal(t, "team-a", binding.GetNamespace())
+
+	// A namespace with no matching release must not borrow team-a/team-b's identically named
+	// release; before the namespace filter this cross-namespace lookup resolved successfully.
+	_, err = gen.GenerateBinding(BindingOptions{
+		ProjectName:      projectName,
+		ComponentName:    componentName,
+		ComponentRelease: releaseName,
+		TargetEnv:        "dev",
+		PipelineInfo:     newTestPipelineInfo(),
+		Namespace:        "team-c",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found or does not belong")
 }
 
 // addReleaseBinding adds a ReleaseBinding resource entry to the index.
