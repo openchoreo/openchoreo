@@ -491,10 +491,11 @@ func TestHasResurrectableWorkload(t *testing.T) {
 
 func TestGetHealthCheckFunc(t *testing.T) {
 	tests := []struct {
-		name        string
-		gvk         schema.GroupVersionKind
-		wantNonNil  bool
-		wantUnknown bool // if true, the result fn should be getUnknownResourceHealth
+		name             string
+		gvk              schema.GroupVersionKind
+		wantNonNil       bool
+		wantUnknown      bool // if true, the result fn should be getUnknownResourceHealth
+		wantHelmDispatch bool // if true, the result fn should be getHelmReleaseHealth
 	}{
 		{
 			name:       "apps/Deployment",
@@ -515,6 +516,12 @@ func TestGetHealthCheckFunc(t *testing.T) {
 			name:       "batch/CronJob",
 			gvk:        schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"},
 			wantNonNil: true,
+		},
+		{
+			name:             "helm.toolkit.fluxcd.io/HelmRelease",
+			gvk:              schema.GroupVersionKind{Group: fluxHelmAPIGroup, Version: "v2", Kind: helmReleaseKind},
+			wantNonNil:       true,
+			wantHelmDispatch: true,
 		},
 		{
 			name:        "unknown resource returns non-nil health function",
@@ -547,6 +554,25 @@ func TestGetHealthCheckFunc(t *testing.T) {
 				}
 				if health != openchoreov1alpha1.HealthStatusHealthy {
 					t.Errorf("unknown resource health: expected Healthy, got %s", health)
+				}
+			}
+
+			if tt.wantHelmDispatch && fn != nil {
+				// Dispatched function should behave like getHelmReleaseHealth, not
+				// getUnknownResourceHealth (which would also report Healthy here).
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(tt.gvk)
+				if err := unstructured.SetNestedSlice(obj.Object, []interface{}{
+					map[string]interface{}{"type": "Ready", "status": "False"},
+				}, "status", "conditions"); err != nil {
+					t.Fatalf("failed to set conditions: %v", err)
+				}
+				health, err := fn(obj)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if health != openchoreov1alpha1.HealthStatusDegraded {
+					t.Errorf("HelmRelease with Ready=False: expected Degraded, got %s", health)
 				}
 			}
 		})
@@ -1036,6 +1062,91 @@ func TestGetCronJobHealth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := makeCJ(tt.cronJob)
 			got, err := getCronJobHealth(obj)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("expected %s, got %s", tt.want, got)
+			}
+		})
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// getHelmReleaseHealth
+// ─────────────────────────────────────────────────────────────
+
+func TestGetHelmReleaseHealth(t *testing.T) {
+	makeHelmRelease := func(conditions []interface{}) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: fluxHelmAPIGroup, Version: "v2", Kind: helmReleaseKind})
+		obj.SetName("test-helmrelease")
+		if conditions != nil {
+			if err := unstructured.SetNestedSlice(obj.Object, conditions, "status", "conditions"); err != nil {
+				t.Fatalf("failed to set conditions: %v", err)
+			}
+		}
+		return obj
+	}
+
+	condition := func(condType, status string) map[string]interface{} {
+		return map[string]interface{}{"type": condType, "status": status}
+	}
+
+	tests := []struct {
+		name       string
+		conditions []interface{}
+		want       openchoreov1alpha1.HealthStatus
+	}{
+		{
+			name:       "no status observed yet is Progressing",
+			conditions: nil,
+			want:       openchoreov1alpha1.HealthStatusProgressing,
+		},
+		{
+			name: "Ready=True is Healthy",
+			conditions: []interface{}{
+				condition("Ready", "True"),
+			},
+			want: openchoreov1alpha1.HealthStatusHealthy,
+		},
+		{
+			name: "install failed and stalled after uninstall remediation is Degraded",
+			conditions: []interface{}{
+				condition("Remediated", "True"),
+				condition("Stalled", "True"),
+				condition("Ready", "False"),
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "terminal Ready=False without an explicit Stalled condition is Degraded",
+			conditions: []interface{}{
+				condition("Ready", "False"),
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "install in progress with Ready=Unknown is Progressing",
+			conditions: []interface{}{
+				condition("Ready", "Unknown"),
+			},
+			want: openchoreov1alpha1.HealthStatusProgressing,
+		},
+		{
+			name: "Stalled=True takes precedence even if Ready=True",
+			conditions: []interface{}{
+				condition("Ready", "True"),
+				condition("Stalled", "True"),
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj := makeHelmRelease(tt.conditions)
+			got, err := getHelmReleaseHealth(obj)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
