@@ -301,8 +301,12 @@ type AlertingRuleSyncResponseStatus string
 type AuditLogActor struct {
 	Entitlements *map[string][]string `json:"entitlements,omitempty"`
 
-	// Id The validated token claim named by the producer's `audit.actor.id_claim`
-	// (`sub` by default), `unknown` when the token lacks that claim, or `anonymous`
+	// Id A validated token claim: the one named by the subject's own auth mechanism
+	// (`readable_id_claim`), else the producer's `audit.actor.id_claim`, else `sub`.
+	// `unknown` when the token carries none of them, or `anonymous`.
+	//
+	// Because the claim is resolved per subject type, two actors of different
+	// types may have their `id` drawn from different claims
 	Id string `json:"id"`
 
 	// Issuer The token's `iss` claim; the namespace `id` is unique within

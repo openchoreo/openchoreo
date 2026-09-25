@@ -1171,7 +1171,7 @@ openchoreoApi:
       #       description: Priority for subject type resolution (lower = higher priority)
       #     mechanisms:
       #       type: object
-      #       description: Authentication mechanisms and entitlement extraction rules
+      #       description: Authentication mechanisms, each naming the claim recorded as an audit event's actor.id (readable_id_claim, preferred over audit.actor.idClaim) and the entitlement extraction rules
       # @schema
       subjects:
         user:
@@ -1179,6 +1179,7 @@ openchoreoApi:
           priority: 1
           mechanisms:
             jwt:
+              readable_id_claim: "username"
               entitlement:
                 claim: "groups"
                 display_name: "User Group"
@@ -1187,6 +1188,7 @@ openchoreoApi:
           priority: 2
           mechanisms:
             jwt:
+              readable_id_claim: "client_id"
               entitlement:
                 claim: "client_id"
                 display_name: "Client ID"
@@ -1943,7 +1945,7 @@ openchoreoApi:
       actor:
         # @schema
         # type: string
-        # description: Token claim recorded as actor.id and matched by policies[].match.actors. Tokens without this claim (e.g. service accounts) record "unknown"; set "sub" for the opaque subject ID
+        # description: Fallback claim recorded as actor.id and matched by policies[].match.actors, used when the subject's mechanism sets no readable_id_claim or its token omits that claim. sub is recorded if this claim is missing too
         # default: "username"
         # @schema
         idClaim: "username"
