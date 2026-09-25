@@ -16,6 +16,7 @@ import (
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
+	clusterhooksvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterhook"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
@@ -29,6 +30,7 @@ import (
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
+	hooksvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/hook"
 	k8sresourcessvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources"
 	metadatasvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/metadata"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
@@ -68,6 +70,7 @@ type Services struct {
 	ClusterProjectTypeService                     clusterprojecttypesvc.Service
 	ClusterResourceTypeService                    clusterresourcetypesvc.Service
 	ClusterTraitService                           clustertraitsvc.Service
+	ClusterHookService                            clusterhooksvc.Service
 	ClusterWorkflowService                        clusterworkflowsvc.Service
 	DataPlaneService                              dataplanesvc.Service
 	DeploymentPipelineService                     deploymentpipelinesvc.Service
@@ -89,6 +92,7 @@ type Services struct {
 	SecretService                                 secretsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
 	TraitService                                  traitsvc.Service
+	HookService                                   hooksvc.Service
 	WorkflowService                               workflowsvc.Service
 	WorkflowRunService                            workflowrunsvc.Service
 	WorkloadService                               workloadsvc.Service
@@ -111,6 +115,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ClusterProjectTypeService:                     clusterprojecttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterprojecttype-service")),
 		ClusterResourceTypeService:                    clusterresourcetypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterresourcetype-service")),
 		ClusterTraitService:                           clustertraitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clustertrait-service")),
+		ClusterHookService:                            clusterhooksvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterhook-service")),
 		ClusterWorkflowService:                        clusterworkflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterworkflow-service")),
 		DataPlaneService:                              dataplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "dataplane-service")),
 		DeploymentPipelineService:                     deploymentpipelinesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "deploymentpipeline-service")),
@@ -132,6 +137,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		SecretService:                                 secretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, secretCfg, pdp, logger.With("component", "secret-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
+		HookService:                                   hooksvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "hook-service")),
 		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),
 		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, gwClient, pdp, logger.With("component", "workflowrun-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),

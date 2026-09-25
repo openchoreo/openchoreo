@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -19,12 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -93,6 +96,14 @@ type Reconciler struct {
 	// timeout again at each step. Zero disables the deadline. It is handed to the
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
+
+	// Recorder emits hook lifecycle events on the ReleaseBinding.
+	Recorder record.EventRecorder
+
+	// hookTemplateEngine evaluates hook parameter expressions; created lazily
+	// and exactly once (hookEngineOnce), since reconciles run concurrently.
+	hookTemplateEngine *template.Engine
+	hookEngineOnce     sync.Once
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -125,6 +136,11 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=hooks;clusterhooks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows;clusterworkflows;workflowplanes;clusterworkflowplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
@@ -538,6 +554,19 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
 	}
 
+	// Deployment-hook gate (alpha): pre-deploy hooks must pass before the
+	// RenderedRelease is created or updated. The running release is untouched
+	// while the gate is blocked.
+	outcome, err := r.reconcilePreDeployHooks(ctx, releaseBinding, componentRelease, environment, component, project)
+	if err != nil {
+		logger.Error(err, "Failed to evaluate pre-deploy hooks")
+		return ctrl.Result{}, fmt.Errorf("failed to evaluate pre-deploy hooks: %w", err)
+	}
+	if outcome.blocked {
+		return outcome.result, nil
+	}
+	hooks := outcome.gate
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -779,7 +808,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, false)
 
-	return ctrl.Result{}, nil
+	return r.reconcilePostDeployHooks(ctx, releaseBinding, hooks)
 }
 
 // handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
@@ -1582,6 +1611,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	ctx := context.Background()
 
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor(controllerName)
+	}
+
 	// Setup field index for SecretReferences (reads from status.secretReferenceNames)
 	if err := r.setupSecretReferencesIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup SecretReferences index: %w", err)
@@ -1597,7 +1630,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	bldr := ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.Component{},
@@ -1634,7 +1667,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ClusterDataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
-		).
+		)
+
+	// Deployment hooks: hook WorkflowRuns are owned by the binding; an environment
+	// or hook edit re-evaluates every binding it can affect.
+	bldr = bldr.
+		Owns(&openchoreov1alpha1.WorkflowRun{}).
+		Watches(&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.releaseBindingsForEnvironment),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&openchoreov1alpha1.Hook{},
+			handler.EnqueueRequestsFromMapFunc(r.releaseBindingsForHook)).
+		Watches(&openchoreov1alpha1.ClusterHook{},
+			handler.EnqueueRequestsFromMapFunc(r.releaseBindingsForHook))
+
+	return bldr.
 		Named("releasebinding").
 		Complete(r)
 }

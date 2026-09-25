@@ -1273,6 +1273,7 @@ openchoreoApi:
                 - "dataplane:view"
                 - "environment:view"
                 - "trait:view"
+                - "hook:view"
                 - "workload:view"
                 - "workflowplane:view"
                 - "clusterworkflowplane:view"
@@ -1285,6 +1286,7 @@ openchoreoApi:
                 - "clusterresourcetype:view"
                 - "clusterprojecttype:view"
                 - "clustertrait:view"
+                - "clusterhook:view"
                 - "clusterworkflow:view"
                 - "observabilityalertsnotificationchannel:view"
 
@@ -1357,6 +1359,7 @@ openchoreoApi:
                 - "clusterresourcetype:view"
                 - "clusterprojecttype:view"
                 - "clustertrait:view"
+                - "clusterhook:view"
                 - "clusterworkflow:view"
 
             # Namespace reader role - read-only access to namespace-scoped platform resources.
@@ -1374,6 +1377,8 @@ openchoreoApi:
                 - "resourcetype:view"
                 - "projecttype:view"
                 - "trait:view"
+                - "hook:view"
+                - "clusterhook:view"
                 - "workflow:view"
                 - "secretreference:view"
 
@@ -1389,6 +1394,7 @@ openchoreoApi:
                 - "clusterresourcetype:view"
                 - "clusterprojecttype:view"
                 - "clustertrait:view"
+                - "clusterhook:view"
                 - "clusterworkflow:view"
                 - "namespace:view"
                 - "environment:view"
@@ -1400,6 +1406,7 @@ openchoreoApi:
                 - "resourcetype:view"
                 - "projecttype:view"
                 - "trait:view"
+                - "hook:view"
                 - "workflow:view"
                 - "project:view"
                 - "component:view"
@@ -1465,6 +1472,7 @@ openchoreoApi:
                 - "clusterresourcetype:view"
                 - "clusterprojecttype:view"
                 - "clustertrait:view"
+                - "clusterhook:view"
                 - "clusterworkflow:view"
                 - "namespace:view"
                 - "environment:view"
@@ -1476,6 +1484,7 @@ openchoreoApi:
                 - "resourcetype:view"
                 - "projecttype:view"
                 - "trait:view"
+                - "hook:view"
                 - "workflow:view"
                 - "project:view"
                 - "component:view"
@@ -1484,6 +1493,7 @@ openchoreoApi:
                 - "releasebinding:view"
                 - "releasebinding:create"
                 - "releasebinding:update"
+                - "releasebinding:acknowledge-gate"
                 - "resource:view"
                 - "resourcerelease:view"
                 - "projectrelease:view"
@@ -1493,6 +1503,7 @@ openchoreoApi:
                 - "workflowrun:view"
                 - "workflowrun:create"
                 - "workflowrun:delete"
+                - "workflowrun:resume"
                 - "workload:view"
                 - "workload:create"
                 - "secretreference:view"
@@ -1587,6 +1598,10 @@ openchoreoApi:
                 - "trait:create"
                 - "trait:update"
                 - "trait:delete"
+                - "hook:view"
+                - "hook:create"
+                - "hook:update"
+                - "hook:delete"
                 - "workflow:view"
                 - "workflow:create"
                 - "workflow:update"
@@ -1657,6 +1672,10 @@ openchoreoApi:
                 - "clustertrait:create"
                 - "clustertrait:update"
                 - "clustertrait:delete"
+                - "clusterhook:view"
+                - "clusterhook:create"
+                - "clusterhook:update"
+                - "clusterhook:delete"
                 - "clusterworkflow:view"
                 - "clusterworkflow:create"
                 - "clusterworkflow:update"
@@ -3027,6 +3046,17 @@ backstage:
       # default: ""
       # @schema
       portalAssistantUrl: ""
+    # @schema
+    # type: object
+    # description: Deployment hooks (alpha). Shows Hook / ClusterHook catalog kinds, hook bindings on environments and the release gate UI. Maps to OPENCHOREO_FEATURES_HOOKS_ENABLED in the Backstage container.
+    # @schema
+    hooks:
+      # @schema
+      # type: boolean
+      # description: Enable the deployment hooks UI (alpha).
+      # default: false
+      # @schema
+      enabled: false
 
   # @schema
   # type: object

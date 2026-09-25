@@ -586,6 +586,21 @@
               "title": "deliveryInsights",
               "type": "object"
             },
+            "hooks": {
+              "additionalProperties": false,
+              "description": "Deployment hooks (alpha). Shows Hook / ClusterHook catalog kinds, hook bindings on environments and the release gate UI. Maps to OPENCHOREO_FEATURES_HOOKS_ENABLED in the Backstage container.",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Enable the deployment hooks UI (alpha).",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "hooks",
+              "type": "object"
+            },
             "observability": {
               "additionalProperties": false,
               "description": "Observability plane features (Metrics, Traces, Runtime Logs)",

@@ -116,6 +116,12 @@ resources:
   - clustertrait_admin_role.yaml
   - clustertrait_editor_role.yaml
   - clustertrait_viewer_role.yaml
+  - hook_admin_role.yaml
+  - hook_editor_role.yaml
+  - hook_viewer_role.yaml
+  - clusterhook_admin_role.yaml
+  - clusterhook_editor_role.yaml
+  - clusterhook_viewer_role.yaml
   - workflow_admin_role.yaml
   - workflow_editor_role.yaml
   - workflow_viewer_role.yaml

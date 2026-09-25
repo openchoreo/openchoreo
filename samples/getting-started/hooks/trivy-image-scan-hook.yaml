@@ -1,0 +1,24 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterHook
+metadata:
+  name: trivy-image-scan
+  annotations:
+    openchoreo.dev/description: "Block a deployment when the release image has vulnerabilities at or above the bound severity"
+spec:
+  type: Workflow
+  workflowRef:
+    kind: ClusterWorkflow
+    name: trivy-image-scan
+  enabledTo:
+    - kind: ClusterComponentType
+      name: service
+    - kind: ClusterComponentType
+      name: web-application
+  parameters:
+    - name: image
+      from: ${deployment.workload.containers.main.image}
+    - name: severity
+      default: CRITICAL
+    - name: ignoreUnfixed
+      from: '${deployment.environment.isProduction ? "false" : "true"}'
+      overridable: true

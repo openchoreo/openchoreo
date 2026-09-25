@@ -24,6 +24,7 @@ This document describes the resource kinds used in OpenChoreo CRDs, the relation
     - [ResourceType / ClusterResourceType](#resourcetype--clusterresourcetype)
     - [Workflow / ClusterWorkflow](#workflow--clusterworkflow)
     - [WorkflowRun](#workflowrun)
+    - [Hook / ClusterHook](#hook--clusterhook)
   - [Platform Infrastructure](#platform-infrastructure)
     - [DeploymentPipeline](#deploymentpipeline)
     - [Environment](#environment)
@@ -305,6 +306,9 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `resolvedConnections[]` | ResolvedConnection[] | Successfully resolved inter-component connections |
 | `pendingConnections[]` | PendingConnection[] | Connections awaiting resolution |
 | `secretReferenceNames[]` | []string | SecretReferences used by workload |
+| `gate` | DeploymentGateStatus | Hook gate state (alpha); absent when the environment binds no hooks |
+
+**DeploymentGateStatus:** `key` (hash of release + effective hook set + `sequence`), `passedKey`, `sequence`, `hookSetHash`, `lastPassedRelease`, `postDeployKey`, `history[]` (last 10 passes), `preDeploy[]` / `postDeploy[]` of **DeploymentHookStatus** (`name`, `hookRef`, `mode`, `phase`, `reason`, `message`, `workflowRunRef`, `attempt`, `startedAt`, `finishedAt`). Phases: `Pending`, `Running`, `Succeeded`, `Failed`, `TimedOut`, `Skipped`, `Dispatched`, `DispatchFailed`, `PlaneUnavailable`. Conditions `PreDeployHooksPassed` and `PostDeployHooksPassed` join `Ready`. Operator annotations: `openchoreo.dev/hook-retry: "<preDeploy|postDeploy>/<name>"`, `openchoreo.dev/gate-acknowledged: "<key>"`. See [deployment-hooks.md](deployment-hooks.md).
 
 **Relationships:**
 - Owner: Project (via `spec.owner.projectName`)
@@ -638,6 +642,47 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 
 ---
 
+#### Hook / ClusterHook
+
+> **Alpha.** The ReleaseBinding controller always evaluates the hooks an Environment binds; an Environment without `spec.hooks` is not gated.
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`Hook`) / Cluster (`ClusterHook`) |
+| **Purpose** | Platform-engineer-defined action that a DeploymentPipeline runs before or after a deployment into a target environment |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | HookType | No | Executor; only `Workflow` (default) |
+| `workflowRef` | WorkflowRef | Yes | Workflow/ClusterWorkflow to run. `ClusterHook` may only reference a `ClusterWorkflow` |
+| `parameters[]` | HookParameter[] | No | Mapping of the workflow's inputs to value sources (keyed by `name`) |
+| `enabledTo[]` | HookSubjectRef[] | No | `{kind: ComponentType \| ClusterComponentType, name}`; component types the hook is enabled for. Empty enables it everywhere. A binding's `appliesTo` can narrow this but not widen it |
+
+**HookParameter Fields** (exactly one source per parameter; `overridable` only with `from`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Workflow input name |
+| `value` | string | Fixed literal; a binding cannot override it |
+| `from` | string | `${...}` CEL over the deployment context (`deployment.release`, `.component`, `.componentType`, `.projectType`, `.workload.containers.<name>.image`, `.environment`, `.project`, `.trigger`, `.endpoints`) |
+| `default` | string | Value used when the binding supplies none |
+| `overridable` | bool | Lets a binding replace the `from` value |
+| `required` | bool | Every binding must supply the value |
+| `schema` | RawExtension | Optional OpenAPI v3 fragment for the value |
+
+**Status:** `observedGeneration`, `conditions` (`Available`).
+
+**Relationships:**
+- References: Workflow / ClusterWorkflow
+- Referenced by: Environment (`spec.hooks.preDeploy[]`, `spec.hooks.postDeploy[]`)
+- Creates (via the ReleaseBinding controller): WorkflowRun labelled `openchoreo.dev/workflow-purpose: deployment-hook`
+
+[Back to Top](#overview)
+
+---
+
 ### Platform Infrastructure
 
 ---
@@ -656,6 +701,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `promotionPaths[]` | PromotionPath[] | No | List of source → target environment promotion paths |
 | `promotionPaths[].sourceEnvironmentRef` | EnvironmentRef | Yes | Source environment |
 | `promotionPaths[].targetEnvironmentRefs[]` | TargetEnvironmentRef[] | Yes | Destination environments |
+
 
 **Relationships:**
 - Referenced by: Project
@@ -679,6 +725,22 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `dataPlaneRef` | DataPlaneRef | No | Target DataPlane (default: DataPlane/default). Immutable once set. |
 | `isProduction` | bool | No | Marks environment as production |
 | `gateway` | GatewaySpec | No | Environment-specific gateway configuration (overrides DataPlane gateway) |
+| `hooks` | HookSet | No | Pre/post-deploy hook bindings for every deployment into this environment (alpha, see below) |
+
+**HookSet** holds `preDeploy[]` and `postDeploy[]` lists of **HookBinding** (max 10 each, names unique across both):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Binding name (`^[a-z]([-a-z0-9]*[a-z0-9])?$`, max 40) |
+| `hookRef` | HookRef | Yes | `{kind: Hook \| ClusterHook, name}` |
+| `mode` | HookMode | No | `Sync` (default, deployment waits) or `Async` (dispatch only) |
+| `parameters` | RawExtension | No | String values for the hook's `default`, `required`, and `from`+`overridable` parameters |
+| `appliesTo[]` | HookSubjectSelector[] | No | `{kind: ComponentType \| ClusterComponentType, name}`; empty applies to all |
+| `onFailure` | HookFailurePolicy | No | `Block` (pre-deploy default), `Ignore` (post-deploy default), `Alert` (post-deploy only) |
+| `timeout` | string | No | Sync only, default `30m` |
+| `retries` | int32 | No | Sync only, 0–5 |
+
+Hooks on an environment run for every deployment into it, whichever promotion path was taken. A component cannot opt out; scope with `appliesTo`.
 
 **Gateway Configuration:**
 
