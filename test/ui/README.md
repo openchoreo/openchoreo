@@ -8,7 +8,7 @@ Playwright tests that drive the Backstage portal end-to-end in Chromium against 
 ui/
 ├── playwright.config.ts   Runner config; maps *.e2e-cp.local hostnames to 127.0.0.1
 │                          via Chromium host-resolver rules (no /etc/hosts edit needed)
-├── specs/                 One folder per suite (auth, catalog, config, lifecycle, dev-ops, pe-ops, abac-ui)
+├── specs/                 One folder per suite (auth, catalog, config, lifecycle, dev-ops, pe-ops, abac-ui, observability, audit)
 ├── po/                    Page objects — intent-named methods over semantic locators
 │                          (getByRole/getByLabel; no data-testid hooks needed)
 ├── fixtures/              Playwright test.extend fixtures: per-role auth storage state,
@@ -43,8 +43,9 @@ For a fresh install the test identities (PE, Dev, ABAC-restricted) are seeded au
 | `pe-ops/` | Platform-engineer role: full CRUD (create, update, delete) of PE-managed CRDs via a representative subset — ComponentType and Trait (namespace-scoped) + ClusterComponentType and ClusterTrait (cluster-scoped) via the YAML editor scaffolder flow, and Environment + DeploymentPipeline via the FormWithYaml scaffolder flow. The remaining CRDs (Workflow, ResourceType, ClusterWorkflow, ClusterResourceType) follow the identical YAML editor UI path and are covered implicitly. Updates are tested via the Definition tab YAML editor; ComponentType and ClusterComponentType also test invalid-edit rejection. |
 | `abac-ui/` | Environment-conditioned access: deploy/promote allowed up to staging, the production Promote button renders permission-disabled, and the shape survives relogin |
 | `observability/` | Observability panels render their UI chrome: component Logs (`/runtime-logs`), component Metrics (`/metrics`), project Logs (`/logs`), and project Traces (`/traces`). Deploys the url-shortener sample (snip-postgres + snip-redis + snip-api-service with OTEL enabled) via kubectl, waits for Active, then asserts each panel mounts its filter controls. Self-skips when `ClusterObservabilityPlane` is absent — enable with `E2E_WITH_OBSERVABILITY=true`. |
+| `audit/` | Audit logging end to end: a project created and deleted in the portal publishes `create_project` / `delete_project` records attributed to the signed-in user, the Audit Logs page (`/audit-logs`) finds them through deep-linked filters, the record drawer shows the published record and drills into its values, and a developer without `auditlogs:view` gets the forbidden state. Self-skips when `ClusterObservabilityPlane` is absent — enable with `E2E_WITH_OBSERVABILITY=true`. |
 
-The `pkce-login` and `abac-ui` specs self-skip when their prerequisites are missing (host DNS entries for `occ`, the seeded ABAC identity), so the rest of the suite is unaffected. The `observability/` suite also self-skips when `ClusterObservabilityPlane "default"` is not present.
+The `pkce-login` and `abac-ui` specs self-skip when their prerequisites are missing (host DNS entries for `occ`, the seeded ABAC identity), so the rest of the suite is unaffected. The `observability/` and `audit/` suites also self-skip when `ClusterObservabilityPlane "default"` is not present.
 
 ## Test flow
 
@@ -205,5 +206,19 @@ Source: [`specs/observability/observability-panels.spec.ts`](specs/observability
 5. Navigates to the component entity's `/metrics` tab; asserts "CPU Usage" and "Memory Usage" card titles plus the "Refresh" button
 6. Navigates to the project (system) entity's `/logs` tab; asserts the logs filter chrome renders
 7. Navigates to the project entity's `/traces` tab; asserts the "Search Trace ID" input and "Refresh" button render
+
+</details>
+
+<details>
+<summary><b>audit</b> — create project in the portal → find create_project on Audit Logs → inspect the record → delete project → find delete_project → developer is forbidden</summary>
+
+Source: [`specs/audit/audit-logs.spec.ts`](specs/audit/audit-logs.spec.ts)
+
+1. Self-skips unless `ClusterObservabilityPlane "default"` exists; requires `make e2e.setup E2E_WITH_UI=true E2E_WITH_OBSERVABILITY=true`, which enables audit on openchoreo-api, the observer, and the OpenSearch logs module
+2. As PE, opens `/audit-logs`; asserts the heading, filter bar, "Last 7 days" time range, "Oldest First" sort, and the fixed table columns
+3. Creates a project through the scaffolder and confirms it with kubectl, then deep-links to `/audit-logs?f=action:create_project&f=resource.name:<project>&timeRange=1h&sort=desc` and clicks Refresh until the record is ingested; asserts exactly one row, actor `platform-engineer@openchoreo.dev`, result `success`, surface `rest`
+4. Opens the record drawer; asserts "via the REST API", the actor, category `management`, producer `openchoreo-api`, and the request line, then clicks the actor value and asserts it becomes an `actor.id:` filter chip that still matches the record
+5. Deletes the project from its entity page, confirms it is gone with kubectl, and finds the matching `delete_project` record
+6. As the developer, opens `/audit-logs` and asserts "Insufficient Permissions" with no table rendered
 
 </details>
