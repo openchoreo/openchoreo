@@ -4782,6 +4782,66 @@ func (_c *MockInterface_GetReleaseBinding_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// GetReleaseBindingResourceTree provides a mock function with given fields: ctx, namespaceName, releaseBindingName
+func (_m *MockInterface) GetReleaseBindingResourceTree(ctx context.Context, namespaceName string, releaseBindingName string) (*gen.K8sResourceTreeResponse, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetReleaseBindingResourceTree")
+	}
+
+	var r0 *gen.K8sResourceTreeResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.K8sResourceTreeResponse, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.K8sResourceTreeResponse); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.K8sResourceTreeResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetReleaseBindingResourceTree_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetReleaseBindingResourceTree'
+type MockInterface_GetReleaseBindingResourceTree_Call struct {
+	*mock.Call
+}
+
+// GetReleaseBindingResourceTree is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+func (_e *MockInterface_Expecter) GetReleaseBindingResourceTree(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}) *MockInterface_GetReleaseBindingResourceTree_Call {
+	return &MockInterface_GetReleaseBindingResourceTree_Call{Call: _e.mock.On("GetReleaseBindingResourceTree", ctx, namespaceName, releaseBindingName)}
+}
+
+func (_c *MockInterface_GetReleaseBindingResourceTree_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string)) *MockInterface_GetReleaseBindingResourceTree_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetReleaseBindingResourceTree_Call) Return(_a0 *gen.K8sResourceTreeResponse, _a1 error) *MockInterface_GetReleaseBindingResourceTree_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetReleaseBindingResourceTree_Call) RunAndReturn(run func(context.Context, string, string) (*gen.K8sResourceTreeResponse, error)) *MockInterface_GetReleaseBindingResourceTree_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetResource provides a mock function with given fields: ctx, namespaceName, resourceName
 func (_m *MockInterface) GetResource(ctx context.Context, namespaceName string, resourceName string) (*gen.ResourceInstance, error) {
 	ret := _m.Called(ctx, namespaceName, resourceName)

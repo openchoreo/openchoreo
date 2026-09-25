@@ -44,7 +44,7 @@ func TestNewReleaseBindingCmd_Subcommands(t *testing.T) {
 	for _, sub := range cmd.Commands() {
 		names = append(names, sub.Name())
 	}
-	assert.ElementsMatch(t, []string{"generate", "list", "get", "delete"}, names)
+	assert.ElementsMatch(t, []string{"generate", "list", "get", "delete", "tree"}, names)
 }
 
 // --- list ---
