@@ -4035,7 +4035,6 @@
                                 }
                               },
                               "required": [
-                                "readable_id_claim",
                                 "entitlement"
                               ],
                               "title": "jwt",
@@ -4104,7 +4103,6 @@
                                 }
                               },
                               "required": [
-                                "readable_id_claim",
                                 "entitlement"
                               ],
                               "title": "jwt",
