@@ -33,6 +33,14 @@ const (
 
 	// ConditionFinalizing indicates that the ReleaseBinding is being finalized (deleted).
 	ConditionFinalizing controller.ConditionType = "Finalizing"
+
+	// ConditionPreDeployHooksPassed reports the pre-deploy hook gate bound by the
+	// DeploymentPipeline. Absent when no hook binds the environment.
+	ConditionPreDeployHooksPassed controller.ConditionType = "PreDeployHooksPassed"
+
+	// ConditionPostDeployHooksPassed reports the post-deploy hooks. False only while
+	// hooks run or when an Alert hook failed and was not acknowledged.
+	ConditionPostDeployHooksPassed controller.ConditionType = "PostDeployHooksPassed"
 )
 
 // Constants for condition reasons
@@ -139,6 +147,26 @@ const (
 
 	// ReasonFinalizing indicates the ReleaseBinding is being finalized
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
+
+	// Deployment hook reasons
+
+	// ReasonHooksRunning indicates one or more hooks are still running
+	ReasonHooksRunning controller.ConditionReason = "HooksRunning"
+	// ReasonHookFailed indicates a Sync hook with onFailure=Block failed
+	ReasonHookFailed controller.ConditionReason = "HookFailed"
+	// ReasonHookTimedOut indicates a Sync hook with onFailure=Block timed out
+	ReasonHookTimedOut controller.ConditionReason = "HookTimedOut"
+	// ReasonPlaneUnavailable indicates the workflow plane for a Sync hook could not be resolved
+	ReasonPlaneUnavailable controller.ConditionReason = "PlaneUnavailable"
+	// ReasonHooksPassed indicates every applicable hook passed
+	ReasonHooksPassed controller.ConditionReason = "HooksPassed"
+	// ReasonHooksPassedWithIgnoredFailures indicates the gate passed but one or more
+	// Sync hooks with onFailure=Ignore failed; the message names them
+	ReasonHooksPassedWithIgnoredFailures controller.ConditionReason = "HooksPassedWithIgnoredFailures"
+	// ReasonPostDeployHookFailed indicates a post-deploy hook with onFailure=Alert failed
+	ReasonPostDeployHookFailed controller.ConditionReason = "PostDeployHookFailed"
+	// ReasonPostDeployHooksAcknowledged indicates an Alert failure was acknowledged for this key
+	ReasonPostDeployHooksAcknowledged controller.ConditionReason = "PostDeployHooksAcknowledged"
 )
 
 // NewReleaseBindingFinalizingCondition creates a condition indicating the ReleaseBinding is being finalized.

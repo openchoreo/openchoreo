@@ -110,12 +110,12 @@ DEX_VERSION            ?= 0.24.1
 
 # Observability community modules: 0.0.0-latest-dev on main, pinned on release
 # branches by hack/pin-observability-modules.sh
-OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.0.0-latest-dev
-OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.0.0-latest-dev
-OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.0.0-latest-dev
+OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.6.0
+OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.6.0
+OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.7.1
 # Tier3 multi-cluster e2e only (see _e2e.mc.install-op / _e2e.mc.install-fluent-bit):
 # logs use the OpenObserve community module there instead of OpenSearch.
-OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.0.0-latest-dev
+OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.7.0
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)

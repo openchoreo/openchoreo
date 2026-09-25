@@ -103,6 +103,29 @@ const (
 	// the controller falls back to the first route match path (the prefix-routing convention).
 	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
 
+	// LabelKeyWorkflowPurpose distinguishes build WorkflowRuns from deployment-hook
+	// WorkflowRuns. Absent means build.
+	LabelKeyWorkflowPurpose = "openchoreo.dev/workflow-purpose"
+	// LabelValueWorkflowPurposeBuild marks a component build run.
+	LabelValueWorkflowPurposeBuild = "build"
+	// LabelValueWorkflowPurposeDeploymentHook marks a run created by the ReleaseBinding gate.
+	LabelValueWorkflowPurposeDeploymentHook = "deployment-hook"
+	// LabelKeyHook is the hook binding name a deployment-hook WorkflowRun executes.
+	LabelKeyHook = "openchoreo.dev/hook"
+	// LabelKeyHookPhase is the phase (preDeploy|postDeploy) of a deployment-hook WorkflowRun.
+	LabelKeyHookPhase = "openchoreo.dev/hook-phase"
+	// LabelKeyReleaseBinding is the ReleaseBinding a deployment-hook WorkflowRun belongs to.
+	LabelKeyReleaseBinding = "openchoreo.dev/release-binding"
+
+	// AnnotationKeyHookRetry asks the controller to re-run one hook. Set on a ReleaseBinding
+	// as "<preDeploy|postDeploy>/<binding name>". The controller marks it
+	// "<phase>/<name>#<attempt>" once the reset is applied and removes it after the reset is
+	// stored.
+	AnnotationKeyHookRetry = "openchoreo.dev/hook-retry"
+	// AnnotationKeyGateAcknowledged acknowledges an Alert post-deploy failure. Set on a
+	// ReleaseBinding to the gate key; Ready is restored for that key.
+	AnnotationKeyGateAcknowledged = "openchoreo.dev/gate-acknowledged"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"

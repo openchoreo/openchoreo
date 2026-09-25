@@ -185,6 +185,25 @@ type ClientInterface interface {
 
 	UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListClusterHooks request
+	ListClusterHooks(ctx context.Context, params *ListClusterHooksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterHookWithBody request with any body
+	CreateClusterHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterHook(ctx context.Context, body CreateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterHook request
+	DeleteClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterHook request
+	GetClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterHookWithBody request with any body
+	UpdateClusterHookWithBody(ctx context.Context, clusterHookName ClusterHookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, body UpdateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListClusterObservabilityPlanes request
 	ListClusterObservabilityPlanes(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -488,6 +507,25 @@ type ClientInterface interface {
 
 	UpdateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListHooks request
+	ListHooks(ctx context.Context, namespaceName NamespaceNameParam, params *ListHooksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateHookWithBody request with any body
+	CreateHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateHook(ctx context.Context, namespaceName NamespaceNameParam, body CreateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteHook request
+	DeleteHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetHook request
+	GetHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateHookWithBody request with any body
+	UpdateHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, body UpdateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListObservabilityAlertsNotificationChannels request
 	ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -618,6 +656,19 @@ type ClientInterface interface {
 	UpdateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcknowledgeReleaseBindingGateWithBody request with any body
+	AcknowledgeReleaseBindingGateWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AcknowledgeReleaseBindingGate(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body AcknowledgeReleaseBindingGateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReleaseBindingHooks request
+	ListReleaseBindingHooks(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RetryReleaseBindingHookWithBody request with any body
+	RetryReleaseBindingHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RetryReleaseBindingHook(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, body RetryReleaseBindingHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetReleaseBindingK8sResourceEvents request
 	GetReleaseBindingK8sResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, params *GetReleaseBindingK8sResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -787,8 +838,16 @@ type ClientInterface interface {
 	// GetWorkflowRunLogs request
 	GetWorkflowRunLogs(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params *GetWorkflowRunLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ResumeWorkflowRun request
+	ResumeWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWorkflowRunStatus request
 	GetWorkflowRunStatus(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopWorkflowRunWithBody request with any body
+	StopWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StopWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body StopWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkflows request
 	ListWorkflows(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1297,6 +1356,90 @@ func (c *Client) UpdateClusterDataPlaneWithBody(ctx context.Context, cdpName Clu
 
 func (c *Client) UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateClusterDataPlaneRequest(c.Server, cdpName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListClusterHooks(ctx context.Context, params *ListClusterHooksParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterHooksRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterHookRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterHook(ctx context.Context, body CreateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterHookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterHookRequest(c.Server, clusterHookName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterHookRequest(c.Server, clusterHookName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterHookWithBody(ctx context.Context, clusterHookName ClusterHookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterHookRequestWithBody(c.Server, clusterHookName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterHook(ctx context.Context, clusterHookName ClusterHookNameParam, body UpdateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterHookRequest(c.Server, clusterHookName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2639,6 +2782,90 @@ func (c *Client) UpdateEnvironment(ctx context.Context, namespaceName NamespaceN
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListHooks(ctx context.Context, namespaceName NamespaceNameParam, params *ListHooksParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListHooksRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateHookRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateHook(ctx context.Context, namespaceName NamespaceNameParam, body CreateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateHookRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteHookRequest(c.Server, namespaceName, hookName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetHookRequest(c.Server, namespaceName, hookName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateHookRequestWithBody(c.Server, namespaceName, hookName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateHook(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, body UpdateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateHookRequest(c.Server, namespaceName, hookName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListObservabilityAlertsNotificationChannelsRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -3205,6 +3432,66 @@ func (c *Client) UpdateReleaseBindingWithBody(ctx context.Context, namespaceName
 
 func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateReleaseBindingRequest(c.Server, namespaceName, releaseBindingName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AcknowledgeReleaseBindingGateWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcknowledgeReleaseBindingGateRequestWithBody(c.Server, namespaceName, releaseBindingName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AcknowledgeReleaseBindingGate(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body AcknowledgeReleaseBindingGateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcknowledgeReleaseBindingGateRequest(c.Server, namespaceName, releaseBindingName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListReleaseBindingHooks(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleaseBindingHooksRequest(c.Server, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RetryReleaseBindingHookWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryReleaseBindingHookRequestWithBody(c.Server, namespaceName, releaseBindingName, hookName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RetryReleaseBindingHook(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, body RetryReleaseBindingHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRetryReleaseBindingHookRequest(c.Server, namespaceName, releaseBindingName, hookName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3947,8 +4234,44 @@ func (c *Client) GetWorkflowRunLogs(ctx context.Context, namespaceName Namespace
 	return c.Client.Do(req)
 }
 
+func (c *Client) ResumeWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResumeWorkflowRunRequest(c.Server, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetWorkflowRunStatus(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowRunStatusRequest(c.Server, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopWorkflowRunRequestWithBody(c.Server, namespaceName, runName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body StopWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopWorkflowRunRequest(c.Server, namespaceName, runName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5556,6 +5879,242 @@ func NewUpdateClusterDataPlaneRequestWithBody(server string, cdpName ClusterData
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/clusterdataplanes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListClusterHooksRequest generates requests for ListClusterHooks
+func NewListClusterHooksRequest(server string, params *ListClusterHooksParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterhooks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateClusterHookRequest calls the generic CreateClusterHook builder with application/json body
+func NewCreateClusterHookRequest(server string, body CreateClusterHookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterHookRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterHookRequestWithBody generates requests for CreateClusterHook with any type of body
+func NewCreateClusterHookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterhooks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterHookRequest generates requests for DeleteClusterHook
+func NewDeleteClusterHookRequest(server string, clusterHookName ClusterHookNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterHookName", runtime.ParamLocationPath, clusterHookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterhooks/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterHookRequest generates requests for GetClusterHook
+func NewGetClusterHookRequest(server string, clusterHookName ClusterHookNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterHookName", runtime.ParamLocationPath, clusterHookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterhooks/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterHookRequest calls the generic UpdateClusterHook builder with application/json body
+func NewUpdateClusterHookRequest(server string, clusterHookName ClusterHookNameParam, body UpdateClusterHookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterHookRequestWithBody(server, clusterHookName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterHookRequestWithBody generates requests for UpdateClusterHook with any type of body
+func NewUpdateClusterHookRequestWithBody(server string, clusterHookName ClusterHookNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterHookName", runtime.ParamLocationPath, clusterHookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterhooks/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9645,6 +10204,277 @@ func NewUpdateEnvironmentRequestWithBody(server string, namespaceName NamespaceN
 	return req, nil
 }
 
+// NewListHooksRequest generates requests for ListHooks
+func NewListHooksRequest(server string, namespaceName NamespaceNameParam, params *ListHooksParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/hooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateHookRequest calls the generic CreateHook builder with application/json body
+func NewCreateHookRequest(server string, namespaceName NamespaceNameParam, body CreateHookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateHookRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateHookRequestWithBody generates requests for CreateHook with any type of body
+func NewCreateHookRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/hooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteHookRequest generates requests for DeleteHook
+func NewDeleteHookRequest(server string, namespaceName NamespaceNameParam, hookName HookNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "hookName", runtime.ParamLocationPath, hookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/hooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetHookRequest generates requests for GetHook
+func NewGetHookRequest(server string, namespaceName NamespaceNameParam, hookName HookNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "hookName", runtime.ParamLocationPath, hookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/hooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateHookRequest calls the generic UpdateHook builder with application/json body
+func NewUpdateHookRequest(server string, namespaceName NamespaceNameParam, hookName HookNameParam, body UpdateHookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateHookRequestWithBody(server, namespaceName, hookName, "application/json", bodyReader)
+}
+
+// NewUpdateHookRequestWithBody generates requests for UpdateHook with any type of body
+func NewUpdateHookRequestWithBody(server string, namespaceName NamespaceNameParam, hookName HookNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "hookName", runtime.ParamLocationPath, hookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/hooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListObservabilityAlertsNotificationChannelsRequest generates requests for ListObservabilityAlertsNotificationChannels
 func NewListObservabilityAlertsNotificationChannelsRequest(server string, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams) (*http.Request, error) {
 	var err error
@@ -11568,6 +12398,162 @@ func NewUpdateReleaseBindingRequestWithBody(server string, namespaceName Namespa
 	}
 
 	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAcknowledgeReleaseBindingGateRequest calls the generic AcknowledgeReleaseBindingGate builder with application/json body
+func NewAcknowledgeReleaseBindingGateRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body AcknowledgeReleaseBindingGateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcknowledgeReleaseBindingGateRequestWithBody(server, namespaceName, releaseBindingName, "application/json", bodyReader)
+}
+
+// NewAcknowledgeReleaseBindingGateRequestWithBody generates requests for AcknowledgeReleaseBindingGate with any type of body
+func NewAcknowledgeReleaseBindingGateRequestWithBody(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s/gate/acknowledge", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListReleaseBindingHooksRequest generates requests for ListReleaseBindingHooks
+func NewListReleaseBindingHooksRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s/hooks", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRetryReleaseBindingHookRequest calls the generic RetryReleaseBindingHook builder with application/json body
+func NewRetryReleaseBindingHookRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, body RetryReleaseBindingHookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRetryReleaseBindingHookRequestWithBody(server, namespaceName, releaseBindingName, hookName, "application/json", bodyReader)
+}
+
+// NewRetryReleaseBindingHookRequestWithBody generates requests for RetryReleaseBindingHook with any type of body
+func NewRetryReleaseBindingHookRequestWithBody(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "hookName", runtime.ParamLocationPath, hookName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s/hooks/%s/retry", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -14210,6 +15196,47 @@ func NewGetWorkflowRunLogsRequest(server string, namespaceName NamespaceNamePara
 	return req, nil
 }
 
+// NewResumeWorkflowRunRequest generates requests for ResumeWorkflowRun
+func NewResumeWorkflowRunRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "runName", runtime.ParamLocationPath, runName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s/resume", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetWorkflowRunStatusRequest generates requests for GetWorkflowRunStatus
 func NewGetWorkflowRunStatusRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) (*http.Request, error) {
 	var err error
@@ -14247,6 +15274,60 @@ func NewGetWorkflowRunStatusRequest(server string, namespaceName NamespaceNamePa
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewStopWorkflowRunRequest calls the generic StopWorkflowRun builder with application/json body
+func NewStopWorkflowRunRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body StopWorkflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStopWorkflowRunRequestWithBody(server, namespaceName, runName, "application/json", bodyReader)
+}
+
+// NewStopWorkflowRunRequestWithBody generates requests for StopWorkflowRun with any type of body
+func NewStopWorkflowRunRequestWithBody(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "runName", runtime.ParamLocationPath, runName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s/stop", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -15643,6 +16724,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error)
 
+	// ListClusterHooksWithResponse request
+	ListClusterHooksWithResponse(ctx context.Context, params *ListClusterHooksParams, reqEditors ...RequestEditorFn) (*ListClusterHooksResp, error)
+
+	// CreateClusterHookWithBodyWithResponse request with any body
+	CreateClusterHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterHookResp, error)
+
+	CreateClusterHookWithResponse(ctx context.Context, body CreateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterHookResp, error)
+
+	// DeleteClusterHookWithResponse request
+	DeleteClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterHookResp, error)
+
+	// GetClusterHookWithResponse request
+	GetClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*GetClusterHookResp, error)
+
+	// UpdateClusterHookWithBodyWithResponse request with any body
+	UpdateClusterHookWithBodyWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterHookResp, error)
+
+	UpdateClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, body UpdateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterHookResp, error)
+
 	// ListClusterObservabilityPlanesWithResponse request
 	ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
 
@@ -15946,6 +17046,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error)
 
+	// ListHooksWithResponse request
+	ListHooksWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListHooksParams, reqEditors ...RequestEditorFn) (*ListHooksResp, error)
+
+	// CreateHookWithBodyWithResponse request with any body
+	CreateHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateHookResp, error)
+
+	CreateHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateHookResp, error)
+
+	// DeleteHookWithResponse request
+	DeleteHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*DeleteHookResp, error)
+
+	// GetHookWithResponse request
+	GetHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*GetHookResp, error)
+
+	// UpdateHookWithBodyWithResponse request with any body
+	UpdateHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateHookResp, error)
+
+	UpdateHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, body UpdateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateHookResp, error)
+
 	// ListObservabilityAlertsNotificationChannelsWithResponse request
 	ListObservabilityAlertsNotificationChannelsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*ListObservabilityAlertsNotificationChannelsResp, error)
 
@@ -16076,6 +17195,19 @@ type ClientWithResponsesInterface interface {
 	UpdateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
 
 	UpdateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
+
+	// AcknowledgeReleaseBindingGateWithBodyWithResponse request with any body
+	AcknowledgeReleaseBindingGateWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcknowledgeReleaseBindingGateResp, error)
+
+	AcknowledgeReleaseBindingGateWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body AcknowledgeReleaseBindingGateJSONRequestBody, reqEditors ...RequestEditorFn) (*AcknowledgeReleaseBindingGateResp, error)
+
+	// ListReleaseBindingHooksWithResponse request
+	ListReleaseBindingHooksWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*ListReleaseBindingHooksResp, error)
+
+	// RetryReleaseBindingHookWithBodyWithResponse request with any body
+	RetryReleaseBindingHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RetryReleaseBindingHookResp, error)
+
+	RetryReleaseBindingHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, body RetryReleaseBindingHookJSONRequestBody, reqEditors ...RequestEditorFn) (*RetryReleaseBindingHookResp, error)
 
 	// GetReleaseBindingK8sResourceEventsWithResponse request
 	GetReleaseBindingK8sResourceEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, params *GetReleaseBindingK8sResourceEventsParams, reqEditors ...RequestEditorFn) (*GetReleaseBindingK8sResourceEventsResp, error)
@@ -16245,8 +17377,16 @@ type ClientWithResponsesInterface interface {
 	// GetWorkflowRunLogsWithResponse request
 	GetWorkflowRunLogsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params *GetWorkflowRunLogsParams, reqEditors ...RequestEditorFn) (*GetWorkflowRunLogsResp, error)
 
+	// ResumeWorkflowRunWithResponse request
+	ResumeWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*ResumeWorkflowRunResp, error)
+
 	// GetWorkflowRunStatusWithResponse request
 	GetWorkflowRunStatusWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunStatusResp, error)
+
+	// StopWorkflowRunWithBodyWithResponse request with any body
+	StopWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopWorkflowRunResp, error)
+
+	StopWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body StopWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*StopWorkflowRunResp, error)
 
 	// ListWorkflowsWithResponse request
 	ListWorkflowsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*ListWorkflowsResp, error)
@@ -17024,6 +18164,140 @@ func (r UpdateClusterDataPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateClusterDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListClusterHooksResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterHookList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListClusterHooksResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListClusterHooksResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterHook
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterHook
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterHook
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterHookResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -19195,6 +20469,140 @@ func (r UpdateEnvironmentResp) StatusCode() int {
 	return 0
 }
 
+type ListHooksResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *HookList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListHooksResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListHooksResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Hook
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Hook
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Hook
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateHookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListObservabilityAlertsNotificationChannelsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -20118,6 +21526,86 @@ func (r UpdateReleaseBindingResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AcknowledgeReleaseBindingGateResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r AcknowledgeReleaseBindingGateResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcknowledgeReleaseBindingGateResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListReleaseBindingHooksResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeploymentGateStatus
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleaseBindingHooksResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleaseBindingHooksResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RetryReleaseBindingHookResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r RetryReleaseBindingHookResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RetryReleaseBindingHookResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -21342,6 +22830,33 @@ func (r GetWorkflowRunLogsResp) StatusCode() int {
 	return 0
 }
 
+type ResumeWorkflowRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkflowRun
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ResumeWorkflowRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResumeWorkflowRunResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetWorkflowRunStatusResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -21361,6 +22876,34 @@ func (r GetWorkflowRunStatusResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWorkflowRunStatusResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StopWorkflowRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkflowRun
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r StopWorkflowRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopWorkflowRunResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -22348,6 +23891,67 @@ func (c *ClientWithResponses) UpdateClusterDataPlaneWithResponse(ctx context.Con
 	return ParseUpdateClusterDataPlaneResp(rsp)
 }
 
+// ListClusterHooksWithResponse request returning *ListClusterHooksResp
+func (c *ClientWithResponses) ListClusterHooksWithResponse(ctx context.Context, params *ListClusterHooksParams, reqEditors ...RequestEditorFn) (*ListClusterHooksResp, error) {
+	rsp, err := c.ListClusterHooks(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListClusterHooksResp(rsp)
+}
+
+// CreateClusterHookWithBodyWithResponse request with arbitrary body returning *CreateClusterHookResp
+func (c *ClientWithResponses) CreateClusterHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterHookResp, error) {
+	rsp, err := c.CreateClusterHookWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterHookResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterHookWithResponse(ctx context.Context, body CreateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterHookResp, error) {
+	rsp, err := c.CreateClusterHook(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterHookResp(rsp)
+}
+
+// DeleteClusterHookWithResponse request returning *DeleteClusterHookResp
+func (c *ClientWithResponses) DeleteClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterHookResp, error) {
+	rsp, err := c.DeleteClusterHook(ctx, clusterHookName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterHookResp(rsp)
+}
+
+// GetClusterHookWithResponse request returning *GetClusterHookResp
+func (c *ClientWithResponses) GetClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, reqEditors ...RequestEditorFn) (*GetClusterHookResp, error) {
+	rsp, err := c.GetClusterHook(ctx, clusterHookName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterHookResp(rsp)
+}
+
+// UpdateClusterHookWithBodyWithResponse request with arbitrary body returning *UpdateClusterHookResp
+func (c *ClientWithResponses) UpdateClusterHookWithBodyWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterHookResp, error) {
+	rsp, err := c.UpdateClusterHookWithBody(ctx, clusterHookName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterHookResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterHookWithResponse(ctx context.Context, clusterHookName ClusterHookNameParam, body UpdateClusterHookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterHookResp, error) {
+	rsp, err := c.UpdateClusterHook(ctx, clusterHookName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterHookResp(rsp)
+}
+
 // ListClusterObservabilityPlanesWithResponse request returning *ListClusterObservabilityPlanesResp
 func (c *ClientWithResponses) ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error) {
 	rsp, err := c.ListClusterObservabilityPlanes(ctx, params, reqEditors...)
@@ -23317,6 +24921,67 @@ func (c *ClientWithResponses) UpdateEnvironmentWithResponse(ctx context.Context,
 	return ParseUpdateEnvironmentResp(rsp)
 }
 
+// ListHooksWithResponse request returning *ListHooksResp
+func (c *ClientWithResponses) ListHooksWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListHooksParams, reqEditors ...RequestEditorFn) (*ListHooksResp, error) {
+	rsp, err := c.ListHooks(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListHooksResp(rsp)
+}
+
+// CreateHookWithBodyWithResponse request with arbitrary body returning *CreateHookResp
+func (c *ClientWithResponses) CreateHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateHookResp, error) {
+	rsp, err := c.CreateHookWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateHookResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateHookResp, error) {
+	rsp, err := c.CreateHook(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateHookResp(rsp)
+}
+
+// DeleteHookWithResponse request returning *DeleteHookResp
+func (c *ClientWithResponses) DeleteHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*DeleteHookResp, error) {
+	rsp, err := c.DeleteHook(ctx, namespaceName, hookName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteHookResp(rsp)
+}
+
+// GetHookWithResponse request returning *GetHookResp
+func (c *ClientWithResponses) GetHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, reqEditors ...RequestEditorFn) (*GetHookResp, error) {
+	rsp, err := c.GetHook(ctx, namespaceName, hookName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetHookResp(rsp)
+}
+
+// UpdateHookWithBodyWithResponse request with arbitrary body returning *UpdateHookResp
+func (c *ClientWithResponses) UpdateHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateHookResp, error) {
+	rsp, err := c.UpdateHookWithBody(ctx, namespaceName, hookName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateHookResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, hookName HookNameParam, body UpdateHookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateHookResp, error) {
+	rsp, err := c.UpdateHook(ctx, namespaceName, hookName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateHookResp(rsp)
+}
+
 // ListObservabilityAlertsNotificationChannelsWithResponse request returning *ListObservabilityAlertsNotificationChannelsResp
 func (c *ClientWithResponses) ListObservabilityAlertsNotificationChannelsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*ListObservabilityAlertsNotificationChannelsResp, error) {
 	rsp, err := c.ListObservabilityAlertsNotificationChannels(ctx, namespaceName, params, reqEditors...)
@@ -23734,6 +25399,49 @@ func (c *ClientWithResponses) UpdateReleaseBindingWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseUpdateReleaseBindingResp(rsp)
+}
+
+// AcknowledgeReleaseBindingGateWithBodyWithResponse request with arbitrary body returning *AcknowledgeReleaseBindingGateResp
+func (c *ClientWithResponses) AcknowledgeReleaseBindingGateWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcknowledgeReleaseBindingGateResp, error) {
+	rsp, err := c.AcknowledgeReleaseBindingGateWithBody(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcknowledgeReleaseBindingGateResp(rsp)
+}
+
+func (c *ClientWithResponses) AcknowledgeReleaseBindingGateWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body AcknowledgeReleaseBindingGateJSONRequestBody, reqEditors ...RequestEditorFn) (*AcknowledgeReleaseBindingGateResp, error) {
+	rsp, err := c.AcknowledgeReleaseBindingGate(ctx, namespaceName, releaseBindingName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcknowledgeReleaseBindingGateResp(rsp)
+}
+
+// ListReleaseBindingHooksWithResponse request returning *ListReleaseBindingHooksResp
+func (c *ClientWithResponses) ListReleaseBindingHooksWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*ListReleaseBindingHooksResp, error) {
+	rsp, err := c.ListReleaseBindingHooks(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleaseBindingHooksResp(rsp)
+}
+
+// RetryReleaseBindingHookWithBodyWithResponse request with arbitrary body returning *RetryReleaseBindingHookResp
+func (c *ClientWithResponses) RetryReleaseBindingHookWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RetryReleaseBindingHookResp, error) {
+	rsp, err := c.RetryReleaseBindingHookWithBody(ctx, namespaceName, releaseBindingName, hookName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetryReleaseBindingHookResp(rsp)
+}
+
+func (c *ClientWithResponses) RetryReleaseBindingHookWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, hookName HookNameParam, body RetryReleaseBindingHookJSONRequestBody, reqEditors ...RequestEditorFn) (*RetryReleaseBindingHookResp, error) {
+	rsp, err := c.RetryReleaseBindingHook(ctx, namespaceName, releaseBindingName, hookName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRetryReleaseBindingHookResp(rsp)
 }
 
 // GetReleaseBindingK8sResourceEventsWithResponse request returning *GetReleaseBindingK8sResourceEventsResp
@@ -24270,6 +25978,15 @@ func (c *ClientWithResponses) GetWorkflowRunLogsWithResponse(ctx context.Context
 	return ParseGetWorkflowRunLogsResp(rsp)
 }
 
+// ResumeWorkflowRunWithResponse request returning *ResumeWorkflowRunResp
+func (c *ClientWithResponses) ResumeWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*ResumeWorkflowRunResp, error) {
+	rsp, err := c.ResumeWorkflowRun(ctx, namespaceName, runName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResumeWorkflowRunResp(rsp)
+}
+
 // GetWorkflowRunStatusWithResponse request returning *GetWorkflowRunStatusResp
 func (c *ClientWithResponses) GetWorkflowRunStatusWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunStatusResp, error) {
 	rsp, err := c.GetWorkflowRunStatus(ctx, namespaceName, runName, reqEditors...)
@@ -24277,6 +25994,23 @@ func (c *ClientWithResponses) GetWorkflowRunStatusWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetWorkflowRunStatusResp(rsp)
+}
+
+// StopWorkflowRunWithBodyWithResponse request with arbitrary body returning *StopWorkflowRunResp
+func (c *ClientWithResponses) StopWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopWorkflowRunResp, error) {
+	rsp, err := c.StopWorkflowRunWithBody(ctx, namespaceName, runName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopWorkflowRunResp(rsp)
+}
+
+func (c *ClientWithResponses) StopWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body StopWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*StopWorkflowRunResp, error) {
+	rsp, err := c.StopWorkflowRun(ctx, namespaceName, runName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopWorkflowRunResp(rsp)
 }
 
 // ListWorkflowsWithResponse request returning *ListWorkflowsResp
@@ -25993,6 +27727,304 @@ func ParseUpdateClusterDataPlaneResp(rsp *http.Response) (*UpdateClusterDataPlan
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ClusterDataPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListClusterHooksResp parses an HTTP response from a ListClusterHooksWithResponse call
+func ParseListClusterHooksResp(rsp *http.Response) (*ListClusterHooksResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListClusterHooksResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterHookList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterHookResp parses an HTTP response from a CreateClusterHookWithResponse call
+func ParseCreateClusterHookResp(rsp *http.Response) (*CreateClusterHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterHook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterHookResp parses an HTTP response from a DeleteClusterHookWithResponse call
+func ParseDeleteClusterHookResp(rsp *http.Response) (*DeleteClusterHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterHookResp parses an HTTP response from a GetClusterHookWithResponse call
+func ParseGetClusterHookResp(rsp *http.Response) (*GetClusterHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterHook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterHookResp parses an HTTP response from a UpdateClusterHookWithResponse call
+func ParseUpdateClusterHookResp(rsp *http.Response) (*UpdateClusterHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterHook
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -30839,6 +32871,304 @@ func ParseUpdateEnvironmentResp(rsp *http.Response) (*UpdateEnvironmentResp, err
 	return response, nil
 }
 
+// ParseListHooksResp parses an HTTP response from a ListHooksWithResponse call
+func ParseListHooksResp(rsp *http.Response) (*ListHooksResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListHooksResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HookList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateHookResp parses an HTTP response from a CreateHookWithResponse call
+func ParseCreateHookResp(rsp *http.Response) (*CreateHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Hook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteHookResp parses an HTTP response from a DeleteHookWithResponse call
+func ParseDeleteHookResp(rsp *http.Response) (*DeleteHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetHookResp parses an HTTP response from a GetHookWithResponse call
+func ParseGetHookResp(rsp *http.Response) (*GetHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Hook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateHookResp parses an HTTP response from a UpdateHookWithResponse call
+func ParseUpdateHookResp(rsp *http.Response) (*UpdateHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Hook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListObservabilityAlertsNotificationChannelsResp parses an HTTP response from a ListObservabilityAlertsNotificationChannelsWithResponse call
 func ParseListObservabilityAlertsNotificationChannelsResp(rsp *http.Response) (*ListObservabilityAlertsNotificationChannelsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -32849,6 +35179,182 @@ func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcknowledgeReleaseBindingGateResp parses an HTTP response from a AcknowledgeReleaseBindingGateWithResponse call
+func ParseAcknowledgeReleaseBindingGateResp(rsp *http.Response) (*AcknowledgeReleaseBindingGateResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcknowledgeReleaseBindingGateResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReleaseBindingHooksResp parses an HTTP response from a ListReleaseBindingHooksWithResponse call
+func ParseListReleaseBindingHooksResp(rsp *http.Response) (*ListReleaseBindingHooksResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleaseBindingHooksResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeploymentGateStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRetryReleaseBindingHookResp parses an HTTP response from a RetryReleaseBindingHookWithResponse call
+func ParseRetryReleaseBindingHookResp(rsp *http.Response) (*RetryReleaseBindingHookResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RetryReleaseBindingHookResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -35500,6 +38006,67 @@ func ParseGetWorkflowRunLogsResp(rsp *http.Response) (*GetWorkflowRunLogsResp, e
 	return response, nil
 }
 
+// ParseResumeWorkflowRunResp parses an HTTP response from a ResumeWorkflowRunWithResponse call
+func ParseResumeWorkflowRunResp(rsp *http.Response) (*ResumeWorkflowRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResumeWorkflowRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetWorkflowRunStatusResp parses an HTTP response from a GetWorkflowRunStatusWithResponse call
 func ParseGetWorkflowRunStatusResp(rsp *http.Response) (*GetWorkflowRunStatusResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -35534,6 +38101,74 @@ func ParseGetWorkflowRunStatusResp(rsp *http.Response) (*GetWorkflowRunStatusRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopWorkflowRunResp parses an HTTP response from a StopWorkflowRunWithResponse call
+func ParseStopWorkflowRunResp(rsp *http.Response) (*StopWorkflowRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopWorkflowRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

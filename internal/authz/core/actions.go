@@ -86,6 +86,8 @@ const (
 	ActionViewReleaseBinding   = "releasebinding:view"
 	ActionUpdateReleaseBinding = "releasebinding:update"
 	ActionDeleteReleaseBinding = "releasebinding:delete"
+	// ActionAcknowledgeGateReleaseBinding acknowledges an Alert post-deploy hook failure (deployment hooks, alpha).
+	ActionAcknowledgeGateReleaseBinding = "releasebinding:acknowledge-gate"
 
 	// ResourceReleaseBinding actions
 	ActionCreateResourceReleaseBinding = "resourcereleasebinding:create"
@@ -122,12 +124,20 @@ const (
 	ActionViewWorkflowRun   = "workflowrun:view"
 	ActionUpdateWorkflowRun = "workflowrun:update"
 	ActionDeleteWorkflowRun = "workflowrun:delete"
+	// ActionResumeWorkflowRun resumes a suspended run or stops a running one (deployment hooks, alpha).
+	ActionResumeWorkflowRun = "workflowrun:resume"
 
 	// Trait actions
 	ActionCreateTrait = "trait:create"
 	ActionViewTrait   = "trait:view"
 	ActionUpdateTrait = "trait:update"
 	ActionDeleteTrait = "trait:delete"
+
+	// Hook actions (deployment hooks, alpha)
+	ActionCreateHook = "hook:create"
+	ActionViewHook   = "hook:view"
+	ActionUpdateHook = "hook:update"
+	ActionDeleteHook = "hook:delete"
 
 	// Environment actions
 	ActionCreateEnvironment = "environment:create"
@@ -176,6 +186,12 @@ const (
 	ActionViewClusterTrait   = "clustertrait:view"
 	ActionUpdateClusterTrait = "clustertrait:update"
 	ActionDeleteClusterTrait = "clustertrait:delete"
+
+	// ClusterHook actions (deployment hooks, alpha)
+	ActionCreateClusterHook = "clusterhook:create"
+	ActionViewClusterHook   = "clusterhook:view"
+	ActionUpdateClusterHook = "clusterhook:update"
+	ActionDeleteClusterHook = "clusterhook:delete"
 
 	// ClusterWorkflow actions
 	ActionCreateClusterWorkflow = "clusterworkflow:create"
@@ -377,6 +393,7 @@ var systemActions = []Action{
 	{Name: ActionCreateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionAcknowledgeGateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ResourceReleaseBinding
 	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
@@ -413,12 +430,19 @@ var systemActions = []Action{
 	{Name: ActionViewWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionResumeWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 
 	// Trait
 	{Name: ActionViewTrait, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionCreateTrait, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionUpdateTrait, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteTrait, LowestScope: ScopeNamespace, IsInternal: false},
+
+	// Hook
+	{Name: ActionViewHook, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateHook, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateHook, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteHook, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Environment
 	{Name: ActionViewEnvironment, LowestScope: ScopeNamespace, IsInternal: false},
@@ -467,6 +491,12 @@ var systemActions = []Action{
 	{Name: ActionCreateClusterTrait, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionUpdateClusterTrait, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionDeleteClusterTrait, LowestScope: ScopeCluster, IsInternal: false},
+
+	// ClusterHook
+	{Name: ActionViewClusterHook, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionCreateClusterHook, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionUpdateClusterHook, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionDeleteClusterHook, LowestScope: ScopeCluster, IsInternal: false},
 
 	// ClusterWorkflow
 	{Name: ActionViewClusterWorkflow, LowestScope: ScopeCluster, IsInternal: false},
