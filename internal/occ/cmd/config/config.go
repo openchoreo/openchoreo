@@ -251,11 +251,20 @@ func (c *Config) UseContext(params UseContextParams) error {
 	return nil
 }
 
+// SkipContextDefaultsAnnotation marks a command whose namespace, project, component
+// and resource flags are query filters rather than resource locators. Filling them
+// from the current context would silently narrow the query, so ApplyContextDefaults
+// leaves such a command's flags untouched.
+const SkipContextDefaultsAnnotation = "occ.openchoreo.dev/skip-context-defaults"
+
 // ApplyContextDefaults loads the stored config and sets default flag values
 // from the current context, if not already provided.
 func ApplyContextDefaults(cmd *cobra.Command) error {
 	// Skip for config commands to avoid circular dependencies
 	if cmd.Parent() != nil && (cmd.Parent().Name() == "config" || cmd.Parent().Name() == "context" || cmd.Parent().Name() == "controlplane" || cmd.Parent().Name() == "credentials") {
+		return nil
+	}
+	if _, skip := cmd.Annotations[SkipContextDefaultsAnnotation]; skip {
 		return nil
 	}
 

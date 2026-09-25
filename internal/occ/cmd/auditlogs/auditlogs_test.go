@@ -384,7 +384,7 @@ func TestNextPageHint_Descending(t *testing.T) {
 	assert.Equal(t, last, next.EndTime)
 }
 
-func TestNextPageHint_AscendingAdvancesByAMillisecond(t *testing.T) {
+func TestNextPageHint_AscendingAdvancesByANanosecond(t *testing.T) {
 	now := mustTime(t, "2026-08-15T00:00:00Z")
 	params := defaultParams()
 	params.SortOrder = sortAsc
@@ -392,12 +392,17 @@ func TestNextPageHint_AscendingAdvancesByAMillisecond(t *testing.T) {
 	body, err := buildRequest(params, now)
 	require.NoError(t, err)
 
-	last := mustTime(t, "2026-08-14T16:30:00Z").Add(123456789 * time.Nanosecond)
+	// A 100 ns tick, as Azure Log Analytics stores it. Records later in the same
+	// millisecond must stay inside the next window.
+	last := mustTime(t, "2026-08-14T16:30:00.1234567Z")
 	hint := nextPageHint(body, pageOf(5, mustTime(t, "2026-08-14T01:00:00Z"), last))
+	assert.Contains(t, hint, "may repeat a few already shown")
 
 	next, err := buildRequest(hintedParams(t, params, hint), now)
 	require.NoError(t, err)
-	assert.Equal(t, mustTime(t, "2026-08-14T16:30:00Z").Add(124*time.Millisecond), next.StartTime)
+	assert.Equal(t, last.Add(time.Nanosecond), next.StartTime)
+	assert.True(t, next.StartTime.Before(mustTime(t, "2026-08-14T16:30:00.1234568Z")),
+		"next start %s passes the following tick", next.StartTime.Format(time.RFC3339Nano))
 	assert.Equal(t, body.EndTime, next.EndTime)
 }
 
@@ -410,8 +415,8 @@ func TestNextPageHint_NoWindowWhenNextPageWouldBeEmpty(t *testing.T) {
 	}{
 		{name: "descending, last record on the start", sortOrder: sortDesc,
 			last: func(body obsgen.AuditLogsQueryRequest) time.Time { return body.StartTime }},
-		{name: "ascending, last record in the final millisecond", sortOrder: sortAsc,
-			last: func(body obsgen.AuditLogsQueryRequest) time.Time { return body.EndTime.Add(-500 * time.Microsecond) }},
+		{name: "ascending, last record in the final nanosecond", sortOrder: sortAsc,
+			last: func(body obsgen.AuditLogsQueryRequest) time.Time { return body.EndTime.Add(-time.Nanosecond) }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

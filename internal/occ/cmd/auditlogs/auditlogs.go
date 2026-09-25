@@ -406,9 +406,14 @@ func nextPageHint(body obsgen.AuditLogsQueryRequest, resp *obsgen.AuditLogsRespo
 
 	last := resp.Records[len(resp.Records)-1].EventTime.UTC()
 	start, end := body.StartTime, body.EndTime
+	caveat := ""
 	if body.SortOrder != nil && *body.SortOrder == obsgen.AuditLogsQueryRequestSortOrderAsc {
-		// The OpenSearch adapter stores milliseconds, so a smaller step would repeat the page.
-		start = last.Truncate(time.Millisecond).Add(time.Millisecond)
+		// Adapters store event times at different precisions, from milliseconds to
+		// 100 ns ticks, and occ cannot tell which one it is reading. The step must be
+		// finer than all of them: an adapter that truncates the bound to its own unit
+		// then repeats records from that unit instead of skipping the rest of it.
+		start = last.Add(time.Nanosecond)
+		caveat = "A store keeping coarser timestamps than the records may repeat a few already shown. "
 	} else {
 		end = last
 	}
@@ -417,9 +422,9 @@ func nextPageHint(body obsgen.AuditLogsQueryRequest, resp *obsgen.AuditLogsRespo
 			"reaches them; raise --limit to include them.", shown, resp.Total)
 	}
 	return fmt.Sprintf("Showing %d of %d records. For the next page, run the same query with "+
-		"--start %s --end %s in place of any --since, --start or --end. "+
+		"--start %s --end %s in place of any --since, --start or --end. %s"+
 		"Records at that boundary instant that did not fit on this page are skipped; raise --limit to include them.",
-		shown, resp.Total, start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano))
+		shown, resp.Total, start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano), caveat)
 }
 
 func observerError(resp *obsgen.QueryAuditLogsResp) error {

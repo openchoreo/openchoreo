@@ -1068,6 +1068,27 @@ func TestApplyContextDefaults(t *testing.T) {
 		assert.Equal(t, "from-config", cmd.Flags().Lookup("project").Value.String())
 		assert.Equal(t, "from-config", cmd.Flags().Lookup("resource").Value.String())
 	})
+
+	t.Run("skips annotated commands", func(t *testing.T) {
+		setupTestHome(t)
+		seedConfig(t, &StoredConfig{
+			CurrentContext: "ctx1",
+			Contexts: []Context{{
+				Name:      "ctx1",
+				Namespace: "ns1",
+				Project:   "proj1",
+				Component: "comp1",
+				Resource:  "res1",
+			}},
+		})
+		cmd := newCmd()
+		cmd.Annotations = map[string]string{SkipContextDefaultsAnnotation: ""}
+		require.NoError(t, ApplyContextDefaults(cmd))
+		for _, name := range []string{"namespace", "project", "component", "resource"} {
+			assert.False(t, cmd.Flags().Changed(name), "--%s was filled from the context", name)
+			assert.Empty(t, cmd.Flags().Lookup(name).Value.String())
+		}
+	})
 }
 
 func TestUpdateContext_ComponentField(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -42,6 +43,31 @@ func TestAuditLogsCmd_Flags(t *testing.T) {
 	assert.Equal(t, "n", cmd.Flags().Lookup("namespace").Shorthand)
 	assert.Equal(t, "p", cmd.Flags().Lookup("project").Shorthand)
 	assert.Equal(t, "c", cmd.Flags().Lookup("component").Shorthand)
+}
+
+func TestAuditLogsCmd_IgnoresContextDefaults(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
+		CurrentContext: "ctx1",
+		Contexts: []config.Context{{
+			Name:      "ctx1",
+			Namespace: "ns1",
+			Project:   "proj1",
+			Component: "comp1",
+			Resource:  "res1",
+		}},
+	}))
+
+	cmd := NewAuditLogsCmd(errFactory("unused"))
+	require.NoError(t, config.ApplyContextDefaults(cmd))
+
+	params := queryParams(cmd)
+	assert.Empty(t, params.Namespaces)
+	assert.Empty(t, params.Projects)
+	assert.Empty(t, params.Components)
+	assert.Empty(t, params.Resources)
 }
 
 func TestAuditLogsCmd_RejectsArgs(t *testing.T) {
