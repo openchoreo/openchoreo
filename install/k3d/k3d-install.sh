@@ -16,10 +16,10 @@ THUNDER_VERSION="1.0.1"
 
 # -- observability modules (0.0.0-latest-dev on main; pinned on release branches
 #    by hack/pin-observability-modules.sh) --
-LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
-TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
-METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
-EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
+LOGS_OPENSEARCH_VERSION="0.6.0"
+TRACES_OPENSEARCH_VERSION="0.6.0"
+METRICS_PROMETHEUS_VERSION="0.7.1"
+EVENTS_OTEL_COLLECTOR_VERSION="0.1.2"
 
 # -- config --
 CLUSTER_NAME="${CLUSTER_NAME:-openchoreo}"
