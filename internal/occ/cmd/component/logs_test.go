@@ -4,10 +4,13 @@
 package component
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -498,4 +501,64 @@ func TestLogs_WithContainerFilter(t *testing.T) {
 	// Only the requested container's logs appear, prefixed with the container name.
 	assert.Contains(t, out, "[daprd] daprd log")
 	assert.NotContains(t, out, "main log")
+}
+
+// --- followLogs ---
+
+// TestFollowLogs_PrintsSubSecondLogOnce guards the follow poll against re-reading the
+// line it printed last: it resumes 1ms past that line, a step that is lost unless the
+// query bounds keep sub-second precision.
+func TestFollowLogs_PrintsSubSecondLogOnce(t *testing.T) {
+	setupLogsConfig(t)
+
+	// A single stored line at .300 of the previous second, inside the initial window.
+	logAt := time.Now().Add(-time.Second).Truncate(time.Second).Add(300 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	requests := 0
+	var pollStart time.Time
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var body struct {
+			StartTime string `json:"startTime"`
+			EndTime   string `json:"endTime"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return nil, err
+		}
+		start, err := time.Parse(time.RFC3339, body.StartTime)
+		if err != nil {
+			return nil, err
+		}
+		end, err := time.Parse(time.RFC3339, body.EndTime)
+		if err != nil {
+			return nil, err
+		}
+
+		requests++
+		if requests == 2 {
+			// One follow poll is enough to show a repeat; stop well before the next tick.
+			pollStart = start
+			time.AfterFunc(100*time.Millisecond, cancel)
+		}
+
+		// Like a logs backend, return the stored line when it lies within [start, end].
+		var logs []client.LogEntry
+		if !logAt.Before(start) && !logAt.After(end) {
+			logs = append(logs, client.LogEntry{Timestamp: logAt.UTC().Format(time.RFC3339Nano), Log: "request handled"})
+		}
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: logs}), nil
+	}))
+
+	cp := New(nil)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.followLogs(ctx, observerTestURL, "token", "env-uid-123", LogsParams{
+			Namespace: "ns", Project: "my-proj", Component: "my-comp",
+		}, logAt.Add(-time.Hour), time.Now()))
+	})
+
+	require.Equal(t, 2, requests, "expected the initial fetch and one follow poll")
+	assert.True(t, pollStart.After(logAt), "follow poll must resume after the last printed line, got start %s", pollStart)
+	assert.Equal(t, 1, strings.Count(out, "request handled"), "line printed more than once:\n%s", out)
 }
