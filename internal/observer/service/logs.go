@@ -190,7 +190,7 @@ func (s *LogsService) convertComponentLogsToResponse(
 	logs := make([]types.LogEntry, 0, len(result.Logs))
 	for _, log := range result.Logs {
 		logs = append(logs, types.LogEntry{
-			Timestamp: log.Timestamp.Format(time.RFC3339),
+			Timestamp: log.Timestamp.Format(time.RFC3339Nano),
 			Log:       log.Log,
 			Level:     log.LogLevel,
 			Metadata: &types.LogMetadata{
@@ -222,7 +222,7 @@ func (s *LogsService) convertWorkflowLogsToResponse(
 	logs := make([]types.LogEntry, 0, len(result.Logs))
 	for _, log := range result.Logs {
 		logs = append(logs, types.LogEntry{
-			Timestamp: log.Timestamp.Format(time.RFC3339),
+			Timestamp: log.Timestamp.Format(time.RFC3339Nano),
 			Log:       log.Log,
 			Level:     log.LogLevel,
 		})

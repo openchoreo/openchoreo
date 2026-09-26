@@ -255,8 +255,8 @@ func (cp *Component) fetchLogs(
 	}
 
 	reqBody := client.ComponentLogsRequest{
-		StartTime:       startTime.Format(time.RFC3339),
-		EndTime:         endTime.Format(time.RFC3339),
+		StartTime:       startTime.Format(time.RFC3339Nano),
+		EndTime:         endTime.Format(time.RFC3339Nano),
 		EnvironmentID:   environmentID,
 		ComponentName:   params.Component,
 		ProjectName:     params.Project,

@@ -394,3 +394,25 @@ func TestLogsService_ConvertWorkflowLogsToResponse(t *testing.T) {
 	assert.Equal(t, 2, resp.Total)
 	assert.Equal(t, 7, resp.TookMs)
 }
+
+// Sub-second precision must survive conversion: occ --follow resumes from the last
+// timestamp it printed, and a value truncated to the second makes it re-read and
+// re-print every line from that second.
+func TestLogsService_ConvertLogsKeepsSubSecondTimestamps(t *testing.T) {
+	t.Parallel()
+	ts := time.Date(2026, 3, 7, 10, 0, 0, 300_000_000, time.UTC)
+	const want = "2026-03-07T10:00:00.3Z"
+	svc := newLogsServiceForTest(t, &fakeLogsAdapter{})
+
+	component := svc.convertComponentLogsToResponse(&observability.ComponentApplicationLogsResult{
+		Logs: []observability.LogEntry{{Timestamp: ts, Log: "hello"}},
+	})
+	require.Len(t, component.Logs, 1)
+	assert.Equal(t, want, component.Logs[0].Timestamp)
+
+	workflow := svc.convertWorkflowLogsToResponse(&observability.WorkflowLogsResult{
+		Logs: []observability.WorkflowLogEntry{{Timestamp: ts, Log: "hello"}},
+	})
+	require.Len(t, workflow.Logs, 1)
+	assert.Equal(t, want, workflow.Logs[0].Timestamp)
+}
