@@ -4,6 +4,8 @@
 package component
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -45,6 +47,61 @@ var _ = Describe("Component Webhook", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should admit a Component with a valid DNS-1035 name", func() {
+			obj.Name = "my-valid-component"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should admit a Component with a single-character lowercase name", func() {
+			obj.Name = "a"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject a Component whose name contains dots (e.g. wso2-is-7.1.0)", func() {
+			obj.Name = "wso2-is-7.1.0"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name starts with a digit", func() {
+			obj.Name = "1invalid"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name contains uppercase letters", func() {
+			obj.Name = "MyComponent"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should reject a Component whose name ends with a hyphen", func() {
+			obj.Name = "invalid-"
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
+		})
+
+		It("should admit a Component whose name is exactly 63 characters", func() {
+			obj.Name = "a" + strings.Repeat("b", 62)
+			Expect(obj.Name).To(HaveLen(63))
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject a Component whose name is 64 characters", func() {
+			obj.Name = "a" + strings.Repeat("b", 63)
+			Expect(obj.Name).To(HaveLen(64))
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must be no more than 63 characters"))
+		})
+
 		It("should admit a Component with unique trait instance names", func() {
 			obj = componentWithTraits([]openchoreodevv1alpha1.ComponentTrait{
 				{Name: "sidecar", InstanceName: "sidecar-a"},
@@ -76,6 +133,21 @@ var _ = Describe("Component Webhook", func() {
 		It("should admit a valid update with no traits", func() {
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should admit an update with a valid DNS-1035 name", func() {
+			newObj := &openchoreodevv1alpha1.Component{}
+			newObj.Name = "valid-name-123"
+			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject an update whose name contains dots (e.g. wso2-is-7.1.0)", func() {
+			newObj := &openchoreodevv1alpha1.Component{}
+			newObj.Name = "wso2-is-7.1.0"
+			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("DNS-1035"))
 		})
 
 		It("should admit an update with unique trait instance names in the new object", func() {

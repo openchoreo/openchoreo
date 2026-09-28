@@ -6,9 +6,11 @@ package component
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,6 +84,10 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	// Note: Required field validations (componentType, owner.projectName, traits.name, traits.instanceName) are enforced by the CRD schema
 	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
+	// Validate component name against DNS-1035 constraints.
+	// The component name is used directly as a Kubernetes Service name, which must satisfy DNS-1035.
+	allErrs = append(allErrs, validateComponentName(component)...)
+
 	// Validate unique trait instance names
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(component)...)
 
@@ -112,6 +118,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	// Note: spec.componentType immutability is enforced by CEL rules in the CRD schema
 	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
+	// Validate component name against DNS-1035 constraints.
+	// The component name is used directly as a Kubernetes Service name, which must satisfy DNS-1035.
+	allErrs = append(allErrs, validateComponentName(newComponent)...)
+
 	// Validate unique trait instance names
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(newComponent)...)
 
@@ -132,6 +142,26 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 
 	// No special validation needed for deletion
 	return nil, nil
+}
+
+// validateComponentName validates that the Component metadata.name satisfies the Kubernetes
+// DNS-1035 label format required by downstream resource names (e.g. Service names).
+// validation.IsDNS1035Label enforces both the character/position rules and the 63 character
+// limit, and returns the same messages the API server uses for built-in resources.
+func validateComponentName(component *openchoreodevv1alpha1.Component) field.ErrorList {
+	allErrs := field.ErrorList{}
+	name := component.GetName()
+	if name == "" {
+		return allErrs
+	}
+	if msgs := validation.IsDNS1035Label(name); len(msgs) > 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("metadata").Child("name"),
+			name,
+			strings.Join(msgs, "; "),
+		))
+	}
+	return allErrs
 }
 
 // validateUniqueTraitInstanceNames validates that trait instance names are unique within a component
