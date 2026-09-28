@@ -360,12 +360,13 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 // schemaFormatByEndpointType maps an endpoint protocol to the canonical schema
 // format used for its API definition. These values mirror the canonical schema
 // types recognized by internal/pipeline/component/schemaextract. Endpoint types
-// with no API schema format (TCP, UDP, Websocket) are intentionally absent, so a
+// with no API schema format (TCP, UDP) are intentionally absent, so a
 // map lookup yields "" and no schema type is emitted for them.
 var schemaFormatByEndpointType = map[openchoreov1alpha1.EndpointType]string{
-	openchoreov1alpha1.EndpointTypeHTTP:    "openapi",
-	openchoreov1alpha1.EndpointTypeGRPC:    "proto",
-	openchoreov1alpha1.EndpointTypeGraphQL: "graphql",
+	openchoreov1alpha1.EndpointTypeHTTP:      "openapi",
+	openchoreov1alpha1.EndpointTypeGRPC:      "proto",
+	openchoreov1alpha1.EndpointTypeGraphQL:   "graphql",
+	openchoreov1alpha1.EndpointTypeWebsocket: "asyncapi",
 }
 
 // validEndpointVisibilities is the set of allowed visibility values for endpoints.
