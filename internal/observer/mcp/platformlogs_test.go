@@ -171,7 +171,9 @@ func TestQueryPlatformLogs(t *testing.T) {
 		res := result.(*PlatformLogsResult)
 		assert.Len(t, res.Logs, 1)
 		assert.Nil(t, res.Sources)
-		assert.Contains(t, res.SourcesError, "aggregation blew up")
+		assert.NotEmpty(t, res.SourcesError)
+		assert.NotContains(t, res.SourcesError, "aggregation blew up",
+			"sourcesError reaches the caller, so it must not carry the raw backend error")
 	})
 
 	t.Run("an adapter that cannot aggregate still serves the records", func(t *testing.T) {

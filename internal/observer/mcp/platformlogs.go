@@ -65,7 +65,7 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 ) (any, error) {
 	parsedLabels, err := handlers.ParseLabelSelector(labels)
 	if err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	req := &types.PlatformLogsQueryRequest{
@@ -84,14 +84,14 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 	// Applies the same caps and defaults the REST endpoint applies, so a query
 	// the API would reject is not accepted here instead.
 	if err := handlers.ValidatePlatformLogsQueryRequest(req); err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	// An unknown coordinate is the caller's mistake, so it fails the call rather
 	// than degrading to a missing breakdown.
 	fields, err := resolvePlatformLogSourceFields(includeSources)
 	if err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	if maxSources == 0 {
@@ -112,7 +112,7 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 			MaxValues: maxSources,
 		}
 		if err := handlers.ValidatePlatformLogFilterValuesRequest(valuesReq); err != nil {
-			return nil, err
+			return nil, invalidArgument(err)
 		}
 		valuesReqs[name] = valuesReq
 	}
@@ -168,8 +168,10 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 	}
 	if sourcesErr != nil {
 		// Whatever did come back is kept - those counts are correct, and
-		// SourcesError says the breakdown is short of what was asked for.
-		result.SourcesError = sourcesErr.Error()
+		// SourcesError says the breakdown is short of what was asked for. It
+		// reaches the caller inside a successful result, so it goes through the
+		// same mapping a failed call's error does.
+		result.SourcesError = h.toolError("query_platform_logs", sourcesErr).Error()
 	}
 	return result, nil
 }

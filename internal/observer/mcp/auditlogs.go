@@ -99,7 +99,7 @@ func (h *MCPHandler) QueryAuditLogs(ctx context.Context, args AuditLogsQueryArgs
 	// The REST endpoint's own validator, so a query it would reject with a 400 is
 	// not accepted here instead. Also applies the limit and sort order defaults.
 	if err := handlers.ValidateAuditLogsQueryRequest(req); err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	resp, err := h.auditLogsService.QueryAuditLogs(ctx, req)
