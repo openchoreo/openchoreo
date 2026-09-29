@@ -98,6 +98,7 @@ func TestDeliveryInsightsScopeResolution(t *testing.T) {
 				require.Error(t, err, "%s: a scope that does not resolve must fail the query", op)
 				assert.ErrorIs(t, err, tt.wantIs, op)
 				assert.ErrorIs(t, err, ErrDeliveryInsightsResolveSearchScope, op)
+				assert.ErrorIs(t, err, tt.failWith, "%s: the resolver's error must stay in the chain", op)
 				assert.NotErrorIs(t, err, ErrAlertsResolveSearchScope,
 					"%s: delivery insights must not report its failures as the alerts subsystem's", op)
 				assert.Contains(t, err.Error(), tt.wantInMsg, op)

@@ -449,10 +449,11 @@ func wrapScopeError(err error, resourceType, resourceName string) error {
 // wrapSubsystemScopeError classifies a resolver failure as ErrScopeNotFound or
 // ErrScopeResolutionFailed, under the sentinel of the subsystem that asked for it.
 // The resolver is shared, so the subsystem is the caller's to name: a borrowed
-// sentinel makes one subsystem's failures read, and match, as another's.
+// sentinel makes one subsystem's failures read, and match, as another's. The
+// resolver's own error stays in the chain, so logs keep the cause of a failure.
 func wrapSubsystemScopeError(subsystem, err error, resourceType, resourceName string) error {
 	if errors.Is(err, ErrResourceNotFound) {
-		return fmt.Errorf("%w: %s %q not found: %w", subsystem, resourceType, resourceName, ErrScopeNotFound)
+		return fmt.Errorf("%w: %s %q not found: %w: %w", subsystem, resourceType, resourceName, ErrScopeNotFound, err)
 	}
-	return fmt.Errorf("%w: failed to resolve %s %q: %w", subsystem, resourceType, resourceName, ErrScopeResolutionFailed)
+	return fmt.Errorf("%w: failed to resolve %s %q: %w: %w", subsystem, resourceType, resourceName, ErrScopeResolutionFailed, err)
 }
