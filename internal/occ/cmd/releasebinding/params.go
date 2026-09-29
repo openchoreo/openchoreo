@@ -3,6 +3,8 @@
 
 package releasebinding
 
+import "time"
+
 // GenerateParams defines parameters for generating release bindings
 type GenerateParams struct {
 	All              bool   // Generate for all components
@@ -44,3 +46,15 @@ type DeleteParams struct {
 
 func (p DeleteParams) GetNamespace() string          { return p.Namespace }
 func (p DeleteParams) GetReleaseBindingName() string { return p.ReleaseBindingName }
+
+// TreeParams defines parameters for showing a release binding's resource tree
+type TreeParams struct {
+	Namespace          string
+	ReleaseBindingName string
+	Watch              bool
+	Interval           time.Duration
+	Timeout            time.Duration
+	Kind               string
+}
+
+func (p TreeParams) GetNamespace() string { return p.Namespace }

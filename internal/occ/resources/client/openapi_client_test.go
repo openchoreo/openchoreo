@@ -3739,3 +3739,46 @@ func TestListComponents_WithProjectFilter(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Items, 1)
 }
+
+// --- GetReleaseBindingResourceTree ---
+
+func TestGetReleaseBindingResourceTree_Success(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetReleaseBindingK8sResourceTreeWithResponse(mock.Anything, mock.Anything, mock.Anything).
+		Return(&gen.GetReleaseBindingK8sResourceTreeResp{
+			HTTPResponse: httpResp(http.StatusOK),
+			JSON200: &gen.K8sResourceTreeResponse{
+				RenderedReleases: []gen.ReleaseResourceTree{{Name: "rel-1", TargetPlane: "dataplane"}},
+			},
+		}, nil)
+	c := newMockClient(m)
+
+	got, err := c.GetReleaseBindingResourceTree(context.Background(), "ns", "rb")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Len(t, got.RenderedReleases, 1)
+	assert.Equal(t, "rel-1", got.RenderedReleases[0].Name)
+}
+
+func TestGetReleaseBindingResourceTree_NotFound(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetReleaseBindingK8sResourceTreeWithResponse(mock.Anything, mock.Anything, mock.Anything).
+		Return(&gen.GetReleaseBindingK8sResourceTreeResp{
+			HTTPResponse: httpResp(http.StatusNotFound),
+			Body:         []byte(`{"code":"NOT_FOUND","error":"release binding \"rb\" not found"}`),
+		}, nil)
+	c := newMockClient(m)
+
+	_, err := c.GetReleaseBindingResourceTree(context.Background(), "ns", "rb")
+	assert.EqualError(t, err, `release binding "rb" not found`)
+}
+
+func TestGetReleaseBindingResourceTree_TransportError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().GetReleaseBindingK8sResourceTreeWithResponse(mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, fmt.Errorf("connection refused"))
+	c := newMockClient(m)
+
+	_, err := c.GetReleaseBindingResourceTree(context.Background(), "ns", "rb")
+	assert.ErrorContains(t, err, "connection refused")
+}
