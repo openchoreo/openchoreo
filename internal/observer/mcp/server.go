@@ -56,20 +56,32 @@ func NewServer(handler *MCPHandler) *mcpsdk.Server {
 	return server
 }
 
-// handleToolResult marshals the result to JSON and wraps it in MCP CallToolResult format
-func handleToolResult(result any, err error) (*mcpsdk.CallToolResult, any, error) {
+// handleToolResult marshals the result to JSON and wraps it in MCP CallToolResult
+// format. Every tool returns through it, so every error reaches the caller through
+// toolError rather than as the service wrote it.
+func (h *MCPHandler) handleToolResult(
+	req *mcpsdk.CallToolRequest, result any, err error,
+) (*mcpsdk.CallToolResult, any, error) {
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, h.toolError(toolName(req), err)
 	}
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, h.toolError(toolName(req), err)
 	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: string(jsonData)},
 		},
 	}, result, nil
+}
+
+// toolName names the tool a request called, for the observer's own logs.
+func toolName(req *mcpsdk.CallToolRequest) string {
+	if req == nil || req.Params == nil {
+		return "tool"
+	}
+	return req.Params.Name
 }
 
 func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
@@ -102,14 +114,14 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder    string   `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryComponentLogs(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.SearchPhrase,
 			args.LogLevels, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 2: query_workflow_logs
@@ -143,7 +155,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.StartTime, args.EndTime, args.SearchPhrase,
 			args.LogLevels, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool: query_platform_logs
@@ -210,7 +222,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.LogLevels, args.Limit, args.SortOrder,
 			args.IncludeSources, args.MaxSources,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool: query_component_events
@@ -238,13 +250,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryComponentEvents(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool: query_workflow_events
@@ -271,7 +283,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.WorkflowRunName,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 3: query_resource_metrics
@@ -297,7 +309,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Step        string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		var step *string
 		if args.Step != "" {
@@ -307,7 +319,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, step,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 4: query_http_metrics
@@ -333,7 +345,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Step        string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		var step *string
 		if args.Step != "" {
@@ -343,7 +355,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, step,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 5: query_traces
@@ -371,13 +383,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryTraces(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 6: query_trace_spans
@@ -407,14 +419,14 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryTraceSpans(ctx,
 			args.TraceID,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 7: get_span_details
@@ -430,7 +442,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SpanID  string `json:"span_id"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		result, err := handler.GetSpanDetails(ctx, args.TraceID, args.SpanID)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 8: query_alerts
@@ -458,13 +470,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryAlerts(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 9: query_incidents
@@ -492,13 +504,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryIncidents(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 10: query_costs
@@ -527,7 +539,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.Environment, args.Project, args.Component,
 			args.StartTime, args.EndTime, args.Granularity,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 11: query_recommendations
@@ -554,7 +566,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			args.Namespace, args.Environment, args.Project, args.Component,
 			args.StartTime, args.EndTime,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool: query_audit_logs
@@ -640,7 +652,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		*mcpsdk.CallToolResult, any, error,
 	) {
 		result, err := handler.QueryAuditLogs(ctx, args)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 12: query_dora_metrics
@@ -673,13 +685,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Metrics     []string `json:"metrics"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryDoraMetrics(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.Granularity, args.StartTime, args.EndTime, args.Metrics,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 
 	// Tool 13: query_dora_deployments
@@ -712,13 +724,13 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
-			return nil, nil, err
+			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryDoraDeployments(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.SortOrder, args.Limit,
 		)
-		return handleToolResult(result, err)
+		return handler.handleToolResult(req, result, err)
 	})
 }
 

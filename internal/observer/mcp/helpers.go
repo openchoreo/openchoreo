@@ -23,7 +23,7 @@ func strPtr(s string) *string {
 func parseRFC3339Time(timeStr string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid time format (expected RFC3339): %w", err)
+		return time.Time{}, invalidArgument(fmt.Errorf("invalid time format (expected RFC3339): %w", err))
 	}
 	return t, nil
 }
@@ -45,10 +45,10 @@ func setDefaults(limit int, sortOrder string, logLevels []string) (int, string, 
 // validateComponentScope validates that the required scope fields are present.
 func validateComponentScope(namespace, project, component string) error {
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return invalidArgument(fmt.Errorf("namespace is required"))
 	}
 	if component != "" && project == "" {
-		return fmt.Errorf("project is required when component is provided")
+		return invalidArgument(fmt.Errorf("project is required when component is provided"))
 	}
 	return nil
 }
@@ -57,20 +57,33 @@ func validateComponentScope(namespace, project, component string) error {
 // additionally require an environment.
 func validateFinOpsScope(namespace, environment, project, component string) error {
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return invalidArgument(fmt.Errorf("namespace is required"))
 	}
 	if environment == "" {
-		return fmt.Errorf("environment is required")
+		return invalidArgument(fmt.Errorf("environment is required"))
 	}
 	if component != "" && project == "" {
-		return fmt.Errorf("project is required when component is provided")
+		return invalidArgument(fmt.Errorf("project is required when component is provided"))
 	}
 	return nil
 }
 
 func validateGranularity(granularity string) error {
 	if granularity != "" && !granularityPattern.MatchString(granularity) {
-		return fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)")
+		return invalidArgument(fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)"))
+	}
+	return nil
+}
+
+// validateTimeRange checks that both bounds are RFC3339, for the tools whose
+// service would otherwise report a malformed time without marking it as the
+// caller's mistake.
+func validateTimeRange(startTime, endTime string) error {
+	if _, err := parseRFC3339Time(startTime); err != nil {
+		return fmt.Errorf("invalid start_time: %w", err)
+	}
+	if _, err := parseRFC3339Time(endTime); err != nil {
+		return fmt.Errorf("invalid end_time: %w", err)
 	}
 	return nil
 }
