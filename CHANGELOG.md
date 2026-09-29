@@ -10,6 +10,7 @@ Changes since [v1.3.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 
 - **(Audit Logs)** Service account audit events recorded `actor.id: "unknown"` because the configured claim named a person's identity, not a service account's; each auth mechanism now names its own readable-ID claim, so a service account is identified by `client_id` and a person by `username`. Existing service-account records change from `"unknown"` to a real identity with no config change, so any filter matching `"unknown"` stops matching. ([#4828](https://github.com/openchoreo/openchoreo/pull/4828))
 - **(CLI)** `occ auditlogs` no longer picks up namespace, project, component, or resource from the current context as hidden filters, and ascending paging steps by a nanosecond so finer-grained stores don't skip records. ([#4834](https://github.com/openchoreo/openchoreo/pull/4834))
+- **(Observer)** Observer MCP tools return the same caller-safe error messages as the REST API, with full error details logged on the Observer. ([#4854](https://github.com/openchoreo/openchoreo/pull/4854))
 
 ## v1.3.0
 
