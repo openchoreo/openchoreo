@@ -443,8 +443,16 @@ func enumPtr[T ~string](value string) *T {
 }
 
 func wrapScopeError(err error, resourceType, resourceName string) error {
+	return wrapSubsystemScopeError(ErrAlertsResolveSearchScope, err, resourceType, resourceName)
+}
+
+// wrapSubsystemScopeError classifies a resolver failure as ErrScopeNotFound or
+// ErrScopeResolutionFailed, under the sentinel of the subsystem that asked for it.
+// The resolver is shared, so the subsystem is the caller's to name: a borrowed
+// sentinel makes one subsystem's failures read, and match, as another's.
+func wrapSubsystemScopeError(subsystem, err error, resourceType, resourceName string) error {
 	if errors.Is(err, ErrResourceNotFound) {
-		return fmt.Errorf("%w: %s %q not found: %w", ErrAlertsResolveSearchScope, resourceType, resourceName, ErrScopeNotFound)
+		return fmt.Errorf("%w: %s %q not found: %w", subsystem, resourceType, resourceName, ErrScopeNotFound)
 	}
-	return fmt.Errorf("%w: failed to resolve %s %q: %w", ErrAlertsResolveSearchScope, resourceType, resourceName, ErrScopeResolutionFailed)
+	return fmt.Errorf("%w: failed to resolve %s %q: %w", subsystem, resourceType, resourceName, ErrScopeResolutionFailed)
 }
