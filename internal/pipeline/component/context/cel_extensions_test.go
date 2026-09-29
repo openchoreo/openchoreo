@@ -747,14 +747,14 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 func TestToContainerPortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
-	_, err := engine.Render(`${workload.toContainerPorts()}`, workloadInputs(WorkloadData{}))
+	_, err := engine.Render(t.Context(), `${workload.toContainerPorts()}`, workloadInputs(WorkloadData{}))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	inputs := workloadInputs(WorkloadData{})
 	inputs["other"] = map[string]any{}
-	_, err = engine.Render(`${other.toContainerPorts()}`, inputs)
+	_, err = engine.Render(t.Context(), `${other.toContainerPorts()}`, inputs)
 	if err == nil {
 		t.Error("expected error for non-workload receiver")
 	}
