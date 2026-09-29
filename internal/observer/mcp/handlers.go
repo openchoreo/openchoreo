@@ -92,6 +92,9 @@ func NewMCPHandler(
 func (h *MCPHandler) QueryComponentLogs(ctx context.Context, namespace, project, component, environment,
 	startTime, endTime, searchPhrase string, logLevels []string, limit int, sortOrder string) (any, error) {
 	limit, sortOrder, logLevels = setDefaults(limit, sortOrder, logLevels)
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.LogsQueryRequest{
 		SearchScope: &types.SearchScope{
 			Component: &types.ComponentSearchScope{
@@ -114,6 +117,9 @@ func (h *MCPHandler) QueryComponentLogs(ctx context.Context, namespace, project,
 func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowRunName, taskName,
 	startTime, endTime, searchPhrase string, logLevels []string, limit int, sortOrder string) (any, error) {
 	limit, sortOrder, logLevels = setDefaults(limit, sortOrder, logLevels)
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.LogsQueryRequest{
 		SearchScope: &types.SearchScope{
 			Workflow: &types.WorkflowSearchScope{
@@ -135,6 +141,9 @@ func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowR
 func (h *MCPHandler) QueryComponentEvents(ctx context.Context, namespace, project, component, environment,
 	startTime, endTime string, limit int, sortOrder string) (any, error) {
 	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.EventsQueryRequest{
 		SearchScope: &types.SearchScope{
 			Component: &types.ComponentSearchScope{
@@ -155,6 +164,9 @@ func (h *MCPHandler) QueryComponentEvents(ctx context.Context, namespace, projec
 func (h *MCPHandler) QueryWorkflowEvents(ctx context.Context, namespace, workflowRunName,
 	startTime, endTime string, limit int, sortOrder string) (any, error) {
 	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.EventsQueryRequest{
 		SearchScope: &types.SearchScope{
 			Workflow: &types.WorkflowSearchScope{
@@ -172,6 +184,9 @@ func (h *MCPHandler) QueryWorkflowEvents(ctx context.Context, namespace, workflo
 
 func (h *MCPHandler) QueryResourceMetrics(ctx context.Context, namespace, project, component, environment,
 	startTime, endTime string, step *string) (any, error) {
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.MetricsQueryRequest{
 		Metric:    types.MetricTypeResource,
 		StartTime: startTime,
@@ -189,6 +204,9 @@ func (h *MCPHandler) QueryResourceMetrics(ctx context.Context, namespace, projec
 
 func (h *MCPHandler) QueryHTTPMetrics(ctx context.Context, namespace, project, component, environment,
 	startTime, endTime string, step *string) (any, error) {
+	if err := validateTimeRange(startTime, endTime); err != nil {
+		return nil, err
+	}
 	req := &types.MetricsQueryRequest{
 		Metric:    types.MetricTypeHTTP,
 		StartTime: startTime,
@@ -389,7 +407,7 @@ func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, c
 	// point per bucket to the requested end -- twice over, since the payload is
 	// JSON round-tripped.
 	if err := apihandlers.ValidateDoraMetricsQueryRequest(&req); err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	return h.deliveryInsightsService.QueryDoraMetrics(ctx, req)
@@ -431,7 +449,7 @@ func (h *MCPHandler) QueryDoraDeployments(ctx context.Context, namespace, projec
 	// runs its own: this path would otherwise have no window cap, no ordering
 	// check and no limit bound.
 	if err := apihandlers.ValidateDoraDeploymentsQueryRequest(&req); err != nil {
-		return nil, err
+		return nil, invalidArgument(err)
 	}
 
 	return h.deliveryInsightsService.QueryDoraDeployments(ctx, req)
