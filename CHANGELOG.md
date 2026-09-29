@@ -2,6 +2,15 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.3.1
+
+Changes since [v1.3.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.0).
+
+### Bug Fixes
+
+- **(Audit Logs)** Service account audit events recorded `actor.id: "unknown"` because the configured claim named a person's identity, not a service account's; each auth mechanism now names its own readable-ID claim, so a service account is identified by `client_id` and a person by `username`. Existing service-account records change from `"unknown"` to a real identity with no config change, so any filter matching `"unknown"` stops matching. ([#4828](https://github.com/openchoreo/openchoreo/pull/4828))
+- **(CLI)** `occ auditlogs` no longer picks up namespace, project, component, or resource from the current context as hidden filters, and ascending paging steps by a nanosecond so finer-grained stores don't skip records. ([#4834](https://github.com/openchoreo/openchoreo/pull/4834))
+
 ## v1.3.0
 
 Changes since [v1.2.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.0).
