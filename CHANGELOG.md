@@ -2,6 +2,15 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.7
+
+Changes since [v1.2.6](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.6).
+
+### Bug Fixes
+
+- **(FinOps/SRE Agents)** Single-object report routes now authorize against the report's own project instead of the caller's. ([#4807](https://github.com/openchoreo/openchoreo/pull/4807))
+- **(Helm)** Observability-plane pods restricted to same-namespace ingress, with explicit allow-rules for the gateway and collector. ([#4739](https://github.com/openchoreo/openchoreo/pull/4739))
+
 ## v1.2.6
 
 Changes since [v1.2.5](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.5).
