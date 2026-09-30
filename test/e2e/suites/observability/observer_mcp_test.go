@@ -328,7 +328,9 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 
 	It("O4d: query_traces (best-effort, traces → tracing receiver)", func() {
 		// O4d (best-effort): query_traces. Verifies the traces -> tracing-receiver path; accepts zero
-		// traces / OBS-V1-T-05 since the greeter isn't OTel-instrumented. Genuinely needs e2e: real
+		// traces / a retrieval failure since the greeter isn't OTel-instrumented. The MCP boundary maps
+		// a retrieval failure to its generic internal-error message (internal/observer/mcp/errors.go);
+		// the REST text and OBS-V1-T-05 code never reach MCP callers. Genuinely needs e2e: real
 		// tracing-receiver wiring.
 		start, end := observerTimeWindow()
 		_, err := framework.CallMCPTool(adminSession, "query_traces", map[string]any{
@@ -341,15 +343,13 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 			"limit":       10,
 		})
 		if err != nil {
-			Expect(err.Error()).To(SatisfyAny(
-				ContainSubstring("Failed to retrieve traces"),
-				ContainSubstring(tracesRetrievalFailedCode),
-			), "unexpected query_traces error: %v", err)
+			Expect(err.Error()).To(ContainSubstring("query_traces failed due to an internal error"),
+				"unexpected query_traces error: %v", err)
 		}
 	})
 
 	It("O5: unbound subject is DENIED on query_component_logs", func() {
-		// O5: an unbound subject must be DENIED on query_component_logs with "insufficient permissions".
+		// O5: an unbound subject must be DENIED on query_component_logs with "access denied".
 		// Observer has no protocol-layer filter, so the denial necessarily traverses the authz chain:
 		// jwt -> handler -> authz-wrapped service -> CP PDP. The PDP decision itself is unit-tested in
 		// internal/authz/casbin/pdp_test.go; what e2e adds is that this genuinely spans the observer (OP)
@@ -364,7 +364,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 			"end_time":      end,
 			"search_phrase": "Starting HTTP Greeter",
 			"limit":         50,
-		}, "insufficient permissions to perform this action")
+		}, "access denied")
 	})
 
 	It("O5b: unbound subject is DENIED on query_component_events (events authz wrapper)", func() {
@@ -381,7 +381,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 			"start_time":  start,
 			"end_time":    end,
 			"limit":       100,
-		}, "insufficient permissions to perform this action")
+		}, "access denied")
 	})
 
 	It("O6: grant developer role → query succeeds → revoke → denied (and tool count stays 14)", func() {
@@ -441,6 +441,6 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 				"end_time":      probeEnd,
 				"search_phrase": "Starting HTTP Greeter",
 				"limit":         50,
-			}, "insufficient permissions", nil))
+			}, "access denied", nil))
 	})
 })
