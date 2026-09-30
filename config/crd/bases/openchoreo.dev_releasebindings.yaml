@@ -201,6 +201,31 @@ spec:
                           - message: value and valueFrom are mutually exclusive
                             rule: '!(has(self.value) && has(self.valueFrom))'
                         type: array
+                      resources:
+                        description: Resources overrides the container's resource
+                          requests and limits.
+                        properties:
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Limits specifies the maximum resources available
+                              to the container.
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Requests specifies the minimum resources
+                              required by the container.
+                            type: object
+                        type: object
                     type: object
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

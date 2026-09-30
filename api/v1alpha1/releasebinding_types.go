@@ -144,6 +144,9 @@ type ContainerOverride struct {
 	// File configurations.
 	// +optional
 	Files []FileVar `json:"files,omitempty"`
+	// Resources overrides the container's resource requests and limits.
+	// +optional
+	Resources *ContainerResources `json:"resources,omitempty"`
 }
 
 // WorkloadOverrideTemplateSpec defines overrides for workload configuration.

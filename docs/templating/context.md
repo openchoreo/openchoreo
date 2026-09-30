@@ -303,6 +303,9 @@ workload:
     image: "myregistry/myapp:v1.0"        # ${workload.container.image}
     command: [ "./start.sh" ]               # ${workload.container.command}
     args: [ "--port", "8080" ]              # ${workload.container.args}
+    resources:
+      requests: { cpu: "500m", memory: "1Gi", "nvidia.com/gpu": "1" }
+      limits: { cpu: "1", memory: "2Gi", "nvidia.com/gpu": "1" }
   endpoints:
     http: # ${workload.endpoints.http}
       type: "HTTP"                      # ${workload.endpoints.http.type}

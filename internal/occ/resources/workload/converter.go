@@ -21,9 +21,14 @@ import (
 type WorkloadDescriptor struct {
 	APIVersion     string                          `yaml:"apiVersion"`
 	Metadata       WorkloadDescriptorMetadata      `yaml:"metadata"`
+	Container      WorkloadDescriptorContainer     `yaml:"container,omitempty"`
 	Endpoints      []WorkloadDescriptorEndpoint    `yaml:"endpoints,omitempty"`
 	Dependencies   *WorkloadDescriptorDependencies `yaml:"dependencies,omitempty"`
 	Configurations WorkloadDescriptorConfiguration `yaml:"configurations,omitempty"`
+}
+
+type WorkloadDescriptorContainer struct {
+	Resources *openchoreov1alpha1.ContainerResources `yaml:"resources,omitempty"`
 }
 
 type WorkloadDescriptorMetadata struct {
@@ -300,6 +305,9 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params CreateWo
 	// Add configurations from descriptor if present
 	if err := addConfigurationsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
 		return nil, fmt.Errorf("failed to add configurations: %w", err)
+	}
+	if descriptor.Container.Resources != nil {
+		workload.Spec.Container.Resources = descriptor.Container.Resources.DeepCopy()
 	}
 
 	return workload, nil

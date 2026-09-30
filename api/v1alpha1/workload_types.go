@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,6 +58,16 @@ type FileVar struct {
 	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
 }
 
+// ContainerResources defines requests and limits for a workload container.
+type ContainerResources struct {
+	// Requests specifies the minimum resources required by the container.
+	// +optional
+	Requests corev1.ResourceList `json:"requests,omitempty"`
+	// Limits specifies the maximum resources available to the container.
+	// +optional
+	Limits corev1.ResourceList `json:"limits,omitempty"`
+}
+
 // Container represents a single container in the workload.
 type Container struct {
 	// OCI image to run (digest or tag).
@@ -77,6 +88,10 @@ type Container struct {
 	// File configurations.
 	// +optional
 	Files []FileVar `json:"files,omitempty"`
+
+	// Resources specifies resource requests and limits for the container.
+	// +optional
+	Resources *ContainerResources `json:"resources,omitempty"`
 }
 
 // EndpointType defines the different API technologies supported by the endpoint

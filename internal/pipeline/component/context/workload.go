@@ -21,6 +21,9 @@ func MergeWorkloadOverrides(baseWorkload *openchoreov1alpha1.Workload, overrides
 	merged := baseWorkload.DeepCopy()
 	merged.Spec.Container.Env = mergeEnvConfigs(merged.Spec.Container.Env, overrides.Container.Env)
 	merged.Spec.Container.Files = mergeFileConfigs(merged.Spec.Container.Files, overrides.Container.Files)
+	if overrides.Container.Resources != nil {
+		merged.Spec.Container.Resources = overrides.Container.Resources.DeepCopy()
+	}
 
 	return merged
 }

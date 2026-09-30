@@ -1,0 +1,175 @@
+# Sample: Ollama model server scheduled onto NVIDIA GPU nodes.
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterComponentType
+metadata:
+  name: ollama-inference
+  annotations:
+    openchoreo.dev/description: "Internal Ollama model server with platform-controlled NVIDIA GPU placement"
+spec:
+  workloadType: deployment
+  allowedTraits:
+    - kind: ClusterTrait
+      name: nvidia-gpu-placement
+    - kind: ClusterTrait
+      name: persistent-volume-claim
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 1
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum: [Always, IfNotPresent, Never]
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${environmentConfigs.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: main
+                  image: ${workload.container.image}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
+                  command: |
+                    ${has(workload.container.command) ? workload.container.command : oc_omit()}
+                  args: |
+                    ${has(workload.container.args) ? workload.container.args : oc_omit()}
+                  resources: |
+                    ${has(workload.container.resources) ? workload.container.resources : oc_omit()}
+                  env: ${dependencies.toContainerEnvs()}
+                  envFrom: ${configurations.toContainerEnvFrom()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
+
+    - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports: ${workload.toServicePorts()}
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: nvidia-gpu-placement
+spec:
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        nodeSelector:
+          type: object
+          description: Node selector supplied by the platform for this environment.
+          additionalProperties:
+            type: string
+      required:
+        - nodeSelector
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/nodeSelector
+          value: ${environmentConfigs.nodeSelector}
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: ollama-model-server
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/ollama-inference
+  traits:
+    - kind: ClusterTrait
+      name: nvidia-gpu-placement
+      instanceName: gpu-placement
+    - kind: ClusterTrait
+      name: persistent-volume-claim
+      instanceName: model-cache
+      parameters:
+        mountPath: /root/.ollama
+        accessMode: ReadWriteOnce
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: ollama-model-server-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: ollama-model-server
+  endpoints:
+    ollama:
+      type: HTTP
+      port: 11434
+      visibility: [project]
+  container:
+    image: ollama/ollama:0.35.0
+    env:
+      - key: OLLAMA_HOST
+        value: 0.0.0.0:11434
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+        nvidia.com/gpu: "1"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: ollama-model-server-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: ollama-model-server
+  environment: development
+  componentTypeEnvironmentConfigs:
+    replicas: 1
+    imagePullPolicy: IfNotPresent
+  traitEnvironmentConfigs:
+    gpu-placement:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+    model-cache:
+      enabled: true
+      size: 5Gi

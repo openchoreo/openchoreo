@@ -10,6 +10,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -701,6 +703,11 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 					Image:   "myapp:v1",
 					Command: []string{"/bin/app"},
 					Args:    []string{"--port=8080"},
+					Resources: &v1alpha1.ContainerResources{
+						Limits: corev1.ResourceList{
+							corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+						},
+					},
 				},
 				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
 					"http-ep": {
@@ -731,6 +738,9 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 	assert.Equal(t, "myapp:v1", data.Container.Image)
 	assert.Equal(t, []string{"/bin/app"}, data.Container.Command)
 	assert.Equal(t, []string{"--port=8080"}, data.Container.Args)
+	require.NotNil(t, data.Container.Resources)
+	gpuLimit := data.Container.Resources.Limits[corev1.ResourceName("nvidia.com/gpu")]
+	assert.Equal(t, "1", gpuLimit.String())
 
 	// HTTP endpoint
 	httpEp, ok := data.Endpoints["http-ep"]

@@ -42,6 +42,9 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
 - **[Component with Embedded Traits](./component-types/component-with-embedded-traits/)** - Demonstrate PE-defined embedded traits
 
+### [GPU Model Inference](./gpu-inference)
+Deploy an Ollama server with a native NVIDIA GPU resource request, platform-controlled GPU node placement, persistent model storage, and two small models.
+
 ### [Workflows](./workflows)
 Reusable Workflow definitions for standalone automation tasks independent of any Component.
 

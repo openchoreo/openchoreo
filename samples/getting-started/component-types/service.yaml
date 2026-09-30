@@ -107,12 +107,8 @@ spec:
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   ports: ${workload.toContainerPorts()}
                   resources:
-                    requests:
-                      cpu: ${environmentConfigs.resources.requests.cpu}
-                      memory: ${environmentConfigs.resources.requests.memory}
-                    limits:
-                      cpu: ${environmentConfigs.resources.limits.cpu}
-                      memory: ${environmentConfigs.resources.limits.memory}
+                    requests: ${oc_merge(has(workload.container.resources) && has(workload.container.resources.requests) ? workload.container.resources.requests : {}, environmentConfigs.resources.requests)}
+                    limits: ${oc_merge(has(workload.container.resources) && has(workload.container.resources.limits) ? workload.container.resources.limits : {}, environmentConfigs.resources.limits)}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}

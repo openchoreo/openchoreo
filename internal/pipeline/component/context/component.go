@@ -339,9 +339,10 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 	}
 
 	data.Container = ContainerData{
-		Image:   workload.Spec.Container.Image,
-		Command: workload.Spec.Container.Command,
-		Args:    workload.Spec.Container.Args,
+		Image:     workload.Spec.Container.Image,
+		Command:   workload.Spec.Container.Command,
+		Args:      workload.Spec.Container.Args,
+		Resources: workload.Spec.Container.Resources,
 	}
 
 	for name, endpoint := range workload.Spec.Endpoints {

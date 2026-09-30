@@ -8,6 +8,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -540,6 +543,37 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeWorkloadOverrides_Resources(t *testing.T) {
+	base := &v1alpha1.Workload{
+		Spec: v1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+				Container: v1alpha1.Container{
+					Resources: &v1alpha1.ContainerResources{
+						Limits: map[corev1.ResourceName]resource.Quantity{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+		},
+	}
+	overrides := &v1alpha1.WorkloadOverrideTemplateSpec{
+		Container: &v1alpha1.ContainerOverride{
+			Resources: &v1alpha1.ContainerResources{
+				Limits: map[corev1.ResourceName]resource.Quantity{
+					"nvidia.com/gpu": resource.MustParse("2"),
+				},
+			},
+		},
+	}
+
+	got := MergeWorkloadOverrides(base, overrides)
+	gotLimit := got.Spec.Container.Resources.Limits["nvidia.com/gpu"]
+	baseLimit := base.Spec.Container.Resources.Limits["nvidia.com/gpu"]
+	require.Equal(t, "2", gotLimit.String())
+	require.Equal(t, "1", baseLimit.String())
 }
 
 func TestMergeEnvConfigs(t *testing.T) {

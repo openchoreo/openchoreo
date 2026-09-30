@@ -318,9 +318,10 @@ type WorkloadData struct {
 
 // ContainerData contains container information.
 type ContainerData struct {
-	Image   string   `json:"image,omitempty"`
-	Command []string `json:"command,omitempty"`
-	Args    []string `json:"args,omitempty"`
+	Image     string                       `json:"image,omitempty"`
+	Command   []string                     `json:"command,omitempty"`
+	Args      []string                     `json:"args,omitempty"`
+	Resources *v1alpha1.ContainerResources `json:"resources,omitempty"`
 }
 
 // EndpointData contains endpoint information.

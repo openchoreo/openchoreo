@@ -799,6 +799,10 @@ func TestReadWorkloadDescriptor(t *testing.T) {
 		content := `apiVersion: openchoreo.dev/v1alpha1
 metadata:
   name: my-service
+container:
+  resources:
+    limits:
+      nvidia.com/gpu: "1"
 endpoints:
   - name: http
     port: 8080
@@ -809,6 +813,8 @@ endpoints:
 		require.NoError(t, err)
 		assert.Equal(t, "my-service", desc.Metadata.Name)
 		assert.Len(t, desc.Endpoints, 1)
+		gpuLimit := desc.Container.Resources.Limits["nvidia.com/gpu"]
+		assert.Equal(t, "1", gpuLimit.String())
 	})
 	t.Run("returns error for missing file", func(t *testing.T) {
 		_, err := readWorkloadDescriptor("/nonexistent/workload.yaml")
