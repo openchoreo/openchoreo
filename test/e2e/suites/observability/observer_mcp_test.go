@@ -349,7 +349,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	})
 
 	It("O5: unbound subject is DENIED on query_component_logs", func() {
-		// O5: an unbound subject must be DENIED on query_component_logs with "insufficient permissions".
+		// O5: an unbound subject must be DENIED on query_component_logs with "access denied".
 		// Observer has no protocol-layer filter, so the denial necessarily traverses the authz chain:
 		// jwt -> handler -> authz-wrapped service -> CP PDP. The PDP decision itself is unit-tested in
 		// internal/authz/casbin/pdp_test.go; what e2e adds is that this genuinely spans the observer (OP)
@@ -364,7 +364,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 			"end_time":      end,
 			"search_phrase": "Starting HTTP Greeter",
 			"limit":         50,
-		}, "insufficient permissions to perform this action")
+		}, "access denied")
 	})
 
 	It("O5b: unbound subject is DENIED on query_component_events (events authz wrapper)", func() {
@@ -381,7 +381,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 			"start_time":  start,
 			"end_time":    end,
 			"limit":       100,
-		}, "insufficient permissions to perform this action")
+		}, "access denied")
 	})
 
 	It("O6: grant developer role → query succeeds → revoke → denied (and tool count stays 14)", func() {
@@ -441,6 +441,6 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 				"end_time":      probeEnd,
 				"search_phrase": "Starting HTTP Greeter",
 				"limit":         50,
-			}, "insufficient permissions", nil))
+			}, "access denied", nil))
 	})
 })
