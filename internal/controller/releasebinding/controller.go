@@ -692,6 +692,18 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, err
 	}
 
+	// Delivery events describe the rollout the RenderedRelease above just carried
+	// to the data plane, so they are reconciled here, before any of the guards
+	// below. Those guards stop the reconcile for reasons that have nothing to do
+	// with that rollout -- unresolved connections or resource dependencies, an
+	// observability Release owned elsewhere -- and several return without a
+	// requeue, so a delivery call placed after them lost the rollout outright
+	// even though its pods were already running. reconcileDelivery gates itself
+	// on the rollout's own health (deliveryHealthIsCurrent) and the deferred
+	// status update persists its markers on every return path.
+	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources,
+		dataPlaneApplyFailed(dataPlaneRelease) != nil)
+
 	// Reconcile observability plane Release (create, update, or cleanup)
 	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
 	if err != nil {
@@ -751,12 +763,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Check if the Release controller recorded a resource apply failure.
 	// Only act on the condition when it matches the current Release generation
 	// to avoid surfacing stale errors from a previous spec revision.
-	applyCond := meta.FindStatusCondition(dataPlaneRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
-	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
-		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
+	if applyCond := dataPlaneApplyFailed(dataPlaneRelease); applyCond != nil {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
-		r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, true)
 		return ctrl.Result{}, nil
 	}
 
@@ -777,9 +786,20 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
 
-	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources, false)
-
 	return ctrl.Result{}, nil
+}
+
+// dataPlaneApplyFailed returns the RenderedRelease's ResourcesApplied condition
+// when it reports a failed apply of the current generation, and nil otherwise.
+// A failure recorded against an earlier generation is stale -- it describes a
+// spec revision that has since been replaced -- so it is not reported.
+func dataPlaneApplyFailed(renderedRelease *openchoreov1alpha1.RenderedRelease) *metav1.Condition {
+	applyCond := meta.FindStatusCondition(renderedRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
+	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
+		applyCond.ObservedGeneration == renderedRelease.Generation {
+		return applyCond
+	}
+	return nil
 }
 
 // handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
