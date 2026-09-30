@@ -24,6 +24,159 @@ func (_m *MockClientWithResponsesInterface) EXPECT() *MockClientWithResponsesInt
 	return &MockClientWithResponsesInterface_Expecter{mock: &_m.Mock}
 }
 
+// AcknowledgeReleaseBindingGateWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) AcknowledgeReleaseBindingGateWithBodyWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AcknowledgeReleaseBindingGateWithBodyWithResponse")
+	}
+
+	var r0 *gen.AcknowledgeReleaseBindingGateResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.AcknowledgeReleaseBindingGateResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.AcknowledgeReleaseBindingGateResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcknowledgeReleaseBindingGateWithBodyWithResponse'
+type MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// AcknowledgeReleaseBindingGateWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) AcknowledgeReleaseBindingGateWithBodyWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call{Call: _e.mock.On("AcknowledgeReleaseBindingGateWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call) Return(_a0 *gen.AcknowledgeReleaseBindingGateResp, _a1 error) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error)) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AcknowledgeReleaseBindingGateWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) AcknowledgeReleaseBindingGateWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, body gen.GateAcknowledgeRequest, reqEditors ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AcknowledgeReleaseBindingGateWithResponse")
+	}
+
+	var r0 *gen.AcknowledgeReleaseBindingGateResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.GateAcknowledgeRequest, ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.GateAcknowledgeRequest, ...gen.RequestEditorFn) *gen.AcknowledgeReleaseBindingGateResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.AcknowledgeReleaseBindingGateResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.GateAcknowledgeRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcknowledgeReleaseBindingGateWithResponse'
+type MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call struct {
+	*mock.Call
+}
+
+// AcknowledgeReleaseBindingGateWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - body gen.GateAcknowledgeRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) AcknowledgeReleaseBindingGateWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call {
+	return &MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call{Call: _e.mock.On("AcknowledgeReleaseBindingGateWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, body gen.GateAcknowledgeRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.GateAcknowledgeRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call) Return(_a0 *gen.AcknowledgeReleaseBindingGateResp, _a1 error) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.GateAcknowledgeRequest, ...gen.RequestEditorFn) (*gen.AcknowledgeReleaseBindingGateResp, error)) *MockClientWithResponsesInterface_AcknowledgeReleaseBindingGateWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterComponentTypeWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateClusterComponentTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterComponentTypeResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -318,6 +471,155 @@ func (_c *MockClientWithResponsesInterface_CreateClusterDataPlaneWithResponse_Ca
 }
 
 func (_c *MockClientWithResponsesInterface_CreateClusterDataPlaneWithResponse_Call) RunAndReturn(run func(context.Context, gen.ClusterDataPlane, ...gen.RequestEditorFn) (*gen.CreateClusterDataPlaneResp, error)) *MockClientWithResponsesInterface_CreateClusterDataPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateClusterHookWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterHookWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error)); ok {
+		return rf(ctx, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateClusterHookResp); ok {
+		r0 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterHookWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterHookWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterHookWithBodyWithResponse(ctx interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call{Call: _e.mock.On("CreateClusterHookWithBodyWithResponse",
+		append([]interface{}{ctx, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call) Run(run func(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call) Return(_a0 *gen.CreateClusterHookResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error)) *MockClientWithResponsesInterface_CreateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateClusterHookWithResponse provides a mock function with given fields: ctx, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterHookWithResponse(ctx context.Context, body gen.ClusterHook, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterHookWithResponse")
+	}
+
+	var r0 *gen.CreateClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterHook, ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error)); ok {
+		return rf(ctx, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterHook, ...gen.RequestEditorFn) *gen.CreateClusterHookResp); ok {
+		r0 = rf(ctx, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterHook, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterHookWithResponse'
+type MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - body gen.ClusterHook
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterHookWithResponse(ctx interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call{Call: _e.mock.On("CreateClusterHookWithResponse",
+		append([]interface{}{ctx, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call) Run(run func(ctx context.Context, body gen.ClusterHook, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(gen.ClusterHook), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call) Return(_a0 *gen.CreateClusterHookResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call) RunAndReturn(run func(context.Context, gen.ClusterHook, ...gen.RequestEditorFn) (*gen.CreateClusterHookResp, error)) *MockClientWithResponsesInterface_CreateClusterHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2567,6 +2869,157 @@ func (_c *MockClientWithResponsesInterface_CreateGitSecretWithResponse_Call) Ret
 }
 
 func (_c *MockClientWithResponsesInterface_CreateGitSecretWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.CreateGitSecretRequest, ...gen.RequestEditorFn) (*gen.CreateGitSecretResp, error)) *MockClientWithResponsesInterface_CreateGitSecretWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateHookWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateHookWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateHookWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateHookResp, error)); ok {
+		return rf(ctx, namespaceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateHookResp); ok {
+		r0 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateHookWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateHookWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateHookWithBodyWithResponse(ctx interface{}, namespaceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call{Call: _e.mock.On("CreateHookWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call) Return(_a0 *gen.CreateHookResp, _a1 error) *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateHookResp, error)) *MockClientWithResponsesInterface_CreateHookWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateHookWithResponse provides a mock function with given fields: ctx, namespaceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateHookWithResponse(ctx context.Context, namespaceName string, body gen.Hook, reqEditors ...gen.RequestEditorFn) (*gen.CreateHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateHookWithResponse")
+	}
+
+	var r0 *gen.CreateHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.Hook, ...gen.RequestEditorFn) (*gen.CreateHookResp, error)); ok {
+		return rf(ctx, namespaceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.Hook, ...gen.RequestEditorFn) *gen.CreateHookResp); ok {
+		r0 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.Hook, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateHookWithResponse'
+type MockClientWithResponsesInterface_CreateHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - body gen.Hook
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateHookWithResponse(ctx interface{}, namespaceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateHookWithResponse_Call{Call: _e.mock.On("CreateHookWithResponse",
+		append([]interface{}{ctx, namespaceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, body gen.Hook, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.Hook), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithResponse_Call) Return(_a0 *gen.CreateHookResp, _a1 error) *MockClientWithResponsesInterface_CreateHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateHookWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.Hook, ...gen.RequestEditorFn) (*gen.CreateHookResp, error)) *MockClientWithResponsesInterface_CreateHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -5888,6 +6341,80 @@ func (_c *MockClientWithResponsesInterface_DeleteClusterDataPlaneWithResponse_Ca
 	return _c
 }
 
+// DeleteClusterHookWithResponse provides a mock function with given fields: ctx, clusterHookName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteClusterHookWithResponse(ctx context.Context, clusterHookName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, clusterHookName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterHookWithResponse")
+	}
+
+	var r0 *gen.DeleteClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterHookResp, error)); ok {
+		return rf(ctx, clusterHookName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.DeleteClusterHookResp); ok {
+		r0 = rf(ctx, clusterHookName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, clusterHookName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterHookWithResponse'
+type MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterHookName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteClusterHookWithResponse(ctx interface{}, clusterHookName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call{Call: _e.mock.On("DeleteClusterHookWithResponse",
+		append([]interface{}{ctx, clusterHookName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call) Run(run func(ctx context.Context, clusterHookName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call) Return(_a0 *gen.DeleteClusterHookResp, _a1 error) *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterHookResp, error)) *MockClientWithResponsesInterface_DeleteClusterHookWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteClusterObservabilityPlaneWithResponse provides a mock function with given fields: ctx, clusterObservabilityPlaneName, reqEditors
 func (_m *MockClientWithResponsesInterface) DeleteClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterObservabilityPlaneResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -7001,6 +7528,81 @@ func (_c *MockClientWithResponsesInterface_DeleteGitSecretWithResponse_Call) Ret
 }
 
 func (_c *MockClientWithResponsesInterface_DeleteGitSecretWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteGitSecretResp, error)) *MockClientWithResponsesInterface_DeleteGitSecretWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteHookWithResponse provides a mock function with given fields: ctx, namespaceName, hookName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteHookWithResponse(ctx context.Context, namespaceName string, hookName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, hookName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteHookWithResponse")
+	}
+
+	var r0 *gen.DeleteHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteHookResp, error)); ok {
+		return rf(ctx, namespaceName, hookName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.DeleteHookResp); ok {
+		r0 = rf(ctx, namespaceName, hookName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, hookName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteHookWithResponse'
+type MockClientWithResponsesInterface_DeleteHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - hookName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteHookWithResponse(ctx interface{}, namespaceName interface{}, hookName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteHookWithResponse_Call{Call: _e.mock.On("DeleteHookWithResponse",
+		append([]interface{}{ctx, namespaceName, hookName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteHookWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, hookName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteHookWithResponse_Call) Return(_a0 *gen.DeleteHookResp, _a1 error) *MockClientWithResponsesInterface_DeleteHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteHookWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteHookResp, error)) *MockClientWithResponsesInterface_DeleteHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -9103,6 +9705,80 @@ func (_c *MockClientWithResponsesInterface_GetClusterDataPlaneWithResponse_Call)
 	return _c
 }
 
+// GetClusterHookWithResponse provides a mock function with given fields: ctx, clusterHookName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetClusterHookWithResponse(ctx context.Context, clusterHookName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, clusterHookName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterHookWithResponse")
+	}
+
+	var r0 *gen.GetClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterHookResp, error)); ok {
+		return rf(ctx, clusterHookName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.GetClusterHookResp); ok {
+		r0 = rf(ctx, clusterHookName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, clusterHookName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetClusterHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterHookWithResponse'
+type MockClientWithResponsesInterface_GetClusterHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetClusterHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterHookName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetClusterHookWithResponse(ctx interface{}, clusterHookName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetClusterHookWithResponse_Call{Call: _e.mock.On("GetClusterHookWithResponse",
+		append([]interface{}{ctx, clusterHookName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call) Run(run func(ctx context.Context, clusterHookName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call) Return(_a0 *gen.GetClusterHookResp, _a1 error) *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterHookResp, error)) *MockClientWithResponsesInterface_GetClusterHookWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetClusterObservabilityPlaneWithResponse provides a mock function with given fields: ctx, clusterObservabilityPlaneName, reqEditors
 func (_m *MockClientWithResponsesInterface) GetClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterObservabilityPlaneResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -10660,6 +11336,81 @@ func (_c *MockClientWithResponsesInterface_GetHealthWithResponse_Call) Return(_a
 }
 
 func (_c *MockClientWithResponsesInterface_GetHealthWithResponse_Call) RunAndReturn(run func(context.Context, ...gen.RequestEditorFn) (*gen.GetHealthResp, error)) *MockClientWithResponsesInterface_GetHealthWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetHookWithResponse provides a mock function with given fields: ctx, namespaceName, hookName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetHookWithResponse(ctx context.Context, namespaceName string, hookName string, reqEditors ...gen.RequestEditorFn) (*gen.GetHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, hookName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetHookWithResponse")
+	}
+
+	var r0 *gen.GetHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetHookResp, error)); ok {
+		return rf(ctx, namespaceName, hookName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetHookResp); ok {
+		r0 = rf(ctx, namespaceName, hookName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, hookName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHookWithResponse'
+type MockClientWithResponsesInterface_GetHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - hookName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetHookWithResponse(ctx interface{}, namespaceName interface{}, hookName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetHookWithResponse_Call{Call: _e.mock.On("GetHookWithResponse",
+		append([]interface{}{ctx, namespaceName, hookName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetHookWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, hookName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetHookWithResponse_Call) Return(_a0 *gen.GetHookResp, _a1 error) *MockClientWithResponsesInterface_GetHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetHookWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetHookResp, error)) *MockClientWithResponsesInterface_GetHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -13803,6 +14554,80 @@ func (_c *MockClientWithResponsesInterface_ListClusterDataPlanesWithResponse_Cal
 	return _c
 }
 
+// ListClusterHooksWithResponse provides a mock function with given fields: ctx, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListClusterHooksWithResponse(ctx context.Context, params *gen.ListClusterHooksParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterHooksResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterHooksWithResponse")
+	}
+
+	var r0 *gen.ListClusterHooksResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterHooksParams, ...gen.RequestEditorFn) (*gen.ListClusterHooksResp, error)); ok {
+		return rf(ctx, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterHooksParams, ...gen.RequestEditorFn) *gen.ListClusterHooksResp); ok {
+		r0 = rf(ctx, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListClusterHooksResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterHooksParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterHooksWithResponse'
+type MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListClusterHooksWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterHooksParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListClusterHooksWithResponse(ctx interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call{Call: _e.mock.On("ListClusterHooksWithResponse",
+		append([]interface{}{ctx, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call) Run(run func(ctx context.Context, params *gen.ListClusterHooksParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*gen.ListClusterHooksParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call) Return(_a0 *gen.ListClusterHooksResp, _a1 error) *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call) RunAndReturn(run func(context.Context, *gen.ListClusterHooksParams, ...gen.RequestEditorFn) (*gen.ListClusterHooksResp, error)) *MockClientWithResponsesInterface_ListClusterHooksWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListClusterObservabilityPlanesWithResponse provides a mock function with given fields: ctx, params, reqEditors
 func (_m *MockClientWithResponsesInterface) ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *gen.ListClusterObservabilityPlanesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterObservabilityPlanesResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -14919,6 +15744,81 @@ func (_c *MockClientWithResponsesInterface_ListGitSecretsWithResponse_Call) RunA
 	return _c
 }
 
+// ListHooksWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListHooksWithResponse(ctx context.Context, namespaceName string, params *gen.ListHooksParams, reqEditors ...gen.RequestEditorFn) (*gen.ListHooksResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListHooksWithResponse")
+	}
+
+	var r0 *gen.ListHooksResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListHooksParams, ...gen.RequestEditorFn) (*gen.ListHooksResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListHooksParams, ...gen.RequestEditorFn) *gen.ListHooksResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListHooksResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListHooksParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListHooksWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListHooksWithResponse'
+type MockClientWithResponsesInterface_ListHooksWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListHooksWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListHooksParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListHooksWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListHooksWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListHooksWithResponse_Call{Call: _e.mock.On("ListHooksWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListHooksWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListHooksParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListHooksWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListHooksParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListHooksWithResponse_Call) Return(_a0 *gen.ListHooksResp, _a1 error) *MockClientWithResponsesInterface_ListHooksWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListHooksWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListHooksParams, ...gen.RequestEditorFn) (*gen.ListHooksResp, error)) *MockClientWithResponsesInterface_ListHooksWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListNamespaceRoleBindingsWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
 func (_m *MockClientWithResponsesInterface) ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams, reqEditors ...gen.RequestEditorFn) (*gen.ListNamespaceRoleBindingsResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -15589,6 +16489,81 @@ func (_c *MockClientWithResponsesInterface_ListProjectsWithResponse_Call) Return
 }
 
 func (_c *MockClientWithResponsesInterface_ListProjectsWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectsParams, ...gen.RequestEditorFn) (*gen.ListProjectsResp, error)) *MockClientWithResponsesInterface_ListProjectsWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListReleaseBindingHooksWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, reqEditors
+func (_m *MockClientWithResponsesInterface) ListReleaseBindingHooksWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.ListReleaseBindingHooksResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListReleaseBindingHooksWithResponse")
+	}
+
+	var r0 *gen.ListReleaseBindingHooksResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.ListReleaseBindingHooksResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.ListReleaseBindingHooksResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListReleaseBindingHooksResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListReleaseBindingHooksWithResponse'
+type MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListReleaseBindingHooksWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListReleaseBindingHooksWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call{Call: _e.mock.On("ListReleaseBindingHooksWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call) Return(_a0 *gen.ListReleaseBindingHooksResp, _a1 error) *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.ListReleaseBindingHooksResp, error)) *MockClientWithResponsesInterface_ListReleaseBindingHooksWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -16566,6 +17541,389 @@ func (_c *MockClientWithResponsesInterface_ListWorkloadsWithResponse_Call) RunAn
 	return _c
 }
 
+// ResumeWorkflowRunWithResponse provides a mock function with given fields: ctx, namespaceName, runName, reqEditors
+func (_m *MockClientWithResponsesInterface) ResumeWorkflowRunWithResponse(ctx context.Context, namespaceName string, runName string, reqEditors ...gen.RequestEditorFn) (*gen.ResumeWorkflowRunResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, runName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResumeWorkflowRunWithResponse")
+	}
+
+	var r0 *gen.ResumeWorkflowRunResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.ResumeWorkflowRunResp, error)); ok {
+		return rf(ctx, namespaceName, runName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.ResumeWorkflowRunResp); ok {
+		r0 = rf(ctx, namespaceName, runName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResumeWorkflowRunResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, runName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumeWorkflowRunWithResponse'
+type MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call struct {
+	*mock.Call
+}
+
+// ResumeWorkflowRunWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ResumeWorkflowRunWithResponse(ctx interface{}, namespaceName interface{}, runName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call {
+	return &MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call{Call: _e.mock.On("ResumeWorkflowRunWithResponse",
+		append([]interface{}{ctx, namespaceName, runName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, runName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call) Return(_a0 *gen.ResumeWorkflowRunResp, _a1 error) *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.ResumeWorkflowRunResp, error)) *MockClientWithResponsesInterface_ResumeWorkflowRunWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RetryReleaseBindingHookWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, hookName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) RetryReleaseBindingHookWithBodyWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, hookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, hookName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RetryReleaseBindingHookWithBodyWithResponse")
+	}
+
+	var r0 *gen.RetryReleaseBindingHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, hookName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.RetryReleaseBindingHookResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, hookName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.RetryReleaseBindingHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, hookName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetryReleaseBindingHookWithBodyWithResponse'
+type MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// RetryReleaseBindingHookWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - hookName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) RetryReleaseBindingHookWithBodyWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, hookName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call{Call: _e.mock.On("RetryReleaseBindingHookWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName, hookName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, hookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-6)
+		for i, a := range args[6:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string), args[5].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call) Return(_a0 *gen.RetryReleaseBindingHookResp, _a1 error) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error)) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RetryReleaseBindingHookWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, hookName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) RetryReleaseBindingHookWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, hookName string, body gen.HookRetryRequest, reqEditors ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, hookName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RetryReleaseBindingHookWithResponse")
+	}
+
+	var r0 *gen.RetryReleaseBindingHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, gen.HookRetryRequest, ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, hookName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, gen.HookRetryRequest, ...gen.RequestEditorFn) *gen.RetryReleaseBindingHookResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, hookName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.RetryReleaseBindingHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, gen.HookRetryRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, hookName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetryReleaseBindingHookWithResponse'
+type MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// RetryReleaseBindingHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - hookName string
+//   - body gen.HookRetryRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) RetryReleaseBindingHookWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, hookName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call{Call: _e.mock.On("RetryReleaseBindingHookWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName, hookName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, hookName string, body gen.HookRetryRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(gen.HookRetryRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call) Return(_a0 *gen.RetryReleaseBindingHookResp, _a1 error) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, gen.HookRetryRequest, ...gen.RequestEditorFn) (*gen.RetryReleaseBindingHookResp, error)) *MockClientWithResponsesInterface_RetryReleaseBindingHookWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StopWorkflowRunWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, runName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StopWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName string, runName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, runName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StopWorkflowRunWithBodyWithResponse")
+	}
+
+	var r0 *gen.StopWorkflowRunResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error)); ok {
+		return rf(ctx, namespaceName, runName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.StopWorkflowRunResp); ok {
+		r0 = rf(ctx, namespaceName, runName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StopWorkflowRunResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, runName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StopWorkflowRunWithBodyWithResponse'
+type MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// StopWorkflowRunWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StopWorkflowRunWithBodyWithResponse(ctx interface{}, namespaceName interface{}, runName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call{Call: _e.mock.On("StopWorkflowRunWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, runName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, runName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call) Return(_a0 *gen.StopWorkflowRunResp, _a1 error) *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error)) *MockClientWithResponsesInterface_StopWorkflowRunWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StopWorkflowRunWithResponse provides a mock function with given fields: ctx, namespaceName, runName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StopWorkflowRunWithResponse(ctx context.Context, namespaceName string, runName string, body gen.WorkflowRunStopRequest, reqEditors ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, runName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StopWorkflowRunWithResponse")
+	}
+
+	var r0 *gen.StopWorkflowRunResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.WorkflowRunStopRequest, ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error)); ok {
+		return rf(ctx, namespaceName, runName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.WorkflowRunStopRequest, ...gen.RequestEditorFn) *gen.StopWorkflowRunResp); ok {
+		r0 = rf(ctx, namespaceName, runName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StopWorkflowRunResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.WorkflowRunStopRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, runName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StopWorkflowRunWithResponse'
+type MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call struct {
+	*mock.Call
+}
+
+// StopWorkflowRunWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+//   - body gen.WorkflowRunStopRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StopWorkflowRunWithResponse(ctx interface{}, namespaceName interface{}, runName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call {
+	return &MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call{Call: _e.mock.On("StopWorkflowRunWithResponse",
+		append([]interface{}{ctx, namespaceName, runName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, runName string, body gen.WorkflowRunStopRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.WorkflowRunStopRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call) Return(_a0 *gen.StopWorkflowRunResp, _a1 error) *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.WorkflowRunStopRequest, ...gen.RequestEditorFn) (*gen.StopWorkflowRunResp, error)) *MockClientWithResponsesInterface_StopWorkflowRunWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TriggerReleaseBindingCronJobWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) TriggerReleaseBindingCronJobWithBodyWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -17017,6 +18375,157 @@ func (_c *MockClientWithResponsesInterface_UpdateClusterDataPlaneWithResponse_Ca
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateClusterDataPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterDataPlane, ...gen.RequestEditorFn) (*gen.UpdateClusterDataPlaneResp, error)) *MockClientWithResponsesInterface_UpdateClusterDataPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterHookWithBodyWithResponse provides a mock function with given fields: ctx, clusterHookName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterHookWithBodyWithResponse(ctx context.Context, clusterHookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, clusterHookName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterHookWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error)); ok {
+		return rf(ctx, clusterHookName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateClusterHookResp); ok {
+		r0 = rf(ctx, clusterHookName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, clusterHookName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterHookWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterHookWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterHookName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterHookWithBodyWithResponse(ctx interface{}, clusterHookName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call{Call: _e.mock.On("UpdateClusterHookWithBodyWithResponse",
+		append([]interface{}{ctx, clusterHookName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call) Run(run func(ctx context.Context, clusterHookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call) Return(_a0 *gen.UpdateClusterHookResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error)) *MockClientWithResponsesInterface_UpdateClusterHookWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterHookWithResponse provides a mock function with given fields: ctx, clusterHookName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterHookWithResponse(ctx context.Context, clusterHookName string, body gen.ClusterHook, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, clusterHookName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterHookWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterHook, ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error)); ok {
+		return rf(ctx, clusterHookName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterHook, ...gen.RequestEditorFn) *gen.UpdateClusterHookResp); ok {
+		r0 = rf(ctx, clusterHookName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterHook, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, clusterHookName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterHookWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterHookName string
+//   - body gen.ClusterHook
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterHookWithResponse(ctx interface{}, clusterHookName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call{Call: _e.mock.On("UpdateClusterHookWithResponse",
+		append([]interface{}{ctx, clusterHookName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call) Run(run func(ctx context.Context, clusterHookName string, body gen.ClusterHook, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterHook), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call) Return(_a0 *gen.UpdateClusterHookResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterHook, ...gen.RequestEditorFn) (*gen.UpdateClusterHookResp, error)) *MockClientWithResponsesInterface_UpdateClusterHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -18990,6 +20499,159 @@ func (_c *MockClientWithResponsesInterface_UpdateEnvironmentWithResponse_Call) R
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateEnvironmentWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.Environment, ...gen.RequestEditorFn) (*gen.UpdateEnvironmentResp, error)) *MockClientWithResponsesInterface_UpdateEnvironmentWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateHookWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, hookName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateHookWithBodyWithResponse(ctx context.Context, namespaceName string, hookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, hookName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateHookWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateHookResp, error)); ok {
+		return rf(ctx, namespaceName, hookName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateHookResp); ok {
+		r0 = rf(ctx, namespaceName, hookName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, hookName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateHookWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateHookWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - hookName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateHookWithBodyWithResponse(ctx interface{}, namespaceName interface{}, hookName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call{Call: _e.mock.On("UpdateHookWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, hookName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, hookName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call) Return(_a0 *gen.UpdateHookResp, _a1 error) *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateHookResp, error)) *MockClientWithResponsesInterface_UpdateHookWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateHookWithResponse provides a mock function with given fields: ctx, namespaceName, hookName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateHookWithResponse(ctx context.Context, namespaceName string, hookName string, body gen.Hook, reqEditors ...gen.RequestEditorFn) (*gen.UpdateHookResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, hookName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateHookWithResponse")
+	}
+
+	var r0 *gen.UpdateHookResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.Hook, ...gen.RequestEditorFn) (*gen.UpdateHookResp, error)); ok {
+		return rf(ctx, namespaceName, hookName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.Hook, ...gen.RequestEditorFn) *gen.UpdateHookResp); ok {
+		r0 = rf(ctx, namespaceName, hookName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateHookResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.Hook, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, hookName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateHookWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateHookWithResponse'
+type MockClientWithResponsesInterface_UpdateHookWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateHookWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - hookName string
+//   - body gen.Hook
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateHookWithResponse(ctx interface{}, namespaceName interface{}, hookName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateHookWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateHookWithResponse_Call{Call: _e.mock.On("UpdateHookWithResponse",
+		append([]interface{}{ctx, namespaceName, hookName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, hookName string, body gen.Hook, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateHookWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.Hook), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithResponse_Call) Return(_a0 *gen.UpdateHookResp, _a1 error) *MockClientWithResponsesInterface_UpdateHookWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateHookWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.Hook, ...gen.RequestEditorFn) (*gen.UpdateHookResp, error)) *MockClientWithResponsesInterface_UpdateHookWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

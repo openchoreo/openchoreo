@@ -1,0 +1,25 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterHook
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: clusterhook-sample
+spec:
+  type: Workflow
+  workflowRef:
+    kind: ClusterWorkflow
+    name: clusterworkflow-sample
+  enabledTo:
+    - kind: ClusterComponentType
+      name: service
+    - kind: ClusterComponentType
+      name: web-application
+  parameters:
+    - name: image
+      from: ${deployment.workload.containers.main.image}
+    - name: severity
+      default: CRITICAL
+      overridable: false
+    - name: ticket
+      required: true

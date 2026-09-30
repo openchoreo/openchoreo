@@ -1,0 +1,57 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterWorkflow
+metadata:
+  name: trivy-image-scan
+  annotations:
+    openchoreo.dev/description: "Scans a container image with Trivy and fails on findings at or above the given severity"
+spec:
+  workflowPlaneRef:
+    kind: ClusterWorkflowPlane
+    name: default
+  ttlAfterCompletion: "1d"
+  parameters:
+    openAPIV3Schema:
+      type: object
+      required:
+        - image
+      properties:
+        image:
+          type: string
+          description: "Image reference to scan"
+        severity:
+          type: string
+          default: "CRITICAL"
+          description: "Comma-separated Trivy severities that fail the scan"
+        ignoreUnfixed:
+          type: string
+          default: "false"
+          description: "Ignore vulnerabilities without a fix (\"true\" or \"false\")"
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: ${metadata.namespace}
+    spec:
+      serviceAccountName: workflow-sa
+      entrypoint: scan
+      arguments:
+        parameters:
+          - name: image
+            value: ${parameters.image}
+          - name: severity
+            value: ${parameters.severity}
+          - name: ignore-unfixed
+            value: ${parameters.ignoreUnfixed}
+      templates:
+        - name: scan
+          container:
+            image: aquasec/trivy:0.58.0
+            command: [sh, -c]
+            args:
+              - |-
+                set -e
+                IGNORE=""
+                if [ "{{workflow.parameters.ignore-unfixed}}" = "true" ]; then IGNORE="--ignore-unfixed"; fi
+                echo ">> Scanning {{workflow.parameters.image}} for {{workflow.parameters.severity}}"
+                trivy image --insecure --exit-code 1 --severity "{{workflow.parameters.severity}}" $IGNORE "{{workflow.parameters.image}}"

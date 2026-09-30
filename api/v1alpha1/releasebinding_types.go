@@ -335,6 +335,11 @@ type ReleaseBindingStatus struct {
 	// though the emitted Events themselves are garbage-collected by Kubernetes.
 	// +optional
 	Delivery *DeliveryStatus `json:"delivery,omitempty"`
+
+	// Gate tracks the deployment hooks bound by this binding's Environment.
+	// Absent when no hooks are bound.
+	// +optional
+	Gate *DeploymentGateStatus `json:"gate,omitempty"`
 }
 
 // DeliveryStatus records delivery lifecycle event emission markers for one rollout.

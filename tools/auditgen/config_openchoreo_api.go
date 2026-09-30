@@ -27,6 +27,31 @@ var apiGenerateReleaseOverride = auditgen.OperationDef{
 	Category: "CategoryManagement",
 }
 
+// apiGateOperationOverrides define the deployment-hook operator actions on a
+// ReleaseBinding and WorkflowRun (alpha). Their paths end in a verb segment
+// under a sub-resource ("/hooks/{hookName}/retry", "/gate/acknowledge",
+// "/resume", "/stop") that the generic verb derivation does not know, and the
+// resource they act on is the parent ReleaseBinding / WorkflowRun named by the
+// path, not the trailing segment.
+var apiGateOperationOverrides = []auditgen.OperationDef{
+	{
+		ID: "RetryReleaseBindingHook", Action: "retry_release_binding_hook", ResourceType: "releasebinding",
+		Category: "CategoryManagement", RESTResourceParam: "releaseBindingName",
+	},
+	{
+		ID: "AcknowledgeReleaseBindingGate", Action: "acknowledge_release_binding_gate", ResourceType: "releasebinding",
+		Category: "CategoryManagement", RESTResourceParam: "releaseBindingName",
+	},
+	{
+		ID: "ResumeWorkflowRun", Action: "resume_workflow_run", ResourceType: "workflowrun",
+		Category: "CategoryManagement", RESTResourceParam: "runName",
+	},
+	{
+		ID: "StopWorkflowRun", Action: "stop_workflow_run", ResourceType: "workflowrun",
+		Category: "CategoryManagement", RESTResourceParam: "runName",
+	},
+}
+
 // apiActionSuffixSegments are trailing path segments that name a verb on an
 // otherwise ordinary resource path, not a further level of resource
 // hierarchy — e.g. ".../releasebindings/{releaseBindingName}/trigger". They
@@ -50,22 +75,24 @@ var apiResourceCategories = map[string]string{
 	"clusterauthzroles":        "CategoryAuthorization",
 	"clusterauthzrolebindings": "CategoryAuthorization",
 
-	"clustercomponenttypes":                   "CategoryManagement",
-	"clusterdataplanes":                       "CategoryManagement",
-	"clusterobservabilityplanes":              "CategoryManagement",
-	"clusterprojecttypes":                     "CategoryManagement",
-	"clusterresourcetypes":                    "CategoryManagement",
-	"clustertraits":                           "CategoryManagement",
-	"clusterworkflows":                        "CategoryManagement",
-	"clusterworkflowplanes":                   "CategoryManagement",
-	"components":                              "CategoryManagement",
-	"componentreleases":                       "CategoryManagement",
-	"componenttypes":                          "CategoryManagement",
-	"dataplanes":                              "CategoryManagement",
-	"deploymentpipelines":                     "CategoryManagement",
-	"environments":                            "CategoryManagement",
-	"gitsecrets":                              "CategoryManagement",
-	"namespaces":                              "CategoryManagement",
+	"clustercomponenttypes":      "CategoryManagement",
+	"clusterhooks":               "CategoryManagement",
+	"clusterdataplanes":          "CategoryManagement",
+	"clusterobservabilityplanes": "CategoryManagement",
+	"clusterprojecttypes":        "CategoryManagement",
+	"clusterresourcetypes":       "CategoryManagement",
+	"clustertraits":              "CategoryManagement",
+	"clusterworkflows":           "CategoryManagement",
+	"clusterworkflowplanes":      "CategoryManagement",
+	"components":                 "CategoryManagement",
+	"componentreleases":          "CategoryManagement",
+	"componenttypes":             "CategoryManagement",
+	"dataplanes":                 "CategoryManagement",
+	"deploymentpipelines":        "CategoryManagement",
+	"environments":               "CategoryManagement",
+	"gitsecrets":                 "CategoryManagement",
+	"hooks":                      "CategoryManagement",
+	"namespaces":                 "CategoryManagement",
 	"observabilityalertsnotificationchannels": "CategoryManagement",
 	"observabilityplanes":                     "CategoryManagement",
 	"projects":                                "CategoryManagement",
@@ -94,13 +121,17 @@ var apiSingularOverrides = map[string]string{}
 
 // apiConfig returns openchoreo-api's own auditgen.Config.
 func apiConfig() auditgen.Config {
+	overrides := map[string]auditgen.OperationDef{
+		apiGenerateReleaseOverride.ID: apiGenerateReleaseOverride,
+	}
+	for _, def := range apiGateOperationOverrides {
+		overrides[def.ID] = def
+	}
 	return auditgen.Config{
 		ResourceCategories:   apiResourceCategories,
 		ExcludedOperationIDs: apiExcludedOperationIDs,
 		SingularOverrides:    apiSingularOverrides,
 		ActionSuffixSegments: apiActionSuffixSegments,
-		Overrides: map[string]auditgen.OperationDef{
-			apiGenerateReleaseOverride.ID: apiGenerateReleaseOverride,
-		},
+		Overrides:            overrides,
 	}
 }

@@ -70,6 +70,7 @@ rules:
   resources:
   - clustercomponenttypes
   - clusterdataplanes
+  - clusterhooks
   - clusterobservabilityplanes
   - clusterprojecttypes
   - clusterresourcetypes
@@ -82,6 +83,7 @@ rules:
   - dataplanes
   - deploymentpipelines
   - environments
+  - hooks
   - observabilityalertrules
   - observabilityalertsnotificationchannels
   - observabilityplanes
@@ -97,7 +99,6 @@ rules:
   - secretreferences
   - traits
   - workflowplanes
-  - workflowruns
   - workflows
   - workloads
   verbs:
@@ -113,6 +114,7 @@ rules:
   resources:
   - clustercomponenttypes/finalizers
   - clusterdataplanes/finalizers
+  - clusterhooks/finalizers
   - clusterobservabilityplanes/finalizers
   - clusterprojecttypes/finalizers
   - clusterresourcetypes/finalizers
@@ -125,6 +127,7 @@ rules:
   - dataplanes/finalizers
   - deploymentpipelines/finalizers
   - environments/finalizers
+  - hooks/finalizers
   - observabilityalertrules/finalizers
   - observabilityalertsnotificationchannels/finalizers
   - observabilityplanes/finalizers
@@ -151,6 +154,7 @@ rules:
   resources:
   - clustercomponenttypes/status
   - clusterdataplanes/status
+  - clusterhooks/status
   - clusterobservabilityplanes/status
   - clusterprojecttypes/status
   - clusterresourcetypes/status
@@ -163,6 +167,7 @@ rules:
   - dataplanes/status
   - deploymentpipelines/status
   - environments/status
+  - hooks/status
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status
@@ -190,6 +195,7 @@ rules:
   - openchoreo.dev
   resources:
   - renderedreleases
+  - workflowruns
   verbs:
   - create
   - delete

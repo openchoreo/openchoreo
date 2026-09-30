@@ -127,9 +127,18 @@ getting-started/
 │   ├── paketo-buildpacks-builder.yaml
 │   ├── ballerina-buildpack-builder.yaml
 │   └── gcp-buildpacks-builder.yaml
-└── component-traits/
-    └── alert-rule-trait.yaml
+├── component-traits/
+│   └── alert-rule-trait.yaml
+└── hooks/                      # Optional, not in all.yaml: deployment hooks (alpha)
+    ├── trivy-image-scan-workflow.yaml
+    ├── trivy-image-scan-hook.yaml
+    └── production-environment-with-hooks.yaml
 ```
+
+### Deployment hooks (optional, alpha)
+
+[`hooks/`](hooks/) adds a Trivy image scan that runs before every deployment of a
+`service` component into `production`. It is off by default; see its README.
 
 ## Customization
 

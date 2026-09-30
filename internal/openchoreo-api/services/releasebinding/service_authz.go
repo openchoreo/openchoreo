@@ -162,3 +162,55 @@ func (s *releaseBindingServiceWithAuthz) DeleteReleaseBinding(ctx context.Contex
 	}
 	return s.internal.DeleteReleaseBinding(ctx, namespaceName, releaseBindingName)
 }
+
+// ListHooks is a read of the binding's status and is authorized as releasebinding:view.
+func (s *releaseBindingServiceWithAuthz) ListHooks(ctx context.Context, namespaceName, releaseBindingName string) (*openchoreov1alpha1.DeploymentGateStatus, error) {
+	if _, err := s.GetReleaseBinding(ctx, namespaceName, releaseBindingName); err != nil {
+		return nil, err
+	}
+	return s.internal.ListHooks(ctx, namespaceName, releaseBindingName)
+}
+
+// RetryHook mutates the binding and is authorized as releasebinding:update.
+func (s *releaseBindingServiceWithAuthz) RetryHook(ctx context.Context, namespaceName, releaseBindingName string, phase, hookName string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	rb, err := s.internal.GetReleaseBinding(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, s.checkRequest(authz.ActionUpdateReleaseBinding, namespaceName, rb)); err != nil {
+		return nil, err
+	}
+	return s.internal.RetryHook(ctx, namespaceName, releaseBindingName, phase, hookName)
+}
+
+// AcknowledgeGate is authorized as releasebinding:acknowledge-gate, a separate action so
+// that operators can be allowed to silence an alert without editing the binding's spec.
+func (s *releaseBindingServiceWithAuthz) AcknowledgeGate(ctx context.Context, namespaceName, releaseBindingName, key string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	rb, err := s.internal.GetReleaseBinding(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, s.checkRequest(authz.ActionAcknowledgeGateReleaseBinding, namespaceName, rb)); err != nil {
+		return nil, err
+	}
+	return s.internal.AcknowledgeGate(ctx, namespaceName, releaseBindingName, key)
+}
+
+// checkRequest builds the standard authz request for an existing release binding.
+func (s *releaseBindingServiceWithAuthz) checkRequest(action, namespaceName string, rb *openchoreov1alpha1.ReleaseBinding) services.CheckRequest {
+	return services.CheckRequest{
+		Action:       action,
+		ResourceType: resourceTypeReleaseBinding,
+		ResourceID:   rb.Name,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   rb.Spec.Owner.ProjectName,
+			Component: rb.Spec.Owner.ComponentName,
+		},
+		Context: authz.Context{
+			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
+			Resource: authz.ResourceAttribute{
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+		},
+	}
+}

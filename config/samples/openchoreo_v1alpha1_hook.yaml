@@ -1,0 +1,19 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Hook
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: hook-sample
+spec:
+  type: Workflow
+  workflowRef:
+    kind: Workflow
+    name: workflow-sample
+  parameters:
+    - name: image
+      from: ${deployment.workload.containers.main.image}
+    - name: severity
+      default: CRITICAL
+    - name: component
+      from: ${deployment.component.name}

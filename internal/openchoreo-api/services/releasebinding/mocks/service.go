@@ -25,6 +25,67 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// AcknowledgeGate provides a mock function with given fields: ctx, namespaceName, releaseBindingName, key
+func (_m *MockService) AcknowledgeGate(ctx context.Context, namespaceName string, releaseBindingName string, key string) (*v1alpha1.ReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AcknowledgeGate")
+	}
+
+	var r0 *v1alpha1.ReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1alpha1.ReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, key)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1alpha1.ReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, key)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.ReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, key)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_AcknowledgeGate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcknowledgeGate'
+type MockService_AcknowledgeGate_Call struct {
+	*mock.Call
+}
+
+// AcknowledgeGate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - key string
+func (_e *MockService_Expecter) AcknowledgeGate(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, key interface{}) *MockService_AcknowledgeGate_Call {
+	return &MockService_AcknowledgeGate_Call{Call: _e.mock.On("AcknowledgeGate", ctx, namespaceName, releaseBindingName, key)}
+}
+
+func (_c *MockService_AcknowledgeGate_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, key string)) *MockService_AcknowledgeGate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_AcknowledgeGate_Call) Return(_a0 *v1alpha1.ReleaseBinding, _a1 error) *MockService_AcknowledgeGate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_AcknowledgeGate_Call) RunAndReturn(run func(context.Context, string, string, string) (*v1alpha1.ReleaseBinding, error)) *MockService_AcknowledgeGate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateReleaseBinding provides a mock function with given fields: ctx, namespaceName, rb
 func (_m *MockService) CreateReleaseBinding(ctx context.Context, namespaceName string, rb *v1alpha1.ReleaseBinding) (*v1alpha1.ReleaseBinding, error) {
 	ret := _m.Called(ctx, namespaceName, rb)
@@ -193,6 +254,66 @@ func (_c *MockService_GetReleaseBinding_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// ListHooks provides a mock function with given fields: ctx, namespaceName, releaseBindingName
+func (_m *MockService) ListHooks(ctx context.Context, namespaceName string, releaseBindingName string) (*v1alpha1.DeploymentGateStatus, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListHooks")
+	}
+
+	var r0 *v1alpha1.DeploymentGateStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.DeploymentGateStatus, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.DeploymentGateStatus); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.DeploymentGateStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ListHooks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListHooks'
+type MockService_ListHooks_Call struct {
+	*mock.Call
+}
+
+// ListHooks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+func (_e *MockService_Expecter) ListHooks(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}) *MockService_ListHooks_Call {
+	return &MockService_ListHooks_Call{Call: _e.mock.On("ListHooks", ctx, namespaceName, releaseBindingName)}
+}
+
+func (_c *MockService_ListHooks_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string)) *MockService_ListHooks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_ListHooks_Call) Return(_a0 *v1alpha1.DeploymentGateStatus, _a1 error) *MockService_ListHooks_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ListHooks_Call) RunAndReturn(run func(context.Context, string, string) (*v1alpha1.DeploymentGateStatus, error)) *MockService_ListHooks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListReleaseBindings provides a mock function with given fields: ctx, namespaceName, componentName, opts
 func (_m *MockService) ListReleaseBindings(ctx context.Context, namespaceName string, componentName string, opts services.ListOptions) (*services.ListResult[v1alpha1.ReleaseBinding], error) {
 	ret := _m.Called(ctx, namespaceName, componentName, opts)
@@ -250,6 +371,68 @@ func (_c *MockService_ListReleaseBindings_Call) Return(_a0 *services.ListResult[
 }
 
 func (_c *MockService_ListReleaseBindings_Call) RunAndReturn(run func(context.Context, string, string, services.ListOptions) (*services.ListResult[v1alpha1.ReleaseBinding], error)) *MockService_ListReleaseBindings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RetryHook provides a mock function with given fields: ctx, namespaceName, releaseBindingName, phase, hookName
+func (_m *MockService) RetryHook(ctx context.Context, namespaceName string, releaseBindingName string, phase string, hookName string) (*v1alpha1.ReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName, phase, hookName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RetryHook")
+	}
+
+	var r0 *v1alpha1.ReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1alpha1.ReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, phase, hookName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1alpha1.ReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, phase, hookName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.ReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, phase, hookName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_RetryHook_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetryHook'
+type MockService_RetryHook_Call struct {
+	*mock.Call
+}
+
+// RetryHook is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - phase string
+//   - hookName string
+func (_e *MockService_Expecter) RetryHook(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, phase interface{}, hookName interface{}) *MockService_RetryHook_Call {
+	return &MockService_RetryHook_Call{Call: _e.mock.On("RetryHook", ctx, namespaceName, releaseBindingName, phase, hookName)}
+}
+
+func (_c *MockService_RetryHook_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, phase string, hookName string)) *MockService_RetryHook_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_RetryHook_Call) Return(_a0 *v1alpha1.ReleaseBinding, _a1 error) *MockService_RetryHook_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_RetryHook_Call) RunAndReturn(run func(context.Context, string, string, string, string) (*v1alpha1.ReleaseBinding, error)) *MockService_RetryHook_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -217,6 +218,105 @@ func (s *releaseBindingService) DeleteReleaseBinding(ctx context.Context, namesp
 
 	s.logger.Debug("Release binding deleted successfully", "namespace", namespaceName, "releaseBinding", releaseBindingName)
 	return nil
+}
+
+// ListHooks returns status.gate, or an empty gate when the binding has none.
+func (s *releaseBindingService) ListHooks(ctx context.Context, namespaceName, releaseBindingName string) (*openchoreov1alpha1.DeploymentGateStatus, error) {
+	rb, err := s.GetReleaseBinding(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	gate := &openchoreov1alpha1.DeploymentGateStatus{}
+	if rb.Status.Gate != nil {
+		gate = rb.Status.Gate.DeepCopy()
+	}
+	if gate.PreDeploy == nil {
+		gate.PreDeploy = []openchoreov1alpha1.DeploymentHookStatus{}
+	}
+	if gate.PostDeploy == nil {
+		gate.PostDeploy = []openchoreov1alpha1.DeploymentHookStatus{}
+	}
+	return gate, nil
+}
+
+// RetryHook validates that the named binding is part of the gate phase and sets the
+// retry annotation. The controller removes the annotation once it has acted on it.
+func (s *releaseBindingService) RetryHook(ctx context.Context, namespaceName, releaseBindingName string, phase, hookName string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	s.logger.Debug("Retrying hook", "namespace", namespaceName, "releaseBinding", releaseBindingName, "phase", phase, "hook", hookName)
+
+	if phase != HookPhasePreDeploy && phase != HookPhasePostDeploy {
+		return nil, &services.ValidationError{Msg: fmt.Sprintf("invalid hook phase %q: must be %s or %s", phase, HookPhasePreDeploy, HookPhasePostDeploy), StatusCode: http.StatusBadRequest}
+	}
+	if hookName == "" {
+		return nil, &services.ValidationError{Msg: "hook name is required", StatusCode: http.StatusBadRequest}
+	}
+
+	rb, err := s.GetReleaseBinding(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	if !gateHasHook(rb.Status.Gate, phase, hookName) {
+		return nil, ErrHookNotFound
+	}
+
+	return s.setAnnotation(ctx, rb, labels.AnnotationKeyHookRetry, fmt.Sprintf("%s/%s", phase, hookName))
+}
+
+// AcknowledgeGate records the acknowledgement of an Alert post-deploy failure for key.
+// The key must be the binding's current gate key so a stale acknowledgement cannot
+// silence a later failure.
+func (s *releaseBindingService) AcknowledgeGate(ctx context.Context, namespaceName, releaseBindingName, key string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	s.logger.Debug("Acknowledging gate", "namespace", namespaceName, "releaseBinding", releaseBindingName, "key", key)
+
+	if key == "" {
+		return nil, &services.ValidationError{Msg: "gate key is required", StatusCode: http.StatusBadRequest}
+	}
+
+	rb, err := s.GetReleaseBinding(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	if rb.Status.Gate == nil || rb.Status.Gate.Key != key {
+		return nil, ErrGateKeyMismatch
+	}
+
+	return s.setAnnotation(ctx, rb, labels.AnnotationKeyGateAcknowledged, key)
+}
+
+// setAnnotation merge-patches one annotation onto the release binding and returns the
+// patched object.
+func (s *releaseBindingService) setAnnotation(ctx context.Context, rb *openchoreov1alpha1.ReleaseBinding, key, value string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	patched := rb.DeepCopy()
+	if patched.Annotations == nil {
+		patched.Annotations = map[string]string{}
+	}
+	patched.Annotations[key] = value
+	if err := s.k8sClient.Patch(ctx, patched, client.MergeFrom(rb)); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, ErrReleaseBindingNotFound
+		}
+		s.logger.Error("Failed to annotate release binding", "error", err, "annotation", key)
+		return nil, fmt.Errorf("failed to annotate release binding: %w", err)
+	}
+	patched.TypeMeta = releaseBindingTypeMeta
+	return patched, nil
+}
+
+// gateHasHook reports whether the gate's phase list contains a binding named hookName.
+func gateHasHook(gate *openchoreov1alpha1.DeploymentGateStatus, phase, hookName string) bool {
+	if gate == nil {
+		return false
+	}
+	entries := gate.PreDeploy
+	if phase == HookPhasePostDeploy {
+		entries = gate.PostDeploy
+	}
+	for _, e := range entries {
+		if e.Name == hookName {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *releaseBindingService) releaseBindingExists(ctx context.Context, namespaceName, releaseBindingName string) (bool, error) {

@@ -53,10 +53,14 @@ tags:
     description: Cluster-scoped ComponentType templates defined by platform engineers
   - name: ClusterTraits
     description: Cluster-scoped Trait templates for composable cross-cutting concerns
+  - name: ClusterHooks
+    description: Cluster-scoped deployment hooks bound by Environments (alpha)
   - name: ComponentTypes
     description: ComponentType templates defined by platform engineers
   - name: Traits
     description: Trait templates for composable cross-cutting concerns
+  - name: Hooks
+    description: Deployment hooks bound by Environments (alpha)
   - name: ClusterWorkflows
     description: Cluster-scoped workflow templates for building and automating tasks
   - name: Workflows
@@ -1910,6 +1914,145 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterHook Endpoints (Cluster-Scoped, alpha)
+  # =============================================================================
+
+  /api/v1/clusterhooks:
+    get:
+      operationId: listClusterHooks
+      summary: List cluster hooks
+      description: Returns a list of cluster-scoped deployment hooks.
+      tags: [ClusterHooks]
+      parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster hooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterHookList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterHook
+      summary: Create cluster hook
+      description: Creates a new cluster-scoped deployment hook.
+      tags: [ClusterHooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterHook'
+      responses:
+        '201':
+          description: Cluster hook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterHook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterhooks/{clusterHookName}:
+    get:
+      operationId: getClusterHook
+      summary: Get a cluster hook
+      description: Returns details of a specific cluster-scoped deployment hook.
+      tags: [ClusterHooks]
+      parameters:
+        - $ref: '#/components/parameters/ClusterHookNameParam'
+      responses:
+        '200':
+          description: Cluster hook details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterHook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterHook
+      summary: Update cluster hook
+      description: Replaces an existing cluster-scoped deployment hook (full update).
+      tags: [ClusterHooks]
+      parameters:
+        - $ref: '#/components/parameters/ClusterHookNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterHook'
+      responses:
+        '200':
+          description: Cluster hook updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterHook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterHook
+      summary: Delete cluster hook
+      description: Deletes a cluster-scoped deployment hook by name.
+      tags: [ClusterHooks]
+      parameters:
+        - $ref: '#/components/parameters/ClusterHookNameParam'
+      responses:
+        '204':
+          description: ClusterHook deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ComponentType Endpoints
   # =============================================================================
 
@@ -2240,6 +2383,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # Hook Endpoints (alpha)
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/hooks:
+    get:
+      operationId: listHooks
+      summary: List hooks
+      description: Returns a paginated list of deployment hooks in the namespace.
+      tags: [Hooks]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of hooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HookList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createHook
+      summary: Create hook
+      description: Creates a new deployment hook within a namespace.
+      tags: [Hooks]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hook'
+      responses:
+        '201':
+          description: Hook created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/hooks/{hookName}:
+    get:
+      operationId: getHook
+      summary: Get hook
+      description: Returns details of a specific deployment hook.
+      tags: [Hooks]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/HookNameParam'
+      responses:
+        '200':
+          description: Hook details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hook'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateHook
+      summary: Update hook
+      description: Replaces an existing deployment hook (full update).
+      tags: [Hooks]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/HookNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hook'
+      responses:
+        '200':
+          description: Hook updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteHook
+      summary: Delete hook
+      description: Deletes a deployment hook by name.
+      tags: [Hooks]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/HookNameParam'
+      responses:
+        '204':
+          description: Hook deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2820,6 +3108,73 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/resume:
+    post:
+      operationId: resumeWorkflowRun
+      summary: Resume a suspended workflow run
+      description: >-
+        Resumes a workflow run that is paused at a suspend step (for example a deployment-hook approval),
+        the same as `argo resume`: clears `spec.suspend` on the Argo Workflow and marks every active
+        Suspend node as Succeeded so the workflow continues.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      responses:
+        '200':
+          description: The workflow run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/stop:
+    post:
+      operationId: stopWorkflowRun
+      summary: Stop a workflow run
+      description: >-
+        Stops a running workflow run, the same as `argo stop`: sets `spec.shutdown: Stop` on the Argo
+        Workflow so running steps finish and exit handlers run, and records the reason on the WorkflowRun.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRunStopRequest'
+      responses:
+        '200':
+          description: The workflow run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -4503,6 +4858,107 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CronJobTriggerResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/hooks:
+    get:
+      operationId: listReleaseBindingHooks
+      summary: List deployment hook status for a release binding
+      description: >-
+        Returns the deployment gate of a release binding: the current gate key and the status of every
+        pre-deploy and post-deploy hook bound by the binding's Environment.
+        Both lists are empty when no hooks are bound or the hooks feature is disabled.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      responses:
+        '200':
+          description: Deployment gate status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentGateStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/hooks/{hookName}/retry:
+    post:
+      operationId: retryReleaseBindingHook
+      summary: Retry a deployment hook
+      description: >-
+        Asks the controller to re-run one hook binding of the release binding's deployment gate by setting
+        the `openchoreo.dev/hook-retry` annotation to `<phase>/<hookName>`. The controller deletes the
+        hook's previous run, resets its status entry and starts it again.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+        - $ref: '#/components/parameters/HookNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HookRetryRequest'
+      responses:
+        '200':
+          description: Retry requested; the annotated release binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/gate/acknowledge:
+    post:
+      operationId: acknowledgeReleaseBindingGate
+      summary: Acknowledge a post-deploy hook alert
+      description: >-
+        Acknowledges an `Alert` post-deploy hook failure for the given gate key by setting the
+        `openchoreo.dev/gate-acknowledged` annotation. The controller clears the PostDeployHooksPassed
+        condition for that key and restores Ready.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GateAcknowledgeRequest'
+      responses:
+        '200':
+          description: Acknowledgement recorded; the annotated release binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6499,6 +6955,15 @@ components:
         type: string
         example: autoscaler
 
+    ClusterHookNameParam:
+      name: clusterHookName
+      in: path
+      required: true
+      description: ClusterHook name
+      schema:
+        type: string
+        example: trivy-image-scan
+
     ClusterWorkflowNameParam:
       name: clusterWorkflowName
       in: path
@@ -6516,6 +6981,15 @@ components:
       schema:
         type: string
         example: autoscaler
+
+    HookNameParam:
+      name: hookName
+      in: path
+      required: true
+      description: Hook name (for release binding hook operations, the binding name on the Environment)
+      schema:
+        type: string
+        example: image-scan
 
     SecretReferenceNameParam:
       name: secretReferenceName
@@ -7675,6 +8149,10 @@ components:
           example: false
         gateway:
           $ref: '#/components/schemas/GatewaySpec'
+        hooks:
+          description: Pre-deploy and post-deploy hooks that run for every component deployment into this environment (alpha)
+          allOf:
+            - $ref: '#/components/schemas/HookSet'
 
     EnvironmentStatus:
       type: object
@@ -8724,6 +9202,430 @@ components:
     ClusterTraitStatus:
       type: object
       description: Observed state of a ClusterTrait
+
+    # -------------------------------------------------------------------------
+    # Hooks (alpha)
+    # -------------------------------------------------------------------------
+    ClusterHookList:
+      type: object
+      description: Paginated list of cluster-scoped deployment hooks
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterHook'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterHook:
+      type: object
+      description: |
+        ClusterHook resource.
+        Cluster-scoped version of Hook. May only reference a ClusterWorkflow.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterHook
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/HookSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/HookStatus'
+
+    HookList:
+      type: object
+      description: Paginated list of deployment hooks
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hook'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Hook:
+      type: object
+      description: |
+        Hook resource.
+        A platform-engineer-defined action that an Environment binds as a pre-deploy or
+        post-deploy step.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Hook
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/HookSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/HookStatus'
+
+    HookSpec:
+      type: object
+      description: Desired state of a Hook or ClusterHook
+      required:
+        - workflowRef
+      properties:
+        type:
+          type: string
+          description: Executor type. Only Workflow is supported.
+          enum: [Workflow]
+          default: Workflow
+        workflowRef:
+          type: object
+          description: The Workflow or ClusterWorkflow the hook runs. A ClusterHook may only reference a ClusterWorkflow.
+          required:
+            - name
+          properties:
+            kind:
+              type: string
+              description: Kind of referenced workflow resource
+              enum: [Workflow, ClusterWorkflow]
+              default: ClusterWorkflow
+            name:
+              type: string
+              description: Referenced workflow resource name
+              minLength: 1
+              example: trivy-scan
+        parameters:
+          type: array
+          description: Maps the workflow's inputs to value sources
+          items:
+            $ref: '#/components/schemas/HookParameter'
+        enabledTo:
+          type: array
+          description: Component types the hook is enabled for. Empty enables it for every component; a binding's appliesTo can narrow this but not widen it.
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/HookSubjectRef'
+
+    HookSubjectRef:
+      type: object
+      description: Names a component type a hook is enabled for
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Type kind
+          enum: [ComponentType, ClusterComponentType]
+        name:
+          type: string
+          description: Name of the type resource
+          minLength: 1
+          example: service
+
+    HookParameter:
+      type: object
+      description: |
+        Maps one input of the hook's workflow to a value source. Exactly one of value, from,
+        default or required is set, except that from may be combined with overridable.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Workflow input this parameter feeds
+          pattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+          minLength: 1
+          maxLength: 63
+          example: image
+        value:
+          type: string
+          description: Fixed literal. A binding cannot override it.
+        from:
+          type: string
+          description: CEL expression (${...}) evaluated against the deployment context
+          example: ${deployment.workload.containers.main.image}
+        default:
+          type: string
+          description: Value used when the binding does not supply one
+        overridable:
+          type: boolean
+          description: Lets a binding replace the value computed by from
+          default: false
+        required:
+          type: boolean
+          description: Every binding must supply this parameter
+          default: false
+        schema:
+          type: object
+          description: Optional OpenAPI v3 fragment describing the parameter value
+          additionalProperties: true
+
+    HookStatus:
+      type: object
+      description: Observed state of a Hook or ClusterHook
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        conditions:
+          type: array
+          description: Latest available observations of the hook's state
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    HookRef:
+      type: object
+      description: Reference to a Hook or ClusterHook
+      required:
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of hook resource
+          enum: [Hook, ClusterHook]
+          default: Hook
+        name:
+          type: string
+          description: Hook resource name
+          minLength: 1
+          example: trivy-image-scan
+
+    HookSubjectSelector:
+      type: object
+      description: Scopes a hook binding to components of a component type
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Type kind to match
+          enum: [ComponentType, ClusterComponentType]
+        name:
+          type: string
+          description: Name of the type resource
+          minLength: 1
+          example: service
+
+    HookBinding:
+      type: object
+      description: Attaches a hook to an environment as a pre-deploy or post-deploy step
+      required:
+        - name
+        - hookRef
+      properties:
+        name:
+          type: string
+          description: Binding name, unique across both phases of an environment
+          pattern: '^[a-z]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 40
+          example: image-scan
+        hookRef:
+          $ref: '#/components/schemas/HookRef'
+        mode:
+          type: string
+          description: Whether the deployment waits for the hook
+          enum: [Sync, Async]
+          default: Sync
+        parameters:
+          type: object
+          description: Values for the hook's open parameters (default, required, or from+overridable), keyed by parameter name
+          additionalProperties:
+            type: string
+        appliesTo:
+          type: array
+          description: Restricts the binding to components of the listed component types. Empty applies to every component.
+          items:
+            $ref: '#/components/schemas/HookSubjectSelector'
+        onFailure:
+          type: string
+          description: What a failed Sync hook does to the deployment. Defaults to Block for pre-deploy and Ignore for post-deploy.
+          enum: [Block, Ignore, Alert]
+        timeout:
+          type: string
+          description: Bounds a Sync hook's run time as a Go duration. Defaults to 30m.
+          pattern: '^(\d+h)?(\d+m)?(\d+s)?$'
+          example: 30m
+        retries:
+          type: integer
+          format: int32
+          description: Automatic re-runs after a Sync failure
+          minimum: 0
+          maximum: 5
+          default: 0
+
+    HookSet:
+      type: object
+      description: Pre-deploy and post-deploy hook bindings of an environment
+      properties:
+        preDeploy:
+          type: array
+          description: Hooks that run before the RenderedRelease is created
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/HookBinding'
+        postDeploy:
+          type: array
+          description: Hooks that run after the release reports ResourcesReady
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/HookBinding'
+
+    DeploymentHookStatus:
+      type: object
+      description: Observed state of one hook binding for the current gate key
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Binding name
+          example: image-scan
+        hookRef:
+          $ref: '#/components/schemas/HookRef'
+        mode:
+          type: string
+          description: Effective mode of the binding (Sync or Async)
+          example: Sync
+        phase:
+          type: string
+          description: >-
+            Observed phase of the run. One of Pending, Running, Succeeded, Failed, TimedOut, Skipped,
+            Dispatched, DispatchFailed, PlaneUnavailable.
+          example: Succeeded
+        reason:
+          type: string
+          description: Machine-readable reason for the phase
+        message:
+          type: string
+          description: Human-readable detail, copied from the failing task when available
+        workflowRunRef:
+          type: string
+          description: Name of the WorkflowRun that executed the hook
+        attempt:
+          type: integer
+          format: int32
+          description: 1-based attempt number of the current run
+        startedAt:
+          type: string
+          format: date-time
+          description: When the current attempt started
+        finishedAt:
+          type: string
+          format: date-time
+          description: When the current attempt reached a terminal phase
+
+    GatePassRecord:
+      type: object
+      description: Records one gate pass
+      required:
+        - key
+      properties:
+        key:
+          type: string
+          description: Gate key that passed
+        release:
+          type: string
+          description: ComponentRelease name the key was computed for
+        hookSetHash:
+          type: string
+          description: Hash of the effective hook set at the time of the pass
+        passedAt:
+          type: string
+          format: date-time
+          description: When the gate passed
+
+    DeploymentGateStatus:
+      type: object
+      description: Observed state of the hook gate on a ReleaseBinding
+      properties:
+        key:
+          type: string
+          description: Identifies the current deployment attempt (hash of the release, the effective hook set and the deployment sequence)
+        passedKey:
+          type: string
+          description: Last key whose pre-deploy hooks all passed
+        hookSetHash:
+          type: string
+          description: Hash of the effective hook set for the current key
+        lastPassedRelease:
+          type: string
+          description: ComponentRelease name of the last pass
+        postDeployKey:
+          type: string
+          description: Key whose post-deploy hooks have been started
+        history:
+          type: array
+          description: Most recent gate passes, newest first
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/GatePassRecord'
+        preDeploy:
+          type: array
+          description: Status of each pre-deploy binding for the current key
+          items:
+            $ref: '#/components/schemas/DeploymentHookStatus'
+        postDeploy:
+          type: array
+          description: Status of each post-deploy binding for the current key
+          items:
+            $ref: '#/components/schemas/DeploymentHookStatus'
+
+    HookRetryRequest:
+      type: object
+      description: Names the phase of the hook binding to re-run
+      required:
+        - phase
+      properties:
+        phase:
+          type: string
+          description: Gate phase the binding belongs to
+          enum: [preDeploy, postDeploy]
+
+    GateAcknowledgeRequest:
+      type: object
+      description: Acknowledges an Alert post-deploy failure for one gate key
+      required:
+        - key
+      properties:
+        key:
+          type: string
+          description: The gate key being acknowledged (status.gate.key)
+          minLength: 1
+
+    WorkflowRunStopRequest:
+      type: object
+      description: Optional reason recorded when a workflow run is stopped
+      properties:
+        reason:
+          type: string
+          description: Why the run was stopped; recorded on the WorkflowRun
+          maxLength: 1024
 
     # -------------------------------------------------------------------------
     # ComponentTypes
@@ -10002,6 +10904,10 @@ components:
           description: Connections that could not be resolved
           items:
             $ref: '#/components/schemas/PendingConnection'
+        gate:
+          description: Deployment hook gate for this binding's environment; absent when no hooks are bound (alpha)
+          allOf:
+            - $ref: '#/components/schemas/DeploymentGateStatus'
 
     ResolvedConnection:
       type: object

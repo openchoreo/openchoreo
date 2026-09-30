@@ -19,11 +19,19 @@ import (
 func generatedOperationDefs() []audit.OperationDef {
 	return []audit.OperationDef{
 		{
+			ID: "AcknowledgeReleaseBindingGate", Action: "acknowledge_release_binding_gate", ResourceType: "releasebinding",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
+		},
+		{
 			ID: "CreateClusterComponentType", Action: "create_cluster_component_type", ResourceType: "clustercomponenttype",
 			Category: audit.CategoryManagement,
 		},
 		{
 			ID: "CreateClusterDataPlane", Action: "create_cluster_data_plane", ResourceType: "clusterdataplane",
+			Category: audit.CategoryManagement,
+		},
+		{
+			ID: "CreateClusterHook", Action: "create_cluster_hook", ResourceType: "clusterhook",
 			Category: audit.CategoryManagement,
 		},
 		{
@@ -84,6 +92,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		},
 		{
 			ID: "CreateGitSecret", Action: "create_git_secret", ResourceType: "gitsecret",
+			Category: audit.CategoryManagement,
+		},
+		{
+			ID: "CreateHook", Action: "create_hook", ResourceType: "hook",
 			Category: audit.CategoryManagement,
 		},
 		{
@@ -179,6 +191,10 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryManagement, RESTResourceParam: "cdpName",
 		},
 		{
+			ID: "DeleteClusterHook", Action: "delete_cluster_hook", ResourceType: "clusterhook",
+			Category: audit.CategoryManagement, RESTResourceParam: "clusterHookName",
+		},
+		{
 			ID: "DeleteClusterObservabilityPlane", Action: "delete_cluster_observability_plane", ResourceType: "clusterobservabilityplane",
 			Category: audit.CategoryManagement, RESTResourceParam: "clusterObservabilityPlaneName",
 		},
@@ -237,6 +253,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "DeleteGitSecret", Action: "delete_git_secret", ResourceType: "gitsecret",
 			Category: audit.CategoryManagement, RESTResourceParam: "gitSecretName",
+		},
+		{
+			ID: "DeleteHook", Action: "delete_hook", ResourceType: "hook",
+			Category: audit.CategoryManagement, RESTResourceParam: "hookName",
 		},
 		{
 			ID: "DeleteNamespace", Action: "delete_namespace", ResourceType: "namespace",
@@ -327,6 +347,18 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryManagement,
 		},
 		{
+			ID: "ResumeWorkflowRun", Action: "resume_workflow_run", ResourceType: "workflowrun",
+			Category: audit.CategoryManagement, RESTResourceParam: "runName",
+		},
+		{
+			ID: "RetryReleaseBindingHook", Action: "retry_release_binding_hook", ResourceType: "releasebinding",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
+		},
+		{
+			ID: "StopWorkflowRun", Action: "stop_workflow_run", ResourceType: "workflowrun",
+			Category: audit.CategoryManagement, RESTResourceParam: "runName",
+		},
+		{
 			ID: "TriggerReleaseBindingCronJob", Action: "trigger_release_binding_cron_job", ResourceType: "releasebinding",
 			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
 		},
@@ -337,6 +369,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "UpdateClusterDataPlane", Action: "update_cluster_data_plane", ResourceType: "clusterdataplane",
 			Category: audit.CategoryManagement, RESTResourceParam: "cdpName",
+		},
+		{
+			ID: "UpdateClusterHook", Action: "update_cluster_hook", ResourceType: "clusterhook",
+			Category: audit.CategoryManagement, RESTResourceParam: "clusterHookName",
 		},
 		{
 			ID: "UpdateClusterObservabilityPlane", Action: "update_cluster_observability_plane", ResourceType: "clusterobservabilityplane",
@@ -389,6 +425,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "UpdateEnvironment", Action: "update_environment", ResourceType: "environment",
 			Category: audit.CategoryManagement, RESTResourceParam: "envName",
+		},
+		{
+			ID: "UpdateHook", Action: "update_hook", ResourceType: "hook",
+			Category: audit.CategoryManagement, RESTResourceParam: "hookName",
 		},
 		{
 			ID: "UpdateNamespace", Action: "update_namespace", ResourceType: "namespace",

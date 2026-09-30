@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,6 +53,18 @@ func (r *Reconciler) finalize(ctx context.Context, old, releaseBinding *openchor
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
 	if meta.SetStatusCondition(&releaseBinding.Status.Conditions, NewReleaseBindingFinalizingCondition(releaseBinding.Generation)) {
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, releaseBinding)
+	}
+
+	// Hook WorkflowRuns are owner-referenced and garbage-collected; delete them
+	// eagerly so a pending approval does not outlive the binding.
+	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.WorkflowRun{},
+		client.InNamespace(releaseBinding.Namespace),
+		client.MatchingLabels{
+			labels.LabelKeyWorkflowPurpose: labels.LabelValueWorkflowPurposeDeploymentHook,
+			labels.LabelKeyReleaseBinding:  releaseBinding.Name,
+		}); err != nil && !apierrors.IsNotFound(err) {
+		logger.Error(err, "Failed to delete hook WorkflowRuns")
+		return ctrl.Result{}, err
 	}
 
 	// Check if any Releases owned by this ReleaseBinding still exist

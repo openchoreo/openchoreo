@@ -36,6 +36,14 @@ func (r *Reconciler) validateComponentWorkflowRun(
 	ctx context.Context,
 	workflowRun *openchoreodevv1alpha1.WorkflowRun,
 ) validateComponentWorkflowResult {
+	// Deployment-hook runs are created by the ReleaseBinding controller against a
+	// hook's workflow, not a component's build workflow, so the allowedWorkflows and
+	// Component.spec.workflow rules do not apply. An absent or "build" purpose keeps
+	// today's rules exactly.
+	if workflowRun.Labels[labels.LabelKeyWorkflowPurpose] == labels.LabelValueWorkflowPurposeDeploymentHook {
+		return validateDeploymentHookWorkflowRun(workflowRun)
+	}
+
 	projectLabel := workflowRun.Labels[labels.LabelKeyProjectName]
 	componentLabel := workflowRun.Labels[labels.LabelKeyComponentName]
 
@@ -130,6 +138,37 @@ func (r *Reconciler) validateComponentWorkflowRun(
 		}
 	}
 
+	return validateComponentWorkflowResult{}
+}
+
+// validateDeploymentHookWorkflowRun checks that a run labeled as a deployment hook
+// really came from the ReleaseBinding controller: it must be owner-referenced to a
+// ReleaseBinding and carry the hook, hook-phase and release-binding labels.
+func validateDeploymentHookWorkflowRun(workflowRun *openchoreodevv1alpha1.WorkflowRun) validateComponentWorkflowResult {
+	var missing []string
+	for _, key := range []string{labels.LabelKeyHook, labels.LabelKeyHookPhase, labels.LabelKeyReleaseBinding} {
+		if workflowRun.Labels[key] == "" {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		msg := fmt.Sprintf("deployment-hook workflow run is missing required labels: %s", strings.Join(missing, ", "))
+		setComponentValidationFailedCondition(workflowRun, msg)
+		return validateComponentWorkflowResult{shouldReturn: true, result: ctrl.Result{}}
+	}
+	owned := false
+	for _, ref := range workflowRun.OwnerReferences {
+		if ref.Kind == "ReleaseBinding" && ref.Name == workflowRun.Labels[labels.LabelKeyReleaseBinding] {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		msg := fmt.Sprintf("deployment-hook workflow run must be owned by ReleaseBinding %q",
+			workflowRun.Labels[labels.LabelKeyReleaseBinding])
+		setComponentValidationFailedCondition(workflowRun, msg)
+		return validateComponentWorkflowResult{shouldReturn: true, result: ctrl.Result{}}
+	}
 	return validateComponentWorkflowResult{}
 }
 

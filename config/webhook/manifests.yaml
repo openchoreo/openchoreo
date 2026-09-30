@@ -196,6 +196,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-clusterhook
+  failurePolicy: Fail
+  name: vclusterhook-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterhooks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-openchoreo-dev-v1alpha1-clusterresourcetype
   failurePolicy: Fail
   name: vclusterresourcetype-v1alpha1.kb.io
@@ -309,6 +329,46 @@ webhooks:
     - UPDATE
     resources:
     - componenttypes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-environment
+  failurePolicy: Fail
+  name: venvironment-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - environments
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-hook
+  failurePolicy: Fail
+  name: vhook-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hooks
   sideEffects: None
 - admissionReviewVersions:
   - v1

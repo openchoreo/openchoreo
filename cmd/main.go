@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterhook"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterresourcetype"
@@ -43,6 +44,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
+	"github.com/openchoreo/openchoreo/internal/controller/hook"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
@@ -70,12 +72,15 @@ import (
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clusterhookwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterhook"
 	clusterresourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterresourcetype"
 	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
 	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
+	environmentwebhook "github.com/openchoreo/openchoreo/internal/webhook/environment"
+	hookwebhook "github.com/openchoreo/openchoreo/internal/webhook/hook"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
 	resourcereleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcerelease"
@@ -191,6 +196,8 @@ func setupControlPlaneControllers(
 		&clustercomponenttype.Reconciler{Client: c, Scheme: s},
 		&trait.Reconciler{Client: c, Scheme: s},
 		&clustertrait.Reconciler{Client: c, Scheme: s},
+		&hook.Reconciler{Client: c, Scheme: s},
+		&clusterhook.Reconciler{Client: c, Scheme: s},
 		&componentrelease.Reconciler{Client: c, Scheme: s},
 		// Resource family — templates (cluster-scoped before namespaced),
 		// then consumer, immutable release snapshot, per-env binding.
@@ -508,6 +515,9 @@ func main() {
 			{"Component", componentwebhook.SetupComponentWebhookWithManager},
 			{"Trait", traitwebhook.SetupTraitWebhookWithManager},
 			{"ClusterTrait", clustertraitwebhook.SetupClusterTraitWebhookWithManager},
+			{"Hook", hookwebhook.SetupHookWebhookWithManager},
+			{"ClusterHook", clusterhookwebhook.SetupClusterHookWebhookWithManager},
+			{"Environment", environmentwebhook.SetupEnvironmentWebhookWithManager},
 			{"ComponentRelease", componentreleasewebhook.SetupComponentReleaseWebhookWithManager},
 			{"ReleaseBinding", releasebindingwebhook.SetupReleaseBindingWebhookWithManager},
 			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},

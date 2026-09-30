@@ -563,6 +563,226 @@ spec:
                   - name
                   type: object
                 type: array
+              gate:
+                description: |-
+                  Gate tracks the deployment hooks bound by this binding's Environment.
+                  Absent when no hooks are bound.
+                properties:
+                  history:
+                    description: History lists the most recent gate passes, newest
+                      first.
+                    items:
+                      description: GatePassRecord records one gate pass.
+                      properties:
+                        hookSetHash:
+                          description: HookSetHash is the hash of the effective hook
+                            set at the time of the pass.
+                          type: string
+                        key:
+                          description: Key is the gate key that passed.
+                          type: string
+                        passedAt:
+                          description: PassedAt is when the gate passed.
+                          format: date-time
+                          type: string
+                        release:
+                          description: Release is the ComponentRelease name the key
+                            was computed for.
+                          type: string
+                      required:
+                      - key
+                      type: object
+                    maxItems: 10
+                    type: array
+                  hookSetHash:
+                    description: HookSetHash is the hash of the effective hook set
+                      for the current key.
+                    type: string
+                  key:
+                    description: |-
+                      Key identifies the current deployment attempt: a hash of the release,
+                      the effective hook set and the deployment sequence.
+                    type: string
+                  lastPassedRelease:
+                    description: LastPassedRelease is the ComponentRelease name of
+                      the last pass.
+                    type: string
+                  passedKey:
+                    description: PassedKey is the last key whose pre-deploy hooks
+                      all passed.
+                    type: string
+                  postDeploy:
+                    description: PostDeploy is the status of each post-deploy binding
+                      for the current key.
+                    items:
+                      description: DeploymentHookStatus is the observed state of one
+                        hook binding for the current gate key.
+                      properties:
+                        attempt:
+                          description: Attempt is the 1-based attempt number of the
+                            current run.
+                          format: int32
+                          type: integer
+                        finishedAt:
+                          description: FinishedAt is when the current attempt reached
+                            a terminal phase.
+                          format: date-time
+                          type: string
+                        hookRef:
+                          description: HookRef is the hook the binding resolved to.
+                          properties:
+                            kind:
+                              default: Hook
+                              description: Kind is the kind of hook (Hook or ClusterHook).
+                              enum:
+                              - Hook
+                              - ClusterHook
+                              type: string
+                            name:
+                              description: Name is the name of the hook resource.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        message:
+                          description: Message is a human-readable detail, copied
+                            from the failing task when available.
+                          type: string
+                        mode:
+                          description: Mode is the effective mode of the binding.
+                          enum:
+                          - Sync
+                          - Async
+                          type: string
+                        name:
+                          description: Name is the binding name.
+                          type: string
+                        phase:
+                          description: Phase is the observed phase of the run.
+                          enum:
+                          - Pending
+                          - Running
+                          - Succeeded
+                          - Failed
+                          - TimedOut
+                          - Skipped
+                          - Dispatched
+                          - DispatchFailed
+                          - PlaneUnavailable
+                          type: string
+                        reason:
+                          description: Reason is a machine-readable reason for the
+                            phase.
+                          type: string
+                        startedAt:
+                          description: StartedAt is when the current attempt started.
+                          format: date-time
+                          type: string
+                        workflowRunRef:
+                          description: WorkflowRunRef is the name of the WorkflowRun
+                            that executed the hook.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  postDeployKey:
+                    description: PostDeployKey is the key whose post-deploy hooks
+                      have been started.
+                    type: string
+                  preDeploy:
+                    description: PreDeploy is the status of each pre-deploy binding
+                      for the current key.
+                    items:
+                      description: DeploymentHookStatus is the observed state of one
+                        hook binding for the current gate key.
+                      properties:
+                        attempt:
+                          description: Attempt is the 1-based attempt number of the
+                            current run.
+                          format: int32
+                          type: integer
+                        finishedAt:
+                          description: FinishedAt is when the current attempt reached
+                            a terminal phase.
+                          format: date-time
+                          type: string
+                        hookRef:
+                          description: HookRef is the hook the binding resolved to.
+                          properties:
+                            kind:
+                              default: Hook
+                              description: Kind is the kind of hook (Hook or ClusterHook).
+                              enum:
+                              - Hook
+                              - ClusterHook
+                              type: string
+                            name:
+                              description: Name is the name of the hook resource.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        message:
+                          description: Message is a human-readable detail, copied
+                            from the failing task when available.
+                          type: string
+                        mode:
+                          description: Mode is the effective mode of the binding.
+                          enum:
+                          - Sync
+                          - Async
+                          type: string
+                        name:
+                          description: Name is the binding name.
+                          type: string
+                        phase:
+                          description: Phase is the observed phase of the run.
+                          enum:
+                          - Pending
+                          - Running
+                          - Succeeded
+                          - Failed
+                          - TimedOut
+                          - Skipped
+                          - Dispatched
+                          - DispatchFailed
+                          - PlaneUnavailable
+                          type: string
+                        reason:
+                          description: Reason is a machine-readable reason for the
+                            phase.
+                          type: string
+                        startedAt:
+                          description: StartedAt is when the current attempt started.
+                          format: date-time
+                          type: string
+                        workflowRunRef:
+                          description: WorkflowRunRef is the name of the WorkflowRun
+                            that executed the hook.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  sequence:
+                    description: |-
+                      Sequence counts deployment attempts on this binding. It is part of the key,
+                      so a release that returns after another one was pinned runs its hooks again
+                      under a fresh key (and fresh WorkflowRun names).
+                    format: int64
+                    type: integer
+                type: object
               lastSpecUpdateTime:
                 description: |-
                   LastSpecUpdateTime is the timestamp of the last spec change observed by the controller.

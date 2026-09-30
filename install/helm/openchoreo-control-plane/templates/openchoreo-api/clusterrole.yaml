@@ -24,6 +24,7 @@ rules:
   - clusterprojecttypes
   - clusterresourcetypes
   - clustertraits
+  - clusterhooks
   - clusterobservabilityplanes
   - clustertraits
   - clusterworkflows
@@ -56,6 +57,7 @@ rules:
   - serviceclasses
   - services
   - traits
+  - hooks
   - webapplicationbindings
   - webapplicationclasses
   - webapplications
@@ -94,6 +96,7 @@ rules:
   - clustercomponenttypes/status
   - clusterdataplanes/status
   - clustertraits/status
+  - clusterhooks/status
   - clusterobservabilityplanes/status
   - clustertraits/status
   - clusterworkflows/status
@@ -126,6 +129,7 @@ rules:
   - serviceclasses/status
   - services/status
   - traits/status
+  - hooks/status
   - webapplicationbindings/status
   - webapplicationclasses/status
   - webapplications/status

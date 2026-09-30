@@ -8,6 +8,8 @@ resources:
   - openchoreo_v1alpha1_resource.yaml
   - openchoreo_v1alpha1_resourcetype.yaml
   - openchoreo_v1alpha1_trait.yaml
+  - openchoreo_v1alpha1_hook.yaml
+  - openchoreo_v1alpha1_clusterhook.yaml
 
   - openchoreo_v1alpha1_dataplane.yaml
   - openchoreo_v1alpha1_deployableartifact.yaml

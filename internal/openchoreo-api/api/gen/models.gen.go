@@ -222,6 +222,54 @@ const (
 	ExternalRefKindSecretReference ExternalRefKind = "SecretReference"
 )
 
+// Defines values for HookBindingMode.
+const (
+	Async HookBindingMode = "Async"
+	Sync  HookBindingMode = "Sync"
+)
+
+// Defines values for HookBindingOnFailure.
+const (
+	Alert  HookBindingOnFailure = "Alert"
+	Block  HookBindingOnFailure = "Block"
+	Ignore HookBindingOnFailure = "Ignore"
+)
+
+// Defines values for HookRefKind.
+const (
+	HookRefKindClusterHook HookRefKind = "ClusterHook"
+	HookRefKindHook        HookRefKind = "Hook"
+)
+
+// Defines values for HookRetryRequestPhase.
+const (
+	PostDeploy HookRetryRequestPhase = "postDeploy"
+	PreDeploy  HookRetryRequestPhase = "preDeploy"
+)
+
+// Defines values for HookSpecType.
+const (
+	HookSpecTypeWorkflow HookSpecType = "Workflow"
+)
+
+// Defines values for HookSpecWorkflowRefKind.
+const (
+	HookSpecWorkflowRefKindClusterWorkflow HookSpecWorkflowRefKind = "ClusterWorkflow"
+	HookSpecWorkflowRefKindWorkflow        HookSpecWorkflowRefKind = "Workflow"
+)
+
+// Defines values for HookSubjectRefKind.
+const (
+	HookSubjectRefKindClusterComponentType HookSubjectRefKind = "ClusterComponentType"
+	HookSubjectRefKindComponentType        HookSubjectRefKind = "ComponentType"
+)
+
+// Defines values for HookSubjectSelectorKind.
+const (
+	HookSubjectSelectorKindClusterComponentType HookSubjectSelectorKind = "ClusterComponentType"
+	HookSubjectSelectorKindComponentType        HookSubjectSelectorKind = "ComponentType"
+)
+
 // Defines values for NamespaceStatusPhase.
 const (
 	NamespaceStatusPhaseActive      NamespaceStatusPhase = "Active"
@@ -984,6 +1032,33 @@ type ClusterDataPlaneStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed ClusterDataPlane
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// ClusterHook ClusterHook resource.
+// Cluster-scoped version of Hook. May only reference a ClusterWorkflow.
+type ClusterHook struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Hook or ClusterHook
+	Spec   *HookSpec   `json:"spec,omitempty"`
+	Status *HookStatus `json:"status,omitempty"`
+}
+
+// ClusterHookList Paginated list of cluster-scoped deployment hooks
+type ClusterHookList struct {
+	Items []ClusterHook `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterObservabilityPlane ClusterObservabilityPlane resource.
@@ -1918,6 +1993,66 @@ type Decision struct {
 	Decision bool `json:"decision"`
 }
 
+// DeploymentGateStatus Observed state of the hook gate on a ReleaseBinding
+type DeploymentGateStatus struct {
+	// History Most recent gate passes, newest first
+	History *[]GatePassRecord `json:"history,omitempty"`
+
+	// HookSetHash Hash of the effective hook set for the current key
+	HookSetHash *string `json:"hookSetHash,omitempty"`
+
+	// Key Identifies the current deployment attempt (hash of the release, the effective hook set and the deployment sequence)
+	Key *string `json:"key,omitempty"`
+
+	// LastPassedRelease ComponentRelease name of the last pass
+	LastPassedRelease *string `json:"lastPassedRelease,omitempty"`
+
+	// PassedKey Last key whose pre-deploy hooks all passed
+	PassedKey *string `json:"passedKey,omitempty"`
+
+	// PostDeploy Status of each post-deploy binding for the current key
+	PostDeploy *[]DeploymentHookStatus `json:"postDeploy,omitempty"`
+
+	// PostDeployKey Key whose post-deploy hooks have been started
+	PostDeployKey *string `json:"postDeployKey,omitempty"`
+
+	// PreDeploy Status of each pre-deploy binding for the current key
+	PreDeploy *[]DeploymentHookStatus `json:"preDeploy,omitempty"`
+}
+
+// DeploymentHookStatus Observed state of one hook binding for the current gate key
+type DeploymentHookStatus struct {
+	// Attempt 1-based attempt number of the current run
+	Attempt *int32 `json:"attempt,omitempty"`
+
+	// FinishedAt When the current attempt reached a terminal phase
+	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+
+	// HookRef Reference to a Hook or ClusterHook
+	HookRef *HookRef `json:"hookRef,omitempty"`
+
+	// Message Human-readable detail, copied from the failing task when available
+	Message *string `json:"message,omitempty"`
+
+	// Mode Effective mode of the binding (Sync or Async)
+	Mode *string `json:"mode,omitempty"`
+
+	// Name Binding name
+	Name string `json:"name"`
+
+	// Phase Observed phase of the run. One of Pending, Running, Succeeded, Failed, TimedOut, Skipped, Dispatched, DispatchFailed, PlaneUnavailable.
+	Phase *string `json:"phase,omitempty"`
+
+	// Reason Machine-readable reason for the phase
+	Reason *string `json:"reason,omitempty"`
+
+	// StartedAt When the current attempt started
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+
+	// WorkflowRunRef Name of the WorkflowRun that executed the hook
+	WorkflowRunRef *string `json:"workflowRunRef,omitempty"`
+}
+
 // DeploymentPipeline DeploymentPipeline resource.
 // Defines promotion paths between environments for component deployments.
 type DeploymentPipeline struct {
@@ -2093,6 +2228,9 @@ type EnvironmentSpec struct {
 	// Gateway Gateway configuration with ingress and egress network specs
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
+	// Hooks Pre-deploy and post-deploy hooks that run for every component deployment into this environment (alpha)
+	Hooks *HookSet `json:"hooks,omitempty"`
+
 	// IsProduction Whether this is a production environment
 	IsProduction *bool `json:"isProduction,omitempty"`
 }
@@ -2176,6 +2314,27 @@ type FileVar struct {
 
 	// ValueFrom Value source reference
 	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
+}
+
+// GateAcknowledgeRequest Acknowledges an Alert post-deploy failure for one gate key
+type GateAcknowledgeRequest struct {
+	// Key The gate key being acknowledged (status.gate.key)
+	Key string `json:"key"`
+}
+
+// GatePassRecord Records one gate pass
+type GatePassRecord struct {
+	// HookSetHash Hash of the effective hook set at the time of the pass
+	HookSetHash *string `json:"hookSetHash,omitempty"`
+
+	// Key Gate key that passed
+	Key string `json:"key"`
+
+	// PassedAt When the gate passed
+	PassedAt *time.Time `json:"passedAt,omitempty"`
+
+	// Release ComponentRelease name the key was computed for
+	Release *string `json:"release,omitempty"`
 }
 
 // GatewayEndpointSpec Gateway resource endpoint configuration
@@ -2270,6 +2429,182 @@ type HealthInfo struct {
 	// Status Health status (Healthy, Degraded, Progressing, Unknown, etc.)
 	Status string `json:"status"`
 }
+
+// Hook Hook resource.
+// A platform-engineer-defined action that an Environment binds as a pre-deploy or
+// post-deploy step.
+type Hook struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Hook or ClusterHook
+	Spec   *HookSpec   `json:"spec,omitempty"`
+	Status *HookStatus `json:"status,omitempty"`
+}
+
+// HookBinding Attaches a hook to an environment as a pre-deploy or post-deploy step
+type HookBinding struct {
+	// AppliesTo Restricts the binding to components of the listed component types. Empty applies to every component.
+	AppliesTo *[]HookSubjectSelector `json:"appliesTo,omitempty"`
+
+	// HookRef Reference to a Hook or ClusterHook
+	HookRef HookRef `json:"hookRef"`
+
+	// Mode Whether the deployment waits for the hook
+	Mode *HookBindingMode `json:"mode,omitempty"`
+
+	// Name Binding name, unique across both phases of an environment
+	Name string `json:"name"`
+
+	// OnFailure What a failed Sync hook does to the deployment. Defaults to Block for pre-deploy and Ignore for post-deploy.
+	OnFailure *HookBindingOnFailure `json:"onFailure,omitempty"`
+
+	// Parameters Values for the hook's open parameters (default, required, or from+overridable), keyed by parameter name
+	Parameters *map[string]string `json:"parameters,omitempty"`
+
+	// Retries Automatic re-runs after a Sync failure
+	Retries *int32 `json:"retries,omitempty"`
+
+	// Timeout Bounds a Sync hook's run time as a Go duration. Defaults to 30m.
+	Timeout *string `json:"timeout,omitempty"`
+}
+
+// HookBindingMode Whether the deployment waits for the hook
+type HookBindingMode string
+
+// HookBindingOnFailure What a failed Sync hook does to the deployment. Defaults to Block for pre-deploy and Ignore for post-deploy.
+type HookBindingOnFailure string
+
+// HookList Paginated list of deployment hooks
+type HookList struct {
+	Items []Hook `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// HookParameter Maps one input of the hook's workflow to a value source. Exactly one of value, from,
+// default or required is set, except that from may be combined with overridable.
+type HookParameter struct {
+	// Default Value used when the binding does not supply one
+	Default *string `json:"default,omitempty"`
+
+	// From CEL expression (${...}) evaluated against the deployment context
+	From *string `json:"from,omitempty"`
+
+	// Name Workflow input this parameter feeds
+	Name string `json:"name"`
+
+	// Overridable Lets a binding replace the value computed by from
+	Overridable *bool `json:"overridable,omitempty"`
+
+	// Required Every binding must supply this parameter
+	Required *bool `json:"required,omitempty"`
+
+	// Schema Optional OpenAPI v3 fragment describing the parameter value
+	Schema *map[string]interface{} `json:"schema,omitempty"`
+
+	// Value Fixed literal. A binding cannot override it.
+	Value *string `json:"value,omitempty"`
+}
+
+// HookRef Reference to a Hook or ClusterHook
+type HookRef struct {
+	// Kind Kind of hook resource
+	Kind *HookRefKind `json:"kind,omitempty"`
+
+	// Name Hook resource name
+	Name string `json:"name"`
+}
+
+// HookRefKind Kind of hook resource
+type HookRefKind string
+
+// HookRetryRequest Names the phase of the hook binding to re-run
+type HookRetryRequest struct {
+	// Phase Gate phase the binding belongs to
+	Phase HookRetryRequestPhase `json:"phase"`
+}
+
+// HookRetryRequestPhase Gate phase the binding belongs to
+type HookRetryRequestPhase string
+
+// HookSet Pre-deploy and post-deploy hook bindings of an environment
+type HookSet struct {
+	// PostDeploy Hooks that run after the release reports ResourcesReady
+	PostDeploy *[]HookBinding `json:"postDeploy,omitempty"`
+
+	// PreDeploy Hooks that run before the RenderedRelease is created
+	PreDeploy *[]HookBinding `json:"preDeploy,omitempty"`
+}
+
+// HookSpec Desired state of a Hook or ClusterHook
+type HookSpec struct {
+	// EnabledTo Component types the hook is enabled for. Empty enables it for every component; a binding's appliesTo can narrow this but not widen it.
+	EnabledTo *[]HookSubjectRef `json:"enabledTo,omitempty"`
+
+	// Parameters Maps the workflow's inputs to value sources
+	Parameters *[]HookParameter `json:"parameters,omitempty"`
+
+	// Type Executor type. Only Workflow is supported.
+	Type *HookSpecType `json:"type,omitempty"`
+
+	// WorkflowRef The Workflow or ClusterWorkflow the hook runs. A ClusterHook may only reference a ClusterWorkflow.
+	WorkflowRef struct {
+		// Kind Kind of referenced workflow resource
+		Kind *HookSpecWorkflowRefKind `json:"kind,omitempty"`
+
+		// Name Referenced workflow resource name
+		Name string `json:"name"`
+	} `json:"workflowRef"`
+}
+
+// HookSpecType Executor type. Only Workflow is supported.
+type HookSpecType string
+
+// HookSpecWorkflowRefKind Kind of referenced workflow resource
+type HookSpecWorkflowRefKind string
+
+// HookStatus Observed state of a Hook or ClusterHook
+type HookStatus struct {
+	// Conditions Latest available observations of the hook's state
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// HookSubjectRef Names a component type a hook is enabled for
+type HookSubjectRef struct {
+	// Kind Type kind
+	Kind HookSubjectRefKind `json:"kind"`
+
+	// Name Name of the type resource
+	Name string `json:"name"`
+}
+
+// HookSubjectRefKind Type kind
+type HookSubjectRefKind string
+
+// HookSubjectSelector Scopes a hook binding to components of a component type
+type HookSubjectSelector struct {
+	// Kind Type kind to match
+	Kind HookSubjectSelectorKind `json:"kind"`
+
+	// Name Name of the type resource
+	Name string `json:"name"`
+}
+
+// HookSubjectSelectorKind Type kind to match
+type HookSubjectSelectorKind string
 
 // K8sResourceTreeResponse Response containing resource trees for all rendered releases owned by a release binding
 type K8sResourceTreeResponse struct {
@@ -3109,6 +3444,9 @@ type ReleaseBindingStatus struct {
 
 	// Endpoints Resolved invoke URLs for each named workload endpoint
 	Endpoints *[]EndpointURLStatus `json:"endpoints,omitempty"`
+
+	// Gate Deployment hook gate for this binding's environment; absent when no hooks are bound (alpha)
+	Gate *DeploymentGateStatus `json:"gate,omitempty"`
 
 	// LastSpecUpdateTime Timestamp of the last spec change observed by the controller
 	LastSpecUpdateTime *time.Time `json:"lastSpecUpdateTime,omitempty"`
@@ -4379,6 +4717,12 @@ type WorkflowRunStatusResponse struct {
 // WorkflowRunStatusResponseStatus Overall workflow run status
 type WorkflowRunStatusResponseStatus string
 
+// WorkflowRunStopRequest Optional reason recorded when a workflow run is stopped
+type WorkflowRunStopRequest struct {
+	// Reason Why the run was stopped; recorded on the WorkflowRun
+	Reason *string `json:"reason,omitempty"`
+}
+
 // WorkflowSpec Desired state of a Workflow
 type WorkflowSpec struct {
 	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
@@ -4623,6 +4967,9 @@ type ClusterComponentTypeNameParam = string
 // ClusterDataPlaneNameParam defines model for ClusterDataPlaneNameParam.
 type ClusterDataPlaneNameParam = string
 
+// ClusterHookNameParam defines model for ClusterHookNameParam.
+type ClusterHookNameParam = string
+
 // ClusterObservabilityPlaneNameParam defines model for ClusterObservabilityPlaneNameParam.
 type ClusterObservabilityPlaneNameParam = string
 
@@ -4667,6 +5014,9 @@ type EnvironmentQueryParam = string
 
 // GitSecretNameParam defines model for GitSecretNameParam.
 type GitSecretNameParam = string
+
+// HookNameParam defines model for HookNameParam.
+type HookNameParam = string
 
 // LabelSelectorParam defines model for LabelSelectorParam.
 type LabelSelectorParam = string
@@ -4841,6 +5191,23 @@ type ListClusterComponentTypesParams struct {
 
 // ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.
 type ListClusterDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterHooksParams defines parameters for ListClusterHooks.
+type ListClusterHooksParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5102,6 +5469,23 @@ type ListDeploymentPipelinesParams struct {
 
 // ListEnvironmentsParams defines parameters for ListEnvironments.
 type ListEnvironmentsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListHooksParams defines parameters for ListHooks.
+type ListHooksParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5527,6 +5911,12 @@ type CreateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 // UpdateClusterDataPlaneJSONRequestBody defines body for UpdateClusterDataPlane for application/json ContentType.
 type UpdateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 
+// CreateClusterHookJSONRequestBody defines body for CreateClusterHook for application/json ContentType.
+type CreateClusterHookJSONRequestBody = ClusterHook
+
+// UpdateClusterHookJSONRequestBody defines body for UpdateClusterHook for application/json ContentType.
+type UpdateClusterHookJSONRequestBody = ClusterHook
+
 // CreateClusterObservabilityPlaneJSONRequestBody defines body for CreateClusterObservabilityPlane for application/json ContentType.
 type CreateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
 
@@ -5617,6 +6007,12 @@ type CreateEnvironmentJSONRequestBody = Environment
 // UpdateEnvironmentJSONRequestBody defines body for UpdateEnvironment for application/json ContentType.
 type UpdateEnvironmentJSONRequestBody = Environment
 
+// CreateHookJSONRequestBody defines body for CreateHook for application/json ContentType.
+type CreateHookJSONRequestBody = Hook
+
+// UpdateHookJSONRequestBody defines body for UpdateHook for application/json ContentType.
+type UpdateHookJSONRequestBody = Hook
+
 // CreateObservabilityAlertsNotificationChannelJSONRequestBody defines body for CreateObservabilityAlertsNotificationChannel for application/json ContentType.
 type CreateObservabilityAlertsNotificationChannelJSONRequestBody = ObservabilityAlertsNotificationChannel
 
@@ -5655,6 +6051,12 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
+
+// AcknowledgeReleaseBindingGateJSONRequestBody defines body for AcknowledgeReleaseBindingGate for application/json ContentType.
+type AcknowledgeReleaseBindingGateJSONRequestBody = GateAcknowledgeRequest
+
+// RetryReleaseBindingHookJSONRequestBody defines body for RetryReleaseBindingHook for application/json ContentType.
+type RetryReleaseBindingHookJSONRequestBody = HookRetryRequest
 
 // CreateResourceReleaseBindingJSONRequestBody defines body for CreateResourceReleaseBinding for application/json ContentType.
 type CreateResourceReleaseBindingJSONRequestBody = ResourceReleaseBinding
@@ -5700,6 +6102,9 @@ type CreateWorkflowRunJSONRequestBody = WorkflowRun
 
 // UpdateWorkflowRunJSONRequestBody defines body for UpdateWorkflowRun for application/json ContentType.
 type UpdateWorkflowRunJSONRequestBody = WorkflowRun
+
+// StopWorkflowRunJSONRequestBody defines body for StopWorkflowRun for application/json ContentType.
+type StopWorkflowRunJSONRequestBody = WorkflowRunStopRequest
 
 // CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
 type CreateWorkflowJSONRequestBody = Workflow

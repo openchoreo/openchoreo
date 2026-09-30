@@ -440,6 +440,127 @@ func (_c *MockService_ListWorkflowRuns_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// ResumeWorkflowRun provides a mock function with given fields: ctx, namespaceName, runName
+func (_m *MockService) ResumeWorkflowRun(ctx context.Context, namespaceName string, runName string) (*v1alpha1.WorkflowRun, error) {
+	ret := _m.Called(ctx, namespaceName, runName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResumeWorkflowRun")
+	}
+
+	var r0 *v1alpha1.WorkflowRun
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.WorkflowRun, error)); ok {
+		return rf(ctx, namespaceName, runName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.WorkflowRun); ok {
+		r0 = rf(ctx, namespaceName, runName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.WorkflowRun)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, runName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ResumeWorkflowRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumeWorkflowRun'
+type MockService_ResumeWorkflowRun_Call struct {
+	*mock.Call
+}
+
+// ResumeWorkflowRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+func (_e *MockService_Expecter) ResumeWorkflowRun(ctx interface{}, namespaceName interface{}, runName interface{}) *MockService_ResumeWorkflowRun_Call {
+	return &MockService_ResumeWorkflowRun_Call{Call: _e.mock.On("ResumeWorkflowRun", ctx, namespaceName, runName)}
+}
+
+func (_c *MockService_ResumeWorkflowRun_Call) Run(run func(ctx context.Context, namespaceName string, runName string)) *MockService_ResumeWorkflowRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_ResumeWorkflowRun_Call) Return(_a0 *v1alpha1.WorkflowRun, _a1 error) *MockService_ResumeWorkflowRun_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ResumeWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string) (*v1alpha1.WorkflowRun, error)) *MockService_ResumeWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StopWorkflowRun provides a mock function with given fields: ctx, namespaceName, runName, reason
+func (_m *MockService) StopWorkflowRun(ctx context.Context, namespaceName string, runName string, reason string) (*v1alpha1.WorkflowRun, error) {
+	ret := _m.Called(ctx, namespaceName, runName, reason)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StopWorkflowRun")
+	}
+
+	var r0 *v1alpha1.WorkflowRun
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1alpha1.WorkflowRun, error)); ok {
+		return rf(ctx, namespaceName, runName, reason)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1alpha1.WorkflowRun); ok {
+		r0 = rf(ctx, namespaceName, runName, reason)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.WorkflowRun)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, runName, reason)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_StopWorkflowRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StopWorkflowRun'
+type MockService_StopWorkflowRun_Call struct {
+	*mock.Call
+}
+
+// StopWorkflowRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+//   - reason string
+func (_e *MockService_Expecter) StopWorkflowRun(ctx interface{}, namespaceName interface{}, runName interface{}, reason interface{}) *MockService_StopWorkflowRun_Call {
+	return &MockService_StopWorkflowRun_Call{Call: _e.mock.On("StopWorkflowRun", ctx, namespaceName, runName, reason)}
+}
+
+func (_c *MockService_StopWorkflowRun_Call) Run(run func(ctx context.Context, namespaceName string, runName string, reason string)) *MockService_StopWorkflowRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_StopWorkflowRun_Call) Return(_a0 *v1alpha1.WorkflowRun, _a1 error) *MockService_StopWorkflowRun_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_StopWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string, string) (*v1alpha1.WorkflowRun, error)) *MockService_StopWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TriggerWorkflow provides a mock function with given fields: ctx, namespaceName, projectName, componentName, commit
 func (_m *MockService) TriggerWorkflow(ctx context.Context, namespaceName string, projectName string, componentName string, commit string) (*models.WorkflowRunTriggerResponse, error) {
 	ret := _m.Called(ctx, namespaceName, projectName, componentName, commit)

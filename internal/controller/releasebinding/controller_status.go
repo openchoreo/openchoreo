@@ -145,8 +145,13 @@ func (r *Reconciler) setResourcesReadyStatus(
 func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	// Find all relevant conditions
 	var releaseSynced, resourcesReady, connectionsResolved, resourceDependenciesReady *metav1.Condition
+	var preDeployHooks, postDeployHooks *metav1.Condition
 	for i := range releaseBinding.Status.Conditions {
 		switch releaseBinding.Status.Conditions[i].Type {
+		case string(ConditionPreDeployHooksPassed):
+			preDeployHooks = &releaseBinding.Status.Conditions[i]
+		case string(ConditionPostDeployHooksPassed):
+			postDeployHooks = &releaseBinding.Status.Conditions[i]
 		case string(ConditionReleaseSynced):
 			releaseSynced = &releaseBinding.Status.Conditions[i]
 		case string(ConditionResourcesReady):
@@ -160,14 +165,24 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 
 	// All present conditions must be True for Ready to be True.
 	// ConnectionsResolved and ResourceDependenciesReady are optional — absent = pass.
+	// The hook conditions are likewise optional — absent = pass.
 	allTrue := releaseSynced != nil && releaseSynced.Status == metav1.ConditionTrue &&
 		resourcesReady != nil && resourcesReady.Status == metav1.ConditionTrue &&
 		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue) &&
-		(resourceDependenciesReady == nil || resourceDependenciesReady.Status == metav1.ConditionTrue)
+		(resourceDependenciesReady == nil || resourceDependenciesReady.Status == metav1.ConditionTrue) &&
+		(preDeployHooks == nil || preDeployHooks.Status == metav1.ConditionTrue) &&
+		(postDeployHooks == nil || postDeployHooks.Status == metav1.ConditionTrue)
 
 	if allTrue {
 		controller.MarkTrueCondition(releaseBinding, ConditionReady,
 			ReasonReady, "ReleaseBinding is ready")
+		return
+	}
+
+	// A blocked or running pre-deploy gate is the most actionable fact: it explains
+	// why nothing was rendered, even when ReleaseSynced is absent (first deploy) or
+	// still True from the previous release.
+	if markReadyFromFalseCondition(releaseBinding, preDeployHooks) {
 		return
 	}
 
@@ -199,6 +214,12 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 		return
 	}
 
+	// Post-deploy hooks (an unacknowledged Alert failure, or still running) degrade
+	// Ready above ResourcesReady, which is True by the time they run.
+	if markReadyFromFalseCondition(releaseBinding, postDeployHooks) {
+		return
+	}
+
 	// If ResourcesReady is not True, use its reason
 	if resourcesReady != nil {
 		controller.MarkFalseCondition(releaseBinding, ConditionReady,
@@ -207,6 +228,17 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 		controller.MarkFalseCondition(releaseBinding, ConditionReady,
 			ReasonResourcesProgressing, "Resources are being evaluated")
 	}
+}
+
+// markReadyFromFalseCondition propagates an optional sub-condition's reason and
+// message to Ready when the sub-condition is present and not True.
+func markReadyFromFalseCondition(releaseBinding *openchoreov1alpha1.ReleaseBinding, cond *metav1.Condition) bool {
+	if cond == nil || cond.Status == metav1.ConditionTrue {
+		return false
+	}
+	controller.MarkFalseCondition(releaseBinding, ConditionReady,
+		controller.ConditionReason(cond.Reason), cond.Message)
+	return true
 }
 
 // categorizeResource determines the category of a resource based on its GVK and workload type.

@@ -374,6 +374,213 @@ spec:
                         type: object
                     type: object
                 type: object
+              hooks:
+                description: |-
+                  Hooks are the pre-deploy and post-deploy hooks that run for every
+                  component deployment into this environment.
+                properties:
+                  postDeploy:
+                    description: PostDeploy hooks run after the release reports ResourcesReady.
+                    items:
+                      description: HookBinding attaches a hook to an environment.
+                      properties:
+                        appliesTo:
+                          description: |-
+                            AppliesTo restricts the binding to components of the listed component
+                            types. Empty applies to every component.
+                          items:
+                            description: HookSubjectSelector scopes a binding to components
+                              of a component type.
+                            properties:
+                              kind:
+                                description: Kind is the type kind to match.
+                                enum:
+                                - ComponentType
+                                - ClusterComponentType
+                                type: string
+                              name:
+                                description: Name is the name of the type resource.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                          type: array
+                        hookRef:
+                          description: HookRef is the Hook or ClusterHook to run.
+                          properties:
+                            kind:
+                              default: Hook
+                              description: Kind is the kind of hook (Hook or ClusterHook).
+                              enum:
+                              - Hook
+                              - ClusterHook
+                              type: string
+                            name:
+                              description: Name is the name of the hook resource.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        mode:
+                          default: Sync
+                          description: Mode selects whether the deployment waits for
+                            the hook.
+                          enum:
+                          - Sync
+                          - Async
+                          type: string
+                        name:
+                          description: Name identifies the binding. It must be unique
+                            across both phases of an environment.
+                          maxLength: 40
+                          minLength: 1
+                          pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        onFailure:
+                          description: |-
+                            OnFailure decides what a failed Sync hook does to the deployment.
+                            Defaults to Block for pre-deploy and Ignore for post-deploy.
+                          enum:
+                          - Block
+                          - Ignore
+                          - Alert
+                          type: string
+                        parameters:
+                          description: |-
+                            Parameters supplies values for the hook's open parameters
+                            (default, required, or from+overridable). Keys are parameter names,
+                            values are strings.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        retries:
+                          description: Retries is the number of automatic re-runs
+                            after a Sync failure.
+                          format: int32
+                          maximum: 5
+                          minimum: 0
+                          type: integer
+                        timeout:
+                          description: |-
+                            Timeout bounds a Sync hook's run time, as a Go duration (e.g. 30m, 2h).
+                            Defaults to 30m.
+                          pattern: ^(\d+h)?(\d+m)?(\d+s)?$
+                          type: string
+                      required:
+                      - hookRef
+                      - name
+                      type: object
+                    maxItems: 10
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  preDeploy:
+                    description: PreDeploy hooks run before the RenderedRelease is
+                      created.
+                    items:
+                      description: HookBinding attaches a hook to an environment.
+                      properties:
+                        appliesTo:
+                          description: |-
+                            AppliesTo restricts the binding to components of the listed component
+                            types. Empty applies to every component.
+                          items:
+                            description: HookSubjectSelector scopes a binding to components
+                              of a component type.
+                            properties:
+                              kind:
+                                description: Kind is the type kind to match.
+                                enum:
+                                - ComponentType
+                                - ClusterComponentType
+                                type: string
+                              name:
+                                description: Name is the name of the type resource.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                          type: array
+                        hookRef:
+                          description: HookRef is the Hook or ClusterHook to run.
+                          properties:
+                            kind:
+                              default: Hook
+                              description: Kind is the kind of hook (Hook or ClusterHook).
+                              enum:
+                              - Hook
+                              - ClusterHook
+                              type: string
+                            name:
+                              description: Name is the name of the hook resource.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        mode:
+                          default: Sync
+                          description: Mode selects whether the deployment waits for
+                            the hook.
+                          enum:
+                          - Sync
+                          - Async
+                          type: string
+                        name:
+                          description: Name identifies the binding. It must be unique
+                            across both phases of an environment.
+                          maxLength: 40
+                          minLength: 1
+                          pattern: ^[a-z]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        onFailure:
+                          description: |-
+                            OnFailure decides what a failed Sync hook does to the deployment.
+                            Defaults to Block for pre-deploy and Ignore for post-deploy.
+                          enum:
+                          - Block
+                          - Ignore
+                          - Alert
+                          type: string
+                        parameters:
+                          description: |-
+                            Parameters supplies values for the hook's open parameters
+                            (default, required, or from+overridable). Keys are parameter names,
+                            values are strings.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        retries:
+                          description: Retries is the number of automatic re-runs
+                            after a Sync failure.
+                          format: int32
+                          maximum: 5
+                          minimum: 0
+                          type: integer
+                        timeout:
+                          description: |-
+                            Timeout bounds a Sync hook's run time, as a Go duration (e.g. 30m, 2h).
+                            Defaults to 30m.
+                          pattern: ^(\d+h)?(\d+m)?(\d+s)?$
+                          type: string
+                      required:
+                      - hookRef
+                      - name
+                      type: object
+                    maxItems: 10
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                type: object
               isProduction:
                 type: boolean
             type: object

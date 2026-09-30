@@ -1,0 +1,32 @@
+# Same as the production Environment in ../environments.yaml, plus a Sync
+# pre-deploy image scan on every deployment of a `service` component into it.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: production
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Production
+    openchoreo.dev/description: Production; image scan before every service deployment
+  labels:
+    openchoreo.dev/name: production
+spec:
+  dataPlaneRef:
+    kind: ClusterDataPlane
+    name: default
+  isProduction: true
+  hooks:
+    preDeploy:
+      - name: image-scan
+        hookRef:
+          kind: ClusterHook
+          name: trivy-image-scan
+        mode: Sync
+        onFailure: Block
+        timeout: 15m
+        retries: 1
+        appliesTo:
+          - kind: ClusterComponentType
+            name: service
+        parameters:
+          severity: CRITICAL,HIGH

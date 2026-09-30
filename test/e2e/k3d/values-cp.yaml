@@ -37,3 +37,8 @@ gateway:
 features:
   secretManagement:
     enabled: true
+
+controllerManager:
+  hooks:
+    # Deployment hooks (alpha) — exercised by test/e2e/suites/hooks
+    enabled: true

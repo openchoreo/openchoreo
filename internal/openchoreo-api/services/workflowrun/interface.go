@@ -24,4 +24,8 @@ type Service interface {
 	// TriggerWorkflow creates a WorkflowRun from a component's workflow configuration.
 	// The authorized version is used by API handlers; the unauthz version is used by webhook processing.
 	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
+	// ResumeWorkflowRun resumes a run paused at a suspend step, like `argo resume`.
+	ResumeWorkflowRun(ctx context.Context, namespaceName, runName string) (*openchoreov1alpha1.WorkflowRun, error)
+	// StopWorkflowRun stops a running run, like `argo stop`, and records reason on the WorkflowRun.
+	StopWorkflowRun(ctx context.Context, namespaceName, runName, reason string) (*openchoreov1alpha1.WorkflowRun, error)
 }
