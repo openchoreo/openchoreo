@@ -18,6 +18,10 @@ import (
 
 const defaultPlaneName = "default"
 
+// logQueryTimeFormat is the format used for the time bounds sent to the observer.
+// It keeps sub-second precision so a follow poll resumes past the last printed line.
+const logQueryTimeFormat = time.RFC3339Nano
+
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
 	ctx := context.Background()
@@ -255,8 +259,8 @@ func (cp *Component) fetchLogs(
 	}
 
 	reqBody := client.ComponentLogsRequest{
-		StartTime:       startTime.Format(time.RFC3339Nano),
-		EndTime:         endTime.Format(time.RFC3339Nano),
+		StartTime:       startTime.Format(logQueryTimeFormat),
+		EndTime:         endTime.Format(logQueryTimeFormat),
 		EnvironmentID:   environmentID,
 		ComponentName:   params.Component,
 		ProjectName:     params.Project,
