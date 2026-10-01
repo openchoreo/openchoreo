@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -265,7 +266,7 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 			}
 			Expect(k8sClient.Create(ctx, rrb)).To(Succeed())
 			rrb.Status.Outputs = []openchoreov1alpha1.ResolvedResourceOutput{
-				{Name: "host", Value: outputHost},
+				{Name: "host", Value: ptr.To(outputHost)},
 			}
 			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
 				Type:               string(resourcereleasebinding.ConditionReady),

@@ -124,12 +124,19 @@ func mapResolvedOutputs(resolved []resourcepipeline.ResolvedOutput) []openchoreo
 	out := make([]openchoreov1alpha1.ResolvedResourceOutput, 0, len(resolved))
 	for i := range resolved {
 		entry := &resolved[i]
-		out = append(out, openchoreov1alpha1.ResolvedResourceOutput{
+		mapped := openchoreov1alpha1.ResolvedResourceOutput{
 			Name:            entry.Name,
-			Value:           entry.Value,
 			SecretKeyRef:    entry.SecretKeyRef,
 			ConfigMapKeyRef: entry.ConfigMapKeyRef,
-		})
+		}
+		// Value outputs are selected by source kind, not by their rendered
+		// content. Preserve an empty resolved string as an explicit JSON value
+		// so it remains a valid exactly-one source output.
+		if entry.SecretKeyRef == nil && entry.ConfigMapKeyRef == nil {
+			value := entry.Value
+			mapped.Value = &value
+		}
+		out = append(out, mapped)
 	}
 	return out
 }

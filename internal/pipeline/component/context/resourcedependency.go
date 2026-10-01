@@ -175,7 +175,12 @@ func makeEnvVar(envVarName string, out v1alpha1.ResolvedResourceOutput) EnvVarEn
 		}
 	default:
 		// value-kind output (validated upstream as exactly-one).
-		return EnvVarEntry{Name: envVarName, Value: out.Value}
+		if out.Value == nil {
+			// This should be unreachable after CRD validation. Keep the fallback
+			// deterministic rather than propagating a nil into renderers.
+			return EnvVarEntry{Name: envVarName, Value: ""}
+		}
+		return EnvVarEntry{Name: envVarName, Value: *out.Value}
 	}
 }
 

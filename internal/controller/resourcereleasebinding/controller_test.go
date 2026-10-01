@@ -960,7 +960,8 @@ var _ = Describe("ResourceReleaseBinding controller — outputs and readiness", 
 		By("populating status.outputs with the resolved value")
 		Expect(updated.Status.Outputs).To(HaveLen(1))
 		Expect(updated.Status.Outputs[0].Name).To(Equal("host"))
-		Expect(updated.Status.Outputs[0].Value).To(Equal("10.0.0.5"))
+		Expect(updated.Status.Outputs[0].Value).NotTo(BeNil())
+		Expect(*updated.Status.Outputs[0].Value).To(Equal("10.0.0.5"))
 	})
 
 	It("returns ResourcesReady and OutputsResolved from Unknown to True when validation recovers", func() {
@@ -1423,7 +1424,8 @@ var _ = Describe("ResourceReleaseBinding controller — outputs and readiness", 
 		}
 
 		hostOut := byName["host"]
-		Expect(hostOut.Value).To(Equal("db.example.com"))
+		Expect(hostOut.Value).NotTo(BeNil())
+		Expect(*hostOut.Value).To(Equal("db.example.com"))
 		Expect(hostOut.SecretKeyRef).To(BeNil())
 		Expect(hostOut.ConfigMapKeyRef).To(BeNil())
 
@@ -1488,7 +1490,8 @@ var _ = Describe("ResourceReleaseBinding controller — outputs and readiness", 
 		By("preserving the successfully-resolved output entry in status.outputs")
 		Expect(updated.Status.Outputs).To(HaveLen(1))
 		Expect(updated.Status.Outputs[0].Name).To(Equal("host"))
-		Expect(updated.Status.Outputs[0].Value).To(Equal("10.0.0.5"))
+		Expect(updated.Status.Outputs[0].Value).NotTo(BeNil())
+		Expect(*updated.Status.Outputs[0].Value).To(Equal("10.0.0.5"))
 	})
 
 	It("reports ResourcesReady=False, Reason=ResourcesDegraded when an entry's healthStatus is Degraded", func() {

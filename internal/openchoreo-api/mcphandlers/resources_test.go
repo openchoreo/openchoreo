@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -796,7 +797,7 @@ func TestResourceTransforms(t *testing.T) {
 	t.Run("resource release binding detail surfaces resolved outputs", func(t *testing.T) {
 		rb := sampleResourceReleaseBinding()
 		rb.Status.Outputs = []openchoreov1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "10.0.0.5"},
+			{Name: "host", Value: ptr.To("10.0.0.5")},
 			{Name: "password", SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "conn", Key: "password"}},
 		}
 

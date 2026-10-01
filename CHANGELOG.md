@@ -2,6 +2,15 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.3
+
+Changes since [v1.2.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.2).
+
+### Bug Fixes
+
+- **(API)** The exec and wirelogs endpoints now resolve the target component first and take its owning project from the component itself rather than from the request parameter, aligning them with the pattern used by other component operations. ([#4251](https://github.com/openchoreo/openchoreo/pull/4251))
+- **(API)** The exec authorization hierarchy now includes the component, so component-scoped exec grants resolve correctly. ([#4506](https://github.com/openchoreo/openchoreo/pull/4506))
+
 ## v1.2.2
 
 Changes since [v1.2.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.1).

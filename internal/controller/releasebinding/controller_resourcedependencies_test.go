@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -272,7 +273,7 @@ func TestResolveResourceDependency(t *testing.T) {
 		// Provider is Ready but its outputs[] doesn't include the binding's referenced name.
 		rrb := newProviderRRB("orders-db", "rrb1", true,
 			[]openchoreov1alpha1.ResolvedResourceOutput{
-				{Name: "host", Value: "10.0.0.5"},
+				{Name: "host", Value: ptr.To("10.0.0.5")},
 			})
 		r := newResourceDepReconciler(t, rrb)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
@@ -291,7 +292,7 @@ func TestResolveResourceDependency(t *testing.T) {
 	t.Run("provider_ready_with_outputs_returns_item", func(t *testing.T) {
 		rrb := newProviderRRB("orders-db", "rrb1", true,
 			[]openchoreov1alpha1.ResolvedResourceOutput{
-				{Name: "host", Value: "10.0.0.5"},
+				{Name: "host", Value: ptr.To("10.0.0.5")},
 			})
 		r := newResourceDepReconciler(t, rrb)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
@@ -351,7 +352,7 @@ func TestResolveResourceDependencies(t *testing.T) {
 	t.Run("mixed_resolved_and_pending", func(t *testing.T) {
 		// db is resolved, cache has no provider RRB.
 		dbRRB := newProviderRRB("db", "db-binding", true,
-			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "h"}})
+			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: ptr.To("h")}})
 		r := newResourceDepReconciler(t, dbRRB)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
 		deps := []openchoreov1alpha1.WorkloadResourceDependency{
@@ -591,11 +592,11 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 	t.Run("fires_on_outputs_change", func(t *testing.T) {
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
-				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "1.1.1.1"}},
+				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: ptr.To("1.1.1.1")}},
 			},
 		}
 		new := old.DeepCopy()
-		new.Status.Outputs[0].Value = "2.2.2.2"
+		new.Status.Outputs[0].Value = ptr.To("2.2.2.2")
 		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
@@ -646,7 +647,7 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 		// changed — predicate should NOT fire because consumers don't care about that.
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
-				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "1.1.1.1"}},
+				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: ptr.To("1.1.1.1")}},
 				Conditions: []metav1.Condition{
 					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 					{Type: "Synced", Status: metav1.ConditionTrue, Reason: "ReleaseSynced", LastTransitionTime: metav1.Now()},

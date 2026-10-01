@@ -1001,8 +1001,8 @@ func resolvedResourceOutputs(outputs []openchoreov1alpha1.ResolvedResourceOutput
 	result := make([]map[string]any, 0, len(outputs))
 	for i := range outputs {
 		entry := map[string]any{"name": outputs[i].Name}
-		if outputs[i].Value != "" {
-			entry["value"] = outputs[i].Value
+		if outputs[i].Value != nil {
+			entry["value"] = *outputs[i].Value
 		}
 		if ref := outputs[i].SecretKeyRef; ref != nil {
 			entry["secretKeyRef"] = map[string]any{"name": ref.Name, "key": ref.Key}

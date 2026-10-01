@@ -102,7 +102,11 @@ type ResolvedResourceOutput struct {
 	// with `value:`. Only used for non-sensitive data; the resolved value transits
 	// to the control plane.
 	// +optional
-	Value string `json:"value,omitempty"`
+	// A pointer preserves a deliberately resolved empty string. With a plain
+	// string plus omitempty, the API serializer drops value: "" and the
+	// exactly-one-source validation rejects the entire status update. Empty
+	// values are legitimate for optional platform configuration outputs.
+	Value *string `json:"value,omitempty"`
 
 	// SecretKeyRef is the resolved {name, key} reference to a DP-side Secret.
 	// Used for sensitive credentials; the underlying value never leaves the data

@@ -248,6 +248,10 @@ spec:
                         Value is the resolved literal value when the ResourceType output is declared
                         with `value:`. Only used for non-sensitive data; the resolved value transits
                         to the control plane.
+                        A pointer preserves a deliberately resolved empty string. With a plain
+                        string plus omitempty, the API serializer drops value: "" and the
+                        exactly-one-source validation rejects the entire status update. Empty
+                        values are legitimate for optional platform configuration outputs.
                       type: string
                   required:
                   - name

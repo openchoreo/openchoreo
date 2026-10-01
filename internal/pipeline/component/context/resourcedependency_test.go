@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -22,7 +23,7 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 			EnvBindings: map[string]string{"host": "DB_HOST"},
 		}
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "10.0.0.5"},
+			{Name: "host", Value: ptr.To("10.0.0.5")},
 		}
 
 		got, err := BuildResourceDependencyItem(dep, outputs)
@@ -81,8 +82,8 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 			},
 		}
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "h"},
-			{Name: "port", Value: "p"},
+			{Name: "host", Value: ptr.To("h")},
+			{Name: "port", Value: ptr.To("p")},
 		}
 
 		// Two calls must produce identical ordering despite map iteration randomness.
@@ -104,8 +105,8 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 			EnvBindings: map[string]string{"host": "DB_HOST"}, // port not bound
 		}
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "h"},
-			{Name: "port", Value: "p"},
+			{Name: "host", Value: ptr.To("h")},
+			{Name: "port", Value: ptr.To("p")},
 		}
 
 		got, err := BuildResourceDependencyItem(dep, outputs)
@@ -121,7 +122,7 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 		}
 		// Provider hasn't resolved "password" yet.
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "h"},
+			{Name: "host", Value: ptr.To("h")},
 		}
 
 		_, err := BuildResourceDependencyItem(dep, outputs)
@@ -182,7 +183,7 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 			FileBindings: map[string]string{"host": "/etc/host"},
 		}
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "10.0.0.5"},
+			{Name: "host", Value: ptr.To("10.0.0.5")},
 		}
 
 		_, err := BuildResourceDependencyItem(dep, outputs)
@@ -329,7 +330,7 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 			FileBindings: map[string]string{"caCert": "/etc/tls"},
 		}
 		outputs := []v1alpha1.ResolvedResourceOutput{
-			{Name: "host", Value: "10.0.0.5"},
+			{Name: "host", Value: ptr.To("10.0.0.5")},
 			{Name: "password", SecretKeyRef: &v1alpha1.SecretKeyRef{Name: "orders-db-conn", Key: "password"}},
 			{Name: "caCert", ConfigMapKeyRef: &v1alpha1.ConfigMapKeyRef{Name: "orders-db-tls", Key: "ca.crt"}},
 		}
