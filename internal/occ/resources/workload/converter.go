@@ -145,10 +145,32 @@ func ConvertWorkloadDescriptorToWorkloadCR(descriptorPath string, params CreateW
 	return workload, nil
 }
 
-func readSchemaFile(path string) (string, error) {
-	content, err := os.ReadFile(path)
+// readDescriptorFile reads relPath resolved against baseDir. It uses os.Root so a
+// descriptor only references files within its own directory: a relPath that resolves
+// outside baseDir — via "..", an absolute path, or a symlink pointing outside it —
+// returns an error instead of reading the target.
+func readDescriptorFile(baseDir, relPath string) ([]byte, error) {
+	root, err := os.OpenRoot(baseDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to read schema file %s: %w", path, err)
+		return nil, err
+	}
+	defer root.Close()
+
+	f, err := root.Open(relPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return io.ReadAll(f)
+}
+
+// readSchemaFile reads an endpoint schema file named relative to the descriptor
+// directory (baseDir) via readDescriptorFile.
+func readSchemaFile(baseDir, relPath string) (string, error) {
+	content, err := readDescriptorFile(baseDir, relPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read schema file %s: %w", relPath, err)
 	}
 	return string(content), nil
 }
@@ -279,14 +301,13 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 		// rather than copied from the endpoint type verbatim, so it matches the
 		// canonical formats understood by the rendering pipeline's schema extractor.
 		if descriptorEndpoint.SchemaFile != "" {
-			// Resolve schema file path relative to the workload descriptor directory
+			// Resolve the schema file relative to the workload descriptor directory.
 			baseDir := filepath.Dir(descriptorPath)
-			schemaFilePath := filepath.Join(baseDir, descriptorEndpoint.SchemaFile)
 
 			// Read schema file content and inline it
-			schemaContent, err := readSchemaFile(schemaFilePath)
+			schemaContent, err := readSchemaFile(baseDir, descriptorEndpoint.SchemaFile)
 			if err != nil {
-				return fmt.Errorf("failed to read schema file %s: %w", schemaFilePath, err)
+				return err
 			}
 
 			endpoint.Schema = &openchoreov1alpha1.Schema{
@@ -455,11 +476,10 @@ func addConfigurationsFromDescriptor(workload *openchoreov1alpha1.Workload, desc
 				// Reference to secret
 				crFileVar.ValueFrom = convertEnvVarSource(fileVar.ValueFrom)
 			} else if fileVar.ValueFrom != nil && fileVar.ValueFrom.Path != "" {
-				// Read file content from path
-				filePath := filepath.Join(baseDir, fileVar.ValueFrom.Path)
-				content, err := os.ReadFile(filePath)
+				// Read file content, resolved relative to the descriptor directory.
+				content, err := readDescriptorFile(baseDir, fileVar.ValueFrom.Path)
 				if err != nil {
-					return fmt.Errorf("failed to read file %s: %w", filePath, err)
+					return fmt.Errorf("failed to read file %s: %w", fileVar.ValueFrom.Path, err)
 				}
 				crFileVar.Value = string(content)
 			} else if fileVar.Value != "" {
