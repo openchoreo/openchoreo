@@ -28,11 +28,14 @@ if [ -S /var/run/docker.sock ]; then
 fi
 
 # Preserve environment variables by writing them to a file that .bashrc will source
-# This ensures DEV_MODE, OPENCHOREO_VERSION, and DEBUG are available after su -
+# This ensures DEV_MODE, OPENCHOREO_VERSION, DEBUG, and the registry overrides are available after su -
 cat > /home/openchoreo/.env_from_docker <<EOF
 export DEV_MODE='${DEV_MODE}'
 export OPENCHOREO_VERSION='${OPENCHOREO_VERSION}'
 export DEBUG='${DEBUG}'
+export OPENCHOREO_HELM_REPO='${OPENCHOREO_HELM_REPO}'
+export OPENCHOREO_MODULES_HELM_REPO='${OPENCHOREO_MODULES_HELM_REPO}'
+export OPENCHOREO_IMAGE_REGISTRY='${OPENCHOREO_IMAGE_REGISTRY}'
 EOF
 chown openchoreo:openchoreo /home/openchoreo/.env_from_docker
 

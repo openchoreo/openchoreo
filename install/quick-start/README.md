@@ -27,7 +27,7 @@ docker run -it --rm \
   --privileged \
   --network=host \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/openchoreo/quick-start:latest
+  cr.openchoreo.dev/openchoreo/quick-start:latest
 ```
 
 **Important:** The `--privileged` flag is required for k3d to run properly inside the container (Docker-in-Docker with containerd). This is especially necessary when using Colima or other container runtimes with cgroup v2.
@@ -133,7 +133,7 @@ docker run -it --rm \
   --privileged \
   --network=host \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/openchoreo/quick-start:latest
+  cr.openchoreo.dev/openchoreo/quick-start:latest
 ```
 
 If the cluster is already broken, delete it and recreate:

@@ -3,7 +3,7 @@
 {{- $name := "openchoreo-remote-agent-router" }}
 {{- /* Defaults live here because `helm upgrade --reuse-values` drops the chart's own
        defaults, leaving listenPort empty and the Service rejected with "port: 0". */}}
-{{- $image := $router.image | default (dict "repository" "ghcr.io/openchoreo/remote-agent-router") }}
+{{- $image := $router.image | default (dict "repository" "cr.openchoreo.dev/openchoreo/remote-agent-router") }}
 {{- $svc := $router.service | default dict }}
 {{- $listenPort := $router.listenPort | default 8443 }}
 {{- $svcType := $svc.type | default "LoadBalancer" }}

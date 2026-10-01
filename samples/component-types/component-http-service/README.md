@@ -36,7 +36,7 @@ Defines the actual HTTP service component using the `http-service` type. It:
 Specifies the container image and configuration for the component:
 
 - Links to the `demo-app-http-service` component
-- Defines the container image (`ghcr.io/openchoreo/samples/greeter-service:latest`)
+- Defines the container image (`cr.openchoreo.dev/openchoreo/samples/greeter-service:latest`)
 - Can specify multiple containers if needed
 
 ### ReleaseBinding (`demo-app-development`)

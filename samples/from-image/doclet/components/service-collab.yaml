@@ -33,4 +33,4 @@ spec:
         envBindings:
           url: DOCLET_NATS_URL
   container:
-    image: ghcr.io/openchoreo/samples/doclet-collab:latest
+    image: cr.openchoreo.dev/openchoreo/samples/doclet-collab:latest

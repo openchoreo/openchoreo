@@ -60,7 +60,7 @@ spec:
       # namespace-visible so web-app (a different project) can depend on it
       visibility: [namespace]
   container:
-    image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/greeter-service:latest"
     command:
       - ./go-greeter
     args:

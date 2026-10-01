@@ -60,4 +60,4 @@ spec:
       visibility: [namespace]
   container:
     # public gRPC server exposing greeter.Greeter/SayHello on :9090
-    image: "ghcr.io/openchoreo/samples/hello-world-grpc:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/hello-world-grpc:latest"

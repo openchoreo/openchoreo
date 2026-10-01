@@ -18,7 +18,7 @@ spec:
           - name: source-authored-at
             default: ""
           - name: openchoreo-cli-image
-            default: "ghcr.io/openchoreo/openchoreo-cli:latest-dev"
+            default: "cr.openchoreo.dev/openchoreo/openchoreo-cli:latest-dev"
           # --- IDP / OAuth Configuration ---
           # Update these when changing your identity provider or its public URL.
           - name: oauth-token-url
@@ -53,7 +53,7 @@ spec:
             - name: tools
               mountPath: /tools
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
         env:
           - name: IMAGE
             value: '{{inputs.parameters.image}}'

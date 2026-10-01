@@ -66,6 +66,20 @@ newline-fix: ## Add missing trailing newlines to all Git-tracked text files
 	rm -f /tmp/newline-fix-output.txt; \
 	echo "✓ Fixed $$fixed_count files"
 
+CHART_IMAGE_PREFIX := $(OPENCHOREO_PUBLIC_REGISTRY)
+LEGACY_CHART_IMAGE_PREFIX := ghcr.io/openchoreo
+
+.PHONY: chart-image-registry-check
+chart-image-registry-check: ## Check that Helm chart image defaults use cr.openchoreo.dev instead of ghcr.io/openchoreo
+	@matches=$$(grep -rnF "$(LEGACY_CHART_IMAGE_PREFIX)/" $(PROJECT_DIR)/install/helm || true); \
+	if [ -n "$$matches" ]; then \
+		echo "Chart image defaults must use $(CHART_IMAGE_PREFIX)/<image>, not $(LEGACY_CHART_IMAGE_PREFIX)/<image>:"; \
+		echo "$$matches"; \
+		exit 1; \
+	else \
+		echo "✓ Chart image defaults use $(CHART_IMAGE_PREFIX)"; \
+	fi
+
 .PHONY: golangci-lint-check
 golangci-lint-check: golangci-lint ## Check code with golangci-lint
 	$(GOLANGCI_LINT) run
@@ -75,7 +89,7 @@ golangci-lint-fix: golangci-lint ## Run golangci-lint with fix option
 	$(GOLANGCI_LINT) run --fix
 
 .PHONY: lint
-lint: golangci-lint-check license-check newline-check ## Run golangci-lint linter, licenser, and newline check
+lint: golangci-lint-check license-check newline-check chart-image-registry-check ## Run golangci-lint linter, licenser, newline, and chart image registry checks
 
 .PHONY: lint-fix
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes

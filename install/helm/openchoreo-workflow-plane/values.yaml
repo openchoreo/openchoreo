@@ -200,9 +200,9 @@ clusterAgent:
     # @schema
     # type: string
     # description: Image repository for cluster agent
-    # default: ghcr.io/openchoreo/cluster-agent
+    # default: cr.openchoreo.dev/openchoreo/cluster-agent
     # @schema
-    repository: ghcr.io/openchoreo/cluster-agent
+    repository: cr.openchoreo.dev/openchoreo/cluster-agent
 
     # @schema
     # type: string

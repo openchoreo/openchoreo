@@ -3,7 +3,7 @@
 This sample shows how to render a Gateway API `HTTPRoute` whose matches come from an
 endpoint's **OpenAPI schema** — one match per `(path, method)` — instead of a single
 catch-all rule. It deploys the public [`reading-list`](https://github.com/openchoreo/sample-workloads)
-service (`ghcr.io/openchoreo/samples/reading-list:latest`), which serves a small Books
+service (`cr.openchoreo.dev/openchoreo/samples/reading-list:latest`), which serves a small Books
 API under `/api/v1/reading-list`.
 
 The sample's YAML is self-contained: it defines a custom `ClusterComponentType`

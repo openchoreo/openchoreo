@@ -117,6 +117,9 @@ OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.0.0-latest-dev
 # logs use the OpenObserve community module there instead of OpenSearch.
 OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.0.0-latest-dev
 
+E2E_IMAGE_REGISTRY ?= ghcr.io
+E2E_IMAGE_REGISTRY_VALUES := --set-string global.imageRegistry=$(E2E_IMAGE_REGISTRY)
+
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
   E2E_HELM_DEP_UPDATE :=
@@ -524,6 +527,7 @@ _e2e.install-cp:
 	@if [ "$(E2E_WITH_UI)" = "true" ] || [ "$(E2E_WITH_EXT_IDP)" = "true" ]; then $(MAKE) _e2e.prepare-backstage-secret; fi
 	$(E2E_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-cp.yaml \
 		$(E2E_CP_EXTRA_VALUES) \
@@ -549,6 +553,7 @@ _e2e.install-dp:
 	@$(call log_info, Installing Data Plane)
 	$(E2E_HELM) upgrade --install openchoreo-data-plane $(E2E_DP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-dp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -580,6 +585,7 @@ _e2e.install-wp:
 	@$(call log_info, Installing Workflow Plane)
 	$(E2E_HELM) upgrade --install openchoreo-workflow-plane $(E2E_WP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-wp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -617,6 +623,7 @@ _e2e.install-op:
 	@$(call log_info, Installing Observability Plane)
 	$(E2E_HELM) upgrade --install openchoreo-observability-plane $(E2E_OP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-op.yaml \
 		--set observer.audit.enabled=true \
@@ -950,6 +957,7 @@ _e2e.mc.install-cp:
 	@$(call log_info, Installing Control Plane)
 	$(E2E_MC_CP_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-cp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -976,6 +984,7 @@ _e2e.mc.install-dp:
 	@$(call log_info, Installing Data Plane)
 	$(E2E_MC_DP_HELM) upgrade --install openchoreo-data-plane $(E2E_DP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-dp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -1032,6 +1041,7 @@ _e2e.mc.install-wp:
 	@$(call log_info, Installing Workflow Plane)
 	$(E2E_MC_WP_HELM) upgrade --install openchoreo-workflow-plane $(E2E_WP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-wp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -1070,6 +1080,7 @@ _e2e.mc.install-op:
 	@$(call log_info, Installing Observability Plane)
 	$(E2E_MC_OP_HELM) upgrade --install openchoreo-observability-plane $(E2E_OP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
+		$(E2E_IMAGE_REGISTRY_VALUES) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-op.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)

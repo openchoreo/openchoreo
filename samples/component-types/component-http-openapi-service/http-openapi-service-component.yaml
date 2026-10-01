@@ -246,7 +246,7 @@ spec:
                     description: successful operation
 
   container:
-    image: "ghcr.io/openchoreo/samples/reading-list:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/reading-list:latest"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

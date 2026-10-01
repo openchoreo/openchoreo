@@ -102,7 +102,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/cluster-agent",
+              "default": "cr.openchoreo.dev/openchoreo/cluster-agent",
               "description": "Cluster agent image repository",
               "title": "repository",
               "type": "string"
@@ -920,7 +920,7 @@
               "type": "string"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/remote-agent-router",
+              "default": "cr.openchoreo.dev/openchoreo/remote-agent-router",
               "description": "Remote-connect SNI router image repository",
               "title": "repository",
               "type": "string"

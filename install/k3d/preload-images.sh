@@ -29,7 +29,8 @@ WP_VALUES=""
 OP_VALUES=""
 OPENCHOREO_CHART_VERSION=""
 PARALLEL_PULLS=4
-HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
+MODULES_HELM_REPO="${OPENCHOREO_MODULES_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 USE_LOCAL_CHARTS=false
 CP_CHART=""
 DP_CHART=""
@@ -98,7 +99,8 @@ Optional:
   --version VERSION           Helm chart version for OCI registry (default: empty, pulls latest)
                               Only used when --local-charts is NOT specified
   --parallel N                Number of parallel docker pulls (default: 4)
-  --helm-repo URL             OCI Helm repository URL (default: oci://ghcr.io/openchoreo/helm-charts)
+  --helm-repo URL             OCI Helm repository URL (default: ${HELM_REPO}, override with OPENCHOREO_HELM_REPO)
+                              Observability module charts: ${MODULES_HELM_REPO} (override with OPENCHOREO_MODULES_HELM_REPO)
   --local-charts              Use local chart paths instead of OCI registry
   --cp-chart PATH/URL         Custom Control Plane chart path or OCI URL
   --dp-chart PATH/URL         Custom Data Plane chart path or OCI URL
@@ -152,7 +154,7 @@ Examples:
 
   # Mix of OCI and custom chart paths
   $0 --cluster openchoreo \\
-    --control-plane --cp-chart oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane \\
+    --control-plane --cp-chart oci://cr.openchoreo.dev/openchoreo/helm-charts/openchoreo-control-plane \\
     --data-plane --dp-chart /path/to/custom/data-plane
 
   # With extra images
@@ -575,7 +577,7 @@ collect_images() {
         # The OpenSearch/Prometheus/OTel-collector community modules are installed
         # alongside the Observability Plane, so they're only relevant here.
         log_info "Collecting observability module images..." >&2
-        local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
+        local modules_repo="${MODULES_HELM_REPO}"
         local module_charts=(
             "${modules_repo}/observability-logs-opensearch --version ${LOGS_OPENSEARCH_VERSION} --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials --set adapter.openSearchSecretName=opensearch-admin-credentials --set fluent-bit.enabled=true --set fluentBitCustomizations.clusterInstance=${CLUSTER_NAME}|observability-logs-opensearch"
             "${modules_repo}/observability-tracing-opensearch --version ${TRACES_OPENSEARCH_VERSION} --set openSearch.enabled=false --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials|observability-traces-opensearch"

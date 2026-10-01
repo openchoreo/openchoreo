@@ -42,4 +42,4 @@ spec:
         envBindings:
           address: COLLAB_SERVICE_URL
   container:
-    image: ghcr.io/openchoreo/samples/doclet-frontend:latest
+    image: cr.openchoreo.dev/openchoreo/samples/doclet-frontend:latest

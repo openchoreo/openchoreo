@@ -71,7 +71,7 @@ Defines a component that:
 
 Represents the build output with:
 
-- Container image: `ghcr.io/openchoreo/samples/greeter-service:latest`
+- Container image: `cr.openchoreo.dev/openchoreo/samples/greeter-service:latest`
 - Configured to run on port 9090
 
 ### ReleaseBinding

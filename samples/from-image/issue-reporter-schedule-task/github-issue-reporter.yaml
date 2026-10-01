@@ -40,7 +40,7 @@ spec:
     componentName: github-issue-reporter
     projectName: default
   container:
-    image: "ghcr.io/openchoreo/samples/github-issue-reporter:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/github-issue-reporter:latest"
     env:
       # GitHub Configuration (hardcoded values)
       - key: GITHUB_REPOSITORY

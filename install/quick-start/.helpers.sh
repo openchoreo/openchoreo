@@ -137,6 +137,23 @@ create_k3d_cluster() {
         return 1
     fi
 
+    # With a registry override, also mirror cr.openchoreo.dev to it so images the
+    # override does not reach (community modules, workflow templates) follow it
+    if [[ -n "${OPENCHOREO_IMAGE_REGISTRY:-}" && "$OPENCHOREO_IMAGE_REGISTRY" != */* ]]; then
+        local mirrored_config
+        mirrored_config="$(mktemp)"
+        awk -v reg="$OPENCHOREO_IMAGE_REGISTRY" '
+            { print }
+            /^    mirrors:$/ {
+                print "      \"cr.openchoreo.dev\":"
+                print "        endpoint:"
+                print "          - https://" reg
+            }
+        ' "$k3d_config" > "$mirrored_config"
+        k3d_config="$mirrored_config"
+        log_info "Mirroring cr.openchoreo.dev to $OPENCHOREO_IMAGE_REGISTRY"
+    fi
+
     # Detect if running in Colima and disable k3d's DNS fix if needed
     # The DNS fix replaces Docker's embedded DNS (127.0.0.11) with the gateway IP,
     # which causes DNS timeouts in Colima due to firewall/network isolation.
@@ -469,6 +486,11 @@ install_helm_chart() {
     # Only add version for OpenChoreo charts, not third-party charts
     if [[ -n "$OPENCHOREO_CHART_VERSION" && "$DEV_MODE" != "true" && "$is_third_party" != "true" ]]; then
         helm_args+=("--version" "$OPENCHOREO_CHART_VERSION")
+    fi
+
+    # Optional registry override for first-party images (e.g. ghcr.io)
+    if [[ -n "${OPENCHOREO_IMAGE_REGISTRY:-}" && "$is_third_party" != "true" ]]; then
+        helm_args+=("--set-string" "global.imageRegistry=$OPENCHOREO_IMAGE_REGISTRY")
     fi
 
     helm_args+=("${additional_args[@]}")
@@ -1108,7 +1130,7 @@ install_observability_plane() {
 
     # Install logs and metrics observability modules
     # See https://github.com/openchoreo/community-modules for more details
-    local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
+    local modules_repo="$MODULES_HELM_REPO"
 
     log_info "Installing observability modules..."
 

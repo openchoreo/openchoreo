@@ -92,13 +92,17 @@ jobs:
         # user and drops into a login shell that stays alive. The install/validate/
         # deploy steps then drive it via `docker exec -u openchoreo`, exactly as a
         # user typing commands inside the container would. OPENCHOREO_VERSION is
-        # surfaced to those login shells via the entrypoint.
+        # surfaced to those login shells via the entrypoint. Helm repo and
+        # container registry are overridden to ghcr.io for CI runs.
         run: |
           docker run -dit \
             --name "${QS_CONTAINER}" \
             --network=host \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e OPENCHOREO_VERSION="${{ steps.mode.outputs.version }}" \
+            -e OPENCHOREO_HELM_REPO="oci://ghcr.io/openchoreo/helm-charts" \
+            -e OPENCHOREO_MODULES_HELM_REPO="oci://ghcr.io/openchoreo/helm-charts" \
+            -e OPENCHOREO_IMAGE_REGISTRY="ghcr.io" \
             "${QS_IMAGE}:${{ steps.mode.outputs.version }}"
 
       - name: Wait for docker socket access

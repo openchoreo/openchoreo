@@ -395,9 +395,9 @@ clusterAgent:
     # @schema
     # type: string
     # description: Cluster agent image repository
-    # default: ghcr.io/openchoreo/cluster-agent
+    # default: cr.openchoreo.dev/openchoreo/cluster-agent
     # @schema
-    repository: ghcr.io/openchoreo/cluster-agent
+    repository: cr.openchoreo.dev/openchoreo/cluster-agent
 
     # @schema
     # type: string
@@ -826,9 +826,9 @@ remoteAgentRouter:
     # @schema
     # type: string
     # description: Remote-connect SNI router image repository
-    # default: ghcr.io/openchoreo/remote-agent-router
+    # default: cr.openchoreo.dev/openchoreo/remote-agent-router
     # @schema
-    repository: ghcr.io/openchoreo/remote-agent-router
+    repository: cr.openchoreo.dev/openchoreo/remote-agent-router
 
     # @schema
     # type: string

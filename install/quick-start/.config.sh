@@ -15,7 +15,8 @@ OBSERVABILITY_NS="openchoreo-observability-plane"
 THUNDER_NS="thunder"
 
 # Helm repository
-HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
+MODULES_HELM_REPO="${OPENCHOREO_MODULES_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 
 # Cert-manager configuration
 CERT_MANAGER_VERSION="v1.19.4"

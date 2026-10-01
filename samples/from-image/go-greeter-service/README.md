@@ -5,7 +5,7 @@
 This sample demonstrates how to deploy a Go REST service in OpenChoreo from a pre-built container image. The service exposes REST endpoints for greeting functionality and uses a containerized deployment approach.
 
 The service is deployed from the pre-built image:
-`ghcr.io/openchoreo/samples/greeter-service:latest`
+`cr.openchoreo.dev/openchoreo/samples/greeter-service:latest`
 
 Exposed REST endpoints:
 

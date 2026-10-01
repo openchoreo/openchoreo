@@ -54,9 +54,9 @@ spec:
         runAsGroup: 65532
         fsGroup: 65532
       containers:
-      {{- $observerImage := dict "repository" "ghcr.io/openchoreo/observer" }}
+      {{- $observerImage := dict "repository" "cr.openchoreo.dev/openchoreo/observer" }}
       {{- if .Values.observer.image }}
-      {{- $observerImage = dict "repository" (.Values.observer.image.repository | default "ghcr.io/openchoreo/observer") "tag" (.Values.observer.image.tag | default "") }}
+      {{- $observerImage = dict "repository" (.Values.observer.image.repository | default "cr.openchoreo.dev/openchoreo/observer") "tag" (.Values.observer.image.tag | default "") }}
       {{- end }}
       - name: observer
         image: "{{ include "openchoreo-observability-plane.image" (dict "context" . "image" $observerImage) }}"

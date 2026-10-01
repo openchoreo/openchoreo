@@ -634,7 +634,7 @@ Install the OpenSearch logs module
 
 ```bash
 helm upgrade --install observability-logs-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -650,7 +650,7 @@ Enable Fluent Bit in the data plane cluster:
 
 ```bash
 helm upgrade --install observability-logs-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -670,7 +670,7 @@ If the workflow plane is installed, enable Fluent Bit there too:
 
 ```bash
 helm upgrade --install observability-logs-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -690,7 +690,7 @@ Enable Kubernetes events collector in the data plane cluster:
 
 ```bash
 helm upgrade --install observability-events-otel-collector \
-  oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-events-otel-collector \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -735,7 +735,7 @@ If the workflow plane is installed, enable events collector there too:
 
 ```bash
 helm upgrade --install observability-events-otel-collector \
-  oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-events-otel-collector \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -782,7 +782,7 @@ Install the tracing receiver in the observability plane cluster. Since the logs 
 
 ```bash
 helm upgrade --install observability-traces-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -797,7 +797,7 @@ Install the tracing exporter in the data plane cluster:
 
 ```bash
 helm upgrade --install observability-tracing-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -818,7 +818,7 @@ Install the metrics receiver in the observability plane cluster:
 
 ```bash
 helm upgrade --install observability-metrics-prometheus \
-  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
@@ -831,7 +831,7 @@ Install the metrics exporter in the data plane cluster:
 
 ```bash
 helm upgrade --install observability-metrics-prometheus \
-  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-metrics-prometheus \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \

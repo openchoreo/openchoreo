@@ -128,9 +128,9 @@ controllerManager:
     # @schema
     # type: string
     # description: Container image repository for the controller manager
-    # default: ghcr.io/openchoreo/controller
+    # default: cr.openchoreo.dev/openchoreo/controller
     # @schema
-    repository: ghcr.io/openchoreo/controller
+    repository: cr.openchoreo.dev/openchoreo/controller
 
     # @schema
     # type: string
@@ -672,9 +672,9 @@ observer:
     # @schema
     # type: string
     # description: Container image repository for the Observer
-    # default: ghcr.io/openchoreo/observer
+    # default: cr.openchoreo.dev/openchoreo/observer
     # @schema
-    repository: ghcr.io/openchoreo/observer
+    repository: cr.openchoreo.dev/openchoreo/observer
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)
@@ -854,9 +854,9 @@ clusterAgent:
     # @schema
     # type: string
     # description: Container image repository for the cluster agent
-    # default: ghcr.io/openchoreo/cluster-agent
+    # default: cr.openchoreo.dev/openchoreo/cluster-agent
     # @schema
-    repository: ghcr.io/openchoreo/cluster-agent
+    repository: cr.openchoreo.dev/openchoreo/cluster-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)
@@ -1503,9 +1503,9 @@ rca:
     # @schema
     # type: string
     # description: Container image repository
-    # default: ghcr.io/openchoreo/sre-agent
+    # default: cr.openchoreo.dev/openchoreo/sre-agent
     # @schema
-    repository: ghcr.io/openchoreo/sre-agent
+    repository: cr.openchoreo.dev/openchoreo/sre-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)
@@ -1784,9 +1784,9 @@ finOpsAgent:
     # @schema
     # type: string
     # description: Container image repository
-    # default: ghcr.io/openchoreo/finops-agent
+    # default: cr.openchoreo.dev/openchoreo/finops-agent
     # @schema
-    repository: ghcr.io/openchoreo/finops-agent
+    repository: cr.openchoreo.dev/openchoreo/finops-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)

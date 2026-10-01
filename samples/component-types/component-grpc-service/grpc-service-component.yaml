@@ -200,7 +200,7 @@ spec:
           message HelloReply  { string message = 1; }
 
   container:
-    image: "ghcr.io/openchoreo/samples/hello-world-grpc:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/hello-world-grpc:latest"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

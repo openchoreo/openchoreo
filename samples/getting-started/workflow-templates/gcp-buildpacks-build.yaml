@@ -14,7 +14,7 @@ spec:
           emptyDir:
             sizeLimit: 10Gi
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'

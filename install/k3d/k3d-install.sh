@@ -23,7 +23,8 @@ EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
 
 # -- config --
 CLUSTER_NAME="${CLUSTER_NAME:-openchoreo}"
-HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
+MODULES_HELM_REPO="${OPENCHOREO_MODULES_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
 WORKFLOW_PLANE_NS="openchoreo-workflow-plane"
@@ -50,6 +51,12 @@ Options:
                            (required when not running from a checkout)
   --cluster-name NAME     k3d cluster name (default: openchoreo)
   -h, --help              Show this help
+
+Environment:
+  OPENCHOREO_HELM_REPO          OpenChoreo chart repository or local chart directory
+                                (default: oci://cr.openchoreo.dev/openchoreo/helm-charts)
+  OPENCHOREO_MODULES_HELM_REPO  Observability module chart repository
+                                (default: oci://cr.openchoreo.dev/openchoreo/helm-charts)
 EOF
 }
 
@@ -449,18 +456,18 @@ EOF
 
     step "Installing observability modules"
     $HELM upgrade --install observability-logs-opensearch \
-        oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+        "$MODULES_HELM_REPO/observability-logs-opensearch" \
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
         --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
         --set adapter.openSearchSecretName="opensearch-admin-credentials" \
         --set auditLogs.enabled=true
     $HELM upgrade --install observability-traces-opensearch \
-        oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+        "$MODULES_HELM_REPO/observability-tracing-opensearch" \
         --namespace "$OBSERVABILITY_NS" --version "$TRACES_OPENSEARCH_VERSION" \
         --set openSearch.enabled=false \
         --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials"
     $HELM upgrade --install observability-metrics-prometheus \
-        oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+        "$MODULES_HELM_REPO/observability-metrics-prometheus" \
         --namespace "$OBSERVABILITY_NS" --version "$METRICS_PROMETHEUS_VERSION"
 
     # The prometheus-operator, not Helm, creates the metrics module's StatefulSets,
@@ -481,14 +488,14 @@ EOF
     done
 
     $HELM upgrade observability-logs-opensearch \
-        oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+        "$MODULES_HELM_REPO/observability-logs-opensearch" \
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
         --reuse-values --set fluent-bit.enabled=true \
         --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
 
     # Collect Kubernetes events into the k8s-events OpenSearch index.
     $HELM upgrade --install observability-events-otel-collector \
-        oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \
+        "$MODULES_HELM_REPO/observability-events-otel-collector" \
         --namespace "$OBSERVABILITY_NS" --version "$EVENTS_OTEL_COLLECTOR_VERSION" \
         -f - <<'EOF'
 collector:

@@ -39,7 +39,7 @@ spec:
         envBindings:
           url: POSTGRES_DSN
   container:
-    image: ghcr.io/openchoreo/samples/snip-api-service:latest
+    image: cr.openchoreo.dev/openchoreo/samples/snip-api-service:latest
     env:
       - key: PORT
         value: "8080"

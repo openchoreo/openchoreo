@@ -36,7 +36,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/cluster-agent",
+              "default": "cr.openchoreo.dev/openchoreo/cluster-agent",
               "description": "Container image repository for the cluster agent",
               "title": "repository",
               "type": "string"
@@ -560,7 +560,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/controller",
+              "default": "cr.openchoreo.dev/openchoreo/controller",
               "description": "Container image repository for the controller manager",
               "title": "repository",
               "type": "string"
@@ -911,7 +911,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/finops-agent",
+              "default": "cr.openchoreo.dev/openchoreo/finops-agent",
               "description": "Container image repository",
               "title": "repository",
               "type": "string"
@@ -1597,7 +1597,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/observer",
+              "default": "cr.openchoreo.dev/openchoreo/observer",
               "description": "Container image repository for the Observer",
               "title": "repository",
               "type": "string"
@@ -1994,7 +1994,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/sre-agent",
+              "default": "cr.openchoreo.dev/openchoreo/sre-agent",
               "description": "Container image repository",
               "title": "repository",
               "type": "string"

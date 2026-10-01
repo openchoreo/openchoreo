@@ -58,7 +58,7 @@ spec:
         envBindings:
           address: ANALYTICS_SERVICE_URL
   container:
-    image: ghcr.io/openchoreo/samples/snip-frontend:latest
+    image: cr.openchoreo.dev/openchoreo/samples/snip-frontend:latest
     env:
       - key: PORT
         value: "3000"

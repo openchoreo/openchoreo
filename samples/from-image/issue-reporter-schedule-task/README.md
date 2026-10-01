@@ -5,7 +5,7 @@
 This sample demonstrates how to deploy a GitHub Issue Reporter as a scheduled task in OpenChoreo from a pre-built container image. The scheduled task runs periodically to report GitHub issues and integrates with MySQL database and email notifications.
 
 The scheduled task is deployed from the pre-built image:
-`ghcr.io/openchoreo/samples/github-issue-reporter:latest`
+`cr.openchoreo.dev/openchoreo/samples/github-issue-reporter:latest`
 
 Features:
 - **GitHub Integration**: Connects to GitHub repositories to fetch issue data

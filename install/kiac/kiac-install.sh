@@ -40,7 +40,7 @@ CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
 THUNDER_NS="thunder"
 OPENBAO_NS="openbao"
-HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 LB_IP=""
 
 usage() {

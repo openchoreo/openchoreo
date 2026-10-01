@@ -10,6 +10,10 @@ PROJECT_BIN_DIR := $(PROJECT_DIR)/bin
 # Read the version from the VERSION file
 RELEASE_VERSION ?= $(shell cat VERSION)
 
+# Public registry prefix that chart defaults and install commands point at
+# (images are also published to ghcr.io/openchoreo).
+OPENCHOREO_PUBLIC_REGISTRY ?= cr.openchoreo.dev/openchoreo
+
 # Store the short git sha of latest commit to be used in the make targets
 GIT_REV := $(shell git rev-parse --short=8 HEAD)
 

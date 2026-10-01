@@ -16,7 +16,22 @@ K3D_OP_NAMESPACE := openchoreo-observability-plane
 K3D_BUILD_COMPONENTS := controller openchoreo-api observer cluster-gateway cluster-agent \
 	remote-agent remote-agent-router
 
+# Local builds are also tagged with the chart default prefix so imported images
+# match the repositories the charts reference.
+K3D_CHART_IMAGE_PREFIX := $(OPENCHOREO_PUBLIC_REGISTRY)
+
 # Helper functions
+# Tag local builds with the chart default prefix and import both names.
+# $(1) = component names
+define k3d_import
+	@for c in $(1); do \
+		docker tag $(IMAGE_REPO_PREFIX)/$$c:$(OPENCHOREO_IMAGE_TAG) $(K3D_CHART_IMAGE_PREFIX)/$$c:$(OPENCHOREO_IMAGE_TAG) || exit 1; \
+	done
+	@k3d image import \
+		$(foreach c,$(1),$(IMAGE_REPO_PREFIX)/$(c):$(OPENCHOREO_IMAGE_TAG) $(K3D_CHART_IMAGE_PREFIX)/$(c):$(OPENCHOREO_IMAGE_TAG)) \
+		--cluster $(K3D_CLUSTER_NAME)
+endef
+
 define k3d_check_cluster
 	@if ! k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
 		$(call log_error, K3d cluster '$(K3D_CLUSTER_NAME)' does not exist); \
@@ -60,44 +75,42 @@ k3d.build.cluster-agent: ## Build cluster-agent image
 k3d.load: ## Import all images into k3d cluster (bulk load for speed)
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading all OpenChoreo images into k3d cluster...)
-	@k3d image import \
-		$(foreach c,$(K3D_BUILD_COMPONENTS),$(IMAGE_REPO_PREFIX)/$(c):$(OPENCHOREO_IMAGE_TAG)) \
-		--cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,$(K3D_BUILD_COMPONENTS))
 	@$(call log_success, All images loaded!)
 
 .PHONY: k3d.load.controller
 k3d.load.controller: ## Import controller image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading controller image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,controller)
 	@$(call log_success, Controller image loaded!)
 
 .PHONY: k3d.load.openchoreo-api
 k3d.load.openchoreo-api: ## Import openchoreo-api image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading openchoreo-api image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,openchoreo-api)
 	@$(call log_success, openchoreo-api image loaded!)
 
 .PHONY: k3d.load.observer
 k3d.load.observer: ## Import observer image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading observer image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/observer:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,observer)
 	@$(call log_success, Observer image loaded!)
 
 .PHONY: k3d.load.cluster-gateway
 k3d.load.cluster-gateway: ## Import cluster-gateway image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading cluster-gateway image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/cluster-gateway:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,cluster-gateway)
 	@$(call log_success, Cluster-gateway image loaded!)
 
 .PHONY: k3d.load.cluster-agent
 k3d.load.cluster-agent: ## Import cluster-agent image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading cluster-agent image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/cluster-agent:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,cluster-agent)
 	@$(call log_success, Cluster-agent image loaded!)
 
 # Uninstall Targets
@@ -225,7 +238,7 @@ k3d.build.remote-agent: ## Build remote-agent image
 k3d.load.remote-agent: ## Import remote-agent image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading remote-agent image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/remote-agent:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,remote-agent)
 	@$(call log_success, Remote-agent image loaded!)
 
 .PHONY: k3d.update.remote-agent
@@ -241,7 +254,7 @@ k3d.build.remote-agent-router: ## Build remote-connect SNI router image
 k3d.load.remote-agent-router: ## Import remote-connect SNI router image into k3d
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading remote-agent-router image...)
-	@k3d image import $(IMAGE_REPO_PREFIX)/remote-agent-router:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	$(call k3d_import,remote-agent-router)
 	@$(call log_success, Remote-agent-router image loaded!)
 
 .PHONY: k3d.update.remote-agent-router

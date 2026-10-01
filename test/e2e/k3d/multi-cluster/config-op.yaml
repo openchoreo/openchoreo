@@ -37,3 +37,10 @@ options:
       - arg: "--disable=traefik"
         nodeFilters:
           - server:*
+# Pull cr.openchoreo.dev images (modules, workflow templates) from ghcr.io directly
+registries:
+  config: |
+    mirrors:
+      "cr.openchoreo.dev":
+        endpoint:
+          - https://ghcr.io

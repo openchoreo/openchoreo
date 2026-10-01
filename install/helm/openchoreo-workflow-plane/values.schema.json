@@ -185,7 +185,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/cluster-agent",
+              "default": "cr.openchoreo.dev/openchoreo/cluster-agent",
               "description": "Image repository for cluster agent",
               "title": "repository",
               "type": "string"

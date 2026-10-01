@@ -67,3 +67,7 @@ registries:
       "host.k3d.internal:20082":
         endpoint:
           - http://host.k3d.internal:20082
+      # Pull cr.openchoreo.dev images (modules, workflow templates) from ghcr.io directly
+      "cr.openchoreo.dev":
+        endpoint:
+          - https://ghcr.io
