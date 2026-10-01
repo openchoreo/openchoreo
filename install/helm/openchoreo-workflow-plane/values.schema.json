@@ -34,17 +34,6 @@
                 "null"
               ]
             },
-            "parallelism": {
-              "default": "null",
-              "description": "Cluster-wide limit on the total number of simultaneously running (incomplete) workflows\nacross all namespaces on this workflow plane. Null means no global limit; operators on a\nshared/multi-tenant plane can set it to cap total build concurrency.",
-              "minimum": 1,
-              "required": [],
-              "title": "parallelism",
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
             "resources": {
               "additionalProperties": true,
               "description": "Resource limits and requests for the argo workflows controller",

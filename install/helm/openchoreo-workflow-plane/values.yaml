@@ -128,15 +128,11 @@ argo-workflows:
     # @schema
     namespaceParallelism: 10
 
-    # @schema
-    # type: [integer, "null"]
-    # minimum: 1
-    # description: |
-    #   Cluster-wide limit on the total number of simultaneously running (incomplete) workflows
-    #   across all namespaces on this workflow plane. Null means no global limit; operators on a
-    #   shared/multi-tenant plane can set it to cap total build concurrency.
-    # @schema
-    parallelism: null
+    # A cluster-wide cap on the total number of simultaneously running (incomplete)
+    # workflows across all namespaces on this workflow plane is also available via the
+    # upstream argo-workflows subchart. It is left unset (no global limit) by default;
+    # operators on a shared/multi-tenant plane can enable it with, for example:
+    #   argo-workflows.controller.parallelism: 50
 
   # @schema
   # type: object
