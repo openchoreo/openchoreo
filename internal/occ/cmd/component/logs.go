@@ -14,13 +14,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 const defaultPlaneName = "default"
-
-// logQueryTimeFormat is the format used for the time bounds sent to the observer.
-// It keeps sub-second precision so a follow poll resumes past the last printed line.
-const logQueryTimeFormat = time.RFC3339Nano
 
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
@@ -259,8 +256,8 @@ func (cp *Component) fetchLogs(
 	}
 
 	reqBody := client.ComponentLogsRequest{
-		StartTime:       startTime.Format(logQueryTimeFormat),
-		EndTime:         endTime.Format(logQueryTimeFormat),
+		StartTime:       startTime.Format(observability.LogTimestampFormat),
+		EndTime:         endTime.Format(observability.LogTimestampFormat),
 		EnvironmentID:   environmentID,
 		ComponentName:   params.Component,
 		ProjectName:     params.Project,

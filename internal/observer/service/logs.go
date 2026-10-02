@@ -30,9 +30,6 @@ var (
 	ErrLogsRetrieval = errors.New("logs retrieval failed")
 )
 
-// logTimestampFormat is the format used for log entry timestamps in API responses.
-const logTimestampFormat = time.RFC3339Nano
-
 // NewLogsService creates a new LogsService instance backed by the HTTP logs adapter.
 // The resolver is passed in as it's shared across multiple services.
 func NewLogsService(
@@ -193,7 +190,7 @@ func (s *LogsService) convertComponentLogsToResponse(
 	logs := make([]types.LogEntry, 0, len(result.Logs))
 	for _, log := range result.Logs {
 		logs = append(logs, types.LogEntry{
-			Timestamp: log.Timestamp.Format(logTimestampFormat),
+			Timestamp: log.Timestamp.Format(observability.LogTimestampFormat),
 			Log:       log.Log,
 			Level:     log.LogLevel,
 			Metadata: &types.LogMetadata{
@@ -225,7 +222,7 @@ func (s *LogsService) convertWorkflowLogsToResponse(
 	logs := make([]types.LogEntry, 0, len(result.Logs))
 	for _, log := range result.Logs {
 		logs = append(logs, types.LogEntry{
-			Timestamp: log.Timestamp.Format(logTimestampFormat),
+			Timestamp: log.Timestamp.Format(observability.LogTimestampFormat),
 			Log:       log.Log,
 			Level:     log.LogLevel,
 		})
