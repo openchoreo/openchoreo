@@ -49,6 +49,7 @@ LOGS_OPENSEARCH_VERSION=""
 TRACES_OPENSEARCH_VERSION=""
 METRICS_PROMETHEUS_VERSION=""
 EVENTS_OTEL_COLLECTOR_VERSION=""
+FINOPS_OPENCOST_VERSION=""
 
 # Color codes for output
 GREEN='\033[0;32m'
@@ -133,7 +134,8 @@ Prerequisite / Third-Party Dependencies:
   --traces-opensearch-version VER    Observability tracing-opensearch module chart version
   --metrics-prometheus-version VER   Observability metrics-prometheus module chart version
   --events-otel-version VER          Observability events-otel-collector module chart version
-                                      (all four used only when --observability-plane is set)
+  --finops-opencost-version VER      FinOps opencost module chart version
+                                      (all five used only when --observability-plane is set)
 
 Examples:
   # Local development with local charts
@@ -300,6 +302,10 @@ while [[ $# -gt 0 ]]; do
             EVENTS_OTEL_COLLECTOR_VERSION="$2"
             shift 2
             ;;
+        --finops-opencost-version)
+            FINOPS_OPENCOST_VERSION="$2"
+            shift 2
+            ;;
         --help|-h)
             usage
             exit 0
@@ -355,6 +361,7 @@ if [[ "$INCLUDE_OBSERVABILITY_PLANE" == "true" ]]; then
     [[ -z "$TRACES_OPENSEARCH_VERSION" ]] && missing_versions+=("--traces-opensearch-version")
     [[ -z "$METRICS_PROMETHEUS_VERSION" ]] && missing_versions+=("--metrics-prometheus-version")
     [[ -z "$EVENTS_OTEL_COLLECTOR_VERSION" ]] && missing_versions+=("--events-otel-version")
+    [[ -z "$FINOPS_OPENCOST_VERSION" ]] && missing_versions+=("--finops-opencost-version")
 
     if [[ ${#missing_versions[@]} -gt 0 ]]; then
         log_error "--observability-plane requires: ${missing_versions[*]}"
@@ -572,8 +579,8 @@ collect_images() {
         fi
         all_images+=("${op_images[@]}")
 
-        # The OpenSearch/Prometheus/OTel-collector community modules are installed
-        # alongside the Observability Plane, so they're only relevant here.
+        # The OpenSearch/Prometheus/OTel-collector/OpenCost community modules are
+        # installed alongside the Observability Plane, so they're only relevant here.
         log_info "Collecting observability module images..." >&2
         local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
         local module_charts=(
@@ -581,6 +588,7 @@ collect_images() {
             "${modules_repo}/observability-tracing-opensearch --version ${TRACES_OPENSEARCH_VERSION} --set openSearch.enabled=false --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials|observability-traces-opensearch"
             "${modules_repo}/observability-metrics-prometheus --version ${METRICS_PROMETHEUS_VERSION}|observability-metrics-prometheus"
             "${modules_repo}/observability-events-otel-collector --version ${EVENTS_OTEL_COLLECTOR_VERSION}|observability-events-kubernetes"
+            "${modules_repo}/finops-opencost --version ${FINOPS_OPENCOST_VERSION}|finops-opencost"
         )
         local module_images=()
         local module_entry module_chart_ref module_release

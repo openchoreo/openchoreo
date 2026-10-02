@@ -571,6 +571,21 @@
               "title": "auth",
               "type": "object"
             },
+            "costInsights": {
+              "additionalProperties": false,
+              "description": "Cost Insights portal feature",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Show cost insights. Off by default. Maps to OPENCHOREO_FEATURES_COST_INSIGHTS_ENABLED in the Backstage container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "costInsights",
+              "type": "object"
+            },
             "deliveryInsights": {
               "additionalProperties": false,
               "description": "Delivery Insights (DORA metrics) portal page",

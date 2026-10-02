@@ -16,6 +16,7 @@ THUNDER_VERSION="1.0.1"
 
 # -- observability modules (0.0.0-latest-dev on main; pinned on release branches
 #    by hack/pin-observability-modules.sh) --
+FINOPS_OPENCOST_VERSION="0.0.0-latest-dev"
 LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
 TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
 METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
@@ -462,6 +463,9 @@ EOF
     $HELM upgrade --install observability-metrics-prometheus \
         oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
         --namespace "$OBSERVABILITY_NS" --version "$METRICS_PROMETHEUS_VERSION"
+    $HELM upgrade --install finops-opencost \
+        oci://ghcr.io/openchoreo/helm-charts/finops-opencost \
+        --namespace "$OBSERVABILITY_NS" --version "$FINOPS_OPENCOST_VERSION"
 
     # The prometheus-operator, not Helm, creates the metrics module's StatefulSets,
     # pods and PVCs from the custom resources the chart applies — so helm returns
@@ -556,7 +560,7 @@ warn_unpinned_modules() {
     case "$OPENCHOREO_CHART_VERSION" in
         ""|0.0.0-*) return 0 ;;
     esac
-    case "$LOGS_OPENSEARCH_VERSION $TRACES_OPENSEARCH_VERSION $METRICS_PROMETHEUS_VERSION $EVENTS_OTEL_COLLECTOR_VERSION" in
+    case "$LOGS_OPENSEARCH_VERSION $TRACES_OPENSEARCH_VERSION $METRICS_PROMETHEUS_VERSION $EVENTS_OTEL_COLLECTOR_VERSION $FINOPS_OPENCOST_VERSION" in
         *0.0.0-*) ;;
         *) return 0 ;;
     esac
