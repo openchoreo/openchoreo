@@ -19,6 +19,9 @@ openchoreoApi:
       authorizeUrl: "http://api.openchoreo.localhost:8080/api/v1/remote-connect:authorize"
 
 backstage:
+  features:
+    costInsights:
+      enabled: true
   secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"
   http:

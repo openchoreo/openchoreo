@@ -116,11 +116,6 @@ Run it with `--help` to list the charts and files.
   the new branch, so the e2e gate on branch creation tests those exact
   versions.
 
-  `finops-opencost` is the exception: nothing in this repo installs it, so
-  there is no location to rewrite. The orchestrator still requires the input
-  and checks that the chart is published, then echoes every version into the
-  run summary for the docs constants below. `--check` cannot report it.
-
 - **Patch releases (existing branch).** Pins carry over from the branch cut.
   The orchestrator rejects the module version inputs when the branch already
   exists, so change a pin with a PR against `release-vX.Y` before releasing:
@@ -146,16 +141,10 @@ Run it with `--help` to list the charts and files.
 
 - **Docs constants.** The module keys in the versioned docs'
   `_constants.mdx` (`logsOpensearchModule`, `tracingOpensearchModule`,
-  `metricsPrometheusModule`, `eventsOtelCollectorModule`) must match the
-  release branch's pins. From an openchoreo `main` checkout, print them with
+  `metricsPrometheusModule`, `eventsOtelCollectorModule`,
+  `finOpsOpenCostModule`) must match the release branch's pins. From an
+  openchoreo `main` checkout, print them with
   `hack/pin-observability-modules.sh --check --ref upstream/release-vX.Y`.
-
-  `finOpsOpenCostModule` is not pinned in this repo, so `--check` does not
-  print it. Take it from the `finops_opencost_version` the orchestrator run
-  recorded in its branch-job summary, or from `finops-opencost/VERSION` in
-  community-modules. For a patch release that only needs a newer FinOps
-  module, updating this constant in the docs repo is the whole change: there
-  is no pin PR against `release-vX.Y` to open.
 - **Guards.** `hack/pin-observability-modules.sh --check` fails if a tracked
   location is still unpinned. It runs in `build-and-test` for `release-v*`
   pushes and PRs, which catches backports that carry `0.0.0-latest-dev` over

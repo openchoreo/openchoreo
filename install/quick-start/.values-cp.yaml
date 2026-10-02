@@ -120,6 +120,9 @@ openchoreoApi:
               effect: allow
 
 backstage:
+  features:
+    costInsights:
+      enabled: true
   secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"
   http:
