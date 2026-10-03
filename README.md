@@ -1,16 +1,27 @@
 <div align="left">
   <p></p><p></p>
-  <p>
-    <img 
-    src="./docs/images/openchoreo-horizontal-color.png" alt="OpenChoreo Platform Abstractions" 
-    width="600"/>
-  </p>
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="./docs/images/openchoreo-horizontal-color-dark.png"
+    />
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="./docs/images/openchoreo-horizontal-color.png"
+    />
+    <img
+      src="./docs/images/openchoreo-horizontal-color.png"
+      alt="OpenChoreo Platform Abstractions"
+      width="600"
+    />
+  </picture>
   <h1 style="font-size: 1.5em;">
     A complete, open-source developer platform for Kubernetes
   </h1>
   <p>OpenChoreo is a developer platform for Kubernetes that lets developers and AI agents build, deploy, and operate apps, resources, and agentic workloads. It provides development and platform abstractions, a Backstage-powered developer portal, CI/CD, GitOps, and observability.</P>
 
 <!-- License & Community -->
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_shield)
 [![CNCF Sandbox](https://img.shields.io/badge/CNCF-Sandbox-00ADD8?logo=cloud-native-computing-foundation&logoColor=white)](https://www.cncf.io/projects/openchoreo/)
@@ -18,21 +29,25 @@
 [![Slack](https://img.shields.io/badge/slack-openchoreo-blue?logo=slack)](https://cloud-native.slack.com/archives/C0ABYRG1MND)
 
 <!-- Security & Compliance -->
+
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11819/badge)](https://www.bestpractices.dev/projects/11819)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openchoreo/openchoreo/badge)](https://scorecard.dev/viewer/?uri=github.com/openchoreo/openchoreo)
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/openchoreo/badge)](https://clomonitor.io/projects/cncf/openchoreo)
 [![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=openchoreo)](https://insights.linuxfoundation.org/project/openchoreo)
 
 <!-- Build, Quality & Project Info -->
+
 [![Build and Test](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml)
 [![E2E Tests](https://img.shields.io/github/actions/workflow/status/openchoreo/openchoreo/e2e-gate.yml?branch=main&label=E2E%20Tests)](https://github.com/openchoreo/openchoreo/actions/workflows/e2e-gate.yml)
 [![Codecov](https://codecov.io/gh/openchoreo/openchoreo/branch/main/graph/badge.svg)](https://codecov.io/gh/openchoreo/openchoreo)
 [![GitHub Release](https://img.shields.io/github/v/release/openchoreo/openchoreo)](https://github.com/openchoreo/openchoreo/releases/latest)
 [![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
+
 </div>
 
 ## Why OpenChoreo?
+
 Kubernetes gives you powerful primitives like Namespaces, Deployments, CronJobs, Services, and NetworkPolicies, but they're too low-level for most developers. Platform engineers end up building the actual platform from scratch: defining higher-level abstractions, wiring together tools for delivery, security and observability, and maintaining all of it as an in-house product.
 
 That means stitching together a developer portal, CI pipelines, GitOps workflows, an observability stack, and access controls and then owning the glue between them indefinitely. The result is a fragile, bespoke system that's expensive to maintain and hard to evolve.
@@ -40,6 +55,7 @@ That means stitching together a developer portal, CI pipelines, GitOps workflows
 Developers and platform engineers need different things from the same platform. Developers want a simple, self-service experience. Platform engineers want control over what's running underneath. Most DIY platforms end up optimizing for one side at the expense of the other.
 
 ## What is OpenChoreo?
+
 OpenChoreo, now a CNCF Sandbox project, takes a different approach. Instead of giving you a toolkit to assemble your own platform, it provides a complete, open-source developer platform for Kubernetes with abstractions that translate developer intent into platform reality. So platform engineers don't have to reinvent the wheel, and developers get a self-service experience that stays out of their way.
 
 Under the hood, OpenChoreo brings together a Backstage-powered developer portal, built-in CI and GitOps, observability, RBAC, and analytics and all of them are organized across dedicated control, CI, data, and observability planes. Platform engineers get a production-ready foundation they can operate and extend, not scaffolding they'll eventually replace.
@@ -47,6 +63,7 @@ Under the hood, OpenChoreo brings together a Backstage-powered developer portal,
 OpenChoreo was originally developed by [WSO2](https://wso2.com), based on its experience building the SaaS internal developer platform formerly known as WSO2 Choreo (now WSO2 Developer Platform), bringing its core ideas to the open-source community. It's not a fork or an open-source dump; it's a complete rewrite based on what we learned from Choreo’s users over the years.
 
 ## How does OpenChoreo work?
+
 OpenChoreo is built around a multi-plane architecture, where each plane handles a distinct concern and operates independently.
 
 <div align="left">
@@ -97,7 +114,7 @@ Check out the **[Samples Directory](./samples/)** for more details.
 
 ## Join the Community & Contribute
 
-We’d love for you to be part of OpenChoreo’s journey! 
+We’d love for you to be part of OpenChoreo’s journey!
 Whether you’re fixing a bug, improving documentation, or suggesting new features, every contribution counts.
 
 - **[Contributor Guide](./docs/contributors/README.md)** – Learn how to get started.
@@ -110,7 +127,7 @@ We’re excited to have you onboard!
 
 We maintain an OpenChoreo Roadmap as a GitHub project board to share what we’re building and when we expect to deliver it.
 
-The roadmap is organized by calendar quarters, and each column represents a set of features or enhancements planned for that period. 
+The roadmap is organized by calendar quarters, and each column represents a set of features or enhancements planned for that period.
 This allows contributors, adopters, and maintainers to understand what’s coming up and what’s already being worked on.
 
 ### How It Works
@@ -123,7 +140,7 @@ This allows contributors, adopters, and maintainers to understand what’s comin
 [OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/4/views/2)
 
 ## License
+
 OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_large)
-
