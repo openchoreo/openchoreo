@@ -116,7 +116,7 @@ type eventsProgress struct {
 // deployment/recovery facts. Returns the touched rollup moments and the progress to
 // persist.
 func (a *Aggregator) processEvents(
-	ctx context.Context, tickStart time.Time,
+	ctx context.Context, tickStart time.Time, stats *tickStats,
 ) (touchedMs []int64, progress eventsProgress, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceEvents)
 	if err != nil {
@@ -146,6 +146,7 @@ func (a *Aggregator) processEvents(
 		return nil, eventsProgress{}, err
 	}
 	progress = eventsProgress{watermarkMs: tickStart.UnixMilli()}
+	stats.eventsRead += len(events)
 	// The !complete branch runs before the empty-result return on purpose. An
 	// incomplete sweep that yielded no events must not advance the watermark to
 	// tickStart and clear resumeMs, which would skip the remainder it stopped
@@ -184,10 +185,11 @@ func (a *Aggregator) processEvents(
 	var recoveries []deliveryinsights.RecoveryFact
 	for i := range events {
 		event := &events[i]
-		fact, recovery, ok := a.foldEvent(event, tickStart)
+		fact, recovery, ok := a.foldEvent(event, tickStart, stats)
 		if !ok {
 			continue
 		}
+		stats.eventsFolded++
 		if fact != nil {
 			facts = append(facts, *fact)
 			touched = append(touched, fact.OccurredMs())
@@ -217,13 +219,14 @@ func (a *Aggregator) processEvents(
 // merge rules (phase COALESCE, sticky failure) do the heavy lifting: this only
 // decides which columns each phase is authoritative for.
 func (a *Aggregator) foldEvent(
-	event *DeliveryEvent, tickStart time.Time,
+	event *DeliveryEvent, tickStart time.Time, stats *tickStats,
 ) (*deliveryinsights.DeploymentFact, *deliveryinsights.RecoveryFact, bool) {
 	var payload deliveryEventPayload
 	if err := json.Unmarshal([]byte(event.Message), &payload); err != nil ||
 		payload.RolloutID == "" {
 		a.logger.Warn("Skipping delivery event with invalid payload",
 			"reason", event.Reason, "namespace", event.Namespace)
+		stats.skipEvent(skipReasonInvalidPayload)
 		return nil, nil, false
 	}
 
@@ -242,6 +245,7 @@ func (a *Aggregator) foldEvent(
 	if namespaceName == "" {
 		a.logger.Warn("Skipping delivery event with no namespace; it cannot be attributed",
 			"reason", event.Reason, "rolloutId", payload.RolloutID)
+		stats.skipEvent(skipReasonNoNamespace)
 		return nil, nil, false
 	}
 
@@ -267,7 +271,19 @@ func (a *Aggregator) foldEvent(
 	case ReasonDeploymentSucceeded:
 		fact.ReadyMs = &eventMs
 		fact.Outcome = deliveryinsights.OutcomeSuccess
-		if authoredMs, err := parseEntryTime(payload.CommitAuthoredAt); err == nil {
+		// Lead time needs the commit's authoring time, which only a workload built
+		// with source provenance carries. Without it the deployment still counts
+		// toward frequency and failure rate; it just has no lead time, which is what
+		// the metrics API's coverage reports. A time that is present but does not
+		// parse is different: the event is malformed, so it is logged as well.
+		switch authoredMs, err := parseEntryTime(payload.CommitAuthoredAt); {
+		case payload.CommitAuthoredAt == "":
+			stats.leadTimeNoCommit++
+		case err != nil:
+			stats.leadTimeUnparseable++
+			a.logger.Warn("Delivery event has an unparseable commit authoring time; lead time not recorded",
+				"rolloutId", payload.RolloutID, "commitAuthoredAt", payload.CommitAuthoredAt)
+		default:
 			lead := eventMs - authoredMs
 			fact.CommitAuthoredMs = &authoredMs
 			fact.LeadTimeMs = &lead
@@ -311,6 +327,7 @@ func (a *Aggregator) foldEvent(
 		}, true
 	default:
 		a.logger.Warn("Skipping delivery event with unknown reason", "reason", event.Reason)
+		stats.skipEvent(skipReasonUnknownReason)
 		return nil, nil, false
 	}
 

@@ -341,8 +341,9 @@ func (a *Aggregator) releaseLease() {
 func (a *Aggregator) RunOnce(ctx context.Context) error {
 	tickStart := a.now().UTC()
 	var touched []int64
+	stats := newTickStats()
 
-	incidentTouched, incidentResumeMs, err := a.processIncidents(ctx, tickStart)
+	incidentTouched, incidentResumeMs, err := a.processIncidents(ctx, tickStart, stats)
 	if err != nil {
 		return fmt.Errorf("incidents: %w", err)
 	}
@@ -353,7 +354,7 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	eventsProg := eventsProgress{watermarkMs: tickStart.UnixMilli()}
 	eventsActive := a.EventsActive()
 	if eventsActive {
-		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart)
+		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart, stats)
 		switch {
 		case errors.Is(eventsErr, ErrEventsSourceUnavailable):
 			// The adapter cannot serve the sweep at all. Retrying every tick would
@@ -419,8 +420,12 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	// only when there was work leaves an idle aggregator looking exactly like a
 	// stuck one -- no line either way -- and an install with no deployments yet is
 	// precisely when someone goes looking for proof it is running.
-	a.logger.Info("DORA aggregation tick complete",
-		"touchedMoments", len(touched), "tookMs", a.now().UTC().Sub(tickStart).Milliseconds())
+	//
+	// It also carries what the tick read and could not use (see tickStats), which
+	// is the first thing to look at when the metrics look lower than expected.
+	a.logger.Info("DORA aggregation tick complete", append([]any{
+		"touchedMoments", len(touched), "tookMs", a.now().UTC().Sub(tickStart).Milliseconds(),
+	}, stats.logAttrs()...)...)
 	return nil
 }
 
@@ -430,7 +435,7 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 // for incidents that are new or changed since the last tick, so an unchanged
 // window recomputes nothing.
 func (a *Aggregator) processIncidents(
-	ctx context.Context, tickStart time.Time,
+	ctx context.Context, tickStart time.Time, stats *tickStats,
 ) (touchedOut []int64, resumeMs int64, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceIncidents)
 	if err != nil {
@@ -484,7 +489,7 @@ func (a *Aggregator) processIncidents(
 		}
 
 		pageTouched, count, lastIngestedMs, foldErr := a.foldIncidentPage(
-			ctx, entries, seen, changedSinceMs, tickStart)
+			ctx, entries, seen, changedSinceMs, tickStart, stats)
 		if foldErr != nil {
 			return nil, 0, foldErr
 		}
@@ -532,6 +537,7 @@ func (a *Aggregator) foldIncidentPage(
 	seen map[string]struct{},
 	changedSinceMs int64,
 	tickStart time.Time,
+	stats *tickStats,
 ) (touched []int64, processed int, lastIngestedMs int64, err error) {
 	var recoveries []deliveryinsights.RecoveryFact
 	attributedCount := 0
@@ -560,6 +566,7 @@ func (a *Aggregator) foldIncidentPage(
 		}
 		seen[entry.ID] = struct{}{}
 		processed++
+		stats.incidentsInWindow++
 
 		attribution, attrErr := a.store.AttributeIncident(ctx,
 			entry.ComponentID, entry.EnvironmentID, entry.ID,
@@ -567,8 +574,18 @@ func (a *Aggregator) foldIncidentPage(
 		if attrErr != nil {
 			return nil, 0, 0, attrErr
 		}
-		if attribution.Attributed {
+		switch {
+		case strings.TrimSpace(entry.ComponentID) == "" || strings.TrimSpace(entry.EnvironmentID) == "":
+			// The store declines these without an error: with no component or
+			// environment there is no deployment to blame. Correct, but invisible
+			// unless counted -- and a steady count here points at an alert rule
+			// missing its identity labels rather than at this code.
+			stats.incidentsUnscoped++
+		case attribution.ReleaseUID == "":
+			stats.incidentsNoDeployment++
+		case attribution.Attributed:
 			attributedCount++
+			stats.incidentsAttributed++
 			touched = append(touched, attribution.OccurredMs)
 		}
 
@@ -590,6 +607,7 @@ func (a *Aggregator) foldIncidentPage(
 		if strings.TrimSpace(entry.NamespaceName) == "" {
 			a.logger.Warn("Skipping recovery fact for incident with no namespace; it cannot be scoped",
 				"incident", entry.ID, "component", entry.ComponentID)
+			stats.recoveriesNoNamespace++
 			continue
 		}
 

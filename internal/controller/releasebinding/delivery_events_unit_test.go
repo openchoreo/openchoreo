@@ -218,6 +218,54 @@ func TestDeliveryContextFor(t *testing.T) {
 	})
 }
 
+// TestDeliverySkipReason pins the reason logged for each rollout that does not
+// participate, and that it agrees with deliveryContextFor: a nil context with no
+// reason, or a reason beside a context, would make the log line lie.
+func TestDeliverySkipReason(t *testing.T) {
+	deployment := makeDeliveryDeployment()
+	job := &unstructured.Unstructured{}
+	job.SetAPIVersion("batch/v1")
+	job.SetKind("Job")
+
+	observabilityRelease := makeDeliveryRelease()
+	observabilityRelease.Spec.TargetPlane = targetPlaneObservabilityPlane
+	uncreatedRelease := makeDeliveryRelease()
+	uncreatedRelease.UID = ""
+
+	tests := []struct {
+		name             string
+		componentRelease *openchoreov1alpha1.ComponentRelease
+		renderedRelease  *openchoreov1alpha1.RenderedRelease
+		desired          []*unstructured.Unstructured
+		want             string
+	}{
+		{"participates", makeDeliveryComponentRelease(), makeDeliveryRelease(),
+			[]*unstructured.Unstructured{deployment}, ""},
+		{"no ComponentRelease", nil, makeDeliveryRelease(),
+			[]*unstructured.Unstructured{deployment}, "ComponentRelease not resolved"},
+		{"no RenderedRelease", makeDeliveryComponentRelease(), nil,
+			[]*unstructured.Unstructured{deployment}, "RenderedRelease not created yet"},
+		{"RenderedRelease not created", makeDeliveryComponentRelease(), uncreatedRelease,
+			[]*unstructured.Unstructured{deployment}, "RenderedRelease not created yet"},
+		{"observability plane", makeDeliveryComponentRelease(), observabilityRelease,
+			[]*unstructured.Unstructured{deployment}, "RenderedRelease targets the observability plane"},
+		{"job-based component", makeDeliveryComponentRelease(), makeDeliveryRelease(),
+			[]*unstructured.Unstructured{job}, "no Deployment, StatefulSet or CronJob in the rendered resources"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deliverySkipReason(tt.componentRelease, tt.renderedRelease, tt.desired)
+			if got != tt.want {
+				t.Errorf("deliverySkipReason = %q, want %q", got, tt.want)
+			}
+			dc := deliveryContextFor(makeDeliveryBinding(), tt.componentRelease, tt.renderedRelease, tt.desired)
+			if (dc == nil) != (got != "") {
+				t.Errorf("deliveryContextFor nil=%v disagrees with skip reason %q", dc == nil, got)
+			}
+		})
+	}
+}
+
 func TestSummarizeHealth(t *testing.T) {
 	t.Run("empty statuses are not healthy", func(t *testing.T) {
 		allHealthy, degradedID := summarizeHealth(nil)
