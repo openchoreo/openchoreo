@@ -3004,6 +3004,17 @@ backstage:
       enabled: false
     # @schema
     # type: object
+    # description: Cost Insights portal feature
+    # @schema
+    costInsights:
+      # @schema
+      # type: boolean
+      # description: Show cost insights. Off by default. Maps to OPENCHOREO_FEATURES_COST_INSIGHTS_ENABLED in the Backstage container.
+      # default: false
+      # @schema
+      enabled: false
+    # @schema
+    # type: object
     # description: Authentication feature flags
     # @schema
     auth:
