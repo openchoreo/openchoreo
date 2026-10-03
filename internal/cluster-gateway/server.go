@@ -506,7 +506,7 @@ func (s *Server) drainAgentConnections(ctx context.Context, window time.Duration
 	spreadFully := true
 	for i, conn := range conns {
 		if goAway != nil {
-			if err := conn.SendRawMessage(goAway); err != nil {
+			if err := s.connMgr.DrainConnection(conn, goAway); err != nil {
 				s.logger.Debug("failed to send GOAWAY", "connectionID", conn.ID, "error", err)
 			}
 		}
@@ -1555,7 +1555,13 @@ func (s *Server) rebalanceOnce() {
 		return
 	}
 
-	local := s.connMgr.GetAll()
+	allLocal := s.connMgr.GetAll()
+	var local []*AgentConnection
+	for _, c := range allLocal {
+		if !c.IsDraining() {
+			local = append(local, c)
+		}
+	}
 	// Peers' connections, from the replicated registry. Excludes draining
 	// owners, so a fleet mid-rollout is measured against pods that will
 	// actually still be there.
@@ -1609,7 +1615,7 @@ func (s *Server) rebalanceOnce() {
 
 	for i := 0; i < shed && i < len(local); i++ {
 		conn := local[i]
-		if err := conn.SendRawMessage(goAway); err != nil {
+		if err := s.connMgr.DrainConnection(conn, goAway); err != nil {
 			s.logger.Debug("failed to send rebalance GOAWAY", "connectionID", conn.ID, "error", err)
 			continue
 		}
