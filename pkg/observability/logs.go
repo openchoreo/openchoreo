@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+// LogTimestampFormat is the format for log timestamps exchanged with the Observer,
+// both in log entries it returns and in the time bounds of log queries sent to it.
+// It keeps sub-second precision so consecutive log queries do not overlap or skip entries.
+const LogTimestampFormat = time.RFC3339Nano
+
 // ComponentApplicationLogsParams holds parameters for component application log queries
 type ComponentApplicationLogsParams struct {
 	ComponentID   string    `json:"componentId"`

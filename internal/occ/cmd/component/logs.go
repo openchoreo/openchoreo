@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 const defaultPlaneName = "default"
@@ -255,8 +256,8 @@ func (cp *Component) fetchLogs(
 	}
 
 	reqBody := client.ComponentLogsRequest{
-		StartTime:       startTime.Format(time.RFC3339),
-		EndTime:         endTime.Format(time.RFC3339),
+		StartTime:       startTime.Format(observability.LogTimestampFormat),
+		EndTime:         endTime.Format(observability.LogTimestampFormat),
 		EnvironmentID:   environmentID,
 		ComponentName:   params.Component,
 		ProjectName:     params.Project,
