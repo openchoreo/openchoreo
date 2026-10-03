@@ -19,9 +19,12 @@ import (
 //  2. Otherwise, use a "release-bindings/" directory alongside the component file.
 func buildBindingOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
-		// Priority 1: Use directory of existing bindings
+		// Priority 1: Use directory of existing bindings in the active namespace
 		allBindings := ocIndex.ListReleaseBindings()
 		for _, entry := range allBindings {
+			if entry.Namespace() != namespace {
+				continue
+			}
 			owner := fsmode.ExtractOwnerRef(entry)
 			if owner != nil && owner.ProjectName == projectName && owner.ComponentName == componentName {
 				return filepath.Dir(entry.FilePath)
