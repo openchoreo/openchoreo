@@ -116,6 +116,24 @@ argo-workflows:
         # @schema
         cpu: 50m
 
+    # @schema
+    # type: [integer, "null"]
+    # minimum: 1
+    # description: |
+    #   Per-namespace limit on the number of simultaneously running (incomplete) workflows.
+    #   Because each OpenChoreo namespace runs its builds in its own workflow-plane namespace
+    #   (workflows-<namespace>), this bounds how many builds a single tenant can run at once,
+    #   so one tenant cannot monopolise a shared workflow plane. Set to null for no limit.
+    # default: 10
+    # @schema
+    namespaceParallelism: 10
+
+    # A cluster-wide cap on the total number of simultaneously running (incomplete)
+    # workflows across all namespaces on this workflow plane is also available via the
+    # upstream argo-workflows subchart. It is left unset (no global limit) by default;
+    # operators on a shared/multi-tenant plane can enable it with, for example:
+    #   argo-workflows.controller.parallelism: 50
+
   # @schema
   # type: object
   # additionalProperties: true
