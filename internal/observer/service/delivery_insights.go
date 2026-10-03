@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -17,9 +18,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
 )
 
+// ErrDeliveryInsightsResolveSearchScope marks a delivery insights query whose search
+// scope could not be resolved. It wraps ErrScopeNotFound or ErrScopeResolutionFailed,
+// which say which of the two it was.
+var ErrDeliveryInsightsResolveSearchScope = errors.New("delivery insights search scope resolution failed")
+
 // ScopeUIDResolver resolves scope names to the UIDs the delivery insights store is keyed
 // by. Satisfied by *ResourceUIDResolver (production) and the passthrough resolver (dev).
 type ScopeUIDResolver interface {
+	GetNamespaceUID(ctx context.Context, namespace string) (string, error)
 	GetProjectUID(ctx context.Context, namespace, project string) (string, error)
 	GetComponentUID(ctx context.Context, namespace, project, component string) (string, error)
 	GetEnvironmentUID(ctx context.Context, namespace, environment string) (string, error)
@@ -33,6 +40,10 @@ type passthroughUIDResolver struct{}
 // NewPassthroughUIDResolver returns a resolver that echoes names back as UIDs.
 func NewPassthroughUIDResolver() ScopeUIDResolver {
 	return passthroughUIDResolver{}
+}
+
+func (passthroughUIDResolver) GetNamespaceUID(_ context.Context, namespace string) (string, error) {
+	return namespace, nil
 }
 
 func (passthroughUIDResolver) GetProjectUID(_ context.Context, _, project string) (string, error) {
@@ -117,10 +128,19 @@ func (s *DoraMetricsService) resolveScope(
 		namespace: namespace,
 	}
 
+	// The namespace is resolved only to prove it exists. The store keys namespace
+	// scope by name, so the UID itself is not used; but without this check a
+	// misspelled namespace is not an error at all -- it matches no rows and comes
+	// back as a successful, empty result, indistinguishable from a namespace that
+	// has deployed nothing.
+	if _, err := s.resolver.GetNamespaceUID(ctx, namespace); err != nil {
+		return rs, wrapDeliveryInsightsScopeError(err, "namespace", namespace)
+	}
+
 	if project != "" {
 		uid, err := s.resolver.GetProjectUID(ctx, namespace, project)
 		if err != nil {
-			return rs, wrapScopeError(err, "project", project)
+			return rs, wrapDeliveryInsightsScopeError(err, "project", project)
 		}
 		rs.projectUID = uid
 		rs.scopeType = deliveryinsights.ScopeTypeProject
@@ -129,7 +149,7 @@ func (s *DoraMetricsService) resolveScope(
 	if component != "" {
 		uid, err := s.resolver.GetComponentUID(ctx, namespace, project, component)
 		if err != nil {
-			return rs, wrapScopeError(err, "component", component)
+			return rs, wrapDeliveryInsightsScopeError(err, "component", component)
 		}
 		rs.componentUID = uid
 		rs.scopeType = deliveryinsights.ScopeTypeComponent
@@ -138,11 +158,17 @@ func (s *DoraMetricsService) resolveScope(
 	if environment != "" {
 		uid, err := s.resolver.GetEnvironmentUID(ctx, namespace, environment)
 		if err != nil {
-			return rs, wrapScopeError(err, "environment", environment)
+			return rs, wrapDeliveryInsightsScopeError(err, "environment", environment)
 		}
 		rs.environmentUID = uid
 	}
 	return rs, nil
+}
+
+// wrapDeliveryInsightsScopeError classifies a resolver failure under delivery
+// insights' own sentinel rather than the alerts one wrapScopeError applies.
+func wrapDeliveryInsightsScopeError(err error, resourceType, resourceName string) error {
+	return wrapSubsystemScopeError(ErrDeliveryInsightsResolveSearchScope, err, resourceType, resourceName)
 }
 
 func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) deliveryinsights.FactQuery {
