@@ -49,6 +49,16 @@ spec:
         - path:
             type: PathPrefix
             value: /
+      {{- if .Values.backstage.http.sessionPersistence.enabled }}
+      # Pin each browser to one Backstage replica so the two-request exec
+      # handshake (POST /exec/init then WS /exec/ws) lands on the same pod when
+      # the Deployment is scaled out (the exec session is held in-process).
+      sessionPersistence:
+        type: Cookie
+        sessionName: {{ .Values.backstage.http.sessionPersistence.sessionName | quote }}
+        cookieConfig:
+          lifetimeType: Session
+      {{- end }}
       backendRefs:
         - name: {{ include "openchoreo-control-plane.backstage.name" . }}
           port: {{ .Values.backstage.service.port }}
