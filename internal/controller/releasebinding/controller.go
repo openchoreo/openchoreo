@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -118,6 +119,7 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
@@ -268,6 +270,41 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 		logger.Error(err, "Failed to get Project", "project", componentRelease.Spec.Owner.ProjectName)
 		return ctrl.Result{}, err
+	}
+
+	// Fetch DeploymentPipeline object
+	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      project.Spec.DeploymentPipelineRef.Name,
+		Namespace: releaseBinding.Namespace,
+	}, pipeline); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("DeploymentPipeline %q not found", project.Spec.DeploymentPipelineRef.Name)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonDeploymentPipelineNotFound, msg)
+			logger.Info(msg, "deploymentPipeline", project.Spec.DeploymentPipelineRef.Name)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get DeploymentPipeline", "deploymentPipeline", project.Spec.DeploymentPipelineRef.Name)
+		return ctrl.Result{}, err
+	}
+
+	// Undeploying is always allowed. Deploying to a promotion target needs the release in a source environment first.
+	if sources := promotionSources(pipeline, releaseBinding.Spec.Environment); len(sources) > 0 &&
+		releaseBinding.Spec.State != openchoreov1alpha1.ReleaseStateUndeploy {
+		promoted, err := r.isPromoted(ctx, releaseBinding, componentRelease, sources)
+		if err != nil {
+			logger.Error(err, "Failed to check promotion path")
+			return ctrl.Result{}, err
+		}
+		if !promoted {
+			msg := fmt.Sprintf("ComponentRelease %q must be deployed to %s before it can be promoted to %s",
+				releaseBinding.Spec.ReleaseName, strings.Join(sources, " or "), releaseBinding.Spec.Environment)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonPromotionPathNotSatisfied, msg)
+			logger.Info(msg)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
@@ -1630,6 +1667,16 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindings),
 			builder.WithPredicates(endpointStatusChangedPredicate()),
+		).
+		Watches(
+			&openchoreov1alpha1.ReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findSiblingReleaseBindings),
+			builder.WithPredicates(releaseNameChangedPredicate()),
+		).
+		Watches(
+			&openchoreov1alpha1.DeploymentPipeline{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForDeploymentPipeline),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// The two consumer-side watches do not form a cycle: the endpoint watch enqueues
 		// on Status.Endpoints changes, while the resource-dep watch enqueues on a

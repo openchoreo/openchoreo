@@ -657,6 +657,8 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `promotionPaths[].sourceEnvironmentRef` | EnvironmentRef | Yes | Source environment |
 | `promotionPaths[].targetEnvironmentRefs[]` | TargetEnvironmentRef[] | Yes | Destination environments |
 
+A ReleaseBinding in a target environment only deploys a ComponentRelease that a ReleaseBinding in one of its source environments already references. Otherwise the binding's `ReleaseSynced` condition is `False` with reason `PromotionPathNotSatisfied`. A release the binding already deployed keeps running after the source environment moves on, and `Undeploy` is always allowed. Environments the pipeline does not list as a target are not restricted.
+
 **Relationships:**
 - Referenced by: Project
 - References: Environment

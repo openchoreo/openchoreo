@@ -506,3 +506,87 @@ func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseB
 	}
 	return names
 }
+
+// releaseNameChangedPredicate passes when a ReleaseBinding is created or its spec.releaseName
+// changes, which is when a sibling binding waiting on a promotion path may become promotable.
+func releaseNameChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool { return true },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRB, ok := e.ObjectOld.(*openchoreov1alpha1.ReleaseBinding)
+			if !ok {
+				return false
+			}
+			newRB, ok := e.ObjectNew.(*openchoreov1alpha1.ReleaseBinding)
+			if !ok {
+				return false
+			}
+			return oldRB.Spec.ReleaseName != newRB.Spec.ReleaseName
+		},
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+	}
+}
+
+// findSiblingReleaseBindings enqueues the other ReleaseBindings of the same component, so a
+// binding blocked on a promotion path is retried when its source environment gets the release.
+func (r *Reconciler) findSiblingReleaseBindings(ctx context.Context, obj client.Object) []reconcile.Request {
+	rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(rb.Namespace),
+		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerComponentName: rb.Spec.Owner.ComponentName}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list sibling ReleaseBindings", "releaseBinding", rb.Name)
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, binding := range bindings.Items {
+		if binding.Name == rb.Name || binding.Spec.Owner.ProjectName != rb.Spec.Owner.ProjectName {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+		})
+	}
+	return requests
+}
+
+// findReleaseBindingsForDeploymentPipeline enqueues the ReleaseBindings of every project that
+// uses the changed DeploymentPipeline, since its promotion paths decide which releases may run.
+func (r *Reconciler) findReleaseBindingsForDeploymentPipeline(ctx context.Context, obj client.Object) []reconcile.Request {
+	pipeline := obj.(*openchoreov1alpha1.DeploymentPipeline)
+	logger := log.FromContext(ctx)
+
+	var projects openchoreov1alpha1.ProjectList
+	if err := r.List(ctx, &projects,
+		client.InNamespace(pipeline.Namespace),
+		client.MatchingFields{controller.IndexKeyProjectDeploymentPipelineRef: pipeline.Name}); err != nil {
+		logger.Error(err, "Failed to list Projects for DeploymentPipeline", "deploymentPipeline", pipeline.Name)
+		return nil
+	}
+	if len(projects.Items) == 0 {
+		return nil
+	}
+	projectNames := make(map[string]struct{}, len(projects.Items))
+	for _, project := range projects.Items {
+		projectNames[project.Name] = struct{}{}
+	}
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(pipeline.Namespace)); err != nil {
+		logger.Error(err, "Failed to list ReleaseBindings for DeploymentPipeline", "deploymentPipeline", pipeline.Name)
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, binding := range bindings.Items {
+		if _, ok := projectNames[binding.Spec.Owner.ProjectName]; ok {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+			})
+		}
+	}
+	return requests
+}
