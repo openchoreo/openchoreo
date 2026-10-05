@@ -256,7 +256,7 @@ controllerManager:
     # enum: [Always, IfNotPresent, Never]
     # default: Always
     # @schema
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   # @schema
   # type: object

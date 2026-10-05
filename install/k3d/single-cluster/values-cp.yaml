@@ -1,5 +1,9 @@
 # Helm values for OpenChoreo Control Plane in k3d single-cluster setup
 
+controllerManager:
+  image:
+    pullPolicy: IfNotPresent
+
 openchoreoApi:
   http:
     hostnames:
