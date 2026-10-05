@@ -144,11 +144,6 @@ type DeliveryInsightsConfig struct {
 	// Empty inherits the alert store DSN so all observer stores share one database,
 	// which keeps incident↔deployment attribution a local SQL join.
 	StoreDSN string `koanf:"store.dsn"`
-	// UIDResolution controls how Delivery Insights search-scope names are translated to
-	// UIDs the store is keyed by. "resolver" (default) resolves via openchoreo-api;
-	// "passthrough" treats names as UIDs directly — a development/demo affordance
-	// for querying seeded dummy data without a control plane.
-	UIDResolution string `koanf:"uid.resolution"`
 	// Enabled runs the DORA aggregator in the observer process: the background loop
 	// that folds delivery lifecycle events and incidents into the durable facts and
 	// rollups the Delivery Insights API reads. Reads are served whether or not it
@@ -258,7 +253,6 @@ func Load() (*Config, error) {
 		"FINOPS_AGENT_ENABLED":                      "alerting.finops.agent.enabled",
 		"DELIVERY_INSIGHTS_STORE_BACKEND":           "deliveryinsights.store.backend",
 		"DELIVERY_INSIGHTS_STORE_DSN":               "deliveryinsights.store.dsn",
-		"DELIVERY_INSIGHTS_UID_RESOLUTION":          "deliveryinsights.uid.resolution",
 		"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED": "deliveryinsights.enabled",
 		"DELIVERY_INSIGHTS_AGGREGATION_INTERVAL":    "deliveryinsights.aggregation.interval",
 		"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP":     "deliveryinsights.aggregation.overlap",
@@ -437,7 +431,6 @@ func getDefaults() map[string]interface{} {
 		"deliveryinsights": map[string]interface{}{
 			"store.backend":                  "",
 			"store.dsn":                      "",
-			"uid.resolution":                 "resolver",
 			"enabled":                        false,
 			"aggregation.interval":           "5m",
 			"aggregation.overlap":            "10m",
@@ -537,14 +530,6 @@ func ensureSQLiteBusyTimeout(dsn string) string {
 
 // validateDeliveryInsights normalizes and validates the delivery insights section.
 func (c *Config) validateDeliveryInsights() error {
-	c.DeliveryInsights.UIDResolution = strings.ToLower(strings.TrimSpace(c.DeliveryInsights.UIDResolution))
-	switch c.DeliveryInsights.UIDResolution {
-	case "":
-		c.DeliveryInsights.UIDResolution = "resolver"
-	case "resolver", "passthrough":
-	default:
-		return fmt.Errorf("deliveryinsights.uid.resolution must be 'resolver' or 'passthrough'")
-	}
 	if !c.DeliveryInsights.Enabled {
 		return nil
 	}

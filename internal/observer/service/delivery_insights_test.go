@@ -38,7 +38,7 @@ func newDeliveryInsightsTestService(t *testing.T, store deliveryinsights.Store) 
 	// metrics, not availability. TestDataAvailabilityTravelsWithEveryResponse covers
 	// that separately.
 	return NewDeliveryInsightsService(
-		store, NewPassthroughUIDResolver(), slog.Default(),
+		store, scopeResolverStub{}, slog.Default(),
 		true, func() bool { return true },
 	)
 }
@@ -266,7 +266,7 @@ func TestDataAvailabilityTravelsWithEveryResponse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := newDeliveryInsightsTestStore(t)
 			svc := NewDeliveryInsightsService(
-				store, NewPassthroughUIDResolver(), slog.Default(),
+				store, scopeResolverStub{}, slog.Default(),
 				tc.aggregation, func() bool { return tc.events },
 			)
 
@@ -348,7 +348,7 @@ func TestDeploymentsDrillDownHonoursLimit(t *testing.T) {
 func TestDisabledObserverAnswersWithoutAStore(t *testing.T) {
 	ctx := context.Background()
 	svc := NewDeliveryInsightsService(
-		nil, NewPassthroughUIDResolver(), slog.Default(),
+		nil, scopeResolverStub{}, slog.Default(),
 		false, func() bool { return false },
 	)
 

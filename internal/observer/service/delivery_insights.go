@@ -24,38 +24,12 @@ import (
 var ErrDeliveryInsightsResolveSearchScope = errors.New("delivery insights search scope resolution failed")
 
 // ScopeUIDResolver resolves scope names to the UIDs the delivery insights store is keyed
-// by. Satisfied by *ResourceUIDResolver (production) and the passthrough resolver (dev).
+// by. Satisfied by *ResourceUIDResolver.
 type ScopeUIDResolver interface {
 	GetNamespaceUID(ctx context.Context, namespace string) (string, error)
 	GetProjectUID(ctx context.Context, namespace, project string) (string, error)
 	GetComponentUID(ctx context.Context, namespace, project, component string) (string, error)
 	GetEnvironmentUID(ctx context.Context, namespace, environment string) (string, error)
-}
-
-// passthroughUIDResolver treats scope names as UIDs directly. Development affordance for
-// running against seeded dummy data without a control plane to resolve names against
-// (enabled via DELIVERY_INSIGHTS_UID_RESOLUTION=passthrough).
-type passthroughUIDResolver struct{}
-
-// NewPassthroughUIDResolver returns a resolver that echoes names back as UIDs.
-func NewPassthroughUIDResolver() ScopeUIDResolver {
-	return passthroughUIDResolver{}
-}
-
-func (passthroughUIDResolver) GetNamespaceUID(_ context.Context, namespace string) (string, error) {
-	return namespace, nil
-}
-
-func (passthroughUIDResolver) GetProjectUID(_ context.Context, _, project string) (string, error) {
-	return project, nil
-}
-
-func (passthroughUIDResolver) GetComponentUID(_ context.Context, _, _, component string) (string, error) {
-	return component, nil
-}
-
-func (passthroughUIDResolver) GetEnvironmentUID(_ context.Context, _, environment string) (string, error) {
-	return environment, nil
 }
 
 // DeliveryInsightsService serves the Delivery Insights (DORA metrics) read API.

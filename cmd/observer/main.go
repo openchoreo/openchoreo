@@ -250,10 +250,12 @@ func main() {
 		backgroundWG   *sync.WaitGroup
 	)
 
-	deliveryInsightsService := newDeliveryInsightsService(
-		cfg, deliveryInsightsStore, uidResolver,
+	// Data availability travels with every metrics response, so a client can tell
+	// "nothing was deployed" from "nothing is being collected".
+	deliveryInsightsService := service.NewDeliveryInsightsService(
+		deliveryInsightsStore, uidResolver, logger.With("component", "delivery-insights-service"),
+		cfg.DeliveryInsights.Enabled,
 		func() bool { return doraAggregator.EventsActive() },
-		logger,
 	)
 
 	// Wrap services with authorization checks.
@@ -560,8 +562,6 @@ func shutdownServers(
 // The alert and incident stores are initialized inline in main, and this would
 // read better beside them. It cannot be: main sits at exactly the gocyclo limit
 // of 30, and the two extra failure branches inlining this adds take it to 32.
-// newDeliveryInsightsService below is the same story -- inlining it alone gives
-// 31, and inlining both gives 33.
 func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -587,31 +587,6 @@ func newDeliveryInsightsStore(
 			logger.Error("Failed to close delivery insights store", "error", closeErr)
 		}
 	}, nil
-}
-
-// newDeliveryInsightsService builds the delivery insights (DORA metrics) query service.
-// The passthrough resolver is a development affordance: it treats scope names as
-// UIDs so the read API can be exercised without a control plane to resolve them
-// against.
-func newDeliveryInsightsService(
-	cfg *config.Config,
-	store deliveryinsights.Store,
-	uidResolver service.ScopeUIDResolver,
-	eventsAvailable func() bool,
-	logger *slog.Logger,
-) *service.DoraMetricsService {
-	resolver := uidResolver
-	if cfg.DeliveryInsights.UIDResolution == "passthrough" {
-		logger.Warn("Delivery Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
-		resolver = service.NewPassthroughUIDResolver()
-	}
-	// Data availability travels with every metrics response, so a client can tell
-	// "nothing was deployed" from "nothing is being collected".
-	return service.NewDeliveryInsightsService(
-		store, resolver, logger.With("component", "delivery-insights-service"),
-		cfg.DeliveryInsights.Enabled,
-		eventsAvailable,
-	)
 }
 
 // startDoraAggregator starts the DORA aggregator, which folds incidents and delivery

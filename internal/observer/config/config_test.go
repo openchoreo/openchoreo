@@ -217,10 +217,6 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-// uidResolutionResolver is the default UID resolution mode; passthrough is the
-// seeded-data shortcut.
-const uidResolutionResolver = "resolver"
-
 // TestDeliveryInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
 // not mention Delivery Insights gets it disabled. Aggregation in particular must
 // default off: the aggregator has no leader election, so the chart refuses
@@ -234,7 +230,6 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	for _, key := range []string{
 		"DELIVERY_INSIGHTS_STORE_BACKEND",
 		"DELIVERY_INSIGHTS_STORE_DSN",
-		"DELIVERY_INSIGHTS_UID_RESOLUTION",
 		"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED",
 		"DELIVERY_INSIGHTS_AGGREGATION_INTERVAL",
 		"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP",
@@ -249,8 +244,6 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 
 	assert.False(t, cfg.DeliveryInsights.Enabled,
 		"Delivery Insights must default off; it is opt-in per deployment")
-	assert.Equal(t, uidResolutionResolver, cfg.DeliveryInsights.UIDResolution,
-		"passthrough is a seeded-data shortcut and must not be the default")
 }
 
 func TestValidateDeliveryInsightsStore(t *testing.T) {
@@ -262,7 +255,6 @@ func TestValidateDeliveryInsightsStore(t *testing.T) {
 		c.Alerting.AlertStoreDSN = alertDSN
 		c.DeliveryInsights.StoreBackend = deliveryInsightsBackend
 		c.DeliveryInsights.StoreDSN = deliveryInsightsDSN
-		c.DeliveryInsights.UIDResolution = uidResolutionResolver
 		return c
 	}
 
@@ -340,7 +332,6 @@ func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 		c := &Config{}
 		c.Alerting.AlertStoreBackend = "sqlite"
 		c.Alerting.AlertStoreDSN = "file:/data/alerts.db"
-		c.DeliveryInsights.UIDResolution = uidResolutionResolver
 		c.DeliveryInsights.Enabled = true
 		c.DeliveryInsights.AggregationInterval = interval
 		c.DeliveryInsights.AggregationOverlap = overlap
@@ -388,28 +379,5 @@ func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 		err := c.validateDeliveryInsights()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.incident.lookback must be positive")
-	})
-
-	t.Run("passthrough stays accepted", func(t *testing.T) {
-		c := newConfig(5*time.Minute, time.Minute)
-		c.DeliveryInsights.UIDResolution = "passthrough"
-		require.NoError(t, c.validateDeliveryInsights(),
-			"passthrough serves seeded data without a control plane and must remain valid")
-		assert.Equal(t, "passthrough", c.DeliveryInsights.UIDResolution)
-	})
-
-	t.Run("an empty uid resolution mode normalises to resolver", func(t *testing.T) {
-		c := newConfig(5*time.Minute, time.Minute)
-		c.DeliveryInsights.UIDResolution = "  "
-		require.NoError(t, c.validateDeliveryInsights())
-		assert.Equal(t, uidResolutionResolver, c.DeliveryInsights.UIDResolution)
-	})
-
-	t.Run("an unknown uid resolution mode is rejected", func(t *testing.T) {
-		c := newConfig(5*time.Minute, time.Minute)
-		c.DeliveryInsights.UIDResolution = "guess"
-		err := c.validateDeliveryInsights()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "must be 'resolver' or 'passthrough'")
 	})
 }
