@@ -126,13 +126,11 @@ func injectInputArtifacts(resource map[string]any, artifacts []v1alpha1.Workflow
 	}
 	argoArtifacts := make([]any, 0, len(artifacts))
 	for _, artifact := range artifacts {
-		key := "sha256/" + artifact.SHA256
 		argoArtifacts = append(argoArtifacts, map[string]any{
 			"name": artifact.Name,
-			"s3": map[string]any{
-				"bucket":      v1alpha1.WorkflowRunInputArtifactBucket,
-				"key":         key,
-				"useSDKCreds": true,
+			"gcs": map[string]any{
+				"bucket": artifact.GCS.Bucket,
+				"key":    artifact.GCS.Key,
 			},
 			"archive": map[string]any{"none": map[string]any{}},
 		})

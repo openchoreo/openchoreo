@@ -409,6 +409,16 @@ const (
 	WorkflowRunConfigKindWorkflow        WorkflowRunConfigKind = "Workflow"
 )
 
+// Defines values for WorkflowRunInputArtifactMediaType.
+const (
+	TextxDiff WorkflowRunInputArtifactMediaType = "text/x-diff"
+)
+
+// Defines values for WorkflowRunInputArtifactName.
+const (
+	UnifiedDiff WorkflowRunInputArtifactName = "unified-diff"
+)
+
 // Defines values for WorkflowRunStatusResponseStatus.
 const (
 	WorkflowRunStatusResponseStatusError     WorkflowRunStatusResponseStatus = "Error"
@@ -4326,13 +4336,25 @@ type WorkflowRunEventEntry struct {
 // WorkflowRunInputArtifact Metadata and trusted reference for an immutable workflow input. The object never includes bytes, credentials, tokens, signed URLs, or secrets.
 type WorkflowRunInputArtifact struct {
 	ExpiresAt time.Time `json:"expiresAt"`
-	MediaType string    `json:"mediaType"`
-	Name      string    `json:"name"`
-	Sha256    string    `json:"sha256"`
-	SizeBytes int64     `json:"sizeBytes"`
 
-	// Uri Content-addressed reference in the trusted immutable artifact store.
-	Uri string `json:"uri"`
+	// Gcs Native GCS object location. It never carries a URI, generation, endpoint, signed URL, or credentials.
+	Gcs       WorkflowRunInputArtifactGCS       `json:"gcs"`
+	MediaType WorkflowRunInputArtifactMediaType `json:"mediaType"`
+	Name      WorkflowRunInputArtifactName      `json:"name"`
+	Sha256    string                            `json:"sha256"`
+	SizeBytes int64                             `json:"sizeBytes"`
+}
+
+// WorkflowRunInputArtifactMediaType defines model for WorkflowRunInputArtifact.MediaType.
+type WorkflowRunInputArtifactMediaType string
+
+// WorkflowRunInputArtifactName defines model for WorkflowRunInputArtifact.Name.
+type WorkflowRunInputArtifactName string
+
+// WorkflowRunInputArtifactGCS Native GCS object location. It never carries a URI, generation, endpoint, signed URL, or credentials.
+type WorkflowRunInputArtifactGCS struct {
+	Bucket string `json:"bucket"`
+	Key    string `json:"key"`
 }
 
 // WorkflowRunInputArtifactStatus Non-sensitive metadata for an accepted immutable input. URI and payload are intentionally absent.

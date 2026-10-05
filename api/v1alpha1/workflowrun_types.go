@@ -23,14 +23,13 @@ type WorkflowRunSpec struct {
 	// workflow.parameters: parameter values are small control-plane data, while
 	// artifact contents never transit or persist in this API object.
 	//
-	// The only accepted URI form is
-	// s3://openchoreo-workflow-inputs/sha256/<sha256>. The artifact publisher is
-	// responsible for writing that content-addressed object once and for granting
-	// the existing workflow workload identity read-only access to the bucket.
+	// Input artifacts use the native GCS driver. The publisher writes each object
+	// once with ifGenerationMatch=0; runners receive it through Workload Identity
+	// without static credentials, signed URLs, or an S3-compatible endpoint.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:MaxItems=1
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="inputArtifacts are immutable"
 	InputArtifacts []WorkflowRunInputArtifact `json:"inputArtifacts,omitempty"`
 
@@ -45,38 +44,33 @@ type WorkflowRunSpec struct {
 }
 
 const (
-	// WorkflowRunInputArtifactBucket is the sole trusted artifact store accepted
-	// by the v1 input-artifact contract.
-	WorkflowRunInputArtifactBucket = "openchoreo-workflow-inputs"
 	// WorkflowRunInputArtifactMaxSizeBytes prevents a WorkflowRun from becoming
 	// a large-payload transport. Larger inputs require a later contract version.
-	WorkflowRunInputArtifactMaxSizeBytes int64 = 10 * 1024 * 1024
+	WorkflowRunInputArtifactMaxSizeBytes int64 = 1 * 1024 * 1024
+	// WorkflowRunInputArtifactName and WorkflowRunInputArtifactKeyPrefix define
+	// the sole v1 artifact accepted by this coordinated contract.
+	WorkflowRunInputArtifactName      = "unified-diff"
+	WorkflowRunInputArtifactKeyPrefix = "unified-diff/"
 )
 
 // WorkflowRunInputArtifact describes an immutable workflow input. It contains
 // metadata and a trusted, content-addressed reference only; it never contains
 // bytes, credentials, signed URLs, or other secrets.
 type WorkflowRunInputArtifact struct {
-	// Name identifies the Argo input artifact expected by the workflow template.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// Name identifies the sole Argo input artifact expected by the workflow template.
+	// +kubebuilder:validation:Enum=unified-diff
 	Name string `json:"name"`
 
-	// URI is a trusted content-addressed S3 reference. It must be exactly
-	// s3://openchoreo-workflow-inputs/sha256/<sha256>, where <sha256> equals sha256.
-	// +kubebuilder:validation:Pattern=`^s3://openchoreo-workflow-inputs/sha256/[a-f0-9]{64}$`
-	URI string `json:"uri"`
+	// GCS is the native Google Cloud Storage location consumed by Argo.
+	GCS WorkflowRunInputArtifactGCS `json:"gcs"`
 
-	// MediaType identifies the artifact representation, for example text/x-diff.
-	// +kubebuilder:validation:MinLength=3
-	// +kubebuilder:validation:MaxLength=127
-	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$`
+	// MediaType identifies the artifact representation.
+	// +kubebuilder:validation:Enum=text/x-diff
 	MediaType string `json:"mediaType"`
 
 	// SizeBytes is the exact uncompressed payload size.
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=10485760
+	// +kubebuilder:validation:Maximum=1048576
 	SizeBytes int64 `json:"sizeBytes"`
 
 	// SHA256 is the lowercase SHA-256 digest of the exact bytes the runner reads.
@@ -84,12 +78,27 @@ type WorkflowRunInputArtifact struct {
 	SHA256 string `json:"sha256"`
 
 	// ExpiresAt is the hard expiry for fetching the input. It must be in the
-	// future when submitted and no more than 24 hours away.
+	// future when submitted and no more than seven days away.
 	ExpiresAt metav1.Time `json:"expiresAt"`
 }
 
+// WorkflowRunInputArtifactGCS identifies a GCS object without embedding a URI,
+// generation, endpoint, signed URL, or credential reference.
+type WorkflowRunInputArtifactGCS struct {
+	// Bucket is the trusted GCS bucket name selected by the GitOps/IAM deployment.
+	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:MaxLength=222
+	// +kubebuilder:validation:Pattern=`^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$`
+	Bucket string `json:"bucket"`
+
+	// Key is unified-diff/<delivery-id>/<sha256>.diff. It contains neither a
+	// GCS object generation nor a URI fragment.
+	// +kubebuilder:validation:Pattern=`^unified-diff/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[a-f0-9]{64}\.diff$`
+	Key string `json:"key"`
+}
+
 // WorkflowRunInputArtifactStatus exposes non-sensitive, auditable metadata for
-// an accepted input. The URI, credentials, and artifact bytes are never copied
+// an accepted input. The location, credentials, and artifact bytes are never copied
 // to status.
 type WorkflowRunInputArtifactStatus struct {
 	Name      string      `json:"name"`
@@ -188,7 +197,7 @@ type WorkflowRunStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// InputArtifacts contains non-sensitive metadata for the immutable inputs
-	// accepted by the runner. It intentionally excludes URI and all content.
+	// accepted by the runner. It intentionally excludes location and all content.
 	// +listType=map
 	// +listMapKey=name
 	// +optional

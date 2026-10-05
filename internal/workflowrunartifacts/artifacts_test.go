@@ -4,7 +4,6 @@
 package workflowrunartifacts
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +16,12 @@ import (
 const digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 func validArtifact() v1alpha1.WorkflowRunInputArtifact {
-	return v1alpha1.WorkflowRunInputArtifact{Name: "unified-diff", URI: "s3://openchoreo-workflow-inputs/sha256/" + digest, MediaType: "text/x-diff", SizeBytes: 42, SHA256: digest, ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour))}
+	return v1alpha1.WorkflowRunInputArtifact{
+		Name: "unified-diff", GCS: v1alpha1.WorkflowRunInputArtifactGCS{
+			Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + digest + ".diff",
+		},
+		MediaType: "text/x-diff", SizeBytes: 42, SHA256: digest, ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour)),
+	}
 }
 
 func TestValidate(t *testing.T) {
@@ -25,13 +29,20 @@ func TestValidate(t *testing.T) {
 		require.NoError(t, Validate([]v1alpha1.WorkflowRunInputArtifact{validArtifact()}, time.Now()))
 	})
 	for name, mutate := range map[string]func(*v1alpha1.WorkflowRunInputArtifact){
-		"untrusted URI": func(a *v1alpha1.WorkflowRunInputArtifact) { a.URI = "https://attacker.example/diff" },
+		"wrong artifact name": func(a *v1alpha1.WorkflowRunInputArtifact) { a.Name = "other" },
+		"wrong media type":    func(a *v1alpha1.WorkflowRunInputArtifact) { a.MediaType = "application/octet-stream" },
 		"checksum mismatch": func(a *v1alpha1.WorkflowRunInputArtifact) {
-			a.URI = "s3://openchoreo-workflow-inputs/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+			a.GCS.Key = "unified-diff/delivery-123/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.diff"
 		},
 		"expired": func(a *v1alpha1.WorkflowRunInputArtifact) { a.ExpiresAt = metav1.NewTime(time.Now().Add(-time.Minute)) },
 		"size exceeded": func(a *v1alpha1.WorkflowRunInputArtifact) {
 			a.SizeBytes = v1alpha1.WorkflowRunInputArtifactMaxSizeBytes + 1
+		},
+		"expiry exceeds seven days": func(a *v1alpha1.WorkflowRunInputArtifact) {
+			a.ExpiresAt = metav1.NewTime(time.Now().Add(7*24*time.Hour + time.Minute))
+		},
+		"invalid bucket": func(a *v1alpha1.WorkflowRunInputArtifact) {
+			a.GCS.Bucket = "invalid/bucket"
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -44,9 +55,9 @@ func TestValidate(t *testing.T) {
 		a := validArtifact()
 		require.ErrorContains(t, Validate([]v1alpha1.WorkflowRunInputArtifact{a, a}, time.Now()), "duplicated")
 	})
-	t.Run("credentials and tokens are rejected", func(t *testing.T) {
+	t.Run("GCS URI fragments are rejected", func(t *testing.T) {
 		a := validArtifact()
-		a.URI = strings.Replace(a.URI, "s3://", "s3://token@", 1)
+		a.GCS.Key += "#1"
 		require.Error(t, Validate([]v1alpha1.WorkflowRunInputArtifact{a}, time.Now()))
 	})
 }

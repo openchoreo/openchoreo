@@ -6,7 +6,7 @@ package workflowrunartifacts
 
 import (
 	"fmt"
-	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,7 +15,10 @@ import (
 	v1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-const maxTTL = 24 * time.Hour
+const maxTTL = 7 * 24 * time.Hour
+
+var keyPattern = regexp.MustCompile(`^unified-diff/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/([a-f0-9]{64})\.diff$`)
+var bucketPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$`)
 
 // Validate rejects unsafe, mutable, expired, or oversized artifact references.
 // It is used both at the API boundary and immediately before runner submission,
@@ -36,23 +39,26 @@ func Validate(artifacts []v1alpha1.WorkflowRunInputArtifact, now time.Time) erro
 		if artifact.ExpiresAt.Time.After(now.Add(maxTTL)) {
 			return fmt.Errorf("input artifact %q expires more than %s from now", artifact.Name, maxTTL)
 		}
-		if err := validateURI(artifact); err != nil {
+		if err := validateGCS(artifact); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateURI(artifact v1alpha1.WorkflowRunInputArtifact) error {
-	u, err := url.Parse(artifact.URI)
-	if err != nil || u.Scheme != "s3" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return fmt.Errorf("input artifact %q has an unsupported URI", artifact.Name)
+func validateGCS(artifact v1alpha1.WorkflowRunInputArtifact) error {
+	if artifact.Name != v1alpha1.WorkflowRunInputArtifactName {
+		return fmt.Errorf("input artifact name must be %q", v1alpha1.WorkflowRunInputArtifactName)
 	}
-	if u.Host != v1alpha1.WorkflowRunInputArtifactBucket {
-		return fmt.Errorf("input artifact %q references an untrusted artifact store", artifact.Name)
+	if artifact.MediaType != "text/x-diff" {
+		return fmt.Errorf("input artifact %q mediaType must be text/x-diff", artifact.Name)
 	}
-	if u.Path != "/sha256/"+artifact.SHA256 || strings.Contains(u.Path, "//") {
-		return fmt.Errorf("input artifact %q URI must be content-addressed by its sha256", artifact.Name)
+	if !bucketPattern.MatchString(artifact.GCS.Bucket) || artifact.GCS.Bucket != strings.ToLower(artifact.GCS.Bucket) {
+		return fmt.Errorf("input artifact %q must provide a valid lowercase GCS bucket", artifact.Name)
+	}
+	matches := keyPattern.FindStringSubmatch(artifact.GCS.Key)
+	if matches == nil || matches[1] != artifact.SHA256 {
+		return fmt.Errorf("input artifact %q GCS key must be unified-diff/<delivery-id>/<sha256>.diff", artifact.Name)
 	}
 	return nil
 }

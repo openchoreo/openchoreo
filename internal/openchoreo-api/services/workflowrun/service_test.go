@@ -25,7 +25,7 @@ const artifactSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 func validInputArtifact() openchoreov1alpha1.WorkflowRunInputArtifact {
 	return openchoreov1alpha1.WorkflowRunInputArtifact{
-		Name: "unified-diff", URI: "s3://openchoreo-workflow-inputs/sha256/" + artifactSHA256,
+		Name: "unified-diff", GCS: openchoreov1alpha1.WorkflowRunInputArtifactGCS{Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + artifactSHA256 + ".diff"},
 		MediaType: "text/x-diff", SizeBytes: 42, SHA256: artifactSHA256,
 		ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour)),
 	}
@@ -75,12 +75,12 @@ func TestCreateWorkflowRun(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("rejects an input artifact without a trusted reference", func(t *testing.T) {
+	t.Run("rejects an input artifact without a GCS location", func(t *testing.T) {
 		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
 		svc := newService(t, wf)
 		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
 		artifact := validInputArtifact()
-		artifact.URI = ""
+		artifact.GCS.Key = ""
 		run.Spec.InputArtifacts = []openchoreov1alpha1.WorkflowRunInputArtifact{artifact}
 		_, err := svc.CreateWorkflowRun(ctx, testNamespace, run)
 		var validationErr *services.ValidationError

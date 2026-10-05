@@ -9504,7 +9504,7 @@ components:
           $ref: '#/components/schemas/WorkflowRunConfig'
         inputArtifacts:
           type: array
-          maxItems: 16
+          maxItems: 1
           description: Immutable content-addressed inputs delivered to the runner as read-only files. Never use parameters to transport their contents.
           items:
             $ref: '#/components/schemas/WorkflowRunInputArtifact'
@@ -9515,30 +9515,39 @@ components:
     WorkflowRunInputArtifact:
       type: object
       description: Metadata and trusted reference for an immutable workflow input. The object never includes bytes, credentials, tokens, signed URLs, or secrets.
-      required: [name, uri, mediaType, sizeBytes, sha256, expiresAt]
+      required: [name, gcs, mediaType, sizeBytes, sha256, expiresAt]
       properties:
         name:
           type: string
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-          maxLength: 63
-        uri:
-          type: string
-          pattern: '^s3://openchoreo-workflow-inputs/sha256/[a-f0-9]{64}$'
-          description: Content-addressed reference in the trusted immutable artifact store.
+          enum: [unified-diff]
+        gcs:
+          $ref: '#/components/schemas/WorkflowRunInputArtifactGCS'
         mediaType:
           type: string
-          pattern: '^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$'
+          enum: [text/x-diff]
         sizeBytes:
           type: integer
           format: int64
           minimum: 1
-          maximum: 10485760
+          maximum: 1048576
         sha256:
           type: string
           pattern: '^[a-f0-9]{64}$'
         expiresAt:
           type: string
           format: date-time
+
+    WorkflowRunInputArtifactGCS:
+      type: object
+      description: Native GCS object location. It never carries a URI, generation, endpoint, signed URL, or credentials.
+      required: [bucket, key]
+      properties:
+        bucket:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$'
+        key:
+          type: string
+          pattern: '^unified-diff/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[a-f0-9]{64}\.diff$'
 
     WorkflowRunInputArtifactStatus:
       type: object
