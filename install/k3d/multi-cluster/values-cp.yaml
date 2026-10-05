@@ -1,5 +1,12 @@
 # Helm values for OpenChoreo Control Plane in k3d multi-cluster setup
 
+# The chart defaults the controller to pullPolicy: Always, which makes the kubelet
+# re-pull ghcr.io/openchoreo/controller:latest-dev on every restart and discard the
+# image imported by `make k3d.load.controller` / `make k3d.update.controller`.
+controllerManager:
+  image:
+    pullPolicy: IfNotPresent
+
 openchoreoApi:
   http:
     hostnames:
