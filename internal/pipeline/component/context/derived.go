@@ -30,8 +30,7 @@ type DerivedContext struct {
 	ConfigEnvs         []EnvsByContainerEntry `json:"configEnvs"`
 	SecretEnvs         []EnvsByContainerEntry `json:"secretEnvs"`
 
-	ServicePorts   []ServicePortEntry   `json:"servicePorts"`
-	ContainerPorts []ContainerPortEntry `json:"containerPorts"`
+	ServicePorts []ServicePortEntry `json:"servicePorts"`
 
 	DependencyEnvVars      []EnvVarEntry      `json:"dependencyEnvVars"`
 	DependencyVolumeMounts []VolumeMountEntry `json:"dependencyVolumeMounts"`
@@ -53,8 +52,6 @@ func BuildDerivedContext(
 	prefix string,
 	endpointResources EndpointResourceMap,
 ) DerivedContext {
-	containerPorts, containerPortNames := buildContainerPorts(workload)
-
 	return DerivedContext{
 		ConfigFileList:         buildConfigFileList(configurations, prefix),
 		SecretFileList:         buildSecretFileList(configurations, prefix),
@@ -63,8 +60,7 @@ func BuildDerivedContext(
 		ConfigVolumes:          buildVolumes(configurations, prefix),
 		ConfigEnvs:             buildConfigEnvs(configurations, prefix),
 		SecretEnvs:             buildSecretEnvs(configurations, prefix),
-		ServicePorts:           buildServicePorts(workload, containerPortNames),
-		ContainerPorts:         containerPorts,
+		ServicePorts:           buildServicePorts(workload),
 		DependencyEnvVars:      nonNilEnvVars(dependencies.EnvVars),
 		DependencyVolumeMounts: nonNilVolumeMounts(dependencies.VolumeMounts),
 		DependencyVolumes:      nonNilVolumes(dependencies.Volumes),
@@ -185,7 +181,7 @@ func buildSecretEnvs(cc ContainerConfigurations, prefix string) []EnvsByContaine
 	}}
 }
 
-func buildServicePorts(workload WorkloadData, containerPortNames map[string]string) []ServicePortEntry {
+func buildServicePorts(workload WorkloadData) []ServicePortEntry {
 	if len(workload.Endpoints) == 0 {
 		return []ServicePortEntry{}
 	}
@@ -203,6 +199,10 @@ func buildServicePorts(workload WorkloadData, containerPortNames map[string]stri
 	for _, epName := range endpointNames {
 		ep := workload.Endpoints[epName]
 		port := int64(ep.Port)
+		targetPort := int64(ep.TargetPort)
+		if targetPort == 0 {
+			targetPort = port
+		}
 		protocol := mapEndpointTypeToProtocol(ep.Type)
 
 		portProtoKey := fmt.Sprintf("%d/%s", port, protocol)
@@ -217,47 +217,11 @@ func buildServicePorts(workload WorkloadData, containerPortNames map[string]stri
 		result = append(result, ServicePortEntry{
 			Name:       finalName,
 			Port:       port,
-			TargetPort: containerPortNames[epName],
+			TargetPort: targetPort,
 			Protocol:   protocol,
 		})
 	}
 	return result
-}
-
-func buildContainerPorts(workload WorkloadData) ([]ContainerPortEntry, map[string]string) {
-	if len(workload.Endpoints) == 0 {
-		return []ContainerPortEntry{}, map[string]string{}
-	}
-
-	endpointNames := make([]string, 0, len(workload.Endpoints))
-	for name := range workload.Endpoints {
-		endpointNames = append(endpointNames, name)
-	}
-	sort.Strings(endpointNames)
-
-	result := make([]ContainerPortEntry, 0, len(workload.Endpoints))
-	namesByEndpoint := make(map[string]string, len(workload.Endpoints))
-	usedNames := make(map[string]bool)
-
-	for _, epName := range endpointNames {
-		ep := workload.Endpoints[epName]
-		containerPort := int64(ep.TargetPort)
-		if containerPort == 0 {
-			containerPort = int64(ep.Port)
-		}
-		protocol := mapEndpointTypeToProtocol(ep.Type)
-
-		finalName := uniquePortName(epName, containerPort, usedNames)
-		usedNames[finalName] = true
-		namesByEndpoint[epName] = finalName
-
-		result = append(result, ContainerPortEntry{
-			Name:          finalName,
-			ContainerPort: containerPort,
-			Protocol:      protocol,
-		})
-	}
-	return result, namesByEndpoint
 }
 
 func uniquePortName(endpointName string, port int64, usedNames map[string]bool) string {

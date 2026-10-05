@@ -474,7 +474,6 @@ spec:
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
-                  ports: ${workload.toContainerPorts()}
                   resources:
                     requests:
                       cpu: ${environmentConfigs.resources.requests.cpu}
@@ -744,7 +743,6 @@ spec:
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
-                  ports: ${workload.toContainerPorts()}
                   resources:
                     requests:
                       cpu: ${environmentConfigs.resources.requests.cpu}
