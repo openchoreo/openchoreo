@@ -27,7 +27,7 @@ func validInputArtifact() openchoreov1alpha1.WorkflowRunInputArtifact {
 	return openchoreov1alpha1.WorkflowRunInputArtifact{
 		Name: "unified-diff", GCS: openchoreov1alpha1.WorkflowRunInputArtifactGCS{Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + artifactSHA256 + ".diff"},
 		MediaType: "text/x-diff", SizeBytes: 42, SHA256: artifactSHA256,
-		ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour)),
+		ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour).UTC()),
 	}
 }
 

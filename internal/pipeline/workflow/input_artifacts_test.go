@@ -17,7 +17,7 @@ const artifactDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 func TestInjectInputArtifacts(t *testing.T) {
 	resource := map[string]any{"apiVersion": "argoproj.io/v1alpha1", "kind": "Workflow", "spec": map[string]any{}}
-	artifacts := []v1alpha1.WorkflowRunInputArtifact{{Name: "unified-diff", GCS: v1alpha1.WorkflowRunInputArtifactGCS{Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + artifactDigest + ".diff"}, MediaType: "text/x-diff", SizeBytes: 99, SHA256: artifactDigest, ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour))}}
+	artifacts := []v1alpha1.WorkflowRunInputArtifact{{Name: "unified-diff", GCS: v1alpha1.WorkflowRunInputArtifactGCS{Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + artifactDigest + ".diff"}, MediaType: "text/x-diff", SizeBytes: 99, SHA256: artifactDigest, ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour).UTC())}}
 	require.NoError(t, injectInputArtifacts(resource, artifacts))
 	arguments := resource["spec"].(map[string]any)["arguments"].(map[string]any)
 	got := arguments["artifacts"].([]any)[0].(map[string]any)
@@ -26,6 +26,12 @@ func TestInjectInputArtifacts(t *testing.T) {
 	require.Equal(t, "unified-diff/delivery-123/"+artifactDigest+".diff", assertGCS["key"])
 	require.NotContains(t, got, "s3")
 	require.NotContains(t, assertGCS, "serviceAccountKeySecret")
+}
+
+func TestInjectInputArtifactsLeavesWorkflowUntouchedWhenAbsent(t *testing.T) {
+	resource := map[string]any{"apiVersion": "argoproj.io/v1alpha1", "kind": "Workflow", "spec": map[string]any{}}
+	require.NoError(t, injectInputArtifacts(resource, nil))
+	require.NotContains(t, resource["spec"].(map[string]any), "arguments")
 }
 
 func TestInjectInputArtifactsRejectsTemplateArtifacts(t *testing.T) {

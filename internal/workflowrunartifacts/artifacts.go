@@ -36,6 +36,9 @@ func Validate(artifacts []v1alpha1.WorkflowRunInputArtifact, now time.Time) erro
 		if artifact.ExpiresAt.Time.Before(now) || artifact.ExpiresAt.Time.Equal(now) {
 			return fmt.Errorf("input artifact %q is expired", artifact.Name)
 		}
+		if artifact.ExpiresAt.Time.Location() != time.UTC {
+			return fmt.Errorf("input artifact %q expiresAt must be RFC3339 UTC", artifact.Name)
+		}
 		if artifact.ExpiresAt.Time.After(now.Add(maxTTL)) {
 			return fmt.Errorf("input artifact %q expires more than %s from now", artifact.Name, maxTTL)
 		}
