@@ -9502,9 +9502,61 @@ components:
       properties:
         workflow:
           $ref: '#/components/schemas/WorkflowRunConfig'
+        inputArtifacts:
+          type: array
+          maxItems: 16
+          description: Immutable content-addressed inputs delivered to the runner as read-only files. Never use parameters to transport their contents.
+          items:
+            $ref: '#/components/schemas/WorkflowRunInputArtifact'
         ttlAfterCompletion:
           type: string
           description: Time-to-live for this workflow run after completion (duration string like 10d1h30m).
+
+    WorkflowRunInputArtifact:
+      type: object
+      description: Metadata and trusted reference for an immutable workflow input. The object never includes bytes, credentials, tokens, signed URLs, or secrets.
+      required: [name, uri, mediaType, sizeBytes, sha256, expiresAt]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 63
+        uri:
+          type: string
+          pattern: '^s3://openchoreo-workflow-inputs/sha256/[a-f0-9]{64}$'
+          description: Content-addressed reference in the trusted immutable artifact store.
+        mediaType:
+          type: string
+          pattern: '^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$'
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10485760
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        expiresAt:
+          type: string
+          format: date-time
+
+    WorkflowRunInputArtifactStatus:
+      type: object
+      description: Non-sensitive metadata for an accepted immutable input. URI and payload are intentionally absent.
+      required: [name, mediaType, sizeBytes, sha256, expiresAt]
+      properties:
+        name:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
 
     ComponentWorkflowConfig:
       type: object
@@ -9590,6 +9642,11 @@ components:
           description: Kubernetes-style conditions
           items:
             $ref: '#/components/schemas/Condition'
+        inputArtifacts:
+          type: array
+          description: Non-sensitive accepted input metadata. It never contains URI or content.
+          items:
+            $ref: '#/components/schemas/WorkflowRunInputArtifactStatus'
         runReference:
           $ref: '#/components/schemas/ResourceReference'
         resources:

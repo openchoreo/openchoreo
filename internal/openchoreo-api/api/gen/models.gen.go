@@ -4323,6 +4323,27 @@ type WorkflowRunEventEntry struct {
 	Type string `json:"type"`
 }
 
+// WorkflowRunInputArtifact Metadata and trusted reference for an immutable workflow input. The object never includes bytes, credentials, tokens, signed URLs, or secrets.
+type WorkflowRunInputArtifact struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	MediaType string    `json:"mediaType"`
+	Name      string    `json:"name"`
+	Sha256    string    `json:"sha256"`
+	SizeBytes int64     `json:"sizeBytes"`
+
+	// Uri Content-addressed reference in the trusted immutable artifact store.
+	Uri string `json:"uri"`
+}
+
+// WorkflowRunInputArtifactStatus Non-sensitive metadata for an accepted immutable input. URI and payload are intentionally absent.
+type WorkflowRunInputArtifactStatus struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	MediaType string    `json:"mediaType"`
+	Name      string    `json:"name"`
+	Sha256    string    `json:"sha256"`
+	SizeBytes int64     `json:"sizeBytes"`
+}
+
 // WorkflowRunList Paginated list of workflow runs
 type WorkflowRunList struct {
 	Items []WorkflowRun `json:"items"`
@@ -4343,6 +4364,9 @@ type WorkflowRunLogEntry struct {
 
 // WorkflowRunSpec Desired state of a WorkflowRun
 type WorkflowRunSpec struct {
+	// InputArtifacts Immutable content-addressed inputs delivered to the runner as read-only files. Never use parameters to transport their contents.
+	InputArtifacts *[]WorkflowRunInputArtifact `json:"inputArtifacts,omitempty"`
+
 	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
 
@@ -4355,8 +4379,11 @@ type WorkflowRunStatus struct {
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 
 	// Conditions Kubernetes-style conditions
-	Conditions *[]Condition         `json:"conditions,omitempty"`
-	Resources  *[]ResourceReference `json:"resources,omitempty"`
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// InputArtifacts Non-sensitive accepted input metadata. It never contains URI or content.
+	InputArtifacts *[]WorkflowRunInputArtifactStatus `json:"inputArtifacts,omitempty"`
+	Resources      *[]ResourceReference              `json:"resources,omitempty"`
 
 	// RunReference Reference to a Kubernetes resource applied during a workflow run
 	RunReference *ResourceReference `json:"runReference,omitempty"`

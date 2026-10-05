@@ -18,6 +18,22 @@ type WorkflowRunSpec struct {
 	// +required
 	Workflow WorkflowRunConfig `json:"workflow"`
 
+	// InputArtifacts are immutable, content-addressed inputs made available to the
+	// workflow runner as read-only files. They are deliberately distinct from
+	// workflow.parameters: parameter values are small control-plane data, while
+	// artifact contents never transit or persist in this API object.
+	//
+	// The only accepted URI form is
+	// s3://openchoreo-workflow-inputs/sha256/<sha256>. The artifact publisher is
+	// responsible for writing that content-addressed object once and for granting
+	// the existing workflow workload identity read-only access to the bucket.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="inputArtifacts are immutable"
+	InputArtifacts []WorkflowRunInputArtifact `json:"inputArtifacts,omitempty"`
+
 	// TTLAfterCompletion defines the time-to-live for this workflow run after completion.
 	// This value is copied from the Workflow template.
 	// Once the workflow completes, the run will be automatically deleted after this duration.
@@ -26,6 +42,61 @@ type WorkflowRunSpec struct {
 	// +optional
 	// +kubebuilder:validation:Pattern=`^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$`
 	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
+}
+
+const (
+	// WorkflowRunInputArtifactBucket is the sole trusted artifact store accepted
+	// by the v1 input-artifact contract.
+	WorkflowRunInputArtifactBucket = "openchoreo-workflow-inputs"
+	// WorkflowRunInputArtifactMaxSizeBytes prevents a WorkflowRun from becoming
+	// a large-payload transport. Larger inputs require a later contract version.
+	WorkflowRunInputArtifactMaxSizeBytes int64 = 10 * 1024 * 1024
+)
+
+// WorkflowRunInputArtifact describes an immutable workflow input. It contains
+// metadata and a trusted, content-addressed reference only; it never contains
+// bytes, credentials, signed URLs, or other secrets.
+type WorkflowRunInputArtifact struct {
+	// Name identifies the Argo input artifact expected by the workflow template.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// URI is a trusted content-addressed S3 reference. It must be exactly
+	// s3://openchoreo-workflow-inputs/sha256/<sha256>, where <sha256> equals sha256.
+	// +kubebuilder:validation:Pattern=`^s3://openchoreo-workflow-inputs/sha256/[a-f0-9]{64}$`
+	URI string `json:"uri"`
+
+	// MediaType identifies the artifact representation, for example text/x-diff.
+	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:MaxLength=127
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$`
+	MediaType string `json:"mediaType"`
+
+	// SizeBytes is the exact uncompressed payload size.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10485760
+	SizeBytes int64 `json:"sizeBytes"`
+
+	// SHA256 is the lowercase SHA-256 digest of the exact bytes the runner reads.
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	SHA256 string `json:"sha256"`
+
+	// ExpiresAt is the hard expiry for fetching the input. It must be in the
+	// future when submitted and no more than 24 hours away.
+	ExpiresAt metav1.Time `json:"expiresAt"`
+}
+
+// WorkflowRunInputArtifactStatus exposes non-sensitive, auditable metadata for
+// an accepted input. The URI, credentials, and artifact bytes are never copied
+// to status.
+type WorkflowRunInputArtifactStatus struct {
+	Name      string      `json:"name"`
+	MediaType string      `json:"mediaType"`
+	SizeBytes int64       `json:"sizeBytes"`
+	SHA256    string      `json:"sha256"`
+	ExpiresAt metav1.Time `json:"expiresAt"`
 }
 
 // WorkflowRunConfig defines the workflow configuration for execution.
@@ -115,6 +186,13 @@ type WorkflowRunStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// InputArtifacts contains non-sensitive metadata for the immutable inputs
+	// accepted by the runner. It intentionally excludes URI and all content.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	InputArtifacts []WorkflowRunInputArtifactStatus `json:"inputArtifacts,omitempty"`
 
 	// RunReference contains a reference to the workflow run resource that was applied to the cluster.
 	// This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.

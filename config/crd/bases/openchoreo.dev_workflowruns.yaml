@@ -41,6 +41,76 @@ spec:
           spec:
             description: spec defines the desired state of WorkflowRun
             properties:
+              inputArtifacts:
+                description: |-
+                  InputArtifacts are immutable, content-addressed inputs made available to the
+                  workflow runner as read-only files. They are deliberately distinct from
+                  workflow.parameters: parameter values are small control-plane data, while
+                  artifact contents never transit or persist in this API object.
+
+                  The only accepted URI form is
+                  s3://openchoreo-workflow-inputs/sha256/<sha256>. The artifact publisher is
+                  responsible for writing that content-addressed object once and for granting
+                  the existing workflow workload identity read-only access to the bucket.
+                items:
+                  description: |-
+                    WorkflowRunInputArtifact describes an immutable workflow input. It contains
+                    metadata and a trusted, content-addressed reference only; it never contains
+                    bytes, credentials, signed URLs, or other secrets.
+                  properties:
+                    expiresAt:
+                      description: |-
+                        ExpiresAt is the hard expiry for fetching the input. It must be in the
+                        future when submitted and no more than 24 hours away.
+                      format: date-time
+                      type: string
+                    mediaType:
+                      description: MediaType identifies the artifact representation,
+                        for example text/x-diff.
+                      maxLength: 127
+                      minLength: 3
+                      pattern: ^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$
+                      type: string
+                    name:
+                      description: Name identifies the Argo input artifact expected
+                        by the workflow template.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    sha256:
+                      description: SHA256 is the lowercase SHA-256 digest of the exact
+                        bytes the runner reads.
+                      pattern: ^[a-f0-9]{64}$
+                      type: string
+                    sizeBytes:
+                      description: SizeBytes is the exact uncompressed payload size.
+                      format: int64
+                      maximum: 10485760
+                      minimum: 1
+                      type: integer
+                    uri:
+                      description: |-
+                        URI is a trusted content-addressed S3 reference. It must be exactly
+                        s3://openchoreo-workflow-inputs/sha256/<sha256>, where <sha256> equals sha256.
+                      pattern: ^s3://openchoreo-workflow-inputs/sha256/[a-f0-9]{64}$
+                      type: string
+                  required:
+                  - expiresAt
+                  - mediaType
+                  - name
+                  - sha256
+                  - sizeBytes
+                  - uri
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: inputArtifacts are immutable
+                  rule: self == oldSelf
               ttlAfterCompletion:
                 description: |-
                   TTLAfterCompletion defines the time-to-live for this workflow run after completion.
@@ -156,6 +226,39 @@ spec:
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
+                x-kubernetes-list-type: map
+              inputArtifacts:
+                description: |-
+                  InputArtifacts contains non-sensitive metadata for the immutable inputs
+                  accepted by the runner. It intentionally excludes URI and all content.
+                items:
+                  description: |-
+                    WorkflowRunInputArtifactStatus exposes non-sensitive, auditable metadata for
+                    an accepted input. The URI, credentials, and artifact bytes are never copied
+                    to status.
+                  properties:
+                    expiresAt:
+                      format: date-time
+                      type: string
+                    mediaType:
+                      type: string
+                    name:
+                      type: string
+                    sha256:
+                      type: string
+                    sizeBytes:
+                      format: int64
+                      type: integer
+                  required:
+                  - expiresAt
+                  - mediaType
+                  - name
+                  - sha256
+                  - sizeBytes
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
                 x-kubernetes-list-type: map
               resources:
                 description: |-
