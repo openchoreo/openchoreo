@@ -4,11 +4,13 @@
 package context
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/openchoreo/openchoreo/internal/template"
 )
@@ -740,6 +742,278 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 }
 
+func TestWorkloadEndpointsToContainerPortsMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		inputs map[string]any
+		want   []any
+	}{
+		{
+			name: "single HTTP endpoint",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"http": {Port: 8080, TargetPort: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "http", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "multiple endpoints sorted by name",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"grpc":  {Port: 9090, TargetPort: 9090, Type: "gRPC"},
+					"admin": {Port: 9091, TargetPort: 9091, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "admin", "containerPort": float64(9091), "protocol": "TCP"},
+				map[string]any{"name": "grpc", "containerPort": float64(9090), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "UDP endpoint",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"dns": {Port: 53, TargetPort: 53, Type: "UDP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "dns", "containerPort": float64(53), "protocol": "UDP"},
+			},
+		},
+		{
+			name: "every endpoint type maps to its transport protocol",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"graphql": {Port: 8001, Type: "GraphQL"},
+					"grpc":    {Port: 8002, Type: "gRPC"},
+					"http":    {Port: 8003, Type: "HTTP"},
+					"tcp":     {Port: 8004, Type: "TCP"},
+					"udp":     {Port: 8005, Type: "UDP"},
+					"ws":      {Port: 8006, Type: "Websocket"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "graphql", "containerPort": float64(8001), "protocol": "TCP"},
+				map[string]any{"name": "grpc", "containerPort": float64(8002), "protocol": "TCP"},
+				map[string]any{"name": "http", "containerPort": float64(8003), "protocol": "TCP"},
+				map[string]any{"name": "tcp", "containerPort": float64(8004), "protocol": "TCP"},
+				map[string]any{"name": "udp", "containerPort": float64(8005), "protocol": "UDP"},
+				map[string]any{"name": "ws", "containerPort": float64(8006), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoints sharing a container port share one entry",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"api":   {Port: 8080, Type: "HTTP"},
+					"admin": {Port: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "admin", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "different service ports targeting the same container port share one entry",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"public":  {Port: 80, TargetPort: 8080, Type: "HTTP"},
+					"private": {Port: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "private", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "same port number with different protocols kept separate",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"dns-tcp": {Port: 53, Type: "TCP"},
+					"dns-udp": {Port: 53, Type: "UDP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "dns-tcp", "containerPort": float64(53), "protocol": "TCP"},
+				map[string]any{"name": "dns-udp", "containerPort": float64(53), "protocol": "UDP"},
+			},
+		},
+		{
+			name: "containerPort uses targetPort when set",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"http": {Port: 80, TargetPort: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "http", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "containerPort defaults to port when targetPort is zero",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"http": {Port: 8080, TargetPort: 0, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "http", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "port name sanitized and truncated",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"My_HTTP_Endpoint": {Port: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "my-http-endpoin", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "numeric endpoint name falls back to port-based name",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"8080": {Port: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "port-8080", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "consecutive hyphens collapsed",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"a__b": {Port: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "a-b", "containerPort": float64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "names colliding after sanitization made unique",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"API": {Port: 8080, Type: "HTTP"},
+					"api": {Port: 9090, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "api", "containerPort": float64(8080), "protocol": "TCP"},
+				map[string]any{"name": "api-2", "containerPort": float64(9090), "protocol": "TCP"},
+			},
+		},
+		{
+			name:   "no endpoints returns empty",
+			inputs: workloadInputs(WorkloadData{}),
+			want:   []any{},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render(t.Context(), `${workload.toContainerPorts()}`, tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if diff := cmp.Diff(tt.want, result); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestToContainerPortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	_, err := engine.Render(t.Context(), `${workload.toContainerPorts()}`, workloadInputs(WorkloadData{}))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	inputs := workloadInputs(WorkloadData{})
+	inputs["other"] = map[string]any{}
+	_, err = engine.Render(t.Context(), `${other.toContainerPorts()}`, inputs)
+	if err == nil {
+		t.Error("expected error for non-workload receiver")
+	}
+}
+
+func TestBuildContainerPorts_ValidAndUniqueForKubernetes(t *testing.T) {
+	endpoints := map[string]EndpointData{
+		"http":                       {Port: 8080, Type: "HTTP"},
+		"HTTP":                       {Port: 8081, Type: "HTTP"},
+		"8080":                       {Port: 8082, Type: "HTTP"},
+		"port-8083":                  {Port: 8083, Type: "HTTP"},
+		"123456789012345678":         {Port: 8084, Type: "HTTP"},
+		"a-very-long-endpoint-name":  {Port: 8085, Type: "HTTP"},
+		"a-very-long-endpoint-name2": {Port: 8086, Type: "HTTP"},
+		"a-very-long-endpoint-name3": {Port: 8087, Type: "HTTP"},
+		"x--y":                       {Port: 8088, Type: "HTTP"},
+		"___":                        {Port: 8089, Type: "HTTP"},
+		"shared-a":                   {Port: 9000, Type: "HTTP"},
+		"shared-b":                   {Port: 9000, Type: "HTTP"},
+		"shared-udp":                 {Port: 9000, Type: "UDP"},
+	}
+	for i := int32(2); i <= 12; i++ {
+		endpoints[fmt.Sprintf("dup%d", i)] = EndpointData{Port: 10000 + i, Type: "HTTP"}
+		endpoints[fmt.Sprintf("DUP%d", i)] = EndpointData{Port: 11000 + i, Type: "HTTP"}
+	}
+
+	ports := buildContainerPorts(WorkloadData{Endpoints: endpoints})
+
+	names := make(map[string]bool)
+	keys := make(map[string]bool)
+	for _, p := range ports {
+		if errs := validation.IsValidPortName(p.Name); len(errs) != 0 {
+			t.Errorf("invalid container port name %q: %v", p.Name, errs)
+		}
+		if names[p.Name] {
+			t.Errorf("duplicate container port name %q", p.Name)
+		}
+		names[p.Name] = true
+
+		key := fmt.Sprintf("%d/%s", p.ContainerPort, p.Protocol)
+		if keys[key] {
+			t.Errorf("duplicate container port key %s", key)
+		}
+		keys[key] = true
+	}
+	if want := len(endpoints) - 1; len(ports) != want {
+		t.Errorf("got %d container ports, want %d", len(ports), want)
+	}
+}
+
+func TestToServicePortsUnaffectedByContainerPorts(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	inputs := workloadInputs(WorkloadData{
+		Endpoints: map[string]EndpointData{
+			"api":   {Port: 8080, Type: "HTTP"},
+			"admin": {Port: 8080, Type: "HTTP"},
+			"web":   {Port: 80, TargetPort: 3000, Type: "HTTP"},
+		},
+	})
+
+	result, err := engine.Render(t.Context(), `${workload.toServicePorts()}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []any{
+		map[string]any{"name": "admin", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
+		map[string]any{"name": "web", "port": float64(80), "targetPort": float64(3000), "protocol": "TCP"},
+	}
+	if diff := cmp.Diff(want, result); diff != "" {
+		t.Errorf("service ports must keep numeric targetPorts (-want +got):\n%s", diff)
+	}
+}
+
 func TestNewDependenciesContextData(t *testing.T) {
 	t.Run("merges endpoint env vars", func(t *testing.T) {
 		data := ConnectionsData{
@@ -806,6 +1080,8 @@ func TestMapEndpointTypeToProtocol(t *testing.T) {
 		{"UDP", "UDP"},
 		{"HTTP", "TCP"},
 		{"gRPC", "TCP"},
+		{"GraphQL", "TCP"},
+		{"Websocket", "TCP"},
 		{"", "TCP"},
 	}
 	for _, tt := range tests {
@@ -879,6 +1155,9 @@ func TestBuildDerivedContext_EmptyInputs(t *testing.T) {
 	}
 	if derived.ServicePorts == nil {
 		t.Error("ServicePorts should be non-nil")
+	}
+	if derived.ContainerPorts == nil {
+		t.Error("ContainerPorts should be non-nil")
 	}
 	if derived.DependencyEnvVars == nil {
 		t.Error("DependencyEnvVars should be non-nil")

@@ -434,7 +434,7 @@ Helper method that converts the `workload.endpoints` map into a list of Service 
 | `protocol` | string | Kubernetes protocol (TCP or UDP) |
 
 **Protocol mapping:**
-- HTTP, REST, gRPC, GraphQL, Websocket → TCP
+- HTTP, gRPC, GraphQL, Websocket → TCP
 - TCP → TCP
 - UDP → UDP
 
@@ -513,6 +513,71 @@ backendRefs:
 - Both `port` and `targetPort` use the same value from the endpoint configuration
 - Endpoints are processed in alphabetical order for deterministic output
 - Use with `includeWhen: ${size(workload.endpoints) > 0}` to conditionally create Services only when endpoints exist
+
+#### workload.toContainerPorts()
+
+Helper method that converts the `workload.endpoints` map into a list of named container ports. Declaring container ports lets tools that resolve ports from the pod spec target the workload: named ports in NetworkPolicy and Cilium policies, Linkerd `Server` resources, Prometheus pod discovery, and admission policies over `containers[].ports`.
+
+**Parameters:** None
+
+**Returns:** List of container port objects, each containing:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Endpoint name, sanitized to a valid Kubernetes container port name |
+| `containerPort` | int | The endpoint's `targetPort`, or `port` when `targetPort` is not set |
+| `protocol` | string | Kubernetes protocol (TCP or UDP), using the same mapping as `toServicePorts()` |
+
+`protocol` is the transport protocol Kubernetes uses for the port, and Kubernetes only accepts `TCP`, `UDP`, or `SCTP` there. HTTP, gRPC, GraphQL, and Websocket all run over TCP, so those endpoints map to `TCP`. Only `UDP` endpoints map to `UDP`.
+
+**Example usage:**
+
+```yaml
+- id: deployment
+  template:
+    apiVersion: apps/v1
+    kind: Deployment
+    spec:
+      template:
+        spec:
+          containers:
+            - name: main
+              image: ${workload.container.image}
+              ports: ${workload.toContainerPorts()}
+```
+
+**Given this workload:**
+
+```yaml
+workload:
+  endpoints:
+    http:
+      type: HTTP
+      port: 80
+      targetPort: 8080
+    grpc:
+      type: gRPC
+      port: 9090
+```
+
+**The helper generates:**
+
+```yaml
+ports:
+  - name: grpc
+    containerPort: 9090
+    protocol: TCP
+  - name: http
+    containerPort: 8080
+    protocol: TCP
+```
+
+**Notes:**
+- Returns an empty list if `workload.endpoints` is empty
+- Endpoints that resolve to the same container port and protocol share one entry, named after the first endpoint in alphabetical order. Kubernetes does not allow two entries with the same container port and protocol
+- Names follow the Kubernetes container port name rules (lowercase alphanumeric and hyphens, at most 15 chars, at least one letter). Names with no letters fall back to `port-<containerPort>`, and duplicates get numeric suffixes
+- `toServicePorts()` is unaffected and keeps numeric `targetPort` values, so Services work whether or not the template declares container ports
+- Adding container ports to an existing ComponentType changes the pod template, so running Deployments roll once when the updated ComponentType is applied
 
 #### workload.toEndpointResources(endpointName)
 
