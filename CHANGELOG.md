@@ -2,6 +2,17 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.8
+
+Changes since [v1.1.7](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.7).
+
+### Bug Fixes
+
+- **(CLI)** Workload descriptor file references (`valueFrom.path`, endpoint `schemaFile`) are now resolved strictly within the descriptor's own directory, so a descriptor can no longer reference files outside it. ([#4867](https://github.com/openchoreo/openchoreo/pull/4867))
+- **(FinOps/SRE Agents)** Single-object report routes now authorize against the report's own project instead of the caller's. ([#4809](https://github.com/openchoreo/openchoreo/pull/4809))
+- **(MCP)** The `update_resource_release_binding` tool now updates only the fields the caller supplies and keeps the rest of the existing binding. ([#4801](https://github.com/openchoreo/openchoreo/pull/4801))
+- **(Helm)** Observability-plane pods restricted to same-namespace ingress, with explicit allow-rules for the gateway and collector. ([#4810](https://github.com/openchoreo/openchoreo/pull/4810))
+
 ## v1.1.7
 
 Changes since [v1.1.6](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.6).
