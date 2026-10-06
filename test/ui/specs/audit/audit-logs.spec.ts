@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { test, expect, storageStateFor, ROLES } from '../../fixtures/auth';
-import { kDelete, kExists, kNotFound, kubectl } from '../../fixtures/kube';
+import { kDelete, kNotFound, kubectl } from '../../fixtures/kube';
 import { AuditLogsPO } from '../../po/auditLogs';
 import { CatalogTablePO } from '../../po/catalogTable';
 import { DeletePO } from '../../po/delete';
@@ -12,12 +12,19 @@ import { ProjectPO } from '../../po/project';
 // e2e setup only enables audit on openchoreo-api, the observer and the logs
 // module when that plane is installed (make/e2e.mk). Run the full suite with
 // `make e2e.setup E2E_WITH_UI=true E2E_WITH_OBSERVABILITY=true`.
+// Only a successful lookup that finds nothing skips the suite; a failing
+// kubectl must surface rather than pass as a skip.
 function hasObservabilityPlane(): boolean {
-  try {
-    return kExists('clusterobservabilityplane', 'default', '');
-  } catch {
-    return false;
+  const r = kubectl(
+    ['get', 'clusterobservabilityplane', 'default', '--ignore-not-found', '-o', 'name'],
+    { check: false },
+  );
+  if (r.status !== 0) {
+    throw new Error(
+      `kubectl get clusterobservabilityplane default failed: ${r.stderr || r.stdout}`,
+    );
   }
+  return r.stdout.trim() !== '';
 }
 
 test.skip(
@@ -30,9 +37,9 @@ const PROJECT_NAME = `ui-audit-${ts}`;
 const NS = 'default';
 const PE = ROLES.pe.username;
 
-test.describe.configure({ mode: 'serial' });
-
 test.describe('audit: portal actions publish audit records the Audit Logs page shows', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeAll(async ({ mintAuthState }) => {
     await mintAuthState('pe');
   });
