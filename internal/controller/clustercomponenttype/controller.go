@@ -25,6 +25,7 @@ type Reconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	// No-op controller - ClusterComponentTypes are managed externally
 	return ctrl.Result{}, nil
 }

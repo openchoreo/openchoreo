@@ -14,6 +14,11 @@ openchoreoApi:
       agentImage:
         tag: latest-dev
 
+controllerManager:
+  image:
+    # Use the image loaded by `make k3d.update.controller` instead of pulling from the registry
+    pullPolicy: IfNotPresent
+
 backstage:
   secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"

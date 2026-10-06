@@ -18,6 +18,11 @@ openchoreoApi:
       # *.openchoreo.localhost to host.k3d.internal.
       authorizeUrl: "http://api.openchoreo.localhost:8080/api/v1/remote-connect:authorize"
 
+controllerManager:
+  image:
+    # Use the image loaded by `make k3d.update.controller` instead of pulling from the registry
+    pullPolicy: IfNotPresent
+    
 backstage:
   secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"
