@@ -25,7 +25,7 @@ const (
 	DirName      = ".occ"
 	IndexFile    = "index.json"
 	MetadataFile = "metadata.json"
-	LockFile     = "index.lock"
+	lockFile     = "index.lock"
 )
 
 // FileState tracks the state of a single file for change detection
@@ -68,7 +68,7 @@ func withCacheLock(repoPath string, fn func() (*PersistentIndex, error)) (*Persi
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	lock := flock.New(filepath.Join(cacheDir, LockFile))
+	lock := flock.New(filepath.Join(cacheDir, lockFile))
 	if err := lock.Lock(); err != nil {
 		return nil, fmt.Errorf("failed to acquire cache lock: %w", err)
 	}
@@ -536,11 +536,38 @@ func ForceRebuild(repoPath string) (*PersistentIndex, error) {
 	})
 }
 
-// ClearCache removes the cache directory
+// ClearCache removes cached index files while holding the cache lock.
+// The lock file itself is kept so concurrent LoadOrBuild/ForceRebuild
+// callers cannot replace the lock mid-clear.
 func ClearCache(repoPath string) error {
 	cacheDir := filepath.Join(repoPath, DirName)
-	if err := os.RemoveAll(cacheDir); err != nil {
-		return fmt.Errorf("failed to clear cache: %w", err)
+	if _, err := os.Stat(cacheDir); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to stat cache directory: %w", err)
+	}
+
+	lock := flock.New(filepath.Join(cacheDir, lockFile))
+	if err := lock.Lock(); err != nil {
+		return fmt.Errorf("failed to acquire cache lock: %w", err)
+	}
+	defer func() {
+		_ = lock.Unlock()
+	}()
+
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return fmt.Errorf("failed to read cache directory: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == lockFile {
+			continue
+		}
+		path := filepath.Join(cacheDir, entry.Name())
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("failed to clear cache entry %s: %w", entry.Name(), err)
+		}
 	}
 	return nil
 }
