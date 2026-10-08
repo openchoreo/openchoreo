@@ -653,3 +653,124 @@ func renderWithRules(t *testing.T, rules string) (string, error) {
 	out, err := exec.CommandContext(t.Context(), helm, args...).CombinedOutput()
 	return string(out), err
 }
+
+// renderChartYAML renders the whole control-plane chart. extraArgs are appended
+// to the helm invocation, after the guards, so a test can override one value.
+func renderChartYAML(t *testing.T, extraArgs ...string) string {
+	t.Helper()
+
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed; skipping the rendered chart check")
+	}
+
+	args := append([]string{
+		"template", "openchoreo", controlPlaneChart,
+		"--namespace", "openchoreo-control-plane",
+	}, helmGuardOverrides...)
+	args = append(args, extraArgs...)
+
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(t.Context(), helm, args...)
+	cmd.Stderr = &stderr
+	rendered, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("failed to render %s: %v\n%s", controlPlaneChart, err, stderr.String())
+	}
+	return string(rendered)
+}
+
+// bootstrapHookDocs counts the rendered documents that mention the bootstrap
+// hook's resource name, which every object the hook owns carries: the
+// ServiceAccount, its ClusterRole and ClusterRoleBinding, the ConfigMap and the
+// Job.
+func bootstrapHookDocs(rendered string) int {
+	docs := 0
+	for _, doc := range strings.Split(rendered, "\n---") {
+		if strings.Contains(doc, "-authz-bootstrap") {
+			docs++
+		}
+	}
+	return docs
+}
+
+// authorizationEnabled reads the API server's rendered config.yaml and reports
+// whether it enforces authorization. It is the value the toggle must not touch.
+func authorizationEnabled(t *testing.T, extraArgs ...string) bool {
+	t.Helper()
+
+	var apiConfig struct {
+		Security struct {
+			Authorization struct {
+				Enabled bool `yaml:"enabled"`
+			} `yaml:"authorization"`
+		} `yaml:"security"`
+	}
+	if err := yaml.Unmarshal([]byte(renderAPIConfigYAML(t, extraArgs...)), &apiConfig); err != nil {
+		t.Fatalf("failed to parse the rendered API config: %v", err)
+	}
+	return apiConfig.Security.Authorization.Enabled
+}
+
+// TestHelmValues_AuthzBootstrapDefaultsOn pins the default the toggle's
+// description promises: an install that sets nothing still gets the hook, so
+// the new key cannot silently change what an existing install renders.
+func TestHelmValues_AuthzBootstrapDefaultsOn(t *testing.T) {
+	raw, err := os.ReadFile(helmValuesPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", helmValuesPath, err)
+	}
+
+	var values struct {
+		OpenchoreoAPI struct {
+			Config struct {
+				Security struct {
+					Authorization struct {
+						Bootstrap struct {
+							Enabled bool `yaml:"enabled"`
+						} `yaml:"bootstrap"`
+					} `yaml:"authorization"`
+				} `yaml:"security"`
+			} `yaml:"config"`
+		} `yaml:"openchoreoApi"`
+	}
+	if err := yaml.Unmarshal(raw, &values); err != nil {
+		t.Fatalf("failed to parse %s: %v", helmValuesPath, err)
+	}
+	if !values.OpenchoreoAPI.Config.Security.Authorization.Bootstrap.Enabled {
+		t.Fatalf("openchoreoApi.config.security.authorization.bootstrap.enabled must default to true")
+	}
+}
+
+// TestHelmAuthzBootstrap_DisabledDropsOnlyTheHook checks the whole point of the
+// toggle: a GitOps install that manages the roles and bindings itself loses the
+// hook's objects and nothing else, so authorization stays enforced. The hook's
+// objects are not part of the release manifest, so this is the only way to keep
+// them out of drift detection's blind spot.
+func TestHelmAuthzBootstrap_DisabledDropsOnlyTheHook(t *testing.T) {
+	const off = "openchoreoApi.config.security.authorization.bootstrap.enabled=false"
+
+	if got := bootstrapHookDocs(renderChartYAML(t)); got != 5 {
+		t.Fatalf("the default render must ship the hook's five objects, found %d", got)
+	}
+	if got := bootstrapHookDocs(renderChartYAML(t, "--set", off)); got != 0 {
+		t.Fatalf("bootstrap.enabled=false must drop every hook object, found %d", got)
+	}
+	if !authorizationEnabled(t, "--set", off) {
+		t.Fatalf("bootstrap.enabled=false must not disable authorization; that is security.authz.enabled")
+	}
+}
+
+// TestHelmAuthzBootstrap_SecurityAuthzStillGuardsRegression keeps the older
+// switch in charge: with authorization off there is nothing to bootstrap, and
+// the API server says so.
+func TestHelmAuthzBootstrap_SecurityAuthzStillGuardsRegression(t *testing.T) {
+	const authzOff = "security.authz.enabled=false"
+
+	if got := bootstrapHookDocs(renderChartYAML(t, "--set", authzOff)); got != 0 {
+		t.Fatalf("security.authz.enabled=false must still drop the hook, found %d objects", got)
+	}
+	if authorizationEnabled(t, "--set", authzOff) {
+		t.Fatalf("security.authz.enabled=false must disable authorization")
+	}
+}
