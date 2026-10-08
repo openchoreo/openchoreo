@@ -24,6 +24,9 @@ concurrency:
   group: prepare-next-version-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
