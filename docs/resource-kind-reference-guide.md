@@ -659,6 +659,8 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 
 A ReleaseBinding in a target environment only deploys a ComponentRelease that a ReleaseBinding in one of its source environments already references. Otherwise the binding's `ReleaseSynced` condition is `False` with reason `PromotionPathNotSatisfied`. A release the binding already deployed keeps running after the source environment moves on, and `Undeploy` is always allowed. Environments the pipeline does not list as a target are not restricted.
 
+The API rejects create and update requests that do not satisfy this promotion rule with HTTP 400 and a message naming the required source environments. MCP release binding tools use the same validation. Writes through Kubernetes or GitOps are checked by the controller, so a batch that updates source and target bindings can converge regardless of apply order.
+
 **Relationships:**
 - Referenced by: Project
 - References: Environment

@@ -254,8 +254,7 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"one. To promote a component to a new environment, create(or update) the release binding " +
 			"in the target environment with the desired component release. If the project's deployment " +
 			"pipeline promotes into that environment, the release must already be bound in a source " +
-			"environment, otherwise the binding is not deployed and its ReleaseSynced condition reports " +
-			"PromotionPathNotSatisfied.",
+			"environment for the same component and project, otherwise the request is rejected.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
