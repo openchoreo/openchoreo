@@ -78,6 +78,6 @@ func (s *releaseBindingService) validatePromotionPath(ctx context.Context, names
 		}
 	}
 
-	return &services.ValidationError{Msg: fmt.Sprintf("ComponentRelease %q must be deployed to %s before it can be promoted to %s",
+	return &services.ValidationError{Msg: fmt.Sprintf("ComponentRelease %q must be referenced by a ReleaseBinding in %s before it can be promoted to %s",
 		rb.Spec.ReleaseName, strings.Join(sources, " or "), rb.Spec.Environment)}
 }

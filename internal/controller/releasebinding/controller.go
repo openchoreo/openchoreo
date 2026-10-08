@@ -272,6 +272,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Undeploy must remain available even if the promotion pipeline is missing.
+	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
+		return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
+	}
+
 	// Fetch DeploymentPipeline object
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	if err := r.Get(ctx, types.NamespacedName{
@@ -289,16 +294,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	// Undeploying is always allowed. Deploying to a promotion target needs the release in a source environment first.
-	if sources := promotionSources(pipeline, releaseBinding.Spec.Environment); len(sources) > 0 &&
-		releaseBinding.Spec.State != openchoreov1alpha1.ReleaseStateUndeploy {
+	// Promotion targets require a source binding that references this release.
+	if sources := promotionSources(pipeline, releaseBinding.Spec.Environment); len(sources) > 0 {
 		promoted, err := r.isPromoted(ctx, releaseBinding, componentRelease, sources)
 		if err != nil {
 			logger.Error(err, "Failed to check promotion path")
 			return ctrl.Result{}, err
 		}
 		if !promoted {
-			msg := fmt.Sprintf("ComponentRelease %q must be deployed to %s before it can be promoted to %s",
+			msg := fmt.Sprintf("ComponentRelease %q must be referenced by a ReleaseBinding in %s before it can be promoted to %s",
 				releaseBinding.Spec.ReleaseName, strings.Join(sources, " or "), releaseBinding.Spec.Environment)
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonPromotionPathNotSatisfied, msg)

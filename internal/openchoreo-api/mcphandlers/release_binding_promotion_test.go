@@ -55,7 +55,7 @@ func TestMCPReleaseBindingPromotion(t *testing.T) {
 			require.Nil(t, result)
 			var validationErr *services.ValidationError
 			require.ErrorAs(t, err, &validationErr)
-			assert.Contains(t, validationErr.Msg, "must be deployed to staging")
+			assert.Contains(t, validationErr.Msg, "must be referenced by a ReleaseBinding in staging")
 		})
 	}
 }

@@ -98,7 +98,7 @@ var _ = Describe("ReleaseBinding promotion paths", func() {
 		rb := reconcileUntil(r, prodRB, isBlocked)
 		cond := syncedCondition(rb)
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-		Expect(cond.Message).To(ContainSubstring(stagingEnv))
+		Expect(cond.Message).To(ContainSubstring("must be referenced by a ReleaseBinding in " + stagingEnv))
 
 		err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: prodRendered}, &openchoreov1alpha1.RenderedRelease{})
 		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "a blocked binding must not render a release")
@@ -111,6 +111,19 @@ var _ = Describe("ReleaseBinding promotion paths", func() {
 
 		reconcileUntil(r, prodRB, isSynced)
 
+		rendered := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: prodRendered}, rendered)).To(Succeed())
+		Expect(rendered.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentReleaseName, releaseA))
+	})
+
+	It("allows promotion when an undeployed source binding references the release", func() {
+		r := testReconcilerWithCachedClient()
+		staging := rbFixture(stagingRB, projName, compName, stagingEnv, releaseA, true)
+		staging.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+		Expect(k8sClient.Create(ctx, staging)).To(Succeed())
+		Expect(k8sClient.Create(ctx, rbFixture(prodRB, projName, compName, prodEnv, releaseA, true))).To(Succeed())
+
+		reconcileUntil(r, prodRB, isSynced)
 		rendered := &openchoreov1alpha1.RenderedRelease{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: prodRendered}, rendered)).To(Succeed())
 		Expect(rendered.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentReleaseName, releaseA))
@@ -148,6 +161,36 @@ var _ = Describe("ReleaseBinding promotion paths", func() {
 			return syncedCondition(rb) != nil
 		})
 		Expect(syncedCondition(rb).Reason).To(Equal(string(ReasonResourcesUndeployed)))
+	})
+
+	It("undeploys an existing release after its pipeline is deleted", func() {
+		r := testReconcilerWithCachedClient()
+		Expect(k8sClient.Create(ctx, rbFixture(stagingRB, projName, compName, stagingEnv, releaseA, true))).To(Succeed())
+		Expect(k8sClient.Create(ctx, rbFixture(prodRB, projName, compName, prodEnv, releaseA, true))).To(Succeed())
+		reconcileUntil(r, prodRB, isSynced)
+
+		pipeline := &openchoreov1alpha1.DeploymentPipeline{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: pipelineName}}
+		Expect(k8sClient.Delete(ctx, pipeline)).To(Succeed())
+		Eventually(func() bool {
+			return apierrors.IsNotFound(k8sCachedClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: pipelineName}, pipeline))
+		}, timeout, interval).Should(BeTrue())
+
+		rb := fetchRB(prodRB)
+		rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+		Eventually(func(g Gomega) {
+			cached := &openchoreov1alpha1.ReleaseBinding{}
+			g.Expect(k8sCachedClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: prodRB}, cached)).To(Succeed())
+			g.Expect(cached.Spec.State).To(Equal(openchoreov1alpha1.ReleaseStateUndeploy))
+		}, timeout, interval).Should(Succeed())
+
+		reconcileUntil(r, prodRB, func(rb *openchoreov1alpha1.ReleaseBinding) bool {
+			cond := syncedCondition(rb)
+			return cond != nil && cond.Reason == string(ReasonResourcesUndeployed)
+		})
+		Eventually(func() bool {
+			return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: prodRendered}, &openchoreov1alpha1.RenderedRelease{}))
+		}, timeout, interval).Should(BeTrue())
 	})
 
 	It("re-queues sibling bindings and the bindings of a changed pipeline", func() {

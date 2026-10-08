@@ -52,7 +52,7 @@ func TestReleaseBindingHandlerPromotion(t *testing.T) {
 				require.NoError(t, err)
 				typed, ok := resp.(gen.CreateReleaseBinding400JSONResponse)
 				require.True(t, ok, "expected 400, got %T", resp)
-				assert.Contains(t, typed.Error, "must be deployed to staging")
+				assert.Contains(t, typed.Error, "must be referenced by a ReleaseBinding in staging")
 			} else {
 				resp, err := h.UpdateReleaseBinding(ctx, gen.UpdateReleaseBindingRequestObject{
 					NamespaceName: "test-ns", ReleaseBindingName: "production-rb", Body: body,
@@ -60,7 +60,7 @@ func TestReleaseBindingHandlerPromotion(t *testing.T) {
 				require.NoError(t, err)
 				typed, ok := resp.(gen.UpdateReleaseBinding400JSONResponse)
 				require.True(t, ok, "expected 400, got %T", resp)
-				assert.Contains(t, typed.Error, "must be deployed to staging")
+				assert.Contains(t, typed.Error, "must be referenced by a ReleaseBinding in staging")
 			}
 		})
 	}
