@@ -774,3 +774,59 @@ func TestHelmAuthzBootstrap_SecurityAuthzStillGuardsRegression(t *testing.T) {
 		t.Fatalf("security.authz.enabled=false must disable authorization")
 	}
 }
+
+// renderChartWithoutBootstrapKey copies the chart and removes the bootstrap
+// toggle from its values.yaml. That is what `helm upgrade --reuse-values`
+// renders: the release's coalesced values replace the chart's, so a key added
+// after the release was installed is absent.
+func renderChartWithoutBootstrapKey(t *testing.T) string {
+	t.Helper()
+
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed; skipping the doctored chart check")
+	}
+
+	chartCopy := filepath.Join(t.TempDir(), "chart")
+	if err := os.CopyFS(chartCopy, os.DirFS(controlPlaneChart)); err != nil {
+		t.Fatalf("failed to copy the chart: %v", err)
+	}
+	valuesPath := filepath.Join(chartCopy, "values.yaml")
+	values, err := os.ReadFile(valuesPath)
+	if err != nil {
+		t.Fatalf("failed to read the chart copy's values: %v", err)
+	}
+	// The toggle is the `enabled: true` line directly above the bootstrap job's
+	// image key; no other line has that neighbour.
+	const anchor = "\n          enabled: true\n          # @schema\n          # type: string\n          # description: Container image for the authz bootstrap job."
+	without := strings.Replace(string(values), anchor, anchor[len("\n          enabled: true"):], 1)
+	if without == string(values) {
+		t.Fatalf("the chart copy carries no bootstrap toggle to remove: the anchor moved")
+	}
+	if err := os.WriteFile(valuesPath, []byte(without), 0o600); err != nil {
+		t.Fatalf("failed to write the chart copy's values: %v", err)
+	}
+
+	args := append([]string{
+		"template", "openchoreo", chartCopy,
+		"--namespace", "openchoreo-control-plane",
+	}, helmGuardOverrides...)
+
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(t.Context(), helm, args...)
+	cmd.Stderr = &stderr
+	rendered, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("failed to render the doctored chart: %v\n%s", err, stderr.String())
+	}
+	return string(rendered)
+}
+
+// TestHelmAuthzBootstrap_AbsentKeyKeepsTheHook covers the upgrade path a chart
+// default alone cannot: with the key absent (an older release's coalesced
+// values), the hook must still render rather than silently disappear.
+func TestHelmAuthzBootstrap_AbsentKeyKeepsTheHook(t *testing.T) {
+	if got := bootstrapHookDocs(renderChartWithoutBootstrapKey(t)); got != 5 {
+		t.Fatalf("an absent bootstrap toggle must keep the hook's five objects, found %d", got)
+	}
+}
