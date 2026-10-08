@@ -30,7 +30,7 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 2)
+	assert.Empty(t, v.blockedPaths)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -61,20 +61,33 @@ func TestValidateRequest_AllowedMethods(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_BlockedPaths(t *testing.T) {
+func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 	v := NewRequestValidator()
 
-	tests := []struct {
+	blocked := []struct {
 		name string
 		path string
 	}{
+		{"namespaced secrets list", "/api/v1/namespaces/default/secrets"},
+		{"namespaced secret get", "/api/v1/namespaces/openchoreo-control-plane/secrets/my-secret"},
 		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
-		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"cluster serviceaccounts list", "/api/v1/serviceaccounts"},
+		{"namespaced serviceaccounts list", "/api/v1/namespaces/default/serviceaccounts"},
+		{"serviceaccount get", "/api/v1/namespaces/default/serviceaccounts/default"},
+		{"serviceaccount token subresource", "/api/v1/namespaces/default/serviceaccounts/default/token"},
+		// watch form (Kubernetes legacy watch path)
+		{"watch namespaced secrets", "/api/v1/watch/namespaces/default/secrets"},
+		{"watch cluster secrets", "/api/v1/watch/secrets"},
+		{"watch serviceaccounts", "/api/v1/watch/namespaces/default/serviceaccounts"},
+		// path.Clean must collapse these before matching
+		{"double slash secrets", "/api//v1/namespaces/default/secrets"},
+		{"dot segment secrets", "/api/./v1/namespaces/default/secrets"},
+		{"trailing slash secrets", "/api/v1/namespaces/default/secrets/"},
+		{"double slash after api", "//api/v1/namespaces/default/secrets"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range blocked {
+		t.Run("blocked_"+tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			err := v.ValidateRequest(req, "k8s", tt.path)
 			require.Error(t, err)
@@ -82,6 +95,53 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 			require.ErrorAs(t, err, &valErr)
 			assert.Equal(t, http.StatusForbidden, valErr.Code)
 		})
+	}
+
+	// CRDs under /apis/ must not be blocked by the core secrets/SA check.
+	allowed := []struct {
+		name string
+		path string
+	}{
+		{"pods", "/api/v1/namespaces/default/pods"},
+		{"events", "/api/v1/namespaces/default/events"},
+		{"watch pods", "/api/v1/watch/namespaces/default/pods"},
+		{"external secrets crd", "/apis/external-secrets.io/v1beta1/namespaces/default/externalsecrets"},
+		{"wrong legacy sa path string still not core api", "/apis/v1/serviceaccounts"},
+	}
+
+	for _, tt := range allowed {
+		t.Run("allowed_"+tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			err := v.ValidateRequest(req, "k8s", tt.path)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestPathTouchesSensitiveCoreResource(t *testing.T) {
+	blocked := []string{
+		"/api/v1/namespaces/ns/secrets",
+		"/api/v1/serviceaccounts",
+		"/api/v1/watch/namespaces/ns/secrets",
+		"/api/v1/watch/secrets",
+		"/api/v1/watch/serviceaccounts",
+		"/api//v1/namespaces/ns/secrets",
+		"/api/./v1/namespaces/ns/secrets",
+		"/api/v1/namespaces/ns/secrets/",
+		"//api/v1/namespaces/ns/secrets",
+	}
+	for _, p := range blocked {
+		assert.Truef(t, pathTouchesSensitiveCoreResource(p), "expected blocked: %s", p)
+	}
+
+	allowed := []string{
+		"/api/v1/namespaces/ns/pods",
+		"/api/v1/watch/namespaces/ns/pods",
+		"/apis/v1/serviceaccounts",
+		"/apis/external-secrets.io/v1/namespaces/ns/externalsecrets",
+	}
+	for _, p := range allowed {
+		assert.Falsef(t, pathTouchesSensitiveCoreResource(p), "expected allowed: %s", p)
 	}
 }
 
