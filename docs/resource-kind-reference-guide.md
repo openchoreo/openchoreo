@@ -5,6 +5,7 @@ This document describes the resource kinds used in OpenChoreo CRDs, the relation
 ## Overview
 
 - [Design Considerations](#design-considerations)
+- [Glossary](#glossary)
 - [Resource Hierarchy](#resource-hierarchy)
 - [Kubernetes Metadata Representation](#kubernetes-metadata-representation)
 - [Resource Kinds](#resource-kinds)
@@ -50,6 +51,33 @@ When designing the resource kinds for OpenChoreo, several principles have been f
 - **Scope pairing**: Most resources have namespace-scoped and cluster-scoped variants (e.g., `ComponentType` / `ClusterComponentType`). Cluster-scoped types can only reference other cluster-scoped types.
 - **Immutability**: Key fields use `XValidation:rule="self == oldSelf"` to enforce immutability after creation (e.g., ComponentRelease spec, Component owner).
 - **CEL templating**: Resource templates, trait creates/patches, and workflow templates use `${...}` syntax for CEL expressions.
+
+## Glossary
+
+Quick reference for key OpenChoreo terms used throughout this document.
+
+| Term | Definition |
+|------|-----------|
+| **Component** | A developer's deployable unit — a service, web app, worker, or scheduled task. Components are the primary resource developers interact with. |
+| **ComponentType** | A platform engineer–authored template that defines what a component looks like, what parameters it accepts, what traits it can use, and what Kubernetes resources it generates. |
+| **Trait** | A composable behavior that can be attached to a component. Traits create new Kubernetes resources or patch existing ones (e.g., adding an HPA, injecting a sidecar). |
+| **Workload** | The container specification, endpoints, and dependencies for a component. Each component has exactly one workload. |
+| **ComponentRelease** | An immutable snapshot created when a component is released. It freezes the ComponentType spec, trait specs, workload spec, and parameters at a point in time. |
+| **ReleaseBinding** | Binds a ComponentRelease to a specific environment, optionally with per-environment overrides. This is what triggers actual deployment. |
+| **RenderedRelease** | The final set of Kubernetes manifests produced by rendering a ReleaseBinding. These manifests are applied to the target DataPlane. |
+| **Resource** | A developer-declared dependency on managed infrastructure (database, cache, message broker) provisioned through a ResourceType. |
+| **ResourceType** | A platform engineer–authored template for provisioning managed infrastructure, similar to ComponentType but for non-application resources. |
+| **Project** | A logical grouping of related components that share a deployment pipeline. |
+| **Environment** | A runtime context (e.g., development, staging, production) where components are deployed. Each environment references a DataPlane. |
+| **DeploymentPipeline** | Defines promotion paths between environments (e.g., development → staging → production). |
+| **DataPlane** | A target Kubernetes cluster where workloads run. Connected to the control plane via a cluster agent. |
+| **WorkflowPlane** | The Argo Workflows–based execution environment where CI/CD builds run. |
+| **ObservabilityPlane** | The OpenSearch-based monitoring plane that collects metrics, logs, and traces. |
+| **Render / Rendering** | The process of evaluating CEL templates in a ComponentType or Trait to produce final Kubernetes manifests. |
+| **Promotion** | Moving a ComponentRelease from one environment to the next along a DeploymentPipeline (e.g., dev → staging). |
+| **Namespace** | In OpenChoreo, Kubernetes namespaces serve as organizational boundaries (similar to organizations or tenants). |
+| **CEL** | [Common Expression Language](https://github.com/google/cel-spec) — used in templates, validations, and conditional logic throughout OpenChoreo resources. |
+| **MCP** | [Model Context Protocol](https://modelcontextprotocol.io/) — the protocol used to expose OpenChoreo operations to AI assistants. |
 
 [Back to Top](#overview)
 
