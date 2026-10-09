@@ -41,6 +41,87 @@ spec:
           spec:
             description: spec defines the desired state of WorkflowRun
             properties:
+              inputArtifacts:
+                description: |-
+                  InputArtifacts are immutable, content-addressed inputs made available to the
+                  workflow runner as read-only files. They are deliberately distinct from
+                  workflow.parameters: parameter values are small control-plane data, while
+                  artifact contents never transit or persist in this API object.
+
+                  Input artifacts use the native GCS driver. The publisher writes each object
+                  once with ifGenerationMatch=0; runners receive it through Workload Identity
+                  without static credentials, signed URLs, or an S3-compatible endpoint.
+                items:
+                  description: |-
+                    WorkflowRunInputArtifact describes an immutable workflow input. It contains
+                    metadata and a trusted, content-addressed reference only; it never contains
+                    bytes, credentials, signed URLs, or other secrets.
+                  properties:
+                    expiresAt:
+                      description: |-
+                        ExpiresAt is the hard expiry for fetching the input. It must be in the
+                        future when submitted and no more than seven days away.
+                      format: date-time
+                      type: string
+                    gcs:
+                      description: GCS is the native Google Cloud Storage location
+                        consumed by Argo.
+                      properties:
+                        bucket:
+                          description: Bucket is the trusted GCS bucket name selected
+                            by the GitOps/IAM deployment.
+                          maxLength: 222
+                          minLength: 3
+                          pattern: ^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$
+                          type: string
+                        key:
+                          description: |-
+                            Key is unified-diff/<delivery-id>/<sha256>.diff. It contains neither a
+                            GCS object generation nor a URI fragment.
+                          pattern: ^unified-diff/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[a-f0-9]{64}\.diff$
+                          type: string
+                      required:
+                      - bucket
+                      - key
+                      type: object
+                    mediaType:
+                      description: MediaType identifies the artifact representation.
+                      enum:
+                      - text/x-diff
+                      type: string
+                    name:
+                      description: Name identifies the sole Argo input artifact expected
+                        by the workflow template.
+                      enum:
+                      - unified-diff
+                      type: string
+                    sha256:
+                      description: SHA256 is the lowercase SHA-256 digest of the exact
+                        bytes the runner reads.
+                      pattern: ^[a-f0-9]{64}$
+                      type: string
+                    sizeBytes:
+                      description: SizeBytes is the exact uncompressed payload size.
+                      format: int64
+                      maximum: 1048576
+                      minimum: 1
+                      type: integer
+                  required:
+                  - expiresAt
+                  - gcs
+                  - mediaType
+                  - name
+                  - sha256
+                  - sizeBytes
+                  type: object
+                maxItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: inputArtifacts are immutable
+                  rule: self == oldSelf
               ttlAfterCompletion:
                 description: |-
                   TTLAfterCompletion defines the time-to-live for this workflow run after completion.
@@ -156,6 +237,39 @@ spec:
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
+                x-kubernetes-list-type: map
+              inputArtifacts:
+                description: |-
+                  InputArtifacts contains non-sensitive metadata for the immutable inputs
+                  accepted by the runner. It intentionally excludes location and all content.
+                items:
+                  description: |-
+                    WorkflowRunInputArtifactStatus exposes non-sensitive, auditable metadata for
+                    an accepted input. The location, credentials, and artifact bytes are never copied
+                    to status.
+                  properties:
+                    expiresAt:
+                      format: date-time
+                      type: string
+                    mediaType:
+                      type: string
+                    name:
+                      type: string
+                    sha256:
+                      type: string
+                    sizeBytes:
+                      format: int64
+                      type: integer
+                  required:
+                  - expiresAt
+                  - mediaType
+                  - name
+                  - sha256
+                  - sizeBytes
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
                 x-kubernetes-list-type: map
               resources:
                 description: |-

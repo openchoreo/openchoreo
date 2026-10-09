@@ -88,6 +88,13 @@ func (p *Pipeline) Render(ctx context.Context, input *RenderInput) (*RenderOutpu
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Project immutable WorkflowRun inputs into Argo workflow arguments. Argo
+	// downloads these as input artifacts before the user container starts, so
+	// workflow templates consume them as files rather than parameter payloads.
+	if err := injectInputArtifacts(resource, input.WorkflowRun.Spec.InputArtifacts); err != nil {
+		return nil, fmt.Errorf("failed to inject input artifacts: %w", err)
+	}
+
 	// Render additional resources if defined
 	resources, err := p.renderResources(ctx, input.Workflow.Spec.Resources, celContext)
 	if err != nil {
@@ -99,6 +106,37 @@ func (p *Pipeline) Render(ctx context.Context, input *RenderInput) (*RenderOutpu
 		Resources: resources,
 		Metadata:  metadata,
 	}, nil
+}
+
+func injectInputArtifacts(resource map[string]any, artifacts []v1alpha1.WorkflowRunInputArtifact) error {
+	if len(artifacts) == 0 {
+		return nil
+	}
+	spec, ok := resource["spec"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("rendered resource missing spec")
+	}
+	arguments, ok := spec["arguments"].(map[string]any)
+	if !ok {
+		arguments = map[string]any{}
+		spec["arguments"] = arguments
+	}
+	if _, exists := arguments["artifacts"]; exists {
+		return fmt.Errorf("rendered workflow already defines arguments.artifacts; use WorkflowRun spec.inputArtifacts exclusively")
+	}
+	argoArtifacts := make([]any, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		argoArtifacts = append(argoArtifacts, map[string]any{
+			"name": artifact.Name,
+			"gcs": map[string]any{
+				"bucket": artifact.GCS.Bucket,
+				"key":    artifact.GCS.Key,
+			},
+			"archive": map[string]any{"none": map[string]any{}},
+		})
+	}
+	arguments["artifacts"] = argoArtifacts
+	return nil
 }
 
 // validateInput ensures the input has all required fields.

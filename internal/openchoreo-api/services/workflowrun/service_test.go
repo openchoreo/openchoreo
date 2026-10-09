@@ -21,6 +21,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
 
+const artifactSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+func validInputArtifact() openchoreov1alpha1.WorkflowRunInputArtifact {
+	return openchoreov1alpha1.WorkflowRunInputArtifact{
+		Name: "unified-diff", GCS: openchoreov1alpha1.WorkflowRunInputArtifactGCS{Bucket: "workflow-inputs", Key: "unified-diff/delivery-123/" + artifactSHA256 + ".diff"},
+		MediaType: "text/x-diff", SizeBytes: 42, SHA256: artifactSHA256,
+		ExpiresAt: metav1.NewTime(time.Now().Add(time.Hour).UTC()),
+	}
+}
+
 const (
 	testNamespace    = "test-ns"
 	testWorkflowName = "test-workflow"
@@ -45,6 +55,36 @@ func TestCreateWorkflowRun(t *testing.T) {
 		assert.Equal(t, workflowRunTypeMeta, result.TypeMeta)
 		assert.Equal(t, testNamespace, result.Namespace)
 		assert.Equal(t, openchoreov1alpha1.WorkflowRunStatus{}, result.Status)
+	})
+
+	t.Run("is backward compatible when inputArtifacts are omitted", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		svc := newService(t, wf)
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		result, err := svc.CreateWorkflowRun(ctx, testNamespace, run)
+		require.NoError(t, err)
+		assert.Empty(t, result.Spec.InputArtifacts)
+	})
+
+	t.Run("accepts immutable input artifact metadata", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		svc := newService(t, wf)
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		run.Spec.InputArtifacts = []openchoreov1alpha1.WorkflowRunInputArtifact{validInputArtifact()}
+		_, err := svc.CreateWorkflowRun(ctx, testNamespace, run)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects an input artifact without a GCS location", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		svc := newService(t, wf)
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		artifact := validInputArtifact()
+		artifact.GCS.Key = ""
+		run.Spec.InputArtifacts = []openchoreov1alpha1.WorkflowRunInputArtifact{artifact}
+		_, err := svc.CreateWorkflowRun(ctx, testNamespace, run)
+		var validationErr *services.ValidationError
+		require.ErrorAs(t, err, &validationErr)
 	})
 
 	t.Run("success with cluster workflow ref", func(t *testing.T) {
