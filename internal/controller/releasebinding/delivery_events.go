@@ -169,8 +169,14 @@ func (r *Reconciler) reconcileDelivery(
 	resources []map[string]any,
 	applyFailed bool,
 ) {
-	dc := deliveryContextFor(releaseBinding, componentRelease, renderedRelease, asUnstructured(resources))
+	desired := asUnstructured(resources)
+	dc := deliveryContextFor(releaseBinding, componentRelease, renderedRelease, desired)
 	if dc == nil {
+		// Each of these is a correct reason not to report, but none of them used to
+		// say so, which made a component that never shows up in the metrics
+		// indistinguishable from one whose events were lost further on.
+		log.FromContext(ctx).V(1).Info("Skipping delivery events: rollout does not participate",
+			"reason", deliverySkipReason(componentRelease, renderedRelease, desired))
 		return
 	}
 
@@ -288,23 +294,10 @@ func deliveryContextFor(
 	renderedRelease *openchoreov1alpha1.RenderedRelease,
 	desiredResources []*unstructured.Unstructured,
 ) *deliveryContext {
-	if componentRelease == nil || renderedRelease == nil || renderedRelease.UID == "" {
+	if deliverySkipReason(componentRelease, renderedRelease, desiredResources) != "" {
 		return nil
 	}
-	if renderedRelease.Spec.TargetPlane == targetPlaneObservabilityPlane {
-		return nil
-	}
-
-	var primary *unstructured.Unstructured
-	for _, obj := range desiredResources {
-		if primaryWorkloadGVKs[obj.GroupVersionKind()] {
-			primary = obj
-			break
-		}
-	}
-	if primary == nil {
-		return nil
-	}
+	primary := primaryWorkload(desiredResources)
 
 	commit, authoredAt := deliveryProvenance(componentRelease)
 
@@ -317,6 +310,41 @@ func deliveryContextFor(
 		commitAuthoredAt:     authoredAt,
 		primary:              primary,
 	}
+}
+
+// deliverySkipReason says why a rollout does not participate in delivery events,
+// or returns "" when it does. deliveryContextFor returns nil exactly when this is
+// non-empty; it is separate so the reason can be logged.
+func deliverySkipReason(
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	renderedRelease *openchoreov1alpha1.RenderedRelease,
+	desiredResources []*unstructured.Unstructured,
+) string {
+	switch {
+	case componentRelease == nil:
+		return "ComponentRelease not resolved"
+	case renderedRelease == nil || renderedRelease.UID == "":
+		return "RenderedRelease not created yet"
+	case renderedRelease.Spec.TargetPlane == targetPlaneObservabilityPlane:
+		return "RenderedRelease targets the observability plane"
+	case primaryWorkload(desiredResources) == nil:
+		// A component whose render has no Deployment, StatefulSet or CronJob -- a
+		// Job-based component, say -- has no workload whose health defines a
+		// deployment, so it never appears in Delivery Insights.
+		return "no Deployment, StatefulSet or CronJob in the rendered resources"
+	}
+	return ""
+}
+
+// primaryWorkload returns the first rendered resource whose health defines the
+// rollout's outcome, or nil when there is none.
+func primaryWorkload(desiredResources []*unstructured.Unstructured) *unstructured.Unstructured {
+	for _, obj := range desiredResources {
+		if primaryWorkloadGVKs[obj.GroupVersionKind()] {
+			return obj
+		}
+	}
+	return nil
 }
 
 // deliveryProvenance reads the source commit and its authoring time off the
