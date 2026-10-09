@@ -45,6 +45,11 @@ func (rw *responseWriter401Interceptor) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
+// Unwrap lets http.ResponseController flush streaming responses.
+func (rw *responseWriter401Interceptor) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
 // Auth401Interceptor creates a middleware that adds WWW-Authenticate header on 401 responses.
 // resourceMetadataURL is the URL to the OAuth protected resource metadata endpoint.
 // scopes is the space-delimited scope list advertised in the challenge so MCP clients
