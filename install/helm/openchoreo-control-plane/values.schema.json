@@ -3788,6 +3788,12 @@
                       "additionalProperties": false,
                       "description": "Default authorization roles and bindings, upserted via a post-install/upgrade hook on every install and upgrade. Hand-edits made directly against these objects in the cluster do not survive the next upgrade; customize here instead.",
                       "properties": {
+                        "enabled": {
+                          "default": true,
+                          "description": "Enable authorization bootstrap hooks during installation and upgrades.",
+                          "title": "enabled",
+                          "type": "boolean"
+                        },
                         "image": {
                           "default": "registry.k8s.io/kubectl:v1.36.0",
                           "description": "Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.",
