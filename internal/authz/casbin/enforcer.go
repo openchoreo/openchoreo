@@ -40,6 +40,10 @@ type CasbinConfig struct {
 // policyInfo holds information about a filtered policy
 // intermediate struct used for building user profile capabilities
 type policyInfo struct {
+	// subject is the entitlement the policy was bound to ("claim:value").
+	// Enforcement evaluates one entitlement at a time and unions the results,
+	// so the profile must keep allow/deny resolution within a single subject.
+	subject       string
 	resourcePath  string
 	roleName      string
 	roleNamespace string
