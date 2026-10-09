@@ -171,3 +171,20 @@ func TestAuth401Interceptor_NoScopes(t *testing.T) {
 		})
 	}
 }
+
+func TestAuth401Interceptor_ResponseControllerSeesThroughWrapper(t *testing.T) {
+	var flushErr error
+	handler := Auth401Interceptor(testResourceMetadataURL, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		flushErr = http.NewResponseController(w).Flush()
+	}))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/mcp", nil))
+
+	if flushErr != nil {
+		t.Fatalf("Flush through the auth401 wrapper: %v", flushErr)
+	}
+	if !rec.Flushed {
+		t.Error("the underlying ResponseWriter was not flushed")
+	}
+}

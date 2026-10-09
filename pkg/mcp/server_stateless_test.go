@@ -4,6 +4,8 @@
 package mcp
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -12,10 +14,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
@@ -126,6 +130,66 @@ func TestHTTPServersStatelessProtocols(t *testing.T) {
 			if result.ProtocolVersion != "2025-06-18" {
 				t.Fatalf("negotiated version = %q", result.ProtocolVersion)
 			}
+		})
+	}
+}
+
+func TestHTTPServersListenAcknowledgedThroughAuth401(t *testing.T) {
+	api := newTestMCPHandler(t, &tools.Toolsets{ProjectToolset: &fakeProjectToolset{}}, nil,
+		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
+	observer, err := observermcp.NewHTTPServer(nil,
+		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, handler := range map[string]http.Handler{
+		"api":      api,
+		"observer": observer,
+	} {
+		t.Run(name, func(t *testing.T) {
+			auth401 := mcpmiddleware.Auth401Interceptor("http://localhost/.well-known/oauth-protected-resource", nil)
+			srv := httptest.NewServer(auth401(handler))
+			defer srv.Close()
+
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			body := `{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{` +
+				`"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
+				`"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"},` +
+				`"io.modelcontextprotocol/clientCapabilities":{}},` +
+				`"notifications":{"toolsListChanged":true}}}`
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, strings.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+			req.Header.Set("Mcp-Method", "subscriptions/listen")
+
+			resp, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatalf("listen stream not flushed: %v", err)
+			}
+			defer resp.Body.Close()
+			scanner := bufio.NewScanner(resp.Body)
+			for scanner.Scan() {
+				data, ok := strings.CutPrefix(scanner.Text(), "data: ")
+				if !ok {
+					continue
+				}
+				var message struct {
+					Method string `json:"method"`
+				}
+				if err := json.Unmarshal([]byte(data), &message); err != nil {
+					t.Fatal(err)
+				}
+				if message.Method != "notifications/subscriptions/acknowledged" {
+					t.Fatalf("first message = %q, want acknowledgement", message.Method)
+				}
+				return
+			}
+			t.Fatalf("listen stream ended without acknowledgement: %v", scanner.Err())
 		})
 	}
 }
