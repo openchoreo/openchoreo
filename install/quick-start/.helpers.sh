@@ -1138,7 +1138,8 @@ install_observability_plane() {
         "--version" "$LOGS_OPENSEARCH_VERSION" \
         "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials" \
         "--set" "adapter.openSearchSecretName=opensearch-admin-credentials" \
-        "--set" "auditLogs.enabled=true"
+        "--set" "auditLogs.enabled=true" \
+        "--set" "fluentBitCustomizations.clusterInstance=$CLUSTER_NAME"
 
     install_helm_chart "observability-traces-opensearch" "$modules_repo/observability-tracing-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$TRACES_OPENSEARCH_VERSION" \
@@ -1172,14 +1173,6 @@ install_observability_plane() {
             return 1
         fi
     done
-
-    # Enable fluent-bit after opensearch is installed and ready
-    log_info "Enabling fluent-bit for log collection..."
-    install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
-        "--version" "$LOGS_OPENSEARCH_VERSION" \
-        "--reuse-values" \
-        "--set" "fluent-bit.enabled=true" \
-        "--set" "fluentBitCustomizations.clusterInstance=$CLUSTER_NAME"
 
     # Enable Kubernetes events collection
     log_info "Enabling Kubernetes events collection..."
