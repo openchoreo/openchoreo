@@ -252,7 +252,9 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"environment. Fails if a binding already exists for the component in that environment, " +
 			"use update_release_binding to deploy a new release to an environment that already has " +
 			"one. To promote a component to a new environment, create(or update) the release binding " +
-			"in the target environment with the desired component release.",
+			"in the target environment with the desired component release. If the project's deployment " +
+			"pipeline promotes into that environment, the release must already be bound in a source " +
+			"environment for the same component and project, otherwise the request is rejected.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
@@ -330,7 +332,8 @@ func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server, perms map[string]
 		Description: "Update an existing release binding's configuration (partial update). Only provided fields are " +
 			"updated; omitted fields remain unchanged. Use this to deploy a new component release to an " +
 			"environment, modify environment configs and workload overrides, or change the binding's " +
-			"release state (Active to deploy, Undeploy to remove from data plane).",
+			"release state (Active to deploy, Undeploy to remove from data plane). A new release must " +
+			"follow the project's deployment pipeline, the same as create_release_binding.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"binding_name":   defaultStringProperty(),

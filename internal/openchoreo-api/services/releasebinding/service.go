@@ -60,6 +60,9 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 		s.logger.Warn("Release binding already exists", "namespace", namespaceName, "releaseBinding", rb.Name)
 		return nil, ErrReleaseBindingAlreadyExists
 	}
+	if err := s.validatePromotionPath(ctx, namespaceName, rb, nil); err != nil {
+		return nil, err
+	}
 
 	// Set defaults
 	rb.Namespace = namespaceName
@@ -102,6 +105,9 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 		}
 		s.logger.Error("Failed to get release binding", "error", err)
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
+	}
+	if err := s.validatePromotionPath(ctx, namespaceName, rb, existing); err != nil {
+		return nil, err
 	}
 
 	// Clear status from user input — status is server-managed
