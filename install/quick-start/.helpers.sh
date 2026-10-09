@@ -1148,6 +1148,9 @@ install_observability_plane() {
     install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$METRICS_PROMETHEUS_VERSION"
 
+    install_helm_chart "finops-opencost" "$modules_repo/finops-opencost" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--version" "$FINOPS_OPENCOST_VERSION"
+
     # The prometheus-operator, not Helm, creates the metrics module's StatefulSets,
     # pods and PVCs from the custom resources the chart applies, so install_helm_chart's
     # --wait returns successfully long before those workloads exist. The module
@@ -1584,6 +1587,7 @@ preload_images() {
             "--traces-opensearch-version" "$TRACES_OPENSEARCH_VERSION"
             "--metrics-prometheus-version" "$METRICS_PROMETHEUS_VERSION"
             "--events-otel-version" "$EVENTS_OTEL_COLLECTOR_VERSION"
+            "--finops-opencost-version" "$FINOPS_OPENCOST_VERSION"
         )
     fi
 

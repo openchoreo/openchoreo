@@ -124,6 +124,8 @@ spec:
               name: {{ .Values.backstage.secretName }}
               key: {{ .Values.backstage.auth.serviceClientSecretKey | default "client-secret" }}
         # Feature flags for OpenChoreo functionality
+        - name: OPENCHOREO_FEATURES_COST_INSIGHTS_ENABLED
+          value: {{ .Values.backstage.features.costInsights.enabled | quote }}
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
           value: {{ .Values.backstage.features.workflows.enabled | quote }}
         - name: OPENCHOREO_FEATURES_OBSERVABILITY_ENABLED

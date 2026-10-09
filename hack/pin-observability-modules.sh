@@ -22,7 +22,7 @@ observability-tracing-opensearch|--tracing-opensearch-version|TRACES_OPENSEARCH_
 observability-metrics-prometheus|--metrics-prometheus-version|METRICS_PROMETHEUS_VERSION|OBSERVABILITY_METRICS_PROMETHEUS_VERSION
 observability-events-otel-collector|--events-otel-collector-version|EVENTS_OTEL_COLLECTOR_VERSION|-
 observability-logs-openobserve|--logs-openobserve-version|-|OBSERVABILITY_LOGS_OPENOBSERVE_VERSION
-finops-opencost|--finops-opencost-version|-|-"
+finops-opencost|--finops-opencost-version|FINOPS_OPENCOST_VERSION|-"
 
 # The README declares the shell vars as `export VAR=...` for its commands to use.
 SHELL_FILES="install/k3d/k3d-install.sh install/quick-start/.config.sh install/k3d/multi-cluster/README.md"

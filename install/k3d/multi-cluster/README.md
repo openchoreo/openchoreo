@@ -50,6 +50,7 @@ export LOGS_OPENSEARCH_VERSION=0.0.0-latest-dev
 export TRACES_OPENSEARCH_VERSION=0.0.0-latest-dev
 export METRICS_PROMETHEUS_VERSION=0.0.0-latest-dev
 export EVENTS_OTEL_COLLECTOR_VERSION=0.0.0-latest-dev
+export FINOPS_OPENCOST_VERSION=0.0.0-latest-dev
 ```
 
 ## 1. Control Plane
@@ -842,6 +843,19 @@ helm upgrade --install observability-metrics-prometheus \
   --set kube-prometheus-stack.alertmanager.enabled=false
 ```
 
+##### Cost (finops-opencost)
+
+Run the following command to install OpenCost and its adapter in the observability plane cluster 
+
+```bash
+helm upgrade --install finops-opencost \
+  oci://ghcr.io/openchoreo/helm-charts/finops-opencost \
+  --kube-context k3d-openchoreo-op \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version "$FINOPS_OPENCOST_VERSION"
+```
+
 ### Register Observability Plane
 
 ```bash
@@ -979,6 +993,7 @@ install/k3d/preload-images.sh \
   --traces-opensearch-version "$TRACES_OPENSEARCH_VERSION" \
   --metrics-prometheus-version "$METRICS_PROMETHEUS_VERSION" \
   --events-otel-version "$EVENTS_OTEL_COLLECTOR_VERSION" \
+  --finops-opencost-version "$FINOPS_OPENCOST_VERSION" \
   --parallel 4
 ```
 
