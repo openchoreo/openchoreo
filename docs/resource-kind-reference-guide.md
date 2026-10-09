@@ -657,9 +657,9 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `promotionPaths[].sourceEnvironmentRef` | EnvironmentRef | Yes | Source environment |
 | `promotionPaths[].targetEnvironmentRefs[]` | TargetEnvironmentRef[] | Yes | Destination environments |
 
-A ReleaseBinding in a target environment only deploys a ComponentRelease that a ReleaseBinding in one of its source environments already references. Otherwise the binding's `ReleaseSynced` condition is `False` with reason `PromotionPathNotSatisfied`. A release the binding already deployed keeps running after the source environment moves on, and `Undeploy` is always allowed. Environments the pipeline does not list as a target are not restricted.
+The API requires a ReleaseBinding in a promotion target to reference a ComponentRelease already referenced by a binding for the same project and component in one of its source environments. Create and update requests that do not satisfy this rule return HTTP 400 with a message naming the required source environments. MCP release binding tools use the same validation. An already-rendered release can keep running after its source moves on, and `Undeploy` and pending auto-deploy bindings remain allowed. Environments the pipeline does not list as a target are not restricted.
 
-The API rejects create and update requests that do not satisfy this promotion rule with HTTP 400 and a message naming the required source environments. MCP release binding tools use the same validation. Writes through Kubernetes or GitOps are checked by the controller, so a batch that updates source and target bindings can converge regardless of apply order.
+Promotion paths are enforced only by the API. Direct Kubernetes writes, including `kubectl` and GitOps, bypass this check so operators can deploy hotfixes without following the promotion path.
 
 **Relationships:**
 - Referenced by: Project

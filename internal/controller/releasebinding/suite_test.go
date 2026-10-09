@@ -12,7 +12,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,12 +88,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	// projectFixture points every Project at the "default" DeploymentPipeline. It has no
-	// promotion paths, so no environment is a promotion target unless a spec makes its own.
-	Expect(k8sClient.Create(ctx, &openchoreodevv1alpha1.DeploymentPipeline{
-		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: ns},
-	})).To(Succeed())
 
 	// Manager backs the cached client. No controllers are registered — the
 	// manager only provides a cache + field indexes for resolver-path tests.

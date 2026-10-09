@@ -61,11 +61,6 @@ const (
 	ReasonComponentNotFound controller.ConditionReason = "ComponentNotFound"
 	// ReasonProjectNotFound indicates the referenced Project doesn't exist
 	ReasonProjectNotFound controller.ConditionReason = "ProjectNotFound"
-	// ReasonDeploymentPipelineNotFound indicates the Project's DeploymentPipeline doesn't exist
-	ReasonDeploymentPipelineNotFound controller.ConditionReason = "DeploymentPipelineNotFound"
-	// ReasonPromotionPathNotSatisfied indicates no ReleaseBinding in a source environment
-	// references the ComponentRelease for promotion to the binding's environment
-	ReasonPromotionPathNotSatisfied controller.ConditionReason = "PromotionPathNotSatisfied"
 	// ReasonInvalidReleaseConfiguration indicates the ComponentRelease configuration is invalid
 	ReasonInvalidReleaseConfiguration controller.ConditionReason = "InvalidReleaseConfiguration"
 
