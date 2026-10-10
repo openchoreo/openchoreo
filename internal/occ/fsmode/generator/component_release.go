@@ -68,7 +68,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	var ctSpec v1alpha1.ComponentTypeSpec
 	switch ctKind {
 	case string(v1alpha1.ComponentTypeRefKindComponentType):
-		ct, err := g.index.GetTypedComponentType(typeName)
+		ct, err := g.index.GetTypedComponentType(opts.Namespace, typeName)
 		if err != nil {
 			return nil, fmt.Errorf("component type %q not found (referenced by component %q): %w",
 				typeName, opts.ComponentName, err)
@@ -104,13 +104,13 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 
 	// Gather every Trait/ClusterTrait referenced by both the embedded ComponentType traits
 	// and the component-level traits so BuildSpec can freeze their specs.
-	traits, clusterTraits, err := g.gatherTraits(&ctSpec, comp.Component)
+	traits, clusterTraits, err := g.gatherTraits(&ctSpec, comp.Component, opts.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	// Fetch the workload that carries the built container image.
-	wl, err := g.index.GetTypedWorkloadForComponent(comp.ProjectName(), comp.Name)
+	wl, err := g.index.GetTypedWorkloadForComponent(opts.Namespace, comp.ProjectName(), comp.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	// Determine release name.
 	releaseName := opts.ReleaseName
 	if releaseName == "" {
-		releaseName, err = GenerateReleaseName(comp.Name, opts.Date, opts.Version, g.index)
+		releaseName, err = GenerateReleaseName(comp.Name, opts.Date, opts.Version, opts.Namespace, comp.ProjectName(), g.index)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate release name: %w", err)
 		}
@@ -187,6 +187,7 @@ func defaultTraitKinds(ctSpec *v1alpha1.ComponentTypeSpec, comp *v1alpha1.Compon
 func (g *ReleaseGenerator) gatherTraits(
 	ctSpec *v1alpha1.ComponentTypeSpec,
 	comp *v1alpha1.Component,
+	namespace string,
 ) (map[string]v1alpha1.TraitSpec, map[string]v1alpha1.ClusterTraitSpec, error) {
 	traits := make(map[string]v1alpha1.TraitSpec)
 	clusterTraits := make(map[string]v1alpha1.ClusterTraitSpec)
@@ -206,7 +207,7 @@ func (g *ReleaseGenerator) gatherTraits(
 			if _, exists := traits[name]; exists {
 				return nil
 			}
-			t, err := g.index.GetTypedTrait(name)
+			t, err := g.index.GetTypedTrait(namespace, name)
 			if err != nil {
 				return err
 			}
