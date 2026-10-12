@@ -163,6 +163,13 @@ type ComponentReleaseOwner struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ComponentName string `json:"componentName"`
+
+	// ReleaseLine names the ReleaseLine this resource belongs to.
+	// Required when the component has releaseLinesEnabled; must be empty otherwise.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 func init() {

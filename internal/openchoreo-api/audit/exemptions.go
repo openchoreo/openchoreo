@@ -99,6 +99,8 @@ var RESTExemptions = map[string]string{
 	"ListClusterTraits":                           reasonRead,
 	"ListClusterWorkflowPlanes":                   reasonRead,
 	"ListClusterWorkflows":                        reasonRead,
+	"ListComponentReleaseLines":                   reasonRead,
+	"GetComponentReleaseLine":                     reasonRead,
 	"ListComponentReleases":                       reasonRead,
 	"ListComponentTypes":                          reasonRead,
 	"ListComponents":                              reasonRead,

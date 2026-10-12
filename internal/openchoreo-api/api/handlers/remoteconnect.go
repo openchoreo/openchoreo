@@ -876,7 +876,7 @@ func (r *resolvedResource) grant(ref, outputName string, o openchoreov1alpha1.Re
 	return grant, ""
 }
 
-// findReleaseBinding lists ReleaseBindings in the namespace and returns the single one
+// findReleaseBinding lists ReleaseBindings in the namespace and returns the single one without a release line
 // matching (project, component, environment) that is not being undeployed. The API
 // server's client is uncached with no field indexes, so we list + filter in memory.
 func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, project, component, env string) (*openchoreov1alpha1.ReleaseBinding, error) {
@@ -887,7 +887,8 @@ func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, proje
 	var match *openchoreov1alpha1.ReleaseBinding
 	for i := range list.Items {
 		rb := &list.Items[i]
-		if rb.Spec.Owner.ProjectName != project || rb.Spec.Owner.ComponentName != component || rb.Spec.Environment != env {
+		if rb.Spec.Owner.ProjectName != project || rb.Spec.Owner.ComponentName != component || rb.Spec.Environment != env ||
+			rb.Spec.Owner.ReleaseLine != "" {
 			continue
 		}
 		if rb.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {

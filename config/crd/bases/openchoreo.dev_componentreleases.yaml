@@ -500,6 +500,13 @@ spec:
                       this component
                     minLength: 1
                     type: string
+                  releaseLine:
+                    description: |-
+                      ReleaseLine names the ReleaseLine this resource belongs to.
+                      Required when the component has releaseLinesEnabled; must be empty otherwise.
+                    maxLength: 63
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                 required:
                 - componentName
                 - projectName
@@ -1095,6 +1102,14 @@ spec:
                                 Project is the target component's project name.
                                 If empty, defaults to the same project as the consumer.
                                 Required when namespace is specified.
+                              type: string
+                            releaseLine:
+                              description: |-
+                                ReleaseLine is the target component's release line.
+                                Required when the target has releaseLinesEnabled; must be empty otherwise.
+                                It never follows the consumer's own line.
+                              maxLength: 63
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                             visibility:
                               description: Visibility is the visibility level at which

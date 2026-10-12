@@ -72,6 +72,9 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 	}
 	rb.Labels[labels.LabelKeyProjectName] = rb.Spec.Owner.ProjectName
 	rb.Labels[labels.LabelKeyComponentName] = rb.Spec.Owner.ComponentName
+	if rb.Spec.Owner.ReleaseLine != "" {
+		rb.Labels[labels.LabelKeyReleaseLine] = rb.Spec.Owner.ReleaseLine
+	}
 
 	if err := s.k8sClient.Create(ctx, rb); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -124,6 +127,9 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 	}
 	existing.Labels[labels.LabelKeyProjectName] = existing.Spec.Owner.ProjectName
 	existing.Labels[labels.LabelKeyComponentName] = existing.Spec.Owner.ComponentName
+	if existing.Spec.Owner.ReleaseLine != "" {
+		existing.Labels[labels.LabelKeyReleaseLine] = existing.Spec.Owner.ReleaseLine
+	}
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		if vErr := services.ExtractValidationError(err); vErr != nil {

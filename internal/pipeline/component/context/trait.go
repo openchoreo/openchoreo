@@ -104,6 +104,9 @@ func makeTraitContext(input *TraitContextInput, parameters, envConfigs map[strin
 	if metadata.PodSelectors == nil {
 		metadata.PodSelectors = make(map[string]string)
 	}
+	if metadata.ReleaseLineName == "" {
+		metadata.ReleaseLineName = metadata.ComponentName
+	}
 
 	ctx := &TraitContext{
 		Parameters:         parameters,
@@ -122,7 +125,7 @@ func makeTraitContext(input *TraitContextInput, parameters, envConfigs map[strin
 	ctx.Configurations = base.Configurations
 	ctx.Dependencies = newDependenciesContextData(base.Dependencies)
 
-	prefix := base.Metadata.ComponentName + "-" + base.Metadata.EnvironmentName
+	prefix := ctx.Metadata.ReleaseLineName + "-" + base.Metadata.EnvironmentName
 	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, base.EndpointResources)
 
 	return ctx

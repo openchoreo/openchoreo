@@ -30,11 +30,11 @@ func newExecHandler(t *testing.T, pdp *testutil.CapturingPDP, objs ...client.Obj
 	}
 }
 
-// execComponent builds a minimal Component owned by the given project, enough for
+// execComponent builds a minimal Component in namespace "default" owned by the given project, enough for
 // the handler to resolve the component's owning project before authorizing.
-func execComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+func execComponent(name, project string) *openchoreov1alpha1.Component {
 	return &openchoreov1alpha1.Component{
-		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: name},
 		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
 		},
@@ -48,7 +48,7 @@ func execComponent(namespace, name, project string) *openchoreov1alpha1.Componen
 
 func TestExecHandler_AuthzEnvironmentContext_ExplicitEnv(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp, execComponent("default", "greeter-service", "default"))
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?env=development&project=default",
@@ -84,7 +84,7 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 			}},
 		},
 	}
-	h := newExecHandler(t, pdp, proj, pipeline, execComponent("default", "greeter-service", "default"))
+	h := newExecHandler(t, pdp, proj, pipeline, execComponent("greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?project=default",
@@ -103,7 +103,7 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 // victim-svc is owned by team-b; the caller claims team-a.
 func TestExecHandler_DeniesComponentProjectMismatch(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
+	h := newExecHandler(t, pdp, execComponent("victim-svc", "team-b"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/victim-svc?env=development&project=team-a",
@@ -130,4 +130,40 @@ func TestExecHandler_ComponentNotFound(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), `component "ghost" not found`)
 	require.Empty(t, pdp.Captured, "authz must not run for a non-existent component")
+}
+
+func TestExecPodSelector(t *testing.T) {
+	require.Equal(t,
+		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default",
+		execPodSelector("default", "hello", "development", ""))
+	require.Equal(t,
+		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default,openchoreo.dev/release-line=next",
+		execPodSelector("default", "hello", "development", "next"))
+}
+
+func TestExecHandler_ReleaseLineMismatch(t *testing.T) {
+	lined := execComponent("hello", "default")
+	lined.Spec.ReleaseLinesEnabled = true
+
+	cases := []struct {
+		name, component, query, want string
+		objs                         []client.Object
+	}{
+		{"line required", "hello", "", `component "hello" uses release lines; a release line is required`, []client.Object{lined}},
+		{"lines not enabled", "greeter", "&releaseLine=next", `component "greeter" does not have release lines enabled`,
+			[]client.Object{execComponent("greeter", "default")}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newExecHandler(t, testutil.AllowPDP(), tc.objs...)
+			req := httptest.NewRequest(http.MethodGet,
+				"/exec/namespaces/default/components/"+tc.component+"?env=development&project=default"+tc.query,
+				nil).WithContext(testutil.AuthzContext())
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Contains(t, rec.Body.String(), tc.want)
+		})
+	}
 }

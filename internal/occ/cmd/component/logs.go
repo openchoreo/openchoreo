@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -26,8 +28,12 @@ func (cp *Component) Logs(params LogsParams) error {
 	apiClient := cp.client
 
 	// Verify the component exists
-	if _, err := apiClient.GetComponent(ctx, params.Namespace, params.Component); err != nil {
+	comp, err := apiClient.GetComponent(ctx, params.Namespace, params.Component)
+	if err != nil {
 		return fmt.Errorf("failed to get component: %w", err)
+	}
+	if params.ReleaseLine != "" && (comp.Spec == nil || comp.Spec.ReleaseLinesEnabled == nil || !*comp.Spec.ReleaseLinesEnabled) {
+		return fmt.Errorf("component '%s' does not have release lines enabled", params.Component)
 	}
 
 	// If environment not specified, get the lowest environment from deployment pipeline
@@ -116,7 +122,7 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	printLogs(logs, params.Container)
+	printLogs(logs, params)
 
 	return nil
 }
@@ -142,10 +148,26 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 	return filtered
 }
 
-// printLogs prints the entries, restricting to a single container when requested.
-func printLogs(logs []client.LogEntry, container string) {
-	if container != "" {
-		logs = filterLogsByContainer(logs, container)
+// filterLogsByReleaseLine keeps only entries from pods of the line's workload, whose names start
+// with the workload name the platform derives for the line in the environment.
+func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string) []client.LogEntry {
+	prefix := dpkubernetes.GenerateK8sName(component, line, env) + "-"
+	filtered := make([]client.LogEntry, 0, len(logs))
+	for _, log := range logs {
+		if log.Metadata != nil && strings.HasPrefix(log.Metadata.PodName, prefix) {
+			filtered = append(filtered, log)
+		}
+	}
+	return filtered
+}
+
+// printLogs prints the entries, restricting to a release line and a single container when requested.
+func printLogs(logs []client.LogEntry, params LogsParams) {
+	if params.ReleaseLine != "" {
+		logs = filterLogsByReleaseLine(logs, params.Component, params.ReleaseLine, params.Environment)
+	}
+	if params.Container != "" {
+		logs = filterLogsByContainer(logs, params.Container)
 	}
 	for _, log := range logs {
 		printLogEntry(log)
@@ -185,7 +207,7 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	printLogs(logs, params.Container)
+	printLogs(logs, params)
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
@@ -223,7 +245,7 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			printLogs(logs, params.Container)
+			printLogs(logs, params)
 
 			// Update startTime
 			if len(logs) > 0 {

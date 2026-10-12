@@ -154,8 +154,9 @@ func newCreateWorkloadBody() *gen.Workload {
 		Metadata: gen.ObjectMeta{Name: "new-wl"},
 		Spec: &gen.WorkloadSpec{
 			Owner: &struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ProjectName:   "my-proj",
 				ComponentName: "my-comp",

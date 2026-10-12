@@ -67,8 +67,9 @@ func validReleaseBindingBody(name string) *gen.ReleaseBinding {
 		Metadata: gen.ObjectMeta{Name: name},
 		Spec: &gen.ReleaseBindingSpec{
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ProjectName:   "test-proj",
 				ComponentName: "test-comp",

@@ -95,6 +95,7 @@ var apiResourceCategories = map[string]string{
 	"projectreleasebindings":                  "CategoryManagement",
 	"projecttypes":                            "CategoryManagement",
 	"releasebindings":                         "CategoryManagement",
+	"releaselines":                            "CategoryManagement",
 	"resources":                               "CategoryManagement",
 	"resourcereleases":                        "CategoryManagement",
 	"resourcereleasebindings":                 "CategoryManagement",

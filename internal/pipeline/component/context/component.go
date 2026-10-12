@@ -63,12 +63,15 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	if ctx.Metadata.PodSelectors == nil {
 		ctx.Metadata.PodSelectors = make(map[string]string)
 	}
+	if ctx.Metadata.ReleaseLineName == "" {
+		ctx.Metadata.ReleaseLineName = ctx.Metadata.ComponentName
+	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
 	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
 	ctx.Gateway = ctx.Environment.Gateway
 
-	prefix := input.Metadata.ComponentName + "-" + input.Metadata.EnvironmentName
+	prefix := ctx.Metadata.ReleaseLineName + "-" + input.Metadata.EnvironmentName
 	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, input.EndpointResources)
 
 	return ctx, nil

@@ -31,6 +31,7 @@ func NewComponentCmd(f client.NewClientFunc) *cobra.Command {
 		newExecCmd(f),
 		newWorkflowCmd(f),
 		newWorkflowRunCmd(f),
+		newReleaseLineCmd(f),
 	)
 	return cmd
 }
@@ -185,7 +186,13 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
   occ component deploy api-service --namespace acme-corp --project online-store
 
   # Promote to a specific environment
-  occ component deploy api-service --namespace acme-corp --project online-store --to staging`,
+  occ component deploy api-service --namespace acme-corp --project online-store --to staging
+
+  # Promote a release line of a component that uses release lines
+  occ component deploy api-service --release-line next --to staging
+
+  # Roll a release line back to an earlier release in an environment
+  occ component deploy api-service --release-line next --to staging --release api-service-next-20260101-1`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -200,6 +207,7 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 				Release:       flags.GetRelease(cmd),
 				To:            flags.GetTo(cmd),
 				Set:           flags.GetSet(cmd),
+				ReleaseLine:   flags.GetReleaseLine(cmd),
 			})
 		},
 	}
@@ -208,6 +216,7 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 	flags.AddRelease(cmd)
 	flags.AddTo(cmd)
 	flags.AddSet(cmd)
+	flags.AddReleaseLine(cmd)
 	return cmd
 }
 
@@ -227,7 +236,10 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   occ component logs my-component --container main
 
   # Follow logs in real-time
-  occ component logs my-component --env dev -f`,
+  occ component logs my-component --env dev -f
+
+  # Get logs of one release line of a component
+  occ component logs my-component --release-line next`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -245,6 +257,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				Container:   container,
 				Follow:      flags.GetFollow(cmd),
 				Since:       flags.GetSince(cmd),
+				ReleaseLine: flags.GetReleaseLine(cmd),
 				Tail:        tail,
 			})
 		},
@@ -257,6 +270,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
+	flags.AddReleaseLine(cmd)
 	return cmd
 }
 
@@ -275,7 +289,10 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   occ component exec my-service -- ls /app
 
   # Specify environment and container
-  occ component exec my-service --env dev --container app -- curl localhost:8080/health`,
+  occ component exec my-service --env dev --container app -- curl localhost:8080/health
+
+  # Shell into a pod of one release line of a component
+  occ component exec my-service --release-line next`,
 		Args:    cobra.MinimumNArgs(1),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -308,6 +325,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				Project:     flags.GetProject(cmd),
 				Component:   componentName,
 				Environment: flags.GetEnvironment(cmd),
+				ReleaseLine: flags.GetReleaseLine(cmd),
 				Pod:         pod,
 				Container:   container,
 				Command:     command,
@@ -319,6 +337,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddEnvironment(cmd)
+	flags.AddReleaseLine(cmd)
 	cmd.Flags().String("pod", "", "Pod name to exec into (defaults to any ready pod)")
 	cmd.Flags().StringP("container", "c", "", "Container name to exec into (defaults to first container)")
 	cmd.Flags().BoolP("tty", "t", false, "Allocate a pseudo-TTY")
@@ -346,7 +365,10 @@ func newStartWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 		Short: "Run a component's workflow",
 		Long:  `Run a workflow for a component using its configured workflow.`,
 		Example: `  # Run workflow for a component
-  occ component workflow run my-service --namespace acme-corp`,
+  occ component workflow run my-service --namespace acme-corp
+
+  # Run workflow for a release line of a component
+  occ component workflow run my-service --release-line my-service-v2 --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -358,12 +380,14 @@ func newStartWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 				Namespace:     flags.GetNamespace(cmd),
 				ComponentName: args[0],
 				Project:       flags.GetProject(cmd),
+				ReleaseLine:   flags.GetReleaseLine(cmd),
 				Set:           flags.GetSet(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
+	flags.AddReleaseLine(cmd)
 	flags.AddSet(cmd)
 	return cmd
 }
@@ -431,6 +455,95 @@ func newListWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 			return New(cl).ListWorkflowRuns(ListWorkflowRunsParams{
 				Namespace:     flags.GetNamespace(cmd),
 				ComponentName: args[0],
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newReleaseLineCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "releaseline",
+		Aliases: []string{"releaselines", "rl"},
+		Short:   "Manage component release lines",
+		Long:    `Manage release lines for a component.`,
+	}
+	cmd.AddCommand(newListReleaseLineCmd(f), newGetReleaseLineCmd(f), newDeleteReleaseLineCmd(f))
+	return cmd
+}
+
+func newListReleaseLineCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list [COMPONENT_NAME]",
+		Short: "List release lines for a component",
+		Long:  `List all release lines for a component.`,
+		Example: `  # List release lines for a component
+  occ component releaseline list my-component --namespace acme-corp
+
+  # Create or update release lines from a file
+  occ apply -f release-lines.yaml`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).ListReleaseLines(ListReleaseLinesParams{
+				Namespace:     flags.GetNamespace(cmd),
+				ComponentName: args[0],
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newGetReleaseLineCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get COMPONENT_NAME RELEASE_LINE_NAME",
+		Short: "Get a release line of a component",
+		Long:  `Get a release line of a component and display its details, including its status per environment, in YAML format.`,
+		Example: `  # Get a release line of a component
+  occ component releaseline get my-component next --namespace acme-corp`,
+		Args:    cobra.ExactArgs(2),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).GetReleaseLine(ReleaseLineParams{
+				Namespace:       flags.GetNamespace(cmd),
+				ComponentName:   args[0],
+				ReleaseLineName: args[1],
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newDeleteReleaseLineCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete COMPONENT_NAME RELEASE_LINE_NAME",
+		Short: "Delete a release line of a component",
+		Long: `Delete a release line of a component.
+The line is undeployed from every environment, and its releases and Workload are removed.`,
+		Example: `  # Delete a release line of a component
+  occ component releaseline delete my-component next --namespace acme-corp`,
+		Args:    cobra.ExactArgs(2),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).DeleteReleaseLine(ReleaseLineParams{
+				Namespace:       flags.GetNamespace(cmd),
+				ComponentName:   args[0],
+				ReleaseLineName: args[1],
 			})
 		},
 	}

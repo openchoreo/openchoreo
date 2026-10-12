@@ -291,8 +291,9 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 		createReq := &gen.ReleaseBindingSpec{
 			Environment: args.Environment,
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ComponentName: args.ComponentName,
 				ProjectName:   args.ProjectName,

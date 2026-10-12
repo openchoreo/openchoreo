@@ -23,6 +23,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
@@ -71,13 +72,14 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	envName := query.Get("env")
 	container := query.Get("container")
 	podName := query.Get("pod")
+	releaseLine := query.Get("releaseLine")
 	commands := query["command"]
 	tty := query.Get("tty") == "true"
 	stdin := query.Get("stdin") == "true"
 
 	ctx := r.Context()
 	logger := h.logger.With("namespace", namespace, "component", componentName)
-	logger.Info("Exec request received", "env", envName, "pod", podName, "container", container)
+	logger.Info("Exec request received", "env", envName, "releaseLine", releaseLine, "pod", podName, "container", container)
 
 	// The exec route is a bare subtree pattern with no named wildcards, so
 	// there's no RESTResourceParam to seed resource.namespace/name
@@ -153,7 +155,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve the pod to exec into
-	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, effectiveEnv, podName)
+	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, effectiveEnv, podName, releaseLine)
 	if err != nil {
 		status := http.StatusBadRequest
 		var infraErr *execInfraError
@@ -310,8 +312,9 @@ func (h *ExecHandler) resolveComponentProject(ctx context.Context, namespace, co
 }
 
 // resolvePod resolves the target pod for exec by traversing:
-// component → environment → dataplane → pod (specific pod if podName set, else first Ready pod)
-func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName, podName string) (*execPodInfo, error) {
+// component → environment → dataplane → pod (specific pod if podName set, else first Ready pod).
+// For a component with release lines, only pods of releaseLine are considered.
+func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName, podName, releaseLine string) (*execPodInfo, error) {
 	// Verify the component exists
 	comp := &openchoreov1alpha1.Component{}
 	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: componentName}, comp); err != nil {
@@ -319,6 +322,12 @@ func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, 
 			return nil, fmt.Errorf("component %q not found in namespace %q", componentName, namespace)
 		}
 		return nil, infraErrorf("failed to look up component %q: %w", componentName, err)
+	}
+	switch {
+	case comp.Spec.ReleaseLinesEnabled && releaseLine == "":
+		return nil, fmt.Errorf("component %q uses release lines; a release line is required", componentName)
+	case !comp.Spec.ReleaseLinesEnabled && releaseLine != "":
+		return nil, fmt.Errorf("component %q does not have release lines enabled", componentName)
 	}
 
 	// Resolve environment — if not specified, derive from the project's deployment pipeline.
@@ -370,9 +379,9 @@ func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, 
 	var resolvedNamespace, resolvedPodName string
 	var resolvedContainers []string
 	if podName != "" {
-		resolvedNamespace, resolvedPodName, resolvedContainers, err = h.findNamedPod(ctx, plane, namespace, componentName, envName, podName)
+		resolvedNamespace, resolvedPodName, resolvedContainers, err = h.findNamedPod(ctx, plane, namespace, componentName, envName, releaseLine, podName)
 	} else {
-		resolvedNamespace, resolvedPodName, resolvedContainers, err = h.findReadyPod(ctx, plane, namespace, componentName, envName)
+		resolvedNamespace, resolvedPodName, resolvedContainers, err = h.findReadyPod(ctx, plane, namespace, componentName, envName, releaseLine)
 	}
 	if err != nil {
 		return nil, err
@@ -435,16 +444,13 @@ func containerNamesFrom(pod podListItem) []string {
 }
 
 // findReadyPod lists pods via the gateway K8s proxy and returns the first Ready pod.
-func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName string) (string, string, []string, error) {
+func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName, releaseLine string) (string, string, []string, error) {
 	if h.gatewayClient == nil {
 		return "", "", nil, fmt.Errorf("gateway client is not configured")
 	}
 
 	q := url.Values{}
-	q.Set("labelSelector", fmt.Sprintf(
-		"openchoreo.dev/component=%s,openchoreo.dev/environment=%s,openchoreo.dev/namespace=%s",
-		componentName, envName, namespace,
-	))
+	q.Set("labelSelector", execPodSelector(namespace, componentName, envName, releaseLine))
 	q.Set("limit", execPodListLimit)
 
 	resp, err := h.gatewayClient.ProxyK8sRequest(ctx, plane.planeType, plane.planeID, plane.crNamespace, plane.crName, "api/v1/pods", q.Encode())
@@ -491,19 +497,26 @@ func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, nam
 	return "", "", nil, fmt.Errorf("no running pods found for component %q in environment %q", componentName, envName)
 }
 
+// execPodSelector selects the pods of a component (and of one of its release lines, when set) in an environment.
+func execPodSelector(namespace, componentName, envName, releaseLine string) string {
+	selector := fmt.Sprintf("%s=%s,%s=%s,%s=%s",
+		labels.LabelKeyComponentName, componentName, labels.LabelKeyEnvironmentName, envName, labels.LabelKeyNamespaceName, namespace)
+	if releaseLine != "" {
+		selector += fmt.Sprintf(",%s=%s", labels.LabelKeyReleaseLine, releaseLine)
+	}
+	return selector
+}
+
 // findNamedPod finds a specific pod by name and verifies it belongs to the component and is ready.
 // It uses only a label selector (not fieldSelector) because the gateway proxy may not support
 // fieldSelector passthrough — pod name matching is done in application code.
-func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName, podName string) (string, string, []string, error) {
+func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName, releaseLine, podName string) (string, string, []string, error) {
 	if h.gatewayClient == nil {
 		return "", "", nil, fmt.Errorf("gateway client is not configured")
 	}
 
 	q := url.Values{}
-	q.Set("labelSelector", fmt.Sprintf(
-		"openchoreo.dev/component=%s,openchoreo.dev/environment=%s,openchoreo.dev/namespace=%s",
-		componentName, envName, namespace,
-	))
+	q.Set("labelSelector", execPodSelector(namespace, componentName, envName, releaseLine))
 	q.Set("limit", execPodListLimit)
 
 	resp, err := h.gatewayClient.ProxyK8sRequest(ctx, plane.planeType, plane.planeID, plane.crNamespace, plane.crName, "api/v1/pods", q.Encode())

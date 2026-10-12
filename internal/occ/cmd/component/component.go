@@ -23,6 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
 )
 
@@ -79,6 +80,10 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 
 	ctx := context.Background()
 
+	if params.ReleaseLine != "" {
+		return cp.startReleaseLineWorkflow(ctx, params)
+	}
+
 	comp, err := cp.client.GetComponent(ctx, params.Namespace, params.ComponentName)
 	if err != nil {
 		return err
@@ -119,6 +124,22 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 	})
 }
 
+// startReleaseLineWorkflow runs the component's workflow for a release line; the API server applies
+// the line's workflow parameter overrides.
+func (cp *Component) startReleaseLineWorkflow(ctx context.Context, params StartWorkflowParams) error {
+	if len(params.Set) > 0 {
+		return fmt.Errorf("--set cannot be combined with --release-line; set workflow parameters on the ReleaseLine")
+	}
+	releaseLine := params.ReleaseLine
+	run, err := cp.client.CreateComponentWorkflowRun(ctx, params.Namespace, params.ComponentName,
+		gen.CreateComponentWorkflowRunRequest{ReleaseLine: &releaseLine})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Successfully started workflow run: %s\n", run.Metadata.Name)
+	return nil
+}
+
 // ListWorkflowRuns lists workflow runs filtered by component name.
 func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 	if params.Namespace == "" {
@@ -135,6 +156,71 @@ func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 
 	filtered := workflowrun.FilterByComponent(items, params.ComponentName)
 	return workflowrun.PrintList(filtered)
+}
+
+// ListReleaseLines lists the release lines of a component
+func (cp *Component) ListReleaseLines(params ListReleaseLinesParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.ComponentName == "" {
+		return fmt.Errorf("component name is required")
+	}
+
+	ctx := context.Background()
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ReleaseLine, string, error) {
+		p := &gen.ListComponentReleaseLinesParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := cp.client.ListComponentReleaseLines(ctx, params.Namespace, params.ComponentName, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
+	if err != nil {
+		return err
+	}
+	return printReleaseLines(items)
+}
+
+// GetReleaseLine retrieves a release line of a component and outputs it as YAML
+func (cp *Component) GetReleaseLine(params ReleaseLineParams) error {
+	if err := cmdutil.RequireFields("get", "releaseline", map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+
+	result, err := cp.client.GetComponentReleaseLine(context.Background(), params.Namespace, params.ComponentName, params.ReleaseLineName)
+	if err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal release line to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// DeleteReleaseLine deletes a release line of a component
+func (cp *Component) DeleteReleaseLine(params ReleaseLineParams) error {
+	if err := cmdutil.RequireFields("delete", "releaseline", map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+
+	if err := cp.client.DeleteComponentReleaseLine(context.Background(), params.Namespace, params.ComponentName, params.ReleaseLineName); err != nil {
+		return err
+	}
+
+	fmt.Printf("Release line '%s' of component '%s' deleted\n", params.ReleaseLineName, params.ComponentName)
+	return nil
 }
 
 // Get retrieves a single component and outputs it as YAML
@@ -189,6 +275,10 @@ func (cp *Component) Deploy(params DeployParams) error {
 
 	ctx := context.Background()
 
+	if err := cp.checkReleaseLine(ctx, params.Namespace, params.ComponentName, params.ReleaseLine); err != nil {
+		return err
+	}
+
 	var err error
 	var binding *gen.ReleaseBinding
 
@@ -226,7 +316,7 @@ func (cp *Component) deployComponent(ctx context.Context, c client.Interface, pa
 
 	// If no release specified, generate a new one
 	if releaseName == "" {
-		release, err := c.GenerateRelease(ctx, params.Namespace, params.ComponentName, gen.GenerateReleaseRequest{})
+		release, err := c.GenerateRelease(ctx, params.Namespace, params.ComponentName, gen.GenerateReleaseRequest{ReleaseLine: optionalString(params.ReleaseLine)})
 		if err != nil {
 			return nil, err
 		}
@@ -246,18 +336,20 @@ func (cp *Component) deployComponent(ctx context.Context, c client.Interface, pa
 	}
 
 	// Build the ReleaseBinding
-	bindingName := fmt.Sprintf("%s-%s", params.ComponentName, lowestEnv)
+	bindingName := releaseline.ScopedName(params.ComponentName, params.ReleaseLine, lowestEnv)
 	rb := gen.ReleaseBinding{
 		Metadata: gen.ObjectMeta{
 			Name: bindingName,
 		},
 		Spec: &gen.ReleaseBindingSpec{
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ComponentName: params.ComponentName,
 				ProjectName:   params.Project,
+				ReleaseLine:   optionalString(params.ReleaseLine),
 			},
 			Environment: lowestEnv,
 			ReleaseName: &releaseName,
@@ -318,22 +410,28 @@ func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, p
 		return nil, err
 	}
 
-	var releaseName string
-	for _, b := range sourceBindings.Items {
-		if b.Spec != nil && b.Spec.Environment == sourceEnv &&
-			b.Spec.Owner.ComponentName == params.ComponentName {
-			if b.Spec.ReleaseName != nil {
-				releaseName = *b.Spec.ReleaseName
+	releaseName := params.Release
+	if releaseName == "" {
+		for _, b := range sourceBindings.Items {
+			if b.Spec != nil && b.Spec.Environment == sourceEnv &&
+				b.Spec.Owner.ComponentName == params.ComponentName &&
+				derefString(b.Spec.Owner.ReleaseLine) == params.ReleaseLine {
+				if b.Spec.ReleaseName != nil {
+					releaseName = *b.Spec.ReleaseName
+				}
+				break
 			}
-			break
 		}
 	}
 	if releaseName == "" {
+		if params.ReleaseLine != "" {
+			return nil, fmt.Errorf("no release binding found for release line '%s' in source environment '%s'", params.ReleaseLine, sourceEnv)
+		}
 		return nil, fmt.Errorf("no release binding found for source environment '%s'", sourceEnv)
 	}
 
 	// Check if a binding already exists for the target environment
-	bindingName := fmt.Sprintf("%s-%s", params.ComponentName, params.To)
+	bindingName := releaseline.ScopedName(params.ComponentName, params.ReleaseLine, params.To)
 	existing, err := c.GetReleaseBinding(ctx, params.Namespace, bindingName)
 	if err != nil {
 		return nil, err
@@ -362,11 +460,13 @@ func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, p
 		},
 		Spec: &gen.ReleaseBindingSpec{
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ComponentName: params.ComponentName,
 				ProjectName:   params.Project,
+				ReleaseLine:   optionalString(params.ReleaseLine),
 			},
 			Environment: params.To,
 			ReleaseName: &releaseName,
@@ -383,6 +483,36 @@ func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, p
 	}
 
 	return c.CreateReleaseBinding(ctx, params.Namespace, rb)
+}
+
+// checkReleaseLine requires a release line exactly when the component has release lines enabled.
+func (cp *Component) checkReleaseLine(ctx context.Context, namespace, componentName, line string) error {
+	comp, err := cp.client.GetComponent(ctx, namespace, componentName)
+	if err != nil {
+		return err
+	}
+	enabled := comp.Spec != nil && comp.Spec.ReleaseLinesEnabled != nil && *comp.Spec.ReleaseLinesEnabled
+	switch {
+	case enabled && line == "":
+		return fmt.Errorf("component '%s' uses release lines; set --release-line", componentName)
+	case !enabled && line != "":
+		return fmt.Errorf("component '%s' does not have release lines enabled", componentName)
+	}
+	return nil
+}
+
+func optionalString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // scaffoldResolution holds the resolved scope information for scaffold parameters.
@@ -669,5 +799,37 @@ func printList(items []gen.Component, showProject bool) error {
 		}
 	}
 
+	return w.Flush()
+}
+
+func printReleaseLines(items []gen.ReleaseLine) error {
+	if len(items) == 0 {
+		fmt.Println("No release lines found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tENVIRONMENT\tRELEASE\tREADY\tAGE")
+	for _, rl := range items {
+		age := ""
+		if rl.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*rl.Metadata.CreationTimestamp)
+		}
+		var envs []gen.ReleaseLineEnvironment
+		if rl.Status != nil && rl.Status.Environments != nil {
+			envs = *rl.Status.Environments
+		}
+		if len(envs) == 0 {
+			fmt.Fprintf(w, "%s\t-\t-\t-\t%s\n", rl.Metadata.Name, age)
+			continue
+		}
+		for _, env := range envs {
+			ready := "False"
+			if env.Ready != nil && *env.Ready {
+				ready = "True"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", rl.Metadata.Name, env.Environment, derefString(env.Release), ready, age)
+		}
+	}
 	return w.Flush()
 }

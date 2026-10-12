@@ -78,6 +78,13 @@ spec:
                       this component
                     minLength: 1
                     type: string
+                  releaseLine:
+                    description: |-
+                      ReleaseLine names the ReleaseLine this resource belongs to.
+                      Required when the component has releaseLinesEnabled; must be empty otherwise.
+                    maxLength: 63
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                 required:
                 - componentName
                 - projectName
@@ -300,6 +307,10 @@ spec:
                       description: Project is the name of the project that owns the
                         target component.
                       minLength: 1
+                      type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for components without release lines.
                       type: string
                     visibility:
                       description: Visibility is the desired visibility level for
@@ -605,6 +616,10 @@ spec:
                       description: Reason describes why the connection could not be
                         resolved.
                       type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for components without release lines.
+                      type: string
                   required:
                   - component
                   - endpoint
@@ -673,6 +688,10 @@ spec:
                       description: Project is the name of the project that owns the
                         target component.
                       minLength: 1
+                      type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for components without release lines.
                       type: string
                     url:
                       description: URL is the resolved endpoint URL.

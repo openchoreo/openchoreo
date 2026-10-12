@@ -25,6 +25,10 @@ type ConnectionTarget struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
+	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// +optional
+	ReleaseLine string `json:"releaseLine,omitempty"`
+
 	// Endpoint is the name of the endpoint on the target component.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -54,6 +58,10 @@ type ResolvedConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
+	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// +optional
+	ReleaseLine string `json:"releaseLine,omitempty"`
+
 	// Endpoint is the name of the endpoint on the target component.
 	// +kubebuilder:validation:MinLength=1
 	Endpoint string `json:"endpoint"`
@@ -78,6 +86,10 @@ type PendingConnection struct {
 	// Component is the name of the target component.
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
+
+	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// +optional
+	ReleaseLine string `json:"releaseLine,omitempty"`
 
 	// Endpoint is the name of the endpoint on the target component.
 	// +kubebuilder:validation:MinLength=1
@@ -208,6 +220,13 @@ type ReleaseBindingOwner struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ComponentName string `json:"componentName"`
+
+	// ReleaseLine names the ReleaseLine this resource belongs to.
+	// Required when the component has releaseLinesEnabled; must be empty otherwise.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 // EndpointURL represents a structured URL with its components.

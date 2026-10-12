@@ -740,8 +740,9 @@ func TestCreateReleaseBinding(t *testing.T) {
 	baseReq := &gen.ReleaseBindingSpec{
 		Environment: testEnvironmentName,
 		Owner: struct {
-			ComponentName string `json:"componentName"`
-			ProjectName   string `json:"projectName"`
+			ComponentName string  `json:"componentName"`
+			ProjectName   string  `json:"projectName"`
+			ReleaseLine   *string `json:"releaseLine,omitempty"`
 		}{ComponentName: testComponent, ProjectName: testProject},
 	}
 

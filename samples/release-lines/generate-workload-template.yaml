@@ -1,0 +1,347 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# The workload generation step for builds of components with release lines. It is the default
+# generate-workload step, except that a run with a release line publishes the Workload as
+# <component>-<release-line>-workload, owned by that release line.
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: release-line-generate-workload
+spec:
+  templates:
+    - name: generate-workload-cr
+      inputs:
+        parameters:
+          - name: image
+          - name: run-name
+          - name: source-commit
+            default: ""
+          - name: source-branch
+            default: ""
+          - name: source-repository
+            default: ""
+          - name: source-authored-at
+            default: ""
+          - name: openchoreo-cli-image
+            default: "cr.openchoreo.dev/openchoreo/openchoreo-cli:latest-dev"
+          # --- IDP / OAuth Configuration ---
+          # Update these when changing your identity provider or its public URL.
+          - name: oauth-token-url
+            default: "http://host.k3d.internal:8080/oauth2/token"
+          - name: oauth-host-header
+            default: "thunder.openchoreo.localhost"
+          - name: oauth-client-id
+            default: "openchoreo-workload-publisher-client"
+          # TODO: Mount the client secret from a Kubernetes secret instead of using a default value.
+          - name: oauth-client-secret
+            default: "openchoreo-workload-publisher-secret"
+          - name: oauth-scope
+            default: ""
+          # --- OpenChoreo API Server Configuration ---
+          # Update these when the API server URL or host changes.
+          - name: api-server-url
+            default: "http://host.k3d.internal:8080"
+          - name: api-server-host-header
+            default: "api.openchoreo.localhost"
+      volumes:
+        - name: tools
+          emptyDir: {}
+      initContainers:
+        - name: copy-occ
+          image: "{{inputs.parameters.openchoreo-cli-image}}"
+          command: [sh, -c, "mkdir -p /tools/bin && cp /usr/local/bin/occ /tools/bin/occ"]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
+      container:
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE
+            value: '{{inputs.parameters.image}}'
+          - name: RUN_NAME
+            value: '{{inputs.parameters.run-name}}'
+          - name: SOURCE_COMMIT
+            value: '{{inputs.parameters.source-commit}}'
+          - name: SOURCE_BRANCH
+            value: '{{inputs.parameters.source-branch}}'
+          - name: SOURCE_REPOSITORY
+            value: '{{inputs.parameters.source-repository}}'
+          - name: SOURCE_AUTHORED_AT
+            value: '{{inputs.parameters.source-authored-at}}'
+          - name: PROJECT_NAME
+            value: '{{workflow.parameters.project-name}}'
+          - name: COMPONENT_NAME
+            value: '{{workflow.parameters.component-name}}'
+          - name: RELEASE_LINE
+            value: '{{workflow.parameters.release-line}}'
+          - name: NAMESPACE_NAME
+            value: '{{workflow.parameters.namespace-name}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: OAUTH_URL
+            value: '{{inputs.parameters.oauth-token-url}}'
+          - name: OAUTH_HOST
+            value: '{{inputs.parameters.oauth-host-header}}'
+          - name: CLIENT_ID
+            value: '{{inputs.parameters.oauth-client-id}}'
+          - name: CLIENT_SECRET
+            value: '{{inputs.parameters.oauth-client-secret}}'
+          - name: OAUTH_SCOPE
+            value: '{{inputs.parameters.oauth-scope}}'
+          - name: API_URL
+            value: '{{inputs.parameters.api-server-url}}'
+          - name: API_HOST
+            value: '{{inputs.parameters.api-server-host-header}}'
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            export PATH="/tools/bin:${PATH}"
+            export HOME="/tmp/openchoreo"
+            mkdir -p "${HOME}"
+
+            WORK_DIR="/tmp/openchoreo-workload"
+            mkdir -p "${WORK_DIR}"
+            DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
+            OUTPUT_PATH="${WORK_DIR}/workload-cr.yaml"
+            WORKLOAD_JSON="${WORK_DIR}/workload-cr.json"
+
+            echo ">> Image: ${IMAGE}"
+            echo ">> occ version: $(occ version 2>/dev/null || echo 'unknown')"
+            echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
+            echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
+            if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              echo ">> Workload descriptor: found (${DESCRIPTOR_PATH}/workload.yaml)"
+            else
+              echo ">> Workload descriptor: not found (will generate default workload)"
+            fi
+
+            if [ ! -d "$DESCRIPTOR_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la /mnt/vol/source/
+              exit 1
+            fi
+
+            # --- Step 1: Generate workload CR using occ ---
+            WORKLOAD_FROM_SOURCE="false"
+            if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              WORKLOAD_FROM_SOURCE="true"
+              echo ">> Generating workload CR from workload descriptor"
+              cd "${DESCRIPTOR_PATH}"
+              occ workload create \
+                --namespace "${NAMESPACE_NAME}" \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                --descriptor "workload.yaml" \
+                --source-commit "${SOURCE_COMMIT}" \
+                --source-branch "${SOURCE_BRANCH}" \
+                --source-repository "${SOURCE_REPOSITORY}" \
+                --source-authored-at "${SOURCE_AUTHORED_AT}" \
+                -o "${OUTPUT_PATH}"
+            else
+              echo ">> Generating default workload CR"
+              cd "${DESCRIPTOR_PATH}"
+              occ workload create \
+                --namespace "${NAMESPACE_NAME}" \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                --source-commit "${SOURCE_COMMIT}" \
+                --source-branch "${SOURCE_BRANCH}" \
+                --source-repository "${SOURCE_REPOSITORY}" \
+                --source-authored-at "${SOURCE_AUTHORED_AT}" \
+                -o "${OUTPUT_PATH}"
+            fi
+
+            # --- Step 2: Convert workload CR YAML to JSON ---
+            yq -o=json 'del(.apiVersion) | del(.kind)' "${OUTPUT_PATH}" \
+              > "${WORK_DIR}/workload-cr-raw.json"
+            jq -c '.' "${WORK_DIR}/workload-cr-raw.json" \
+              > "${WORKLOAD_JSON}"
+
+            # --- Step 2b: Target the release line's workload ---
+            if [ -n "${RELEASE_LINE}" ]; then
+              echo ">> Release line: ${RELEASE_LINE}"
+              jq -c --arg component "${COMPONENT_NAME}" --arg line "${RELEASE_LINE}" \
+                '.metadata.name = ($component + "-" + $line + "-workload") | .spec.owner.releaseLine = $line' \
+                "${WORKLOAD_JSON}" > "${WORK_DIR}/workload-cr-line.json"
+              mv "${WORK_DIR}/workload-cr-line.json" "${WORKLOAD_JSON}"
+            fi
+
+            echo ">> Generated workload JSON payload:"
+            cat "${WORKLOAD_JSON}"
+
+            # --- Step 3: Get OAuth token ---
+            echo ">> Requesting OAuth token from ${OAUTH_URL}"
+            if [ -n "${OAUTH_SCOPE}" ]; then
+              TOKEN_RESPONSE=$(curl -s --fail-with-body \
+                -X POST "${OAUTH_URL}" \
+                -H "Host: ${OAUTH_HOST}" \
+                --data-urlencode "grant_type=client_credentials" \
+                --data-urlencode "client_id=${CLIENT_ID}" \
+                --data-urlencode "client_secret=${CLIENT_SECRET}" \
+                --data-urlencode "scope=${OAUTH_SCOPE}")
+            else
+              TOKEN_RESPONSE=$(curl -s --fail-with-body \
+                -X POST "${OAUTH_URL}" \
+                -H "Host: ${OAUTH_HOST}" \
+                --data-urlencode "grant_type=client_credentials" \
+                --data-urlencode "client_id=${CLIENT_ID}" \
+                --data-urlencode "client_secret=${CLIENT_SECRET}")
+            fi
+
+            ACCESS_TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+            if [ -z "${ACCESS_TOKEN}" ]; then
+              echo ">> Failed to get access token: ${TOKEN_RESPONSE}"
+              exit 1
+            fi
+
+            echo ">> Successfully obtained access token"
+
+            # --- Step 4: Create or update workload via API server ---
+            WORKLOAD_NAME=$(yq -r '.metadata.name' "${WORKLOAD_JSON}")
+
+            echo ">> Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads"
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X POST "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads" \
+              -H "Host: ${API_HOST}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              -d @"${WORKLOAD_JSON}")
+
+            HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+            BODY=$(echo "${RESPONSE}" | sed '$d')
+
+            if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
+              echo ">> Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
+            elif [ "${HTTP_CODE}" -eq 409 ]; then
+              if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
+                echo ">> Workload already exists, updating via PUT (full replace - source-defined)"
+                RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                  -d @"${WORKLOAD_JSON}")
+              else
+                echo ">> Workload already exists, updating only container image (auto-generated)"
+                GET_RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}")
+
+                GET_HTTP_CODE=$(echo "${GET_RESPONSE}" | tail -1)
+                GET_BODY=$(echo "${GET_RESPONSE}" | sed '$d')
+
+                if [ "${GET_HTTP_CODE}" -lt 200 ] || [ "${GET_HTTP_CODE}" -ge 300 ]; then
+                  echo ">> Failed to get existing workload (HTTP ${GET_HTTP_CODE}): ${GET_BODY}"
+                  exit 1
+                fi
+
+                echo "${GET_BODY}" > "${WORK_DIR}/workload-existing.json"
+                NEW_IMAGE=$(jq -r '.spec.container.image' "${WORKLOAD_JSON}")
+                NEW_SOURCE=$(jq -c '.spec.source // null' "${WORKLOAD_JSON}")
+
+                # spec.source must move with spec.container.image. Updating the image
+                # alone would leave the previous build's commit attached to the new
+                # one, which silently reports a wrong Lead Time for Changes; dropping
+                # it when this build has no provenance reports no lead time instead.
+                echo ">> Updating container image to: ${NEW_IMAGE}"
+                jq --arg img "${NEW_IMAGE}" --argjson src "${NEW_SOURCE}" \
+                  '.spec.container.image = $img | if $src == null then del(.spec.source) else .spec.source = $src end' \
+                  "${WORK_DIR}/workload-existing.json" \
+                  > "${WORK_DIR}/workload-merged.json"
+
+                RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                  -d @"${WORK_DIR}/workload-merged.json")
+              fi
+
+              HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+              BODY=$(echo "${RESPONSE}" | sed '$d')
+
+              if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
+                echo ">> Workload updated successfully (HTTP ${HTTP_CODE}): ${BODY}"
+              else
+                echo ">> Failed to update workload (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+            else
+              echo ">> Failed to create workload (HTTP ${HTTP_CODE}): ${BODY}"
+              exit 1
+            fi
+
+            # --- Step 5: Annotate the WorkflowRun with the workload CR ---
+            echo ">> Getting WorkflowRun ${RUN_NAME}"
+            WF_RUN_RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
+              -H "Host: ${API_HOST}" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}")
+
+            WF_RUN_HTTP_CODE=$(echo "${WF_RUN_RESPONSE}" | tail -1)
+            WF_RUN_BODY=$(echo "${WF_RUN_RESPONSE}" | sed '$d')
+
+            if [ "${WF_RUN_HTTP_CODE}" -lt 200 ] || [ "${WF_RUN_HTTP_CODE}" -ge 300 ]; then
+              echo ">> Failed to get WorkflowRun (HTTP ${WF_RUN_HTTP_CODE}): ${WF_RUN_BODY}"
+              exit 1
+            fi
+
+            echo "${WF_RUN_BODY}" > "${WORK_DIR}/workflowrun-get.json"
+
+            if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
+              jq --rawfile wl "${WORKLOAD_JSON}" \
+                '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "true"' \
+                "${WORK_DIR}/workflowrun-get.json" \
+                > "${WORK_DIR}/workflowrun-updated.json"
+            else
+              jq --rawfile wl "${WORKLOAD_JSON}" \
+                '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "false"' \
+                "${WORK_DIR}/workflowrun-get.json" \
+                > "${WORK_DIR}/workflowrun-updated.json"
+            fi
+
+            echo ">> Updating WorkflowRun with workload annotation"
+            UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
+              -H "Host: ${API_HOST}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              -d @"${WORK_DIR}/workflowrun-updated.json")
+
+            UPDATE_HTTP_CODE=$(echo "${UPDATE_RESPONSE}" | tail -1)
+            UPDATE_BODY=$(echo "${UPDATE_RESPONSE}" | sed '$d')
+
+            if [ "${UPDATE_HTTP_CODE}" -ge 200 ] && [ "${UPDATE_HTTP_CODE}" -lt 300 ]; then
+              echo ">> WorkflowRun annotated successfully (HTTP ${UPDATE_HTTP_CODE})"
+            else
+              echo ">> Failed to update WorkflowRun (HTTP ${UPDATE_HTTP_CODE}): ${UPDATE_BODY}"
+              exit 1
+            fi
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: tools
+            mountPath: /tools
+            readOnly: true

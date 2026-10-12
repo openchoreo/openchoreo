@@ -81,6 +81,12 @@ const (
 	ActionUpdateProjectReleaseBinding = "projectreleasebinding:update"
 	ActionDeleteProjectReleaseBinding = "projectreleasebinding:delete"
 
+	// ReleaseLine actions
+	ActionCreateReleaseLine = "releaseline:create"
+	ActionViewReleaseLine   = "releaseline:view"
+	ActionUpdateReleaseLine = "releaseline:update"
+	ActionDeleteReleaseLine = "releaseline:delete"
+
 	// ReleaseBinding actions
 	ActionCreateReleaseBinding = "releasebinding:create"
 	ActionViewReleaseBinding   = "releasebinding:view"
@@ -374,6 +380,12 @@ var systemActions = []Action{
 	{Name: ActionCreateProjectReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionUpdateProjectReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionDeleteProjectReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+
+	// ReleaseLine
+	{Name: ActionViewReleaseLine, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionCreateReleaseLine, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionUpdateReleaseLine, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionDeleteReleaseLine, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: ActionViewReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
