@@ -406,8 +406,32 @@ type ClientInterface interface {
 
 	GenerateRelease(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body GenerateReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListComponentReleaseLines request
+	ListComponentReleaseLines(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, params *ListComponentReleaseLinesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentReleaseLineWithBody request with any body
+	CreateComponentReleaseLineWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteComponentReleaseLine request
+	DeleteComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetComponentReleaseLine request
+	GetComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateComponentReleaseLineWithBody request with any body
+	UpdateComponentReleaseLineWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, body UpdateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetComponentSchema request
 	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentWorkflowRunWithBody request with any body
+	CreateComponentWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateComponentWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListComponentTypes request
 	ListComponentTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2279,8 +2303,116 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName NamespaceNam
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListComponentReleaseLines(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, params *ListComponentReleaseLinesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentReleaseLinesRequest(c.Server, namespaceName, componentName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentReleaseLineWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentReleaseLineRequestWithBody(c.Server, namespaceName, componentName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentReleaseLineRequest(c.Server, namespaceName, componentName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteComponentReleaseLineRequest(c.Server, namespaceName, componentName, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentReleaseLineRequest(c.Server, namespaceName, componentName, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponentReleaseLineWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentReleaseLineRequestWithBody(c.Server, namespaceName, componentName, releaseLineName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponentReleaseLine(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, body UpdateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentReleaseLineRequest(c.Server, namespaceName, componentName, releaseLineName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetComponentSchemaRequest(c.Server, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentWorkflowRunRequestWithBody(c.Server, namespaceName, componentName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentWorkflowRunRequest(c.Server, namespaceName, componentName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8479,6 +8611,312 @@ func NewGenerateReleaseRequestWithBody(server string, namespaceName NamespaceNam
 	return req, nil
 }
 
+// NewListComponentReleaseLinesRequest generates requests for ListComponentReleaseLines
+func NewListComponentReleaseLinesRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, params *ListComponentReleaseLinesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateComponentReleaseLineRequest calls the generic CreateComponentReleaseLine builder with application/json body
+func NewCreateComponentReleaseLineRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentReleaseLineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateComponentReleaseLineRequestWithBody(server, namespaceName, componentName, "application/json", bodyReader)
+}
+
+// NewCreateComponentReleaseLineRequestWithBody generates requests for CreateComponentReleaseLine with any type of body
+func NewCreateComponentReleaseLineRequestWithBody(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteComponentReleaseLineRequest generates requests for DeleteComponentReleaseLine
+func NewDeleteComponentReleaseLineRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "releaseLineName", runtime.ParamLocationPath, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetComponentReleaseLineRequest generates requests for GetComponentReleaseLine
+func NewGetComponentReleaseLineRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "releaseLineName", runtime.ParamLocationPath, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateComponentReleaseLineRequest calls the generic UpdateComponentReleaseLine builder with application/json body
+func NewUpdateComponentReleaseLineRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, body UpdateComponentReleaseLineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateComponentReleaseLineRequestWithBody(server, namespaceName, componentName, releaseLineName, "application/json", bodyReader)
+}
+
+// NewUpdateComponentReleaseLineRequestWithBody generates requests for UpdateComponentReleaseLine with any type of body
+func NewUpdateComponentReleaseLineRequestWithBody(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "releaseLineName", runtime.ParamLocationPath, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetComponentSchemaRequest generates requests for GetComponentSchema
 func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam) (*http.Request, error) {
 	var err error
@@ -8516,6 +8954,60 @@ func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNamePara
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateComponentWorkflowRunRequest calls the generic CreateComponentWorkflowRun builder with application/json body
+func NewCreateComponentWorkflowRunRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentWorkflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateComponentWorkflowRunRequestWithBody(server, namespaceName, componentName, "application/json", bodyReader)
+}
+
+// NewCreateComponentWorkflowRunRequestWithBody generates requests for CreateComponentWorkflowRun with any type of body
+func NewCreateComponentWorkflowRunRequestWithBody(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/workflowruns", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -15864,8 +16356,32 @@ type ClientWithResponsesInterface interface {
 
 	GenerateReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body GenerateReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*GenerateReleaseResp, error)
 
+	// ListComponentReleaseLinesWithResponse request
+	ListComponentReleaseLinesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, params *ListComponentReleaseLinesParams, reqEditors ...RequestEditorFn) (*ListComponentReleaseLinesResp, error)
+
+	// CreateComponentReleaseLineWithBodyWithResponse request with any body
+	CreateComponentReleaseLineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentReleaseLineResp, error)
+
+	CreateComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentReleaseLineResp, error)
+
+	// DeleteComponentReleaseLineWithResponse request
+	DeleteComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*DeleteComponentReleaseLineResp, error)
+
+	// GetComponentReleaseLineWithResponse request
+	GetComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseLineResp, error)
+
+	// UpdateComponentReleaseLineWithBodyWithResponse request with any body
+	UpdateComponentReleaseLineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentReleaseLineResp, error)
+
+	UpdateComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, body UpdateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentReleaseLineResp, error)
+
 	// GetComponentSchemaWithResponse request
 	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
+
+	// CreateComponentWorkflowRunWithBodyWithResponse request with any body
+	CreateComponentWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentWorkflowRunResp, error)
+
+	CreateComponentWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentWorkflowRunResp, error)
 
 	// ListComponentTypesWithResponse request
 	ListComponentTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*ListComponentTypesResp, error)
@@ -18608,6 +19124,141 @@ func (r GenerateReleaseResp) StatusCode() int {
 	return 0
 }
 
+type ListComponentReleaseLinesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseLineList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentReleaseLinesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentReleaseLinesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateComponentReleaseLineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ReleaseLine
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateComponentReleaseLineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateComponentReleaseLineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteComponentReleaseLineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteComponentReleaseLineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteComponentReleaseLineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetComponentReleaseLineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseLine
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentReleaseLineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentReleaseLineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateComponentReleaseLineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseLine
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateComponentReleaseLineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateComponentReleaseLineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetComponentSchemaResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -18628,6 +19279,33 @@ func (r GetComponentSchemaResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetComponentSchemaResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateComponentWorkflowRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *WorkflowRun
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateComponentWorkflowRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateComponentWorkflowRunResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -23055,6 +23733,67 @@ func (c *ClientWithResponses) GenerateReleaseWithResponse(ctx context.Context, n
 	return ParseGenerateReleaseResp(rsp)
 }
 
+// ListComponentReleaseLinesWithResponse request returning *ListComponentReleaseLinesResp
+func (c *ClientWithResponses) ListComponentReleaseLinesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, params *ListComponentReleaseLinesParams, reqEditors ...RequestEditorFn) (*ListComponentReleaseLinesResp, error) {
+	rsp, err := c.ListComponentReleaseLines(ctx, namespaceName, componentName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentReleaseLinesResp(rsp)
+}
+
+// CreateComponentReleaseLineWithBodyWithResponse request with arbitrary body returning *CreateComponentReleaseLineResp
+func (c *ClientWithResponses) CreateComponentReleaseLineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentReleaseLineResp, error) {
+	rsp, err := c.CreateComponentReleaseLineWithBody(ctx, namespaceName, componentName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentReleaseLineResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentReleaseLineResp, error) {
+	rsp, err := c.CreateComponentReleaseLine(ctx, namespaceName, componentName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentReleaseLineResp(rsp)
+}
+
+// DeleteComponentReleaseLineWithResponse request returning *DeleteComponentReleaseLineResp
+func (c *ClientWithResponses) DeleteComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*DeleteComponentReleaseLineResp, error) {
+	rsp, err := c.DeleteComponentReleaseLine(ctx, namespaceName, componentName, releaseLineName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteComponentReleaseLineResp(rsp)
+}
+
+// GetComponentReleaseLineWithResponse request returning *GetComponentReleaseLineResp
+func (c *ClientWithResponses) GetComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseLineResp, error) {
+	rsp, err := c.GetComponentReleaseLine(ctx, namespaceName, componentName, releaseLineName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentReleaseLineResp(rsp)
+}
+
+// UpdateComponentReleaseLineWithBodyWithResponse request with arbitrary body returning *UpdateComponentReleaseLineResp
+func (c *ClientWithResponses) UpdateComponentReleaseLineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentReleaseLineResp, error) {
+	rsp, err := c.UpdateComponentReleaseLineWithBody(ctx, namespaceName, componentName, releaseLineName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentReleaseLineResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateComponentReleaseLineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, releaseLineName ReleaseLineNameParam, body UpdateComponentReleaseLineJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentReleaseLineResp, error) {
+	rsp, err := c.UpdateComponentReleaseLine(ctx, namespaceName, componentName, releaseLineName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentReleaseLineResp(rsp)
+}
+
 // GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
 func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error) {
 	rsp, err := c.GetComponentSchema(ctx, namespaceName, componentName, reqEditors...)
@@ -23062,6 +23801,23 @@ func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetComponentSchemaResp(rsp)
+}
+
+// CreateComponentWorkflowRunWithBodyWithResponse request with arbitrary body returning *CreateComponentWorkflowRunResp
+func (c *ClientWithResponses) CreateComponentWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentWorkflowRunResp, error) {
+	rsp, err := c.CreateComponentWorkflowRunWithBody(ctx, namespaceName, componentName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentWorkflowRunResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateComponentWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body CreateComponentWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentWorkflowRunResp, error) {
+	rsp, err := c.CreateComponentWorkflowRun(ctx, namespaceName, componentName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentWorkflowRunResp(rsp)
 }
 
 // ListComponentTypesWithResponse request returning *ListComponentTypesResp
@@ -29546,6 +30302,311 @@ func ParseGenerateReleaseResp(rsp *http.Response) (*GenerateReleaseResp, error) 
 	return response, nil
 }
 
+// ParseListComponentReleaseLinesResp parses an HTTP response from a ListComponentReleaseLinesWithResponse call
+func ParseListComponentReleaseLinesResp(rsp *http.Response) (*ListComponentReleaseLinesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentReleaseLinesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseLineList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateComponentReleaseLineResp parses an HTTP response from a CreateComponentReleaseLineWithResponse call
+func ParseCreateComponentReleaseLineResp(rsp *http.Response) (*CreateComponentReleaseLineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateComponentReleaseLineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ReleaseLine
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteComponentReleaseLineResp parses an HTTP response from a DeleteComponentReleaseLineWithResponse call
+func ParseDeleteComponentReleaseLineResp(rsp *http.Response) (*DeleteComponentReleaseLineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteComponentReleaseLineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetComponentReleaseLineResp parses an HTTP response from a GetComponentReleaseLineWithResponse call
+func ParseGetComponentReleaseLineResp(rsp *http.Response) (*GetComponentReleaseLineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentReleaseLineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseLine
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateComponentReleaseLineResp parses an HTTP response from a UpdateComponentReleaseLineWithResponse call
+func ParseUpdateComponentReleaseLineResp(rsp *http.Response) (*UpdateComponentReleaseLineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateComponentReleaseLineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseLine
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetComponentSchemaResp parses an HTTP response from a GetComponentSchemaWithResponse call
 func ParseGetComponentSchemaResp(rsp *http.Response) (*GetComponentSchemaResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -29566,6 +30627,67 @@ func ParseGetComponentSchemaResp(rsp *http.Response) (*GetComponentSchemaResp, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateComponentWorkflowRunResp parses an HTTP response from a CreateComponentWorkflowRunWithResponse call
+func ParseCreateComponentWorkflowRunResp(rsp *http.Response) (*CreateComponentWorkflowRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateComponentWorkflowRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest WorkflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

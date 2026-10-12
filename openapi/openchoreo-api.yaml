@@ -2964,6 +2964,190 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/workflowruns:
+    post:
+      operationId: createComponentWorkflowRun
+      summary: Run a component workflow
+      description: >-
+        Starts a run of the component's configured workflow with the component's workflow parameters.
+        For a component with release lines enabled, releaseLine is required and that line's workflow
+        parameter overrides are applied.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComponentWorkflowRunRequest'
+      responses:
+        '201':
+          description: Workflow run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/releaselines:
+    get:
+      operationId: listComponentReleaseLines
+      summary: List component release lines
+      description: Returns a paginated list of the release lines of a component. The list is empty for a component without release lines.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Release lines of the component
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLineList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createComponentReleaseLine
+      summary: Create component release line
+      description: Creates a release line for a component with release lines enabled. The owner is taken from the path.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseLine'
+      responses:
+        '201':
+          description: Release line created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/releaselines/{releaseLineName}:
+    get:
+      operationId: getComponentReleaseLine
+      summary: Get component release line
+      description: Returns a release line of a component, including its status per environment.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      responses:
+        '200':
+          description: Release line details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateComponentReleaseLine
+      summary: Update component release line
+      description: Replaces the spec of a release line (full update). The owner cannot change.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseLine'
+      responses:
+        '200':
+          description: Release line updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteComponentReleaseLine
+      summary: Delete component release line
+      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      responses:
+        '204':
+          description: Release line deletion accepted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # Authorization Endpoints
   # =============================================================================
@@ -6562,6 +6746,15 @@ components:
         type: string
         example: api-service
 
+    ReleaseLineNameParam:
+      name: releaseLineName
+      in: path
+      required: true
+      description: Release line name
+      schema:
+        type: string
+        example: next
+
     WorkflowRunNameParam:
       name: runName
       in: path
@@ -7474,6 +7667,9 @@ components:
               description: "Component type reference in format: {workloadType}/{componentTypeName}"
               example: deployment/go-service
               pattern: '^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        releaseLinesEnabled:
+          type: boolean
+          description: Deploys the component only through explicit ReleaseLines. Can only be set when the component is created.
         autoDeploy:
           type: boolean
           description: Whether to automatically deploy to default environment when created
@@ -9784,6 +9980,141 @@ components:
           description: Trait parameters
           additionalProperties: true
 
+    ReleaseLineList:
+      type: object
+      description: Paginated list of the release lines of a component
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseLine'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ReleaseLine:
+      type: object
+      description: |
+        ReleaseLine resource.
+        A named series of releases of one component that is built and deployed independently of the component's other lines.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ReleaseLine
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ReleaseLineSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ReleaseLineStatus'
+
+    ReleaseLineSpec:
+      type: object
+      description: Desired state of a ReleaseLine
+      required:
+        - owner
+      properties:
+        owner:
+          type: object
+          description: Component this release line belongs to
+          required:
+            - projectName
+            - componentName
+          properties:
+            projectName:
+              type: string
+              description: Name of the project
+              example: default
+            componentName:
+              type: string
+              description: Name of the component
+              example: hello
+        autoDeploy:
+          type: boolean
+          description: Overrides the component's autoDeploy for this line
+        parameters:
+          type: object
+          description: Deep-merged onto the component's parameters for this line
+          additionalProperties: true
+        traits:
+          type: array
+          description: Merged onto the component's traits for this line, keyed by kind, name and instance name
+          items:
+            $ref: '#/components/schemas/ComponentTrait'
+        workflow:
+          type: object
+          description: Build overrides for this line
+          properties:
+            parameters:
+              type: object
+              description: Deep-merged onto the component's workflow parameters for this line
+              additionalProperties: true
+
+    ReleaseLineStatus:
+      type: object
+      description: Observed state of a ReleaseLine
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        conditions:
+          type: array
+          description: Current state conditions of the release line
+          items:
+            $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Most recent ComponentRelease produced for this line
+          properties:
+            name:
+              type: string
+              description: Name of the ComponentRelease
+              example: hello-next-fc84488f9
+            releaseHash:
+              type: string
+              description: Hash of the ComponentRelease spec
+        environments:
+          type: array
+          description: The line's ReleaseBindings, one per environment it is deployed to
+          items:
+            $ref: '#/components/schemas/ReleaseLineEnvironment'
+
+    ReleaseLineEnvironment:
+      type: object
+      description: A release line's deployment in one environment
+      required:
+        - environment
+        - releaseBinding
+      properties:
+        environment:
+          type: string
+          description: Name of the environment
+          example: development
+        releaseBinding:
+          type: string
+          description: Name of the line's ReleaseBinding in the environment
+          example: hello-next-development
+        release:
+          type: string
+          description: Name of the ComponentRelease bound in the environment
+          example: hello-next-fc84488f9
+        ready:
+          type: boolean
+          description: Whether the ReleaseBinding reports Ready
     # -------------------------------------------------------------------------
     # Component Releases
     # -------------------------------------------------------------------------
@@ -9851,6 +10182,10 @@ components:
               type: string
               description: Parent component name
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line this release belongs to. Required when the component has release lines enabled.
+              example: next
         componentType:
           type: object
           description: Frozen ComponentType spec at release time
@@ -9945,6 +10280,10 @@ components:
               type: string
               description: Name of the component
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line this binding belongs to. Required when the component has release lines enabled.
+              example: next
         environment:
           type: string
           description: Target environment name
@@ -11520,6 +11859,23 @@ components:
           type: string
           description: Optional release name (auto-generated if not provided)
           example: v1.0.0
+        releaseLine:
+          type: string
+          description: Release line to release from. Required when the component has release lines enabled; the release is built from the line's Workload and overrides.
+          example: next
+
+    CreateComponentWorkflowRunRequest:
+      type: object
+      description: Request to run a component's workflow
+      properties:
+        releaseLine:
+          type: string
+          description: Release line to build. Required when the component has release lines enabled.
+          example: api-service-v2
+        commit:
+          type: string
+          description: Optional commit SHA to build instead of the latest commit of the configured revision
+          example: a1b2c3d
 
     # -------------------------------------------------------------------------
     # Authorization Schemas
@@ -12420,6 +12776,10 @@ components:
               type: string
               description: Name of the owning component
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line of the owning component. Required when the component has release lines enabled.
+              example: api-service-v2
         container:
           $ref: '#/components/schemas/WorkloadContainer'
         endpoints:
@@ -12569,6 +12929,9 @@ components:
           type: string
           description: Target component name
           minLength: 1
+        releaseLine:
+          type: string
+          description: Target component's release line. Required when the target has release lines enabled.
         name:
           type: string
           description: Target endpoint name on the target component

@@ -1,0 +1,266 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: releaselines.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ReleaseLine
+    listKind: ReleaseLineList
+    plural: releaselines
+    shortNames:
+    - rl
+    - rls
+    singular: releaseline
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.componentName
+      name: Component
+      type: string
+    - jsonPath: .status.latestRelease.name
+      name: LatestRelease
+      type: string
+    - jsonPath: .status.environments[*].environment
+      name: Environments
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ReleaseLine is a named series of releases of one Component that evolves independently of the
+          component's other lines. Each line has its own Workload, ComponentReleases, and at most one
+          ReleaseBinding per Environment. The owning Component must have spec.releaseLinesEnabled set;
+          such a component has no implicit line, so its default line (e.g. "main") is an explicit ReleaseLine.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ReleaseLineSpec defines the desired state of ReleaseLine.
+              Values set here are layered on top of the owning Component's spec for this line only.
+            properties:
+              autoDeploy:
+                description: AutoDeploy overrides Component.spec.autoDeploy for this
+                  line.
+                type: boolean
+              owner:
+                description: Owner identifies the component this release line belongs
+                  to.
+                properties:
+                  componentName:
+                    description: ComponentName is the name of the component.
+                    minLength: 1
+                    type: string
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      the component.
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
+              parameters:
+                description: |-
+                  Parameters are deep-merged onto Component.spec.parameters for this line.
+                  Maps merge key by key; scalars and lists replace.
+                x-kubernetes-preserve-unknown-fields: true
+              traits:
+                description: |-
+                  Traits are merged onto Component.spec.traits for this line, keyed by (kind, name, instanceName).
+                  A matching trait has its parameters deep-merged; a new trait is appended.
+                items:
+                  description: ComponentTrait represents an trait instance attached
+                    to a component
+                  properties:
+                    instanceName:
+                      description: |-
+                        InstanceName uniquely identifies this trait instance within the component
+                        Allows the same trait to be used multiple times with different configurations
+                        Must be unique across all traits in the component
+                      minLength: 1
+                      type: string
+                    kind:
+                      default: Trait
+                      description: Kind is the kind of trait (Trait or ClusterTrait)
+                      enum:
+                      - Trait
+                      - ClusterTrait
+                      type: string
+                    name:
+                      description: Name is the name of the Trait resource to use
+                      minLength: 1
+                      type: string
+                    parameters:
+                      description: |-
+                        Parameters contains the trait parameter values
+                        The schema for these values is defined in the Trait's parameters schema
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - instanceName
+                  - name
+                  type: object
+                type: array
+              workflow:
+                description: Workflow overrides the build configuration of Component.spec.workflow
+                  for this line.
+                properties:
+                  parameters:
+                    description: |-
+                      Parameters are deep-merged onto Component.spec.workflow.parameters for this line,
+                      typically to build from a different branch.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+            required:
+            - owner
+            type: object
+          status:
+            description: ReleaseLineStatus defines the observed state of ReleaseLine.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the release line.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              environments:
+                description: Environments lists the line's ReleaseBindings, one per
+                  environment it is deployed to.
+                items:
+                  description: ReleaseLineEnvironment is a release line's deployment
+                    in one environment.
+                  properties:
+                    environment:
+                      description: Environment is the name of the environment.
+                      type: string
+                    ready:
+                      description: Ready reports whether the ReleaseBinding is Ready.
+                      type: boolean
+                    release:
+                      description: Release is the ComponentRelease bound in the environment.
+                      type: string
+                    releaseBinding:
+                      description: ReleaseBinding is the name of the line's ReleaseBinding
+                        in the environment.
+                      type: string
+                  required:
+                  - environment
+                  - releaseBinding
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - environment
+                x-kubernetes-list-type: map
+              latestRelease:
+                description: LatestRelease is the most recent ComponentRelease produced
+                  for this line by autoDeploy.
+                properties:
+                  name:
+                    description: Name of the ComponentRelease resource
+                    minLength: 1
+                    type: string
+                  releaseHash:
+                    description: ReleaseHash record the hash value of the spec of
+                      ComponentRelease.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - releaseHash
+                type: object
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be at most 63 characters
+          rule: size(self.metadata.name) <= 63
+    selectableFields:
+    - jsonPath: .spec.owner.projectName
+    - jsonPath: .spec.owner.componentName
+    served: true
+    storage: true
+    subresources:
+      status: {}

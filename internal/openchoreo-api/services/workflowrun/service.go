@@ -33,6 +33,7 @@ import (
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	releaselinepkg "github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // workflowRunService handles workflow run business logic without authorization checks.
@@ -867,8 +868,8 @@ func computeWorkflowRunStatus(conditions []metav1.Condition) string {
 
 // TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
 // This is used by both the authorized API handler path and the webhook path (unauthz).
-func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
-	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)
+func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string) (*models.WorkflowRunTriggerResponse, error) {
+	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit, "releaseLine", releaseLine)
 
 	// Retrieve component
 	var component openchoreov1alpha1.Component
@@ -916,6 +917,11 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 		workflowParameters = workflow.Spec.Parameters
 	}
 
+	parameters, err := s.resolveWorkflowParameters(ctx, &component, releaseLine)
+	if err != nil {
+		return nil, err
+	}
+
 	// Extract parameter paths from x-openchoreo-component-repository schema extensions
 	paramMap, err := controller.ExtractComponentRepositoryPaths(workflowParameters.GetRaw())
 	if err != nil {
@@ -925,7 +931,7 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 
 	// Validate that repoUrl is configured in the component parameters.
 	if repoURLPath, ok := paramMap["url"]; ok {
-		repoURL, err := getNestedStringInParams(component.Spec.Workflow.Parameters, repoURLPath)
+		repoURL, err := getNestedStringInParams(parameters, repoURLPath)
 		if err != nil {
 			s.logger.Error("Failed to read repository URL from component parameters", "error", err, "path", repoURLPath, "component", componentName)
 			return nil, fmt.Errorf("failed to read repository URL for component %s at path %s: %w", componentName, repoURLPath, err)
@@ -943,9 +949,6 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 			return nil, ErrInvalidCommitSHA
 		}
 	}
-
-	// Start with the component's existing parameters
-	parameters := component.Spec.Workflow.Parameters
 
 	// Inject commit SHA into parameters at the mapped path if a commit mapping exists
 	if commit != "" {
@@ -965,15 +968,20 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 		return nil, fmt.Errorf("failed to generate workflow run name: %w", err)
 	}
 
+	runLabels := map[string]string{
+		ocLabels.LabelKeyProjectName:   projectName,
+		ocLabels.LabelKeyComponentName: componentName,
+	}
+	if releaseLine != "" {
+		runLabels[ocLabels.LabelKeyReleaseLine] = releaseLine
+	}
+
 	// Create the WorkflowRun CR
 	workflowRun := &openchoreov1alpha1.WorkflowRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workflowRunName,
 			Namespace: namespaceName,
-			Labels: map[string]string{
-				ocLabels.LabelKeyProjectName:   projectName,
-				ocLabels.LabelKeyComponentName: componentName,
-			},
+			Labels:    runLabels,
 		},
 		Spec: openchoreov1alpha1.WorkflowRunSpec{
 			Workflow: openchoreov1alpha1.WorkflowRunConfig{
@@ -1110,4 +1118,40 @@ func setNestedStringInParams(raw *runtime.RawExtension, dottedPath, value string
 	}
 
 	return &runtime.RawExtension{Raw: rawBytes}, nil
+}
+
+// resolveWorkflowParameters returns the component's workflow parameters, with the release line's
+// overrides applied when the component uses release lines.
+func (s *workflowRunService) resolveWorkflowParameters(
+	ctx context.Context,
+	component *openchoreov1alpha1.Component,
+	releaseLine string,
+) (*runtime.RawExtension, error) {
+	switch {
+	case component.Spec.ReleaseLinesEnabled && releaseLine == "":
+		return nil, ErrReleaseLineRequired
+	case !component.Spec.ReleaseLinesEnabled && releaseLine != "":
+		return nil, ErrReleaseLinesNotEnabled
+	case releaseLine == "":
+		return component.Spec.Workflow.Parameters, nil
+	}
+
+	line := &openchoreov1alpha1.ReleaseLine{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: releaseLine, Namespace: component.Namespace}, line); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, ErrReleaseLineNotFound
+		}
+		return nil, fmt.Errorf("failed to get release line %s: %w", releaseLine, err)
+	}
+	if line.Spec.Owner.ProjectName != component.Spec.Owner.ProjectName || line.Spec.Owner.ComponentName != component.Name {
+		return nil, ErrReleaseLineNotFound
+	}
+	if line.Spec.Workflow == nil {
+		return component.Spec.Workflow.Parameters, nil
+	}
+	parameters, err := releaselinepkg.MergeParameters(component.Spec.Workflow.Parameters, line.Spec.Workflow.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply workflow parameters of release line %s: %w", releaseLine, err)
+	}
+	return parameters, nil
 }

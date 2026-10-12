@@ -24,6 +24,10 @@ const (
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"
 	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
 
+	// LabelKeyReleaseLine identifies the release line a rendered object belongs to.
+	// Absent for components without release lines.
+	LabelKeyReleaseLine = "openchoreo.dev/release-line"
+
 	// LabelKeyResourceName identifies the Resource (managed-infrastructure
 	// abstraction) that owns a rendered DP-side object.
 	LabelKeyResourceName = "openchoreo.dev/resource"

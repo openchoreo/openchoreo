@@ -101,6 +101,10 @@ type Interface interface {
 	CreateComponentRelease(ctx context.Context, namespaceName string, cr gen.ComponentRelease) (*gen.ComponentRelease, error)
 	DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error
 	GenerateRelease(ctx context.Context, namespaceName, componentName string, req gen.GenerateReleaseRequest) (*gen.ComponentRelease, error)
+	CreateComponentWorkflowRun(ctx context.Context, namespaceName, componentName string, req gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error)
+	ListComponentReleaseLines(ctx context.Context, namespaceName, componentName string, params *gen.ListComponentReleaseLinesParams) (*gen.ReleaseLineList, error)
+	GetComponentReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (*gen.ReleaseLine, error)
+	DeleteComponentReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) error
 
 	ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error)
 	GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error)

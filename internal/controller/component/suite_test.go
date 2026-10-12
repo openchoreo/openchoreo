@@ -146,6 +146,10 @@ var _ = BeforeSuite(func() {
 		})
 	Expect(err).NotTo(HaveOccurred())
 
+	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseLine{},
+		controller.IndexKeyReleaseLineOwner, controller.IndexReleaseLineOwner)
+	Expect(err).NotTo(HaveOccurred())
+
 	// Register field index for Project by deploymentPipelineRef
 	err = testMgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
 		controller.IndexKeyProjectDeploymentPipelineRef, func(obj client.Object) []string {

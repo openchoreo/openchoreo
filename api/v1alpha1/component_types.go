@@ -34,6 +34,7 @@ type ComponentList struct {
 }
 
 // ComponentSpec defines the desired state of Component.
+// +kubebuilder:validation:XValidation:rule="(has(self.releaseLinesEnabled) && self.releaseLinesEnabled) == (has(oldSelf.releaseLinesEnabled) && oldSelf.releaseLinesEnabled)",message="spec.releaseLinesEnabled can only be set when the component is created"
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
 	// +kubebuilder:validation:Required
@@ -51,6 +52,13 @@ type ComponentSpec struct {
 	// When not specified, defaults to false (zero value)
 	// +optional
 	AutoDeploy bool `json:"autoDeploy,omitempty"`
+
+	// ReleaseLinesEnabled makes the component deploy only through explicit ReleaseLines.
+	// Every Workload, ComponentRelease, and ReleaseBinding of the component must then name a
+	// release line; there is no implicit line. Can only be set at creation, so an existing
+	// component adopts release lines by migrating to a new component.
+	// +optional
+	ReleaseLinesEnabled bool `json:"releaseLinesEnabled,omitempty"`
 
 	// AutoBuild enables automatic builds when code is pushed to the repository
 	// When enabled, webhook events will trigger builds automatically

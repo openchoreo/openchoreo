@@ -19,6 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
 	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
@@ -251,8 +252,9 @@ func (s *componentService) DeleteComponent(ctx context.Context, namespaceName, c
 
 func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
 	releaseName := strings.TrimSpace(req.ReleaseName)
+	lineName := strings.TrimSpace(req.ReleaseLine)
 
-	s.logger.Debug("Generating component release", "namespace", namespaceName, "component", componentName, "release", releaseName)
+	s.logger.Debug("Generating component release", "namespace", namespaceName, "component", componentName, "release", releaseName, "releaseLine", lineName)
 
 	// Get the component to derive the project and component type
 	component, err := s.GetComponent(ctx, namespaceName, componentName)
@@ -261,15 +263,20 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	}
 	projectName := component.Spec.Owner.ProjectName
 
+	component, err = s.componentForLine(ctx, component, lineName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Find the workload for this component
-	workload, err := s.findWorkload(ctx, namespaceName, projectName, componentName)
+	workload, err := s.findWorkload(ctx, namespaceName, projectName, componentName, lineName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate release name if not provided
 	if releaseName == "" {
-		generated, err := s.generateReleaseName(ctx, namespaceName, projectName, componentName)
+		generated, err := s.generateReleaseName(ctx, namespaceName, projectName, componentName, lineName)
 		if err != nil {
 			return nil, err
 		}
@@ -302,6 +309,7 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	if err != nil {
 		return nil, fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)
 	}
+	crSpec.Owner.ReleaseLine = lineName
 
 	componentRelease := &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -313,6 +321,9 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 			},
 		},
 		Spec: *crSpec,
+	}
+	if lineName != "" {
+		componentRelease.Labels[labels.LabelKeyReleaseLine] = lineName
 	}
 
 	if err := s.k8sClient.Create(ctx, componentRelease); err != nil {
@@ -329,8 +340,8 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	return componentRelease, nil
 }
 
-// findWorkload finds the workload for a given component within a namespace.
-func (s *componentService) findWorkload(ctx context.Context, namespaceName, projectName, componentName string) (*openchoreov1alpha1.Workload, error) {
+// findWorkload finds the workload of a component's release line, or the component's workload when line is empty.
+func (s *componentService) findWorkload(ctx context.Context, namespaceName, projectName, componentName, line string) (*openchoreov1alpha1.Workload, error) {
 	workloadList := &openchoreov1alpha1.WorkloadList{}
 	if err := s.k8sClient.List(ctx, workloadList, client.InNamespace(namespaceName)); err != nil {
 		s.logger.Error("Failed to list workloads", "error", err)
@@ -339,7 +350,8 @@ func (s *componentService) findWorkload(ctx context.Context, namespaceName, proj
 
 	for i := range workloadList.Items {
 		w := &workloadList.Items[i]
-		if w.Spec.Owner.ComponentName == componentName && w.Spec.Owner.ProjectName == projectName {
+		if w.Spec.Owner.ComponentName == componentName && w.Spec.Owner.ProjectName == projectName &&
+			w.Spec.Owner.ReleaseLine == line {
 			return w, nil
 		}
 	}
@@ -348,8 +360,8 @@ func (s *componentService) findWorkload(ctx context.Context, namespaceName, proj
 }
 
 // generateReleaseName generates a unique release name for a component.
-// Format: <component_name>-<date>-<number>, e.g., my-component-20240118-1
-func (s *componentService) generateReleaseName(ctx context.Context, namespaceName, projectName, componentName string) (string, error) {
+// Format: <component_name>[-<release_line>]-<date>-<number>, e.g., my-component-20240118-1
+func (s *componentService) generateReleaseName(ctx context.Context, namespaceName, projectName, componentName, line string) (string, error) {
 	releaseList := &openchoreov1alpha1.ComponentReleaseList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
@@ -365,7 +377,8 @@ func (s *componentService) generateReleaseName(ctx context.Context, namespaceNam
 
 	now := metav1.Now()
 	dateStr := now.Format("20060102")
-	todayPrefix := fmt.Sprintf("%s-%s-", componentName, dateStr)
+	base := releaseline.ScopedName(componentName, line, dateStr)
+	todayPrefix := base + "-"
 	todayCount := 0
 	for _, release := range releaseList.Items {
 		if len(release.Name) >= len(todayPrefix) && release.Name[:len(todayPrefix)] == todayPrefix {
@@ -373,7 +386,7 @@ func (s *componentService) generateReleaseName(ctx context.Context, namespaceNam
 		}
 	}
 
-	return fmt.Sprintf("%s-%s-%d", componentName, dateStr, todayCount+1), nil
+	return fmt.Sprintf("%s-%d", base, todayCount+1), nil
 }
 
 // fetchComponentTypeSpec fetches the ComponentTypeSpec from the cluster based on the ComponentTypeRef.

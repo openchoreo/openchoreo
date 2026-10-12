@@ -337,9 +337,13 @@ func (h *Handler) GenerateRelease(
 	if request.Body.ReleaseName != nil {
 		releaseName = *request.Body.ReleaseName
 	}
+	releaseLine := ""
+	if request.Body.ReleaseLine != nil {
+		releaseLine = *request.Body.ReleaseLine
+	}
 
 	release, err := h.services.ComponentService.GenerateRelease(ctx, request.NamespaceName, request.ComponentName,
-		&componentsvc.GenerateReleaseRequest{ReleaseName: releaseName})
+		&componentsvc.GenerateReleaseRequest{ReleaseName: releaseName, ReleaseLine: releaseLine})
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GenerateRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -349,6 +353,12 @@ func (h *Handler) GenerateRelease(
 		}
 		if errors.Is(err, componentsvc.ErrWorkloadNotFound) {
 			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrReleaseLineNotFound) {
+			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrReleaseLineRequired) || errors.Is(err, componentsvc.ErrReleaseLinesNotEnabled) {
+			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
 		if errors.Is(err, componentsvc.ErrValidation) {
 			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil

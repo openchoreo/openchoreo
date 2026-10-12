@@ -35,6 +35,7 @@ type DeployParams struct {
 	Release       string   // --release flag (optional release name)
 	To            string   // --to flag (target env for promotion)
 	Set           []string // --set values (type.path=value)
+	ReleaseLine   string   // --release-line flag (required for components with release lines enabled)
 }
 
 func (p DeployParams) GetNamespace() string     { return p.Namespace }
@@ -63,6 +64,7 @@ type StartWorkflowParams struct {
 	Namespace     string
 	ComponentName string
 	Project       string
+	ReleaseLine   string
 	Set           []string
 }
 
@@ -77,6 +79,25 @@ type ListWorkflowRunsParams struct {
 
 func (p ListWorkflowRunsParams) GetNamespace() string     { return p.Namespace }
 func (p ListWorkflowRunsParams) GetComponentName() string { return p.ComponentName }
+
+// ListReleaseLinesParams defines parameters for listing the release lines of a component
+type ListReleaseLinesParams struct {
+	Namespace     string
+	ComponentName string
+}
+
+func (p ListReleaseLinesParams) GetNamespace() string     { return p.Namespace }
+func (p ListReleaseLinesParams) GetComponentName() string { return p.ComponentName }
+
+// ReleaseLineParams identifies one release line of a component
+type ReleaseLineParams struct {
+	Namespace       string
+	ComponentName   string
+	ReleaseLineName string
+}
+
+func (p ReleaseLineParams) GetNamespace() string     { return p.Namespace }
+func (p ReleaseLineParams) GetComponentName() string { return p.ComponentName }
 
 // WorkflowRunLogsParams defines parameters for fetching component workflow run logs
 type WorkflowRunLogsParams struct {
@@ -100,6 +121,7 @@ type LogsParams struct {
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)
+	ReleaseLine string // optional — empty means logs from every line of the component
 }
 
 // ExecParams defines parameters for exec-ing into a component's running pod
@@ -113,6 +135,7 @@ type ExecParams struct {
 	Command     []string // command to run; defaults to ["/bin/sh"] when empty
 	TTY         bool
 	Stdin       bool
+	ReleaseLine string // required for components with release lines enabled
 }
 
 func (p ExecParams) GetNamespace() string     { return p.Namespace }

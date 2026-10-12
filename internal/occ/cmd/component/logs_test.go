@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
@@ -103,6 +104,20 @@ func TestFilterLogsByContainer(t *testing.T) {
 	require.Len(t, got, 2)
 	assert.Equal(t, "m1", got[0].Log)
 	assert.Equal(t, "m2", got[1].Log)
+}
+
+func TestFilterLogsByReleaseLine(t *testing.T) {
+	nextPod := dpkubernetes.GenerateK8sName("hello", "next", "development") + "-7d9c8b6f5-abcde"
+	mainPod := dpkubernetes.GenerateK8sName("hello", "main", "development") + "-6c8d7b5f4-fghij"
+	logs := []client.LogEntry{
+		{Log: "n1", Metadata: &client.LogMetadata{PodName: nextPod}},
+		{Log: "m1", Metadata: &client.LogMetadata{PodName: mainPod}},
+		{Log: "no-meta"},
+	}
+
+	got := filterLogsByReleaseLine(logs, "hello", "next", "development")
+	require.Len(t, got, 1)
+	assert.Equal(t, "n1", got[0].Log)
 }
 
 // --- printLogEntry ---

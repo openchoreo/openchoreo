@@ -25,6 +25,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
 
@@ -45,6 +46,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=list;delete
@@ -132,6 +134,10 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
+	if comp.Spec.ReleaseLinesEnabled {
+		return ctrl.Result{}, r.reconcileReleaseLineComponent(ctx, comp)
+	}
+
 	// Validate and fetch Workload
 	workload, err := r.validateAndFetchWorkload(ctx, comp)
 	if err != nil {
@@ -177,7 +183,9 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 
 	// Handle autoDeploy if enabled
 	if comp.Spec.AutoDeploy {
-		if err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, clusterTraits, firstEnv); err != nil {
+		latest, err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, clusterTraits, firstEnv, "", comp.Status.LatestRelease)
+		comp.Status.LatestRelease = latest
+		if err != nil {
 			msg := fmt.Sprintf("Failed to handle autoDeploy: %v", err)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
 			logger.Error(err, "Failed to handle autoDeploy")
@@ -306,6 +314,7 @@ func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *opencho
 		return nil, err
 	}
 
+	workloadList.Items = filterWorkloadsByLine(workloadList.Items, "")
 	if len(workloadList.Items) == 0 {
 		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
@@ -592,7 +601,8 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 
 // handleAutoDeploy handles automatic deployment when autoDeploy is enabled.
 // It computes the hash of the current release spec and creates/updates ComponentRelease
-// and ReleaseBinding if the hash has changed.
+// and ReleaseBinding if the hash has changed. line is "" for a component without release lines.
+// Returns the latest release to record in status, which is set even when the binding update fails.
 func (r *Reconciler) handleAutoDeploy(
 	ctx context.Context,
 	comp *openchoreov1alpha1.Component,
@@ -601,11 +611,13 @@ func (r *Reconciler) handleAutoDeploy(
 	traits map[string]openchoreov1alpha1.TraitSpec,
 	clusterTraits map[string]openchoreov1alpha1.ClusterTraitSpec,
 	firstEnv string,
-) error {
+	line string,
+	latest *openchoreov1alpha1.LatestRelease,
+) (*openchoreov1alpha1.LatestRelease, error) {
 	logger := log.FromContext(ctx)
 
 	// ReleaseBinding name to create releaseBinding if not exits
-	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
+	bindingName := releaseline.ScopedName(comp.Name, line, firstEnv)
 
 	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
 		Component: comp,
@@ -619,19 +631,20 @@ func (r *Reconciler) handleAutoDeploy(
 		Workload:      &workload.Spec.WorkloadTemplateSpec,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)
+		return latest, fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)
 	}
+	crSpec.Owner.ReleaseLine = line
 
 	releaseSpec := ReleaseSpecFromComponentReleaseSpec(crSpec)
 	currentHash := ComputeReleaseHash(releaseSpec, nil)
 
 	// Check if hash exists in status.LatestRelease and it hasn't changed
-	if comp.Status.LatestRelease != nil && comp.Status.LatestRelease.ReleaseHash == currentHash {
+	if latest != nil && latest.ReleaseHash == currentHash {
 		// Hash matches, verify the ComponentRelease exists and recreate if needed
-		releaseName := comp.Status.LatestRelease.Name
+		releaseName := latest.Name
 		exists, err := r.ensureComponentRelease(ctx, comp, crSpec, releaseName, currentHash)
 		if err != nil {
-			return err
+			return latest, err
 		}
 		if exists {
 			// ComponentRelease already existed, nothing more to do
@@ -639,7 +652,7 @@ func (r *Reconciler) handleAutoDeploy(
 				"component", comp.Name,
 				"hash", currentHash,
 				"release", releaseName)
-			return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
+			return latest, r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName, line)
 		}
 		// ComponentRelease was recreated, continue to update status and binding
 		logger.Info("ComponentRelease recreated after being missing",
@@ -651,29 +664,26 @@ func (r *Reconciler) handleAutoDeploy(
 		logger.Info("ComponentRelease hash diff detected, creating new release",
 			"component", comp.Name,
 			"oldHash", func() string {
-				if comp.Status.LatestRelease != nil {
-					return comp.Status.LatestRelease.ReleaseHash
+				if latest != nil {
+					return latest.ReleaseHash
 				}
 				return "none"
 			}(),
 			"newHash", currentHash)
 
-		releaseName := fmt.Sprintf("%s-%s", comp.Name, currentHash)
+		releaseName := releaseline.ScopedName(comp.Name, line, currentHash)
 		if _, err := r.ensureComponentRelease(ctx, comp, crSpec, releaseName, currentHash); err != nil {
-			return err
+			return latest, err
 		}
 	}
 
-	// Generate release name for status update
-	releaseName := fmt.Sprintf("%s-%s", comp.Name, currentHash)
-
-	// Update status.LatestRelease
-	comp.Status.LatestRelease = &openchoreov1alpha1.LatestRelease{
+	releaseName := releaseline.ScopedName(comp.Name, line, currentHash)
+	latest = &openchoreov1alpha1.LatestRelease{
 		Name:        releaseName,
 		ReleaseHash: currentHash,
 	}
 
-	return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
+	return latest, r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName, line)
 }
 
 // ensureComponentRelease ensures a ComponentRelease with the given name exists.
@@ -752,7 +762,7 @@ func (r *Reconciler) ensureComponentRelease(
 // ensureReleaseBinding ensures a ReleaseBinding exists for the given environment and component.
 // If the ReleaseBinding doesn't exist, it creates one.
 // If it exists, it updates the release name if different.
-// Returns an error if multiple ReleaseBindings are found for the same environment.
+// Returns an error if multiple ReleaseBindings are found for the same environment and line.
 // bindingName is the name of the ReleaseBinding to create if it doesn't exist.
 func (r *Reconciler) ensureReleaseBinding(
 	ctx context.Context,
@@ -760,6 +770,7 @@ func (r *Reconciler) ensureReleaseBinding(
 	releaseName string,
 	firstEnv string,
 	bindingName string,
+	line string,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -770,6 +781,7 @@ func (r *Reconciler) ensureReleaseBinding(
 	if err != nil {
 		return fmt.Errorf("failed to list ReleaseBinding: %w", err)
 	}
+	releaseBindingList.Items = controller.FilterReleaseBindingsByLine(releaseBindingList.Items, line)
 
 	if len(releaseBindingList.Items) == 0 {
 		// ReleaseBinding doesn't exist, create it
@@ -782,6 +794,7 @@ func (r *Reconciler) ensureReleaseBinding(
 				Owner: openchoreov1alpha1.ReleaseBindingOwner{
 					ProjectName:   comp.Spec.Owner.ProjectName,
 					ComponentName: comp.Name,
+					ReleaseLine:   line,
 				},
 				ReleaseName: releaseName,
 				Environment: firstEnv,

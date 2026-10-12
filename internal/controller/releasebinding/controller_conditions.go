@@ -64,6 +64,13 @@ const (
 	// ReasonInvalidReleaseConfiguration indicates the ComponentRelease configuration is invalid
 	ReasonInvalidReleaseConfiguration controller.ConditionReason = "InvalidReleaseConfiguration"
 
+	// ReasonReleaseLineNotFound indicates the binding's named ReleaseLine does not exist
+	ReasonReleaseLineNotFound controller.ConditionReason = "ReleaseLineNotFound"
+
+	// ReasonReleaseLineNameCollision indicates a release line renders a data plane object that
+	// another release line of the same component also renders
+	ReasonReleaseLineNameCollision controller.ConditionReason = "ReleaseLineNameCollision"
+
 	// Rendering issues (Status=False)
 
 	// ReasonRenderingFailed indicates failure to render resources

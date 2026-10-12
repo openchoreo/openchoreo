@@ -52,8 +52,12 @@ metadata:
   dataPlaneUID: "c3d4e5f6-..."          # ${metadata.dataPlaneUID}
 
   # Generated resource naming (use these in all resource templates)
-  name: "my-service-dev-a1b2c3d4"       # ${metadata.name} - use as prefix for all resource names to avoid conflicts between components
+  name: "my-service-dev-a1b2c3d4"       # ${metadata.name} - use as prefix for all resource names to avoid conflicts between components and their release lines
   namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
+
+  # Release line identity (see ReleaseLine)
+  releaseLine: ""                       # ${metadata.releaseLine} - empty unless the component has releaseLinesEnabled
+  releaseLineName: "my-service"         # ${metadata.releaseLineName} - componentName without a release line, "<componentName>-<releaseLine>" otherwise; use it instead of componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide
 
   # Common labels for all resources
   labels: # ${metadata.labels}

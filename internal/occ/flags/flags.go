@@ -170,7 +170,7 @@ func GetTargetEnv(cmd *cobra.Command) string {
 // --- Release ---
 
 func AddRelease(cmd *cobra.Command) {
-	cmd.Flags().String("release", "", "Component release name to deploy to lowest environment")
+	cmd.Flags().String("release", "", "Component release to deploy; with --to, binds this release instead of promoting the source environment's")
 }
 
 func GetRelease(cmd *cobra.Command) string {
@@ -190,6 +190,15 @@ func GetTo(cmd *cobra.Command) string {
 }
 
 // --- WorkflowRun ---
+
+func AddReleaseLine(cmd *cobra.Command) {
+	cmd.Flags().String("release-line", "", "Release line of the component (required for components with release lines enabled)")
+}
+
+func GetReleaseLine(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("release-line")
+	return val
+}
 
 func AddWorkflowRun(cmd *cobra.Command) {
 	cmd.Flags().String("workflowrun", "", "Workflow run name (defaults to latest run)")

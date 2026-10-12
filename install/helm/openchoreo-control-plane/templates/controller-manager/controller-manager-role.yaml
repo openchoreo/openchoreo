@@ -134,6 +134,7 @@ rules:
     - projects/finalizers
     - projecttypes/finalizers
     - releasebindings/finalizers
+    - releaselines/finalizers
     - renderedreleases/finalizers
     - resourcereleasebindings/finalizers
     - resourcereleases/finalizers
@@ -171,6 +172,7 @@ rules:
     - projects/status
     - projecttypes/status
     - releasebindings/status
+    - releaselines/status
     - renderedreleases/status
     - resourcereleasebindings/status
     - resourcereleases/status
@@ -186,6 +188,17 @@ rules:
     - get
     - patch
     - update
+- apiGroups:
+    - openchoreo.dev
+  resources:
+    - releaselines
+  verbs:
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 - apiGroups:
     - openchoreo.dev
   resources:

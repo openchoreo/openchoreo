@@ -11,4 +11,7 @@ var (
 	ErrWorkflowNotFound             = errors.New("workflow not found")
 	ErrWorkflowRunReferenceNotFound = errors.New("workflow run reference not found")
 	ErrInvalidCommitSHA             = errors.New("invalid commit SHA format")
+	ErrReleaseLineRequired          = errors.New("component has release lines enabled; a release line is required")
+	ErrReleaseLinesNotEnabled       = errors.New("component does not have release lines enabled")
+	ErrReleaseLineNotFound          = errors.New("release line not found for component")
 )

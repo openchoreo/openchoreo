@@ -105,6 +105,13 @@ spec:
                   Parameters from ComponentType (oneOf schema based on componentType)
                   This is the merged schema of parameters + environmentConfigs from the ComponentType
                 x-kubernetes-preserve-unknown-fields: true
+              releaseLinesEnabled:
+                description: |-
+                  ReleaseLinesEnabled makes the component deploy only through explicit ReleaseLines.
+                  Every Workload, ComponentRelease, and ReleaseBinding of the component must then name a
+                  release line; there is no implicit line. Can only be set at creation, so an existing
+                  component adopts release lines by migrating to a new component.
+                type: boolean
               traits:
                 description: |-
                   Traits to compose into this component
@@ -175,6 +182,11 @@ spec:
             - componentType
             - owner
             type: object
+            x-kubernetes-validations:
+            - message: spec.releaseLinesEnabled can only be set when the component
+                is created
+              rule: (has(self.releaseLinesEnabled) && self.releaseLinesEnabled) ==
+                (has(oldSelf.releaseLinesEnabled) && oldSelf.releaseLinesEnabled)
           status:
             description: ComponentStatus defines the observed state of Component.
             properties:

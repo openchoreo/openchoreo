@@ -5,6 +5,7 @@ package apply
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sort"
 
@@ -50,6 +51,9 @@ type resourceEntry struct {
 	get        getFn
 	create     createFn
 	update     updateFn // nil for capCreateOnly
+	// forResource, when set, builds the entry for one resource; used by kinds whose
+	// endpoints are nested under another resource named in the body.
+	forResource func(resource map[string]interface{}) (resourceEntry, error)
 }
 
 func getResourceRegistry() map[string]resourceEntry {
@@ -387,6 +391,11 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 			}
 			return r.StatusCode(), r.Body, nil
 		},
+	}
+
+	reg["ReleaseLine"] = resourceEntry{
+		scope:       scopeNamespaced,
+		forResource: releaseLineEntry,
 	}
 
 	reg["ComponentType"] = resourceEntry{
@@ -952,4 +961,38 @@ func supportedKinds() []string {
 	}
 	sort.Strings(kinds)
 	return kinds
+}
+
+// releaseLineEntry routes a ReleaseLine to the endpoints of the component in its spec.owner.
+func releaseLineEntry(resource map[string]interface{}) (resourceEntry, error) {
+	spec, _ := resource["spec"].(map[string]interface{})
+	owner, _ := spec["owner"].(map[string]interface{})
+	component, _ := owner["componentName"].(string)
+	if component == "" {
+		return resourceEntry{}, fmt.Errorf("spec.owner.componentName is required")
+	}
+	return resourceEntry{
+		scope: scopeNamespaced,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetComponentReleaseLineWithResponse(ctx, ns, component, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateComponentReleaseLineWithBodyWithResponse(ctx, ns, component, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateComponentReleaseLineWithBodyWithResponse(ctx, ns, component, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}, nil
 }

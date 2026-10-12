@@ -19,6 +19,7 @@ import (
 const (
 	resourceTypeComponent        = "component"
 	resourceTypeComponentRelease = "componentrelease"
+	resourceTypeReleaseLine      = "releaseline"
 )
 
 // componentServiceWithAuthz wraps a Service and adds authorization checks.
@@ -221,4 +222,57 @@ func (s *componentServiceWithAuthz) GetComponentReleaseSchema(ctx context.Contex
 		return nil, err
 	}
 	return s.internal.GetComponentReleaseSchema(ctx, namespaceName, releaseName, componentName)
+}
+
+// checkReleaseLineAction authorizes a release line action against the line's owning component.
+func (s *componentServiceWithAuthz) checkReleaseLineAction(ctx context.Context, action, namespaceName, componentName, releaseLineName string) error {
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return err
+	}
+	return s.authz.Check(ctx, services.CheckRequest{
+		Action:       action,
+		ResourceType: resourceTypeReleaseLine,
+		ResourceID:   releaseLineName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	})
+}
+
+func (s *componentServiceWithAuthz) ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ReleaseLine], error) {
+	if err := s.checkReleaseLineAction(ctx, authz.ActionViewReleaseLine, namespaceName, componentName, ""); err != nil {
+		return nil, err
+	}
+	return s.internal.ListReleaseLines(ctx, namespaceName, componentName, opts)
+}
+
+func (s *componentServiceWithAuthz) GetReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (*openchoreov1alpha1.ReleaseLine, error) {
+	if err := s.checkReleaseLineAction(ctx, authz.ActionViewReleaseLine, namespaceName, componentName, releaseLineName); err != nil {
+		return nil, err
+	}
+	return s.internal.GetReleaseLine(ctx, namespaceName, componentName, releaseLineName)
+}
+
+func (s *componentServiceWithAuthz) CreateReleaseLine(ctx context.Context, namespaceName, componentName string, releaseLine *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error) {
+	if err := s.checkReleaseLineAction(ctx, authz.ActionCreateReleaseLine, namespaceName, componentName, releaseLine.Name); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateReleaseLine(ctx, namespaceName, componentName, releaseLine)
+}
+
+func (s *componentServiceWithAuthz) UpdateReleaseLine(ctx context.Context, namespaceName, componentName string, releaseLine *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error) {
+	if err := s.checkReleaseLineAction(ctx, authz.ActionUpdateReleaseLine, namespaceName, componentName, releaseLine.Name); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateReleaseLine(ctx, namespaceName, componentName, releaseLine)
+}
+
+func (s *componentServiceWithAuthz) DeleteReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) error {
+	if err := s.checkReleaseLineAction(ctx, authz.ActionDeleteReleaseLine, namespaceName, componentName, releaseLineName); err != nil {
+		return err
+	}
+	return s.internal.DeleteReleaseLine(ctx, namespaceName, componentName, releaseLineName)
 }

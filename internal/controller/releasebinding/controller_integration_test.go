@@ -917,6 +917,52 @@ var _ = Describe("ReleaseBinding Controller", func() {
 	// The ReleaseBinding should wait for its owned Release to be fully deleted
 	// before removing its own finalizer.
 
+	Context("Finalization of a release line's binding", func() {
+		const (
+			project  = "lines-proj"
+			compName = "lines-comp"
+			envName  = "lines-env"
+			rbName   = "lines-comp-main-lines-env"
+		)
+		mainRelease := compName + "-main-" + envName
+		nextRelease := compName + "-next-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(mainRelease)
+			forceDeleteRelease(nextRelease)
+		})
+
+		It("deletes only the Releases of its own line", func() {
+			r := testReconciler()
+
+			rb := rbFixture(rbName, project, compName, envName, "rel", true)
+			rb.Spec.Owner.ReleaseLine = "main"
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			for line, name := range map[string]string{"main": mainRelease, "next": nextRelease} {
+				rel := releaseFixture(name, ns, project, compName, envName)
+				rel.Labels[labels.LabelKeyReleaseLine] = line
+				Expect(k8sClient.Create(ctx, rel)).To(Succeed())
+			}
+
+			Expect(k8sClient.Delete(ctx, rb)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, req)
+				g.Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rbName}, &openchoreov1alpha1.ReleaseBinding{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: mainRelease}, &openchoreov1alpha1.RenderedRelease{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "the binding's own Release is deleted")
+			next := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: nextRelease}, next)).To(Succeed())
+			Expect(next.DeletionTimestamp.IsZero()).To(BeTrue(), "another line's Release is left alone")
+		})
+	})
+
 	Context("Finalization blocked by an owned Release that has its own finalizer", func() {
 		const (
 			blockFinalizer = "test.openchoreo.dev/block-deletion"

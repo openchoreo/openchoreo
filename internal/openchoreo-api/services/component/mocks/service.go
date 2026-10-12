@@ -89,6 +89,67 @@ func (_c *MockService_CreateComponent_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// CreateReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLine
+func (_m *MockService) CreateReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLine *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLine)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateReleaseLine")
+	}
+
+	var r0 *v1alpha1.ReleaseLine
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error)); ok {
+		return rf(ctx, namespaceName, componentName, releaseLine)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1alpha1.ReleaseLine) *v1alpha1.ReleaseLine); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLine)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.ReleaseLine)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *v1alpha1.ReleaseLine) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, releaseLine)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_CreateReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateReleaseLine'
+type MockService_CreateReleaseLine_Call struct {
+	*mock.Call
+}
+
+// CreateReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLine *v1alpha1.ReleaseLine
+func (_e *MockService_Expecter) CreateReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLine interface{}) *MockService_CreateReleaseLine_Call {
+	return &MockService_CreateReleaseLine_Call{Call: _e.mock.On("CreateReleaseLine", ctx, namespaceName, componentName, releaseLine)}
+}
+
+func (_c *MockService_CreateReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLine *v1alpha1.ReleaseLine)) *MockService_CreateReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*v1alpha1.ReleaseLine))
+	})
+	return _c
+}
+
+func (_c *MockService_CreateReleaseLine_Call) Return(_a0 *v1alpha1.ReleaseLine, _a1 error) *MockService_CreateReleaseLine_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_CreateReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error)) *MockService_CreateReleaseLine_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteComponent provides a mock function with given fields: ctx, namespaceName, componentName
 func (_m *MockService) DeleteComponent(ctx context.Context, namespaceName string, componentName string) error {
 	ret := _m.Called(ctx, namespaceName, componentName)
@@ -133,6 +194,55 @@ func (_c *MockService_DeleteComponent_Call) Return(_a0 error) *MockService_Delet
 }
 
 func (_c *MockService_DeleteComponent_Call) RunAndReturn(run func(context.Context, string, string) error) *MockService_DeleteComponent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLineName
+func (_m *MockService) DeleteReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLineName string) error {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLineName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteReleaseLine")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockService_DeleteReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteReleaseLine'
+type MockService_DeleteReleaseLine_Call struct {
+	*mock.Call
+}
+
+// DeleteReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLineName string
+func (_e *MockService_Expecter) DeleteReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLineName interface{}) *MockService_DeleteReleaseLine_Call {
+	return &MockService_DeleteReleaseLine_Call{Call: _e.mock.On("DeleteReleaseLine", ctx, namespaceName, componentName, releaseLineName)}
+}
+
+func (_c *MockService_DeleteReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLineName string)) *MockService_DeleteReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteReleaseLine_Call) Return(_a0 error) *MockService_DeleteReleaseLine_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockService_DeleteReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, string) error) *MockService_DeleteReleaseLine_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -379,6 +489,67 @@ func (_c *MockService_GetComponentSchema_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// GetReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLineName
+func (_m *MockService) GetReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLineName string) (*v1alpha1.ReleaseLine, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLineName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetReleaseLine")
+	}
+
+	var r0 *v1alpha1.ReleaseLine
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1alpha1.ReleaseLine, error)); ok {
+		return rf(ctx, namespaceName, componentName, releaseLineName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1alpha1.ReleaseLine); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.ReleaseLine)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_GetReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetReleaseLine'
+type MockService_GetReleaseLine_Call struct {
+	*mock.Call
+}
+
+// GetReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLineName string
+func (_e *MockService_Expecter) GetReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLineName interface{}) *MockService_GetReleaseLine_Call {
+	return &MockService_GetReleaseLine_Call{Call: _e.mock.On("GetReleaseLine", ctx, namespaceName, componentName, releaseLineName)}
+}
+
+func (_c *MockService_GetReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLineName string)) *MockService_GetReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_GetReleaseLine_Call) Return(_a0 *v1alpha1.ReleaseLine, _a1 error) *MockService_GetReleaseLine_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_GetReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, string) (*v1alpha1.ReleaseLine, error)) *MockService_GetReleaseLine_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListComponents provides a mock function with given fields: ctx, namespaceName, projectName, opts
 func (_m *MockService) ListComponents(ctx context.Context, namespaceName string, projectName string, opts services.ListOptions) (*services.ListResult[v1alpha1.Component], error) {
 	ret := _m.Called(ctx, namespaceName, projectName, opts)
@@ -440,6 +611,67 @@ func (_c *MockService_ListComponents_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// ListReleaseLines provides a mock function with given fields: ctx, namespaceName, componentName, opts
+func (_m *MockService) ListReleaseLines(ctx context.Context, namespaceName string, componentName string, opts services.ListOptions) (*services.ListResult[v1alpha1.ReleaseLine], error) {
+	ret := _m.Called(ctx, namespaceName, componentName, opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListReleaseLines")
+	}
+
+	var r0 *services.ListResult[v1alpha1.ReleaseLine]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, services.ListOptions) (*services.ListResult[v1alpha1.ReleaseLine], error)); ok {
+		return rf(ctx, namespaceName, componentName, opts)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, services.ListOptions) *services.ListResult[v1alpha1.ReleaseLine]); ok {
+		r0 = rf(ctx, namespaceName, componentName, opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*services.ListResult[v1alpha1.ReleaseLine])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, services.ListOptions) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_ListReleaseLines_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListReleaseLines'
+type MockService_ListReleaseLines_Call struct {
+	*mock.Call
+}
+
+// ListReleaseLines is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - opts services.ListOptions
+func (_e *MockService_Expecter) ListReleaseLines(ctx interface{}, namespaceName interface{}, componentName interface{}, opts interface{}) *MockService_ListReleaseLines_Call {
+	return &MockService_ListReleaseLines_Call{Call: _e.mock.On("ListReleaseLines", ctx, namespaceName, componentName, opts)}
+}
+
+func (_c *MockService_ListReleaseLines_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, opts services.ListOptions)) *MockService_ListReleaseLines_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(services.ListOptions))
+	})
+	return _c
+}
+
+func (_c *MockService_ListReleaseLines_Call) Return(_a0 *services.ListResult[v1alpha1.ReleaseLine], _a1 error) *MockService_ListReleaseLines_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_ListReleaseLines_Call) RunAndReturn(run func(context.Context, string, string, services.ListOptions) (*services.ListResult[v1alpha1.ReleaseLine], error)) *MockService_ListReleaseLines_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateComponent provides a mock function with given fields: ctx, namespaceName, _a2
 func (_m *MockService) UpdateComponent(ctx context.Context, namespaceName string, _a2 *v1alpha1.Component) (*v1alpha1.Component, error) {
 	ret := _m.Called(ctx, namespaceName, _a2)
@@ -496,6 +728,67 @@ func (_c *MockService_UpdateComponent_Call) Return(_a0 *v1alpha1.Component, _a1 
 }
 
 func (_c *MockService_UpdateComponent_Call) RunAndReturn(run func(context.Context, string, *v1alpha1.Component) (*v1alpha1.Component, error)) *MockService_UpdateComponent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLine
+func (_m *MockService) UpdateReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLine *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLine)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateReleaseLine")
+	}
+
+	var r0 *v1alpha1.ReleaseLine
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error)); ok {
+		return rf(ctx, namespaceName, componentName, releaseLine)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1alpha1.ReleaseLine) *v1alpha1.ReleaseLine); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLine)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.ReleaseLine)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *v1alpha1.ReleaseLine) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, releaseLine)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_UpdateReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateReleaseLine'
+type MockService_UpdateReleaseLine_Call struct {
+	*mock.Call
+}
+
+// UpdateReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLine *v1alpha1.ReleaseLine
+func (_e *MockService_Expecter) UpdateReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLine interface{}) *MockService_UpdateReleaseLine_Call {
+	return &MockService_UpdateReleaseLine_Call{Call: _e.mock.On("UpdateReleaseLine", ctx, namespaceName, componentName, releaseLine)}
+}
+
+func (_c *MockService_UpdateReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLine *v1alpha1.ReleaseLine)) *MockService_UpdateReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*v1alpha1.ReleaseLine))
+	})
+	return _c
+}
+
+func (_c *MockService_UpdateReleaseLine_Call) Return(_a0 *v1alpha1.ReleaseLine, _a1 error) *MockService_UpdateReleaseLine_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_UpdateReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, *v1alpha1.ReleaseLine) (*v1alpha1.ReleaseLine, error)) *MockService_UpdateReleaseLine_Call {
 	_c.Call.Return(run)
 	return _c
 }

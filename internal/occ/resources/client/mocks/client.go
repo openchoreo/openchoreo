@@ -262,6 +262,67 @@ func (_c *MockInterface_CreateComponentType_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// CreateComponentWorkflowRun provides a mock function with given fields: ctx, namespaceName, componentName, req
+func (_m *MockInterface) CreateComponentWorkflowRun(ctx context.Context, namespaceName string, componentName string, req gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateComponentWorkflowRun")
+	}
+
+	var r0 *gen.WorkflowRun
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error)); ok {
+		return rf(ctx, namespaceName, componentName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.CreateComponentWorkflowRunRequest) *gen.WorkflowRun); ok {
+		r0 = rf(ctx, namespaceName, componentName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.WorkflowRun)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.CreateComponentWorkflowRunRequest) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateComponentWorkflowRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateComponentWorkflowRun'
+type MockInterface_CreateComponentWorkflowRun_Call struct {
+	*mock.Call
+}
+
+// CreateComponentWorkflowRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - req gen.CreateComponentWorkflowRunRequest
+func (_e *MockInterface_Expecter) CreateComponentWorkflowRun(ctx interface{}, namespaceName interface{}, componentName interface{}, req interface{}) *MockInterface_CreateComponentWorkflowRun_Call {
+	return &MockInterface_CreateComponentWorkflowRun_Call{Call: _e.mock.On("CreateComponentWorkflowRun", ctx, namespaceName, componentName, req)}
+}
+
+func (_c *MockInterface_CreateComponentWorkflowRun_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, req gen.CreateComponentWorkflowRunRequest)) *MockInterface_CreateComponentWorkflowRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.CreateComponentWorkflowRunRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateComponentWorkflowRun_Call) Return(_a0 *gen.WorkflowRun, _a1 error) *MockInterface_CreateComponentWorkflowRun_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateComponentWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string, gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error)) *MockInterface_CreateComponentWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateProjectRelease provides a mock function with given fields: ctx, namespaceName, pr
 func (_m *MockInterface) CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error) {
 	ret := _m.Called(ctx, namespaceName, pr)
@@ -1484,6 +1545,55 @@ func (_c *MockInterface_DeleteComponentRelease_Call) Return(_a0 error) *MockInte
 }
 
 func (_c *MockInterface_DeleteComponentRelease_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteComponentRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteComponentReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLineName
+func (_m *MockInterface) DeleteComponentReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLineName string) error {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLineName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteComponentReleaseLine")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteComponentReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteComponentReleaseLine'
+type MockInterface_DeleteComponentReleaseLine_Call struct {
+	*mock.Call
+}
+
+// DeleteComponentReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLineName string
+func (_e *MockInterface_Expecter) DeleteComponentReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLineName interface{}) *MockInterface_DeleteComponentReleaseLine_Call {
+	return &MockInterface_DeleteComponentReleaseLine_Call{Call: _e.mock.On("DeleteComponentReleaseLine", ctx, namespaceName, componentName, releaseLineName)}
+}
+
+func (_c *MockInterface_DeleteComponentReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLineName string)) *MockInterface_DeleteComponentReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteComponentReleaseLine_Call) Return(_a0 error) *MockInterface_DeleteComponentReleaseLine_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteComponentReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, string) error) *MockInterface_DeleteComponentReleaseLine_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3701,6 +3811,67 @@ func (_c *MockInterface_GetComponentRelease_Call) Return(_a0 *gen.ComponentRelea
 }
 
 func (_c *MockInterface_GetComponentRelease_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ComponentRelease, error)) *MockInterface_GetComponentRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetComponentReleaseLine provides a mock function with given fields: ctx, namespaceName, componentName, releaseLineName
+func (_m *MockInterface) GetComponentReleaseLine(ctx context.Context, namespaceName string, componentName string, releaseLineName string) (*gen.ReleaseLine, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, releaseLineName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetComponentReleaseLine")
+	}
+
+	var r0 *gen.ReleaseLine
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*gen.ReleaseLine, error)); ok {
+		return rf(ctx, namespaceName, componentName, releaseLineName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *gen.ReleaseLine); ok {
+		r0 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ReleaseLine)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, releaseLineName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetComponentReleaseLine_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetComponentReleaseLine'
+type MockInterface_GetComponentReleaseLine_Call struct {
+	*mock.Call
+}
+
+// GetComponentReleaseLine is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - releaseLineName string
+func (_e *MockInterface_Expecter) GetComponentReleaseLine(ctx interface{}, namespaceName interface{}, componentName interface{}, releaseLineName interface{}) *MockInterface_GetComponentReleaseLine_Call {
+	return &MockInterface_GetComponentReleaseLine_Call{Call: _e.mock.On("GetComponentReleaseLine", ctx, namespaceName, componentName, releaseLineName)}
+}
+
+func (_c *MockInterface_GetComponentReleaseLine_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, releaseLineName string)) *MockInterface_GetComponentReleaseLine_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetComponentReleaseLine_Call) Return(_a0 *gen.ReleaseLine, _a1 error) *MockInterface_GetComponentReleaseLine_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetComponentReleaseLine_Call) RunAndReturn(run func(context.Context, string, string, string) (*gen.ReleaseLine, error)) *MockInterface_GetComponentReleaseLine_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -6389,6 +6560,67 @@ func (_c *MockInterface_ListClusterWorkflows_Call) Return(_a0 *gen.ClusterWorkfl
 }
 
 func (_c *MockInterface_ListClusterWorkflows_Call) RunAndReturn(run func(context.Context, *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error)) *MockInterface_ListClusterWorkflows_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListComponentReleaseLines provides a mock function with given fields: ctx, namespaceName, componentName, params
+func (_m *MockInterface) ListComponentReleaseLines(ctx context.Context, namespaceName string, componentName string, params *gen.ListComponentReleaseLinesParams) (*gen.ReleaseLineList, error) {
+	ret := _m.Called(ctx, namespaceName, componentName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListComponentReleaseLines")
+	}
+
+	var r0 *gen.ReleaseLineList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.ListComponentReleaseLinesParams) (*gen.ReleaseLineList, error)); ok {
+		return rf(ctx, namespaceName, componentName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.ListComponentReleaseLinesParams) *gen.ReleaseLineList); ok {
+		r0 = rf(ctx, namespaceName, componentName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ReleaseLineList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *gen.ListComponentReleaseLinesParams) error); ok {
+		r1 = rf(ctx, namespaceName, componentName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListComponentReleaseLines_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListComponentReleaseLines'
+type MockInterface_ListComponentReleaseLines_Call struct {
+	*mock.Call
+}
+
+// ListComponentReleaseLines is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentName string
+//   - params *gen.ListComponentReleaseLinesParams
+func (_e *MockInterface_Expecter) ListComponentReleaseLines(ctx interface{}, namespaceName interface{}, componentName interface{}, params interface{}) *MockInterface_ListComponentReleaseLines_Call {
+	return &MockInterface_ListComponentReleaseLines_Call{Call: _e.mock.On("ListComponentReleaseLines", ctx, namespaceName, componentName, params)}
+}
+
+func (_c *MockInterface_ListComponentReleaseLines_Call) Run(run func(ctx context.Context, namespaceName string, componentName string, params *gen.ListComponentReleaseLinesParams)) *MockInterface_ListComponentReleaseLines_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*gen.ListComponentReleaseLinesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListComponentReleaseLines_Call) Return(_a0 *gen.ReleaseLineList, _a1 error) *MockInterface_ListComponentReleaseLines_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListComponentReleaseLines_Call) RunAndReturn(run func(context.Context, string, string, *gen.ListComponentReleaseLinesParams) (*gen.ReleaseLineList, error)) *MockInterface_ListComponentReleaseLines_Call {
 	_c.Call.Return(run)
 	return _c
 }

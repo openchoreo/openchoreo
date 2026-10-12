@@ -1,0 +1,81 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# A Component built from source that deploys through explicit release lines.
+# releaseLinesEnabled can only be set at creation; the component has no implicit line.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: hello
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  releaseLinesEnabled: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/release-line-service
+  workflow:
+    kind: ClusterWorkflow
+    name: release-line-dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/chathuranga95/go-greeter"
+        revision:
+          branch: "main"
+        appPath: "."
+      docker:
+        context: "."
+        filePath: "./Dockerfile"
+
+---
+
+# Builds from the component's branch (main).
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseLine
+metadata:
+  name: main
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: hello
+
+---
+
+# Inherits everything on the Component, builds from the next branch, logs at warn, and adds health probes.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseLine
+metadata:
+  name: next
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: hello
+  parameters:
+    logLevel: warn
+  workflow:
+    parameters:
+      repository:
+        revision:
+          branch: "next"
+          # commit: <commit-sha>
+  traits:
+    - kind: ClusterTrait
+      name: health-probes
+      instanceName: health
+      parameters:
+        readiness:
+          enabled: true
+          handler:
+            httpGet:
+              path: /greet
+              port: 9090
+        liveness:
+          enabled: true
+          handler:
+            httpGet:
+              path: /greet
+              port: 9090

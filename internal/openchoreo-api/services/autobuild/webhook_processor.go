@@ -25,7 +25,7 @@ import (
 // run for a component without user-level authorization (webhook requests are
 // authenticated via HMAC signature validation instead).
 type WorkflowRunTrigger interface {
-	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string) (*models.WorkflowRunTriggerResponse, error)
 }
 
 // webhookProcessor handles webhook processing for all git providers.
@@ -92,6 +92,7 @@ func (s *webhookProcessor) ProcessWebhook(ctx context.Context, provider git.Prov
 			projectName,
 			componentName,
 			event.Commit,
+			"",
 		)
 		if err != nil {
 			// Log error but continue processing other components
