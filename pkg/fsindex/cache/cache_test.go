@@ -207,9 +207,12 @@ func TestClearCache(t *testing.T) {
 		t.Fatalf("ClearCache() error: %v", err)
 	}
 
-	// Verify cache is gone
-	if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
-		t.Error("cache directory should be removed")
+	// Index and metadata should be gone; lock file may remain.
+	if _, err := os.Stat(filepath.Join(cacheDir, IndexFile)); !os.IsNotExist(err) {
+		t.Error("index.json should be removed")
+	}
+	if _, err := os.Stat(filepath.Join(cacheDir, MetadataFile)); !os.IsNotExist(err) {
+		t.Error("metadata.json should be removed")
 	}
 }
 
