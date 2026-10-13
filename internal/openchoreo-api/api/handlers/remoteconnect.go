@@ -397,7 +397,7 @@ func (h *RemoteConnectHandler) resolve(ctx context.Context, req remoteconnect.Re
 		if providerProject == "" {
 			providerProject = req.Project
 		}
-		key := remoteconnect.EndpointTargetKey(providerProject, dep.Component, dep.Name)
+		key := remoteconnect.EndpointTargetKey(providerProject, dep.Component, dep.ReleaseLine, dep.Name)
 		// The agent resolves a stream by key alone, so two targets may never share one.
 		if seenKeys[key] {
 			h.logger.Warn("remote-connect: duplicate dependency declaration ignored", "ref", key)
@@ -410,12 +410,12 @@ func (h *RemoteConnectHandler) resolve(ctx context.Context, req remoteconnect.Re
 			unconnectable = append(unconnectable, remoteconnect.Unconnectable{Ref: key, Reason: unavailableReason})
 			continue
 		}
-		url, err := h.resolveEndpoint(ctx, req.Namespace, providerProject, dep.Component, dep.Name, dep.Visibility, req.Environment)
+		url, err := h.resolveEndpoint(ctx, req.Namespace, providerProject, dep.Component, dep.ReleaseLine, dep.Name, dep.Visibility, req.Environment)
 		if err != nil {
-			// Same reason as the unauthorized case: a distinct message would let a caller
-			// probe which components exist in projects they cannot reach.
 			h.logger.Debug("remote-connect: dependency unresolved", "ref", key, "error", err)
-			unconnectable = append(unconnectable, remoteconnect.Unconnectable{Ref: key, Reason: unavailableReason})
+			unconnectable = append(unconnectable, remoteconnect.Unconnectable{
+				Ref: key, Reason: h.unresolvedEndpointReason(ctx, req, providerProject, dep, err),
+			})
 			continue
 		}
 		agentNs := dpNamespaceFor(providerProject)
@@ -611,8 +611,8 @@ func (h *RemoteConnectHandler) resolveRemoteConnectPlane(ctx context.Context, ns
 
 // resolveEndpoint finds the provider ReleaseBinding and reads the named address's
 // in-cluster ServiceURL (for project/namespace visibility).
-func (h *RemoteConnectHandler) resolveEndpoint(ctx context.Context, ns, project, component, epName, visibility, env string) (*openchoreov1alpha1.EndpointURL, error) {
-	rb, err := h.findReleaseBinding(ctx, ns, project, component, env)
+func (h *RemoteConnectHandler) resolveEndpoint(ctx context.Context, ns, project, component, releaseLine, epName, visibility, env string) (*openchoreov1alpha1.EndpointURL, error) {
+	rb, err := h.findReleaseBinding(ctx, ns, project, component, releaseLine, env)
 	if err != nil {
 		return nil, err
 	}
@@ -876,10 +876,11 @@ func (r *resolvedResource) grant(ref, outputName string, o openchoreov1alpha1.Re
 	return grant, ""
 }
 
-// findReleaseBinding lists ReleaseBindings in the namespace and returns the single one without a release line
-// matching (project, component, environment) that is not being undeployed. The API
-// server's client is uncached with no field indexes, so we list + filter in memory.
-func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, project, component, env string) (*openchoreov1alpha1.ReleaseBinding, error) {
+// findReleaseBinding lists ReleaseBindings in the namespace and returns the single one
+// matching (project, component, release line, environment) that is not being undeployed.
+// An empty release line matches only bindings without one. The API server's client is
+// uncached with no field indexes, so we list + filter in memory.
+func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, project, component, releaseLine, env string) (*openchoreov1alpha1.ReleaseBinding, error) {
 	var list openchoreov1alpha1.ReleaseBindingList
 	if err := h.k8sClient.List(ctx, &list, client.InNamespace(ns)); err != nil {
 		return nil, fmt.Errorf("list release bindings: %w", err)
@@ -888,7 +889,7 @@ func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, proje
 	for i := range list.Items {
 		rb := &list.Items[i]
 		if rb.Spec.Owner.ProjectName != project || rb.Spec.Owner.ComponentName != component || rb.Spec.Environment != env ||
-			rb.Spec.Owner.ReleaseLine != "" {
+			rb.Spec.Owner.ReleaseLine != releaseLine {
 			continue
 		}
 		if rb.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
@@ -900,9 +901,31 @@ func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, proje
 		match = rb
 	}
 	if match == nil {
-		return nil, fmt.Errorf("no release binding for %s/%s in %s", project, component, env)
+		return nil, fmt.Errorf("%w for %s/%s in %s", errNoReleaseBinding, project, component, env)
 	}
 	return match, nil
+}
+
+var errNoReleaseBinding = errors.New("no release binding")
+
+// unresolvedEndpointReason is unavailableReason, except for a release line mismatch on a
+// component the caller is already authorized to connect to, which names the problem. Anything
+// else stays indistinguishable so a caller cannot probe which components exist.
+func (h *RemoteConnectHandler) unresolvedEndpointReason(ctx context.Context, req remoteconnect.ResolveRequest,
+	project string, dep remoteconnect.EndpointDep, err error) string {
+	if !errors.Is(err, errNoReleaseBinding) {
+		return unavailableReason
+	}
+	reason, lerr := controller.ReleaseLineDependencyProblem(ctx, h.k8sClient,
+		req.Namespace, project, dep.Component, dep.ReleaseLine, req.Environment)
+	if lerr != nil {
+		h.logger.Debug("remote-connect: release line lookup failed", "component", dep.Component, "error", lerr)
+		return unavailableReason
+	}
+	if reason == "" {
+		return unavailableReason
+	}
+	return reason
 }
 
 func (h *RemoteConnectHandler) findResourceReleaseBinding(ctx context.Context, ns, project, resource, env string) (*openchoreov1alpha1.ResourceReleaseBinding, error) {
