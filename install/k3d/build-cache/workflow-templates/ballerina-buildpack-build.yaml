@@ -135,7 +135,21 @@ spec:
             # selected a custom JRE through buildEnv.
             ballerina_toml="$WORKDIR/$APP_PATH/Ballerina.toml"
             if [ "$has_custom_jre" = false ] && [ -f "$ballerina_toml" ]; then
-              ballerina_version=$(awk -F'"' '/^[[:space:]]*distribution[[:space:]]*=/{print $2; exit}' "$ballerina_toml")
+              ballerina_version=$(awk '
+                /^[[:space:]]*distribution[[:space:]]*=/ {
+                  value = $0
+                  sub(/^[^=]*=[[:space:]]*/, "", value)
+                  quote = substr(value, 1, 1)
+                  if (quote == "\"" || quote == sprintf("%c", 39)) {
+                    value = substr(value, 2)
+                    closing_quote = index(value, quote)
+                    if (closing_quote > 0) {
+                      print substr(value, 1, closing_quote - 1)
+                    }
+                  }
+                  exit
+                }
+              ' "$ballerina_toml")
               ballerina_major=$(printf '%s' "$ballerina_version" | cut -d. -f1)
               ballerina_minor=$(printf '%s' "$ballerina_version" | cut -d. -f2)
               if [ "$ballerina_major" = "2201" ] && [ "$ballerina_minor" -ge 14 ] 2>/dev/null; then

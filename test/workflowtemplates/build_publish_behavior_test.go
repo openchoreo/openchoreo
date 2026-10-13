@@ -285,29 +285,37 @@ func TestBuildpackBuilds_Behavior(t *testing.T) {
 
 func TestBallerinaBuildpack_SelectsJava25ForBallerina2201_14(t *testing.T) {
 	for _, dir := range []string{templatesDir, buildCacheTemplatesDir} {
-		t.Run(dir, func(t *testing.T) {
-			script := scriptForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
-			env := envForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
-			res := runScriptWithEnv(t, script, env, map[string]string{
-				"podman": buildPodmanStub,
-				"pack":   packStub,
-				"jq":     buildJQStub,
-			}, func(root string) {
-				appDir := filepath.Join(root, "mnt-vol", "source", "service")
-				require.NoError(t, os.MkdirAll(appDir, 0o755))
-				require.NoError(t, os.WriteFile(
-					filepath.Join(appDir, "Ballerina.toml"),
-					[]byte("[package]\ndistribution = \"2201.14.0\"\n"),
-					0o644,
-				))
-				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
-				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
-			}, buildReplacements)
+		for _, distributionLine := range []struct {
+			name  string
+			value string
+		}{
+			{name: "basic string", value: `distribution = "2201.14.0"`},
+			{name: "literal string", value: `distribution = '2201.14.0'`},
+		} {
+			t.Run(dir+"/"+distributionLine.name, func(t *testing.T) {
+				script := scriptForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
+				env := envForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
+				res := runScriptWithEnv(t, script, env, map[string]string{
+					"podman": buildPodmanStub,
+					"pack":   packStub,
+					"jq":     buildJQStub,
+				}, func(root string) {
+					appDir := filepath.Join(root, "mnt-vol", "source", "service")
+					require.NoError(t, os.MkdirAll(appDir, 0o755))
+					require.NoError(t, os.WriteFile(
+						filepath.Join(appDir, "Ballerina.toml"),
+						[]byte("[package]\n"+distributionLine.value+"\n"),
+						0o644,
+					))
+					require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+					require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+				}, buildReplacements)
 
-			requireScriptSuccess(t, res, "Ballerina 2201.14 build should complete")
-			requireCallContains(t, res, "pack build", "--env CUSTOM_JRE_VERSION=jdk-25.0.4.1+1",
-				"Ballerina 2201.14 must use Java 25")
-		})
+				requireScriptSuccess(t, res, "Ballerina 2201.14 build should complete")
+				requireCallContains(t, res, "pack build", "--env CUSTOM_JRE_VERSION=jdk-25.0.4.1+1",
+					"Ballerina 2201.14 must use Java 25")
+			})
+		}
 	}
 }
 
@@ -368,7 +376,7 @@ func TestBallerinaBuildpack_PreservesJavaSelection(t *testing.T) {
 					"Ballerina build must preserve the user-provided JRE")
 			}
 			if tt.notWantEnv != "" {
-				requireNoCall(t, res, tt.notWantEnv,
+				requireNoCallContains(t, res, "pack build", "--env "+tt.notWantEnv,
 					"Ballerina build must not inject an unintended JRE version")
 			}
 		})
