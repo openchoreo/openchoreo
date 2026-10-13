@@ -166,11 +166,30 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 		}
 	}
 
+	newComponent := func(name string, lined bool) *openchoreov1alpha1.Component {
+		return &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+				ReleaseLinesEnabled: lined,
+			},
+		}
+	}
+	newLine := func(name, component string) *openchoreov1alpha1.ReleaseLine {
+		return &openchoreov1alpha1.ReleaseLine{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: openchoreov1alpha1.ReleaseLineSpec{
+				Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: testProjectName, ComponentName: component},
+			},
+		}
+	}
+
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(newTarget("main", "main", "main.svc"), newTarget("v2", testReleaseLine, "v2.svc")).
+		WithObjects(newTarget("main", "main", "main.svc"), newTarget("v2", testReleaseLine, "v2.svc"),
+			newComponent(testComponentName, true), newComponent("plain", false), newLine("canary", testComponentName)).
 		WithIndex(&openchoreov1alpha1.ReleaseBinding{}, controller.IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
 			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
 			return []string{controller.MakeReleaseBindingOwnerEnvKey(rb.Spec.Owner.ProjectName, rb.Spec.Owner.ComponentName, rb.Spec.Environment)}
@@ -178,12 +197,13 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 		Build()
 	r := &Reconciler{Client: c, Scheme: scheme}
 
-	target := func(line string) openchoreov1alpha1.ConnectionTarget {
+	targetOf := func(component, line string) openchoreov1alpha1.ConnectionTarget {
 		return openchoreov1alpha1.ConnectionTarget{
-			Namespace: "default", Project: testProjectName, Component: testComponentName, ReleaseLine: line,
+			Namespace: "default", Project: testProjectName, Component: component, ReleaseLine: line,
 			Endpoint: "http", Visibility: openchoreov1alpha1.EndpointVisibilityProject, Environment: testEnvStaging,
 		}
 	}
+	target := func(line string) openchoreov1alpha1.ConnectionTarget { return targetOf(testComponentName, line) }
 
 	for line, wantHost := range map[string]string{"main": "main.svc", testReleaseLine: "v2.svc"} {
 		resolved, pending, err := r.resolveConnection(context.Background(), target(line))
@@ -198,6 +218,25 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 	assert.Nil(t, resolved, "a release-line component has no implicit line to fall back to")
 	require.NotNil(t, pending)
 	assert.Contains(t, pending.Reason, "set releaseLine on the dependency")
+
+	for name, tc := range map[string]struct {
+		target openchoreov1alpha1.ConnectionTarget
+		want   string
+	}{
+		"line on a component without lines": {targetOf("plain", "next"), "does not have release lines enabled"},
+		"unknown line":                      {target("ghost"), `release line "ghost" not found`},
+		"line not deployed":                 {target("canary"), `release line "canary" of component my-project/my-component is not deployed in environment staging`},
+		"component not deployed":            {targetOf("plain", ""), "ReleaseBinding not found"},
+		"unknown component":                 {targetOf("ghost", ""), "ReleaseBinding not found"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resolved, pending, err := r.resolveConnection(context.Background(), tc.target)
+			require.NoError(t, err)
+			assert.Nil(t, resolved)
+			require.NotNil(t, pending)
+			assert.Contains(t, pending.Reason, tc.want)
+		})
+	}
 }
 
 func TestFindReleaseLineCollision(t *testing.T) {

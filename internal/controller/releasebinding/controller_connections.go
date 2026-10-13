@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -87,28 +88,20 @@ func (r *Reconciler) resolveConnection(
 		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerEnv: indexKey}); err != nil {
 		return nil, nil, fmt.Errorf("failed to list ReleaseBindings for component %s/%s: %w", conn.Project, conn.Component, err)
 	}
-	allBindings := rbList.Items
 	rbList.Items = controller.FilterReleaseBindingsByLine(rbList.Items, conn.ReleaseLine)
 
-	if len(rbList.Items) == 0 && conn.ReleaseLine == "" && len(allBindings) > 0 {
-		return nil, &openchoreov1alpha1.PendingConnection{
-			Namespace:   conn.Namespace,
-			Project:     conn.Project,
-			Component:   conn.Component,
-			ReleaseLine: conn.ReleaseLine,
-			Endpoint:    conn.Endpoint,
-			Reason:      fmt.Sprintf("component %s/%s uses release lines; set releaseLine on the dependency", conn.Project, conn.Component),
-		}, nil
-	}
-
 	if len(rbList.Items) == 0 {
+		reason, err := r.missingBindingReason(ctx, conn)
+		if err != nil {
+			return nil, nil, err
+		}
 		return nil, &openchoreov1alpha1.PendingConnection{
 			Namespace:   conn.Namespace,
 			Project:     conn.Project,
 			Component:   conn.Component,
 			ReleaseLine: conn.ReleaseLine,
 			Endpoint:    conn.Endpoint,
-			Reason:      fmt.Sprintf("ReleaseBinding not found for component %s/%s", conn.Project, conn.Component),
+			Reason:      reason,
 		}, nil
 	}
 
@@ -170,6 +163,47 @@ func (r *Reconciler) resolveConnection(
 		Endpoint:    conn.Endpoint,
 		Reason:      fmt.Sprintf("endpoint %q not yet resolved", conn.Endpoint),
 	}, nil
+}
+
+// missingBindingReason explains why no ReleaseBinding matches the target, distinguishing a
+// release line mismatch between the dependency and the target component from a target that
+// is not deployed yet.
+func (r *Reconciler) missingBindingReason(ctx context.Context, conn openchoreov1alpha1.ConnectionTarget) (string, error) {
+	notDeployed := fmt.Sprintf("ReleaseBinding not found for component %s/%s", conn.Project, conn.Component)
+
+	comp := &openchoreov1alpha1.Component{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: conn.Namespace, Name: conn.Component}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return notDeployed, nil
+		}
+		return "", fmt.Errorf("failed to get component %s/%s: %w", conn.Project, conn.Component, err)
+	}
+	if comp.Spec.Owner.ProjectName != conn.Project {
+		return notDeployed, nil
+	}
+
+	switch {
+	case comp.Spec.ReleaseLinesEnabled && conn.ReleaseLine == "":
+		return fmt.Sprintf("component %s/%s uses release lines; set releaseLine on the dependency", conn.Project, conn.Component), nil
+	case !comp.Spec.ReleaseLinesEnabled && conn.ReleaseLine != "":
+		return fmt.Sprintf("component %s/%s does not have release lines enabled; remove releaseLine from the dependency",
+			conn.Project, conn.Component), nil
+	case conn.ReleaseLine == "":
+		return notDeployed, nil
+	}
+
+	line := &openchoreov1alpha1.ReleaseLine{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: conn.Namespace, Name: conn.ReleaseLine}, line); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("failed to get release line %q: %w", conn.ReleaseLine, err)
+		}
+		line = nil
+	}
+	if line == nil || line.Spec.Owner.ComponentName != conn.Component || line.Spec.Owner.ProjectName != conn.Project {
+		return fmt.Sprintf("release line %q not found for component %s/%s", conn.ReleaseLine, conn.Project, conn.Component), nil
+	}
+	return fmt.Sprintf("release line %q of component %s/%s is not deployed in environment %s",
+		conn.ReleaseLine, conn.Project, conn.Component, conn.Environment), nil
 }
 
 // resolveURLForVisibility extracts the appropriate URL from an EndpointURLStatus
