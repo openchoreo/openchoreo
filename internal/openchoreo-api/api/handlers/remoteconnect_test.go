@@ -734,3 +734,107 @@ func TestResolveResourceReportsNothingWhenEndpointsResolved(t *testing.T) {
 		t.Fatalf("unexpected unconnectable: %+v", resp.Unconnectable)
 	}
 }
+
+// Each release line of a provider resolves to its own binding and its own key, and a
+// dependency without a line never falls through to a line's binding.
+func TestResolveEndpointPerReleaseLine(t *testing.T) {
+	env, dp := testEnvironmentAndDataPlane()
+	lineRB := func(line string) *openchoreov1alpha1.ReleaseBinding {
+		return &openchoreov1alpha1.ReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "hello-" + line + "-development", Namespace: "default"},
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "doclet", ComponentName: "hello", ReleaseLine: line},
+				Environment: "development",
+			},
+			Status: openchoreov1alpha1.ReleaseBindingStatus{
+				Endpoints: []openchoreov1alpha1.EndpointURLStatus{{
+					Name:       httpStr,
+					ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: httpStr, Host: "hello-" + line + ".dp-ns.svc.cluster.local", Port: 9090},
+				}},
+			},
+		}
+	}
+	hello := &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Name: "hello", Namespace: "default"},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"},
+			ReleaseLinesEnabled: true,
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(remoteConnectScheme(t)).
+		WithObjects(env, dp, hello, lineRB("main"), lineRB("next")).Build()
+
+	_, priv, _ := ed25519.GenerateKey(nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := &RemoteConnectHandler{
+		k8sClient:    cl,
+		authzChecker: svcpkg.NewAuthzChecker(&recordingPDP{}, logger),
+		signer:       &capabilitySigner{privKey: priv, keyID: "k1", issuer: "cp", ttl: 30 * time.Minute},
+		logger:       logger,
+	}
+
+	dep := func(line, address string) remoteconnect.EndpointDep {
+		return remoteconnect.EndpointDep{
+			Component: "hello", ReleaseLine: line, Name: httpStr, Visibility: "project",
+			EnvBindings: remoteconnect.EndpointEnvBindings{Address: address},
+		}
+	}
+	resp, err := h.resolve(context.Background(), remoteconnect.ResolveRequest{
+		Namespace: "default", Project: "doclet", Component: "caller", Environment: "development",
+		Endpoints: []remoteconnect.EndpointDep{dep("main", "MAIN_URL"), dep("next", "NEXT_URL"), dep("", "HELLO_URL")},
+	}, "user:alice")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	claims, err := remoteconnect.VerifyCapability(resp.Capability, priv.Public().(ed25519.PublicKey))
+	if err != nil {
+		t.Fatalf("verify capability: %v", err)
+	}
+	for _, line := range []string{"main", "next"} {
+		key := remoteconnect.EndpointTargetKey("doclet", "hello", line, httpStr)
+		findTarget(t, resp.Targets, key)
+		target, ok := claims.TargetByKey(key)
+		if !ok || target.Host != "hello-"+line+".dp-ns.svc.cluster.local" {
+			t.Fatalf("line %q: bad capability target %+v ok=%v", line, target, ok)
+		}
+	}
+	if len(resp.Unconnectable) != 1 || resp.Unconnectable[0].Ref != "ep/doclet/hello/http" {
+		t.Fatalf("expected only the dependency without a line to be unconnectable, got %+v", resp.Unconnectable)
+	}
+	if want := "component doclet/hello uses release lines; set releaseLine on the dependency"; resp.Unconnectable[0].Reason != want {
+		t.Fatalf("reason = %q, want %q", resp.Unconnectable[0].Reason, want)
+	}
+}
+
+// Without authorization to connect, a release line mismatch is reported like any other
+// unavailable dependency.
+func TestResolveReleaseLineReasonRequiresAuthorization(t *testing.T) {
+	env, dp := testEnvironmentAndDataPlane()
+	hello := &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Name: "hello", Namespace: "default"},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"},
+			ReleaseLinesEnabled: true,
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(remoteConnectScheme(t)).WithObjects(env, dp, hello).Build()
+	_, priv, _ := ed25519.GenerateKey(nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := &RemoteConnectHandler{
+		k8sClient:    cl,
+		authzChecker: svcpkg.NewAuthzChecker(&recordingPDP{grants: []string{"no-match"}}, logger),
+		signer:       &capabilitySigner{privKey: priv, keyID: "k1", issuer: "cp", ttl: 30 * time.Minute},
+		logger:       logger,
+	}
+	resp, err := h.resolve(context.Background(), remoteconnect.ResolveRequest{
+		Namespace: "default", Project: "doclet", Component: "caller", Environment: "development",
+		Endpoints: []remoteconnect.EndpointDep{{Component: "hello", Name: httpStr, Visibility: "project"}},
+	}, "user:alice")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(resp.Unconnectable) != 1 || resp.Unconnectable[0].Reason != unavailableReason {
+		t.Fatalf("expected the generic reason, got %+v", resp.Unconnectable)
+	}
+}

@@ -52,6 +52,7 @@ type ResolveRequest struct {
 type EndpointDep struct {
 	Project     string              `json:"project,omitempty"`
 	Component   string              `json:"component"`
+	ReleaseLine string              `json:"releaseLine,omitempty"`
 	Name        string              `json:"name"`
 	Visibility  string              `json:"visibility"`
 	EnvBindings EndpointEnvBindings `json:"envBindings"`
@@ -215,8 +216,13 @@ type Unconnectable struct {
 // remote-agent looks up in the capability to find its dial target. The provider project is
 // part of it because two projects may each own a component of the same name — without it
 // both dependencies collapse to one key and the lookup silently returns the wrong host.
-// occ and the control plane must agree exactly, hence the shared helper.
-func EndpointTargetKey(project, component, endpoint string) string {
+// The release line is part of it for the same reason, as "<component>@<line>"; a
+// dependency without a line keeps the original key. occ and the control plane must
+// agree exactly, hence the shared helper.
+func EndpointTargetKey(project, component, releaseLine, endpoint string) string {
+	if releaseLine != "" {
+		component += "@" + releaseLine
+	}
 	return "ep/" + project + "/" + component + "/" + endpoint
 }
 
