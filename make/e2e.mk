@@ -635,24 +635,12 @@ _e2e.install-op:
 		--from-literal=username="admin" \
 		--from-literal=password="ThisIsTheOpenSearchPassword1" \
 		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
-	@$(call log_info, Installing logs module without Fluent Bit so index templates are ready first)
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
 		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
 		--namespace $(E2E_OP_NS) \
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
-		--set fluent-bit.enabled=false \
-		--set auditLogs.enabled=true \
-		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
-	@$(call log_info, Enabling Fluent Bit after logs module setup)
-	$(E2E_HELM) upgrade --install observability-logs-opensearch \
-		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
-		--namespace $(E2E_OP_NS) \
-		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
-		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
-		--set fluent-bit.enabled=true \
 		--set fluentBitCustomizations.clusterInstance=$(E2E_CLUSTER_NAME) \
 		--set auditLogs.enabled=true \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
