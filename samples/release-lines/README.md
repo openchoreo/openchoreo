@@ -24,6 +24,16 @@ The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 kubectl apply -f samples/release-lines/component-type.yaml -f samples/release-lines/build-workflow.yaml -f samples/release-lines/generate-workload-template.yaml
 ```
 
+On a multi-cluster install, the ClusterWorkflowTemplate belongs on the workflow plane cluster and the rest on the control plane cluster. With the k3d multi-cluster setup:
+
+```bash
+kubectl --context k3d-openchoreo-cp apply -f samples/release-lines/component-type.yaml -f samples/release-lines/build-workflow.yaml
+```
+
+```bash
+kubectl --context k3d-openchoreo-wp apply -f samples/release-lines/generate-workload-template.yaml
+```
+
 ```bash
 kubectl apply -f samples/release-lines/release-lines.yaml
 ```
