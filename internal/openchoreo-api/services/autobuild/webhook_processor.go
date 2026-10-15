@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // WorkflowRunTrigger is implemented by a workflow run service to trigger a workflow
@@ -64,18 +66,18 @@ func (s *webhookProcessor) ProcessWebhook(ctx context.Context, provider git.Prov
 		"commit", event.Commit,
 		"modifiedPaths", len(event.ModifiedPaths))
 
-	// Find affected components
-	affectedComponents, err := s.findAffectedComponents(ctx, event)
+	// Find the components and release lines to build
+	targets, err := s.findBuildTargets(ctx, event)
 	if err != nil {
 		s.logger.Error("Failed to find affected components", "error", err)
 		return nil, fmt.Errorf("failed to find affected components: %w", err)
 	}
 
-	s.logger.Info("Found affected components", "count", len(affectedComponents))
+	s.logger.Info("Found build targets", "count", len(targets))
 
-	// Trigger builds for affected components
-	triggeredComponents := make([]string, 0)
-	for _, comp := range affectedComponents {
+	triggered := make([]string, 0, len(targets))
+	for _, target := range targets {
+		comp := target.component
 		namespaceName := comp.Namespace
 		projectName := comp.Spec.Owner.ProjectName
 		componentName := comp.Name
@@ -84,6 +86,7 @@ func (s *webhookProcessor) ProcessWebhook(ctx context.Context, provider git.Prov
 			"namespace", namespaceName,
 			"project", projectName,
 			"component", componentName,
+			"releaseLine", target.releaseLine,
 			"commit", event.Commit)
 
 		_, err := s.workflowTrigger.TriggerWorkflow(
@@ -92,35 +95,51 @@ func (s *webhookProcessor) ProcessWebhook(ctx context.Context, provider git.Prov
 			projectName,
 			componentName,
 			event.Commit,
-			"",
+			target.releaseLine,
 		)
 		if err != nil {
-			// Log error but continue processing other components
+			// Log error but continue processing other targets
 			s.logger.Error("Failed to trigger build for component",
 				"error", err,
-				"component", componentName)
+				"component", componentName,
+				"releaseLine", target.releaseLine)
 			continue
 		}
 
-		triggeredComponents = append(triggeredComponents, fmt.Sprintf("%s/%s", comp.Namespace, componentName))
+		triggered = append(triggered, target.String())
 	}
 
 	s.logger.Info("Webhook processing completed",
-		"affectedComponents", len(affectedComponents),
-		"triggeredBuilds", len(triggeredComponents))
+		"buildTargets", len(targets),
+		"triggeredBuilds", len(triggered))
 
-	return triggeredComponents, nil
+	return triggered, nil
 }
 
-// findAffectedComponents finds all components that should be built based on the webhook event.
-func (s *webhookProcessor) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
-	// List all components
+// buildTarget is a component, or one release line of it, that a webhook event builds.
+type buildTarget struct {
+	component   *v1alpha1.Component
+	releaseLine string
+}
+
+// String returns "namespace/component", with "@releaseLine" appended for a release line.
+func (t buildTarget) String() string {
+	name := t.component.Namespace + "/" + t.component.Name
+	if t.releaseLine != "" {
+		name += "@" + t.releaseLine
+	}
+	return name
+}
+
+// findBuildTargets finds the components, and the release lines of components with release
+// lines enabled, that should be built for the webhook event.
+func (s *webhookProcessor) findBuildTargets(ctx context.Context, event *git.WebhookEvent) ([]buildTarget, error) {
 	componentList := &v1alpha1.ComponentList{}
 	if err := s.k8sClient.List(ctx, componentList); err != nil {
 		return nil, fmt.Errorf("failed to list components: %w", err)
 	}
 
-	affected := make([]*v1alpha1.Component, 0)
+	targets := make([]buildTarget, 0)
 	for i := range componentList.Items {
 		comp := &componentList.Items[i]
 
@@ -128,74 +147,143 @@ func (s *webhookProcessor) findAffectedComponents(ctx context.Context, event *gi
 		if comp.Spec.AutoBuild == nil || !*comp.Spec.AutoBuild {
 			continue
 		}
+		if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
+			s.logger.Info("Skipping component: component has no workflow configuration", "component", comp.Name)
+			continue
+		}
 
-		// Get repository URL, appPath, and branch from component workflow schema extensions
-		repoURL, appPath, branch, err := s.extractRepoInfoFromComponent(ctx, comp)
+		if !comp.Spec.ReleaseLinesEnabled {
+			if s.isAffected(ctx, comp, "", comp.Spec.Workflow.Parameters, event) {
+				targets = append(targets, buildTarget{component: comp})
+			}
+			continue
+		}
+
+		lines, err := s.listReleaseLines(ctx, comp)
 		if err != nil {
-			s.logger.Info("Skipping component: failed to extract repo info",
-				"component", comp.Name,
-				"error", err)
+			s.logger.Info("Skipping component: failed to list release lines", "component", comp.Name, "error", err)
 			continue
 		}
-
-		// Check if component's repository matches the webhook repository
-		if !s.matchesRepository(repoURL, event.RepositoryURL) {
-			s.logger.Info("Skipping component: repository mismatch",
-				"component", comp.Name,
-				"componentRepo", repoURL,
-				"webhookRepo", event.RepositoryURL)
-			continue
-		}
-
-		// Ensure the authenticated webhook provider matches the provider that hosts the
-		// component's repository. The webhook was validated against a specific provider's
-		// secret; without this check a webhook validated for one provider could trigger
-		// builds for components hosted on a different provider that share a repository URL.
-		// For hosts that don't map to a known SaaS provider (e.g. self-hosted), the provider
-		// cannot be inferred and no additional check is enforced.
-		if expected := providerFromRepoURL(repoURL); expected != "" && string(expected) != event.Provider {
-			s.logger.Info("Skipping component: provider mismatch",
-				"component", comp.Name,
-				"expectedProvider", expected,
-				"webhookProvider", event.Provider)
-			continue
-		}
-
-		// Check if the webhook branch matches the component's configured branch.
-		// If the component has no branch configured, all branches trigger builds.
-		if branch != "" && branch != event.Branch {
-			s.logger.Info("Skipping component: branch mismatch",
-				"component", comp.Name,
-				"componentBranch", branch,
-				"webhookBranch", event.Branch)
-			continue
-		}
-
-		// Check if modified paths affect this component
-		// If no modified paths (e.g., Bitbucket), trigger all components for the repo
-		if len(event.ModifiedPaths) == 0 || s.isComponentAffected(appPath, event.ModifiedPaths) {
-			s.logger.Info("Component is affected by webhook event",
-				"component", comp.Name,
-				"appPath", appPath,
-				"branch", branch,
-				"modifiedPaths", len(event.ModifiedPaths))
-			affected = append(affected, comp)
-		} else {
-			s.logger.Info("Skipping component: no modified paths match app path",
-				"component", comp.Name,
-				"appPath", appPath,
-				"modifiedPaths", event.ModifiedPaths)
+		for j := range lines {
+			line := &lines[j]
+			parameters := comp.Spec.Workflow.Parameters
+			if line.Spec.Workflow != nil {
+				if parameters, err = releaseline.MergeParameters(parameters, line.Spec.Workflow.Parameters); err != nil {
+					s.logger.Info("Skipping release line: failed to apply its workflow parameters",
+						"component", comp.Name, "releaseLine", line.Name, "error", err)
+					continue
+				}
+			}
+			if s.isAffected(ctx, comp, line.Name, parameters, event) {
+				targets = append(targets, buildTarget{component: comp, releaseLine: line.Name})
+			}
 		}
 	}
 
-	return affected, nil
+	return targets, nil
 }
 
-// extractRepoInfoFromComponent extracts repository URL, appPath, and branch from a component's workflow parameters
-// by scanning the Workflow or ClusterWorkflow CR's openAPIV3Schema for x-openchoreo-component-repository extensions.
-func (s *webhookProcessor) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
+// listReleaseLines returns the release lines owned by the component.
+func (s *webhookProcessor) listReleaseLines(ctx context.Context, comp *v1alpha1.Component) ([]v1alpha1.ReleaseLine, error) {
+	list := &v1alpha1.ReleaseLineList{}
+	if err := s.k8sClient.List(ctx, list, client.InNamespace(comp.Namespace)); err != nil {
+		return nil, err
+	}
+	lines := make([]v1alpha1.ReleaseLine, 0, len(list.Items))
+	for _, line := range list.Items {
+		if line.Spec.Owner.ProjectName == comp.Spec.Owner.ProjectName && line.Spec.Owner.ComponentName == comp.Name {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
+}
+
+// isAffected reports whether the webhook event should build the component, or the given release
+// line of it, with the given workflow parameters.
+func (s *webhookProcessor) isAffected(
+	ctx context.Context,
+	comp *v1alpha1.Component,
+	releaseLine string,
+	parameters *runtime.RawExtension,
+	event *git.WebhookEvent,
+) bool {
+	log := s.logger.With("component", comp.Name)
+	if releaseLine != "" {
+		log = log.With("releaseLine", releaseLine)
+	}
+
+	repo, err := s.extractRepoInfo(ctx, comp, parameters)
+	if err != nil {
+		log.Info("Skipping component: failed to extract repo info", "error", err)
+		return false
+	}
+
+	// Check if component's repository matches the webhook repository
+	if !s.matchesRepository(repo.url, event.RepositoryURL) {
+		log.Info("Skipping component: repository mismatch",
+			"componentRepo", repo.url,
+			"webhookRepo", event.RepositoryURL)
+		return false
+	}
+
+	// Ensure the authenticated webhook provider matches the provider that hosts the
+	// component's repository. The webhook was validated against a specific provider's
+	// secret; without this check a webhook validated for one provider could trigger
+	// builds for components hosted on a different provider that share a repository URL.
+	// For hosts that don't map to a known SaaS provider (e.g. self-hosted), the provider
+	// cannot be inferred and no additional check is enforced.
+	if expected := providerFromRepoURL(repo.url); expected != "" && string(expected) != event.Provider {
+		log.Info("Skipping component: provider mismatch",
+			"expectedProvider", expected,
+			"webhookProvider", event.Provider)
+		return false
+	}
+
+	// Check if the webhook branch matches the component's configured branch.
+	// If the component has no branch configured, all branches trigger builds.
+	if repo.branch != "" && repo.branch != event.Branch {
+		log.Info("Skipping component: branch mismatch",
+			"componentBranch", repo.branch,
+			"webhookBranch", event.Branch)
+		return false
+	}
+
+	// A release line pinned to a commit is not moved by pushes.
+	if releaseLine != "" && repo.commit != "" {
+		log.Info("Skipping release line: pinned to a commit", "commit", repo.commit)
+		return false
+	}
+
+	// Check if modified paths affect this component
+	// If no modified paths (e.g., Bitbucket), trigger all components for the repo
+	if len(event.ModifiedPaths) > 0 && !s.isComponentAffected(repo.appPath, event.ModifiedPaths) {
+		log.Info("Skipping component: no modified paths match app path",
+			"appPath", repo.appPath,
+			"modifiedPaths", event.ModifiedPaths)
+		return false
+	}
+
+	log.Info("Component is affected by webhook event",
+		"appPath", repo.appPath,
+		"branch", repo.branch,
+		"modifiedPaths", len(event.ModifiedPaths))
+	return true
+}
+
+// repoInfo is the repository a component builds from, read from its workflow parameters.
+type repoInfo struct {
+	url     string
+	appPath string
+	branch  string
+	commit  string
+}
+
+// extractRepoInfo extracts the repository URL, appPath, branch and commit from the given workflow parameters
+// of a component by scanning the Workflow or ClusterWorkflow CR's openAPIV3Schema for
+// x-openchoreo-component-repository extensions.
+func (s *webhookProcessor) extractRepoInfo(ctx context.Context, comp *v1alpha1.Component, parameters *runtime.RawExtension) (repoInfo, error) {
 	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
-		return "", "", "", fmt.Errorf("component has no workflow configuration")
+		return repoInfo{}, fmt.Errorf("component has no workflow configuration")
 	}
 
 	// Fetch the Workflow or ClusterWorkflow CR to get the schema
@@ -205,7 +293,7 @@ func (s *webhookProcessor) extractRepoInfoFromComponent(ctx context.Context, com
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{
 			Name: comp.Spec.Workflow.Name,
 		}, cw); err != nil {
-			return "", "", "", fmt.Errorf("failed to get ClusterWorkflow %s: %w", comp.Spec.Workflow.Name, err)
+			return repoInfo{}, fmt.Errorf("failed to get ClusterWorkflow %s: %w", comp.Spec.Workflow.Name, err)
 		}
 		parametersSchema = cw.Spec.Parameters
 	} else {
@@ -214,7 +302,7 @@ func (s *webhookProcessor) extractRepoInfoFromComponent(ctx context.Context, com
 			Name:      comp.Spec.Workflow.Name,
 			Namespace: comp.Namespace,
 		}, workflow); err != nil {
-			return "", "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
+			return repoInfo{}, fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
 		}
 		parametersSchema = workflow.Spec.Parameters
 	}
@@ -222,39 +310,44 @@ func (s *webhookProcessor) extractRepoInfoFromComponent(ctx context.Context, com
 	// Extract parameter paths from x-openchoreo-component-parameter-repository-* schema extensions
 	paramMap, err := controller.ExtractComponentRepositoryPaths(parametersSchema.GetRaw())
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", comp.Spec.Workflow.Name, err)
+		return repoInfo{}, fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", comp.Spec.Workflow.Name, err)
 	}
 
 	// Get url path from schema extensions
 	repoURLPath, ok := paramMap["url"]
 	if !ok {
-		return "", "", "", fmt.Errorf("workflow %s schema missing x-openchoreo-component-parameter-repository-url extension", comp.Spec.Workflow.Name)
+		return repoInfo{}, fmt.Errorf("workflow %s schema missing x-openchoreo-component-parameter-repository-url extension", comp.Spec.Workflow.Name)
 	}
 
-	repoURL, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, repoURLPath)
+	var info repoInfo
+	info.url, err = getNestedStringFromRawExtension(parameters, repoURLPath)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to extract repoUrl from parameters: %w", err)
+		return repoInfo{}, fmt.Errorf("failed to extract repoUrl from parameters: %w", err)
 	}
 
-	if repoURL == "" {
-		return "", "", "", fmt.Errorf("repository URL is empty in component parameters")
+	if info.url == "" {
+		return repoInfo{}, fmt.Errorf("repository URL is empty in component parameters")
 	}
 
 	// Get appPath (optional - not all workflows may have it)
 	if appPathPath, ok := paramMap["app-path"]; ok {
-		appPath, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, appPathPath)
+		info.appPath, _ = getNestedStringFromRawExtension(parameters, appPathPath)
 	}
 
 	// Get branch. If the component parameters don't carry a value (missing key or empty string),
 	// fall back to the schema default (e.g. "main"). An empty result means all branches trigger builds.
 	if branchPath, ok := paramMap["branch"]; ok {
-		branch, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, branchPath)
-		if branch == "" {
-			branch = getSchemaFieldDefault(parametersSchema.GetRaw(), branchPath)
+		info.branch, _ = getNestedStringFromRawExtension(parameters, branchPath)
+		if info.branch == "" {
+			info.branch = getSchemaFieldDefault(parametersSchema.GetRaw(), branchPath)
 		}
 	}
 
-	return repoURL, appPath, branch, nil
+	if commitPath, ok := paramMap["commit"]; ok {
+		info.commit, _ = getNestedStringFromRawExtension(parameters, commitPath)
+	}
+
+	return info, nil
 }
 
 // getNestedStringFromRawExtension navigates a runtime.RawExtension JSON blob using a dotted path
@@ -360,16 +453,18 @@ func (s *webhookProcessor) isComponentAffected(appPath string, modifiedPaths []s
 		return true
 	}
 
-	// Normalize appPath
-	appPath = strings.TrimPrefix(appPath, "/")
-	appPath = strings.TrimSuffix(appPath, "/")
+	// Normalize appPath, treating "." and "./" as the repository root
+	appPath = strings.Trim(path.Clean("/"+appPath), "/")
+	if appPath == "" {
+		return true
+	}
 
 	// Check if any modified path is under the component's appPath
-	for _, path := range modifiedPaths {
-		path = strings.TrimPrefix(path, "/")
+	for _, modified := range modifiedPaths {
+		modified = strings.TrimPrefix(modified, "/")
 
 		// Check if path is under appPath or is the appPath itself
-		if path == appPath || strings.HasPrefix(path, appPath+"/") {
+		if modified == appPath || strings.HasPrefix(modified, appPath+"/") {
 			return true
 		}
 	}
