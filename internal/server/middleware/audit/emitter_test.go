@@ -238,3 +238,73 @@ func TestEmitter_SkipsAllSinksWhenPolicyDenies(t *testing.T) {
 		t.Errorf("expected no events when policy denies publish, got %d", len(sink.events))
 	}
 }
+
+func TestBuildEvent_RequestAndReturned(t *testing.T) {
+	readOp := &Operation{ID: "GetSecret", Action: "read_secret", ResourceType: "secret", Category: CategoryAccess}
+	params := map[string]any{"k": "v"}
+	returned := &Returned{Count: 1, Items: []ReturnedItem{{Type: "secret", Namespace: "acme", Name: "db-creds"}}}
+
+	tests := []struct {
+		name         string
+		op           *Operation
+		result       Result
+		wantParams   bool
+		wantReturned bool
+	}{
+		{name: "success publishes both", op: readOp, result: ResultSuccess, wantParams: true, wantReturned: true},
+		{name: "denial keeps request, drops returned", op: readOp, result: ResultDenied, wantParams: true},
+		{name: "failure keeps request, drops returned", op: readOp, result: ResultFailure, wantParams: true},
+		{
+			name: "a mutation publishes both",
+			op: &Operation{
+				ID: "UpdateReleaseBinding", Action: "update_release_binding",
+				ResourceType: "releasebinding", Category: CategoryManagement,
+			},
+			result: ResultSuccess, wantParams: true, wantReturned: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := buildEvent(tt.op, Envelope{Result: tt.result, Parameters: params, Returned: returned}, "openchoreo-api")
+			if got := event.RequestParameters != nil; got != tt.wantParams {
+				t.Errorf("request.parameters present = %v, want %v", got, tt.wantParams)
+			}
+			if got := event.Returned != nil; got != tt.wantReturned {
+				t.Errorf("returned present = %v, want %v", got, tt.wantReturned)
+			}
+			if tt.wantReturned && event.Returned.Items[0].Name != "db-creds" {
+				t.Errorf("returned = %+v, want the captured items", event.Returned)
+			}
+		})
+	}
+}
+
+func TestEmitFromContext_PublishesCapturesFromAuditData(t *testing.T) {
+	policies, errs := NewPolicySet(coreconfig.NewPath("audit"), Settings{Publish: true}, nil)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+	sink := &recordingSink{}
+	emitter, err := NewEmitter("observer", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+	SetRequest(ctx, map[string]any{"searchPhrase": "password"})
+	SetReturned(ctx, Returned{Count: 42})
+
+	op := &Operation{ID: "QueryLogs", Action: "read_logs", ResourceType: "log", Category: CategoryAccess}
+	EmitFromContext(ctx, emitter, "", op, SurfaceMCP, ResultSuccess, data, nil, "")
+
+	if len(sink.events) != 1 {
+		t.Fatalf("expected one event, got %d", len(sink.events))
+	}
+	event := sink.events[0]
+	if event.RequestParameters["searchPhrase"] != "password" {
+		t.Errorf("request.parameters = %v, want the captured search phrase", event.RequestParameters)
+	}
+	if event.Returned == nil || event.Returned.Count != 42 {
+		t.Errorf("returned = %+v, want count 42", event.Returned)
+	}
+}

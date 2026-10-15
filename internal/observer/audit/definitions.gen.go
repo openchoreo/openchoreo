@@ -17,8 +17,24 @@ import (
 func generatedOperationDefs() []audit.OperationDef {
 	return []audit.OperationDef{
 		{
+			ID: "GetPlatformLogs", Action: "read_platform_logs", ResourceType: "platformlog",
+			Category: audit.CategoryAccess,
+		},
+		{
+			ID: "GetSpanDetailsForTrace", Action: "read_span_details", ResourceType: "trace",
+			Category: audit.CategoryAccess, RESTResourceParam: "traceId",
+		},
+		{
 			ID: "QueryAuditLogs", Action: "read_audit_log", ResourceType: "auditlog",
 			Category: audit.CategoryAccess,
+		},
+		{
+			ID: "QueryLogs", Action: "read_logs", ResourceType: "log",
+			Category: audit.CategoryAccess,
+		},
+		{
+			ID: "QuerySpansForTrace", Action: "read_trace_spans", ResourceType: "trace",
+			Category: audit.CategoryAccess, RESTResourceParam: "traceId",
 		},
 		{
 			ID: "UpdateIncident", Action: "update_incident", ResourceType: "incident",

@@ -108,6 +108,38 @@ func allRESTOperationIDs(t *testing.T) map[string]bool {
 	return ids
 }
 
+// accessReadMCPTools pairs each MCP tool that calls a CategoryAccess read's
+// service method with that operation.
+var accessReadMCPTools = map[string]string{
+	"get_resource_logs":     "GetReleaseBindingK8sResourceLogs",
+	"get_workflow_run_logs": "GetWorkflowRunLogs",
+}
+
+// TestAccessReadMCPToolsAreBound covers the tools TestAuditCoverage's
+// state-modifying rule never sees: these declare a view action.
+func TestAccessReadMCPToolsAreBound(t *testing.T) {
+	perms := registerAllToolsets(t)
+	bindings, err := apiaudit.MCPBindings()
+	if err != nil {
+		t.Fatalf("apiaudit.MCPBindings() returned an error: %v", err)
+	}
+
+	for tool, opID := range accessReadMCPTools {
+		if _, ok := perms[tool]; !ok {
+			t.Errorf("accessReadMCPTools names %q, which is not a registered tool", tool)
+			continue
+		}
+		binding, ok := bindings[audit.MCPBindingKey{ToolName: tool}]
+		if !ok {
+			t.Errorf("tool %q returns what %q returns but is not bound to it", tool, opID)
+			continue
+		}
+		if binding.Operation.ID != opID {
+			t.Errorf("tool %q is bound to %q, want %q", tool, binding.Operation.ID, opID)
+		}
+	}
+}
+
 // TestAuditCoverage is a CI gate: every operation on both surfaces must be
 // audited or exempted with a reason — enforced at build time rather than left
 // to drift silently.
@@ -230,10 +262,10 @@ func TestAuditCoverage(t *testing.T) {
 	t.Run("every operation resolves to a category", func(t *testing.T) {
 		for _, op := range definedOps {
 			switch op.Category {
-			case audit.CategoryManagement, audit.CategoryAuthorization:
+			case audit.CategoryManagement, audit.CategoryAuthorization, audit.CategoryAccess:
 			default:
-				t.Errorf("operation %q has category %q, want %q or %q",
-					op.ID, op.Category, audit.CategoryManagement, audit.CategoryAuthorization)
+				t.Errorf("operation %q has category %q, want %q, %q or %q",
+					op.ID, op.Category, audit.CategoryManagement, audit.CategoryAuthorization, audit.CategoryAccess)
 			}
 		}
 	})
@@ -245,9 +277,10 @@ func TestAuditCoverage(t *testing.T) {
 	// would have failed had that happened. Cross-checking the bound-tool-name
 	// count against the known total of 60 state-modifying tools catches the
 	// case a bare error check wouldn't: a future refactor that swallows the
-	// collision error instead of propagating it.
+	// collision error instead of propagating it. 62 = those 60 plus
+	// accessReadMCPTools.
 	t.Run("no duplicate bindings", func(t *testing.T) {
-		const wantBoundToolNames = 60
+		const wantBoundToolNames = 62
 		if len(boundToolNames) != wantBoundToolNames {
 			t.Errorf("len(distinct bound tool names) = %d, want %d — a collision may have silently "+
 				"dropped a tool, or a new tool needs a binding added", len(boundToolNames), wantBoundToolNames)

@@ -55,6 +55,26 @@ func TestQueryAuditLogsAppliesDefaults(t *testing.T) {
 	assert.Equal(t, "desc", captured.SortOrder)
 }
 
+func TestQueryAuditLogsForwardsReturnedItemNames(t *testing.T) {
+	var captured *types.AuditLogsQueryRequest
+	svc := mocks.NewMockAuditLogsQuerier(t)
+	svc.EXPECT().
+		QueryAuditLogs(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *types.AuditLogsQueryRequest) { captured = req }).
+		Return(&types.AuditLogsResponse{}, nil).Once()
+
+	h := newTestMCPHandler(t, withAuditLogsService(svc))
+	_, err := h.QueryAuditLogs(context.Background(), AuditLogsQueryArgs{
+		StartTime:         auditStart,
+		EndTime:           auditEnd,
+		ReturnedItemNames: []string{"db-creds"},
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, captured)
+	assert.Equal(t, []string{"db-creds"}, captured.Returned.Items.Names)
+}
+
 // TestQueryAuditLogsRejectsInvalidQueries covers the cases the tool must not
 // forward: each would otherwise reach the adapter in a shape the REST endpoint
 // answers with a 400.
@@ -265,6 +285,43 @@ func TestMCPAuditWiring(t *testing.T) {
 		})
 	}
 
+	t.Run("a denied log read is recorded as denied", func(t *testing.T) {
+		var buf bytes.Buffer
+		session, svcs := setup(t, &buf)
+		svcs.logs.err = observerAuthz.ErrAuthzForbidden
+
+		result, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
+			Name: "query_component_logs",
+			Arguments: map[string]any{
+				"namespace": "acme", "start_time": auditStart, "end_time": auditEnd,
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, result.IsError)
+
+		records := auditRecordsFrom(t, &buf)
+		require.Len(t, records, 1)
+		assert.Equal(t, "QueryLogs", records[0]["operation_id"])
+		assert.Equal(t, "denied", records[0]["result"])
+	})
+
+	t.Run("a denied platform log read is recorded as denied", func(t *testing.T) {
+		var buf bytes.Buffer
+		session, svcs := setup(t, &buf)
+		svcs.platformLogs.logsErr = observerAuthz.ErrAuthzForbidden
+
+		result, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
+			Name:      "query_platform_logs",
+			Arguments: map[string]any{"start_time": auditStart, "end_time": auditEnd},
+		})
+		require.NoError(t, err)
+		require.True(t, result.IsError)
+
+		records := auditRecordsFrom(t, &buf)
+		require.Len(t, records, 1)
+		assert.Equal(t, "denied", records[0]["result"])
+	})
+
 	// The cap is declared in the schema, so the SDK refuses the call before the
 	// handler runs. The attempt must still be recorded.
 	t.Run("an over-large limit is rejected and still audited", func(t *testing.T) {
@@ -292,6 +349,20 @@ func TestMCPAuditWiring(t *testing.T) {
 		session, _ := setup(t, &buf)
 
 		_, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
+			Name:      "query_alerts",
+			Arguments: map[string]any{"start_time": auditStart, "end_time": auditEnd},
+		})
+		require.NoError(t, err)
+
+		assert.Empty(t, auditRecordsFrom(t, &buf),
+			"reading alerts is unaudited on both surfaces — see RESTExemptions")
+	})
+
+	t.Run("a log read is audited under access", func(t *testing.T) {
+		var buf bytes.Buffer
+		session, _ := setup(t, &buf)
+
+		_, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{
 			Name: "query_platform_logs",
 			Arguments: map[string]any{
 				"start_time": auditStart,
@@ -300,8 +371,10 @@ func TestMCPAuditWiring(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Empty(t, auditRecordsFrom(t, &buf),
-			"reading platform logs is unaudited on both surfaces — see RESTExemptions")
+		records := auditRecordsFrom(t, &buf)
+		require.Len(t, records, 1)
+		assert.Equal(t, "GetPlatformLogs", records[0]["operation_id"])
+		assert.Equal(t, "access", records[0]["category"])
 	})
 }
 

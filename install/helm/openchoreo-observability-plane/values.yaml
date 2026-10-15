@@ -554,16 +554,19 @@ observer:
     # items:
     #   type: object
     #   additionalProperties: true
-    # default: [{"match":{"operations":["QueryAuditLogs"]},"set":{"publish":false}}]
+    # default: [{"match":{"operations":["QueryLogs","GetPlatformLogs","QuerySpansForTrace","GetSpanDetailsForTrace"]},"set":{"publish":false}}]
     # @schema
-    # QueryAuditLogs is the only read observer audits; every other read is
-    # exempt at the source. Reading the trail fires on each filter change and
-    # page of results, so publishing it buries the management events the trail
-    # is kept for. Drop this entry to record audit-log reads.
+    # Reads of the audit trail are published. Log and span reads are defined
+    # but unpublished: they fire on every query, and each record carries what
+    # was asked for and how many entries came back. Drop an operation from
+    # this entry to record its reads.
     policies:
       - match:
           operations:
-            - "QueryAuditLogs"
+            - "QueryLogs"
+            - "GetPlatformLogs"
+            - "QuerySpansForTrace"
+            - "GetSpanDetailsForTrace"
         set:
           publish: false
     # @schema

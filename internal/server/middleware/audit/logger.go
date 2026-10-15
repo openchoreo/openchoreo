@@ -171,9 +171,44 @@ func decodeArray(dec *json.Decoder) ([]any, error) {
 	}
 }
 
-// decodeObjectMap reads an object nested inside an array into a map.
-func decodeObjectMap(dec *json.Decoder) (map[string]any, error) {
-	out := map[string]any{}
+// orderedObject keeps an object nested in an array in decoded order. A map
+// would be marshaled with sorted keys, so returned.items would publish in a
+// different field order from Event.MarshalJSON.
+type orderedObject []orderedField
+
+type orderedField struct {
+	key   string
+	value any
+}
+
+// MarshalJSON skips HTML escaping to match the slog.JSONHandler around it.
+func (o orderedObject) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	out := []byte{'{'}
+	for i, f := range o {
+		if i > 0 {
+			out = append(out, ',')
+		}
+		buf.Reset()
+		if err := enc.Encode(f.key); err != nil {
+			return nil, err
+		}
+		out = append(out, bytes.TrimSuffix(buf.Bytes(), []byte{'\n'})...)
+		out = append(out, ':')
+		buf.Reset()
+		if err := enc.Encode(f.value); err != nil {
+			return nil, err
+		}
+		out = append(out, bytes.TrimSuffix(buf.Bytes(), []byte{'\n'})...)
+	}
+	return append(out, '}'), nil
+}
+
+// decodeObjectMap reads an object nested inside an array, keeping field order.
+func decodeObjectMap(dec *json.Decoder) (orderedObject, error) {
+	out := orderedObject{}
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -198,18 +233,18 @@ func decodeObjectMap(dec *json.Decoder) (map[string]any, error) {
 				if err != nil {
 					return nil, err
 				}
-				out[key] = nested
+				out = append(out, orderedField{key, nested})
 			case '[':
 				arr, err := decodeArray(dec)
 				if err != nil {
 					return nil, err
 				}
-				out[key] = arr
+				out = append(out, orderedField{key, arr})
 			default:
 				return nil, fmt.Errorf("unexpected delimiter %v for key %q", delim, key)
 			}
 			continue
 		}
-		out[key] = valTok
+		out = append(out, orderedField{key, valTok})
 	}
 }

@@ -148,6 +148,13 @@ func auditLogsRequestBody(params observability.AuditLogsParams) logsadapterclien
 		body.Resource = &resource
 	}
 
+	if len(params.ReturnedItemNames) > 0 {
+		names := params.ReturnedItemNames
+		body.Returned = &logsadapterclientgen.AuditLogsReturnedFilter{
+			Items: &logsadapterclientgen.AuditLogsReturnedItemsFilter{Name: &names},
+		}
+	}
+
 	setIfNotEmpty(&body.Action, params.Actions)
 	setIfNotEmpty(&body.Producer, params.Producers)
 	setIfNotEmpty(&body.OperationId, params.OperationIDs)
@@ -227,9 +234,37 @@ func toAuditLogRecord(r logsadapterclientgen.AuditLogRecord) observability.Audit
 		OperationID: deref(r.OperationId),
 		HTTP:        toAuditLogHTTPInfo(r.Http),
 		Resource:    toAuditLogResource(r.Resource),
+		Request:     toAuditLogRequest(r.Request),
+		Returned:    toAuditLogReturned(r.Returned),
 		Metadata:    derefAnyMap(r.Metadata),
 		Collector:   toAuditLogCollectorInfo(r.Collector),
 	}
+}
+
+func toAuditLogRequest(src *logsadapterclientgen.AuditLogRequest) *observability.AuditLogRequest {
+	if src == nil {
+		return nil
+	}
+	return &observability.AuditLogRequest{Parameters: derefAnyMap(src.Parameters)}
+}
+
+func toAuditLogReturned(src *logsadapterclientgen.AuditLogReturned) *observability.AuditLogReturned {
+	if src == nil {
+		return nil
+	}
+	out := &observability.AuditLogReturned{Count: src.Count}
+	if src.Items != nil {
+		out.Items = make([]observability.AuditLogReturnedItem, 0, len(*src.Items))
+		for _, item := range *src.Items {
+			out.Items = append(out.Items, observability.AuditLogReturnedItem{
+				Type:      item.Type,
+				Namespace: deref(item.Namespace),
+				Name:      item.Name,
+				UID:       deref(item.Uid),
+			})
+		}
+	}
+	return out
 }
 
 func toAuditLogHTTPInfo(src *logsadapterclientgen.AuditLogHTTPInfo) *observability.AuditLogHTTPInfo {

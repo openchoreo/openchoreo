@@ -25,6 +25,8 @@ func specFilterProperty(t *testing.T, schemas openapi3.Schemas, path string) *op
 		schema, name = "AuditLogsActorFilter", strings.TrimPrefix(path, "actor.")
 	case strings.HasPrefix(path, "resource."):
 		schema, name = "AuditLogsResourceFilter", strings.TrimPrefix(path, "resource.")
+	case strings.HasPrefix(path, "returned.items."):
+		schema, name = "AuditLogsReturnedItemsFilter", strings.TrimPrefix(path, "returned.items.")
 	}
 
 	prop := schemas[schema].Value.Properties[name]
@@ -59,9 +61,10 @@ func TestAuditLogsValidatorsMatchSpec(t *testing.T) {
 	// and the request type but not the table would 400 rather than apply.
 	t.Run("every spec filter is bounded", func(t *testing.T) {
 		for schema, prefix := range map[string]string{
-			"AuditLogsQueryRequest":   "",
-			"AuditLogsActorFilter":    "actor.",
-			"AuditLogsResourceFilter": "resource.",
+			"AuditLogsQueryRequest":        "",
+			"AuditLogsActorFilter":         "actor.",
+			"AuditLogsResourceFilter":      "resource.",
+			"AuditLogsReturnedItemsFilter": "returned.items.",
 		} {
 			for name, prop := range schemas[schema].Value.Properties {
 				if prop.Value.Type == nil || !prop.Value.Type.Is("array") {

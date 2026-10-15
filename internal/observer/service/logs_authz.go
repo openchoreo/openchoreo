@@ -10,6 +10,7 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // logsServiceWithAuthz wraps a LogsQuerier and adds authorization checks.
@@ -29,6 +30,7 @@ func NewLogsServiceWithAuthz(s LogsQuerier, pdp authzcore.PDP, logger *slog.Logg
 }
 
 func (s *logsServiceWithAuthz) QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
+	audit.SetRequest(ctx, logsQueryParameters(req))
 	resourceType, resourceName, hierarchy, err := observerAuthz.LogsScopeAuthz(req)
 	if err != nil {
 		return nil, err
@@ -50,5 +52,10 @@ func (s *logsServiceWithAuthz) QueryLogs(ctx context.Context, req *types.LogsQue
 	); err != nil {
 		return nil, err
 	}
-	return s.internal.QueryLogs(ctx, req)
+	resp, err := s.internal.QueryLogs(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(resp.Logs)})
+	return resp, nil
 }

@@ -96,12 +96,18 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 		SourceIP:  env.SourceIP,
 		UserAgent: env.UserAgent,
 		Metadata:  env.Metadata,
+
+		RequestParameters: env.Parameters,
 	}
 	if op != nil {
 		event.Action = op.Action
 		event.Category = op.Category
 		event.OperationID = op.ID
 		event.ResourceType = op.ResourceType
+	}
+	// Nothing reached the caller unless the call succeeded.
+	if env.Result == ResultSuccess {
+		event.Returned = env.Returned
 	}
 	return event
 }

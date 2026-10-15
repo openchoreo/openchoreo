@@ -83,7 +83,7 @@ func AuditDefaults() AuditConfig {
 
 var (
 	validCategories = []string{
-		string(audit.CategoryManagement), string(audit.CategoryAuthorization),
+		string(audit.CategoryManagement), string(audit.CategoryAuthorization), string(audit.CategoryAccess),
 	}
 	validSurfaces = []string{string(audit.SurfaceREST), string(audit.SurfaceMCP)}
 	validResults  = []string{

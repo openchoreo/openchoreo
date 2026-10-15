@@ -472,6 +472,10 @@ type AuditLogRecord struct {
 	// Producer Emitting service, e.g. `openchoreo-api`
 	Producer *string `json:"producer,omitempty"`
 
+	// Request What the operation was asked for, on reads audited under `access`. Stored but
+	// not indexed; an adapter returns it and needs no filter on it.
+	Request *AuditLogRequest `json:"request,omitempty"`
+
 	// RequestId Correlates this record with the access log line for the same request
 	RequestId *string `json:"request_id,omitempty"`
 
@@ -483,7 +487,10 @@ type AuditLogRecord struct {
 	// policy) at schema 1.0.
 	Result string `json:"result"`
 
-	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed value representation, minor on an addition.
+	// Returned What the operation handed back, never the content. Present only on success.
+	Returned *AuditLogReturned `json:"returned,omitempty"`
+
+	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed value representation, minor on an addition. Served as stored, so an adapter that doesn't know a group added since still returns the producer's version.
 	SchemaVersion string  `json:"schema_version"`
 	SourceIp      *string `json:"source_ip,omitempty"`
 
@@ -494,6 +501,14 @@ type AuditLogRecord struct {
 	// UserAgent Client-supplied and unverifiable, like `source_ip`. The only field that
 	// separates a portal session from occ, CI or an agent.
 	UserAgent *string `json:"user_agent,omitempty"`
+}
+
+// AuditLogRequest What the operation was asked for, on reads audited under `access`. Stored but
+// not indexed; an adapter returns it and needs no filter on it.
+type AuditLogRequest struct {
+	// Parameters The operation's own parameters under the API's names, nested where the API
+	// nests them. Returned with the same keys and nesting it was published with.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // AuditLogResource The target resource, and the point in OpenChoreo's tree the decision was
@@ -513,6 +528,21 @@ type AuditLogResource struct {
 	// Uid Server-generated identifier that is never reused. Absent when the operation
 	// returned no object — a delete, or a non-CRUD mutation.
 	Uid *string `json:"uid,omitempty"`
+}
+
+// AuditLogReturned What the operation handed back, never the content. Present only on success.
+type AuditLogReturned struct {
+	// Count Entries returned. Greater than the number of `items` when the list was cut.
+	Count int                     `json:"count"`
+	Items *[]AuditLogReturnedItem `json:"items,omitempty"`
+}
+
+// AuditLogReturnedItem defines model for AuditLogReturnedItem.
+type AuditLogReturnedItem struct {
+	Name      string  `json:"name"`
+	Namespace *string `json:"namespace,omitempty"`
+	Type      string  `json:"type"`
+	Uid       *string `json:"uid,omitempty"`
 }
 
 // AuditLogTimeline Per-interval counts across the queried window, broken down by `result`. Returned
@@ -643,6 +673,9 @@ type AuditLogsQueryRequest struct {
 	// Result Outcomes. Closed, for the same reason as `category`.
 	Result *[]AuditLogsQueryRequestResult `json:"result,omitempty"`
 
+	// Returned Filters on the record's `returned` group, named and nested as the record is.
+	Returned *AuditLogsReturnedFilter `json:"returned,omitempty"`
+
 	// SearchPhrase Free text to match within the record
 	SearchPhrase *string `json:"searchPhrase,omitempty"`
 
@@ -724,6 +757,20 @@ type AuditLogsResponse struct {
 	// reading an understated total draws the wrong conclusion about how much
 	// happened.
 	Total int64 `json:"total"`
+}
+
+// AuditLogsReturnedFilter Filters on the record's `returned` group, named and nested as the record is.
+type AuditLogsReturnedFilter struct {
+	Items *AuditLogsReturnedItemsFilter `json:"items,omitempty"`
+}
+
+// AuditLogsReturnedItemsFilter defines model for AuditLogsReturnedItemsFilter.
+type AuditLogsReturnedItemsFilter struct {
+	// Name Names of objects a read returned, matched exactly. A record matches when
+	// any entry of its `returned.items` carries one of them. An adapter stores
+	// `returned.items` however its backend can search an array of objects, and
+	// must match on the name of one entry, never across two.
+	Name *[]string `json:"name,omitempty"`
 }
 
 // ComponentLogEntry defines model for ComponentLogEntry.

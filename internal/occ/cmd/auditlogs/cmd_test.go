@@ -117,6 +117,7 @@ func TestQueryParams(t *testing.T) {
 		"component":     "cart",
 		"resource":      "analytics-db",
 		"env":           "acme-corp/production",
+		"returned-item": "db-creds",
 		"search":        "store",
 	} {
 		require.NoError(t, cmd.Flags().Set(flag, value), flag)
@@ -151,6 +152,7 @@ func TestQueryParams(t *testing.T) {
 		Components:    []string{"cart"},
 		Resources:     []string{"analytics-db"},
 		Environments:  []string{"acme-corp/production"},
+		ReturnedItems: []string{"db-creds"},
 		Search:        "store",
 	}, params)
 }

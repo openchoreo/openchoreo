@@ -1943,9 +1943,19 @@ openchoreoApi:
       # items:
       #   type: object
       #   additionalProperties: true
-      # default: []
+      # default: [{"match":{"operations":["GetReleaseBindingK8sResourceLogs","GetWorkflowRunLogs"]},"set":{"publish":false}}]
       # @schema
-      policies: []
+      # Secret reads are published. Live pod and workflow log reads are
+      # defined but unpublished: occ and the portal poll them while following
+      # logs, and each record carries what was asked for and how many lines
+      # came back. Drop an operation from this entry to record its reads.
+      policies:
+        - match:
+            operations:
+              - "GetReleaseBindingK8sResourceLogs"
+              - "GetWorkflowRunLogs"
+          set:
+            publish: false
       # @schema
       # type: object
       # description: Audit actor settings

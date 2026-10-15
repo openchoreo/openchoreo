@@ -39,7 +39,10 @@ const example = `  # Everything in the last 24 hours
   occ auditlogs --env acme-corp/production --start 2026-08-01T00:00:00Z --end 2026-09-01T00:00:00Z
 
   # The audit record for a request seen in an access log
-  occ auditlogs --since 30d --request-id 4f8c2e1a-...`
+  occ auditlogs --since 30d --request-id 4f8c2e1a-...
+
+  # Who read a secret in the last 30 days
+  occ auditlogs --since 30d --category access --returned-item db-creds`
 
 // NewAuditLogsCmd builds the top-level `auditlogs` command.
 func NewAuditLogsCmd(f client.NewClientFunc) *cobra.Command {
@@ -101,6 +104,8 @@ func addQueryFlags(cmd *cobra.Command) {
 	fl.StringSlice("resource", nil, "Resources, the hierarchy level beside components (comma-separated)")
 	fl.StringSlice("env", nil,
 		"Environments as <namespace>/<name>; a bare name is qualified with --namespace when exactly one is given (comma-separated)")
+	fl.StringSlice("returned-item", nil,
+		"Names of objects a read returned, such as a secret, whether it came from a get or a list (comma-separated)")
 	fl.String("search", "", "Only return records containing this text")
 }
 
@@ -145,6 +150,7 @@ func queryParams(cmd *cobra.Command) QueryParams {
 		Components:    slice("component"),
 		Resources:     slice("resource"),
 		Environments:  slice("env"),
+		ReturnedItems: slice("returned-item"),
 		Search:        str("search"),
 	}
 }

@@ -605,6 +605,13 @@ type AuditLogRecord struct {
 	// Producer Emitting service.
 	Producer *string `json:"producer,omitempty"`
 
+	// Request What the operation was asked for, on reads audited under `access` that take
+	// parameters. It is recorded once the request reaches the service, so a denied
+	// read still shows what was attempted. A request rejected before that, for
+	// example as malformed, has none. The secret reads take no parameters and
+	// never carry it.
+	Request *AuditLogRequest `json:"request,omitempty"`
+
 	// RequestId Correlates this record with the access log line for the same request.
 	RequestId *string `json:"request_id,omitempty"`
 
@@ -616,8 +623,15 @@ type AuditLogRecord struct {
 	// policy) at schema 1.0.
 	Result string `json:"result"`
 
+	// Returned What the operation handed back, never the content itself. Present only when
+	// `result` is `success`.
+	Returned *AuditLogReturned `json:"returned,omitempty"`
+
 	// SchemaVersion Schema of this record. `major.minor`; major on a field removal or a changed
 	// value representation, minor on an addition.
+	//
+	// It describes the record as it was produced. A storage module older than 1.1
+	// serves a 1.1 record without its `request` and `returned` groups.
 	SchemaVersion string `json:"schema_version"`
 
 	// SourceIp Client address the request arrived from.
@@ -631,6 +645,24 @@ type AuditLogRecord struct {
 	// that separates a portal session from occ, CI or an agent, which is what
 	// makes it worth recording despite being unverifiable.
 	UserAgent *string `json:"user_agent,omitempty"`
+}
+
+// AuditLogRequest What the operation was asked for, on reads audited under `access` that take
+// parameters. It is recorded once the request reaches the service, so a denied
+// read still shows what was attempted. A request rejected before that, for
+// example as malformed, has none. The secret reads take no parameters and
+// never carry it.
+type AuditLogRequest struct {
+	// Parameters The operation's own query and body parameters, under the API's names. Each
+	// operation records a reviewed allowlist, never the whole request. Path
+	// parameters are left out, since `http.path` and `resource` carry them, with
+	// one exception: a span read records `spanId`, because `resource.name` holds
+	// the trace and an MCP call has no `http.path`. Every string is cut to 256
+	// characters.
+	//
+	// A free-text search phrase is recorded as sent. It can hold personal data,
+	// or a value the caller was searching logs for, such as a leaked token.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // AuditLogResource The target resource, and the point in OpenChoreo's tree the decision was
@@ -651,6 +683,27 @@ type AuditLogResource struct {
 
 	// Uid Server-generated identifier that is never reused. Absent when the operation
 	// returned no object — a delete, or a non-CRUD mutation.
+	Uid *string `json:"uid,omitempty"`
+}
+
+// AuditLogReturned What the operation handed back, never the content itself. Present only when
+// `result` is `success`.
+type AuditLogReturned struct {
+	// Count Entries returned: secrets, log lines, spans or audit records, depending on
+	// the operation. Greater than the number of `items` when the list was cut.
+	Count int `json:"count"`
+
+	// Items Identity of each object returned, one entry for a single-object read.
+	Items *[]AuditLogReturnedItem `json:"items,omitempty"`
+}
+
+// AuditLogReturnedItem defines model for AuditLogReturnedItem.
+type AuditLogReturnedItem struct {
+	Name      string  `json:"name"`
+	Namespace *string `json:"namespace,omitempty"`
+	Type      string  `json:"type"`
+
+	// Uid Tells apart two objects created under the same name.
 	Uid *string `json:"uid,omitempty"`
 }
 
@@ -827,6 +880,10 @@ type AuditLogsQueryRequest struct {
 	// Result Outcomes. Closed, for the same reason as `category`.
 	Result *[]AuditLogsQueryRequestResult `json:"result,omitempty"`
 
+	// Returned Filters on the record's `returned` group, what a read handed back. Named and
+	// nested as the record is.
+	Returned *AuditLogsReturnedFilter `json:"returned,omitempty"`
+
 	// SearchPhrase Free text to match within the record.
 	SearchPhrase *string `json:"searchPhrase,omitempty"`
 
@@ -934,6 +991,23 @@ type AuditLogsResponse struct {
 	// configured to count fully. An audit consumer reading an understated total
 	// draws the wrong conclusion about how much happened.
 	Total int64 `json:"total"`
+}
+
+// AuditLogsReturnedFilter Filters on the record's `returned` group, what a read handed back. Named and
+// nested as the record is.
+type AuditLogsReturnedFilter struct {
+	Items *AuditLogsReturnedItemsFilter `json:"items,omitempty"`
+}
+
+// AuditLogsReturnedItemsFilter defines model for AuditLogsReturnedItemsFilter.
+type AuditLogsReturnedItemsFilter struct {
+	// Name Names of objects a read returned, matched exactly. A record matches when
+	// any of its `returned.items` carries one of them, so "who read `db-creds`"
+	// is one filter whether the secret came back from a get or a list.
+	//
+	// A storage module older than schema 1.1 ignores this filter rather than
+	// rejecting it, and then returns records regardless of what they returned.
+	Name *[]string `json:"name,omitempty"`
 }
 
 // ComponentCost defines model for ComponentCost.

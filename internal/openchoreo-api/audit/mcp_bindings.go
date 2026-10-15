@@ -74,6 +74,12 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 	// trigger_workflow_run reaches the same operation — see mcpAliases.
 	"CreateWorkflowRun": {ToolName: "create_workflow_run"},
 
+	// Live log reads. Their tools declare a view action, so
+	// TestAccessReadMCPToolsAreBound, not TestAuditCoverage, requires these
+	// bindings.
+	"GetReleaseBindingK8sResourceLogs": {ToolName: "get_resource_logs", ResourceArg: "release_binding_name"},
+	"GetWorkflowRunLogs":               {ToolName: "get_workflow_run_logs", ResourceArg: "run_name"},
+
 	"CreateDeploymentPipeline": {ToolName: "create_deployment_pipeline", ResourceArg: "name"},
 	"UpdateDeploymentPipeline": {ToolName: "update_deployment_pipeline", ResourceArg: "name"},
 	"DeleteDeploymentPipeline": {ToolName: "delete_deployment_pipeline", ResourceArg: "name"},

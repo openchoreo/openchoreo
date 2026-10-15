@@ -10,6 +10,7 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // platformLogsServiceWithAuthz wraps a PlatformLogsQuerier and adds authorization checks.
@@ -35,6 +36,7 @@ func (s *platformLogsServiceWithAuthz) QueryPlatformLogs(
 	ctx context.Context,
 	req *types.PlatformLogsQueryRequest,
 ) (*types.PlatformLogsResponse, error) {
+	audit.SetRequest(ctx, platformLogsQueryParameters(req))
 	// An empty hierarchy is the cluster scope: resourceHierarchyToPath maps it to "*",
 	// which only a cluster-scoped binding can satisfy. Deliberately not derived from
 	// anything in the request - the query's namespaces are Kubernetes namespaces of
@@ -48,7 +50,12 @@ func (s *platformLogsServiceWithAuthz) QueryPlatformLogs(
 	); err != nil {
 		return nil, err
 	}
-	return s.internal.QueryPlatformLogs(ctx, req)
+	resp, err := s.internal.QueryPlatformLogs(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(resp.Logs)})
+	return resp, nil
 }
 
 // --- filter values ---

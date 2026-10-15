@@ -16,7 +16,10 @@ const (
 // here, so a new endpoint cannot go unaudited by nobody noticing. Reads are
 // listed rather than inferred from the method because the method is not a
 // reliable proxy either way — Evaluates is a POST that reads, and GetSecret is
-// a GET that might be worth auditing.
+// a GET that is audited.
+//
+// The secret and live log reads are not here either; they are defined under
+// CategoryAccess (see tools/auditgen's apiAccessReadOverrides).
 //
 // GenerateRelease is NOT here: it persists a new ComponentRelease via
 // k8sClient.Create (see ComponentService.GenerateRelease), so it has a real
@@ -67,14 +70,12 @@ var RESTExemptions = map[string]string{
 	"GetReady":                                    reasonRead,
 	"GetReleaseBinding":                           reasonRead,
 	"GetReleaseBindingK8sResourceEvents":          reasonRead,
-	"GetReleaseBindingK8sResourceLogs":            reasonRead,
 	"GetReleaseBindingK8sResourceTree":            reasonRead,
 	"GetResource":                                 reasonRead,
 	"GetResourceRelease":                          reasonRead,
 	"GetResourceReleaseBinding":                   reasonRead,
 	"GetResourceType":                             reasonRead,
 	"GetResourceTypeSchema":                       reasonRead,
-	"GetSecret":                                   reasonRead,
 	"GetSecretReference":                          reasonRead,
 	"GetSubjectProfile":                           reasonRead,
 	"GetTrait":                                    reasonRead,
@@ -84,7 +85,6 @@ var RESTExemptions = map[string]string{
 	"GetWorkflowPlane":                            reasonRead,
 	"GetWorkflowRun":                              reasonRead,
 	"GetWorkflowRunEvents":                        reasonRead,
-	"GetWorkflowRunLogs":                          reasonRead,
 	"GetWorkflowRunStatus":                        reasonRead,
 	"GetWorkflowSchema":                           reasonRead,
 	"GetWorkload":                                 reasonRead,
@@ -121,7 +121,6 @@ var RESTExemptions = map[string]string{
 	"ListResourceTypes":                           reasonRead,
 	"ListResources":                               reasonRead,
 	"ListSecretReferences":                        reasonRead,
-	"ListSecrets":                                 reasonRead,
 	"ListSubjectTypes":                            reasonRead,
 	"ListTraits":                                  reasonRead,
 	"ListWorkflowPlanes":                          reasonRead,

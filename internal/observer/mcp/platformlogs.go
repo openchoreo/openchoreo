@@ -155,6 +155,7 @@ func (h *MCPHandler) QueryPlatformLogs(ctx context.Context,
 	wg.Wait()
 
 	if logsErr != nil {
+		recordAuthzResult(ctx, logsErr)
 		return nil, logsErr
 	}
 

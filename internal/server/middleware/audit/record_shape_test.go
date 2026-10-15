@@ -41,10 +41,84 @@ type recordCase struct {
 }
 
 // recordCases covers the branches the render takes: every field populated, a
-// nil Resource carrying only a hierarchy, a sub-second timestamp, both metadata groups, and both presence
-// and absence of the http group.
+// nil Resource carrying only a hierarchy, a sub-second timestamp, both metadata groups, both presence
+// and absence of the http group, and the request and returned groups.
 func recordCases() []recordCase {
 	return []recordCase{
+		{
+			name: "access read with request and returned",
+			event: &Event{
+				EventID:      "01920000-0000-7000-8000-000000000008",
+				EventTime:    fixedTime,
+				Actor:        Actor{Type: "user", ID: "u1"},
+				Action:       "list_secrets",
+				Category:     CategoryAccess,
+				Surface:      SurfaceREST,
+				OperationID:  "ListSecrets",
+				HTTP:         &HTTPInfo{Method: "GET", Path: "/api/v1/namespaces/acme/secrets"},
+				ResourceType: "secret",
+				Resource:     &Resource{Namespace: "acme"},
+				Hierarchy:    Hierarchy{Namespace: "acme"},
+				Result:       ResultSuccess,
+				RequestID:    "88888888-8888-4888-8888-888888888888",
+				SourceIP:     "10.0.0.8",
+				Producer:     "openchoreo-api",
+				Returned: &Returned{
+					Count: 2,
+					Items: []ReturnedItem{
+						{Type: "secret", Namespace: "acme", Name: "db-creds", UID: "uid-a"},
+						{Type: "secret", Namespace: "acme", Name: "api-key", UID: "uid-b"},
+					},
+				},
+			},
+			want: logLinePrefix + `"schema_version":"1.1",` +
+				`"event_id":"01920000-0000-7000-8000-000000000008",` +
+				`"event_time":"2026-09-07T12:30:45Z",` +
+				`"actor":{"type":"user","id":"u1"},` +
+				`"action":"list_secrets","category":"access","result":"success",` +
+				`"request_id":"88888888-8888-4888-8888-888888888888","source_ip":"10.0.0.8",` +
+				`"user_agent":"",` +
+				`"producer":"openchoreo-api","surface":"rest","operation_id":"ListSecrets",` +
+				`"http":{"method":"GET","path":"/api/v1/namespaces/acme/secrets"},` +
+				`"resource":{"type":"secret","namespace":"acme"},` +
+				`"returned":{"count":2,"items":[` +
+				`{"type":"secret","namespace":"acme","name":"db-creds","uid":"uid-a"},` +
+				`{"type":"secret","namespace":"acme","name":"api-key","uid":"uid-b"}]}}` + "\n",
+		},
+		{
+			name: "request parameters and a zero count with no items",
+			event: &Event{
+				EventID:      "01920000-0000-7000-8000-000000000009",
+				EventTime:    fixedTime,
+				Actor:        Actor{Type: "user", ID: "u1"},
+				Action:       "read_resource_logs",
+				Category:     CategoryAccess,
+				OperationID:  "GetReleaseBindingK8sResourceLogs",
+				ResourceType: "releasebinding",
+				Resource:     &Resource{Namespace: "acme", Name: "checkout-dev"},
+				Result:       ResultSuccess,
+				RequestID:    "99999999-9999-4999-8999-999999999999",
+				SourceIP:     "10.0.0.9",
+				Producer:     "openchoreo-api",
+				RequestParameters: map[string]any{
+					"podName":      "checkout-7f9c",
+					"sinceSeconds": 3600,
+					"container":    "api",
+				},
+				Returned: &Returned{Count: 0},
+			},
+			want: logLinePrefix + `"schema_version":"1.1",` +
+				`"event_id":"01920000-0000-7000-8000-000000000009",` +
+				`"event_time":"2026-09-07T12:30:45Z",` +
+				`"actor":{"type":"user","id":"u1"},` +
+				`"action":"read_resource_logs","category":"access","result":"success",` +
+				`"request_id":"99999999-9999-4999-8999-999999999999","source_ip":"10.0.0.9",` +
+				`"user_agent":"",` +
+				`"producer":"openchoreo-api","operation_id":"GetReleaseBindingK8sResourceLogs",` +
+				`"resource":{"type":"releasebinding","namespace":"acme","name":"checkout-dev"},` +
+				`"request":{"parameters":{"container":"api","podName":"checkout-7f9c","sinceSeconds":3600}},` +
+				`"returned":{"count":0}}` + "\n",
+		},
 		{
 			name: "full event",
 			event: &Event{
@@ -71,7 +145,7 @@ func recordCases() []recordCase {
 				Producer:     "openchoreo-api",
 				Metadata:     map[string]any{"note": "n1"},
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000001",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"user@example.com",` +
@@ -105,7 +179,7 @@ func recordCases() []recordCase {
 				SourceIP:     "10.0.0.2",
 				Producer:     "openchoreo-api",
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000002",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -128,7 +202,7 @@ func recordCases() []recordCase {
 				SourceIP:  "10.0.0.5",
 				Producer:  "openchoreo-api",
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000005",` +
 				`"event_time":"2026-09-07T12:30:45.123456789Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -158,7 +232,7 @@ func recordCases() []recordCase {
 				SourceIP:  "10.0.0.4",
 				Producer:  "observer",
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000004",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"service_account","id":"sa-1"},` +
@@ -185,7 +259,7 @@ func recordCases() []recordCase {
 				// be rendered as a value to stay in the record.
 				Metadata: map[string]any{"empty": map[string]any{}, "keep": "v"},
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000007",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1"},` +
@@ -214,7 +288,7 @@ func recordCases() []recordCase {
 				Producer:  "openchoreo-api",
 				Metadata:  map[string]any{"z": 1, "a": 2},
 			},
-			want: logLinePrefix + `"schema_version":"1.0",` +
+			want: logLinePrefix + `"schema_version":"1.1",` +
 				`"event_id":"01920000-0000-7000-8000-000000000006",` +
 				`"event_time":"2026-09-07T12:30:45Z",` +
 				`"actor":{"type":"user","id":"u1","entitlements":{"groups":["dev"],"roles":["admin"]}},` +

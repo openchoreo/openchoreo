@@ -27,6 +27,28 @@ var apiGenerateReleaseOverride = auditgen.OperationDef{
 	Category: "CategoryManagement",
 }
 
+// apiAccessReadOverrides define the reads audited for what they disclose:
+// secret values and live container logs. Derivation has no verb for a GET, so
+// an override is the only way a read gets a definition.
+var apiAccessReadOverrides = []auditgen.OperationDef{
+	{
+		ID: "GetSecret", Action: "read_secret", ResourceType: "secret",
+		Category: "CategoryAccess", RESTResourceParam: "secretName",
+	},
+	{
+		ID: "ListSecrets", Action: "list_secrets", ResourceType: "secret",
+		Category: "CategoryAccess",
+	},
+	{
+		ID: "GetReleaseBindingK8sResourceLogs", Action: "read_resource_logs", ResourceType: "releasebinding",
+		Category: "CategoryAccess", RESTResourceParam: "releaseBindingName",
+	},
+	{
+		ID: "GetWorkflowRunLogs", Action: "read_workflow_run_logs", ResourceType: "workflowrun",
+		Category: "CategoryAccess", RESTResourceParam: "runName",
+	},
+}
+
 // apiActionSuffixSegments are trailing path segments that name a verb on an
 // otherwise ordinary resource path, not a further level of resource
 // hierarchy — e.g. ".../releasebindings/{releaseBindingName}/trigger". They
@@ -94,13 +116,17 @@ var apiSingularOverrides = map[string]string{}
 
 // apiConfig returns openchoreo-api's own auditgen.Config.
 func apiConfig() auditgen.Config {
+	overrides := map[string]auditgen.OperationDef{
+		apiGenerateReleaseOverride.ID: apiGenerateReleaseOverride,
+	}
+	for _, def := range apiAccessReadOverrides {
+		overrides[def.ID] = def
+	}
 	return auditgen.Config{
 		ResourceCategories:   apiResourceCategories,
 		ExcludedOperationIDs: apiExcludedOperationIDs,
 		SingularOverrides:    apiSingularOverrides,
 		ActionSuffixSegments: apiActionSuffixSegments,
-		Overrides: map[string]auditgen.OperationDef{
-			apiGenerateReleaseOverride.ID: apiGenerateReleaseOverride,
-		},
+		Overrides:            overrides,
 	}
 }

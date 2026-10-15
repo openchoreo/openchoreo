@@ -206,16 +206,18 @@ func EmitFromContext(
 		sourceIP = sourceIPFallback
 	}
 	env := Envelope{
-		Surface:   surface,
-		Actor:     ExtractActor(ctx, actorIDClaim),
-		Result:    result,
-		Resource:  auditData.Resource,
-		Hierarchy: auditData.Hierarchy,
-		Request:   auditData.Request,
-		RequestID: RequestIDFromHeader(header),
-		SourceIP:  sourceIP,
-		UserAgent: header.Get("User-Agent"),
-		Metadata:  auditData.Metadata,
+		Surface:    surface,
+		Actor:      ExtractActor(ctx, actorIDClaim),
+		Result:     result,
+		Resource:   auditData.Resource,
+		Hierarchy:  auditData.Hierarchy,
+		Request:    auditData.Request,
+		RequestID:  RequestIDFromHeader(header),
+		SourceIP:   sourceIP,
+		UserAgent:  header.Get("User-Agent"),
+		Metadata:   auditData.Metadata,
+		Parameters: auditData.Parameters,
+		Returned:   auditData.Returned,
 	}
 	emitter.Emit(ctx, op, env)
 }

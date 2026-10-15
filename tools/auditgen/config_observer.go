@@ -48,10 +48,30 @@ var observerPublicResourceCategories = map[string]string{
 //
 // QueryAuditLogFilterValues is deliberately not here — see its entry in
 // internal/observer/audit's RESTExemptions.
+//
+// The log and span reads are defined here for the data they return.
+// Derivation can't produce these either: two are GETs, and the POSTs would
+// derive the verb "create".
 var observerAuditReadOverrides = []auditgen.OperationDef{
 	{
 		ID: "QueryAuditLogs", Action: "read_audit_log", ResourceType: "auditlog",
 		Category: "CategoryAccess",
+	},
+	{
+		ID: "QueryLogs", Action: "read_logs", ResourceType: "log",
+		Category: "CategoryAccess",
+	},
+	{
+		ID: "GetPlatformLogs", Action: "read_platform_logs", ResourceType: "platformlog",
+		Category: "CategoryAccess",
+	},
+	{
+		ID: "QuerySpansForTrace", Action: "read_trace_spans", ResourceType: "trace",
+		Category: "CategoryAccess", RESTResourceParam: "traceId",
+	},
+	{
+		ID: "GetSpanDetailsForTrace", Action: "read_span_details", ResourceType: "trace",
+		Category: "CategoryAccess", RESTResourceParam: "traceId",
 	},
 }
 

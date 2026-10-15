@@ -10,6 +10,7 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // auditLogsServiceWithAuthz wraps an AuditLogsQuerier and adds authorization
@@ -35,10 +36,16 @@ func (s *auditLogsServiceWithAuthz) QueryAuditLogs(
 	ctx context.Context,
 	req *types.AuditLogsQueryRequest,
 ) (*types.AuditLogsResponse, error) {
+	audit.SetRequest(ctx, auditLogsQueryParameters(req))
 	if err := s.authorize(ctx); err != nil {
 		return nil, err
 	}
-	return s.internal.QueryAuditLogs(ctx, req)
+	resp, err := s.internal.QueryAuditLogs(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(resp.Records)})
+	return resp, nil
 }
 
 // QueryAuditLogFilterValues carries the same check as QueryAuditLogs: it

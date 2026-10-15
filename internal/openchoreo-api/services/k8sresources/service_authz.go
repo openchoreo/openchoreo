@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 const (
@@ -55,10 +56,24 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceEvents(ctx context.Context, na
 }
 
 func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
+	params := map[string]any{"podName": podName}
+	if container != "" {
+		params["container"] = container
+	}
+	if sinceSeconds != nil {
+		params["sinceSeconds"] = *sinceSeconds
+	}
+	audit.SetRequest(ctx, params)
+
 	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
 		return nil, err
 	}
-	return s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
+	resp, err := s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(resp.LogEntries)})
+	return resp, nil
 }
 
 func (s *k8sResourcesServiceWithAuthz) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string, overrides *models.CronJobTriggerRequest) (*models.CronJobTriggerResponse, error) {

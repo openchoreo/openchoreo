@@ -19,6 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 const (
@@ -167,6 +168,15 @@ func (s *workflowRunServiceWithAuthz) DeleteWorkflowRun(ctx context.Context, nam
 }
 
 func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+	params := map[string]any{}
+	if taskName != "" {
+		params["task"] = taskName
+	}
+	if sinceSeconds != nil {
+		params["sinceSeconds"] = *sinceSeconds
+	}
+	audit.SetRequest(ctx, params)
+
 	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
 	if err != nil {
 		return nil, err
@@ -179,7 +189,12 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, na
 	}); err != nil {
 		return nil, err
 	}
-	return s.internal.GetWorkflowRunLogs(ctx, namespaceName, runName, taskName, sinceSeconds)
+	entries, err := s.internal.GetWorkflowRunLogs(ctx, namespaceName, runName, taskName, sinceSeconds)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(entries)})
+	return entries, nil
 }
 
 func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName string) ([]models.WorkflowRunEventEntry, error) {

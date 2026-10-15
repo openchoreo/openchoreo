@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"unicode/utf8"
 )
 
 // NewAuditContext returns a copy of ctx carrying a fresh audit data
@@ -38,6 +39,8 @@ func getAuditData(ctx context.Context) *AuditData {
 // rather than constructing a new one.
 func SetResource(ctx context.Context, resource *Resource) {
 	if data := getAuditData(ctx); data != nil {
+		data.mu.Lock()
+		defer data.mu.Unlock()
 		data.Resource = resource
 	}
 }
@@ -51,6 +54,8 @@ func SetResource(ctx context.Context, resource *Resource) {
 // returning on such a failure. No-op with no audit data in context.
 func SetResult(ctx context.Context, result Result) {
 	if data := getAuditData(ctx); data != nil {
+		data.mu.Lock()
+		defer data.mu.Unlock()
 		data.Result = &result
 	}
 }
@@ -65,6 +70,8 @@ func SetResult(ctx context.Context, result Result) {
 // explicit precedence rule. No-op with no audit data in context.
 func SeedHierarchy(ctx context.Context, h Hierarchy) {
 	if data := getAuditData(ctx); data != nil {
+		data.mu.Lock()
+		defer data.mu.Unlock()
 		data.Hierarchy = h
 	}
 }
@@ -93,11 +100,95 @@ func SeedHierarchy(ctx context.Context, h Hierarchy) {
 // the later call's hierarchy would win instead, the same failure mode
 // inverted, and worth revisiting if observed.
 //
-// No-op with no audit data in context — which is what keeps unaudited GETs
-// and FilteredList's per-item checks (routed through BatchCheck, deliberately
-// not hooked here) out of the audit record.
+// No-op with no audit data in context, which keeps unaudited GETs out of the
+// audit record. An audited list is the exception to last-wins: FilteredList
+// checks each item, so its wrapper records the list's scope afterwards.
 func SetHierarchy(ctx context.Context, h Hierarchy) {
 	if data := getAuditData(ctx); data != nil {
+		data.mu.Lock()
+		defer data.mu.Unlock()
 		data.Hierarchy = h
 	}
+}
+
+// SetRequest records the operation's request parameters. Call it from the
+// operation's authz wrapper before the authz check, so a denial still records
+// what was asked for.
+//
+// params is a reviewed allowlist under the API's own parameter names, never
+// a dump of the query string or body. Leave out path parameters that
+// http.path and resource already carry. Every string, at any depth, is cut to
+// MaxParameterLength runes.
+//
+// Last write wins, so this relies on the same convention as SetHierarchy: a
+// wrapped service never calls another wrapper, or that wrapper's capture
+// would be published on this operation's record. No-op with no audit data in
+// context.
+func SetRequest(ctx context.Context, params map[string]any) {
+	data := getAuditData(ctx)
+	if data == nil {
+		return
+	}
+	captured := capParameters(params)
+	data.mu.Lock()
+	defer data.mu.Unlock()
+	data.Parameters = captured
+}
+
+// SetReturned records what the operation handed back. Call it after the
+// inner call succeeds; buildEvent still drops it on any other result. Items
+// beyond MaxReturnedItems are dropped and Count is left as given. Same
+// last-write rule as SetRequest.
+func SetReturned(ctx context.Context, returned Returned) {
+	data := getAuditData(ctx)
+	if data == nil {
+		return
+	}
+	returned.Items = append([]ReturnedItem(nil), returned.Items[:min(len(returned.Items), MaxReturnedItems)]...)
+	data.mu.Lock()
+	defer data.mu.Unlock()
+	data.Returned = &returned
+}
+
+// capParameters copies params, so the caller's map can't change the record
+// after the call.
+func capParameters(params map[string]any) map[string]any {
+	if len(params) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(params))
+	for k, v := range params {
+		out[k] = capValue(v)
+	}
+	return out
+}
+
+func capValue(v any) any {
+	switch val := v.(type) {
+	case string:
+		return capString(val)
+	case []string:
+		capped := make([]string, len(val))
+		for i, s := range val {
+			capped[i] = capString(s)
+		}
+		return capped
+	case []any:
+		capped := make([]any, len(val))
+		for i, e := range val {
+			capped[i] = capValue(e)
+		}
+		return capped
+	case map[string]any:
+		return capParameters(val)
+	default:
+		return v
+	}
+}
+
+func capString(s string) string {
+	if utf8.RuneCountInString(s) <= MaxParameterLength {
+		return s
+	}
+	return string([]rune(s)[:MaxParameterLength])
 }

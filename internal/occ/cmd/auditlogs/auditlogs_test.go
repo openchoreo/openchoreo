@@ -109,6 +109,7 @@ func TestQuery_SendsFiltersAndPrintsTable(t *testing.T) {
 	params.Categories = []string{"Management"}
 	params.Namespaces = []string{"acme-corp"}
 	params.Environments = []string{"production"}
+	params.ReturnedItems = []string{"db-creds"}
 	params.Search = "store"
 
 	out := testutil.CaptureStdout(t, func() {
@@ -126,14 +127,55 @@ func TestQuery_SendsFiltersAndPrintsTable(t *testing.T) {
 		"namespace":   []any{"acme-corp"},
 		"environment": []any{"acme-corp/production"},
 	}, got["resource"])
+	assert.Equal(t, map[string]any{"items": map[string]any{"name": []any{"db-creds"}}}, got["returned"])
 	assert.NotContains(t, got, "result")
 
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	require.Len(t, lines, 2)
-	assert.Equal(t, []string{"TIME", "RESULT", "ACTOR", "ACTION", "NAMESPACE", "RESOURCE"}, strings.Fields(lines[0]))
+	assert.Equal(t, []string{"TIME", "RESULT", "ACTOR", "ACTION", "NAMESPACE", "RESOURCE", "RETURNED"},
+		strings.Fields(lines[0]))
 	assert.Equal(t, []string{
-		"2026-08-14T16:30:00Z", "success", "alice@example.com", "create_project", "acme-corp", "project/online-store",
+		"2026-08-14T16:30:00Z", "success", "alice@example.com", "create_project", "acme-corp", "project/online-store", "-",
 	}, strings.Fields(lines[1]))
+}
+
+func TestReturnedLabel(t *testing.T) {
+	item := func(name string) obsgen.AuditLogReturnedItem {
+		return obsgen.AuditLogReturnedItem{Type: "secret", Name: name}
+	}
+	items := func(names ...string) *[]obsgen.AuditLogReturnedItem {
+		out := make([]obsgen.AuditLogReturnedItem, 0, len(names))
+		for _, n := range names {
+			out = append(out, item(n))
+		}
+		return &out
+	}
+
+	tests := []struct {
+		name     string
+		returned *obsgen.AuditLogReturned
+		want     string
+	}{
+		{name: "absent", returned: nil, want: ""},
+		{name: "count only", returned: &obsgen.AuditLogReturned{Count: 120}, want: "120"},
+		{name: "zero", returned: &obsgen.AuditLogReturned{Count: 0}, want: "0"},
+		{name: "one item", returned: &obsgen.AuditLogReturned{Count: 1, Items: items("db-creds")}, want: "1 db-creds"},
+		{
+			name:     "more than the column shows",
+			returned: &obsgen.AuditLogReturned{Count: 5, Items: items("a", "b", "c", "d", "e")},
+			want:     "5 a,b,c,+2",
+		},
+		{
+			name:     "a cut list counts what the record left out too",
+			returned: &obsgen.AuditLogReturned{Count: 150, Items: items("a", "b")},
+			want:     "150 a,b,+148",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, returnedLabel(tt.returned))
+		})
+	}
 }
 
 func TestQuery_JSONOutputIsOneRecordPerLine(t *testing.T) {

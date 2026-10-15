@@ -43,35 +43,34 @@ var RESTExemptions = map[string]string{
 		"which is audited and is where the disclosure is recorded. Gated on " +
 		"auditlogs:view all the same.",
 
+	// The log and span reads are absent too, defined under CategoryAccess.
+	// QueryTraces is exempt below: a trace summary carries no span attributes.
+
 	// Public spec — reads expressed as POST, to carry a query body.
 	"QueryAlerts":          reasonReadAsPOST,
 	"QueryDoraDeployments": reasonReadAsPOST,
 	"QueryDoraMetrics":     reasonReadAsPOST,
 	"QueryEvents":          reasonReadAsPOST,
 	"QueryIncidents":       reasonReadAsPOST,
-	"QueryLogs":            reasonReadAsPOST,
 	"QueryMetrics":         reasonReadAsPOST,
 	"QueryRuntimeTopology": reasonReadAsPOST,
-	"QuerySpansForTrace":   reasonReadAsPOST,
 	"QueryTraces":          reasonReadAsPOST,
 
 	// Public spec — GET.
 	"GetComponentCosts":                 reasonRead,
 	"GetOAuthProtectedResourceMetadata": reasonRead,
 	"GetPlatformLogFilterValues":        reasonRead,
-	"GetPlatformLogs":                   reasonRead,
 	"GetRecommendations":                reasonRead,
-	"GetSpanDetailsForTrace":            reasonRead,
 	"Health":                            reasonRead,
 
 	// Internal spec — GET.
 	"GetAlertRule": reasonRead,
 }
 
-// reasonTelemetryRead is why observer's signal tools are unaudited. They return
-// workload telemetry rather than any account of who did what, so reading one
-// discloses nothing the trail exists to record.
-const reasonTelemetryRead = "Reads workload telemetry, not the record of who did what. " +
+const reasonTelemetryRead = "Reads workload telemetry that carries no log lines or span attributes. " +
+	"Unaudited on REST for the same reason."
+
+const reasonTraceSummaryRead = "Returns trace summaries, which carry no span attributes. " +
 	"Unaudited on REST for the same reason."
 
 // MCPToolExemptions maps an MCP tool name to the reason it is deliberately
@@ -86,16 +85,11 @@ const reasonTelemetryRead = "Reads workload telemetry, not the record of who did
 // TestMCPToolCoverage fails for a registered tool that is neither bound nor
 // listed here, so a new tool cannot go unaudited by nobody noticing.
 var MCPToolExemptions = map[string]string{
-	"query_component_logs":   reasonTelemetryRead,
-	"query_workflow_logs":    reasonTelemetryRead,
-	"query_platform_logs":    reasonTelemetryRead,
 	"query_component_events": reasonTelemetryRead,
 	"query_workflow_events":  reasonTelemetryRead,
 	"query_resource_metrics": reasonTelemetryRead,
 	"query_http_metrics":     reasonTelemetryRead,
-	"query_traces":           reasonTelemetryRead,
-	"query_trace_spans":      reasonTelemetryRead,
-	"get_span_details":       reasonTelemetryRead,
+	"query_traces":           reasonTraceSummaryRead,
 	"query_alerts":           reasonTelemetryRead,
 	"query_incidents":        reasonTelemetryRead,
 	"query_costs":            reasonTelemetryRead,

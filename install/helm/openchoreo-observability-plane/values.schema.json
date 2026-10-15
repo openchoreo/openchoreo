@@ -1443,7 +1443,10 @@
                 {
                   "match": {
                     "operations": [
-                      "QueryAuditLogs"
+                      "QueryLogs",
+                      "GetPlatformLogs",
+                      "QuerySpansForTrace",
+                      "GetSpanDetailsForTrace"
                     ]
                   },
                   "set": {

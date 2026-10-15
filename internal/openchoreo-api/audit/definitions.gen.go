@@ -327,6 +327,22 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryManagement,
 		},
 		{
+			ID: "GetReleaseBindingK8sResourceLogs", Action: "read_resource_logs", ResourceType: "releasebinding",
+			Category: audit.CategoryAccess, RESTResourceParam: "releaseBindingName",
+		},
+		{
+			ID: "GetSecret", Action: "read_secret", ResourceType: "secret",
+			Category: audit.CategoryAccess, RESTResourceParam: "secretName",
+		},
+		{
+			ID: "GetWorkflowRunLogs", Action: "read_workflow_run_logs", ResourceType: "workflowrun",
+			Category: audit.CategoryAccess, RESTResourceParam: "runName",
+		},
+		{
+			ID: "ListSecrets", Action: "list_secrets", ResourceType: "secret",
+			Category: audit.CategoryAccess,
+		},
+		{
 			ID: "TriggerReleaseBindingCronJob", Action: "trigger_release_binding_cron_job", ResourceType: "releasebinding",
 			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
 		},

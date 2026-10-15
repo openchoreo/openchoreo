@@ -1848,6 +1848,8 @@ components:
           $ref: "#/components/schemas/AuditLogsActorFilter"
         resource:
           $ref: "#/components/schemas/AuditLogsResourceFilter"
+        returned:
+          $ref: "#/components/schemas/AuditLogsReturnedFilter"
         action:
           type: array
           uniqueItems: true
@@ -2076,6 +2078,33 @@ components:
           items:
             type: string
 
+    AuditLogsReturnedFilter:
+      type: object
+      description: |
+        Filters on the record's `returned` group, what a read handed back. Named and
+        nested as the record is.
+      properties:
+        items:
+          $ref: "#/components/schemas/AuditLogsReturnedItemsFilter"
+
+    AuditLogsReturnedItemsFilter:
+      type: object
+      properties:
+        name:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Names of objects a read returned, matched exactly. A record matches when
+            any of its `returned.items` carries one of them, so "who read `db-creds`"
+            is one filter whether the secret came back from a get or a list.
+
+            A storage module older than schema 1.1 ignores this filter rather than
+            rejecting it, and then returns records regardless of what they returned.
+          items:
+            type: string
+          example: ["db-creds"]
+
     AuditLogFilterValuesRequest:
       type: object
       description: |
@@ -2260,7 +2289,10 @@ components:
           description: |
             Schema of this record. `major.minor`; major on a field removal or a changed
             value representation, minor on an addition.
-          example: "1.0"
+
+            It describes the record as it was produced. A storage module older than 1.1
+            serves a 1.1 record without its `request` and `returned` groups.
+          example: "1.1"
         event_id:
           type: string
           description: UUID v7, unique per record.
@@ -2312,12 +2344,78 @@ components:
           $ref: "#/components/schemas/AuditLogHTTPInfo"
         resource:
           $ref: "#/components/schemas/AuditLogResource"
+        request:
+          $ref: "#/components/schemas/AuditLogRequest"
+        returned:
+          $ref: "#/components/schemas/AuditLogReturned"
         metadata:
           type: object
           additionalProperties: true
           description: Operation-specific detail, when the emitting handler recorded any.
         collector:
           $ref: "#/components/schemas/AuditLogCollectorInfo"
+
+    AuditLogRequest:
+      type: object
+      description: |
+        What the operation was asked for, on reads audited under `access` that take
+        parameters. It is recorded once the request reaches the service, so a denied
+        read still shows what was attempted. A request rejected before that, for
+        example as malformed, has none. The secret reads take no parameters and
+        never carry it.
+      properties:
+        parameters:
+          type: object
+          additionalProperties: true
+          description: |
+            The operation's own query and body parameters, under the API's names. Each
+            operation records a reviewed allowlist, never the whole request. Path
+            parameters are left out, since `http.path` and `resource` carry them, with
+            one exception: a span read records `spanId`, because `resource.name` holds
+            the trace and an MCP call has no `http.path`. Every string is cut to 256
+            characters.
+
+            A free-text search phrase is recorded as sent. It can hold personal data,
+            or a value the caller was searching logs for, such as a leaked token.
+          example: {"podName": "checkout-7f9c", "container": "api", "sinceSeconds": 3600}
+
+    AuditLogReturned:
+      type: object
+      description: |
+        What the operation handed back, never the content itself. Present only when
+        `result` is `success`.
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          minimum: 0
+          description: |
+            Entries returned: secrets, log lines, spans or audit records, depending on
+            the operation. Greater than the number of `items` when the list was cut.
+        items:
+          type: array
+          description: Identity of each object returned, one entry for a single-object read.
+          items:
+            $ref: "#/components/schemas/AuditLogReturnedItem"
+
+    AuditLogReturnedItem:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          example: secret
+        namespace:
+          type: string
+        name:
+          type: string
+          example: db-creds
+        uid:
+          type: string
+          description: Tells apart two objects created under the same name.
 
     AuditLogActor:
       type: object

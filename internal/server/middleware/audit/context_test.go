@@ -5,7 +5,10 @@ package audit
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestSeedHierarchy_NoAuditData_NoOp(t *testing.T) {
@@ -79,5 +82,96 @@ func TestSetHierarchy_SurvivesLaterSetResource(t *testing.T) {
 	}
 	if data.Resource == nil || data.Resource.UID != "uid-123" {
 		t.Errorf("Resource = %+v, want SetResource's write to still take effect", data.Resource)
+	}
+}
+
+// TestSetters_ConcurrentCallsAreSafe mirrors query_platform_logs, which runs
+// several authz-wrapped reads in parallel on one context. Meaningful under
+// -race.
+func TestSetters_ConcurrentCallsAreSafe(t *testing.T) {
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			SetHierarchy(ctx, Hierarchy{Namespace: "ns"})
+			SetRequest(ctx, map[string]any{"podName": []string{"p"}})
+			SetReturned(ctx, Returned{Count: 1})
+			SetResult(ctx, ResultDenied)
+			SetResource(ctx, &Resource{Name: "r"})
+		})
+	}
+	wg.Wait()
+
+	if data.Hierarchy.Namespace != "ns" || data.Returned == nil || data.Parameters == nil {
+		t.Errorf("AuditData = %+v, want every setter's write", data)
+	}
+}
+
+func TestSetRequestAndSetReturned_NoAuditData_NoOp(t *testing.T) {
+	SetRequest(context.Background(), map[string]any{"searchPhrase": "x"})
+	SetReturned(context.Background(), Returned{Count: 1})
+}
+
+func TestSetRequest_CapsStringsAndCopies(t *testing.T) {
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+
+	long := strings.Repeat("é", MaxParameterLength+10)
+	params := map[string]any{
+		"searchPhrase": long,
+		"logLevels":    []string{long, "ERROR"},
+		"limit":        100,
+		"actor":        map[string]any{"id": []string{long}},
+	}
+	SetRequest(ctx, params)
+	params["searchPhrase"] = "changed"
+
+	got := data.Parameters
+	phrase, _ := got["searchPhrase"].(string)
+	if n := utf8.RuneCountInString(phrase); n != MaxParameterLength {
+		t.Errorf("searchPhrase has %d runes, want it cut to %d", n, MaxParameterLength)
+	}
+	levels, _ := got["logLevels"].([]string)
+	if len(levels) != 2 || utf8.RuneCountInString(levels[0]) != MaxParameterLength || levels[1] != "ERROR" {
+		t.Errorf("logLevels = %v, want each string cut to %d runes", levels, MaxParameterLength)
+	}
+	if got["limit"] != 100 {
+		t.Errorf("limit = %v, want non-string values kept as they are", got["limit"])
+	}
+	actor, _ := got["actor"].(map[string]any)
+	ids, _ := actor["id"].([]string)
+	if len(ids) != 1 || utf8.RuneCountInString(ids[0]) != MaxParameterLength {
+		t.Errorf("actor.id = %v, want nested strings cut to %d runes", actor["id"], MaxParameterLength)
+	}
+}
+
+func TestSetRequest_EmptyParamsRecordNone(t *testing.T) {
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+	SetRequest(ctx, map[string]any{})
+	if data.Parameters != nil {
+		t.Errorf("Parameters = %+v, want none recorded", data.Parameters)
+	}
+}
+
+func TestSetReturned_CopiesItems(t *testing.T) {
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+	items := []ReturnedItem{{Type: "secret", Name: "db-creds"}}
+	SetReturned(ctx, Returned{Count: 1, Items: items})
+	items[0].Name = "changed"
+
+	if data.Returned == nil || data.Returned.Items[0].Name != "db-creds" {
+		t.Errorf("Returned = %+v, want the items as they were at the call", data.Returned)
+	}
+}
+
+func TestSetReturned_CapsItemsAndKeepsCount(t *testing.T) {
+	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+	items := make([]ReturnedItem, MaxReturnedItems+5)
+	SetReturned(ctx, Returned{Count: len(items), Items: items})
+
+	got := data.Returned
+	if len(got.Items) != MaxReturnedItems || got.Count != MaxReturnedItems+5 {
+		t.Errorf("got %d items and count %d, want %d items and count %d",
+			len(got.Items), got.Count, MaxReturnedItems, MaxReturnedItems+5)
 	}
 }

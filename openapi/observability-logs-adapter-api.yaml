@@ -1175,6 +1175,8 @@ components:
           $ref: "#/components/schemas/AuditLogsActorFilter"
         resource:
           $ref: "#/components/schemas/AuditLogsResourceFilter"
+        returned:
+          $ref: "#/components/schemas/AuditLogsReturnedFilter"
         action:
           type: array
           uniqueItems: true
@@ -1470,6 +1472,28 @@ components:
           items:
             type: string
 
+    AuditLogsReturnedFilter:
+      type: object
+      description: Filters on the record's `returned` group, named and nested as the record is.
+      properties:
+        items:
+          $ref: "#/components/schemas/AuditLogsReturnedItemsFilter"
+
+    AuditLogsReturnedItemsFilter:
+      type: object
+      properties:
+        name:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: |
+            Names of objects a read returned, matched exactly. A record matches when
+            any entry of its `returned.items` carries one of them. An adapter stores
+            `returned.items` however its backend can search an array of objects, and
+            must match on the name of one entry, never across two.
+          items:
+            type: string
+
     AuditLogRecord:
       type: object
       description: |
@@ -1495,8 +1519,10 @@ components:
         schema_version:
           type: string
           description: Schema of this record. `major.minor`; major on a field removal or a
-            changed value representation, minor on an addition.
-          example: "1.0"
+            changed value representation, minor on an addition. Served as stored, so an
+            adapter that doesn't know a group added since still returns the producer's
+            version.
+          example: "1.1"
         event_id:
           type: string
           description: UUID v7, unique per record
@@ -1542,11 +1568,58 @@ components:
           $ref: "#/components/schemas/AuditLogHTTPInfo"
         resource:
           $ref: "#/components/schemas/AuditLogResource"
+        request:
+          $ref: "#/components/schemas/AuditLogRequest"
+        returned:
+          $ref: "#/components/schemas/AuditLogReturned"
         metadata:
           type: object
           additionalProperties: true
         collector:
           $ref: "#/components/schemas/AuditLogCollectorInfo"
+
+    AuditLogRequest:
+      type: object
+      description: |
+        What the operation was asked for, on reads audited under `access`. Stored but
+        not indexed; an adapter returns it and needs no filter on it.
+      properties:
+        parameters:
+          type: object
+          additionalProperties: true
+          description: |
+            The operation's own parameters under the API's names, nested where the API
+            nests them. Returned with the same keys and nesting it was published with.
+
+    AuditLogReturned:
+      type: object
+      description: What the operation handed back, never the content. Present only on success.
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          minimum: 0
+          description: Entries returned. Greater than the number of `items` when the list was cut.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogReturnedItem"
+
+    AuditLogReturnedItem:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+        namespace:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
 
     AuditLogActor:
       type: object

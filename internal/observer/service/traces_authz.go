@@ -11,6 +11,7 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // tracesServiceWithAuthz wraps a TracesQuerier and adds authorization checks.
@@ -48,6 +49,7 @@ func (s *tracesServiceWithAuthz) QueryTraces(ctx context.Context, req *types.Tra
 }
 
 func (s *tracesServiceWithAuthz) QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error) {
+	audit.SetRequest(ctx, spansQueryParameters(req))
 	scope := req.SearchScope
 	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
 	// TODO: currently the obs API is not equipped to provide cluster level environments,
@@ -62,13 +64,19 @@ func (s *tracesServiceWithAuthz) QuerySpans(ctx context.Context, traceID string,
 	); err != nil {
 		return nil, err
 	}
-	return s.internal.QuerySpans(ctx, traceID, req)
+	resp, err := s.internal.QuerySpans(ctx, traceID, req)
+	if err != nil {
+		return nil, err
+	}
+	audit.SetReturned(ctx, audit.Returned{Count: len(resp.Spans)})
+	return resp, nil
 }
 
 // GetSpanDetails authorizes on the return path: the request carries only traceID+spanID,
 // so the scope is derived from the fetched span's resource attributes and the span is
 // discarded if the caller is not authorized for it.
 func (s *tracesServiceWithAuthz) GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
+	audit.SetRequest(ctx, spanDetailsParameters(spanID))
 	span, err := s.internal.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		return nil, err
@@ -92,6 +100,7 @@ func (s *tracesServiceWithAuthz) GetSpanDetails(ctx context.Context, traceID str
 	); err != nil {
 		return nil, err
 	}
+	audit.SetReturned(ctx, audit.Returned{Count: 1})
 	return span, nil
 }
 

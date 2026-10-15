@@ -57,6 +57,10 @@ type AuditLogsParams struct {
 	SourceIPs    []string `json:"sourceIps"`
 	UserAgents   []string `json:"userAgents"`
 
+	// ReturnedItemNames matches records any of whose returned.items carries one
+	// of these names.
+	ReturnedItemNames []string `json:"returnedItemNames"`
+
 	SearchPhrase string `json:"searchPhrase"`
 
 	// Paging is by time window: a caller closes the window up to the last
@@ -106,6 +110,27 @@ type AuditLogResource struct {
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
+// AuditLogRequest is what an audited operation was asked for: its own
+// parameters under the API's names.
+type AuditLogRequest struct {
+	Parameters map[string]any `json:"parameters,omitempty"`
+}
+
+// AuditLogReturnedItem identifies one object an operation returned.
+type AuditLogReturnedItem struct {
+	Type      string `json:"type"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
+	UID       string `json:"uid,omitempty"`
+}
+
+// AuditLogReturned is what an operation handed back, never the content. Count
+// is greater than len(Items) when the list was cut.
+type AuditLogReturned struct {
+	Count int                    `json:"count"`
+	Items []AuditLogReturnedItem `json:"items,omitempty"`
+}
+
 // AuditLogCollectorInfo is where a record was collected from, as stamped by the
 // collector rather than by the emitting service. Carried so a caller can
 // compare it against Producer; nothing here performs that comparison.
@@ -134,6 +159,8 @@ type AuditLogRecord struct {
 	OperationID   string                 `json:"operationId,omitempty"`
 	HTTP          *AuditLogHTTPInfo      `json:"http,omitempty"`
 	Resource      *AuditLogResource      `json:"resource,omitempty"`
+	Request       *AuditLogRequest       `json:"request,omitempty"`
+	Returned      *AuditLogReturned      `json:"returned,omitempty"`
 	Metadata      map[string]any         `json:"metadata,omitempty"`
 	Collector     *AuditLogCollectorInfo `json:"collector,omitempty"`
 }

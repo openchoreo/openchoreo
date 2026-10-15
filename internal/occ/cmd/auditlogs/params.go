@@ -36,5 +36,6 @@ type QueryParams struct {
 	Components    []string
 	Resources     []string
 	Environments  []string
+	ReturnedItems []string
 	Search        string
 }

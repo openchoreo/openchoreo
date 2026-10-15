@@ -610,11 +610,14 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"resource_component": arrayProperty("Components"),
 			"resource_resource":  arrayProperty("Resources, the hierarchy level that is a sibling of component"),
 			"resource_name":      arrayProperty("Resource names"),
+			"returned_item_name": arrayProperty(
+				"Names of objects a read returned (e.g. ['db-creds']), whether they came from a get or a list. " +
+					"Answers who read a given secret"),
 
 			"action": arrayProperty("Semantic action names (e.g. ['create_project', 'delete_component'])"),
 			"category": enumArrayProperty(
-				"Event categories. 'access' is disclosure rather than change; reading the trail is "+
-					"recorded under it",
+				"Event categories. 'access' is disclosure rather than change: reading secrets, logs, "+
+					"span attributes or the trail itself is recorded under it",
 				handlers.AuditLogCategoryValues()),
 			"result": enumArrayProperty(
 				"Outcomes. 'denied' is a subject the policy refused, 'failure' an error or a call with no "+

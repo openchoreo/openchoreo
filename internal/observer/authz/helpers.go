@@ -110,9 +110,7 @@ func CheckAuthorization(
 	// AuthzChecker.Check; a no-op when the request has no audit context.
 	//
 	// Environment is read from the ABAC attributes for the same reason as
-	// there. It records nothing today: every observer operation supplying one
-	// is a read, and reads are unaudited. Wired anyway so an audited
-	// operation that becomes environment-scoped needs no change here.
+	// there: the component-scoped log and span reads authorize against it.
 	audit.SetHierarchy(ctx, audit.Hierarchy{
 		Namespace:   hierarchy.Namespace,
 		Environment: authzCtx.Resource.Environment,

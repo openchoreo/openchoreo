@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // TestHandlers_BodyCarriedCreatesCallSetResource statically guards a fact
@@ -30,6 +31,9 @@ import (
 // don't fit this AST lookup; both already call audit.SetResource (see
 // exec.go, wirelogs.go) and are covered by exec_wirelogs_audit_test.go
 // instead.
+//
+// CategoryAccess reads are out of scope: a list targets no single resource,
+// and its wrapper records the objects in returned.items.
 func TestHandlers_BodyCarriedCreatesCallSetResource(t *testing.T) {
 	methods, err := parseHandlerMethods(t)
 	if err != nil {
@@ -37,7 +41,7 @@ func TestHandlers_BodyCarriedCreatesCallSetResource(t *testing.T) {
 	}
 
 	for _, op := range apiaudit.GetOperations() {
-		if op.RESTResourceParam != "" || op.NotInOpenAPISpec {
+		if op.RESTResourceParam != "" || op.NotInOpenAPISpec || op.Category == audit.CategoryAccess {
 			continue
 		}
 

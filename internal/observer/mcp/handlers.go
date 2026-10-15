@@ -111,7 +111,8 @@ func (h *MCPHandler) QueryComponentLogs(ctx context.Context, namespace, project,
 		Limit:        limit,
 		SortOrder:    sortOrder,
 	}
-	return h.logsService.QueryLogs(ctx, req)
+	resp, err := h.logsService.QueryLogs(ctx, req)
+	return auditedResult(ctx, resp, err)
 }
 
 func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowRunName, taskName,
@@ -135,7 +136,8 @@ func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowR
 		Limit:        limit,
 		SortOrder:    sortOrder,
 	}
-	return h.logsService.QueryLogs(ctx, req)
+	resp, err := h.logsService.QueryLogs(ctx, req)
+	return auditedResult(ctx, resp, err)
 }
 
 func (h *MCPHandler) QueryComponentEvents(ctx context.Context, namespace, project, component, environment,
@@ -271,11 +273,13 @@ func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, pr
 			Environment: environment,
 		},
 	}
-	return h.tracesService.QuerySpans(ctx, traceID, req)
+	resp, err := h.tracesService.QuerySpans(ctx, traceID, req)
+	return auditedResult(ctx, resp, err)
 }
 
 func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID string) (any, error) {
-	return h.tracesService.GetSpanDetails(ctx, traceID, spanID)
+	span, err := h.tracesService.GetSpanDetails(ctx, traceID, spanID)
+	return auditedResult(ctx, span, err)
 }
 
 func (h *MCPHandler) QueryAlerts(ctx context.Context, namespace, project, component, environment,

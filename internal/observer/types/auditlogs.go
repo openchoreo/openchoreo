@@ -33,6 +33,17 @@ type AuditLogsResourceFilter struct {
 	Names        []string `json:"name,omitempty"`
 }
 
+// AuditLogsReturnedFilter filters the record's returned group.
+type AuditLogsReturnedFilter struct {
+	Items AuditLogsReturnedItemsFilter `json:"items"`
+}
+
+// AuditLogsReturnedItemsFilter matches a record any of whose returned items
+// carries one of Names.
+type AuditLogsReturnedItemsFilter struct {
+	Names []string `json:"name,omitempty"`
+}
+
 // AuditLogsQueryRequest is the decoded body of
 // POST /api/v1alpha1/audit-logs/query.
 //
@@ -48,6 +59,7 @@ type AuditLogsQueryRequest struct {
 
 	Actor    AuditLogsActorFilter    `json:"actor"`
 	Resource AuditLogsResourceFilter `json:"resource"`
+	Returned AuditLogsReturnedFilter `json:"returned"`
 
 	Actions      []string `json:"action,omitempty"`
 	Categories   []string `json:"category,omitempty"`
@@ -104,6 +116,25 @@ type AuditLogResource struct {
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
+// AuditLogRequest is what an audited operation was asked for.
+type AuditLogRequest struct {
+	Parameters map[string]any `json:"parameters,omitempty"`
+}
+
+// AuditLogReturnedItem identifies one object an operation returned.
+type AuditLogReturnedItem struct {
+	Type      string `json:"type"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
+	UID       string `json:"uid,omitempty"`
+}
+
+// AuditLogReturned is what an operation handed back, never the content.
+type AuditLogReturned struct {
+	Count int                    `json:"count"`
+	Items []AuditLogReturnedItem `json:"items,omitempty"`
+}
+
 // AuditLogCollectorInfo is where a record was collected from, as stamped by the
 // collector rather than by the emitting service.
 type AuditLogCollectorInfo struct {
@@ -137,6 +168,8 @@ type AuditLogRecord struct {
 	OperationID string                 `json:"operation_id,omitempty"`
 	HTTP        *AuditLogHTTPInfo      `json:"http,omitempty"`
 	Resource    *AuditLogResource      `json:"resource,omitempty"`
+	Request     *AuditLogRequest       `json:"request,omitempty"`
+	Returned    *AuditLogReturned      `json:"returned,omitempty"`
 	Metadata    map[string]any         `json:"metadata,omitempty"`
 	Collector   *AuditLogCollectorInfo `json:"collector,omitempty"`
 }

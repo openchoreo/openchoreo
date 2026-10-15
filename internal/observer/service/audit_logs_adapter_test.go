@@ -43,21 +43,22 @@ func fullAuditLogsParams() observability.AuditLogsParams {
 			Resources:    []string{"orders-db"},
 			Names:        []string{"checkout"},
 		},
-		Actions:          []string{"create_project"},
-		Categories:       []string{"authorization"},
-		Results:          []string{"denied"},
-		Producers:        []string{"openchoreo-api"},
-		Surfaces:         []string{"rest"},
-		OperationIDs:     []string{"CreateProject"},
-		RequestIDs:       []string{"req-1"},
-		EventIDs:         []string{"evt-1"},
-		SourceIPs:        []string{"10.42.0.7"},
-		UserAgents:       []string{"occ/1.2.0"},
-		SearchPhrase:     "reconcile",
-		Limit:            50,
-		SortOrder:        "asc",
-		IncludeTimeline:  true,
-		TimelineInterval: "15m",
+		ReturnedItemNames: []string{"db-creds"},
+		Actions:           []string{"create_project"},
+		Categories:        []string{"authorization"},
+		Results:           []string{"denied"},
+		Producers:         []string{"openchoreo-api"},
+		Surfaces:          []string{"rest"},
+		OperationIDs:      []string{"CreateProject"},
+		RequestIDs:        []string{"req-1"},
+		EventIDs:          []string{"evt-1"},
+		SourceIPs:         []string{"10.42.0.7"},
+		UserAgents:        []string{"occ/1.2.0"},
+		SearchPhrase:      "reconcile",
+		Limit:             50,
+		SortOrder:         "asc",
+		IncludeTimeline:   true,
+		TimelineInterval:  "15m",
 	}
 }
 
@@ -106,6 +107,9 @@ func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, []any{"orders-db"}, resource["resource"])
 	assert.Equal(t, []any{"checkout"}, resource["name"])
 
+	assert.Equal(t, map[string]any{"items": map[string]any{"name": []any{"db-creds"}}}, gotBody["returned"],
+		"returned.items.name must be sent nested as the record is")
+
 	assert.Equal(t, []any{"create_project"}, gotBody["action"])
 	assert.Equal(t, []any{"authorization"}, gotBody["category"])
 	assert.Equal(t, []any{"denied"}, gotBody["result"])
@@ -138,7 +142,7 @@ func TestLogsAdapter_GetAuditLogs_OmitsUnsetFilters(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, key := range []string{
-		"actor", "resource", "action", "category", "result", "producer", "surface",
+		"actor", "resource", "returned", "action", "category", "result", "producer", "surface",
 		"operation_id", "request_id", "event_id", "source_ip", "user_agent",
 		"searchPhrase", "includeTimeline", "timelineInterval",
 	} {
@@ -216,6 +220,62 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 	// across a gap in activity.
 	assert.Equal(t, int64(0), result.Timeline.Buckets[1].Total)
 	assert.Nil(t, result.Timeline.Buckets[1].Counts)
+}
+
+func TestLogsAdapter_GetAuditLogs_MapsRequestAndReturned(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
+		"records": []any{map[string]any{
+			"schema_version": "1.1", "event_id": "evt-2", "event_time": "2026-10-01T10:00:00Z",
+			"actor":  map[string]any{"type": "user", "id": "alice"},
+			"action": "list_secrets", "category": "access", "result": "success",
+			"request": map[string]any{"parameters": map[string]any{
+				"searchScope": map[string]any{"namespace": "acme"}, "sinceSeconds": 3600,
+			}},
+			"returned": map[string]any{"count": 3, "items": []any{
+				map[string]any{"type": "secret", "namespace": "acme", "name": "db-creds", "uid": "u1"},
+				map[string]any{"type": "secret", "name": "api-key"},
+			}},
+		}},
+		"total": 1, "tookMs": 2,
+	}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetAuditLogs(context.Background(), fullAuditLogsParams())
+	require.NoError(t, err)
+
+	rec := result.Records[0]
+	require.NotNil(t, rec.Request)
+	assert.Equal(t, map[string]any{"namespace": "acme"}, rec.Request.Parameters["searchScope"])
+	assert.Equal(t, float64(3600), rec.Request.Parameters["sinceSeconds"])
+	require.NotNil(t, rec.Returned)
+	assert.Equal(t, observability.AuditLogReturned{Count: 3, Items: []observability.AuditLogReturnedItem{
+		{Type: "secret", Namespace: "acme", Name: "db-creds", UID: "u1"},
+		{Type: "secret", Name: "api-key"},
+	}}, *rec.Returned)
+}
+
+// A record from before 1.1, or one whose module drops the groups, has neither.
+func TestLogsAdapter_GetAuditLogs_AbsentGroupsStayNil(t *testing.T) {
+	t.Parallel()
+
+	server := platformLogsServer(t, http.StatusOK, map[string]any{
+		"records": []any{map[string]any{
+			"schema_version": "1.0", "event_id": "evt-3", "event_time": "2026-10-01T10:00:00Z",
+			"actor":  map[string]any{"type": "user", "id": "alice"},
+			"action": "create_project", "category": "management", "result": "success",
+		}},
+		"total": 1, "tookMs": 2,
+	}, nil, nil, nil)
+	defer server.Close()
+
+	result, err := newTestPlatformLogsAdapter(t, server.URL).
+		GetAuditLogs(context.Background(), fullAuditLogsParams())
+	require.NoError(t, err)
+	assert.Nil(t, result.Records[0].Request)
+	assert.Nil(t, result.Records[0].Returned)
 }
 
 // Nil is not the same answer as an empty bucket list.

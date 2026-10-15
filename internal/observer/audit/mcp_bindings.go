@@ -18,17 +18,22 @@ type mcpEnrichmentEntry struct {
 	ResourceArg string
 }
 
-// mcpEnrichment binds observer's MCP tools onto audited operations.
+// mcpEnrichment binds observer's MCP tools onto audited operations. Every
+// other tool is listed in MCPToolExemptions.
 //
-// One entry, and it is the point of the table: every other observer tool reads
-// workload telemetry and is unaudited on both surfaces (see RESTExemptions),
-// while reading the audit trail is recorded wherever it happens.
-//
-// ResourceArg is empty because the tool targets no single resource. Its
-// resource_* arguments are filters over many records, and its REST counterpart
-// carries no RESTResourceParam either.
+// ResourceArg is empty where the tool's arguments filter many records rather
+// than name one resource.
 var mcpEnrichment = map[string]mcpEnrichmentEntry{
-	"QueryAuditLogs": {ToolName: "query_audit_logs"},
+	"QueryAuditLogs":         {ToolName: "query_audit_logs"},
+	"QueryLogs":              {ToolName: "query_component_logs"},
+	"GetPlatformLogs":        {ToolName: "query_platform_logs"},
+	"QuerySpansForTrace":     {ToolName: "query_trace_spans", ResourceArg: "trace_id"},
+	"GetSpanDetailsForTrace": {ToolName: "get_span_details", ResourceArg: "trace_id"},
+}
+
+// mcpAliases covers a second tool name reaching an operation bound above.
+var mcpAliases = []audit.MCPAlias{
+	{OperationID: "QueryLogs", ToolName: "query_workflow_logs"},
 }
 
 // validateEnrichmentKeys reports an error if any key in enrichment doesn't
@@ -72,8 +77,16 @@ func operationDefs() []audit.OperationDef {
 }
 
 // MCPBindings returns the MCP tool-to-operation binding table, keyed by
-// (tool name, scope). Observer has no scope-collapsed tool, so every key here
-// carries the empty scope.
+// (tool name, scope), with mcpAliases merged in. Observer has no
+// scope-collapsed tool, so every key here carries the empty scope.
 func MCPBindings() (map[audit.MCPBindingKey]audit.MCPBinding, error) {
-	return audit.MCPBindings(operationDefs())
+	defs := operationDefs()
+	bindings, err := audit.MCPBindings(defs)
+	if err != nil {
+		return nil, err
+	}
+	if err := audit.MergeMCPAliases(defs, bindings, mcpAliases); err != nil {
+		return nil, err
+	}
+	return bindings, nil
 }
