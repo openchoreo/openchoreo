@@ -452,12 +452,12 @@ const (
 	WorkloadEndpointVisibilityProject   WorkloadEndpointVisibility = "project"
 )
 
-// ActionCapability Capabilities for a specific action
+// ActionCapability Capabilities for a specific action. Paths are hierarchical and cover everything beneath them ("ns/acme" covers "ns/acme/project/p1"); "*" covers everything. A resource is allowed when an allowed path covers it with its constraints satisfied and no such denied path is equally or more specific. Entries are already resolved across the caller's entitlements; POST /api/v1/authz/evaluates is authoritative.
 type ActionCapability struct {
-	// Allowed Resources where action is allowed
+	// Allowed Resource paths where the action is allowed
 	Allowed *[]CapabilityResource `json:"allowed,omitempty"`
 
-	// Denied Resources where action is denied
+	// Denied Resource paths where the action is denied, unless a more specific allowed path applies
 	Denied *[]CapabilityResource `json:"denied,omitempty"`
 }
 
