@@ -65,6 +65,9 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 	if params.EnvironmentID != "" {
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
+	if params.ReleaseLineID != "" {
+		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
+	}
 
 	resp, err := t.client.QueryTracesWithResponse(ctx, reqBody)
 	if err != nil {
@@ -79,7 +82,9 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 		return nil, fmt.Errorf("unexpected nil response body")
 	}
 
-	return convertTracesResponse(resp.JSON200), nil
+	result := convertTracesResponse(resp.JSON200)
+	result.ReleaseLineApplied = observability.ReleaseLineApplied(resp.HTTPResponse.Header)
+	return result, nil
 }
 
 // GetSpans implements observability.TracingAdapter interface
@@ -108,6 +113,9 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 	if params.EnvironmentID != "" {
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
+	if params.ReleaseLineID != "" {
+		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
+	}
 	if params.IncludeAttributes {
 		reqBody.IncludeAttributes = &params.IncludeAttributes
 	}
@@ -125,7 +133,9 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		return nil, fmt.Errorf("unexpected nil response body")
 	}
 
-	return convertSpansAdapterResponse(resp.JSON200), nil
+	result := convertSpansAdapterResponse(resp.JSON200)
+	result.ReleaseLineApplied = observability.ReleaseLineApplied(resp.HTTPResponse.Header)
+	return result, nil
 }
 
 // GetSpanDetails implements observability.TracingAdapter interface

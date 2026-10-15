@@ -144,6 +144,7 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 	scope.Project = strings.TrimSpace(scope.Project)
 	scope.Component = strings.TrimSpace(scope.Component)
 	scope.Environment = strings.TrimSpace(scope.Environment)
+	scope.ReleaseLine = strings.TrimSpace(scope.ReleaseLine)
 	if scope.Namespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
 	}
@@ -151,6 +152,14 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 	// but if component is provided, project is required
 	if scope.Project == "" && scope.Component != "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	return validateReleaseLineScope(scope.Component, scope.Environment, scope.ReleaseLine)
+}
+
+// validateReleaseLineScope requires a component and an environment alongside a release line.
+func validateReleaseLineScope(component, environment, releaseLine string) error {
+	if strings.TrimSpace(releaseLine) != "" && (strings.TrimSpace(component) == "" || strings.TrimSpace(environment) == "") {
+		return fmt.Errorf("searchScope.component and searchScope.environment are required when searchScope.releaseLine is provided")
 	}
 	return nil
 }
@@ -598,6 +607,9 @@ func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
 	if req.SearchScope.Component != "" && req.SearchScope.Project == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
+	if err := validateReleaseLineScope(req.SearchScope.Component, req.SearchScope.Environment, req.SearchScope.ReleaseLine); err != nil {
+		return err
+	}
 
 	// Validate step format if provided
 	if req.Step != nil && *req.Step != "" {
@@ -631,6 +643,9 @@ func ValidateRuntimeTopologyRequest(req *types.RuntimeTopologyRequest) error {
 	}
 	if strings.TrimSpace(scope.Environment) == "" {
 		return fmt.Errorf("searchScope.environment is required")
+	}
+	if strings.TrimSpace(scope.ReleaseLine) != "" {
+		return fmt.Errorf("searchScope.releaseLine is not supported for runtime topology")
 	}
 
 	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
@@ -775,6 +790,9 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	}
 	if componentVal != "" && projectVal == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	if err := validateReleaseLineScope(componentVal, derefString(req.SearchScope.Environment), derefString(req.SearchScope.ReleaseLine)); err != nil {
+		return err
 	}
 
 	// Validate and set defaults for limit

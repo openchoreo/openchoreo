@@ -33,7 +33,15 @@ func buildMetadataContextForLine(line string) pipelinecontext.MetadataContext {
 		&openchoreov1alpha1.Project{ObjectMeta: metav1.ObjectMeta{UID: "proj-uid"}},
 		&openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Name: "dp", UID: "dp-uid"}},
 		&openchoreov1alpha1.Environment{ObjectMeta: metav1.ObjectMeta{UID: "env-uid"}},
-		testEnvStaging)
+		testEnvStaging, lineUID(line))
+}
+
+// lineUID is the UID the tests give the ReleaseLine named line; empty without a line.
+func lineUID(line string) string {
+	if line == "" {
+		return ""
+	}
+	return "uid-" + line
 }
 
 func TestBuildMetadataContext_WithoutReleaseLine(t *testing.T) {
@@ -43,6 +51,7 @@ func TestBuildMetadataContext_WithoutReleaseLine(t *testing.T) {
 	assert.Equal(t, dpkubernetes.GenerateK8sName(testComponentName, testEnvStaging), mctx.Name)
 	assert.NotContains(t, mctx.Labels, labels.LabelKeyReleaseLine)
 	assert.NotContains(t, mctx.PodSelectors, labels.LabelKeyReleaseLine)
+	assert.NotContains(t, mctx.PodSelectors, labels.LabelKeyReleaseLineUID)
 }
 
 func TestBuildMetadataContext_ReleaseLinesShareNamespaceWithDistinctNames(t *testing.T) {
@@ -60,6 +69,8 @@ func TestBuildMetadataContext_ReleaseLinesShareNamespaceWithDistinctNames(t *tes
 
 	assert.Equal(t, testReleaseLine, v2.Labels[labels.LabelKeyReleaseLine])
 	assert.Equal(t, testReleaseLine, v2.PodSelectors[labels.LabelKeyReleaseLine])
+	assert.Equal(t, lineUID(testReleaseLine), v2.Labels[labels.LabelKeyReleaseLineUID])
+	assert.Equal(t, lineUID(testReleaseLine), v2.PodSelectors[labels.LabelKeyReleaseLineUID])
 	assert.Equal(t, "main", mainLine.PodSelectors[labels.LabelKeyReleaseLine])
 	assert.Equal(t, testComponentName, v2.Labels[labels.LabelKeyComponentName])
 }
@@ -134,9 +145,15 @@ func TestValidateReleaseLine(t *testing.T) {
 				Spec:       openchoreov1alpha1.ComponentSpec{ReleaseLinesEnabled: tt.enabled},
 			}
 
-			ok, err := r.validateReleaseLine(context.Background(), rb, comp)
+			line, ok, err := r.validateReleaseLine(context.Background(), rb, comp)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOK, ok)
+			if ok && tt.line != "" {
+				require.NotNil(t, line)
+				assert.Equal(t, tt.line, line.Name)
+			} else {
+				assert.Nil(t, line)
+			}
 			if !tt.wantOK {
 				require.Len(t, rb.Status.Conditions, 1)
 				assert.Equal(t, string(tt.wantReason), rb.Status.Conditions[0].Reason)

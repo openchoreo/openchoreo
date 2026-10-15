@@ -255,8 +255,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	if ok, err := r.validateReleaseLine(ctx, releaseBinding, component); err != nil || !ok {
+	releaseLine, ok, err := r.validateReleaseLine(ctx, releaseBinding, component)
+	if err != nil || !ok {
 		return ctrl.Result{}, err
+	}
+	var releaseLineUID string
+	if releaseLine != nil {
+		releaseLineUID = string(releaseLine.UID)
 	}
 
 	// Fetch Project object
@@ -276,7 +281,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
+	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID)
 }
 
 // validateComponentRelease validates the ComponentRelease configuration
@@ -312,7 +317,8 @@ func (r *Reconciler) validateComponentRelease(componentRelease *openchoreov1alph
 	return nil
 }
 
-// buildMetadataContext creates the MetadataContext from ComponentRelease, component, project, dataplane, and environment.
+// buildMetadataContext creates the MetadataContext from ComponentRelease, component, project, dataplane,
+// and environment. releaseLineUID is the UID of the release's ReleaseLine, empty without one.
 func (r *Reconciler) buildMetadataContext(
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 	component *openchoreov1alpha1.Component,
@@ -320,6 +326,7 @@ func (r *Reconciler) buildMetadataContext(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	environment *openchoreov1alpha1.Environment,
 	environmentName string,
+	releaseLineUID string,
 ) pipelinecontext.MetadataContext {
 	// Extract information
 	namespaceName := componentRelease.Namespace
@@ -371,6 +378,8 @@ func (r *Reconciler) buildMetadataContext(
 	if releaseLine != "" {
 		standardLabels[labels.LabelKeyReleaseLine] = releaseLine
 		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
+		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
+		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
 	}
 
 	return pipelinecontext.MetadataContext{
@@ -488,7 +497,8 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 // Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
-	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
+	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project,
+	releaseLineUID string) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Handle undeploy state - delete Release resources if they exist
@@ -502,7 +512,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	dataPlane := dataPlaneResult.ToDataPlane()
 
 	// Build MetadataContext with computed names
-	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
+	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment, releaseLineUID)
 
 	// Fetch default notification channel for the environment if available
 	// This will be passed to the rendering pipeline and made available in the trait CEL context

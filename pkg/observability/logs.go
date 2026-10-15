@@ -9,6 +9,7 @@ package observability
 
 import (
 	"context"
+	"net/http"
 	"time"
 )
 
@@ -16,6 +17,16 @@ import (
 // both in log entries it returns and in the time bounds of log queries sent to it.
 // It keeps sub-second precision so consecutive log queries do not overlap or skip entries.
 const LogTimestampFormat = time.RFC3339Nano
+
+// ReleaseLineAppliedHeader is the response header with which an adapter confirms that it
+// restricted the result to the requested release line. Adapters without release line support
+// omit it, and the result then covers every release line of the component.
+const ReleaseLineAppliedHeader = "OpenChoreo-Release-Line-Applied"
+
+// ReleaseLineApplied reports whether an adapter response confirms it filtered by release line.
+func ReleaseLineApplied(header http.Header) bool {
+	return header.Get(ReleaseLineAppliedHeader) == "true"
+}
 
 // ComponentApplicationLogsParams holds parameters for component application log queries
 type ComponentApplicationLogsParams struct {
@@ -31,6 +42,8 @@ type ComponentApplicationLogsParams struct {
 	VersionIDs    []string  `json:"versionIds"`
 	Limit         int       `json:"limit"`
 	SortOrder     string    `json:"sortOrder"`
+	// ReleaseLineID restricts the logs to one release line of the component.
+	ReleaseLineID string `json:"releaseLineId,omitempty"`
 }
 
 // WorkflowLogsParams holds parameters for workflow log queries
@@ -86,6 +99,8 @@ type ComponentApplicationLogsResult struct {
 	Logs       []LogEntry `json:"logs"`
 	TotalCount int        `json:"totalCount"`
 	Took       int        `json:"took"`
+	// ReleaseLineApplied is true when the adapter restricted the logs to the requested release line.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // WorkflowLogsResult represents the result of a workflow log query

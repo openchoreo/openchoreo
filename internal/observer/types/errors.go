@@ -26,6 +26,8 @@ const (
 	ErrorCodeV1MetricsServiceNotReady = "OBS-V1-M-03"
 	ErrorCodeV1MetricsResolverFailed  = "OBS-V1-M-04"
 	ErrorCodeV1MetricsRetrievalFailed = "OBS-V1-M-05"
+	// Not internal errors: the metrics adapter cannot filter by release line.
+	ErrorCodeV1MetricsReleaseLineNotSupported = "OBS-V1-M-06"
 
 	// Traces API (v1alpha1) internal server error codes.
 	ErrorCodeV1TracesInternalGeneric = "OBS-V1-T-01"
@@ -35,6 +37,8 @@ const (
 	ErrorCodeV1TracesRetrievalFailed = "OBS-V1-T-05"
 	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
 	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
+	// Not internal errors: the tracing adapter cannot filter by release line.
+	ErrorCodeV1TracesReleaseLineNotSupported = "OBS-V1-T-08"
 
 	// Runtime topology API (v1alpha1) internal server error codes.
 	ErrorCodeV1RuntimeTopologyInternalGeneric = "OBS-V1-RG-01"

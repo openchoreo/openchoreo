@@ -114,11 +114,12 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 		req := internalgen.AlertRuleRequest{
 			//nolint:revive,staticcheck
 			Metadata: struct {
-				ComponentUid   openapi_types.UUID `json:"componentUid"`
-				EnvironmentUid openapi_types.UUID `json:"environmentUid"`
-				Name           string             `json:"name"`
-				Namespace      string             `json:"namespace"`
-				ProjectUid     openapi_types.UUID `json:"projectUid"`
+				ComponentUid   openapi_types.UUID  `json:"componentUid"`
+				EnvironmentUid openapi_types.UUID  `json:"environmentUid"`
+				Name           string              `json:"name"`
+				Namespace      string              `json:"namespace"`
+				ProjectUid     openapi_types.UUID  `json:"projectUid"`
+				ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 			}{
 				Name: "rule-1", Namespace: testNamespace,
 				ComponentUid: compUID, ProjectUid: projUID, EnvironmentUid: envUID,

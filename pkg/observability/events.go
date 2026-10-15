@@ -18,6 +18,8 @@ type ComponentEventsParams struct {
 	EndTime       time.Time `json:"endTime"`
 	Limit         int       `json:"limit"`
 	SortOrder     string    `json:"sortOrder"`
+	// ReleaseLineID restricts the events to one release line of the component.
+	ReleaseLineID string `json:"releaseLineId,omitempty"`
 }
 
 // WorkflowEventsParams holds parameters for workflow run Kubernetes event queries
@@ -58,6 +60,8 @@ type ComponentEventsResult struct {
 	Events     []EventEntry `json:"events"`
 	TotalCount int          `json:"totalCount"`
 	Took       int          `json:"took"`
+	// ReleaseLineApplied is true when the adapter restricted the events to the requested release line.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // WorkflowEventsResult represents the result of a workflow run event query

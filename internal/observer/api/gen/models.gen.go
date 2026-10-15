@@ -1078,6 +1078,9 @@ type ComponentSearchScope struct {
 	Environment *string `json:"environment,omitempty"`
 	Namespace   string  `json:"namespace"`
 	Project     *string `json:"project,omitempty"`
+
+	// ReleaseLine Restricts the result to one release line of the component. Requires component and environment.
+	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
 // CostResponse defines model for CostResponse.

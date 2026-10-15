@@ -67,6 +67,9 @@ func (h *Handler) QueryMetrics(
 		case errors.Is(err, service.ErrMetricsInvalidRequest):
 			h.logger.Debug("Invalid metrics request", "error", err)
 			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, err.Error()), nil
+		case errors.Is(err, service.ErrReleaseLineNotSupported):
+			return errorResponse(http.StatusNotImplemented, gen.NotImplemented,
+				types.ErrorCodeV1MetricsReleaseLineNotSupported, err.Error()), nil
 		case errors.Is(err, service.ErrMetricsResolveSearchScope):
 			errorCode = types.ErrorCodeV1MetricsResolverFailed
 		case errors.Is(err, service.ErrMetricsRetrieval):

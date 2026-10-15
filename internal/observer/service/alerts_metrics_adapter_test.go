@@ -41,11 +41,12 @@ func TestAlertService_MetricsAdapter_CreateAlertRule(t *testing.T) {
 		},
 		//nolint:revive,staticcheck // field names match generated code
 		Metadata: struct {
-			ComponentUid   openapi_types.UUID `json:"componentUid"`
-			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
-			Name           string             `json:"name"`
-			Namespace      string             `json:"namespace"`
-			ProjectUid     openapi_types.UUID `json:"projectUid"`
+			ComponentUid   openapi_types.UUID  `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID  `json:"environmentUid"`
+			Name           string              `json:"name"`
+			Namespace      string              `json:"namespace"`
+			ProjectUid     openapi_types.UUID  `json:"projectUid"`
+			ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 		}{
 			Name:      ruleName,
 			Namespace: "test-ns",
@@ -220,11 +221,12 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 		},
 		//nolint:revive,staticcheck // field names match generated code
 		Metadata: struct {
-			ComponentUid   openapi_types.UUID `json:"componentUid"`
-			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
-			Name           string             `json:"name"`
-			Namespace      string             `json:"namespace"`
-			ProjectUid     openapi_types.UUID `json:"projectUid"`
+			ComponentUid   openapi_types.UUID  `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID  `json:"environmentUid"`
+			Name           string              `json:"name"`
+			Namespace      string              `json:"namespace"`
+			ProjectUid     openapi_types.UUID  `json:"projectUid"`
+			ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 		}{
 			Name:      ruleName,
 			Namespace: "test-ns",

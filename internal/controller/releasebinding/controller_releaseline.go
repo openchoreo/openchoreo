@@ -23,24 +23,25 @@ import (
 
 // validateReleaseLine checks the binding's release line against the component: a component with
 // releaseLinesEnabled requires an existing ReleaseLine of its own, any other component requires none.
-// Returns false with a condition set when the binding must not be rendered.
+// Returns the binding's ReleaseLine, nil without one, and false with a condition set when the
+// binding must not be rendered.
 func (r *Reconciler) validateReleaseLine(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	component *openchoreov1alpha1.Component,
-) (bool, error) {
+) (*openchoreov1alpha1.ReleaseLine, bool, error) {
 	lineName := releaseBinding.Spec.Owner.ReleaseLine
 	switch {
 	case component.Spec.ReleaseLinesEnabled && lineName == "":
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonInvalidReleaseConfiguration,
 			fmt.Sprintf("Component %q has release lines enabled; spec.owner.releaseLine is required", component.Name))
-		return false, nil
+		return nil, false, nil
 	case !component.Spec.ReleaseLinesEnabled && lineName != "":
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonInvalidReleaseConfiguration,
 			fmt.Sprintf("Component %q does not have release lines enabled; spec.owner.releaseLine must be empty", component.Name))
-		return false, nil
+		return nil, false, nil
 	case lineName == "":
-		return true, nil
+		return nil, true, nil
 	}
 
 	line := &openchoreov1alpha1.ReleaseLine{}
@@ -48,10 +49,10 @@ func (r *Reconciler) validateReleaseLine(
 		if apierrors.IsNotFound(err) {
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLineNotFound,
 				fmt.Sprintf("ReleaseLine %q not found", lineName))
-			return false, nil
+			return nil, false, nil
 		}
 		log.FromContext(ctx).Error(err, "Failed to get ReleaseLine", "releaseLine", lineName)
-		return false, err
+		return nil, false, err
 	}
 
 	if line.Spec.Owner.ProjectName != releaseBinding.Spec.Owner.ProjectName ||
@@ -60,9 +61,9 @@ func (r *Reconciler) validateReleaseLine(
 			fmt.Sprintf("ReleaseLine %q belongs to component %s/%s, not %s/%s", lineName,
 				line.Spec.Owner.ProjectName, line.Spec.Owner.ComponentName,
 				releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Owner.ComponentName))
-		return false, nil
+		return nil, false, nil
 	}
-	return true, nil
+	return line, true, nil
 }
 
 // findReleaseBindingsForReleaseLine maps a ReleaseLine to the bindings on that line.

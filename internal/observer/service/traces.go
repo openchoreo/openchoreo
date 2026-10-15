@@ -57,7 +57,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		"endTime", req.EndTime)
 
 	// Resolve search scope to UIDs
-	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
+	projectUID, componentUID, environmentUID, releaseLineUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
 	if err != nil {
 		s.logger.Error("Failed to resolve search scope", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesResolveSearchScope, err)
@@ -70,6 +70,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		ProjectID:     projectUID,
 		ComponentID:   componentUID,
 		EnvironmentID: environmentUID,
+		ReleaseLineID: releaseLineUID,
 		Limit:         req.Limit,
 		SortOrder:     req.SortOrder,
 	}
@@ -79,41 +80,51 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		s.logger.Error("Failed to retrieve traces", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
+	if releaseLineUID != "" && !result.ReleaseLineApplied {
+		return nil, fmt.Errorf("%w: tracing adapter", ErrReleaseLineNotSupported)
+	}
 
 	return s.convertToResponse(result), nil
 }
 
-func (s *TracesService) resolveSearchScope(ctx context.Context, scope *types.ComponentSearchScope) (projectUID, componentUID, environmentUID string, err error) {
+func (s *TracesService) resolveSearchScope(ctx context.Context, scope *types.ComponentSearchScope) (projectUID, componentUID, environmentUID, releaseLineUID string, err error) {
 	// Guard against nil resolver when scope fields are provided
 	if s.resolver == nil && (scope.Project != "" || scope.Component != "" || scope.Environment != "") {
-		return "", "", "", fmt.Errorf("%w: resolver not initialized", ErrTracesResolveSearchScope)
+		return "", "", "", "", fmt.Errorf("%w: resolver not initialized", ErrTracesResolveSearchScope)
 	}
 
 	if scope.Project != "" {
 		projectUID, err = s.resolver.GetProjectUID(ctx, scope.Namespace, scope.Project)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to resolve project UID: %w", err)
+			return "", "", "", "", fmt.Errorf("failed to resolve project UID: %w", err)
 		}
 	}
 
 	if scope.Component != "" {
 		if scope.Project == "" {
-			return "", "", "", fmt.Errorf("%w: component specified without project", ErrTracesResolveSearchScope)
+			return "", "", "", "", fmt.Errorf("%w: component specified without project", ErrTracesResolveSearchScope)
 		}
 		componentUID, err = s.resolver.GetComponentUID(ctx, scope.Namespace, scope.Project, scope.Component)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to resolve component UID: %w", err)
+			return "", "", "", "", fmt.Errorf("failed to resolve component UID: %w", err)
 		}
 	}
 
 	if scope.Environment != "" {
 		environmentUID, err = s.resolver.GetEnvironmentUID(ctx, scope.Namespace, scope.Environment)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to resolve environment UID: %w", err)
+			return "", "", "", "", fmt.Errorf("failed to resolve environment UID: %w", err)
 		}
 	}
 
-	return projectUID, componentUID, environmentUID, nil
+	if scope.ReleaseLine != "" {
+		releaseLineUID, err = s.resolver.GetReleaseLineUID(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+		if err != nil {
+			return "", "", "", "", fmt.Errorf("failed to resolve release line UID: %w", err)
+		}
+	}
+
+	return projectUID, componentUID, environmentUID, releaseLineUID, nil
 }
 
 // QuerySpans queries spans within a specific trace.
@@ -131,7 +142,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		"endTime", req.EndTime)
 
 	// Resolve search scope to UIDs to enforce access control
-	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
+	projectUID, componentUID, environmentUID, releaseLineUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
 	if err != nil {
 		s.logger.Error("Failed to resolve search scope", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesResolveSearchScope, err)
@@ -144,6 +155,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		ProjectID:         projectUID,
 		ComponentID:       componentUID,
 		EnvironmentID:     environmentUID,
+		ReleaseLineID:     releaseLineUID,
 		TraceID:           traceID,
 		Limit:             req.Limit,
 		SortOrder:         req.SortOrder,
@@ -154,6 +166,9 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 	if err != nil {
 		s.logger.Error("Failed to retrieve spans", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
+	}
+	if releaseLineUID != "" && !spansResult.ReleaseLineApplied {
+		return nil, fmt.Errorf("%w: tracing adapter", ErrReleaseLineNotSupported)
 	}
 	return s.convertAdapterSpansToResponse(spansResult), nil
 }
