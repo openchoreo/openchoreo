@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -334,13 +335,8 @@ func (r *Reconciler) buildMetadataContext(
 	// Generate base name using platform naming conventions
 	// Format: {component}-{env}-{hash}, or {component}-{releaseLine}-{env}-{hash} for a release line
 	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
-	releaseLineName := componentName
 	if releaseLine != "" {
-		baseName = dpkubernetes.GenerateK8sName(componentName, releaseLine, environmentName)
-		releaseLineName = componentName + "-" + releaseLine
-		if len(releaseLineName) > dpkubernetes.MaxServiceNameLength {
-			releaseLineName = dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxServiceNameLength, componentName, releaseLine)
-		}
+		baseName = releaseline.ObjectBaseName(componentName, releaseLine, environmentName)
 	}
 
 	// Generate namespace using platform naming conventions
@@ -381,8 +377,7 @@ func (r *Reconciler) buildMetadataContext(
 		Name:               baseName,
 		Namespace:          namespace,
 		ComponentNamespace: namespaceName,
-		ReleaseLine:        releaseLine,
-		ReleaseLineName:    releaseLineName,
+		ReleaseLineName:    releaseLine,
 		Labels:             standardLabels,
 		Annotations:        map[string]string{},
 		PodSelectors:       podSelectors,
@@ -621,7 +616,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
 		Environment:   metadataContext.EnvironmentName,
-		ComponentName: metadataContext.ReleaseLineName,
+		ComponentName: releaseline.ComponentLineName(metadataContext.ComponentName, metadataContext.ReleaseLineName),
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
 		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
@@ -652,14 +647,22 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
 
 	if releaseBinding.Spec.Owner.ReleaseLine != "" {
-		collision, err := r.findReleaseLineCollision(ctx, releaseBinding, dpReleaseName, dataPlaneReleaseResources)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if collision != "" {
-			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLineNameCollision, collision)
-			logger.Info(collision)
-			return ctrl.Result{}, nil
+		for _, plane := range []struct {
+			name, releaseName string
+			resources         []openchoreov1alpha1.RenderedManifest
+		}{
+			{openchoreov1alpha1.TargetPlaneDataPlane, dpReleaseName, dataPlaneReleaseResources},
+			{openchoreov1alpha1.TargetPlaneObservabilityPlane, makeObservabilityReleaseName(componentRelease, releaseBinding), observabilityPlaneReleaseResources},
+		} {
+			collision, err := r.findReleaseLineCollision(ctx, releaseBinding, plane.releaseName, plane.name, plane.resources)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if collision != "" {
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLineNameCollision, collision)
+				logger.Info(collision)
+				return ctrl.Result{}, nil
+			}
 		}
 	}
 	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{
@@ -1132,22 +1135,23 @@ func (r *Reconciler) setReleaseSyncedCondition(
 // Release naming helper functions
 
 // makeDataPlaneReleaseName returns the name for a dataplane Release.
-// Format: {componentName}-{environment}, or {componentName}-{releaseLine}-{environment} for a release line
+// Format: {componentName}-{environment}, or releaseline.ObjectBaseName for a release line
 func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
-	return fmt.Sprintf("%s-%s", releaseNamePrefix(componentRelease), releaseBinding.Spec.Environment)
+	return releaseName(componentRelease, releaseBinding.Spec.Environment)
 }
 
 // makeObservabilityReleaseName returns the name for an observability plane Release.
-// Format: {componentName}-{environment}-observability, with the release line after the component when set
+// Format: the dataplane Release name followed by "-observability"
 func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
-	return fmt.Sprintf("%s-%s-observability", releaseNamePrefix(componentRelease), releaseBinding.Spec.Environment)
+	return releaseName(componentRelease, releaseBinding.Spec.Environment) + "-observability"
 }
 
-func releaseNamePrefix(componentRelease *openchoreov1alpha1.ComponentRelease) string {
-	if line := componentRelease.Spec.Owner.ReleaseLine; line != "" {
-		return componentRelease.Spec.Owner.ComponentName + "-" + line
+func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environment string) string {
+	owner := componentRelease.Spec.Owner
+	if owner.ReleaseLine != "" {
+		return releaseline.ObjectBaseName(owner.ComponentName, owner.ReleaseLine, environment)
 	}
-	return componentRelease.Spec.Owner.ComponentName
+	return fmt.Sprintf("%s-%s", owner.ComponentName, environment)
 }
 
 // Helper functions to build snapshot structures from ComponentRelease

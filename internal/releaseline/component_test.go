@@ -5,6 +5,7 @@ package releaseline
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func raw(t *testing.T, v any) *runtime.RawExtension {
@@ -85,4 +87,14 @@ func TestEffectiveComponent_NoOverrides(t *testing.T) {
 func TestScopedName(t *testing.T) {
 	assert.Equal(t, "orders-dev", ScopedName("orders", "", "dev"))
 	assert.Equal(t, "orders-v2-dev", ScopedName("orders", "v2", "dev"))
+}
+
+func TestComponentLineName(t *testing.T) {
+	assert.Equal(t, "hello", ComponentLineName("hello", ""))
+	assert.Equal(t, "hello-next", ComponentLineName("hello", "next"))
+
+	component, line := strings.Repeat("c", 40), strings.Repeat("l", 40)
+	a, b := ComponentLineName(component, line), ComponentLineName(component, line+"x")
+	assert.LessOrEqual(t, len(a), dpkubernetes.MaxServiceNameLength)
+	assert.NotEqual(t, a, b)
 }

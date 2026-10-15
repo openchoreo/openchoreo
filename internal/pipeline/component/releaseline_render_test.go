@@ -69,8 +69,7 @@ spec:
 				Name:               "orders-" + line + "-dev-12345678",
 				Namespace:          "dp-cp-ns-proj-dev-12345678",
 				ComponentName:      "orders",
-				ReleaseLineName:    "orders-" + line,
-				ReleaseLine:        line,
+				ReleaseLineName:    line,
 				ComponentUID:       "comp-uid",
 				ComponentNamespace: "cp-ns",
 				ProjectName:        "proj",
@@ -143,4 +142,9 @@ spec:
 	for path := range pathsOf(v2) {
 		assert.False(t, mainPaths[path], "both release lines route %s", path)
 	}
+
+	assert.Equal(t, "orders-main", mainSvc["metadata"].(map[string]any)["name"])
+	unlined := find(render(""), "Service")[0]
+	assert.Equal(t, "orders", unlined["metadata"].(map[string]any)["name"],
+		"a component without lines keeps its component-named Service")
 }

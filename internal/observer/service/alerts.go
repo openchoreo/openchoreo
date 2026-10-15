@@ -347,6 +347,7 @@ func (s *AlertService) buildAlertDetails(req internalgen.AlertWebhookRequest, al
 		Component:        alertRule.Labels[labels.LabelKeyComponentName],
 		Project:          alertRule.Labels[labels.LabelKeyProjectName],
 		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
+		ReleaseLine:      alertRule.Labels[labels.LabelKeyReleaseLine],
 	}
 
 	alertDetails.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))

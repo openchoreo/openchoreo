@@ -13,7 +13,7 @@ The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
 ## Files
 
-- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type with component-scoped objects (Service, HTTPRoutes, backends, gateway paths) named from `metadata.releaseLineName`, so the lines of a component never collide.
+- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type with component-scoped objects (Service, HTTPRoutes, backends, gateway paths) named from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide.
 - `build-workflow.yaml`: the `release-line-dockerfile-builder` ClusterWorkflow. It is the default dockerfile builder, except that it passes the run's release line to the workload generation step.
 - `generate-workload-template.yaml`: the `release-line-generate-workload` ClusterWorkflowTemplate. It is the default workload generation step, except that it publishes the built image to the run's release line, as the Workload `<component>-<release-line>-workload`.
 - `release-lines.yaml`: the component and its two release lines. The `next` line overrides only the branch to build.
@@ -96,7 +96,7 @@ curl http://development-default.openchoreoapis.localhost:19080/hello-main-http/g
 curl http://development-default.openchoreoapis.localhost:19080/hello-next-http/greet
 ```
 
-All lines render into the project's namespace. Each line's objects are named from `metadata.name` or `metadata.releaseLineName`, and its pods carry an `openchoreo.dev/release-line` label. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
+All lines render into the project's namespace. Each line's objects are named from `metadata.name`, or from `metadata.componentName` and `metadata.releaseLineName`, and its pods carry an `openchoreo.dev/release-line` label. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
 
 ## Consume a specific line
 

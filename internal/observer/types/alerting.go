@@ -66,6 +66,8 @@ type AlertDetails struct {
 	ComponentID   string `json:"componentId"`
 	ProjectID     string `json:"projectId"`
 	EnvironmentID string `json:"environmentId"`
+	// ReleaseLine is the component's release line the alert fired for; empty for components without lines.
+	ReleaseLine string `json:"releaseLine"`
 
 	// Notification channels to send alerts to
 	NotificationChannels []string `json:"notificationChannels,omitempty"`

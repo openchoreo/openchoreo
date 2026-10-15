@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const observerTestURL = "http://observer.test"
@@ -107,8 +107,8 @@ func TestFilterLogsByContainer(t *testing.T) {
 }
 
 func TestFilterLogsByReleaseLine(t *testing.T) {
-	nextPod := dpkubernetes.GenerateK8sName("hello", "next", "development") + "-7d9c8b6f5-abcde"
-	mainPod := dpkubernetes.GenerateK8sName("hello", "main", "development") + "-6c8d7b5f4-fghij"
+	nextPod := releaseline.ObjectBaseName("hello", "next", "development") + "-7d9c8b6f5-abcde"
+	mainPod := releaseline.ObjectBaseName("hello", "main", "development") + "-6c8d7b5f4-fghij"
 	logs := []client.LogEntry{
 		{Log: "n1", Metadata: &client.LogMetadata{PodName: nextPod}},
 		{Log: "m1", Metadata: &client.LogMetadata{PodName: mainPod}},
@@ -118,6 +118,15 @@ func TestFilterLogsByReleaseLine(t *testing.T) {
 	got := filterLogsByReleaseLine(logs, "hello", "next", "development")
 	require.Len(t, got, 1)
 	assert.Equal(t, "n1", got[0].Log)
+
+	// Kubernetes keeps only the first 58 characters of a pod's generateName.
+	component, line := "payments-reconciliation-service", "experimental"
+	deployment := releaseline.ObjectBaseName(component, line, "development")
+	longPod := (deployment + "-7d9c8b6f5-")[:58] + "abcde"
+	require.Greater(t, len(deployment+"-"), 58)
+	got = filterLogsByReleaseLine([]client.LogEntry{{Log: "l1", Metadata: &client.LogMetadata{PodName: longPod}}},
+		component, line, "development")
+	assert.Len(t, got, 1)
 }
 
 // --- printLogEntry ---
