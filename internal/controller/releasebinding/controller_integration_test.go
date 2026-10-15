@@ -1362,6 +1362,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				dataPlane,
 				environment,
 				environmentName,
+				"",
 			)
 
 			By("Verifying pod selectors include all required fields")

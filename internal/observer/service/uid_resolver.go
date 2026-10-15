@@ -178,6 +178,32 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 	return uid, nil
 }
 
+// GetReleaseLineUID resolves a component's release line name to its UID. A line of another
+// component is not found, the same as one that does not exist.
+func (r *ResourceUIDResolver) GetReleaseLineUID(ctx context.Context, namespaceName, componentName, releaseLineName string) (string, error) {
+	if releaseLineName == "" {
+		return "", nil
+	}
+
+	// Call API: GET /api/v1/namespaces/{ns}/components/{componentName}/releaselines/{releaseLineName}
+	path := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines/%s",
+		url.PathEscape(namespaceName),
+		url.PathEscape(componentName),
+		url.PathEscape(releaseLineName))
+	uid, err := r.fetchResourceUID(ctx, path)
+	if err != nil {
+		return "", fmt.Errorf(
+			"failed to resolve release line UID for namespace %q component %q release line %q: %w",
+			namespaceName,
+			componentName,
+			releaseLineName,
+			err,
+		)
+	}
+
+	return uid, nil
+}
+
 // fetchResourceUID makes an HTTP GET request to the openchoreo-api and extracts data.uid
 // resolvedResource is what a scope lookup reads back: the UID the store is keyed
 // by, and for a component the project that owns it, which is the only authority

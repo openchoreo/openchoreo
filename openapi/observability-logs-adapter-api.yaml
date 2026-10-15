@@ -73,6 +73,9 @@ paths:
       responses:
         "200":
           description: Logs queried successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -487,6 +490,9 @@ paths:
       responses:
         "200":
           description: Events queried successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -576,6 +582,9 @@ paths:
       responses:
         "201":
           description: Alert rule created successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -687,6 +696,9 @@ paths:
       responses:
         "200":
           description: Alert rule updated successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -742,6 +754,15 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  headers:
+    ReleaseLineApplied:
+      description: >
+        "true" only when the adapter restricted the result to the release line the request
+        named. Any other value, an empty one included, or no header means the result covers
+        every release line of the component; this is how callers tell apart adapters without
+        release line support, which ignore the request field.
+      schema:
+        type: string
   schemas:
     # Request schemas for logs
     ComponentSearchScope:
@@ -755,6 +776,12 @@ components:
           type: string
         environmentUid:
           type: string
+        releaseLineUid:
+          type: string
+          description: >
+            The UID of the component's release line to restrict the result to. Adapters
+            that support it filter on the openchoreo.dev/release-line-uid label and set
+            the OpenChoreo-Release-Line-Applied response header to "true".
       required: [namespace]
 
     WorkflowSearchScope:
@@ -1975,6 +2002,14 @@ components:
             componentUid:
               type: string
               description: The OpenChoreo component UID to query
+              format: uuid
+            releaseLineUid:
+              type: string
+              description: >
+                The UID of the component's release line the rule evaluates, filtered on the
+                openchoreo.dev/release-line-uid label. Absent for components without release
+                lines. Adapters that scope the rule to it set the OpenChoreo-Release-Line-Applied
+                response header to "true".
               format: uuid
         source:
           type: object

@@ -2050,6 +2050,7 @@ type QueryMetricsResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2400,6 +2401,7 @@ type QueryTracesResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2426,6 +2428,7 @@ type QuerySpansForTraceResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2971,6 +2974,13 @@ func ParseQueryMetricsResp(rsp *http.Response) (*QueryMetricsResp, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
@@ -3758,6 +3768,13 @@ func ParseQueryTracesResp(rsp *http.Response) (*QueryTracesResp, error) {
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
 	}
 
 	return response, nil
@@ -3811,6 +3828,13 @@ func ParseQuerySpansForTraceResp(rsp *http.Response) (*QuerySpansForTraceResp, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

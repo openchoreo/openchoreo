@@ -58,6 +58,7 @@ type ComponentLogsRequest struct {
 	ProjectName     string   `json:"projectName"`
 	NamespaceName   string   `json:"namespaceName"`
 	EnvironmentName string   `json:"environmentName"`
+	ReleaseLine     string   `json:"releaseLine,omitempty"`
 	Limit           int64    `json:"limit"`
 	SortOrder       string   `json:"sortOrder"`
 	LogType         string   `json:"logType"`
@@ -77,17 +78,21 @@ func NewObserverClient(observerURL, token string) *ObserverClient {
 // FetchComponentLogs fetches logs for a component from the observer API
 func (c *ObserverClient) FetchComponentLogs(ctx context.Context, req ComponentLogsRequest) (*LogResponse, error) {
 	// Build LogsQueryRequest payload according to observer-api.yaml
+	searchScope := map[string]interface{}{
+		"namespace":   req.NamespaceName,
+		"project":     req.ProjectName,
+		"component":   req.ComponentName,
+		"environment": req.EnvironmentName,
+	}
+	if req.ReleaseLine != "" {
+		searchScope["releaseLine"] = req.ReleaseLine
+	}
 	payload := map[string]interface{}{
-		"startTime": req.StartTime,
-		"endTime":   req.EndTime,
-		"limit":     req.Limit,
-		"sortOrder": req.SortOrder,
-		"searchScope": map[string]interface{}{
-			"namespace":   req.NamespaceName,
-			"project":     req.ProjectName,
-			"component":   req.ComponentName,
-			"environment": req.EnvironmentName,
-		},
+		"startTime":   req.StartTime,
+		"endTime":     req.EndTime,
+		"limit":       req.Limit,
+		"sortOrder":   req.SortOrder,
+		"searchScope": searchScope,
 	}
 
 	path := "/api/v1/logs/query"

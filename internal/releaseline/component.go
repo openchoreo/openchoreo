@@ -41,6 +41,20 @@ func ObjectBaseName(componentName, line, environment string) string {
 		"release-line="+line, componentName, line, environment)
 }
 
+// maxGeneratedNamePrefix is how much of a generateName Kubernetes keeps, leaving room for its
+// random suffix.
+const maxGeneratedNamePrefix = 58
+
+// ObjectNamePrefix is the name prefix of every workload object of a release line in an environment,
+// including pods whose generated names Kubernetes truncated.
+func ObjectNamePrefix(componentName, line, environment string) string {
+	prefix := ObjectBaseName(componentName, line, environment)
+	if len(prefix) > maxGeneratedNamePrefix {
+		prefix = prefix[:maxGeneratedNamePrefix]
+	}
+	return prefix
+}
+
 // EffectiveComponent returns a copy of the Component with the line's overrides applied.
 // Parameters deep-merge; traits merge on (kind, name, instanceName) with parameters deep-merged.
 func EffectiveComponent(comp *openchoreov1alpha1.Component, line *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.Component, error) {

@@ -69,6 +69,9 @@ paths:
       responses:
         "200":
           description: Traces queried successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -121,6 +124,9 @@ paths:
       responses:
         "200":
           description: Spans queried successfully
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              $ref: "#/components/headers/ReleaseLineApplied"
           content:
             application/json:
               schema:
@@ -205,6 +211,15 @@ paths:
 components:
 
 
+  headers:
+    ReleaseLineApplied:
+      description: >
+        "true" only when the adapter restricted the result to the release line the request
+        named. Any other value, an empty one included, or no header means the result covers
+        every release line of the component; this is how callers tell apart adapters without
+        release line support, which ignore the request field.
+      schema:
+        type: string
   schemas:
     ErrorResponse:
       type: object
@@ -238,6 +253,13 @@ components:
           type: string
         environment:
           type: string
+        releaseLine:
+          type: string
+          description: >
+            The UID of the component's release line to restrict the result to, like the
+            other fields here. Adapters that support it filter on the
+            openchoreo.dev/release-line-uid label and set the OpenChoreo-Release-Line-Applied
+            response header to "true".
       required: [namespace]
 
 

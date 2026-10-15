@@ -279,6 +279,12 @@ components:
               type: string
               description: The OpenChoreo component UID to query
               format: uuid
+            releaseLineUid:
+              type: string
+              description: >
+                The UID of the component's release line the rule evaluates. Absent for
+                components without release lines.
+              format: uuid
         source:
           type: object
           required: [type]
@@ -424,6 +430,11 @@ components:
         ruleBackendId:
           type: string
           description: The backend ID (UID from observability backend) of the alert rule
+        releaseLineApplied:
+          type: boolean
+          description: >
+            True when the adapter scoped the rule to metadata.releaseLineUid. False or
+            absent means the rule evaluates every release line of the component.
 
     # Request schema for alert webhook
     AlertWebhookRequest:

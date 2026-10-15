@@ -29,19 +29,21 @@ func (p *LogsAdapter) GetComponentEvents(
 		ProjectUid:     nonEmptyStrPtr(params.ProjectID),
 		ComponentUid:   nonEmptyStrPtr(params.ComponentID),
 		EnvironmentUid: nonEmptyStrPtr(params.EnvironmentID),
+		ReleaseLineUid: nonEmptyStrPtr(params.ReleaseLineID),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to build component events search scope: %w", err)
 	}
 
-	adapterResp, err := p.queryEvents(ctx, scope, params.StartTime, params.EndTime, params.Limit, params.SortOrder)
+	adapterResp, releaseLineApplied, err := p.queryEvents(ctx, scope, params.StartTime, params.EndTime, params.Limit, params.SortOrder)
 	if err != nil {
 		return nil, err
 	}
 
 	return &observability.ComponentEventsResult{
-		Events:     toObservabilityEvents(adapterResp.Events),
-		TotalCount: adapterResp.Total,
-		Took:       intPtrVal(adapterResp.TookMs),
+		Events:             toObservabilityEvents(adapterResp.Events),
+		TotalCount:         adapterResp.Total,
+		Took:               intPtrVal(adapterResp.TookMs),
+		ReleaseLineApplied: releaseLineApplied,
 	}, nil
 }
 
@@ -60,7 +62,7 @@ func (p *LogsAdapter) GetWorkflowEvents(
 		return nil, fmt.Errorf("failed to build workflow events search scope: %w", err)
 	}
 
-	adapterResp, err := p.queryEvents(ctx, scope, params.StartTime, params.EndTime, params.Limit, params.SortOrder)
+	adapterResp, _, err := p.queryEvents(ctx, scope, params.StartTime, params.EndTime, params.Limit, params.SortOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +75,14 @@ func (p *LogsAdapter) GetWorkflowEvents(
 }
 
 // queryEvents builds and executes a QueryEvents call against the logs adapter and decodes the response.
+// It also reports whether the adapter restricted the events to the requested release line.
 func (p *LogsAdapter) queryEvents(
 	ctx context.Context,
 	scope logsadapterclientgen.EventsQueryRequest_SearchScope,
 	startTime, endTime time.Time,
 	limit int,
 	sortOrder string,
-) (*logsadapterclientgen.EventsQueryResponse, error) {
+) (*logsadapterclientgen.EventsQueryResponse, bool, error) {
 	adapterReq := logsadapterclientgen.EventsQueryRequest{
 		StartTime:   startTime,
 		EndTime:     endTime,
@@ -95,15 +98,16 @@ func (p *LogsAdapter) queryEvents(
 
 	resp, err := p.adapterClient.QueryEvents(ctx, adapterReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call logs adapter query events: %w", err)
+		return nil, false, fmt.Errorf("failed to call logs adapter query events: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if err := mapAdapterHTTPError(resp, "logs adapter"); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return decodeEventsResponse(resp)
+	result, err := decodeEventsResponse(resp)
+	return result, observability.ReleaseLineApplied(resp.Header), err
 }
 
 // decodeEventsResponse decodes the adapter's HTTP response body into an EventsQueryResponse.

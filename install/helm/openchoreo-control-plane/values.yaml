@@ -1357,6 +1357,7 @@ openchoreoApi:
                 - "project:view"
                 - "namespace:view"
                 - "environment:view"
+                - "releaseline:view"
 
             # Admin role with full permissions to all resources
             - name: admin

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 var (
@@ -24,6 +25,8 @@ var (
 	ErrMetricsRetrieval = errors.New("metrics retrieval failed")
 	// ErrMetricsInvalidRequest indicates that the inbound metrics request is malformed.
 	ErrMetricsInvalidRequest = errors.New("invalid metrics request")
+	// ErrReleaseLineNotSupported indicates the adapter cannot restrict its result to a release line.
+	ErrReleaseLineNotSupported = errors.New("the adapter does not support filtering by release line")
 )
 
 // runtimeTopologyAdapterRequest matches the metrics-adapter runtime-topology spec.
@@ -109,6 +112,7 @@ type metricsAdapterSearchScope struct {
 	ComponentUID   *string `json:"componentUid,omitempty"`
 	ProjectUID     *string `json:"projectUid,omitempty"`
 	EnvironmentUID *string `json:"environmentUid,omitempty"`
+	ReleaseLineUID *string `json:"releaseLineUid,omitempty"`
 }
 
 // MetricsAdapter forwards metrics queries to an external metrics adapter service.
@@ -185,6 +189,10 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 			return nil, fmt.Errorf("%w: failed to get environment UID: %w", ErrMetricsResolveSearchScope, err)
 		}
 	}
+	releaseLineUID, err := a.resolver.GetReleaseLineUID(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to get release line UID: %w", ErrMetricsResolveSearchScope, err)
+	}
 
 	// Build adapter request with resolved UIDs
 	adapterReq := metricsAdapterRequest{
@@ -204,6 +212,9 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 	}
 	if environmentUID != "" {
 		adapterReq.SearchScope.EnvironmentUID = &environmentUID
+	}
+	if releaseLineUID != "" {
+		adapterReq.SearchScope.ReleaseLineUID = &releaseLineUID
 	}
 
 	a.logger.Debug("Forwarding metrics query to adapter",
@@ -239,6 +250,9 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("%w: metrics adapter returned HTTP %d: %s", ErrMetricsRetrieval, resp.StatusCode, string(respBody))
+	}
+	if releaseLineUID != "" && !observability.ReleaseLineApplied(resp.Header) {
+		return nil, fmt.Errorf("%w: metrics adapter", ErrReleaseLineNotSupported)
 	}
 
 	var result json.RawMessage

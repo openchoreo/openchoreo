@@ -15,6 +15,7 @@ type ComponentSearchScope struct {
 	Project     string `json:"project,omitempty"`
 	Component   string `json:"component,omitempty"`
 	Environment string `json:"environment,omitempty"`
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 // WorkflowSearchScope defines the search scope for workflow run logs

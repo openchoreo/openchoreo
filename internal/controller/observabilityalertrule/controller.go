@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -50,6 +51,7 @@ type alertRuleMetadata struct {
 	ComponentUID   string `json:"componentUid,omitempty"`
 	ProjectUID     string `json:"projectUid,omitempty"`
 	EnvironmentUID string `json:"environmentUid,omitempty"`
+	ReleaseLineUID string `json:"releaseLineUid,omitempty"`
 }
 
 type alertRuleSource struct {
@@ -73,6 +75,8 @@ type alertRuleSyncResponse struct {
 	RuleLogicalID string `json:"ruleLogicalId"`
 	RuleBackendID string `json:"ruleBackendId"`
 	LastSyncedAt  string `json:"lastSyncedAt"`
+	// ReleaseLineApplied is true when the adapter scoped the rule to its release line.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // alertRuleGetResponse is the response from the observer v1alpha1 GET endpoint.
@@ -156,11 +160,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Phase and conditions.
-	if syncResp.Status == "synced" {
+	switch {
+	case syncResp.Status == "synced" && latest.Labels[labels.LabelKeyReleaseLineUID] != "" && !syncResp.ReleaseLineApplied:
+		latest.Status.Phase = openchoreov1alpha1.ObservabilityAlertRulePhaseReady
+		setStatusCondition(latest, metav1.ConditionTrue, "SyncSucceededForAllReleaseLines",
+			fmt.Sprintf("Alert rule %s %s in backend; the adapter cannot scope rules to a release line, "+
+				"so the rule evaluates every release line of component %s",
+				syncResp.RuleLogicalID, syncResp.Action, latest.Labels[labels.LabelKeyComponentName]))
+	case syncResp.Status == "synced":
 		latest.Status.Phase = openchoreov1alpha1.ObservabilityAlertRulePhaseReady
 		setStatusCondition(latest, metav1.ConditionTrue, "SyncSucceeded",
 			fmt.Sprintf("Alert rule %s %s in backend", syncResp.RuleLogicalID, syncResp.Action))
-	} else {
+	default:
 		latest.Status.Phase = openchoreov1alpha1.ObservabilityAlertRulePhaseError
 		setStatusCondition(latest, metav1.ConditionFalse, "SyncNotSynced",
 			fmt.Sprintf("Alert rule status reported as %q", syncResp.Status))
@@ -330,6 +341,7 @@ func buildAlertRuleRequest(rule *openchoreov1alpha1.ObservabilityAlertRule) (*al
 			ComponentUID:   componentUID,
 			ProjectUID:     projectUID,
 			EnvironmentUID: environmentUID,
+			ReleaseLineUID: rule.Labels[labels.LabelKeyReleaseLineUID],
 		},
 		Source: alertRuleSource{
 			Type:   string(spec.Source.Type),

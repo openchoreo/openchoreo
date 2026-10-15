@@ -148,17 +148,10 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 	return filtered
 }
 
-// maxGeneratedNamePrefix is how much of a generateName Kubernetes keeps, leaving room for its
-// random suffix.
-const maxGeneratedNamePrefix = 58
-
-// filterLogsByReleaseLine keeps only entries from pods of the line's workload, whose names start
-// with the workload name the platform derives for the line in the environment.
+// filterLogsByReleaseLine keeps only entries from pods of the line's workload, for observers that
+// do not filter by release line themselves.
 func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string) []client.LogEntry {
-	prefix := releaseline.ObjectBaseName(component, line, env) + "-"
-	if len(prefix) > maxGeneratedNamePrefix {
-		prefix = prefix[:maxGeneratedNamePrefix]
-	}
+	prefix := releaseline.ObjectNamePrefix(component, line, env)
 	filtered := make([]client.LogEntry, 0, len(logs))
 	for _, log := range logs {
 		if log.Metadata != nil && strings.HasPrefix(log.Metadata.PodName, prefix) {
@@ -292,6 +285,7 @@ func (cp *Component) fetchLogs(
 		ProjectName:     params.Project,
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
+		ReleaseLine:     params.ReleaseLine,
 		Limit:           int64(params.Tail),
 		SortOrder:       sortOrder,
 		LogType:         "runtime",

@@ -1209,3 +1209,37 @@ func TestValidateEventsQueryRequest_DefaultsApplied(t *testing.T) {
 	assert.Equal(t, defaultLimit, req.Limit)
 	assert.Equal(t, defaultSortOrder, req.SortOrder)
 }
+
+func TestValidateReleaseLineScope(t *testing.T) {
+	logsReq := func(scope types.ComponentSearchScope) *types.LogsQueryRequest {
+		return &types.LogsQueryRequest{
+			StartTime:   "2024-01-01T00:00:00Z",
+			EndTime:     "2024-01-02T00:00:00Z",
+			SearchScope: &types.SearchScope{Component: &scope},
+		}
+	}
+	full := types.ComponentSearchScope{Namespace: "ns", Project: "p", Component: "c", Environment: "dev", ReleaseLine: "next"}
+	require.NoError(t, ValidateLogsQueryRequest(logsReq(full)))
+
+	noEnv := full
+	noEnv.Environment = ""
+	assert.ErrorContains(t, ValidateLogsQueryRequest(logsReq(noEnv)), "required when searchScope.releaseLine is provided")
+
+	metrics := &types.MetricsQueryRequest{
+		Metric: types.MetricTypeResource, StartTime: "2024-01-01T00:00:00Z", EndTime: "2024-01-02T00:00:00Z",
+		SearchScope: noEnv,
+	}
+	assert.ErrorContains(t, ValidateMetricsQueryRequest(metrics), "required when searchScope.releaseLine is provided")
+
+	start, end := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+	project, component, line := "p", "c", "next"
+	traces := &gen.TracesQueryRequest{StartTime: start, EndTime: end, SearchScope: gen.ComponentSearchScope{
+		Namespace: "ns", Project: &project, Component: &component, ReleaseLine: &line,
+	}}
+	assert.ErrorContains(t, ValidateTracesQueryRequest(traces), "required when searchScope.releaseLine is provided")
+
+	topology := &types.RuntimeTopologyRequest{
+		StartTime: "2024-01-01T00:00:00Z", EndTime: "2024-01-02T00:00:00Z", SearchScope: full,
+	}
+	assert.ErrorContains(t, ValidateRuntimeTopologyRequest(topology), "not supported for runtime topology")
+}

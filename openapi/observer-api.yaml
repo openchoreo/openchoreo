@@ -270,6 +270,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: "OBS-V1-M-06"
+                message: "the adapter does not support filtering by release line: metrics adapter"
   # FinOps cost insights endpoints
   /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}:
     get:
@@ -829,6 +839,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: "OBS-V1-T-08"
+                message: "the adapter does not support filtering by release line: tracing adapter"
   /api/v1alpha1/traces/{traceId}/spans/query:
     post:
       tags:
@@ -881,6 +901,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: "OBS-V1-T-08"
+                message: "the adapter does not support filtering by release line: tracing adapter"
   /api/v1alpha1/traces/{traceId}/spans/{spanId}:
     get:
       tags:
@@ -1474,6 +1504,9 @@ components:
           type: string
         environment:
           type: string
+        releaseLine:
+          type: string
+          description: Restricts the result to one release line of the component. Requires component and environment.
       required: [namespace]
 
     WorkflowSearchScope:

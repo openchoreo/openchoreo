@@ -44,6 +44,8 @@ type SpansResult struct {
 	Spans      []TraceSpan `json:"spans"`
 	TotalCount int         `json:"totalCount"`
 	Took       int         `json:"tookMs"`
+	// ReleaseLineApplied is true when the adapter restricted the spans to the requested release line.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // TracesQueryParams defines parameters for querying traces
@@ -57,6 +59,7 @@ type TracesQueryParams struct {
 	ProjectID     string `json:"projectId"`
 	ComponentID   string `json:"componentId,omitempty"`
 	EnvironmentID string `json:"environmentId,omitempty"`
+	ReleaseLineID string `json:"releaseLineId,omitempty"`
 
 	// Query options
 	TraceID           string `json:"traceId,omitempty"`
@@ -70,6 +73,8 @@ type TracesQueryResult struct {
 	Traces     []Trace `json:"traces"`
 	TotalCount int     `json:"totalCount"`
 	Took       int     `json:"tookMs"`
+	// ReleaseLineApplied is true when the adapter restricted the traces to the requested release line.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // Trace represents a distributed trace
