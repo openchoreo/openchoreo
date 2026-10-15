@@ -409,6 +409,16 @@ const (
 	WorkflowRunConfigKindWorkflow        WorkflowRunConfigKind = "Workflow"
 )
 
+// Defines values for WorkflowRunInputArtifactMediaType.
+const (
+	TextxDiff WorkflowRunInputArtifactMediaType = "text/x-diff"
+)
+
+// Defines values for WorkflowRunInputArtifactName.
+const (
+	UnifiedDiff WorkflowRunInputArtifactName = "unified-diff"
+)
+
 // Defines values for WorkflowRunStatusResponseStatus.
 const (
 	WorkflowRunStatusResponseStatusError     WorkflowRunStatusResponseStatus = "Error"
@@ -4323,6 +4333,39 @@ type WorkflowRunEventEntry struct {
 	Type string `json:"type"`
 }
 
+// WorkflowRunInputArtifact Metadata and trusted reference for an immutable workflow input. The object never includes bytes, credentials, tokens, signed URLs, or secrets.
+type WorkflowRunInputArtifact struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Gcs Native GCS object location. It never carries a URI, generation, endpoint, signed URL, or credentials.
+	Gcs       WorkflowRunInputArtifactGCS       `json:"gcs"`
+	MediaType WorkflowRunInputArtifactMediaType `json:"mediaType"`
+	Name      WorkflowRunInputArtifactName      `json:"name"`
+	Sha256    string                            `json:"sha256"`
+	SizeBytes int64                             `json:"sizeBytes"`
+}
+
+// WorkflowRunInputArtifactMediaType defines model for WorkflowRunInputArtifact.MediaType.
+type WorkflowRunInputArtifactMediaType string
+
+// WorkflowRunInputArtifactName defines model for WorkflowRunInputArtifact.Name.
+type WorkflowRunInputArtifactName string
+
+// WorkflowRunInputArtifactGCS Native GCS object location. It never carries a URI, generation, endpoint, signed URL, or credentials.
+type WorkflowRunInputArtifactGCS struct {
+	Bucket string `json:"bucket"`
+	Key    string `json:"key"`
+}
+
+// WorkflowRunInputArtifactStatus Non-sensitive metadata for an accepted immutable input. URI and payload are intentionally absent.
+type WorkflowRunInputArtifactStatus struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	MediaType string    `json:"mediaType"`
+	Name      string    `json:"name"`
+	Sha256    string    `json:"sha256"`
+	SizeBytes int64     `json:"sizeBytes"`
+}
+
 // WorkflowRunList Paginated list of workflow runs
 type WorkflowRunList struct {
 	Items []WorkflowRun `json:"items"`
@@ -4343,6 +4386,9 @@ type WorkflowRunLogEntry struct {
 
 // WorkflowRunSpec Desired state of a WorkflowRun
 type WorkflowRunSpec struct {
+	// InputArtifacts Immutable content-addressed inputs delivered to the runner as read-only files. Never use parameters to transport their contents.
+	InputArtifacts *[]WorkflowRunInputArtifact `json:"inputArtifacts,omitempty"`
+
 	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
 
@@ -4355,8 +4401,11 @@ type WorkflowRunStatus struct {
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 
 	// Conditions Kubernetes-style conditions
-	Conditions *[]Condition         `json:"conditions,omitempty"`
-	Resources  *[]ResourceReference `json:"resources,omitempty"`
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// InputArtifacts Non-sensitive accepted input metadata. It never contains URI or content.
+	InputArtifacts *[]WorkflowRunInputArtifactStatus `json:"inputArtifacts,omitempty"`
+	Resources      *[]ResourceReference              `json:"resources,omitempty"`
 
 	// RunReference Reference to a Kubernetes resource applied during a workflow run
 	RunReference *ResourceReference `json:"runReference,omitempty"`
