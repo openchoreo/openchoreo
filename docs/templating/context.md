@@ -56,8 +56,7 @@ metadata:
   namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
 
   # Release line identity (see ReleaseLine)
-  releaseLine: ""                       # ${metadata.releaseLine} - empty unless the component has releaseLinesEnabled
-  releaseLineName: "my-service"         # ${metadata.releaseLineName} - componentName without a release line, "<componentName>-<releaseLine>" otherwise; use it instead of componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide
+  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty unless the component has releaseLinesEnabled; combine it with componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide
 
   # Common labels for all resources
   labels: # ${metadata.labels}

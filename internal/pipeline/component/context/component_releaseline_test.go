@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-func TestBuildComponentContext_DerivedNamesFollowReleaseLineName(t *testing.T) {
+func TestBuildComponentContext_DerivedNamesFollowReleaseLine(t *testing.T) {
 	workload := &v1alpha1.Workload{Spec: v1alpha1.WorkloadSpec{WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
 		Container: v1alpha1.Container{Image: "app:1", Env: []v1alpha1.EnvVar{{Key: "MODE", Value: "x"}}},
 	}}}
@@ -49,11 +49,11 @@ func TestBuildComponentContext_DerivedNamesFollowReleaseLineName(t *testing.T) {
 	}
 
 	unlined := build("")
-	assert.Equal(t, "myapp", unlined.Metadata.ReleaseLineName)
+	assert.Empty(t, unlined.Metadata.ReleaseLineName)
 	require.Len(t, unlined.Derived.ContainerEnvFrom, 1)
 	assert.Equal(t, generateEnvResourceName("myapp-dev"), unlined.Derived.ContainerEnvFrom[0].ConfigMapRef.Name)
 
-	line := build("myapp-v2")
+	line := build("v2")
 	require.Len(t, line.Derived.ContainerEnvFrom, 1)
 	assert.Equal(t, generateEnvResourceName("myapp-v2-dev"), line.Derived.ContainerEnvFrom[0].ConfigMapRef.Name)
 }

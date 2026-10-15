@@ -6,7 +6,6 @@ package releasebinding
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,12 +20,13 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const testReleaseLine = "my-component-v2"
 
-func buildMetadataContextForLine(component, line string) pipelinecontext.MetadataContext {
-	cr := makeValidComponentRelease(testProjectName, component)
+func buildMetadataContextForLine(line string) pipelinecontext.MetadataContext {
+	cr := makeValidComponentRelease(testProjectName, testComponentName)
 	cr.Spec.Owner.ReleaseLine = line
 	return newTestReconciler().buildMetadataContext(cr,
 		&openchoreov1alpha1.Component{ObjectMeta: metav1.ObjectMeta{UID: "comp-uid"}},
@@ -37,26 +37,24 @@ func buildMetadataContextForLine(component, line string) pipelinecontext.Metadat
 }
 
 func TestBuildMetadataContext_WithoutReleaseLine(t *testing.T) {
-	mctx := buildMetadataContextForLine(testComponentName, "")
+	mctx := buildMetadataContextForLine("")
 
-	assert.Empty(t, mctx.ReleaseLine)
-	assert.Equal(t, testComponentName, mctx.ReleaseLineName)
+	assert.Empty(t, mctx.ReleaseLineName)
 	assert.Equal(t, dpkubernetes.GenerateK8sName(testComponentName, testEnvStaging), mctx.Name)
 	assert.NotContains(t, mctx.Labels, labels.LabelKeyReleaseLine)
 	assert.NotContains(t, mctx.PodSelectors, labels.LabelKeyReleaseLine)
 }
 
 func TestBuildMetadataContext_ReleaseLinesShareNamespaceWithDistinctNames(t *testing.T) {
-	unlined := buildMetadataContextForLine(testComponentName, "")
-	mainLine := buildMetadataContextForLine(testComponentName, "main")
-	v2 := buildMetadataContextForLine(testComponentName, testReleaseLine)
+	unlined := buildMetadataContextForLine("")
+	mainLine := buildMetadataContextForLine("main")
+	v2 := buildMetadataContextForLine(testReleaseLine)
 
 	assert.Equal(t, unlined.Namespace, v2.Namespace, "release lines render into the project namespace")
 	assert.Equal(t, unlined.Namespace, mainLine.Namespace)
 
-	assert.Equal(t, testReleaseLine, v2.ReleaseLine)
-	assert.Equal(t, testComponentName+"-"+testReleaseLine, v2.ReleaseLineName)
-	assert.Equal(t, dpkubernetes.GenerateK8sName(testComponentName, testReleaseLine, testEnvStaging), v2.Name)
+	assert.Equal(t, testReleaseLine, v2.ReleaseLineName)
+	assert.Equal(t, releaseline.ObjectBaseName(testComponentName, testReleaseLine, testEnvStaging), v2.Name)
 	assert.NotEqual(t, mainLine.Name, v2.Name)
 	assert.NotEqual(t, mainLine.ReleaseLineName, v2.ReleaseLineName)
 
@@ -66,25 +64,25 @@ func TestBuildMetadataContext_ReleaseLinesShareNamespaceWithDistinctNames(t *tes
 	assert.Equal(t, testComponentName, v2.Labels[labels.LabelKeyComponentName])
 }
 
-func TestBuildMetadataContext_ReleaseLineNameFitsServiceName(t *testing.T) {
-	component := strings.Repeat("c", 40)
-	line := strings.Repeat("l", 40)
-
-	a := buildMetadataContextForLine(component, line)
-	b := buildMetadataContextForLine(component, line+"x")
-
-	assert.LessOrEqual(t, len(a.ReleaseLineName), dpkubernetes.MaxServiceNameLength)
-	assert.NotEqual(t, a.ReleaseLineName, b.ReleaseLineName)
-}
-
 func TestMakeReleaseNames_ReleaseLine(t *testing.T) {
 	cr := makeValidComponentRelease(testProjectName, testComponentName)
 	cr.Spec.Owner.ReleaseLine = testReleaseLine
 	rb := makeValidReleaseBinding(testProjectName, testComponentName)
 	rb.Spec.Environment = testEnvStaging
 
-	assert.Equal(t, testComponentName+"-"+testReleaseLine+"-"+testEnvStaging, makeDataPlaneReleaseName(cr, rb))
-	assert.Equal(t, testComponentName+"-"+testReleaseLine+"-"+testEnvStaging+"-observability", makeObservabilityReleaseName(cr, rb))
+	base := releaseline.ObjectBaseName(testComponentName, testReleaseLine, testEnvStaging)
+	assert.Equal(t, base, makeDataPlaneReleaseName(cr, rb))
+	assert.Equal(t, base+"-observability", makeObservabilityReleaseName(cr, rb))
+
+	// Component "a-b" on line "c" must not share release names with component "a" on line "b-c",
+	// or with component "a-b-c" without lines.
+	names := func(component, line string) string {
+		cr := makeValidComponentRelease(testProjectName, component)
+		cr.Spec.Owner.ReleaseLine = line
+		return makeDataPlaneReleaseName(cr, rb)
+	}
+	assert.NotEqual(t, names("a-b", "c"), names("a", "b-c"))
+	assert.NotEqual(t, names("a-b", "c"), names("a-b-c", ""))
 }
 
 func TestValidateComponentRelease_ReleaseLineMismatch(t *testing.T) {
@@ -248,15 +246,18 @@ func TestFindReleaseLineCollision(t *testing.T) {
 		require.NoError(t, err)
 		return openchoreov1alpha1.RenderedManifest{ID: kind + "-" + name, Object: &runtime.RawExtension{Raw: raw}}
 	}
-	renderedRelease := func(name, component string, resources ...openchoreov1alpha1.RenderedManifest) *openchoreov1alpha1.RenderedRelease {
+	releaseOn := func(plane, name, component string, resources ...openchoreov1alpha1.RenderedManifest) *openchoreov1alpha1.RenderedRelease {
 		return &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Labels: map[string]string{
 				labels.LabelKeyProjectName:     testProjectName,
 				labels.LabelKeyComponentName:   component,
 				labels.LabelKeyEnvironmentName: testEnvStaging,
 			}},
-			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: openchoreov1alpha1.TargetPlaneDataPlane, Resources: resources},
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: plane, Resources: resources},
 		}
+	}
+	renderedRelease := func(name, component string, resources ...openchoreov1alpha1.RenderedManifest) *openchoreov1alpha1.RenderedRelease {
+		return releaseOn(openchoreov1alpha1.TargetPlaneDataPlane, name, component, resources...)
 	}
 
 	scheme := runtime.NewScheme()
@@ -265,6 +266,8 @@ func TestFindReleaseLineCollision(t *testing.T) {
 		renderedRelease("comp-main-staging", testComponentName,
 			manifest("Deployment", "apps/v1", "comp-main"), manifest("Service", "v1", "comp")),
 		renderedRelease("other-main-staging", "other", manifest("Service", "v1", "shared")),
+		releaseOn(openchoreov1alpha1.TargetPlaneObservabilityPlane, "comp-main-staging-observability", testComponentName,
+			manifest("ObservabilityAlertRule", "openchoreo.dev/v1alpha1", "comp-high-error-rate")),
 	).Build()}
 
 	rb := makeValidReleaseBinding(testProjectName, testComponentName)
@@ -274,7 +277,7 @@ func TestFindReleaseLineCollision(t *testing.T) {
 	own := "comp-v2-staging"
 
 	t.Run("distinct names", func(t *testing.T) {
-		msg, err := r.findReleaseLineCollision(context.Background(), rb, own, []openchoreov1alpha1.RenderedManifest{
+		msg, err := r.findReleaseLineCollision(context.Background(), rb, own, openchoreov1alpha1.TargetPlaneDataPlane, []openchoreov1alpha1.RenderedManifest{
 			manifest("Deployment", "apps/v1", "comp-v2"), manifest("Service", "v1", "comp-v2"),
 			manifest("Service", "v1", "shared"),
 		})
@@ -283,7 +286,7 @@ func TestFindReleaseLineCollision(t *testing.T) {
 	})
 
 	t.Run("same name on another line", func(t *testing.T) {
-		msg, err := r.findReleaseLineCollision(context.Background(), rb, own, []openchoreov1alpha1.RenderedManifest{
+		msg, err := r.findReleaseLineCollision(context.Background(), rb, own, openchoreov1alpha1.TargetPlaneDataPlane, []openchoreov1alpha1.RenderedManifest{
 			manifest("Deployment", "apps/v1", "comp-v2"), manifest("Service", "v1", "comp"),
 		})
 		require.NoError(t, err)
@@ -292,8 +295,22 @@ func TestFindReleaseLineCollision(t *testing.T) {
 		assert.NotContains(t, msg, "Deployment")
 	})
 
+	t.Run("observability plane", func(t *testing.T) {
+		alert := manifest("ObservabilityAlertRule", "openchoreo.dev/v1alpha1", "comp-high-error-rate")
+		msg, err := r.findReleaseLineCollision(context.Background(), rb, own+"-observability",
+			openchoreov1alpha1.TargetPlaneObservabilityPlane, []openchoreov1alpha1.RenderedManifest{alert})
+		require.NoError(t, err)
+		assert.Contains(t, msg, "ObservabilityAlertRule.openchoreo.dev dp-ns/comp-high-error-rate")
+		assert.Contains(t, msg, `"comp-main-staging-observability"`)
+
+		msg, err = r.findReleaseLineCollision(context.Background(), rb, own,
+			openchoreov1alpha1.TargetPlaneDataPlane, []openchoreov1alpha1.RenderedManifest{alert})
+		require.NoError(t, err)
+		assert.Empty(t, msg, "releases on another plane are not compared")
+	})
+
 	t.Run("own release is ignored", func(t *testing.T) {
-		msg, err := r.findReleaseLineCollision(context.Background(), rb, "comp-main-staging", []openchoreov1alpha1.RenderedManifest{
+		msg, err := r.findReleaseLineCollision(context.Background(), rb, "comp-main-staging", openchoreov1alpha1.TargetPlaneDataPlane, []openchoreov1alpha1.RenderedManifest{
 			manifest("Service", "v1", "comp"),
 		})
 		require.NoError(t, err)

@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -148,10 +148,17 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 	return filtered
 }
 
+// maxGeneratedNamePrefix is how much of a generateName Kubernetes keeps, leaving room for its
+// random suffix.
+const maxGeneratedNamePrefix = 58
+
 // filterLogsByReleaseLine keeps only entries from pods of the line's workload, whose names start
 // with the workload name the platform derives for the line in the environment.
 func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string) []client.LogEntry {
-	prefix := dpkubernetes.GenerateK8sName(component, line, env) + "-"
+	prefix := releaseline.ObjectBaseName(component, line, env) + "-"
+	if len(prefix) > maxGeneratedNamePrefix {
+		prefix = prefix[:maxGeneratedNamePrefix]
+	}
 	filtered := make([]client.LogEntry, 0, len(logs))
 	for _, log := range logs {
 		if log.Metadata != nil && strings.HasPrefix(log.Metadata.PodName, prefix) {

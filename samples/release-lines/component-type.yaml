@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # The default service component type, with every component-scoped object named from
-# metadata.releaseLineName so the release lines of a component never collide.
+# metadata.componentName and metadata.releaseLineName so the release lines of a component never collide.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
@@ -144,7 +144,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: ${metadata.releaseLineName}
+          name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -158,7 +158,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: ${oc_generate_name(metadata.releaseLineName, endpoint.key)}
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key)}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
         spec:
@@ -173,7 +173,7 @@ spec:
           - matches:
             - path:
                 type: PathPrefix
-                value: /${metadata.releaseLineName}-${endpoint.key}
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}-${endpoint.key}'
             filters:
               - type: URLRewrite
                 urlRewrite:
@@ -193,7 +193,7 @@ spec:
                   exposeHeaders: ["*"]
                   allowCredentials: false
             backendRefs:
-            - name: ${metadata.releaseLineName}
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
               port: ${endpoint.value.port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
@@ -202,7 +202,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.releaseLineName, endpoint.key, "internal")}'
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key, "internal")}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
         spec:
@@ -217,7 +217,7 @@ spec:
           - matches:
             - path:
                 type: PathPrefix
-                value: /${metadata.releaseLineName}-${endpoint.key}
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}-${endpoint.key}'
             filters:
               - type: URLRewrite
                 urlRewrite:
@@ -225,7 +225,7 @@ spec:
                     type: ReplacePrefixMatch
                     replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
             backendRefs:
-            - name: ${metadata.releaseLineName}
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
               port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}

@@ -83,15 +83,19 @@ func (r *Reconciler) findReleaseBindingsForReleaseLine(ctx context.Context, obj 
 	return requests
 }
 
-// findReleaseLineCollision reports data plane objects the binding would render that another
-// RenderedRelease of the same component and environment already renders. Returns an empty string
-// when there is no collision.
+// findReleaseLineCollision reports objects the binding would render on the target plane that another
+// RenderedRelease of the same component and environment already renders there. Returns an empty
+// string when there is no collision.
 func (r *Reconciler) findReleaseLineCollision(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	ownReleaseName string,
+	plane string,
 	resources []openchoreov1alpha1.RenderedManifest,
 ) (string, error) {
+	if len(resources) == 0 {
+		return "", nil
+	}
 	desired, err := manifestKeys(resources)
 	if err != nil {
 		return "", err
@@ -108,7 +112,7 @@ func (r *Reconciler) findReleaseLineCollision(
 
 	for i := range releases.Items {
 		other := &releases.Items[i]
-		if other.Name == ownReleaseName || other.Spec.TargetPlane != openchoreov1alpha1.TargetPlaneDataPlane {
+		if other.Name == ownReleaseName || other.Spec.TargetPlane != plane {
 			continue
 		}
 		existing, err := manifestKeys(other.Spec.Resources)
@@ -124,7 +128,7 @@ func (r *Reconciler) findReleaseLineCollision(
 		if len(clashes) > 0 {
 			sort.Strings(clashes)
 			return fmt.Sprintf("Release line %q renders %s, which RenderedRelease %q also renders; "+
-				"name these objects from metadata.name or metadata.releaseLineName in the ComponentType and Traits",
+				"name these objects from metadata.name, or from metadata.componentName and metadata.releaseLineName, in the ComponentType and Traits",
 				releaseBinding.Spec.Owner.ReleaseLine, strings.Join(clashes, ", "), other.Name), nil
 		}
 	}
