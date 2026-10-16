@@ -50,6 +50,10 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 	if err := s.validateComponentExists(ctx, namespaceName, rb.Spec.Owner.ComponentName); err != nil {
 		return nil, err
 	}
+	if err := services.ValidateReleaseLineOwner(ctx, s.k8sClient, namespaceName,
+		rb.Spec.Owner.ProjectName, rb.Spec.Owner.ComponentName, rb.Spec.Owner.ReleaseLine); err != nil {
+		return nil, err
+	}
 
 	exists, err := s.releaseBindingExists(ctx, namespaceName, rb.Name)
 	if err != nil {
