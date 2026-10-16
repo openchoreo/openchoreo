@@ -327,6 +327,8 @@ func TestListWorkflowRuns_Authz(t *testing.T) {
 // GetWorkflowRun authz tests
 // ---------------------------------------------------------------------------
 
+const testReleaseLine = "next"
+
 func TestGetWorkflowRun_Authz(t *testing.T) {
 	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
 
@@ -354,6 +356,22 @@ func TestGetWorkflowRun_Authz(t *testing.T) {
 		svc := newAuthzService(t, mockSvc, mockPDP)
 		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("release line label in the authz context", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		lineRun := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		lineRun.Labels[ocLabels.LabelKeyReleaseLine] = testReleaseLine
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(lineRun, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Context.Resource.ReleaseLine == testReleaseLine
+		})).Return(allowDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found does not check authz", func(t *testing.T) {
@@ -701,6 +719,19 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, fakeClient, mockPDP, testutil.TestLogger())
 		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", "")
+	})
+
+	t.Run("populates resource.releaseLine from the request", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == authz.ActionCreateWorkflowRun &&
+				req.Context.Resource.ReleaseLine == testReleaseLine
+		})).Return(denyDecision(), nil)
+
+		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(triggerComp), mockPDP, testutil.TestLogger())
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", testReleaseLine)
 	})
 }
 

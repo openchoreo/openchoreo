@@ -176,6 +176,7 @@ func (s *componentServiceWithAuthz) GenerateRelease(ctx context.Context, namespa
 			Project:   comp.Spec.Owner.ProjectName,
 			Component: componentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: strings.TrimSpace(req.ReleaseLine)}},
 	}); err != nil {
 		return nil, err
 	}
