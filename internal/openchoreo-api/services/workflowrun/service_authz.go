@@ -79,7 +79,8 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Workflow: formatWorkflowAttr(namespaceName, wfRun.Spec.Workflow.Kind, wfRun.Spec.Workflow.Name),
+				Workflow:    formatWorkflowAttr(namespaceName, wfRun.Spec.Workflow.Kind, wfRun.Spec.Workflow.Name),
+				ReleaseLine: wfRun.Labels[ocLabels.LabelKeyReleaseLine],
 			},
 		},
 	}); err != nil {
@@ -105,7 +106,8 @@ func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, nam
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, existing.Labels),
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Workflow: formatWorkflowAttr(namespaceName, existing.Spec.Workflow.Kind, existing.Spec.Workflow.Name),
+				Workflow:    formatWorkflowAttr(namespaceName, existing.Spec.Workflow.Kind, existing.Spec.Workflow.Name),
+				ReleaseLine: existing.Labels[ocLabels.LabelKeyReleaseLine],
 			},
 		},
 	}); err != nil {
@@ -125,6 +127,7 @@ func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, name
 				ResourceType: resourceTypeWorkflowRun,
 				ResourceID:   wr.Name,
 				Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+				Context:      authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine]}},
 			}
 		},
 	)
@@ -140,6 +143,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRun(ctx context.Context, namesp
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context:      authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine]}},
 	}); err != nil {
 		return nil, err
 	}
@@ -158,7 +162,8 @@ func (s *workflowRunServiceWithAuthz) DeleteWorkflowRun(ctx context.Context, nam
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Workflow: formatWorkflowAttr(namespaceName, wr.Spec.Workflow.Kind, wr.Spec.Workflow.Name),
+				Workflow:    formatWorkflowAttr(namespaceName, wr.Spec.Workflow.Kind, wr.Spec.Workflow.Name),
+				ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine],
 			},
 		},
 	}); err != nil {
@@ -186,6 +191,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, na
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context:      authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine]}},
 	}); err != nil {
 		return nil, err
 	}
@@ -207,6 +213,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, 
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context:      authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine]}},
 	}); err != nil {
 		return nil, err
 	}
@@ -223,6 +230,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, 
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context:      authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: wr.Labels[ocLabels.LabelKeyReleaseLine]}},
 	}); err != nil {
 		return nil, err
 	}
@@ -254,7 +262,8 @@ func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, names
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Workflow: workflowAttr,
+				Workflow:    workflowAttr,
+				ReleaseLine: releaseLine,
 			},
 		},
 	}); err != nil {

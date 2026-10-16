@@ -48,6 +48,7 @@ func (s *workloadServiceWithAuthz) CreateWorkload(ctx context.Context, namespace
 			Project:   w.Spec.Owner.ProjectName,
 			Component: w.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: w.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return nil, err
 	}
@@ -70,6 +71,7 @@ func (s *workloadServiceWithAuthz) UpdateWorkload(ctx context.Context, namespace
 			Project:   existing.Spec.Owner.ProjectName,
 			Component: existing.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: existing.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return nil, err
 	}
@@ -91,6 +93,7 @@ func (s *workloadServiceWithAuthz) ListWorkloads(ctx context.Context, namespaceN
 					Project:   w.Spec.Owner.ProjectName,
 					Component: w.Spec.Owner.ComponentName,
 				},
+				Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: w.Spec.Owner.ReleaseLine}},
 			}
 		},
 	)
@@ -112,6 +115,7 @@ func (s *workloadServiceWithAuthz) GetWorkload(ctx context.Context, namespaceNam
 			Project:   w.Spec.Owner.ProjectName,
 			Component: w.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: w.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return nil, err
 	}
@@ -134,6 +138,7 @@ func (s *workloadServiceWithAuthz) DeleteWorkload(ctx context.Context, namespace
 			Project:   w.Spec.Owner.ProjectName,
 			Component: w.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: w.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return err
 	}

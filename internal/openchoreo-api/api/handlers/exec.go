@@ -142,6 +142,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
 				Environment: svcpkg.FormatDualScopedResourceName(namespace, effectiveEnv, false),
+				ReleaseLine: releaseLine,
 			},
 		},
 	}); err != nil {

@@ -59,6 +59,8 @@ type ResourceAttribute struct {
 	ResourceType string `json:"resourceType,omitempty"`
 	// Workflow is the Workflow (or ClusterWorkflow) name referenced by the WorkflowRun being acted upon.
 	Workflow string `json:"workflow,omitempty"`
+	// ReleaseLine is the ReleaseLine the resource being acted upon belongs to.
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 // Decision represents the authorization decision response

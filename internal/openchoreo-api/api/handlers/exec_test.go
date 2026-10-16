@@ -167,3 +167,17 @@ func TestExecHandler_ReleaseLineMismatch(t *testing.T) {
 		})
 	}
 }
+
+// The release line requested for exec reaches the ABAC context, so the audit record names it.
+func TestExecHandler_AuthzReleaseLineContext(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=next",
+		nil).WithContext(testutil.AuthzContext())
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Len(t, pdp.Captured, 1, "authz check should run before pod resolution")
+	require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
+}

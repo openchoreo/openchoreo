@@ -73,6 +73,7 @@ type Hierarchy struct {
 	Project     string
 	Component   string
 	Resource    string
+	ReleaseLine string
 }
 
 // Result represents the outcome of an action
@@ -217,6 +218,7 @@ type resourceJSON struct {
 	Project     string         `json:"project,omitempty"`
 	Component   string         `json:"component,omitempty"`
 	Resource    string         `json:"resource,omitempty"`
+	ReleaseLine string         `json:"release_line,omitempty"`
 	UID         string         `json:"uid,omitempty"`
 	Name        string         `json:"name,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
@@ -276,6 +278,7 @@ func (e Event) resolvedResource() *resourceJSON {
 		Environment: e.Hierarchy.Environment,
 		Project:     e.Hierarchy.Project,
 		Component:   e.Hierarchy.Component,
+		ReleaseLine: e.Hierarchy.ReleaseLine,
 		Resource:    e.Hierarchy.Resource,
 	}
 	if e.Resource != nil {
