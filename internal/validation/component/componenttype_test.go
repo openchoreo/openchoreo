@@ -642,6 +642,41 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 			wantError: true,
 			errMsg:    "undefined field 'nonExistent'",
 		},
+		{
+			name: "valid toContainerPorts in container ports",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "deployment",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}, "spec": {"template": {"spec": {"containers": [{"name": "main", "ports": "${workload.toContainerPorts()}"}]}}}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid forEach with toContainerPorts accessing invalid field",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "container-port",
+							ForEach: `${workload.toContainerPorts()}`,
+							Var:     "cp",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${cp.nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
 	}
 
 	for _, tt := range tests {
