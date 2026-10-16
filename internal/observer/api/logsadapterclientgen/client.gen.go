@@ -80,6 +80,7 @@ const (
 	ResourceName        AuditLogFilterValuesRequestFilter = "resource.name"
 	ResourceNamespace   AuditLogFilterValuesRequestFilter = "resource.namespace"
 	ResourceProject     AuditLogFilterValuesRequestFilter = "resource.project"
+	ResourceReleaseLine AuditLogFilterValuesRequestFilter = "resource.release_line"
 	ResourceResource    AuditLogFilterValuesRequestFilter = "resource.resource"
 	ResourceType        AuditLogFilterValuesRequestFilter = "resource.type"
 	Result              AuditLogFilterValuesRequestFilter = "result"
@@ -525,8 +526,11 @@ type AuditLogResource struct {
 	Name        *string                 `json:"name,omitempty"`
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
-	Resource    *string                 `json:"resource,omitempty"`
-	Type        *string                 `json:"type,omitempty"`
+
+	// ReleaseLine The component's release line. Absent for components without release lines
+	ReleaseLine *string `json:"release_line,omitempty"`
+	Resource    *string `json:"resource,omitempty"`
+	Type        *string `json:"type,omitempty"`
 
 	// Uid Server-generated identifier that is never reused. Absent when the operation
 	// returned no object — a delete, or a non-CRUD mutation.
@@ -733,9 +737,10 @@ type AuditLogsResourceFilter struct {
 	Name *[]string `json:"name,omitempty"`
 
 	// Namespace OpenChoreo namespaces
-	Namespace *[]string `json:"namespace,omitempty"`
-	Project   *[]string `json:"project,omitempty"`
-	Resource  *[]string `json:"resource,omitempty"`
+	Namespace   *[]string `json:"namespace,omitempty"`
+	Project     *[]string `json:"project,omitempty"`
+	ReleaseLine *[]string `json:"release_line,omitempty"`
+	Resource    *[]string `json:"resource,omitempty"`
 
 	// Type Resource kinds
 	Type *[]string `json:"type,omitempty"`

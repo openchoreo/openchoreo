@@ -2096,6 +2096,13 @@ components:
           description: Components.
           items:
             type: string
+        release_line:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          description: Release lines.
+          items:
+            type: string
         resource:
           type: array
           uniqueItems: true
@@ -2190,6 +2197,7 @@ components:
             - resource.environment
             - resource.project
             - resource.component
+            - resource.release_line
             - resource.resource
             - resource.name
             - action
@@ -2515,6 +2523,9 @@ components:
           type: string
         component:
           type: string
+        release_line:
+          type: string
+          description: The component's release line. Absent for components without release lines.
         resource:
           type: string
           description: The Resource level of the hierarchy, a sibling of `component`.
