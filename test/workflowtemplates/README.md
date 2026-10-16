@@ -85,6 +85,8 @@ shim, so they behave the same on macOS/dash and on CI.
 | `TestContainerfileBuild_Behavior` | Dockerfile builds validate source paths, transform `build-env`/`build-args` JSON into `--env`/`--build-arg`, invoke `podman build`, and save `/mnt/vol/app-image.tar`. |
 | `TestContainerfileBuild_MissingDockerfileFailsBeforeBuild` | A missing Dockerfile fails before `podman build` is invoked. |
 | `TestBuildpackBuilds_Behavior` | Ballerina, GCP, and Paketo buildpacks start/wait for podman, call `pack build` with digest-pinned builder/run images, pass env flags, wait for the image, and save the tar handoff. |
+| `TestBallerinaBuildpack_SelectsJava25ForBallerina2201_14` | Both Ballerina workflow variants select Temurin `jdk-25.0.4.1+1` for Ballerina 2201.14 builds. |
+| `TestBallerinaBuildpack_PreservesJavaSelection` | Older Ballerina distributions retain the buildpack default, while an explicit custom JRE remains authoritative. |
 | `TestBuildpackBuild_MissingAppPathFailsBeforePack` | A missing app path fails before `pack build` is invoked. |
 | `TestPublishImage_BehaviorWithAndWithoutAuth` | Cloud and k3d publish variants push to the correct registry/TLS mode, optionally pass `--authfile`, and write `/tmp/image.txt`. |
 | `TestPublishImage_LoadsAndTagsBuildOutput` | Cloud and k3d publish variants load `/mnt/vol/app-image.tar` and tag the local image with the target registry endpoint. |
