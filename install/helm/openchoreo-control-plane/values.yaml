@@ -1234,6 +1234,12 @@ openchoreoApi:
         # @schema
         bootstrap:
           # @schema
+          # type: boolean
+          # description: "Run the post-install/upgrade hook that upserts the default roles and bindings below. Turn it off to manage them as plain manifests reconciled by Flux or Argo CD, because the hook's objects are not part of the release manifest: drift detection does not cover them, and a role or binding removed from these values is never deleted. Authorization itself is controlled by security.authz.enabled. Chart-only: this key never reaches the API server's config, and image, roles and bindings are not rendered while it is off."
+          # default: true
+          # @schema
+          enabled: true
+          # @schema
           # type: string
           # description: Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.
           # default: registry.k8s.io/kubectl:v1.36.0
