@@ -6,6 +6,8 @@ package models
 import (
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
@@ -585,6 +587,7 @@ type WorkflowRunStatusResponse struct {
 	Status               string               `json:"status"`               // Overall workflow status (Pending/Running/Completed/Failed)
 	Steps                []WorkflowStepStatus `json:"steps"`                // Array of step-level statuses
 	HasLiveObservability bool                 `json:"hasLiveObservability"` // Whether the workflow run has live observability (logs/events from workflow plane)
+	Conditions           []metav1.Condition   `json:"conditions,omitempty"` // Kubernetes-style conditions detailing the run state
 }
 
 // WorkflowStepStatus represents the status of an individual workflow step

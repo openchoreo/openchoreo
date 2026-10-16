@@ -4366,6 +4366,9 @@ type WorkflowRunStatus struct {
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details
 type WorkflowRunStatusResponse struct {
+	// Conditions Kubernetes-style conditions
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
 	// HasLiveObservability Whether live logs/events are available from the workflow plane
 	HasLiveObservability bool `json:"hasLiveObservability"`
 
