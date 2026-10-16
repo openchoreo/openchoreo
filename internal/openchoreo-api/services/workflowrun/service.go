@@ -97,6 +97,13 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 		}
 	}
 
+	if err := services.ValidateReleaseLineOwner(ctx, s.k8sClient, namespaceName,
+		wfRun.Labels[ocLabels.LabelKeyProjectName],
+		wfRun.Labels[ocLabels.LabelKeyComponentName],
+		wfRun.Labels[ocLabels.LabelKeyReleaseLine]); err != nil {
+		return nil, err
+	}
+
 	// Ensure namespace is set
 	wfRun.Namespace = namespaceName
 	wfRun.Status = openchoreov1alpha1.WorkflowRunStatus{}
