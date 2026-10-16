@@ -876,6 +876,7 @@ func TestAddEndpointsFromDescriptorSchemaTypeDerivation(t *testing.T) {
 		{name: "HTTP maps to openapi", endpointType: "HTTP", wantSchema: "openapi"},
 		{name: "gRPC maps to proto", endpointType: "gRPC", wantSchema: "proto"},
 		{name: "GraphQL maps to graphql", endpointType: "GraphQL", wantSchema: "graphql"},
+		{name: "Websocket maps to asyncapi", endpointType: "Websocket", wantSchema: "asyncapi"},
 		{name: "TCP has no schema format", endpointType: "TCP", wantSchema: ""},
 	}
 	for _, tt := range tests {
