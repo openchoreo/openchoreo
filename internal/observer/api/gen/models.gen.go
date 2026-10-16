@@ -61,6 +61,7 @@ const (
 	ResourceName        AuditLogFilterValuesRequestFilter = "resource.name"
 	ResourceNamespace   AuditLogFilterValuesRequestFilter = "resource.namespace"
 	ResourceProject     AuditLogFilterValuesRequestFilter = "resource.project"
+	ResourceReleaseLine AuditLogFilterValuesRequestFilter = "resource.release_line"
 	ResourceResource    AuditLogFilterValuesRequestFilter = "resource.resource"
 	ResourceType        AuditLogFilterValuesRequestFilter = "resource.type"
 	Result              AuditLogFilterValuesRequestFilter = "result"
@@ -677,6 +678,9 @@ type AuditLogResource struct {
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
 
+	// ReleaseLine The component's release line. Absent for components without release lines.
+	ReleaseLine *string `json:"release_line,omitempty"`
+
 	// Resource The Resource level of the hierarchy, a sibling of `component`.
 	Resource *string `json:"resource,omitempty"`
 	Type     *string `json:"type,omitempty"`
@@ -960,6 +964,9 @@ type AuditLogsResourceFilter struct {
 
 	// Project Projects.
 	Project *[]string `json:"project,omitempty"`
+
+	// ReleaseLine Release lines.
+	ReleaseLine *[]string `json:"release_line,omitempty"`
 
 	// Resource Resources, the hierarchy level that is a sibling of `component`.
 	Resource *[]string `json:"resource,omitempty"`

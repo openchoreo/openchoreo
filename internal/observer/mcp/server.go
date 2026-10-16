@@ -606,10 +606,11 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"resource_environment": arrayProperty(
 				"Environments in '{namespace}/{name}' form (e.g. ['default/development']). " +
 					"A bare environment name will not match"),
-			"resource_project":   arrayProperty("Projects"),
-			"resource_component": arrayProperty("Components"),
-			"resource_resource":  arrayProperty("Resources, the hierarchy level that is a sibling of component"),
-			"resource_name":      arrayProperty("Resource names"),
+			"resource_project":      arrayProperty("Projects"),
+			"resource_component":    arrayProperty("Components"),
+			"resource_release_line": arrayProperty("Release lines of the component"),
+			"resource_resource":     arrayProperty("Resources, the hierarchy level that is a sibling of component"),
+			"resource_name":         arrayProperty("Resource names"),
 			"returned_item_name": arrayProperty(
 				"Names of objects a read returned (e.g. ['db-creds']), whether they came from a get or a list. " +
 					"Answers who read a given secret"),

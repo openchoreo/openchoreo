@@ -1325,6 +1325,7 @@ components:
             - resource.environment
             - resource.project
             - resource.component
+            - resource.release_line
             - resource.resource
             - resource.name
             - action
@@ -1480,6 +1481,12 @@ components:
           items:
             type: string
         component:
+          type: array
+          uniqueItems: true
+          maxItems: 20
+          items:
+            type: string
+        release_line:
           type: array
           uniqueItems: true
           maxItems: 20
@@ -1711,6 +1718,9 @@ components:
           type: string
         component:
           type: string
+        release_line:
+          type: string
+          description: The component's release line. Absent for components without release lines
         resource:
           type: string
         uid:
