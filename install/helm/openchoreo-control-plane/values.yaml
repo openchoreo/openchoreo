@@ -1234,6 +1234,12 @@ openchoreoApi:
         # @schema
         bootstrap:
           # @schema
+          # type: boolean
+          # description: Enable authorization bootstrap hooks during installation and upgrades.
+          # default: true
+          # @schema
+          enabled: true
+          # @schema
           # type: string
           # description: Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.
           # default: registry.k8s.io/kubectl:v1.36.0
