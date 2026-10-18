@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterendpointtype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterresourcetype"
@@ -42,6 +43,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointtype"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
@@ -215,6 +219,12 @@ func setupControlPlaneControllers(
 			CELCostLimit:  celCostLimit,
 			RenderTimeout: renderTimeout,
 		},
+		// Endpoint family — templates (cluster-scoped before namespaced),
+		// then instance and immutable release snapshot.
+		&clusterendpointtype.Reconciler{Client: c, Scheme: s},
+		&endpointtype.Reconciler{Client: c, Scheme: s},
+		&endpoint.Reconciler{Client: c, Scheme: s},
+		&endpointrelease.Reconciler{Client: c, Scheme: s},
 		&releasebinding.Reconciler{
 			Client:                  c,
 			Scheme:                  s,

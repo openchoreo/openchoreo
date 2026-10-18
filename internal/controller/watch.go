@@ -59,6 +59,12 @@ const (
 	// IndexKeyProjectReleaseOwner indexes ProjectRelease by owner project name
 	// so the Project controller can list and delete all releases of a project.
 	IndexKeyProjectReleaseOwner = "projectrelease.spec.owner.projectName"
+
+	// IndexKeyEndpointReleaseOwnerEndpointName indexes EndpointRelease by owner endpoint name.
+	IndexKeyEndpointReleaseOwnerEndpointName = "endpointrelease.spec.owner.endpointName"
+
+	// IndexKeyEndpointReleaseBindingOwnerEndpointName indexes EndpointReleaseBinding by owner endpoint name.
+	IndexKeyEndpointReleaseBindingOwnerEndpointName = "endpointreleasebinding.spec.owner.endpointName"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
@@ -211,7 +217,39 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup ProjectRelease owner index: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.EndpointRelease{},
+		IndexKeyEndpointReleaseOwnerEndpointName, IndexEndpointReleaseOwner); err != nil {
+		return fmt.Errorf("failed to setup EndpointRelease owner index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.EndpointReleaseBinding{},
+		IndexKeyEndpointReleaseBindingOwnerEndpointName, IndexEndpointReleaseBindingOwner); err != nil {
+		return fmt.Errorf("failed to setup EndpointReleaseBinding owner index: %w", err)
+	}
+
 	return nil
+}
+
+// IndexEndpointReleaseOwner extracts the owner endpoint name from an
+// EndpointRelease. Exported for fake-client tests so they can register the
+// same indexer the production setup uses.
+func IndexEndpointReleaseOwner(obj client.Object) []string {
+	er := obj.(*openchoreov1alpha1.EndpointRelease)
+	if er.Spec.Owner.EndpointName == "" {
+		return nil
+	}
+	return []string{er.Spec.Owner.EndpointName}
+}
+
+// IndexEndpointReleaseBindingOwner extracts the owner endpoint name from an
+// EndpointReleaseBinding. Exported for fake-client tests so they can register
+// the same indexer the production setup uses.
+func IndexEndpointReleaseBindingOwner(obj client.Object) []string {
+	erb := obj.(*openchoreov1alpha1.EndpointReleaseBinding)
+	if erb.Spec.Owner.EndpointName == "" {
+		return nil
+	}
+	return []string{erb.Spec.Owner.EndpointName}
 }
 
 // IndexResourceReleaseOwner extracts the owner resource name from a
