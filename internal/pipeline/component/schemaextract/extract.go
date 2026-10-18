@@ -52,10 +52,10 @@ const (
 )
 
 // inferenceByEndpointType maps an endpoint protocol to its default schema format.
-var inferenceByEndpointType = map[v1alpha1.EndpointType]SchemaType{
-	v1alpha1.EndpointTypeHTTP:    SchemaTypeOpenAPI,
-	v1alpha1.EndpointTypeGRPC:    SchemaTypeProto,
-	v1alpha1.EndpointTypeGraphQL: SchemaTypeGraphQL,
+var inferenceByEndpointType = map[v1alpha1.EndpointProtocol]SchemaType{
+	v1alpha1.EndpointProtocolHTTP:    SchemaTypeOpenAPI,
+	v1alpha1.EndpointProtocolGRPC:    SchemaTypeProto,
+	v1alpha1.EndpointProtocolGraphQL: SchemaTypeGraphQL,
 }
 
 // registry maps a canonical schema type to its extractor.
@@ -72,7 +72,7 @@ var registry = map[SchemaType]Extractor{
 // The schema is parsed on each call. The pipeline only invokes this once per
 // render (and only when a template opts into the workload.toEndpointResources()
 // macro), so no result memoization is kept here.
-func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointResource, error) {
+func Extract(epType v1alpha1.EndpointProtocol, schema *v1alpha1.Schema) ([]EndpointResource, error) {
 	if schema == nil || strings.TrimSpace(schema.Content) == "" {
 		return empty(), nil
 	}

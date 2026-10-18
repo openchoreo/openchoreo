@@ -172,7 +172,7 @@ func makeTLSRouteJSON(opts tlsRouteOpts) []byte {
 type endpointEntry struct {
 	name   string
 	port   int32
-	epType openchoreov1alpha1.EndpointType
+	epType openchoreov1alpha1.EndpointProtocol
 }
 
 func makeEndpoints(entries ...endpointEntry) map[string]openchoreov1alpha1.WorkloadEndpoint {
@@ -180,7 +180,7 @@ func makeEndpoints(entries ...endpointEntry) map[string]openchoreov1alpha1.Workl
 	for _, e := range entries {
 		epType := e.epType
 		if epType == "" {
-			epType = openchoreov1alpha1.EndpointTypeHTTP
+			epType = openchoreov1alpha1.EndpointProtocolHTTP
 		}
 		m[e.name] = openchoreov1alpha1.WorkloadEndpoint{
 			Port: e.port,
@@ -320,7 +320,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "tcp-endpoint",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeTCP,
+				epType: openchoreov1alpha1.EndpointProtocolTCP,
 			})
 			result := resolveEndpointURLStatuses(
 				ctx,
@@ -725,7 +725,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -760,7 +760,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "ws-svc",
 				port:   8080,
-				epType: openchoreov1alpha1.EndpointTypeWebsocket,
+				epType: openchoreov1alpha1.EndpointProtocolWebsocket,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -793,7 +793,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -826,7 +826,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -885,7 +885,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -919,7 +919,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "tcp-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeTCP,
+				epType: openchoreov1alpha1.EndpointProtocolTCP,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -980,7 +980,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-svc",
 				port:   9000,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 
 			result := resolveEndpointURLStatuses(
@@ -1332,7 +1332,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			endpoints := map[string]openchoreov1alpha1.WorkloadEndpoint{
 				"greeter": {
 					Port:     8080,
-					Type:     openchoreov1alpha1.EndpointTypeHTTP,
+					Type:     openchoreov1alpha1.EndpointProtocolHTTP,
 					BasePath: "/api/v1",
 				},
 			}
@@ -1394,7 +1394,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "grpc-ep",
 				port:   9090,
-				epType: openchoreov1alpha1.EndpointTypeGRPC,
+				epType: openchoreov1alpha1.EndpointProtocolGRPC,
 			})
 			result := resolveServiceURLs(
 				ctx,
@@ -1414,7 +1414,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "db",
 				port:   5432,
-				epType: openchoreov1alpha1.EndpointTypeTCP,
+				epType: openchoreov1alpha1.EndpointProtocolTCP,
 			})
 			result := resolveServiceURLs(
 				ctx,
@@ -1425,7 +1425,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("db"))
 			Expect(result[0].ServiceURL.Scheme).To(Equal("tcp"))
-			Expect(result[0].Type).To(Equal(openchoreov1alpha1.EndpointTypeTCP))
+			Expect(result[0].Type).To(Equal(openchoreov1alpha1.EndpointProtocolTCP))
 		})
 	})
 
@@ -1435,7 +1435,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			endpoints := makeEndpoints(endpointEntry{
 				name:   "dns",
 				port:   5353,
-				epType: openchoreov1alpha1.EndpointTypeUDP,
+				epType: openchoreov1alpha1.EndpointProtocolUDP,
 			})
 			result := resolveServiceURLs(
 				ctx,
@@ -1508,8 +1508,8 @@ var _ = Describe("resolveServiceURLs", func() {
 		It("should update existing and append new entries in sorted order", func() {
 			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080, 5432})
 			endpoints := map[string]openchoreov1alpha1.WorkloadEndpoint{
-				"greeter": {Port: 8080, Type: openchoreov1alpha1.EndpointTypeHTTP},
-				"db":      {Port: 5432, Type: openchoreov1alpha1.EndpointTypeTCP},
+				"greeter": {Port: 8080, Type: openchoreov1alpha1.EndpointProtocolHTTP},
+				"db":      {Port: 5432, Type: openchoreov1alpha1.EndpointProtocolTCP},
 			}
 			existing := []openchoreov1alpha1.EndpointURLStatus{
 				{Name: "greeter"},
@@ -1532,14 +1532,14 @@ var _ = Describe("resolveServiceURLs", func() {
 
 var _ = Describe("schemeForEndpointType", func() {
 	DescribeTable("should return correct scheme",
-		func(epType openchoreov1alpha1.EndpointType, expected string) {
+		func(epType openchoreov1alpha1.EndpointProtocol, expected string) {
 			Expect(schemeForEndpointType(epType)).To(Equal(expected))
 		},
-		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, schemeHTTP),
-		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, schemeHTTP),
-		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, schemeWS),
-		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, schemeGRPC),
-		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, schemeTCP),
-		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, schemeUDP),
+		Entry("HTTP", openchoreov1alpha1.EndpointProtocolHTTP, schemeHTTP),
+		Entry("GraphQL", openchoreov1alpha1.EndpointProtocolGraphQL, schemeHTTP),
+		Entry("Websocket", openchoreov1alpha1.EndpointProtocolWebsocket, schemeWS),
+		Entry("gRPC", openchoreov1alpha1.EndpointProtocolGRPC, schemeGRPC),
+		Entry("TCP", openchoreov1alpha1.EndpointProtocolTCP, schemeTCP),
+		Entry("UDP", openchoreov1alpha1.EndpointProtocolUDP, schemeUDP),
 	)
 })

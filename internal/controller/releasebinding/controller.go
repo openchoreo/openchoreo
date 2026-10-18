@@ -53,22 +53,22 @@ const (
 // is exposed by at most one route kind per visibility — the TLS trait swaps an
 // HTTPRoute/GRPCRoute for a TLSRoute when application-level TLS termination is
 // required.
-var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
+var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointProtocol]bool{
 	httpRouteKind: {
-		openchoreov1alpha1.EndpointTypeHTTP:      true,
-		openchoreov1alpha1.EndpointTypeGraphQL:   true,
-		openchoreov1alpha1.EndpointTypeWebsocket: true,
-		openchoreov1alpha1.EndpointTypeGRPC:      true,
+		openchoreov1alpha1.EndpointProtocolHTTP:      true,
+		openchoreov1alpha1.EndpointProtocolGraphQL:   true,
+		openchoreov1alpha1.EndpointProtocolWebsocket: true,
+		openchoreov1alpha1.EndpointProtocolGRPC:      true,
 	},
 	grpcRouteKind: {
-		openchoreov1alpha1.EndpointTypeGRPC: true,
+		openchoreov1alpha1.EndpointProtocolGRPC: true,
 	},
 	tlsRouteKind: {
-		openchoreov1alpha1.EndpointTypeHTTP:      true,
-		openchoreov1alpha1.EndpointTypeGraphQL:   true,
-		openchoreov1alpha1.EndpointTypeWebsocket: true,
-		openchoreov1alpha1.EndpointTypeGRPC:      true,
-		openchoreov1alpha1.EndpointTypeTCP:       true,
+		openchoreov1alpha1.EndpointProtocolHTTP:      true,
+		openchoreov1alpha1.EndpointProtocolGraphQL:   true,
+		openchoreov1alpha1.EndpointProtocolWebsocket: true,
+		openchoreov1alpha1.EndpointProtocolGRPC:      true,
+		openchoreov1alpha1.EndpointProtocolTCP:       true,
 	},
 }
 
@@ -1357,7 +1357,7 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 
 // endpointMeta holds the type and visibility configuration of a workload endpoint.
 type endpointMeta struct {
-	endpointType openchoreov1alpha1.EndpointType
+	endpointType openchoreov1alpha1.EndpointProtocol
 	visibility   []openchoreov1alpha1.EndpointVisibility
 }
 
@@ -1535,7 +1535,7 @@ func resolveEndpointURLStatuses(
 }
 
 // isRoutableEndpointType reports whether any route kind can expose this endpoint type.
-func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
+func isRoutableEndpointType(t openchoreov1alpha1.EndpointProtocol) bool {
 	for _, compat := range routeKindCompat {
 		if compat[t] {
 			return true
@@ -1570,7 +1570,7 @@ func routePath(r *indexedRoute) string {
 // field name reflects the gateway listener, not the scheme.
 func buildRouteURLs(
 	routeKind string,
-	epType openchoreov1alpha1.EndpointType,
+	epType openchoreov1alpha1.EndpointProtocol,
 	hostname, path string,
 	ep *openchoreov1alpha1.GatewayEndpointSpec,
 ) *openchoreov1alpha1.EndpointGatewayURLs {
@@ -1602,24 +1602,24 @@ func buildRouteURLs(
 // the TLS form (over the https or tls listener). Returns "" for endpoint types
 // that don't have a meaningful URL scheme for the requested TLS variant
 // (e.g. TCP without TLS).
-func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
+func schemeFor(t openchoreov1alpha1.EndpointProtocol, tls bool) string {
 	switch t {
-	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
+	case openchoreov1alpha1.EndpointProtocolHTTP, openchoreov1alpha1.EndpointProtocolGraphQL:
 		if tls {
 			return schemeHTTPS
 		}
 		return schemeHTTP
-	case openchoreov1alpha1.EndpointTypeWebsocket:
+	case openchoreov1alpha1.EndpointProtocolWebsocket:
 		if tls {
 			return schemeWSS
 		}
 		return schemeWS
-	case openchoreov1alpha1.EndpointTypeGRPC:
+	case openchoreov1alpha1.EndpointProtocolGRPC:
 		if tls {
 			return schemeGRPCS
 		}
 		return schemeGRPC
-	case openchoreov1alpha1.EndpointTypeTCP:
+	case openchoreov1alpha1.EndpointProtocolTCP:
 		if tls {
 			return schemeTLS
 		}

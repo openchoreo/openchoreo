@@ -335,7 +335,7 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 			DisplayName: descriptorEndpoint.DisplayName,
 			Port:        descriptorEndpoint.Port,
 			TargetPort:  descriptorEndpoint.TargetPort,
-			Type:        openchoreov1alpha1.EndpointType(descriptorEndpoint.Type),
+			Type:        openchoreov1alpha1.EndpointProtocol(descriptorEndpoint.Type),
 			BasePath:    descriptorEndpoint.BasePath,
 			Visibility:  visibility,
 		}
@@ -355,7 +355,7 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 			}
 
 			endpoint.Schema = &openchoreov1alpha1.Schema{
-				Type:    schemaFormatByEndpointType[openchoreov1alpha1.EndpointType(descriptorEndpoint.Type)],
+				Type:    schemaFormatByEndpointType[openchoreov1alpha1.EndpointProtocol(descriptorEndpoint.Type)],
 				Content: schemaContent,
 			}
 		}
@@ -370,10 +370,10 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 // types recognized by internal/pipeline/component/schemaextract. Endpoint types
 // with no API schema format (TCP, UDP, Websocket) are intentionally absent, so a
 // map lookup yields "" and no schema type is emitted for them.
-var schemaFormatByEndpointType = map[openchoreov1alpha1.EndpointType]string{
-	openchoreov1alpha1.EndpointTypeHTTP:    "openapi",
-	openchoreov1alpha1.EndpointTypeGRPC:    "proto",
-	openchoreov1alpha1.EndpointTypeGraphQL: "graphql",
+var schemaFormatByEndpointType = map[openchoreov1alpha1.EndpointProtocol]string{
+	openchoreov1alpha1.EndpointProtocolHTTP:    "openapi",
+	openchoreov1alpha1.EndpointProtocolGRPC:    "proto",
+	openchoreov1alpha1.EndpointProtocolGraphQL: "graphql",
 }
 
 // validEndpointVisibilities is the set of allowed visibility values for endpoints.

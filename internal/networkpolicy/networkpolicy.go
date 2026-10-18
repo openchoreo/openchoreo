@@ -102,7 +102,7 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 	entries := make([]epEntry, 0, len(params.Endpoints))
 	for name, ep := range params.Endpoints {
 		protocol := "TCP"
-		if ep.Type == openchoreov1alpha1.EndpointTypeUDP {
+		if ep.Type == openchoreov1alpha1.EndpointProtocolUDP {
 			protocol = "UDP"
 		}
 		entries = append(entries, epEntry{
@@ -208,7 +208,7 @@ func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any 
 	entries := make([]ciliumPortEntry, 0, len(params.Endpoints))
 	for _, ep := range params.Endpoints {
 		proto := "TCP"
-		if ep.Type == openchoreov1alpha1.EndpointTypeUDP {
+		if ep.Type == openchoreov1alpha1.EndpointProtocolUDP {
 			proto = "UDP"
 		}
 		entries = append(entries, ciliumPortEntry{
@@ -350,12 +350,12 @@ func ciliumToPorts(entries []ciliumPortEntry) []any {
 }
 
 // isL7Proxied reports whether the endpoint type is proxied through Envoy for L7 inspection.
-func isL7Proxied(t openchoreov1alpha1.EndpointType) bool {
+func isL7Proxied(t openchoreov1alpha1.EndpointProtocol) bool {
 	switch t {
-	case openchoreov1alpha1.EndpointTypeHTTP,
-		openchoreov1alpha1.EndpointTypeGraphQL,
-		openchoreov1alpha1.EndpointTypeWebsocket,
-		openchoreov1alpha1.EndpointTypeGRPC:
+	case openchoreov1alpha1.EndpointProtocolHTTP,
+		openchoreov1alpha1.EndpointProtocolGraphQL,
+		openchoreov1alpha1.EndpointProtocolWebsocket,
+		openchoreov1alpha1.EndpointProtocolGRPC:
 		return true
 	}
 	return false
