@@ -1,0 +1,29 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Endpoint
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: endpoint-sample
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterEndpointType
+    name: clusterendpointtype-sample
+  visibility:
+    - external
+  backendRefs:
+    - name: stable
+      component:
+        name: greeter
+        endpoint: http
+      weight: 90
+    - name: canary
+      component:
+        name: greeter-v2
+        endpoint: http
+      weight: 10
+  parameters:
+    pathPrefix: /greeter

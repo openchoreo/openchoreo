@@ -334,4 +334,43 @@ resources:
   kind: ProjectReleaseBinding
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openchoreo.dev
+  kind: EndpointType
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: openchoreo.dev
+  kind: ClusterEndpointType
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openchoreo.dev
+  kind: Endpoint
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openchoreo.dev
+  kind: EndpointRelease
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openchoreo.dev
+  kind: EndpointReleaseBinding
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 version: "3"

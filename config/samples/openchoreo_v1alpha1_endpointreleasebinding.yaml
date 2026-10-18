@@ -1,0 +1,14 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: EndpointReleaseBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: endpoint-sample-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    endpointName: endpoint-sample
+  endpointRelease: endpoint-sample-abc123
+  environment: development

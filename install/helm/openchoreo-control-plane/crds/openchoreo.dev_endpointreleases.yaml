@@ -1,0 +1,345 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: endpointreleases.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: EndpointRelease
+    listKind: EndpointReleaseList
+    plural: endpointreleases
+    shortNames:
+    - epr
+    - eprs
+    singular: endpointrelease
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.endpointName
+      name: Endpoint
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          EndpointRelease is the Schema for the endpointreleases API. An immutable
+          snapshot of an Endpoint and its referenced (Cluster)EndpointType at a point
+          in time. Created by the Endpoint controller when the hash of Endpoint.spec +
+          (Cluster)EndpointType.spec changes.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              EndpointReleaseSpec defines the desired state of EndpointRelease.
+              An EndpointRelease is an immutable snapshot of Endpoint.spec and the
+              referenced EndpointType (or ClusterEndpointType) spec at the time it was cut.
+              Created exclusively by the Endpoint controller.
+            properties:
+              backendRefs:
+                description: |-
+                  BackendRefs holds the snapshot of backend references and weights from the
+                  Endpoint spec at release time.
+                items:
+                  description: |-
+                    EndpointBackendRef is one traffic backend of an Endpoint. It is a
+                    discriminated union on kind; exactly the payload matching kind must be set.
+                  properties:
+                    component:
+                      description: |-
+                        Component references a workload endpoint of a Component in the Endpoint's
+                        project. Required when kind is Component.
+                      properties:
+                        endpoint:
+                          description: |-
+                            Endpoint is the name of the endpoint in the component's
+                            Workload.spec.endpoints to route to. Determines the backend port and protocol.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the Component that serves this backend, in the
+                            Endpoint's project.
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - endpoint
+                      - name
+                      type: object
+                    kind:
+                      default: Component
+                      description: Kind is the kind of backend this entry references.
+                      enum:
+                      - Component
+                      type: string
+                    name:
+                      description: |-
+                        Name identifies this backend within the Endpoint. It is the list's map key,
+                        the handle status reports resolution against, and what a template uses to
+                        single out one backend.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    weight:
+                      default: 1
+                      description: |-
+                        Weight is the proportion of traffic sent to this backend relative to the
+                        sum of all backend weights. Follows Gateway API backendRef weight semantics:
+                        0 sends no traffic to this backend.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: component must be set when kind is Component
+                    rule: self.kind != 'Component' || has(self.component)
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              endpointType:
+                description: |-
+                  EndpointType is a frozen snapshot of the EndpointType or ClusterEndpointType
+                  resource at the time of the release. Records the kind and name of the
+                  original resource alongside its full spec so consumers can distinguish
+                  namespace-scoped EndpointTypes from cluster-scoped ClusterEndpointTypes.
+                properties:
+                  kind:
+                    description: |-
+                      Kind identifies whether this is a namespace-scoped EndpointType or a
+                      cluster-scoped ClusterEndpointType.
+                    enum:
+                    - EndpointType
+                    - ClusterEndpointType
+                    type: string
+                  name:
+                    description: Name is the name of the EndpointType or ClusterEndpointType
+                      resource.
+                    minLength: 1
+                    type: string
+                  spec:
+                    description: |-
+                      Spec is the frozen specification of the (Cluster)EndpointType at the time
+                      of this EndpointRelease. ClusterEndpointTypeSpec currently mirrors
+                      EndpointTypeSpec so both kinds are stored under the namespaced type. If
+                      ClusterEndpointTypeSpec gains cluster-only fields, snapshots from a
+                      ClusterEndpointType source will lose them; revisit this field then. Mirrors
+                      the ResourceReleaseResourceType precedent.
+                    properties:
+                      environmentConfigs:
+                        description: |-
+                          EnvironmentConfigs defines the per-env schema.
+                          Validates EndpointReleaseBinding.spec.endpointTypeEnvironmentConfigs.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      parameters:
+                        description: |-
+                          Parameters is the schema for Endpoint.spec.parameters values supplied by
+                          Endpoint authors (e.g. hostnames, path prefixes). Validated against this
+                          schema.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      resources:
+                        description: |-
+                          Resources are the routing manifests (e.g. HTTPRoute, Ingress, OpenShift
+                          Route) the EndpointType emits on the data plane for each
+                          EndpointReleaseBinding. Uses the same templating engine as ComponentType.
+                          At render time the CEL context exposes metadata.*, parameters.*,
+                          environmentConfigs.*, dataplane.*, environment.* (aliased gateway.*),
+                          and backends[] resolved for the binding's environment.
+                        items:
+                          description: ResourceTemplate defines a template for generating
+                            Kubernetes resources
+                          properties:
+                            forEach:
+                              description: |-
+                                ForEach enables generating multiple resources from a list using CEL expression
+                                Example: "${spec.configurations}" to iterate over a list
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                            id:
+                              description: |-
+                                ID uniquely identifies this resource within the component type
+                                For the primary workload resource, this must match the workloadType
+                              minLength: 1
+                              type: string
+                            includeWhen:
+                              description: |-
+                                IncludeWhen is a CEL expression that determines if this resource should be created
+                                If not specified, the resource is always created
+                                Example: "${spec.autoscaling.enabled}"
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                            targetPlane:
+                              default: dataplane
+                              description: |-
+                                TargetPlane specifies which plane this resource should be deployed to
+                                Defaults to "dataplane" if not specified
+                              enum:
+                              - dataplane
+                              - observabilityplane
+                              type: string
+                            template:
+                              description: |-
+                                Template contains the Kubernetes resource with CEL expressions
+                                CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            var:
+                              description: |-
+                                Var is the loop variable name when using forEach
+                                Example: "config" will make each item available as ${config} in templates
+                              pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                              type: string
+                          required:
+                          - id
+                          - template
+                          type: object
+                          x-kubernetes-validations:
+                          - message: var is required when forEach is specified
+                            rule: '!has(self.forEach) || has(self.var)'
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - id
+                        x-kubernetes-list-type: map
+                      validations:
+                        description: |-
+                          Validations are CEL-based rules evaluated before rendering. All rules must
+                          evaluate to true for rendering to proceed.
+                        items:
+                          description: ValidationRule defines a CEL-based validation
+                            rule evaluated during rendering.
+                          properties:
+                            message:
+                              description: Message is the error message shown when
+                                the rule evaluates to false.
+                              minLength: 1
+                              type: string
+                            rule:
+                              description: |-
+                                Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                                Uses the same syntax as includeWhen and where fields.
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                          required:
+                          - message
+                          - rule
+                          type: object
+                        type: array
+                    required:
+                    - resources
+                    type: object
+                required:
+                - kind
+                - name
+                - spec
+                type: object
+              owner:
+                description: Owner identifies the endpoint and project this EndpointRelease
+                  belongs to.
+                properties:
+                  endpointName:
+                    description: EndpointName is the name of the Endpoint.
+                    minLength: 1
+                    type: string
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      this endpoint.
+                    minLength: 1
+                    type: string
+                required:
+                - endpointName
+                - projectName
+                type: object
+              parameters:
+                description: |-
+                  Parameters holds the snapshot of parameter values from the Endpoint spec at
+                  release time. The schema for these values is defined by the EndpointType's
+                  parameters schema.
+                x-kubernetes-preserve-unknown-fields: true
+              schema:
+                description: |-
+                  Schema holds the snapshot of the explicit schema override from the
+                  Endpoint spec at release time. Unset when the Endpoint resolves its schema
+                  from the backend.
+                properties:
+                  content:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              visibility:
+                description: |-
+                  Visibility holds the snapshot of the visibilities requested by the
+                  Endpoint at release time.
+                items:
+                  description: |-
+                    EndpointVisibility defines the visibility scope for an endpoint.
+                    It determines which components can access the endpoint and how that access is enforced at runtime.
+                  enum:
+                  - project
+                  - namespace
+                  - internal
+                  - external
+                  type: string
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
+            required:
+            - backendRefs
+            - endpointType
+            - owner
+            - visibility
+            type: object
+            x-kubernetes-validations:
+            - message: EndpointRelease spec is immutable
+              rule: self == oldSelf
+          status:
+            description: EndpointReleaseStatus defines the observed state of EndpointRelease.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

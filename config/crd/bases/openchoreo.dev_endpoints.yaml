@@ -1,0 +1,313 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: endpoints.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: Endpoint
+    listKind: EndpointList
+    plural: endpoints
+    singular: endpoint
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.type.name
+      name: Type
+      type: string
+    - jsonPath: .status.latestRelease.name
+      name: Release
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Endpoint is the Schema for the endpoints API.
+          An Endpoint routes traffic across one or more backends using weights,
+          rendered through an EndpointType or ClusterEndpointType. It is concerned with
+          traffic routing only; the compute side (ports, network policies) stays on
+          Workload.spec.endpoints.
+          The plural "endpoints" and the short name "ep" are taken by core v1 Endpoints
+          in kubectl, so this kind has no short name; use "endpoints.openchoreo.dev".
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EndpointSpec defines the desired state of Endpoint.
+            properties:
+              backendRefs:
+                description: |-
+                  BackendRefs lists the backends this Endpoint routes traffic to, with
+                  relative weights. Like a Service selecting Pods, the Endpoint does not own
+                  the referenced components.
+                items:
+                  description: |-
+                    EndpointBackendRef is one traffic backend of an Endpoint. It is a
+                    discriminated union on kind; exactly the payload matching kind must be set.
+                  properties:
+                    component:
+                      description: |-
+                        Component references a workload endpoint of a Component in the Endpoint's
+                        project. Required when kind is Component.
+                      properties:
+                        endpoint:
+                          description: |-
+                            Endpoint is the name of the endpoint in the component's
+                            Workload.spec.endpoints to route to. Determines the backend port and protocol.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the Component that serves this backend, in the
+                            Endpoint's project.
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - endpoint
+                      - name
+                      type: object
+                    kind:
+                      default: Component
+                      description: Kind is the kind of backend this entry references.
+                      enum:
+                      - Component
+                      type: string
+                    name:
+                      description: |-
+                        Name identifies this backend within the Endpoint. It is the list's map key,
+                        the handle status reports resolution against, and what a template uses to
+                        single out one backend.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    weight:
+                      default: 1
+                      description: |-
+                        Weight is the proportion of traffic sent to this backend relative to the
+                        sum of all backend weights. Follows Gateway API backendRef weight semantics:
+                        0 sends no traffic to this backend.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: component must be set when kind is Component
+                    rule: self.kind != 'Component' || has(self.component)
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              owner:
+                description: Owner identifies the Project this Endpoint belongs to.
+                properties:
+                  projectName:
+                    description: ProjectName is the name of the Project this Endpoint
+                      belongs to.
+                    minLength: 1
+                    type: string
+                required:
+                - projectName
+                type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
+              parameters:
+                description: |-
+                  Parameters contains values for the parameter schema declared on the referenced
+                  EndpointType (or ClusterEndpointType). Validated against the schema by the
+                  Endpoint controller; failures surface via status.conditions.
+                x-kubernetes-preserve-unknown-fields: true
+              schema:
+                description: |-
+                  Schema is the API definition this Endpoint exposes. When unset it resolves
+                  from the backend's Workload endpoint schema at render time rather than
+                  being copied here, so a new build cannot leave the Endpoint holding a stale
+                  contract. Set it explicitly when backends disagree or the exposed surface
+                  differs from the backend's.
+                properties:
+                  content:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type:
+                description: |-
+                  Type references the EndpointType or ClusterEndpointType template for this Endpoint.
+                  Kind defaults to EndpointType (namespaced); ClusterEndpointType is also allowed.
+                properties:
+                  kind:
+                    default: EndpointType
+                    description: Kind is the kind of endpoint type (EndpointType or
+                      ClusterEndpointType).
+                    enum:
+                    - EndpointType
+                    - ClusterEndpointType
+                    type: string
+                  name:
+                    description: |-
+                      Name is the name of the EndpointType or ClusterEndpointType to reference.
+                      Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: spec.type cannot be changed after creation
+                  rule: self == oldSelf
+              visibility:
+                description: |-
+                  Visibility lists the scopes this Endpoint exposes its backends to. It is
+                  declared rather than inferred from rendered routes, so an EndpointType can
+                  render one route per requested visibility and the set of route slots this
+                  Endpoint occupies is known before anything is rendered. The project scope
+                  is implicit for every workload endpoint and is not a route an Endpoint
+                  renders, so it is not accepted here.
+                items:
+                  description: |-
+                    EndpointVisibility defines the visibility scope for an endpoint.
+                    It determines which components can access the endpoint and how that access is enforced at runtime.
+                  enum:
+                  - project
+                  - namespace
+                  - internal
+                  - external
+                  type: string
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
+                x-kubernetes-validations:
+                - message: project visibility is implicit for every workload endpoint
+                    and cannot be requested on an Endpoint
+                  rule: self.all(v, v != 'project')
+            required:
+            - backendRefs
+            - owner
+            - type
+            - visibility
+            type: object
+          status:
+            description: EndpointStatus defines the observed state of Endpoint.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the Endpoint's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              latestRelease:
+                description: LatestRelease is the most recent EndpointRelease for
+                  this Endpoint.
+                properties:
+                  hash:
+                    description: |-
+                      Hash is the content hash of Endpoint.spec + EndpointType/ClusterEndpointType.spec
+                      captured at release time.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the EndpointRelease resource.
+                    minLength: 1
+                    type: string
+                required:
+                - hash
+                - name
+                type: object
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  by the controller.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

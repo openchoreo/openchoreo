@@ -1,0 +1,261 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: endpointreleasebindings.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: EndpointReleaseBinding
+    listKind: EndpointReleaseBindingList
+    plural: endpointreleasebindings
+    shortNames:
+    - eprb
+    - eprbs
+    singular: endpointreleasebinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.endpointName
+      name: Endpoint
+      type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      type: string
+    - jsonPath: .spec.endpointRelease
+      name: Release
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          EndpointReleaseBinding is the Schema for the endpointreleasebindings API.
+          Pins an EndpointRelease to an Environment, resolves its backends to the
+          environment's component services, and renders the EndpointType's routing
+          resources. Authored externally; not managed by the Endpoint controller.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              EndpointReleaseBindingSpec defines the desired state of EndpointReleaseBinding.
+              Pins an EndpointRelease to an Environment and carries per-env overrides.
+              The Endpoint controller never creates or modifies EndpointReleaseBindings;
+              they are authored externally (kubectl, GitOps, API server).
+            properties:
+              endpointRelease:
+                description: |-
+                  EndpointRelease is the name of the EndpointRelease pinned by this binding.
+                  Unset before the first EndpointRelease is cut; the controller leaves the
+                  binding pending until set.
+                type: string
+              endpointTypeEnvironmentConfigs:
+                description: |-
+                  EndpointTypeEnvironmentConfigs provides per-environment values for the schema
+                  declared on the referenced EndpointType (or ClusterEndpointType). Validated
+                  against EndpointType.spec.environmentConfigs by the binding controller;
+                  failures surface via status.conditions.
+                x-kubernetes-preserve-unknown-fields: true
+              environment:
+                description: Environment is the name of the Environment this binding
+                  targets.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: spec.environment is immutable
+                  rule: self == oldSelf
+              owner:
+                description: Owner identifies the endpoint and project this EndpointReleaseBinding
+                  belongs to.
+                properties:
+                  endpointName:
+                    description: EndpointName is the name of the Endpoint.
+                    minLength: 1
+                    type: string
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      this endpoint.
+                    minLength: 1
+                    type: string
+                required:
+                - endpointName
+                - projectName
+                type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
+            required:
+            - environment
+            - owner
+            type: object
+          status:
+            description: EndpointReleaseBindingStatus defines the observed state of
+              EndpointReleaseBinding.
+            properties:
+              backends:
+                description: |-
+                  Backends holds the resolution result of each backendRef in this binding's
+                  environment. A backend that cannot be resolved is reported with
+                  resolved=false and a reason, rather than silently receiving its share of
+                  traffic.
+                items:
+                  description: |-
+                    ResolvedEndpointBackend is the resolution of a single EndpointBackendRef in an
+                    environment, populated by the binding controller.
+                  properties:
+                    kind:
+                      description: Kind is the kind of the resolved backend.
+                      enum:
+                      - Component
+                      type: string
+                    message:
+                      description: Message is a human-readable explanation accompanying
+                        Reason.
+                      type: string
+                    name:
+                      description: Name matches the name of the EndpointBackendRef
+                        this entry resolves.
+                      minLength: 1
+                      type: string
+                    reason:
+                      description: |-
+                        Reason is a CamelCase code explaining why the backend could not be
+                        resolved. Set only when resolved is false.
+                      type: string
+                    resolved:
+                      description: |-
+                        Resolved indicates whether the backend was found and can receive traffic
+                        in this environment.
+                      type: boolean
+                    serviceURL:
+                      description: |-
+                        ServiceURL is the in-cluster address of the backend in this environment.
+                        Set only when resolved is true.
+                      properties:
+                        host:
+                          description: Host is the hostname or IP address.
+                          minLength: 1
+                          type: string
+                        path:
+                          description: Path is the URL path.
+                          type: string
+                        port:
+                          description: Port is the port number.
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the URL scheme (e.g., http, https,
+                            tcp, udp, ws, wss, grpc, grpcs, tls).
+                          type: string
+                      required:
+                      - host
+                      type: object
+                    weight:
+                      description: Weight is the effective weight applied to this
+                        backend.
+                      format: int32
+                      type: integer
+                  required:
+                  - kind
+                  - name
+                  - resolved
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              conditions:
+                description: |-
+                  Conditions represent the latest available observations of the binding's state.
+                  Includes BackendsResolved, Synced, and Ready (aggregate). observedGeneration
+                  is set per-condition (project convention).
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

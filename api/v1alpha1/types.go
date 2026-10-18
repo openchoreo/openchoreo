@@ -361,6 +361,33 @@ type ResourceTypeRef struct {
 	Name string `json:"name"`
 }
 
+// EndpointTypeRefKind defines the kind of endpoint type referenced by an EndpointTypeRef.
+// +kubebuilder:validation:Enum=EndpointType;ClusterEndpointType
+type EndpointTypeRefKind string
+
+const (
+	// EndpointTypeRefKindEndpointType references a namespace-scoped EndpointType.
+	EndpointTypeRefKindEndpointType EndpointTypeRefKind = "EndpointType"
+
+	// EndpointTypeRefKindClusterEndpointType references a cluster-scoped ClusterEndpointType.
+	EndpointTypeRefKindClusterEndpointType EndpointTypeRefKind = "ClusterEndpointType"
+)
+
+// EndpointTypeRef represents a reference to an EndpointType or ClusterEndpointType.
+type EndpointTypeRef struct {
+	// Kind is the kind of endpoint type (EndpointType or ClusterEndpointType).
+	// +optional
+	// +kubebuilder:default=EndpointType
+	Kind EndpointTypeRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the EndpointType or ClusterEndpointType to reference.
+	// Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
 // DeploymentPipelineRefKind defines the kind of deployment pipeline referenced by a DeploymentPipelineRef
 // +kubebuilder:validation:Enum=DeploymentPipeline
 type DeploymentPipelineRefKind string
