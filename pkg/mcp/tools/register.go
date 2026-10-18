@@ -77,6 +77,12 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 		t.RegisterCreateResourceReleaseBinding,
 		t.RegisterUpdateResourceReleaseBinding,
 		t.RegisterDeleteResourceReleaseBinding,
+		t.RegisterDeleteEndpointRelease,
+		t.RegisterListEndpointReleaseBindings,
+		t.RegisterGetEndpointReleaseBinding,
+		t.RegisterCreateEndpointReleaseBinding,
+		t.RegisterUpdateEndpointReleaseBinding,
+		t.RegisterDeleteEndpointReleaseBinding,
 		t.RegisterListProjectReleaseBindings,
 		t.RegisterGetProjectReleaseBinding,
 		t.RegisterCreateProjectReleaseBinding,
@@ -130,6 +136,11 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPECreateResourceRelease,
 		t.RegisterPEGetResourceRelease,
 
+		// Endpoint releases (admin: list/get; the Endpoint controller cuts them, delete lives on
+		// the deployment toolset).
+		t.RegisterPEListEndpointReleases,
+		t.RegisterPEGetEndpointRelease,
+
 		// Project releases (admin: list/get/create; delete lives on the deployment toolset).
 		t.RegisterPEListProjectReleases,
 		t.RegisterPECreateProjectRelease,
@@ -172,6 +183,13 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterCreateResourceType,
 		t.RegisterUpdateResourceType,
 		t.RegisterDeleteResourceType,
+		t.RegisterPEListEndpointTypes,
+		t.RegisterPEGetEndpointType,
+		t.RegisterPEGetEndpointTypeSchema,
+		t.RegisterGetEndpointTypeCreationSchema,
+		t.RegisterCreateEndpointType,
+		t.RegisterUpdateEndpointType,
+		t.RegisterDeleteEndpointType,
 
 		// Project types (scope-collapsed: pass scope="cluster" for a ClusterProjectType).
 		// Reads are dual-registered with the project toolset; writes are PE-only.
@@ -235,6 +253,25 @@ func (t *Toolsets) resourceToolRegistrations() []RegisterFunc {
 	}
 }
 
+// endpointToolRegistrations returns the dev-facing endpoint toolset: Endpoint CRUD plus
+// read-only access to (Cluster)EndpointType templates. Template writes, releases, and
+// bindings live on the pe / deployment toolsets, as for the resource toolset.
+func (t *Toolsets) endpointToolRegistrations() []RegisterFunc {
+	return []RegisterFunc{
+		// Endpoint CRUD.
+		t.RegisterListEndpoints,
+		t.RegisterGetEndpoint,
+		t.RegisterCreateEndpoint,
+		t.RegisterUpdateEndpoint,
+		t.RegisterDeleteEndpoint,
+
+		// Endpoint types (read-only, scope-collapsed: pass scope="cluster" for ClusterEndpointType).
+		t.RegisterListEndpointTypes,
+		t.RegisterGetEndpointType,
+		t.RegisterGetEndpointTypeSchema,
+	}
+}
+
 // Register registers all enabled tools with the MCP server and returns:
 //   - perms: maps each registered tool name to its required authz action.
 //     Each RegisterFunc declares its required action by writing to a perms map,
@@ -293,6 +330,10 @@ func (t *Toolsets) Register(s *mcp.Server) (
 
 	if t.ResourceToolset != nil {
 		registerGroup(ToolsetResource, t.resourceToolRegistrations())
+	}
+
+	if t.EndpointToolset != nil {
+		registerGroup(ToolsetEndpoint, t.endpointToolRegistrations())
 	}
 
 	return perms, toolToToolsets

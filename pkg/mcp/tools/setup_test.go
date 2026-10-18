@@ -35,6 +35,7 @@ func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler)
 		BuildToolset:      mockHandler,
 		PEToolset:         mockHandler,
 		ResourceToolset:   mockHandler,
+		EndpointToolset:   mockHandler,
 	}
 	clientSession := setupTestServerWithToolset(t, toolsets)
 	return clientSession, mockHandler
@@ -188,5 +189,6 @@ var allToolSpecs = func() []toolTestSpec {
 	specs = append(specs, buildToolSpecs()...)
 	specs = append(specs, peToolSpecs()...)
 	specs = append(specs, resourceToolSpecs()...)
+	specs = append(specs, endpointToolSpecs()...)
 	return specs
 }()

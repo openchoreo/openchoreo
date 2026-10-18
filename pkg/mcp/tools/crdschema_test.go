@@ -107,3 +107,26 @@ func assertSpecSchema(t *testing.T, schema map[string]any, kind string) {
 		}
 	}
 }
+
+func TestEndpointTypeCreationSchema(t *testing.T) {
+	for name, fn := range map[string]func() (map[string]any, error){
+		"EndpointType":        EndpointTypeCreationSchema,
+		"ClusterEndpointType": ClusterEndpointTypeCreationSchema,
+	} {
+		t.Run(name, func(t *testing.T) {
+			schema, err := fn()
+			if err != nil {
+				t.Fatalf("%sCreationSchema() error: %v", name, err)
+			}
+			props, ok := schema["properties"].(map[string]any)
+			if !ok {
+				t.Fatalf("%s schema missing 'properties'", name)
+			}
+			for _, field := range []string{"resources", "parameters", "environmentConfigs"} {
+				if _, exists := props[field]; !exists {
+					t.Errorf("%s schema missing field %q", name, field)
+				}
+			}
+		})
+	}
+}

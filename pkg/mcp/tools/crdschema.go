@@ -23,6 +23,8 @@ var crdSpecSchemas struct {
 	clusterWorkflow            map[string]any
 	resourceType               map[string]any
 	clusterResourceType        map[string]any
+	endpointType               map[string]any
+	clusterEndpointType        map[string]any
 	projectType                map[string]any
 	clusterProjectType         map[string]any
 	authzRole                  map[string]any
@@ -37,6 +39,8 @@ var crdSpecSchemas struct {
 	clusterWorkflowErr         error
 	resourceTypeErr            error
 	clusterResourceTypeErr     error
+	endpointTypeErr            error
+	clusterEndpointTypeErr     error
 	projectTypeErr             error
 	clusterProjectTypeErr      error
 	authzRoleErr               error
@@ -94,6 +98,18 @@ func ResourceTypeCreationSchema() (map[string]any, error) {
 func ClusterResourceTypeCreationSchema() (map[string]any, error) {
 	crdSpecSchemas.once.Do(parseCRDSchemas)
 	return crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr
+}
+
+// EndpointTypeCreationSchema returns the JSON schema for the EndpointType spec.
+func EndpointTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.endpointType, crdSpecSchemas.endpointTypeErr
+}
+
+// ClusterEndpointTypeCreationSchema returns the JSON schema for the ClusterEndpointType spec.
+func ClusterEndpointTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterEndpointType, crdSpecSchemas.clusterEndpointTypeErr
 }
 
 // ProjectTypeCreationSchema returns the JSON schema for the ProjectType spec.
@@ -156,6 +172,12 @@ func parseCRDSchemas() {
 	)
 	crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_clusterresourcetypes.yaml",
+	)
+	crdSpecSchemas.endpointType, crdSpecSchemas.endpointTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_endpointtypes.yaml",
+	)
+	crdSpecSchemas.clusterEndpointType, crdSpecSchemas.clusterEndpointTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterendpointtypes.yaml",
 	)
 	crdSpecSchemas.projectType, crdSpecSchemas.projectTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_projecttypes.yaml",

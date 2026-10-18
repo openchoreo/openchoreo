@@ -184,6 +184,7 @@ mcp:
     - build
     - pe
     - resource
+    - endpoint
 
 logging:
   # Minimum log level: debug, info, warn, error

@@ -23,6 +23,7 @@ const (
 	ToolsetBuild      ToolsetType = "build"
 	ToolsetPE         ToolsetType = "pe"
 	ToolsetResource   ToolsetType = "resource"
+	ToolsetEndpoint   ToolsetType = "endpoint"
 )
 
 // requestedToolsetsCtxKey is the context key used to carry the set of toolsets
@@ -94,6 +95,7 @@ type Toolsets struct {
 	BuildToolset      BuildToolsetHandler
 	PEToolset         PEToolsetHandler
 	ResourceToolset   ResourceToolsetHandler
+	EndpointToolset   EndpointToolsetHandler
 }
 
 // AllToolsetsHandler is satisfied by a single handler implementing every
@@ -109,6 +111,7 @@ type AllToolsetsHandler interface {
 	BuildToolsetHandler
 	PEToolsetHandler
 	ResourceToolsetHandler
+	EndpointToolsetHandler
 }
 
 // AllToolsetTypes returns every known ToolsetType mapped to true. This is the
@@ -127,6 +130,7 @@ func AllToolsetTypes() map[ToolsetType]bool {
 		ToolsetBuild:      true,
 		ToolsetPE:         true,
 		ToolsetResource:   true,
+		ToolsetEndpoint:   true,
 	}
 }
 
@@ -156,6 +160,9 @@ func NewToolsets(handler AllToolsetsHandler, enabled map[ToolsetType]bool) *Tool
 	}
 	if enabled[ToolsetResource] {
 		t.ResourceToolset = handler
+	}
+	if enabled[ToolsetEndpoint] {
+		t.EndpointToolset = handler
 	}
 	return t
 }
@@ -187,6 +194,13 @@ type PEToolsetHandler interface {
 		req *gen.CreateResourceReleaseJSONRequestBody,
 	) (any, error)
 	GetResourceRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
+
+	// Endpoint release operations. Releases are cut by the Endpoint controller,
+	// so there is no create; delete lives on the deployment toolset.
+	ListEndpointReleases(
+		ctx context.Context, namespaceName, endpointName string, opts ListOpts,
+	) (any, error)
+	GetEndpointRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 
 	// Project release operations (delete lives on the deployment toolset).
 	ListProjectReleases(
@@ -304,6 +318,34 @@ type PEToolsetHandler interface {
 		ctx context.Context, req *gen.UpdateClusterResourceTypeJSONRequestBody,
 	) (any, error)
 	DeleteClusterResourceType(ctx context.Context, crtName string) (any, error)
+
+	// Endpoint types (namespace-scoped) — read
+	ListEndpointTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetEndpointType(ctx context.Context, namespaceName, etName string) (any, error)
+	GetEndpointTypeSchema(ctx context.Context, namespaceName, etName string) (any, error)
+
+	// Endpoint types (namespace-scoped) — write
+	CreateEndpointType(
+		ctx context.Context, namespaceName string, req *gen.CreateEndpointTypeJSONRequestBody,
+	) (any, error)
+	UpdateEndpointType(
+		ctx context.Context, namespaceName string, req *gen.UpdateEndpointTypeJSONRequestBody,
+	) (any, error)
+	DeleteEndpointType(ctx context.Context, namespaceName, etName string) (any, error)
+
+	// Endpoint types (cluster-scoped) — read
+	ListClusterEndpointTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterEndpointType(ctx context.Context, cetName string) (any, error)
+	GetClusterEndpointTypeSchema(ctx context.Context, cetName string) (any, error)
+
+	// Endpoint types (cluster-scoped) — write
+	CreateClusterEndpointType(
+		ctx context.Context, req *gen.CreateClusterEndpointTypeJSONRequestBody,
+	) (any, error)
+	UpdateClusterEndpointType(
+		ctx context.Context, req *gen.UpdateClusterEndpointTypeJSONRequestBody,
+	) (any, error)
+	DeleteClusterEndpointType(ctx context.Context, cetName string) (any, error)
 
 	// Project types (namespace-scoped) — read
 	ListProjectTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -520,6 +562,24 @@ type DeploymentToolsetHandler interface {
 	) (any, error)
 	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 
+	// Endpoint release delete (cleanup; mirrors DeleteResourceRelease).
+	DeleteEndpointRelease(ctx context.Context, namespaceName, endpointReleaseName string) (any, error)
+
+	// Endpoint release binding operations
+	ListEndpointReleaseBindings(
+		ctx context.Context, namespaceName, endpointName string, opts ListOpts,
+	) (any, error)
+	GetEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateEndpointReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateEndpointReleaseBindingJSONRequestBody,
+	) (any, error)
+	UpdateEndpointReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.UpdateEndpointReleaseBindingJSONRequestBody,
+	) (any, error)
+	DeleteEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+
 	// Project release binding operations
 	ListProjectReleaseBindings(
 		ctx context.Context, namespaceName, projectName string, opts ListOpts,
@@ -567,6 +627,8 @@ type BuildToolsetHandler interface {
 // resource family: Resource CRUD plus read-only access to ResourceType and
 // ClusterResourceType templates. Template writes, releases, and bindings live on
 // PEToolsetHandler / DeploymentToolsetHandler matching the component-family role split.
+//
+//nolint:dupl // EndpointToolsetHandler mirrors this by design
 type ResourceToolsetHandler interface {
 	// Resource operations
 	CreateResource(
@@ -659,4 +721,35 @@ func (p ToolPermission) ActionForScope(scope string) string {
 		scope = ScopeNamespace
 	}
 	return p.ScopedActions[scope]
+}
+
+// EndpointToolsetHandler handles the developer-facing surface of the Endpoint
+// family: Endpoint CRUD plus read-only access to EndpointType and
+// ClusterEndpointType templates. Template writes, releases, and bindings live on
+// PEToolsetHandler / DeploymentToolsetHandler, matching the resource-family role
+// split.
+//
+//nolint:dupl // mirrors ResourceToolsetHandler by design
+type EndpointToolsetHandler interface {
+	// Endpoint operations
+	CreateEndpoint(
+		ctx context.Context, namespaceName, projectName string,
+		req *gen.CreateEndpointJSONRequestBody,
+	) (any, error)
+	ListEndpoints(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
+	GetEndpoint(ctx context.Context, namespaceName, endpointName string) (any, error)
+	UpdateEndpoint(
+		ctx context.Context, namespaceName string, req *gen.UpdateEndpointJSONRequestBody,
+	) (any, error)
+	DeleteEndpoint(ctx context.Context, namespaceName, endpointName string) (any, error)
+
+	// Endpoint types (read-only, namespace-scoped)
+	ListEndpointTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetEndpointType(ctx context.Context, namespaceName, etName string) (any, error)
+	GetEndpointTypeSchema(ctx context.Context, namespaceName, etName string) (any, error)
+
+	// Endpoint types (read-only, cluster-scoped)
+	ListClusterEndpointTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterEndpointType(ctx context.Context, cetName string) (any, error)
+	GetClusterEndpointTypeSchema(ctx context.Context, cetName string) (any, error)
 }

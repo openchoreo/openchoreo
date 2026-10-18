@@ -23,8 +23,10 @@ func peToolSpecs() []toolTestSpec {
 	specs = append(specs, pePlatformStandardsSpecs()...)
 	specs = append(specs, peResourceTypeSpecs()...)
 	specs = append(specs, peProjectTypeSpecs()...)
+	specs = append(specs, peEndpointTypeSpecs()...)
 	specs = append(specs, peResourceReleaseSpecs()...)
 	specs = append(specs, peProjectReleaseSpecs()...)
+	specs = append(specs, peEndpointReleaseSpecs()...)
 	specs = append(specs, peDiagnosticsSpecs()...)
 	specs = append(specs, peAuthzSpecs()...)
 	return specs
