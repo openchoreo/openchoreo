@@ -104,7 +104,11 @@ func (r *Reconciler) reconcile(ctx context.Context, old, ep *openchoreov1alpha1.
 		return ctrl.Result{}, err
 	}
 	if len(problems) > 0 {
-		controller.MarkFalseCondition(ep, ConditionReady, ReasonBackendNotFound, strings.Join(problems, "; "))
+		messages := make([]string, len(problems))
+		for i, p := range problems {
+			messages[i] = p.message
+		}
+		controller.MarkFalseCondition(ep, ConditionReady, problems[0].reason, strings.Join(messages, "; "))
 		return ctrl.Result{}, nil
 	}
 
@@ -174,13 +178,13 @@ func (r *Reconciler) resolveType(ctx context.Context, ep *openchoreov1alpha1.End
 // Returns one human-readable problem per offending backend.
 //
 // Only Component backends have such a check: the component must have a
-// Workload declaring the named endpoint, and that Workload is the same in every
-// environment. Backend kinds added later need a deliberate decision here rather
+// Workload declaring the named endpoint with internal or external visibility,
+// and that Workload is the same in every environment. Backend kinds added later need a deliberate decision here rather
 // than falling through: a Hostname or IP has nothing to look up, and a Service
 // lives on the data plane, so its existence varies by environment and belongs
 // with the binding's per-environment resolution, alongside an undeployed
 // component.
-func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha1.Endpoint) ([]string, error) {
+func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha1.Endpoint) ([]backendProblem, error) {
 	// TODO: this lists every Workload in the namespace on each reconcile and
 	// filters by owner in memory. It reads from the informer cache, so it is
 	// cheap at today's namespace sizes, but it scales with the namespace rather
@@ -194,23 +198,66 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 		return nil, fmt.Errorf("list Workloads: %w", err)
 	}
 
-	var problems []string
+	var problems []backendProblem
 	for _, ref := range ep.Spec.BackendRefs {
 		if ref.Kind != openchoreov1alpha1.EndpointBackendKindComponent || ref.Component == nil {
 			continue
 		}
 		workload := findWorkload(workloads.Items, ep.Spec.Owner.ProjectName, ref.Component.Name)
 		if workload == nil {
-			problems = append(problems, fmt.Sprintf("backend %q: component %q in project %q has no Workload",
-				ref.Name, ref.Component.Name, ep.Spec.Owner.ProjectName))
+			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
+				"backend %q: component %q in project %q has no Workload",
+				ref.Name, ref.Component.Name, ep.Spec.Owner.ProjectName)})
 			continue
 		}
-		if _, ok := workload.Spec.Endpoints[ref.Component.Endpoint]; !ok {
-			problems = append(problems, fmt.Sprintf("backend %q: component %q has no workload endpoint %q (available: %s)",
-				ref.Name, ref.Component.Name, ref.Component.Endpoint, endpointNames(workload)))
+		workloadEndpoint, ok := workload.Spec.Endpoints[ref.Component.Endpoint]
+		if !ok {
+			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
+				"backend %q: component %q has no workload endpoint %q (available: %s)",
+				ref.Name, ref.Component.Name, ref.Component.Endpoint, endpointNames(workload))})
+			continue
+		}
+		// An Endpoint routes through the gateway, and a component admits
+		// gateway traffic only on endpoints its developer made internal or
+		// external. Anything narrower would render an accepted route whose
+		// traffic the component's network policy then drops.
+		if !gatewayExposed(workloadEndpoint) {
+			problems = append(problems, backendProblem{ReasonBackendNotExposed, fmt.Sprintf(
+				"backend %q: workload endpoint %q of component %q is not exposed through the gateway "+
+					"(visibility: %s); set internal or external visibility on it",
+				ref.Name, ref.Component.Endpoint, ref.Component.Name, visibilityList(workloadEndpoint))})
 		}
 	}
 	return problems, nil
+}
+
+// backendProblem is one reason a backend cannot be released.
+type backendProblem struct {
+	reason  controller.ConditionReason
+	message string
+}
+
+// gatewayExposed reports whether a workload endpoint is reachable through the
+// gateway, which is what internal and external visibility grant.
+func gatewayExposed(ep openchoreov1alpha1.WorkloadEndpoint) bool {
+	for _, v := range ep.Visibility {
+		if v == openchoreov1alpha1.EndpointVisibilityInternal || v == openchoreov1alpha1.EndpointVisibilityExternal {
+			return true
+		}
+	}
+	return false
+}
+
+// visibilityList renders a workload endpoint's visibilities for messages. The
+// project scope is implicit for every endpoint.
+func visibilityList(ep openchoreov1alpha1.WorkloadEndpoint) string {
+	names := []string{string(openchoreov1alpha1.EndpointVisibilityProject)}
+	for _, v := range ep.Visibility {
+		if v != openchoreov1alpha1.EndpointVisibilityProject {
+			names = append(names, string(v))
+		}
+	}
+	return strings.Join(names, ", ")
 }
 
 // findWorkload returns the Workload owned by the given component, or nil.

@@ -40,10 +40,16 @@ func newClusterEndpointType(name, paramsSchema string) *openchoreov1alpha1.Clust
 	return cet
 }
 
+// newWorkload returns a Workload whose endpoints are all exposed externally,
+// which is what an Endpoint backend requires.
 func newWorkload(project, component string, endpoints ...string) *openchoreov1alpha1.Workload {
 	eps := map[string]openchoreov1alpha1.WorkloadEndpoint{}
 	for _, name := range endpoints {
-		eps[name] = openchoreov1alpha1.WorkloadEndpoint{Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080}
+		eps[name] = openchoreov1alpha1.WorkloadEndpoint{
+			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
+			Port:       8080,
+			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+		}
 	}
 	return &openchoreov1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{Name: project + "-" + component, Namespace: "default"},
@@ -275,6 +281,61 @@ var _ = Describe("Endpoint Controller", func() {
 
 		updated := reconcileAndGet(ep)
 		expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotFound))
+	})
+
+	It("sets Ready=False, Reason=BackendNotExposed and cuts no release when the workload endpoint is not gateway-visible", func() {
+		cet := newClusterEndpointType("cet-not-exposed", "")
+		ep := newEndpoint("ep-not-exposed", "p-not-exposed", clusterTypeRef(cet.Name),
+			componentBackend("stable", "greeter", "http", 1))
+		w := newWorkload("p-not-exposed", "greeter", "http")
+		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{
+			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
+			Port:       8080,
+			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace},
+		}
+		create(cet, w, ep)
+
+		updated := reconcileAndGet(ep)
+		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotExposed))
+		Expect(cond.Message).To(Equal(`backend "stable": workload endpoint "http" of component "greeter" ` +
+			`is not exposed through the gateway (visibility: project, namespace); set internal or external visibility on it`))
+		Expect(updated.Status.LatestRelease).To(BeNil())
+	})
+
+	It("accepts a backend whose workload endpoint is internal", func() {
+		cet := newClusterEndpointType("cet-internal", "")
+		ep := newEndpoint("ep-internal", "p-internal", clusterTypeRef(cet.Name),
+			componentBackend("stable", "greeter", "http", 1))
+		w := newWorkload("p-internal", "greeter", "http")
+		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{
+			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
+			Port:       8080,
+			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityInternal},
+		}
+		create(cet, w, ep)
+
+		updated := reconcileAndGet(ep)
+		expectReady(updated, metav1.ConditionTrue, string(ReasonReconciled))
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.EndpointRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: updated.Status.LatestRelease.Name},
+			})
+		})
+	})
+
+	It("reports every offending backend, taking the reason from the first", func() {
+		cet := newClusterEndpointType("cet-mixed", "")
+		ep := newEndpoint("ep-mixed", "p-mixed", clusterTypeRef(cet.Name),
+			componentBackend("stable", "greeter", "http", 1),
+			componentBackend("canary", "missing", "http", 1))
+		w := newWorkload("p-mixed", "greeter", "http")
+		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080}
+		create(cet, w, ep)
+
+		updated := reconcileAndGet(ep)
+		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotExposed))
+		Expect(cond.Message).To(ContainSubstring(`backend "stable": workload endpoint "http"`))
+		Expect(cond.Message).To(ContainSubstring(`backend "canary": component "missing" in project "p-mixed" has no Workload`))
 	})
 
 	It("sets Ready=False, Reason=BackendNotFound naming the available endpoints when the workload endpoint is missing", func() {
