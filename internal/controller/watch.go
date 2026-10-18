@@ -117,17 +117,7 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
-		IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
-			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
-			if rb.Spec.Owner.ProjectName == "" || rb.Spec.Owner.ComponentName == "" || rb.Spec.Environment == "" {
-				return nil
-			}
-			return []string{MakeReleaseBindingOwnerEnvKey(
-				rb.Spec.Owner.ProjectName,
-				rb.Spec.Owner.ComponentName,
-				rb.Spec.Environment,
-			)}
-		}); err != nil {
+		IndexKeyReleaseBindingOwnerEnv, IndexReleaseBindingOwnerEnv); err != nil {
 		return fmt.Errorf("failed to setup ReleaseBinding owner+env index: %w", err)
 	}
 
@@ -250,6 +240,21 @@ func IndexEndpointReleaseBindingOwner(obj client.Object) []string {
 		return nil
 	}
 	return []string{erb.Spec.Owner.EndpointName}
+}
+
+// IndexReleaseBindingOwnerEnv extracts the composite (project, component,
+// environment) index key from a ReleaseBinding. Exported for fake-client tests
+// so they can register the same indexer the production setup uses.
+func IndexReleaseBindingOwnerEnv(obj client.Object) []string {
+	rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+	if rb.Spec.Owner.ProjectName == "" || rb.Spec.Owner.ComponentName == "" || rb.Spec.Environment == "" {
+		return nil
+	}
+	return []string{MakeReleaseBindingOwnerEnvKey(
+		rb.Spec.Owner.ProjectName,
+		rb.Spec.Owner.ComponentName,
+		rb.Spec.Environment,
+	)}
 }
 
 // IndexResourceReleaseOwner extracts the owner resource name from a

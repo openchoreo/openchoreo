@@ -45,6 +45,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointtype"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
@@ -220,11 +221,17 @@ func setupControlPlaneControllers(
 			RenderTimeout: renderTimeout,
 		},
 		// Endpoint family — templates (cluster-scoped before namespaced),
-		// then instance and immutable release snapshot.
+		// then instance, immutable release snapshot, per-env binding.
 		&clusterendpointtype.Reconciler{Client: c, Scheme: s},
 		&endpointtype.Reconciler{Client: c, Scheme: s},
 		&endpoint.Reconciler{Client: c, Scheme: s},
 		&endpointrelease.Reconciler{Client: c, Scheme: s},
+		&endpointreleasebinding.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			CELCostLimit:  celCostLimit,
+			RenderTimeout: renderTimeout,
+		},
 		&releasebinding.Reconciler{
 			Client:                  c,
 			Scheme:                  s,

@@ -82,6 +82,7 @@ rules:
   - componenttypes
   - dataplanes
   - deploymentpipelines
+  - endpointreleasebindings
   - endpointreleases
   - endpoints
   - endpointtypes
@@ -129,6 +130,7 @@ rules:
   - componenttypes/finalizers
   - dataplanes/finalizers
   - deploymentpipelines/finalizers
+  - endpointreleasebindings/finalizers
   - endpointreleases/finalizers
   - endpoints/finalizers
   - endpointtypes/finalizers
@@ -172,6 +174,7 @@ rules:
   - componenttypes/status
   - dataplanes/status
   - deploymentpipelines/status
+  - endpointreleasebindings/status
   - endpointreleases/status
   - endpoints/status
   - endpointtypes/status
@@ -200,15 +203,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - openchoreo.dev
-  resources:
-  - endpointreleasebindings
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
 - apiGroups:
   - openchoreo.dev
   resources:
