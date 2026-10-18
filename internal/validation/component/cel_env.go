@@ -12,6 +12,7 @@ import (
 	apiservercel "k8s.io/apiserver/pkg/cel"
 
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 	"github.com/openchoreo/openchoreo/internal/template"
 	"github.com/openchoreo/openchoreo/internal/validation/component/decltype"
 )
@@ -26,6 +27,7 @@ var schemaBasedFields = map[string]bool{
 var (
 	componentContextFields = decltype.ExtractFields(reflect.TypeFor[context.ComponentContext](), schemaBasedFields)
 	traitContextFields     = decltype.ExtractFields(reflect.TypeFor[context.TraitContext](), schemaBasedFields)
+	endpointContextFields  = decltype.ExtractFields(reflect.TypeFor[endpointpipeline.BaseContext](), schemaBasedFields)
 )
 
 // SchemaOptions provides schema configuration for CEL environment and validation.
@@ -50,6 +52,19 @@ func buildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 	return buildCELEnv(traitContextFields, opts)
 }
 
+// buildEndpointCELEnv creates a schema-aware CEL environment for EndpointType
+// validation. Its variables come from the endpoint pipeline's BaseContext, and
+// it carries only the base template extensions: the component-context helpers
+// (workload.*, configurations.*, ...) are not available when an EndpointType
+// renders, so accepting them here would let through templates that fail later.
+func buildEndpointCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
+	baseEnv, err := cel.NewEnv(template.BaseCELExtensions()...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildCELEnvOn(baseEnv, endpointContextFields, opts)
+}
+
 // buildCELEnv creates a schema-aware CEL environment with the given context fields and schema options.
 // Schema-based fields (parameters, environmentConfigs) are derived from the provided schemas.
 // Reflection-based fields (metadata, workload, etc.) come from the contextFields slice.
@@ -58,7 +73,14 @@ func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.E
 	if err != nil {
 		return nil, nil, err
 	}
+	return buildCELEnvOn(baseEnv, contextFields, opts)
+}
 
+// buildCELEnvOn extends baseEnv with the schema-based and reflection-based
+// variables.
+func buildCELEnvOn(
+	baseEnv *cel.Env, contextFields []decltype.FieldInfo, opts SchemaOptions,
+) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
 	numFields := len(contextFields) + len(schemaBasedFields)
 	declTypes := make([]*apiservercel.DeclType, 0, numFields)
 	varOpts := make([]cel.EnvOption, 0, numFields)
