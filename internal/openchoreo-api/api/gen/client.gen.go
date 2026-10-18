@@ -185,6 +185,28 @@ type ClientInterface interface {
 
 	UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListClusterEndpointTypes request
+	ListClusterEndpointTypes(ctx context.Context, params *ListClusterEndpointTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterEndpointTypeWithBody request with any body
+	CreateClusterEndpointTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterEndpointType(ctx context.Context, body CreateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterEndpointType request
+	DeleteClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterEndpointType request
+	GetClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterEndpointTypeWithBody request with any body
+	UpdateClusterEndpointTypeWithBody(ctx context.Context, cetName ClusterEndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, body UpdateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterEndpointTypeSchema request
+	GetClusterEndpointTypeSchema(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListClusterObservabilityPlanes request
 	ListClusterObservabilityPlanes(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -492,6 +514,75 @@ type ClientInterface interface {
 	UpdateDeploymentPipelineWithBody(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEndpointReleaseBindings request
+	ListEndpointReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateEndpointReleaseBindingWithBody request with any body
+	CreateEndpointReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteEndpointReleaseBinding request
+	DeleteEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEndpointReleaseBinding request
+	GetEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEndpointReleaseBindingWithBody request with any body
+	UpdateEndpointReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, body UpdateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEndpointReleases request
+	ListEndpointReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteEndpointRelease request
+	DeleteEndpointRelease(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEndpointRelease request
+	GetEndpointRelease(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEndpoints request
+	ListEndpoints(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateEndpointWithBody request with any body
+	CreateEndpointWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteEndpoint request
+	DeleteEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEndpoint request
+	GetEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEndpointWithBody request with any body
+	UpdateEndpointWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEndpointTypes request
+	ListEndpointTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateEndpointTypeWithBody request with any body
+	CreateEndpointTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateEndpointType(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteEndpointType request
+	DeleteEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEndpointType request
+	GetEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEndpointTypeWithBody request with any body
+	UpdateEndpointTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, body UpdateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEndpointTypeSchema request
+	GetEndpointTypeSchema(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListEnvironments request
 	ListEnvironments(ctx context.Context, namespaceName NamespaceNameParam, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1321,6 +1412,102 @@ func (c *Client) UpdateClusterDataPlaneWithBody(ctx context.Context, cdpName Clu
 
 func (c *Client) UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateClusterDataPlaneRequest(c.Server, cdpName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListClusterEndpointTypes(ctx context.Context, params *ListClusterEndpointTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterEndpointTypesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterEndpointTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterEndpointTypeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterEndpointType(ctx context.Context, body CreateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterEndpointTypeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterEndpointTypeRequest(c.Server, cetName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterEndpointTypeRequest(c.Server, cetName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterEndpointTypeWithBody(ctx context.Context, cetName ClusterEndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterEndpointTypeRequestWithBody(c.Server, cetName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterEndpointType(ctx context.Context, cetName ClusterEndpointTypeNameParam, body UpdateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterEndpointTypeRequest(c.Server, cetName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterEndpointTypeSchema(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterEndpointTypeSchemaRequest(c.Server, cetName)
 	if err != nil {
 		return nil, err
 	}
@@ -2677,6 +2864,306 @@ func (c *Client) UpdateDeploymentPipelineWithBody(ctx context.Context, namespace
 
 func (c *Client) UpdateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDeploymentPipelineRequest(c.Server, namespaceName, deploymentPipelineName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListEndpointReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEndpointReleaseBindingsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpointReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointReleaseBindingRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointReleaseBindingRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteEndpointReleaseBindingRequest(c.Server, namespaceName, endpointReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointReleaseBindingRequest(c.Server, namespaceName, endpointReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpointReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointReleaseBindingRequestWithBody(c.Server, namespaceName, endpointReleaseBindingName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpointReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, body UpdateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointReleaseBindingRequest(c.Server, namespaceName, endpointReleaseBindingName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListEndpointReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEndpointReleasesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteEndpointRelease(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteEndpointReleaseRequest(c.Server, namespaceName, endpointReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpointRelease(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointReleaseRequest(c.Server, namespaceName, endpointReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListEndpoints(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEndpointsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpointWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteEndpointRequest(c.Server, namespaceName, endpointName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointRequest(c.Server, namespaceName, endpointName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpointWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointRequestWithBody(c.Server, namespaceName, endpointName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointRequest(c.Server, namespaceName, endpointName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListEndpointTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEndpointTypesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpointTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointTypeRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEndpointType(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEndpointTypeRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteEndpointTypeRequest(c.Server, namespaceName, etName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointTypeRequest(c.Server, namespaceName, etName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpointTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointTypeRequestWithBody(c.Server, namespaceName, etName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEndpointType(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, body UpdateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEndpointTypeRequest(c.Server, namespaceName, etName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpointTypeSchema(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointTypeSchemaRequest(c.Server, namespaceName, etName)
 	if err != nil {
 		return nil, err
 	}
@@ -5703,6 +6190,276 @@ func NewUpdateClusterDataPlaneRequestWithBody(server string, cdpName ClusterData
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListClusterEndpointTypesRequest generates requests for ListClusterEndpointTypes
+func NewListClusterEndpointTypesRequest(server string, params *ListClusterEndpointTypesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateClusterEndpointTypeRequest calls the generic CreateClusterEndpointType builder with application/json body
+func NewCreateClusterEndpointTypeRequest(server string, body CreateClusterEndpointTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterEndpointTypeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterEndpointTypeRequestWithBody generates requests for CreateClusterEndpointType with any type of body
+func NewCreateClusterEndpointTypeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterEndpointTypeRequest generates requests for DeleteClusterEndpointType
+func NewDeleteClusterEndpointTypeRequest(server string, cetName ClusterEndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cetName", runtime.ParamLocationPath, cetName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterEndpointTypeRequest generates requests for GetClusterEndpointType
+func NewGetClusterEndpointTypeRequest(server string, cetName ClusterEndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cetName", runtime.ParamLocationPath, cetName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterEndpointTypeRequest calls the generic UpdateClusterEndpointType builder with application/json body
+func NewUpdateClusterEndpointTypeRequest(server string, cetName ClusterEndpointTypeNameParam, body UpdateClusterEndpointTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterEndpointTypeRequestWithBody(server, cetName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterEndpointTypeRequestWithBody generates requests for UpdateClusterEndpointType with any type of body
+func NewUpdateClusterEndpointTypeRequestWithBody(server string, cetName ClusterEndpointTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cetName", runtime.ParamLocationPath, cetName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetClusterEndpointTypeSchemaRequest generates requests for GetClusterEndpointTypeSchema
+func NewGetClusterEndpointTypeSchemaRequest(server string, cetName ClusterEndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cetName", runtime.ParamLocationPath, cetName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterendpointtypes/%s/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9862,6 +10619,1078 @@ func NewUpdateDeploymentPipelineRequestWithBody(server string, namespaceName Nam
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListEndpointReleaseBindingsRequest generates requests for ListEndpointReleaseBindings
+func NewListEndpointReleaseBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListEndpointReleaseBindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleasebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Endpoint != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "endpoint", runtime.ParamLocationQuery, *params.Endpoint); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateEndpointReleaseBindingRequest calls the generic CreateEndpointReleaseBinding builder with application/json body
+func NewCreateEndpointReleaseBindingRequest(server string, namespaceName NamespaceNameParam, body CreateEndpointReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateEndpointReleaseBindingRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateEndpointReleaseBindingRequestWithBody generates requests for CreateEndpointReleaseBinding with any type of body
+func NewCreateEndpointReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleasebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteEndpointReleaseBindingRequest generates requests for DeleteEndpointReleaseBinding
+func NewDeleteEndpointReleaseBindingRequest(server string, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointReleaseBindingName", runtime.ParamLocationPath, endpointReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetEndpointReleaseBindingRequest generates requests for GetEndpointReleaseBinding
+func NewGetEndpointReleaseBindingRequest(server string, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointReleaseBindingName", runtime.ParamLocationPath, endpointReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateEndpointReleaseBindingRequest calls the generic UpdateEndpointReleaseBinding builder with application/json body
+func NewUpdateEndpointReleaseBindingRequest(server string, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, body UpdateEndpointReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEndpointReleaseBindingRequestWithBody(server, namespaceName, endpointReleaseBindingName, "application/json", bodyReader)
+}
+
+// NewUpdateEndpointReleaseBindingRequestWithBody generates requests for UpdateEndpointReleaseBinding with any type of body
+func NewUpdateEndpointReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointReleaseBindingName", runtime.ParamLocationPath, endpointReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListEndpointReleasesRequest generates requests for ListEndpointReleases
+func NewListEndpointReleasesRequest(server string, namespaceName NamespaceNameParam, params *ListEndpointReleasesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleases", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Endpoint != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "endpoint", runtime.ParamLocationQuery, *params.Endpoint); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteEndpointReleaseRequest generates requests for DeleteEndpointRelease
+func NewDeleteEndpointReleaseRequest(server string, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointReleaseName", runtime.ParamLocationPath, endpointReleaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetEndpointReleaseRequest generates requests for GetEndpointRelease
+func NewGetEndpointReleaseRequest(server string, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointReleaseName", runtime.ParamLocationPath, endpointReleaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointreleases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListEndpointsRequest generates requests for ListEndpoints
+func NewListEndpointsRequest(server string, namespaceName NamespaceNameParam, params *ListEndpointsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "project", runtime.ParamLocationQuery, *params.Project); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateEndpointRequest calls the generic CreateEndpoint builder with application/json body
+func NewCreateEndpointRequest(server string, namespaceName NamespaceNameParam, body CreateEndpointJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateEndpointRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateEndpointRequestWithBody generates requests for CreateEndpoint with any type of body
+func NewCreateEndpointRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteEndpointRequest generates requests for DeleteEndpoint
+func NewDeleteEndpointRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetEndpointRequest generates requests for GetEndpoint
+func NewGetEndpointRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateEndpointRequest calls the generic UpdateEndpoint builder with application/json body
+func NewUpdateEndpointRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEndpointRequestWithBody(server, namespaceName, endpointName, "application/json", bodyReader)
+}
+
+// NewUpdateEndpointRequestWithBody generates requests for UpdateEndpoint with any type of body
+func NewUpdateEndpointRequestWithBody(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListEndpointTypesRequest generates requests for ListEndpointTypes
+func NewListEndpointTypesRequest(server string, namespaceName NamespaceNameParam, params *ListEndpointTypesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateEndpointTypeRequest calls the generic CreateEndpointType builder with application/json body
+func NewCreateEndpointTypeRequest(server string, namespaceName NamespaceNameParam, body CreateEndpointTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateEndpointTypeRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateEndpointTypeRequestWithBody generates requests for CreateEndpointType with any type of body
+func NewCreateEndpointTypeRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteEndpointTypeRequest generates requests for DeleteEndpointType
+func NewDeleteEndpointTypeRequest(server string, namespaceName NamespaceNameParam, etName EndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "etName", runtime.ParamLocationPath, etName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetEndpointTypeRequest generates requests for GetEndpointType
+func NewGetEndpointTypeRequest(server string, namespaceName NamespaceNameParam, etName EndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "etName", runtime.ParamLocationPath, etName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateEndpointTypeRequest calls the generic UpdateEndpointType builder with application/json body
+func NewUpdateEndpointTypeRequest(server string, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, body UpdateEndpointTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEndpointTypeRequestWithBody(server, namespaceName, etName, "application/json", bodyReader)
+}
+
+// NewUpdateEndpointTypeRequestWithBody generates requests for UpdateEndpointType with any type of body
+func NewUpdateEndpointTypeRequestWithBody(server string, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "etName", runtime.ParamLocationPath, etName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetEndpointTypeSchemaRequest generates requests for GetEndpointTypeSchema
+func NewGetEndpointTypeSchemaRequest(server string, namespaceName NamespaceNameParam, etName EndpointTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "etName", runtime.ParamLocationPath, etName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpointtypes/%s/schema", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -16135,6 +17964,28 @@ type ClientWithResponsesInterface interface {
 
 	UpdateClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error)
 
+	// ListClusterEndpointTypesWithResponse request
+	ListClusterEndpointTypesWithResponse(ctx context.Context, params *ListClusterEndpointTypesParams, reqEditors ...RequestEditorFn) (*ListClusterEndpointTypesResp, error)
+
+	// CreateClusterEndpointTypeWithBodyWithResponse request with any body
+	CreateClusterEndpointTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterEndpointTypeResp, error)
+
+	CreateClusterEndpointTypeWithResponse(ctx context.Context, body CreateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterEndpointTypeResp, error)
+
+	// DeleteClusterEndpointTypeWithResponse request
+	DeleteClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterEndpointTypeResp, error)
+
+	// GetClusterEndpointTypeWithResponse request
+	GetClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterEndpointTypeResp, error)
+
+	// UpdateClusterEndpointTypeWithBodyWithResponse request with any body
+	UpdateClusterEndpointTypeWithBodyWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterEndpointTypeResp, error)
+
+	UpdateClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, body UpdateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterEndpointTypeResp, error)
+
+	// GetClusterEndpointTypeSchemaWithResponse request
+	GetClusterEndpointTypeSchemaWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterEndpointTypeSchemaResp, error)
+
 	// ListClusterObservabilityPlanesWithResponse request
 	ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
 
@@ -16442,6 +18293,75 @@ type ClientWithResponsesInterface interface {
 	UpdateDeploymentPipelineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error)
 
 	UpdateDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error)
+
+	// ListEndpointReleaseBindingsWithResponse request
+	ListEndpointReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListEndpointReleaseBindingsResp, error)
+
+	// CreateEndpointReleaseBindingWithBodyWithResponse request with any body
+	CreateEndpointReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointReleaseBindingResp, error)
+
+	CreateEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointReleaseBindingResp, error)
+
+	// DeleteEndpointReleaseBindingWithResponse request
+	DeleteEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointReleaseBindingResp, error)
+
+	// GetEndpointReleaseBindingWithResponse request
+	GetEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetEndpointReleaseBindingResp, error)
+
+	// UpdateEndpointReleaseBindingWithBodyWithResponse request with any body
+	UpdateEndpointReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointReleaseBindingResp, error)
+
+	UpdateEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, body UpdateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointReleaseBindingResp, error)
+
+	// ListEndpointReleasesWithResponse request
+	ListEndpointReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleasesParams, reqEditors ...RequestEditorFn) (*ListEndpointReleasesResp, error)
+
+	// DeleteEndpointReleaseWithResponse request
+	DeleteEndpointReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointReleaseResp, error)
+
+	// GetEndpointReleaseWithResponse request
+	GetEndpointReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*GetEndpointReleaseResp, error)
+
+	// ListEndpointsWithResponse request
+	ListEndpointsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointsParams, reqEditors ...RequestEditorFn) (*ListEndpointsResp, error)
+
+	// CreateEndpointWithBodyWithResponse request with any body
+	CreateEndpointWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointResp, error)
+
+	CreateEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointResp, error)
+
+	// DeleteEndpointWithResponse request
+	DeleteEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointResp, error)
+
+	// GetEndpointWithResponse request
+	GetEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*GetEndpointResp, error)
+
+	// UpdateEndpointWithBodyWithResponse request with any body
+	UpdateEndpointWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointResp, error)
+
+	UpdateEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointResp, error)
+
+	// ListEndpointTypesWithResponse request
+	ListEndpointTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*ListEndpointTypesResp, error)
+
+	// CreateEndpointTypeWithBodyWithResponse request with any body
+	CreateEndpointTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointTypeResp, error)
+
+	CreateEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointTypeResp, error)
+
+	// DeleteEndpointTypeWithResponse request
+	DeleteEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointTypeResp, error)
+
+	// GetEndpointTypeWithResponse request
+	GetEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetEndpointTypeResp, error)
+
+	// UpdateEndpointTypeWithBodyWithResponse request with any body
+	UpdateEndpointTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointTypeResp, error)
+
+	UpdateEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, body UpdateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointTypeResp, error)
+
+	// GetEndpointTypeSchemaWithResponse request
+	GetEndpointTypeSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetEndpointTypeSchemaResp, error)
 
 	// ListEnvironmentsWithResponse request
 	ListEnvironmentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*ListEnvironmentsResp, error)
@@ -17540,6 +19460,164 @@ func (r UpdateClusterDataPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateClusterDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListClusterEndpointTypesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterEndpointTypeList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListClusterEndpointTypesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListClusterEndpointTypesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterEndpointType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterEndpointType
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterEndpointType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterEndpointTypeSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterEndpointTypeSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterEndpointTypeSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -19734,6 +21812,504 @@ func (r UpdateDeploymentPipelineResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateDeploymentPipelineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListEndpointReleaseBindingsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointReleaseBindingList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEndpointReleaseBindingsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEndpointReleaseBindingsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateEndpointReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *EndpointReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateEndpointReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateEndpointReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteEndpointReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteEndpointReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteEndpointReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointReleaseBinding
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateEndpointReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEndpointReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEndpointReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListEndpointReleasesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointReleaseList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEndpointReleasesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEndpointReleasesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteEndpointReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteEndpointReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteEndpointReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRelease
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListEndpointsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEndpointsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEndpointsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateEndpointResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Endpoint
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateEndpointResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateEndpointResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteEndpointResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteEndpointResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteEndpointResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Endpoint
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateEndpointResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Endpoint
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEndpointResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEndpointResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListEndpointTypesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointTypeList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEndpointTypesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEndpointTypesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *EndpointType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointType
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateEndpointTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEndpointTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEndpointTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointTypeSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointTypeSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointTypeSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -23027,6 +25603,76 @@ func (c *ClientWithResponses) UpdateClusterDataPlaneWithResponse(ctx context.Con
 	return ParseUpdateClusterDataPlaneResp(rsp)
 }
 
+// ListClusterEndpointTypesWithResponse request returning *ListClusterEndpointTypesResp
+func (c *ClientWithResponses) ListClusterEndpointTypesWithResponse(ctx context.Context, params *ListClusterEndpointTypesParams, reqEditors ...RequestEditorFn) (*ListClusterEndpointTypesResp, error) {
+	rsp, err := c.ListClusterEndpointTypes(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListClusterEndpointTypesResp(rsp)
+}
+
+// CreateClusterEndpointTypeWithBodyWithResponse request with arbitrary body returning *CreateClusterEndpointTypeResp
+func (c *ClientWithResponses) CreateClusterEndpointTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterEndpointTypeResp, error) {
+	rsp, err := c.CreateClusterEndpointTypeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterEndpointTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterEndpointTypeWithResponse(ctx context.Context, body CreateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterEndpointTypeResp, error) {
+	rsp, err := c.CreateClusterEndpointType(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterEndpointTypeResp(rsp)
+}
+
+// DeleteClusterEndpointTypeWithResponse request returning *DeleteClusterEndpointTypeResp
+func (c *ClientWithResponses) DeleteClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterEndpointTypeResp, error) {
+	rsp, err := c.DeleteClusterEndpointType(ctx, cetName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterEndpointTypeResp(rsp)
+}
+
+// GetClusterEndpointTypeWithResponse request returning *GetClusterEndpointTypeResp
+func (c *ClientWithResponses) GetClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterEndpointTypeResp, error) {
+	rsp, err := c.GetClusterEndpointType(ctx, cetName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterEndpointTypeResp(rsp)
+}
+
+// UpdateClusterEndpointTypeWithBodyWithResponse request with arbitrary body returning *UpdateClusterEndpointTypeResp
+func (c *ClientWithResponses) UpdateClusterEndpointTypeWithBodyWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterEndpointTypeResp, error) {
+	rsp, err := c.UpdateClusterEndpointTypeWithBody(ctx, cetName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterEndpointTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterEndpointTypeWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, body UpdateClusterEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterEndpointTypeResp, error) {
+	rsp, err := c.UpdateClusterEndpointType(ctx, cetName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterEndpointTypeResp(rsp)
+}
+
+// GetClusterEndpointTypeSchemaWithResponse request returning *GetClusterEndpointTypeSchemaResp
+func (c *ClientWithResponses) GetClusterEndpointTypeSchemaWithResponse(ctx context.Context, cetName ClusterEndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterEndpointTypeSchemaResp, error) {
+	rsp, err := c.GetClusterEndpointTypeSchema(ctx, cetName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterEndpointTypeSchemaResp(rsp)
+}
+
 // ListClusterObservabilityPlanesWithResponse request returning *ListClusterObservabilityPlanesResp
 func (c *ClientWithResponses) ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error) {
 	rsp, err := c.ListClusterObservabilityPlanes(ctx, params, reqEditors...)
@@ -24011,6 +26657,225 @@ func (c *ClientWithResponses) UpdateDeploymentPipelineWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseUpdateDeploymentPipelineResp(rsp)
+}
+
+// ListEndpointReleaseBindingsWithResponse request returning *ListEndpointReleaseBindingsResp
+func (c *ClientWithResponses) ListEndpointReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListEndpointReleaseBindingsResp, error) {
+	rsp, err := c.ListEndpointReleaseBindings(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEndpointReleaseBindingsResp(rsp)
+}
+
+// CreateEndpointReleaseBindingWithBodyWithResponse request with arbitrary body returning *CreateEndpointReleaseBindingResp
+func (c *ClientWithResponses) CreateEndpointReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointReleaseBindingResp, error) {
+	rsp, err := c.CreateEndpointReleaseBindingWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointReleaseBindingResp, error) {
+	rsp, err := c.CreateEndpointReleaseBinding(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointReleaseBindingResp(rsp)
+}
+
+// DeleteEndpointReleaseBindingWithResponse request returning *DeleteEndpointReleaseBindingResp
+func (c *ClientWithResponses) DeleteEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointReleaseBindingResp, error) {
+	rsp, err := c.DeleteEndpointReleaseBinding(ctx, namespaceName, endpointReleaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteEndpointReleaseBindingResp(rsp)
+}
+
+// GetEndpointReleaseBindingWithResponse request returning *GetEndpointReleaseBindingResp
+func (c *ClientWithResponses) GetEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetEndpointReleaseBindingResp, error) {
+	rsp, err := c.GetEndpointReleaseBinding(ctx, namespaceName, endpointReleaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointReleaseBindingResp(rsp)
+}
+
+// UpdateEndpointReleaseBindingWithBodyWithResponse request with arbitrary body returning *UpdateEndpointReleaseBindingResp
+func (c *ClientWithResponses) UpdateEndpointReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointReleaseBindingResp, error) {
+	rsp, err := c.UpdateEndpointReleaseBindingWithBody(ctx, namespaceName, endpointReleaseBindingName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseBindingName EndpointReleaseBindingNameParam, body UpdateEndpointReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointReleaseBindingResp, error) {
+	rsp, err := c.UpdateEndpointReleaseBinding(ctx, namespaceName, endpointReleaseBindingName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointReleaseBindingResp(rsp)
+}
+
+// ListEndpointReleasesWithResponse request returning *ListEndpointReleasesResp
+func (c *ClientWithResponses) ListEndpointReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointReleasesParams, reqEditors ...RequestEditorFn) (*ListEndpointReleasesResp, error) {
+	rsp, err := c.ListEndpointReleases(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEndpointReleasesResp(rsp)
+}
+
+// DeleteEndpointReleaseWithResponse request returning *DeleteEndpointReleaseResp
+func (c *ClientWithResponses) DeleteEndpointReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointReleaseResp, error) {
+	rsp, err := c.DeleteEndpointRelease(ctx, namespaceName, endpointReleaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteEndpointReleaseResp(rsp)
+}
+
+// GetEndpointReleaseWithResponse request returning *GetEndpointReleaseResp
+func (c *ClientWithResponses) GetEndpointReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointReleaseName EndpointReleaseNameParam, reqEditors ...RequestEditorFn) (*GetEndpointReleaseResp, error) {
+	rsp, err := c.GetEndpointRelease(ctx, namespaceName, endpointReleaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointReleaseResp(rsp)
+}
+
+// ListEndpointsWithResponse request returning *ListEndpointsResp
+func (c *ClientWithResponses) ListEndpointsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointsParams, reqEditors ...RequestEditorFn) (*ListEndpointsResp, error) {
+	rsp, err := c.ListEndpoints(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEndpointsResp(rsp)
+}
+
+// CreateEndpointWithBodyWithResponse request with arbitrary body returning *CreateEndpointResp
+func (c *ClientWithResponses) CreateEndpointWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointResp, error) {
+	rsp, err := c.CreateEndpointWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointResp, error) {
+	rsp, err := c.CreateEndpoint(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointResp(rsp)
+}
+
+// DeleteEndpointWithResponse request returning *DeleteEndpointResp
+func (c *ClientWithResponses) DeleteEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointResp, error) {
+	rsp, err := c.DeleteEndpoint(ctx, namespaceName, endpointName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteEndpointResp(rsp)
+}
+
+// GetEndpointWithResponse request returning *GetEndpointResp
+func (c *ClientWithResponses) GetEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*GetEndpointResp, error) {
+	rsp, err := c.GetEndpoint(ctx, namespaceName, endpointName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointResp(rsp)
+}
+
+// UpdateEndpointWithBodyWithResponse request with arbitrary body returning *UpdateEndpointResp
+func (c *ClientWithResponses) UpdateEndpointWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointResp, error) {
+	rsp, err := c.UpdateEndpointWithBody(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointResp, error) {
+	rsp, err := c.UpdateEndpoint(ctx, namespaceName, endpointName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointResp(rsp)
+}
+
+// ListEndpointTypesWithResponse request returning *ListEndpointTypesResp
+func (c *ClientWithResponses) ListEndpointTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*ListEndpointTypesResp, error) {
+	rsp, err := c.ListEndpointTypes(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEndpointTypesResp(rsp)
+}
+
+// CreateEndpointTypeWithBodyWithResponse request with arbitrary body returning *CreateEndpointTypeResp
+func (c *ClientWithResponses) CreateEndpointTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEndpointTypeResp, error) {
+	rsp, err := c.CreateEndpointTypeWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEndpointTypeResp, error) {
+	rsp, err := c.CreateEndpointType(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEndpointTypeResp(rsp)
+}
+
+// DeleteEndpointTypeWithResponse request returning *DeleteEndpointTypeResp
+func (c *ClientWithResponses) DeleteEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteEndpointTypeResp, error) {
+	rsp, err := c.DeleteEndpointType(ctx, namespaceName, etName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteEndpointTypeResp(rsp)
+}
+
+// GetEndpointTypeWithResponse request returning *GetEndpointTypeResp
+func (c *ClientWithResponses) GetEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetEndpointTypeResp, error) {
+	rsp, err := c.GetEndpointType(ctx, namespaceName, etName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointTypeResp(rsp)
+}
+
+// UpdateEndpointTypeWithBodyWithResponse request with arbitrary body returning *UpdateEndpointTypeResp
+func (c *ClientWithResponses) UpdateEndpointTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEndpointTypeResp, error) {
+	rsp, err := c.UpdateEndpointTypeWithBody(ctx, namespaceName, etName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateEndpointTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, body UpdateEndpointTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointTypeResp, error) {
+	rsp, err := c.UpdateEndpointType(ctx, namespaceName, etName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEndpointTypeResp(rsp)
+}
+
+// GetEndpointTypeSchemaWithResponse request returning *GetEndpointTypeSchemaResp
+func (c *ClientWithResponses) GetEndpointTypeSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, etName EndpointTypeNameParam, reqEditors ...RequestEditorFn) (*GetEndpointTypeSchemaResp, error) {
+	rsp, err := c.GetEndpointTypeSchema(ctx, namespaceName, etName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointTypeSchemaResp(rsp)
 }
 
 // ListEnvironmentsWithResponse request returning *ListEnvironmentsResp
@@ -26796,6 +29661,344 @@ func ParseUpdateClusterDataPlaneResp(rsp *http.Response) (*UpdateClusterDataPlan
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListClusterEndpointTypesResp parses an HTTP response from a ListClusterEndpointTypesWithResponse call
+func ParseListClusterEndpointTypesResp(rsp *http.Response) (*ListClusterEndpointTypesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListClusterEndpointTypesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterEndpointTypeList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterEndpointTypeResp parses an HTTP response from a CreateClusterEndpointTypeWithResponse call
+func ParseCreateClusterEndpointTypeResp(rsp *http.Response) (*CreateClusterEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterEndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterEndpointTypeResp parses an HTTP response from a DeleteClusterEndpointTypeWithResponse call
+func ParseDeleteClusterEndpointTypeResp(rsp *http.Response) (*DeleteClusterEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterEndpointTypeResp parses an HTTP response from a GetClusterEndpointTypeWithResponse call
+func ParseGetClusterEndpointTypeResp(rsp *http.Response) (*GetClusterEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterEndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterEndpointTypeResp parses an HTTP response from a UpdateClusterEndpointTypeWithResponse call
+func ParseUpdateClusterEndpointTypeResp(rsp *http.Response) (*UpdateClusterEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterEndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterEndpointTypeSchemaResp parses an HTTP response from a GetClusterEndpointTypeSchemaWithResponse call
+func ParseGetClusterEndpointTypeSchemaResp(rsp *http.Response) (*GetClusterEndpointTypeSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterEndpointTypeSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -31658,6 +34861,1060 @@ func ParseUpdateDeploymentPipelineResp(rsp *http.Response) (*UpdateDeploymentPip
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEndpointReleaseBindingsResp parses an HTTP response from a ListEndpointReleaseBindingsWithResponse call
+func ParseListEndpointReleaseBindingsResp(rsp *http.Response) (*ListEndpointReleaseBindingsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEndpointReleaseBindingsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointReleaseBindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateEndpointReleaseBindingResp parses an HTTP response from a CreateEndpointReleaseBindingWithResponse call
+func ParseCreateEndpointReleaseBindingResp(rsp *http.Response) (*CreateEndpointReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateEndpointReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest EndpointReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteEndpointReleaseBindingResp parses an HTTP response from a DeleteEndpointReleaseBindingWithResponse call
+func ParseDeleteEndpointReleaseBindingResp(rsp *http.Response) (*DeleteEndpointReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteEndpointReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointReleaseBindingResp parses an HTTP response from a GetEndpointReleaseBindingWithResponse call
+func ParseGetEndpointReleaseBindingResp(rsp *http.Response) (*GetEndpointReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEndpointReleaseBindingResp parses an HTTP response from a UpdateEndpointReleaseBindingWithResponse call
+func ParseUpdateEndpointReleaseBindingResp(rsp *http.Response) (*UpdateEndpointReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEndpointReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEndpointReleasesResp parses an HTTP response from a ListEndpointReleasesWithResponse call
+func ParseListEndpointReleasesResp(rsp *http.Response) (*ListEndpointReleasesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEndpointReleasesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointReleaseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteEndpointReleaseResp parses an HTTP response from a DeleteEndpointReleaseWithResponse call
+func ParseDeleteEndpointReleaseResp(rsp *http.Response) (*DeleteEndpointReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteEndpointReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointReleaseResp parses an HTTP response from a GetEndpointReleaseWithResponse call
+func ParseGetEndpointReleaseResp(rsp *http.Response) (*GetEndpointReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRelease
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEndpointsResp parses an HTTP response from a ListEndpointsWithResponse call
+func ParseListEndpointsResp(rsp *http.Response) (*ListEndpointsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEndpointsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateEndpointResp parses an HTTP response from a CreateEndpointWithResponse call
+func ParseCreateEndpointResp(rsp *http.Response) (*CreateEndpointResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateEndpointResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Endpoint
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteEndpointResp parses an HTTP response from a DeleteEndpointWithResponse call
+func ParseDeleteEndpointResp(rsp *http.Response) (*DeleteEndpointResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteEndpointResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointResp parses an HTTP response from a GetEndpointWithResponse call
+func ParseGetEndpointResp(rsp *http.Response) (*GetEndpointResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Endpoint
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEndpointResp parses an HTTP response from a UpdateEndpointWithResponse call
+func ParseUpdateEndpointResp(rsp *http.Response) (*UpdateEndpointResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEndpointResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Endpoint
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEndpointTypesResp parses an HTTP response from a ListEndpointTypesWithResponse call
+func ParseListEndpointTypesResp(rsp *http.Response) (*ListEndpointTypesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEndpointTypesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointTypeList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateEndpointTypeResp parses an HTTP response from a CreateEndpointTypeWithResponse call
+func ParseCreateEndpointTypeResp(rsp *http.Response) (*CreateEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest EndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteEndpointTypeResp parses an HTTP response from a DeleteEndpointTypeWithResponse call
+func ParseDeleteEndpointTypeResp(rsp *http.Response) (*DeleteEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointTypeResp parses an HTTP response from a GetEndpointTypeWithResponse call
+func ParseGetEndpointTypeResp(rsp *http.Response) (*GetEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEndpointTypeResp parses an HTTP response from a UpdateEndpointTypeWithResponse call
+func ParseUpdateEndpointTypeResp(rsp *http.Response) (*UpdateEndpointTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEndpointTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointTypeSchemaResp parses an HTTP response from a GetEndpointTypeSchemaWithResponse call
+func ParseGetEndpointTypeSchemaResp(rsp *http.Response) (*GetEndpointTypeSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointTypeSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

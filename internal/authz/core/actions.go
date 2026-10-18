@@ -99,6 +99,22 @@ const (
 	ActionUpdateResourceReleaseBinding = "resourcereleasebinding:update"
 	ActionDeleteResourceReleaseBinding = "resourcereleasebinding:delete"
 
+	// Endpoint actions
+	ActionCreateEndpoint = "endpoint:create"
+	ActionViewEndpoint   = "endpoint:view"
+	ActionUpdateEndpoint = "endpoint:update"
+	ActionDeleteEndpoint = "endpoint:delete"
+
+	// EndpointRelease actions
+	ActionViewEndpointRelease   = "endpointrelease:view"
+	ActionDeleteEndpointRelease = "endpointrelease:delete"
+
+	// EndpointReleaseBinding actions
+	ActionCreateEndpointReleaseBinding = "endpointreleasebinding:create"
+	ActionViewEndpointReleaseBinding   = "endpointreleasebinding:view"
+	ActionUpdateEndpointReleaseBinding = "endpointreleasebinding:update"
+	ActionDeleteEndpointReleaseBinding = "endpointreleasebinding:delete"
+
 	// ComponentType actions
 	ActionCreateComponentType = "componenttype:create"
 	ActionViewComponentType   = "componenttype:view"
@@ -110,6 +126,12 @@ const (
 	ActionViewResourceType   = "resourcetype:view"
 	ActionUpdateResourceType = "resourcetype:update"
 	ActionDeleteResourceType = "resourcetype:delete"
+
+	// EndpointType actions
+	ActionCreateEndpointType = "endpointtype:create"
+	ActionViewEndpointType   = "endpointtype:view"
+	ActionUpdateEndpointType = "endpointtype:update"
+	ActionDeleteEndpointType = "endpointtype:delete"
 
 	// ProjectType actions
 	ActionCreateProjectType = "projecttype:create"
@@ -170,6 +192,12 @@ const (
 	ActionViewClusterResourceType   = "clusterresourcetype:view"
 	ActionUpdateClusterResourceType = "clusterresourcetype:update"
 	ActionDeleteClusterResourceType = "clusterresourcetype:delete"
+
+	// ClusterEndpointType actions
+	ActionCreateClusterEndpointType = "clusterendpointtype:create"
+	ActionViewClusterEndpointType   = "clusterendpointtype:view"
+	ActionUpdateClusterEndpointType = "clusterendpointtype:update"
+	ActionDeleteClusterEndpointType = "clusterendpointtype:delete"
 
 	// ClusterProjectType actions
 	ActionCreateClusterProjectType = "clusterprojecttype:create"
@@ -407,6 +435,19 @@ var systemActions = []Action{
 	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 
+	// Endpoint family. Evaluated at project scope: there is no endpoint-level
+	// scope in the hierarchy, so a role grants these per project, not per Endpoint.
+	{Name: ActionViewEndpoint, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionCreateEndpoint, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionUpdateEndpoint, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteEndpoint, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewEndpointRelease, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteEndpointRelease, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewEndpointReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionCreateEndpointReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionUpdateEndpointReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteEndpointReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+
 	// ComponentType
 	{Name: ActionViewComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionCreateComponentType, LowestScope: ScopeNamespace, IsInternal: false},
@@ -418,6 +459,12 @@ var systemActions = []Action{
 	{Name: ActionCreateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionUpdateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+
+	// EndpointType
+	{Name: ActionViewEndpointType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateEndpointType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateEndpointType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteEndpointType, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// ProjectType
 	{Name: ActionViewProjectType, LowestScope: ScopeNamespace, IsInternal: false},
@@ -478,6 +525,12 @@ var systemActions = []Action{
 	{Name: ActionCreateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionUpdateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionDeleteClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+
+	// ClusterEndpointType
+	{Name: ActionViewClusterEndpointType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionCreateClusterEndpointType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionUpdateClusterEndpointType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionDeleteClusterEndpointType, LowestScope: ScopeCluster, IsInternal: false},
 
 	// ClusterProjectType
 	{Name: ActionViewClusterProjectType, LowestScope: ScopeCluster, IsInternal: false},

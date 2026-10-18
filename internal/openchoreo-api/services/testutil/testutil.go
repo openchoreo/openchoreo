@@ -652,3 +652,111 @@ func testRunTemplate() *runtime.RawExtension {
 		Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"template"}}`),
 	}
 }
+
+// NewEndpointType creates an EndpointType test fixture.
+func NewEndpointType(namespace, name string) *openchoreov1alpha1.EndpointType {
+	return &openchoreov1alpha1.EndpointType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: defaultEndpointTypeSpec(),
+	}
+}
+
+// NewClusterEndpointType creates a ClusterEndpointType test fixture.
+func NewClusterEndpointType(name string) *openchoreov1alpha1.ClusterEndpointType {
+	return &openchoreov1alpha1.ClusterEndpointType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: openchoreov1alpha1.ClusterEndpointTypeSpec(defaultEndpointTypeSpec()),
+	}
+}
+
+// NewEndpoint creates an Endpoint test fixture with a single Component backend.
+func NewEndpoint(namespace, projectName, name string) *openchoreov1alpha1.Endpoint {
+	return &openchoreov1alpha1.Endpoint{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.EndpointSpec{
+			Owner: openchoreov1alpha1.EndpointOwner{
+				ProjectName: projectName,
+			},
+			Type: openchoreov1alpha1.EndpointTypeRef{
+				Kind: openchoreov1alpha1.EndpointTypeRefKindEndpointType,
+				Name: "http-gateway",
+			},
+			Visibility:  []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+			BackendRefs: defaultEndpointBackendRefs(),
+		},
+	}
+}
+
+// NewEndpointRelease creates an EndpointRelease test fixture.
+func NewEndpointRelease(namespace, projectName, endpointName, name string) *openchoreov1alpha1.EndpointRelease {
+	return &openchoreov1alpha1.EndpointRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.EndpointReleaseSpec{
+			Owner: openchoreov1alpha1.EndpointReleaseOwner{
+				ProjectName:  projectName,
+				EndpointName: endpointName,
+			},
+			EndpointType: openchoreov1alpha1.EndpointReleaseEndpointType{
+				Kind: openchoreov1alpha1.EndpointTypeRefKindEndpointType,
+				Name: "http-gateway",
+				Spec: defaultEndpointTypeSpec(),
+			},
+			Visibility:  []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+			BackendRefs: defaultEndpointBackendRefs(),
+		},
+	}
+}
+
+// NewEndpointReleaseBinding creates an EndpointReleaseBinding test fixture.
+func NewEndpointReleaseBinding(namespace, projectName, endpointName, environment, name string) *openchoreov1alpha1.EndpointReleaseBinding {
+	return &openchoreov1alpha1.EndpointReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.EndpointReleaseBindingSpec{
+			Owner: openchoreov1alpha1.EndpointReleaseBindingOwner{
+				ProjectName:  projectName,
+				EndpointName: endpointName,
+			},
+			Environment: environment,
+		},
+	}
+}
+
+func defaultEndpointTypeSpec() openchoreov1alpha1.EndpointTypeSpec {
+	return openchoreov1alpha1.EndpointTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTemplate{
+			{
+				ID: "route",
+				Template: &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"HTTPRoute","metadata":{"name":"route"}}`),
+				},
+			},
+		},
+	}
+}
+
+func defaultEndpointBackendRefs() []openchoreov1alpha1.EndpointBackendRef {
+	return []openchoreov1alpha1.EndpointBackendRef{
+		{
+			Name: "stable",
+			Kind: openchoreov1alpha1.EndpointBackendKindComponent,
+			Component: &openchoreov1alpha1.EndpointComponentBackend{
+				Name:     "greeter",
+				Endpoint: "http",
+			},
+		},
+	}
+}

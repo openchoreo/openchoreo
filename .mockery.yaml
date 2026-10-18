@@ -21,6 +21,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterendpointtype:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane:
     interfaces:
       Service:
@@ -55,6 +58,18 @@ packages:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpoint:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointrelease:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointreleasebinding:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointtype:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment:

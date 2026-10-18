@@ -91,6 +91,16 @@ tags:
     description: Resource release management
   - name: ResourceReleaseBindings
     description: Resource release binding management
+  - name: ClusterEndpointTypes
+    description: Cluster-scoped EndpointType routing templates defined by platform engineers
+  - name: EndpointTypes
+    description: EndpointType routing templates defined by platform engineers
+  - name: Endpoints
+    description: Endpoint management within projects (traffic routing across backends)
+  - name: EndpointReleases
+    description: Endpoint release management
+  - name: EndpointReleaseBindings
+    description: Endpoint release binding management
   - name: ProjectReleaseBindings
     description: Project release binding management
 
@@ -4860,6 +4870,166 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterEndpointType API (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clusterendpointtypes:
+    get:
+      operationId: listClusterEndpointTypes
+      summary: List cluster endpoint types
+      description: Returns a list of cluster-scoped endpoint types.
+      tags: [ClusterEndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster endpoint types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterEndpointTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterEndpointType
+      summary: Create cluster endpoint type
+      description: Creates a new cluster-scoped endpoint type.
+      tags: [ClusterEndpointTypes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterEndpointType'
+      responses:
+        '201':
+          description: Cluster endpoint type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterEndpointType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterendpointtypes/{cetName}:
+    get:
+      operationId: getClusterEndpointType
+      summary: Get a cluster endpoint type
+      description: Returns details of a specific cluster-scoped endpoint type.
+      tags: [ClusterEndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterEndpointTypeNameParam'
+      responses:
+        '200':
+          description: Cluster endpoint type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterEndpointType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterEndpointType
+      summary: Update cluster endpoint type
+      description: Replaces an existing cluster-scoped endpoint type (full update).
+      tags: [ClusterEndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterEndpointTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterEndpointType'
+      responses:
+        '200':
+          description: Cluster endpoint type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterEndpointType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterEndpointType
+      summary: Delete cluster endpoint type
+      description: Deletes a cluster-scoped endpoint type by name.
+      tags: [ClusterEndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterEndpointTypeNameParam'
+      responses:
+        '204':
+          description: ClusterEndpointType deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterendpointtypes/{cetName}/schema:
+    get:
+      operationId: getClusterEndpointTypeSchema
+      summary: Get cluster endpoint type schema
+      description: Returns the parameter schema for a specific cluster-scoped endpoint type.
+      tags: [ClusterEndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterEndpointTypeNameParam'
+      responses:
+        '200':
+          description: Cluster endpoint type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+  # =============================================================================
   # ClusterProjectType Endpoints
   # =============================================================================
 
@@ -5985,6 +6155,531 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # EndpointType API
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/endpointtypes:
+    get:
+      operationId: listEndpointTypes
+      summary: List endpoint types
+      description: Returns a paginated list of endpoint types available in the namespace.
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of endpoint types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createEndpointType
+      summary: Create endpoint type
+      description: Creates a new endpoint type within a namespace.
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointType'
+      responses:
+        '201':
+          description: Endpoint type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpointtypes/{etName}:
+    get:
+      operationId: getEndpointType
+      summary: Get endpoint type
+      description: Returns details of a specific endpoint type.
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointTypeNameParam'
+      responses:
+        '200':
+          description: Endpoint type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateEndpointType
+      summary: Update endpoint type
+      description: Replaces an existing endpoint type (full update).
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointType'
+      responses:
+        '200':
+          description: Endpoint type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteEndpointType
+      summary: Delete endpoint type
+      description: Deletes an endpoint type by name.
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointTypeNameParam'
+      responses:
+        '204':
+          description: Endpoint type deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpointtypes/{etName}/schema:
+    get:
+      operationId: getEndpointTypeSchema
+      summary: Get endpoint type schema
+      description: Returns the parameter schema for a specific endpoint type.
+      tags: [EndpointTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointTypeNameParam'
+      responses:
+        '200':
+          description: Endpoint type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # Endpoint API
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/endpoints:
+    get:
+      operationId: listEndpoints
+      summary: List endpoints
+      description: Returns a paginated list of endpoints within a namespace, optionally filtered by project.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of endpoints
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createEndpoint
+      summary: Create endpoint
+      description: Creates a new endpoint within a namespace.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Endpoint'
+      responses:
+        '201':
+          description: Endpoint created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endpoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}:
+    get:
+      operationId: getEndpoint
+      summary: Get endpoint
+      description: Returns details of a specific endpoint.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      responses:
+        '200':
+          description: Endpoint details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endpoint'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateEndpoint
+      summary: Update endpoint
+      description: Replaces an existing endpoint (full update). Changing the spec cuts a new EndpointRelease via the Endpoint controller.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Endpoint'
+      responses:
+        '200':
+          description: Endpoint updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endpoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteEndpoint
+      summary: Delete endpoint
+      description: Deletes an endpoint by name. The Endpoint finalizer blocks deletion until all owned EndpointReleaseBindings and EndpointReleases are cleaned up.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      responses:
+        '204':
+          description: Endpoint deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # EndpointRelease API
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/endpointreleases:
+    get:
+      operationId: listEndpointReleases
+      summary: List endpoint releases
+      description: Returns a paginated list of endpoint releases within a namespace, optionally filtered by endpoint.
+      tags: [EndpointReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of endpoint releases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointReleaseList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpointreleases/{endpointReleaseName}:
+    get:
+      operationId: getEndpointRelease
+      summary: Get endpoint release
+      description: Returns details of a specific endpoint release.
+      tags: [EndpointReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseNameParam'
+      responses:
+        '200':
+          description: Endpoint release details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRelease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteEndpointRelease
+      summary: Delete endpoint release
+      description: Deletes an endpoint release by name.
+      tags: [EndpointReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseNameParam'
+      responses:
+        '204':
+          description: Endpoint release deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # EndpointReleaseBinding API
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/endpointreleasebindings:
+    get:
+      operationId: listEndpointReleaseBindings
+      summary: List endpoint release bindings
+      description: Returns a paginated list of endpoint release bindings within a namespace, optionally filtered by endpoint.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of endpoint release bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointReleaseBindingList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createEndpointReleaseBinding
+      summary: Create endpoint release binding
+      description: Creates a new endpoint release binding within a namespace.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointReleaseBinding'
+      responses:
+        '201':
+          description: Endpoint release binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpointreleasebindings/{endpointReleaseBindingName}:
+    get:
+      operationId: getEndpointReleaseBinding
+      summary: Get endpoint release binding
+      description: Returns details of a specific endpoint release binding.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseBindingNameParam'
+      responses:
+        '200':
+          description: Endpoint release binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointReleaseBinding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateEndpointReleaseBinding
+      summary: Update endpoint release binding
+      description: Replaces an existing endpoint release binding (full update). Used to advance `spec.endpointRelease` (the promote flow) or change `spec.endpointTypeEnvironmentConfigs`. `spec.owner` and `spec.environment` are immutable.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseBindingNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointReleaseBinding'
+      responses:
+        '200':
+          description: Endpoint release binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteEndpointReleaseBinding
+      summary: Delete endpoint release binding
+      description: Deletes an endpoint release binding by name. The binding finalizer deletes the underlying RenderedRelease first, removing its routes from the data plane.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseBindingNameParam'
+      responses:
+        '204':
+          description: Endpoint release binding deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -6873,6 +7568,61 @@ components:
       schema:
         type: string
         example: analytics-shared-db-dev
+
+
+    ClusterEndpointTypeNameParam:
+      name: cetName
+      in: path
+      required: true
+      description: ClusterEndpointType name
+      schema:
+        type: string
+        example: http-gateway
+
+    EndpointTypeNameParam:
+      name: etName
+      in: path
+      required: true
+      description: EndpointType name
+      schema:
+        type: string
+        example: http-gateway
+
+    EndpointNameParam:
+      name: endpointName
+      in: path
+      required: true
+      description: Endpoint name
+      schema:
+        type: string
+        example: greeter-api
+
+    EndpointReleaseNameParam:
+      name: endpointReleaseName
+      in: path
+      required: true
+      description: Endpoint release name
+      schema:
+        type: string
+        example: greeter-api-abc123
+
+    EndpointQueryParam:
+      name: endpoint
+      in: query
+      required: false
+      description: Filter by endpoint name (matches spec.owner.endpointName)
+      schema:
+        type: string
+        example: greeter-api
+
+    EndpointReleaseBindingNameParam:
+      name: endpointReleaseBindingName
+      in: path
+      required: true
+      description: Endpoint release binding name
+      schema:
+        type: string
+        example: greeter-api-dev
 
     RoleNameParam:
       name: roleName
@@ -11411,6 +12161,582 @@ components:
           description: Resolved outputs for this environment, populated from the underlying RenderedRelease.status by the binding controller.
           items:
             $ref: '#/components/schemas/ResolvedResourceOutput'
+
+
+    # -------------------------------------------------------------------------
+    # EndpointTypes / ClusterEndpointTypes
+    # -------------------------------------------------------------------------
+    EndpointTypeSpec:
+      type: object
+      description: Desired state of a (Cluster)EndpointType.
+      required:
+        - resources
+      properties:
+        parameters:
+          $ref: '#/components/schemas/SchemaSection'
+        environmentConfigs:
+          $ref: '#/components/schemas/SchemaSection'
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated before rendering.
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        resources:
+          type: array
+          description: |
+            Routing manifests (e.g. HTTPRoute, Ingress) emitted on the data plane for each
+            EndpointReleaseBinding. Templates see metadata.*, parameters.*,
+            environmentConfigs.*, visibility, backends[], dataplane.*, environment.*,
+            and gateway.*.
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - template
+            properties:
+              id:
+                type: string
+                description: Unique identifier for this resource within the endpoint type.
+              targetPlane:
+                type: string
+                description: Target plane for deployment. Endpoint types may only target the data plane.
+                enum: [dataplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created."
+                pattern: '^\$\{[\s\S]+\}\s*$'
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list."
+                pattern: '^\$\{[\s\S]+\}\s*$'
+              var:
+                type: string
+                description: Loop variable name when using forEach.
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions.
+                additionalProperties: true
+
+    ClusterEndpointTypeList:
+      type: object
+      description: Paginated list of cluster endpoint types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterEndpointType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterEndpointType:
+      type: object
+      description: |
+        ClusterEndpointType resource.
+        Cluster-scoped sibling of EndpointType. Endpoints in any namespace can reference it.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterEndpointType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EndpointTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ClusterEndpointType status (currently empty)
+
+    EndpointTypeList:
+      type: object
+      description: Paginated list of endpoint types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    EndpointType:
+      type: object
+      description: |
+        EndpointType resource.
+        PE-published routing template scoped to a namespace. Endpoints reference it from Endpoint.spec.type.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: EndpointType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EndpointTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: EndpointType status (currently empty)
+
+    EndpointTypeRef:
+      type: object
+      description: Reference to an EndpointType or ClusterEndpointType template.
+      required:
+        - name
+      properties:
+        kind:
+          type: string
+          description: Endpoint type kind. Defaults to EndpointType (namespaced).
+          enum: [EndpointType, ClusterEndpointType]
+          default: EndpointType
+        name:
+          type: string
+          description: Template name.
+          minLength: 1
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: http-gateway
+
+    # -------------------------------------------------------------------------
+    # Endpoints
+    # -------------------------------------------------------------------------
+    EndpointList:
+      type: object
+      description: Paginated list of endpoints
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Endpoint'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Endpoint:
+      type: object
+      description: |
+        Endpoint resource.
+        Routes traffic across one or more backends using weights, rendered through an
+        EndpointType or ClusterEndpointType.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Endpoint
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EndpointSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/EndpointStatus'
+
+    EndpointSpec:
+      type: object
+      description: Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+      required:
+        - owner
+        - type
+        - visibility
+        - backendRefs
+      properties:
+        owner:
+          type: object
+          description: Identifies the project that owns this Endpoint.
+          required:
+            - projectName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: shop
+        type:
+          $ref: '#/components/schemas/EndpointTypeRef'
+        visibility:
+          type: array
+          description: Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [namespace, internal, external]
+        backendRefs:
+          type: array
+          description: Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
+          minItems: 1
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/EndpointBackendRef'
+        schema:
+          type: object
+          description: API definition this Endpoint exposes. When unset it resolves from the backend's workload endpoint schema.
+          properties:
+            type:
+              type: string
+            content:
+              type: string
+        parameters:
+          type: object
+          description: Values for the parameter schema declared on the referenced (Cluster)EndpointType. Validated by the controller.
+          additionalProperties: true
+
+    EndpointBackendRef:
+      type: object
+      description: One traffic backend of an Endpoint. A discriminated union on kind; exactly the payload matching kind must be set.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Identifies this backend within the Endpoint.
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: stable
+        kind:
+          type: string
+          description: Kind of backend. Defaults to Component.
+          enum: [Component]
+          default: Component
+        component:
+          $ref: '#/components/schemas/EndpointComponentBackend'
+        weight:
+          type: integer
+          format: int32
+          description: Relative share of traffic. Gateway API semantics; 0 sends no traffic.
+          minimum: 0
+          maximum: 1000000
+          default: 1
+          example: 90
+
+    EndpointComponentBackend:
+      type: object
+      description: References a named workload endpoint of a Component in the Endpoint's project.
+      required:
+        - name
+        - endpoint
+      properties:
+        name:
+          type: string
+          description: Component name.
+          minLength: 1
+          example: greeter
+        endpoint:
+          type: string
+          description: Name of the endpoint in the component's Workload.spec.endpoints.
+          minLength: 1
+          example: http
+
+    EndpointStatus:
+      type: object
+      description: Observed state of an Endpoint.
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        conditions:
+          type: array
+          description: Latest available observations of the Endpoint's state. Includes Ready and Finalizing.
+          items:
+            $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Most recent EndpointRelease for this Endpoint. Used as the promote source for EndpointReleaseBinding pin advance.
+          required:
+            - name
+            - hash
+          properties:
+            name:
+              type: string
+              description: Name of the EndpointRelease resource
+              example: greeter-api-abc123
+            hash:
+              type: string
+              description: Content hash of Endpoint.spec + (Cluster)EndpointType.spec captured at release time
+              example: abc123
+
+    # -------------------------------------------------------------------------
+    # EndpointReleases
+    # -------------------------------------------------------------------------
+    EndpointReleaseList:
+      type: object
+      description: Paginated list of endpoint releases
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointRelease'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    EndpointRelease:
+      type: object
+      description: |
+        EndpointRelease resource.
+        Immutable snapshot of Endpoint.spec and the referenced (Cluster)EndpointType.spec
+        at the time it was cut. Created by the Endpoint controller; spec is immutable.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: EndpointRelease
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EndpointReleaseSpec'
+        status:
+          readOnly: true
+          type: object
+          description: EndpointRelease status (currently empty, immutable after creation)
+
+    EndpointReleaseSpec:
+      type: object
+      description: Desired state of an EndpointRelease. Immutable after creation.
+      required:
+        - owner
+        - endpointType
+        - visibility
+        - backendRefs
+      properties:
+        owner:
+          type: object
+          description: Identifies the endpoint and project this EndpointRelease belongs to.
+          required:
+            - projectName
+            - endpointName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: shop
+            endpointName:
+              type: string
+              description: Parent endpoint name
+              minLength: 1
+              example: greeter-api
+        endpointType:
+          type: object
+          description: Frozen snapshot of the referenced (Cluster)EndpointType.
+          required:
+            - kind
+            - name
+            - spec
+          properties:
+            kind:
+              type: string
+              description: Source kind (EndpointType or ClusterEndpointType)
+              enum: [EndpointType, ClusterEndpointType]
+            name:
+              type: string
+              description: Source endpoint type name
+              minLength: 1
+              example: http-gateway
+            spec:
+              $ref: '#/components/schemas/EndpointTypeSpec'
+        visibility:
+          type: array
+          description: Snapshot of the visibilities requested by the Endpoint.
+          items:
+            type: string
+            enum: [namespace, internal, external]
+        backendRefs:
+          type: array
+          description: Snapshot of the backend references and weights from the Endpoint.
+          items:
+            $ref: '#/components/schemas/EndpointBackendRef'
+        schema:
+          type: object
+          description: Snapshot of the explicit schema override, if any.
+          properties:
+            type:
+              type: string
+            content:
+              type: string
+        parameters:
+          type: object
+          description: Snapshot of parameter values from Endpoint.spec at release time.
+          additionalProperties: true
+
+    # -------------------------------------------------------------------------
+    # EndpointReleaseBindings
+    # -------------------------------------------------------------------------
+    EndpointReleaseBindingList:
+      type: object
+      description: Paginated list of endpoint release bindings
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointReleaseBinding'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    EndpointReleaseBinding:
+      type: object
+      description: |
+        EndpointReleaseBinding resource.
+        Pins an EndpointRelease to an Environment, resolves its backends there, and
+        renders its routes. Authored externally; not managed by the Endpoint controller.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: EndpointReleaseBinding
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EndpointReleaseBindingSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/EndpointReleaseBindingStatus'
+
+    EndpointReleaseBindingSpec:
+      type: object
+      description: |
+        Desired state of an EndpointReleaseBinding. spec.owner and spec.environment
+        are immutable after creation. spec.endpointRelease is the promote pin.
+      required:
+        - owner
+        - environment
+      properties:
+        owner:
+          type: object
+          description: Identifies the endpoint and project this binding belongs to.
+          required:
+            - projectName
+            - endpointName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: shop
+            endpointName:
+              type: string
+              description: Parent endpoint name
+              minLength: 1
+              example: greeter-api
+        environment:
+          type: string
+          description: Target environment name. Immutable after creation.
+          minLength: 1
+          example: dev
+        endpointRelease:
+          type: string
+          description: Pinned EndpointRelease name.
+          example: greeter-api-abc123
+        endpointTypeEnvironmentConfigs:
+          type: object
+          description: Per-environment values for EndpointType.spec.environmentConfigs.
+          additionalProperties: true
+
+    ResolvedEndpointBackend:
+      type: object
+      description: Resolution of one backendRef in the binding's environment, populated by the binding controller.
+      required:
+        - name
+        - kind
+        - resolved
+      properties:
+        name:
+          type: string
+          description: Name of the backendRef this entry resolves.
+          example: stable
+        kind:
+          type: string
+          description: Kind of the resolved backend.
+          enum: [Component]
+        weight:
+          type: integer
+          format: int32
+          description: Effective weight applied to this backend.
+          example: 90
+        resolved:
+          type: boolean
+          description: Whether the backend was found and can receive traffic in this environment.
+        serviceURL:
+          $ref: '#/components/schemas/EndpointURL'
+        reason:
+          type: string
+          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+          example: NotDeployed
+        message:
+          type: string
+          description: Human-readable explanation accompanying reason.
+
+    EndpointReleaseBindingStatus:
+      type: object
+      description: Observed state of an EndpointReleaseBinding.
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+          items:
+            $ref: '#/components/schemas/Condition'
+        backends:
+          type: array
+          description: Resolution of each backendRef in this binding's environment.
+          items:
+            $ref: '#/components/schemas/ResolvedEndpointBackend'
 
     # -------------------------------------------------------------------------
     # RenderedRelease

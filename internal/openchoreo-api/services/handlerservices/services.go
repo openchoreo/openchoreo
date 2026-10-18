@@ -16,6 +16,7 @@ import (
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
+	clusterendpointtypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterendpointtype"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
@@ -27,6 +28,10 @@ import (
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
+	endpointsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpoint"
+	endpointreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointrelease"
+	endpointreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointreleasebinding"
+	endpointtypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointtype"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
 	k8sresourcessvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources"
@@ -65,6 +70,7 @@ type Services struct {
 	ClusterWorkflowPlaneService                   clusterworkflowplanesvc.Service
 	ClusterComponentTypeService                   clustercomponenttypesvc.Service
 	ClusterDataPlaneService                       clusterdataplanesvc.Service
+	ClusterEndpointTypeService                    clusterendpointtypesvc.Service
 	ClusterObservabilityPlaneService              clusterobservabilityplanesvc.Service
 	ClusterProjectTypeService                     clusterprojecttypesvc.Service
 	ClusterResourceTypeService                    clusterresourcetypesvc.Service
@@ -76,6 +82,10 @@ type Services struct {
 	ComponentService                              componentsvc.Service
 	ComponentReleaseService                       componentreleasesvc.Service
 	ComponentTypeService                          componenttypesvc.Service
+	EndpointService                               endpointsvc.Service
+	EndpointReleaseService                        endpointreleasesvc.Service
+	EndpointReleaseBindingService                 endpointreleasebindingsvc.Service
+	EndpointTypeService                           endpointtypesvc.Service
 	EnvironmentService                            environmentsvc.Service
 	GitSecretService                              gitsecretsvc.Service
 	ObservabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service
@@ -109,6 +119,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ClusterWorkflowPlaneService:                   clusterworkflowplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterworkflowplane-service")),
 		ClusterComponentTypeService:                   clustercomponenttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clustercomponenttype-service")),
 		ClusterDataPlaneService:                       clusterdataplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterdataplane-service")),
+		ClusterEndpointTypeService:                    clusterendpointtypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterendpointtype-service")),
 		ClusterObservabilityPlaneService:              clusterobservabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterobservabilityplane-service")),
 		ClusterProjectTypeService:                     clusterprojecttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterprojecttype-service")),
 		ClusterResourceTypeService:                    clusterresourcetypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterresourcetype-service")),
@@ -120,6 +131,10 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ComponentService:                              componentsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "component-service")),
 		ComponentReleaseService:                       componentreleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "componentrelease-service")),
 		ComponentTypeService:                          componenttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "componenttype-service")),
+		EndpointService:                               endpointsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "endpoint-service")),
+		EndpointReleaseService:                        endpointreleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "endpointrelease-service")),
+		EndpointReleaseBindingService:                 endpointreleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "endpointreleasebinding-service")),
+		EndpointTypeService:                           endpointtypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "endpointtype-service")),
 		EnvironmentService:                            environmentsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "environment-service")),
 		GitSecretService:                              gitsecretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, pdp, logger.With("component", "gitsecret-service")),
 		ObservabilityAlertsNotificationChannelService: observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityalertsnotificationchannel-service")),
