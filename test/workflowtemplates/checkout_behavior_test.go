@@ -471,6 +471,19 @@ func TestCheckout_GithubApp_MintsInstallationTokenAndClones(t *testing.T) {
 		"askpass helper should return the minted installation token as the password")
 }
 
+func TestCheckout_GithubApp_RejectsNonGithubRepoURL(t *testing.T) {
+	// If REPO pointed at an attacker-controlled host, that host could
+	// otherwise phish the installation token via a Basic auth prompt.
+	res := runCheckout(t, checkoutInput{
+		repo:        "https://evil.example.com/org/repo.git",
+		branch:      "main",
+		secretFiles: githubAppSecret(nil),
+	})
+	require.NotEqual(t, 0, res.exitCode, "github app auth should refuse a non-github.com repository URL")
+	requireCheckoutOutputContains(t, res, "only supports https://github.com repository URLs",
+		"checkout output should explain why the non-github.com URL was rejected")
+}
+
 func TestCheckout_BasicAuthTakesPrecedenceOverGithubApp(t *testing.T) {
 	// Both password and app-id are present: basic-auth wins since it is
 	// checked before the github-app branch in the script. The two secret

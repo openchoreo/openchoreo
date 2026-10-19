@@ -139,6 +139,12 @@ spec:
                 # GitHub App auth (opaque secret with app-id/installation-id/private-key)
                 elif [ -f "$GIT_SECRET_PATH/app-id" ]; then
                     echo ">> Authentication: GitHub App Installation Token"
+
+                    if ! echo "$REPO" | grep -qE "^https://github\.com/"; then
+                        echo ">> Error: GitHub App authentication only supports https://github.com repository URLs."
+                        exit 1
+                    fi
+
                     apk add --no-cache curl jq openssl >/dev/null 2>&1 || true
 
                     APP_ID=$(cat "$GIT_SECRET_PATH/app-id")
@@ -164,8 +170,16 @@ spec:
                     cat > /tmp/git-askpass.sh <<'EOF'
             #!/bin/sh
             case "$1" in
-                Username*) echo x-access-token ;;
-                Password*) cat /tmp/github-app-token ;;
+                *github.com*)
+                    case "$1" in
+                        Username*) echo x-access-token ;;
+                        Password*) cat /tmp/github-app-token ;;
+                    esac
+                    ;;
+                *)
+                    echo ">> Error: refusing to send GitHub App credentials to a non-github.com host" >&2
+                    exit 1
+                    ;;
             esac
             EOF
                     chmod 700 /tmp/git-askpass.sh
