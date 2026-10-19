@@ -39,3 +39,34 @@ func extractArgName(use string) string {
 	}
 	return "NAME"
 }
+
+// ExactArgsWithUsage is ExactOneArgWithUsage for commands taking n arguments,
+// such as "diff [FROM] [TO]". The error names the missing arguments.
+func ExactArgsWithUsage(n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) > n {
+			return fmt.Errorf("accepts %d arg(s), received %d", n, len(args))
+		}
+		if len(args) < n {
+			names := extractArgNames(cmd.Use, n)
+			return fmt.Errorf("required argument %s not provided\n\nUsage:\n  %s", strings.Join(names[len(args):], " and "), cmd.UseLine())
+		}
+		return nil
+	}
+}
+
+// extractArgNames returns the first n argument placeholders of a cobra Use
+// string, falling back to ARG1, ARG2, ... for any that are not named.
+func extractArgNames(use string, n int) []string {
+	parts := strings.Fields(use)
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("ARG%d", i+1)
+		if i+1 < len(parts) {
+			if arg := strings.Trim(parts[i+1], "[]"); arg != "" {
+				names[i] = arg
+			}
+		}
+	}
+	return names
+}
