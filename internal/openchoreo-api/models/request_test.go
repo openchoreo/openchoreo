@@ -1510,13 +1510,13 @@ func TestCreateGitSecretRequest_Validate(t *testing.T) {
 			name:    "Empty secretType",
 			req:     &CreateGitSecretRequest{SecretName: "my-secret"},
 			wantErr: true,
-			errMsg:  "secretType must be 'basic-auth' or 'ssh-auth'",
+			errMsg:  "secretType must be 'basic-auth', 'ssh-auth' or 'github-app'",
 		},
 		{
 			name:    "Unknown secretType",
 			req:     &CreateGitSecretRequest{SecretName: "my-secret", SecretType: "oauth"},
 			wantErr: true,
-			errMsg:  "secretType must be 'basic-auth' or 'ssh-auth'",
+			errMsg:  "secretType must be 'basic-auth', 'ssh-auth' or 'github-app'",
 		},
 		// basic-auth cases
 		{

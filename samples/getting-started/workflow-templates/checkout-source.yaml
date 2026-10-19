@@ -139,7 +139,7 @@ spec:
                 # GitHub App auth (opaque secret with app-id/installation-id/private-key)
                 elif [ -f "$GIT_SECRET_PATH/app-id" ]; then
                     echo ">> Authentication: GitHub App Installation Token"
-                    apk add --no-cache curl jq openssl >/dev/null 2>&1
+                    apk add --no-cache curl jq openssl >/dev/null 2>&1 || true
 
                     APP_ID=$(cat "$GIT_SECRET_PATH/app-id")
                     INSTALLATION_ID=$(cat "$GIT_SECRET_PATH/installation-id")
