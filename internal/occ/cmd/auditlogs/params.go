@@ -34,6 +34,7 @@ type QueryParams struct {
 	Namespaces    []string
 	Projects      []string
 	Components    []string
+	ReleaseLines  []string
 	Resources     []string
 	Environments  []string
 	ReturnedItems []string

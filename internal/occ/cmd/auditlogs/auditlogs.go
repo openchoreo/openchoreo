@@ -157,7 +157,7 @@ func buildRequest(params QueryParams, now time.Time) (obsgen.AuditLogsQueryReque
 		&params.Actions, &params.Categories, &params.Results, &params.Surfaces, &params.Producers,
 		&params.OperationIDs, &params.RequestIDs, &params.EventIDs, &params.SourceIPs, &params.UserAgents,
 		&params.ResourceTypes, &params.ResourceNames, &params.Namespaces, &params.Projects,
-		&params.Components, &params.Resources, &params.Environments, &params.ReturnedItems,
+		&params.Components, &params.ReleaseLines, &params.Resources, &params.Environments, &params.ReturnedItems,
 	} {
 		*values = clean(*values)
 	}
@@ -226,6 +226,7 @@ func buildRequest(params QueryParams, now time.Time) (obsgen.AuditLogsQueryReque
 		Namespace:   optional(params.Namespaces),
 		Project:     optional(params.Projects),
 		Component:   optional(params.Components),
+		ReleaseLine: optional(params.ReleaseLines),
 		Resource:    optional(params.Resources),
 		Environment: optional(environments),
 	}
@@ -374,6 +375,7 @@ func checkCounts(params QueryParams) error {
 		{"namespace", params.Namespaces, maxFilterValues},
 		{"project", params.Projects, maxFilterValues},
 		{"component", params.Components, maxFilterValues},
+		{"release-line", params.ReleaseLines, maxFilterValues},
 		{"resource", params.Resources, maxFilterValues},
 		{"env", params.Environments, maxFilterValues},
 		{"returned-item", params.ReturnedItems, maxFilterValues},
