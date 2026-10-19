@@ -100,6 +100,8 @@ func gvrList() []schema.GroupVersionResource {
 		"resources",
 		"resourcetypes",
 		"projecttypes",
+		"endpoints",
+		"endpointtypes",
 		// Cluster-scoped
 		"clustercomponenttypes",
 		"clustertraits",
@@ -109,6 +111,7 @@ func gvrList() []schema.GroupVersionResource {
 		"clusterworkflowplanes",
 		"clusterresourcetypes",
 		"clusterprojecttypes",
+		"clusterendpointtypes",
 	}
 
 	gvrs := make([]schema.GroupVersionResource, 0, len(resources))
