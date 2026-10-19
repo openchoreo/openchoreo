@@ -8706,6 +8706,12 @@ components:
                 type: string
                 description: Name of the ClusterTrait resource
                 minLength: 1
+        releaseLines:
+          type: string
+          description: >-
+            Whether Components of this type can enable release lines. Allowed only when the
+            resources name every component-scoped object per release line. Omitted means Disallowed.
+          enum: [Allowed, Disallowed]
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -9025,6 +9031,12 @@ components:
               name:
                 type: string
                 description: Name of the Trait or ClusterTrait resource
+        releaseLines:
+          type: string
+          description: >-
+            Whether Components of this type can enable release lines. Allowed only when the
+            resources name every component-scoped object per release line. Omitted means Disallowed.
+          enum: [Allowed, Disallowed]
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."

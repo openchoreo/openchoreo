@@ -2,7 +2,7 @@
 
 This sample builds two lines of the same component from two branches of a Git repository and runs them side by side in one environment, following [discussion #4702](https://github.com/openchoreo/openchoreo/discussions/4702).
 
-A component either does not use release lines, which is how every component works today, or it opts in with `spec.releaseLinesEnabled: true` at creation. An opted-in component has no implicit line: every Workload, ComponentRelease, and ReleaseBinding names a `ReleaseLine`. The flag cannot be changed later, so an existing component adopts release lines by migrating to a new component.
+A component either does not use release lines, which is how every component works today, or it opts in with `spec.releaseLinesEnabled: true` at creation. An opted-in component has no implicit line: every Workload, ComponentRelease, and ReleaseBinding names a `ReleaseLine`. The flag cannot be changed later, so an existing component adopts release lines by migrating to a new component. The component's type must allow release lines with `spec.releaseLines: Allowed`. Otherwise the component is not released and reports `ReleaseLinesNotAllowed`.
 
 The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
@@ -13,7 +13,7 @@ The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
 ## Files
 
-- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type with component-scoped objects (Service, HTTPRoutes, backends, gateway paths) named from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide.
+- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type with component-scoped objects (Service, HTTPRoutes, backends, gateway paths) named from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide. It sets `releaseLines: Allowed`.
 - `build-workflow.yaml`: the `release-line-dockerfile-builder` ClusterWorkflow. It is the default dockerfile builder, except that it passes the run's release line to the workload generation step.
 - `generate-workload-template.yaml`: the `release-line-generate-workload` ClusterWorkflowTemplate. It is the default workload generation step, except that it publishes the built image to the run's release line, as the Workload `<component>-<release-line>-workload`.
 - `release-lines.yaml`: the component and its two release lines. The `next` line overrides only the branch to build.

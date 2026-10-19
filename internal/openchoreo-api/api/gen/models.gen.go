@@ -57,6 +57,12 @@ const (
 	ClusterComponentTypeSpecAllowedWorkflowsKindClusterWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "ClusterWorkflow"
 )
 
+// Defines values for ClusterComponentTypeSpecReleaseLines.
+const (
+	ClusterComponentTypeSpecReleaseLinesAllowed    ClusterComponentTypeSpecReleaseLines = "Allowed"
+	ClusterComponentTypeSpecReleaseLinesDisallowed ClusterComponentTypeSpecReleaseLines = "Disallowed"
+)
+
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
 const (
 	ClusterComponentTypeSpecResourcesTargetPlaneDataplane          ClusterComponentTypeSpecResourcesTargetPlane = "dataplane"
@@ -134,6 +140,12 @@ const (
 const (
 	ComponentTypeSpecAllowedWorkflowsKindClusterWorkflow ComponentTypeSpecAllowedWorkflowsKind = "ClusterWorkflow"
 	ComponentTypeSpecAllowedWorkflowsKindWorkflow        ComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+)
+
+// Defines values for ComponentTypeSpecReleaseLines.
+const (
+	ComponentTypeSpecReleaseLinesAllowed    ComponentTypeSpecReleaseLines = "Allowed"
+	ComponentTypeSpecReleaseLinesDisallowed ComponentTypeSpecReleaseLines = "Disallowed"
 )
 
 // Defines values for ComponentTypeSpecResourcesTargetPlane.
@@ -864,6 +876,9 @@ type ClusterComponentTypeSpec struct {
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
 
+	// ReleaseLines Whether Components of this type can enable release lines. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+	ReleaseLines *ClusterComponentTypeSpecReleaseLines `json:"releaseLines,omitempty"`
+
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
 		// ForEach CEL expression for generating multiple resources from a list
@@ -915,6 +930,9 @@ type ClusterComponentTypeSpecAllowedTraitsKind string
 
 // ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Must be "ClusterWorkflow".
 type ClusterComponentTypeSpecAllowedWorkflowsKind string
+
+// ClusterComponentTypeSpecReleaseLines Whether Components of this type can enable release lines. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+type ClusterComponentTypeSpecReleaseLines string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ClusterComponentTypeSpecResourcesTargetPlane string
@@ -1593,6 +1611,9 @@ type ComponentTypeSpec struct {
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
 
+	// ReleaseLines Whether Components of this type can enable release lines. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+	ReleaseLines *ComponentTypeSpecReleaseLines `json:"releaseLines,omitempty"`
+
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
 		// ForEach CEL expression for generating multiple resources from a list
@@ -1644,6 +1665,9 @@ type ComponentTypeSpecAllowedTraitsKind string
 
 // ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference (Workflow or ClusterWorkflow)
 type ComponentTypeSpecAllowedWorkflowsKind string
+
+// ComponentTypeSpecReleaseLines Whether Components of this type can enable release lines. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+type ComponentTypeSpecReleaseLines string
 
 // ComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ComponentTypeSpecResourcesTargetPlane string

@@ -119,6 +119,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: ctName, Namespace: ns},
 				Spec: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
+					ReleaseLines: openchoreov1alpha1.ReleaseLinePolicyAllowed,
 					Resources: []openchoreov1alpha1.ResourceTemplate{{
 						ID:       "deployment",
 						Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment"}`)},
@@ -224,6 +225,21 @@ var _ = Describe("ReleaseLine Controller", func() {
 			line := reconcileUntil(v2Line, ReasonReconciled)
 			Expect(line.Status.LatestRelease).To(BeNil())
 			reconcileUntil(mainLine, ReasonComponentReleaseReady)
+		})
+
+		It("does not release a line while its component type does not allow release lines", func() {
+			Eventually(func(g Gomega) {
+				ct := &openchoreov1alpha1.ComponentType{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: ctName, Namespace: ns}, ct)).To(Succeed())
+				ct.Spec.ReleaseLines = ""
+				g.Expect(k8sClient.Update(ctx, ct)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			line := reconcileUntil(mainLine, ReasonReleaseLinesNotAllowed)
+			Expect(line.Status.LatestRelease).To(BeNil())
+			Eventually(func(g Gomega) {
+				g.Expect(bindingsOf(g)).To(BeEmpty())
+			}, timeout, interval).Should(Succeed())
 		})
 
 		It("waits for the line's workload", func() {

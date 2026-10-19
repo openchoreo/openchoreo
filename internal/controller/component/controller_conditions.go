@@ -56,6 +56,8 @@ const (
 	ReasonWorkflowNotAllowed controller.ConditionReason = "WorkflowNotAllowed"
 	// ReasonWorkflowNotFound indicates the referenced Workflow doesn't exist
 	ReasonWorkflowNotFound controller.ConditionReason = "WorkflowNotFound"
+	// ReasonReleaseLinesNotAllowed indicates release lines are enabled but the component type does not allow them
+	ReasonReleaseLinesNotAllowed controller.ConditionReason = "ReleaseLinesNotAllowed"
 
 	// AutoDeploy issues (Status=False)
 

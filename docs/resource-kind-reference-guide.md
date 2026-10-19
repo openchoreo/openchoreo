@@ -479,6 +479,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `traits[]` | ComponentTypeTrait[] | No | Pre-configured embedded traits with parameter/environmentConfig bindings |
 | `allowedTraits[]` | TraitRef[] | No | Additional traits developers can attach |
 | `allowedWorkflows[]` | WorkflowRef[] | No | Permitted build workflows |
+| `releaseLines` | string | No | `Allowed` or `Disallowed` (default). Whether Components of this type can enable release lines |
 | `validations[]` | ValidationRule[] | No | CEL validation rules |
 | `resources[]` | ResourceTemplate[] | Yes (min 1) | K8s resource templates with CEL expressions |
 

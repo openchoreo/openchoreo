@@ -56,7 +56,9 @@ var _ = Describe("Component Controller — Release lines", func() {
 		comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
 			"deployment/"+ctName, true)
 		comp.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"replicas":1,"resources":{"cpu":"100m","memory":"128Mi"}}`)}
-		create(minimalCT(ctName, "deployment"), minimalProject(project, pipelineName), minimalPipeline(pipelineName))
+		ct := minimalCT(ctName, "deployment")
+		ct.Spec.ReleaseLines = openchoreov1alpha1.ReleaseLinePolicyAllowed
+		create(ct, minimalProject(project, pipelineName), minimalPipeline(pipelineName))
 	})
 
 	AfterEach(func() {
@@ -103,6 +105,24 @@ var _ = Describe("Component Controller — Release lines", func() {
 
 			reconcileUntilCondition(ctx, r, compName, ReasonInvalidConfiguration)
 			Expect(conditionFor(fetchComp(ctx, compName)).Message).To(ContainSubstring("rl-wl-unlined"))
+		})
+
+		It("is held back while its component type does not allow release lines", func() {
+			setPolicy := func(policy openchoreov1alpha1.ReleaseLinePolicy) {
+				Eventually(func(g Gomega) {
+					ct := &openchoreov1alpha1.ComponentType{}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: ctName, Namespace: itNamespace}, ct)).To(Succeed())
+					ct.Spec.ReleaseLines = policy
+					g.Expect(k8sClient.Update(ctx, ct)).To(Succeed())
+				}, itTimeout, itInterval).Should(Succeed())
+			}
+
+			setPolicy("")
+			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesNotAllowed)
+			Expect(conditionFor(fetchComp(ctx, compName)).Message).To(ContainSubstring(ctName))
+
+			setPolicy(openchoreov1alpha1.ReleaseLinePolicyAllowed)
+			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesReconciled)
 		})
 
 		It("cannot be switched off after creation", func() {
