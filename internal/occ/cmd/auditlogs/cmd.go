@@ -101,6 +101,7 @@ func addQueryFlags(cmd *cobra.Command) {
 	fl.StringSliceP("namespace", "n", nil, "OpenChoreo namespaces (comma-separated)")
 	fl.StringSliceP("project", "p", nil, "Projects (comma-separated)")
 	fl.StringSliceP("component", "c", nil, "Components (comma-separated)")
+	fl.StringSlice("release-line", nil, "Release lines of the components (comma-separated)")
 	fl.StringSlice("resource", nil, "Resources, the hierarchy level beside components (comma-separated)")
 	fl.StringSlice("env", nil,
 		"Environments as <namespace>/<name>; a bare name is qualified with --namespace when exactly one is given (comma-separated)")
@@ -148,6 +149,7 @@ func queryParams(cmd *cobra.Command) QueryParams {
 		Namespaces:    slice("namespace"),
 		Projects:      slice("project"),
 		Components:    slice("component"),
+		ReleaseLines:  slice("release-line"),
 		Resources:     slice("resource"),
 		Environments:  slice("env"),
 		ReturnedItems: slice("returned-item"),
