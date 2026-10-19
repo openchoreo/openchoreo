@@ -5,6 +5,7 @@ package specdiff
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -143,8 +144,15 @@ func TestCompare_SortedOutput(t *testing.T) {
 }
 
 func TestCompare_UnmarshalableValue(t *testing.T) {
-	_, err := Compare("spec", map[string]any{"f": func() {}}, nil)
-	assert.Error(t, err)
+	bad := map[string]any{"f": func() {}}
+
+	_, err := Compare("spec", bad, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read the first value")
+
+	_, err = Compare("spec", nil, bad)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read the second value")
 }
 
 func TestJoinKey(t *testing.T) {
@@ -159,4 +167,6 @@ func TestFormatValue(t *testing.T) {
 	assert.Equal(t, `{"a":[1,"x"]}`, formatValue(map[string]any{"a": []any{num("1"), "x"}}))
 	assert.Equal(t, "null", formatValue(nil))
 	assert.Equal(t, `"line1\nline2"`, formatValue("line1\nline2"))
+	// JSON has no NaN, so the value is printed with fmt instead.
+	assert.Equal(t, "NaN", formatValue(math.NaN()))
 }

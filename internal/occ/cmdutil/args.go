@@ -48,8 +48,12 @@ func ExactArgsWithUsage(n int) cobra.PositionalArgs {
 			return fmt.Errorf("accepts %d arg(s), received %d", n, len(args))
 		}
 		if len(args) < n {
-			names := extractArgNames(cmd.Use, n)
-			return fmt.Errorf("required argument %s not provided\n\nUsage:\n  %s", strings.Join(names[len(args):], " and "), cmd.UseLine())
+			missing := extractArgNames(cmd.Use, n)[len(args):]
+			noun := "argument"
+			if len(missing) > 1 {
+				noun = "arguments"
+			}
+			return fmt.Errorf("required %s %s not provided\n\nUsage:\n  %s", noun, strings.Join(missing, " and "), cmd.UseLine())
 		}
 		return nil
 	}

@@ -78,7 +78,7 @@ func TestExactArgsWithUsage(t *testing.T) {
 	t.Run("no args names both", func(t *testing.T) {
 		err := validator(cmd, []string{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "required argument FROM_RELEASE and TO_RELEASE not provided")
+		assert.Contains(t, err.Error(), "required arguments FROM_RELEASE and TO_RELEASE not provided")
 		assert.Contains(t, err.Error(), "Usage:")
 	})
 

@@ -98,7 +98,9 @@ func compare(path string, a, b any, changes *[]Change) {
 }
 
 func compareMaps(path string, a, b map[string]any, changes *[]Change) {
-	keys := make([]string, 0, len(a)+len(b))
+	// Size for a only, so the capacity never adds two input-sized lengths;
+	// append grows it for keys found only in b.
+	keys := make([]string, 0, len(a))
 	for k := range a {
 		keys = append(keys, k)
 	}
