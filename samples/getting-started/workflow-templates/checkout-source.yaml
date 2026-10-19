@@ -150,6 +150,7 @@ spec:
                     APP_ID=$(cat "$GIT_SECRET_PATH/app-id")
                     INSTALLATION_ID=$(cat "$GIT_SECRET_PATH/installation-id")
                     tr -d '\r' < "$GIT_SECRET_PATH/private-key" > /tmp/github-app-key.pem
+                    chmod 600 /tmp/github-app-key.pem
 
                     NOW=$(date +%s)
                     JWT_HEADER=$(printf '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
