@@ -485,6 +485,12 @@ type CreateGitSecretRequest struct {
 	SSHKey string `json:"sshKey,omitempty"`
 	// SSHKEYID is the SSH Key ID for AWS CodeCommit (optional for ssh-auth type)
 	SSHKEYID string `json:"sshKeyId,omitempty"`
+	// AppID is the GitHub App ID (required for github-app type)
+	AppID string `json:"appId,omitempty"`
+	// InstallationID is the GitHub App installation ID (required for github-app type)
+	InstallationID string `json:"installationId,omitempty"`
+	// PrivateKey is the GitHub App private key in PEM format (required for github-app type)
+	PrivateKey string `json:"privateKey,omitempty"`
 }
 
 // Validate validates the CreateGitSecretRequest
@@ -499,12 +505,13 @@ func (req *CreateGitSecretRequest) Validate() error {
 	// Validate secretType
 	secretType := strings.TrimSpace(req.SecretType)
 	//nolint:gosec // False positive: these are type checks, not hardcoded credentials
-	if secretType != "basic-auth" && secretType != "ssh-auth" {
-		return errors.New("secretType must be 'basic-auth' or 'ssh-auth'")
+	if secretType != "basic-auth" && secretType != "ssh-auth" && secretType != "github-app" {
+		return errors.New("secretType must be 'basic-auth', 'ssh-auth' or 'github-app'")
 	}
 
 	// Validate credentials match type
-	if secretType == "basic-auth" {
+	switch secretType {
+	case "basic-auth":
 		if strings.TrimSpace(req.Token) == "" {
 			return errors.New("token is required for basic-auth type")
 		}
@@ -515,7 +522,7 @@ func (req *CreateGitSecretRequest) Validate() error {
 			return errors.New("sshKeyId must not be provided for basic-auth type")
 		}
 		// Username is optional for basic-auth
-	} else { // ssh-auth
+	case "ssh-auth":
 		if strings.TrimSpace(req.SSHKey) == "" {
 			return errors.New("sshKey is required for ssh-auth type")
 		}
@@ -526,6 +533,16 @@ func (req *CreateGitSecretRequest) Validate() error {
 			return errors.New("username must not be provided for ssh-auth type")
 		}
 		// SSHKeyId is optional for ssh-auth (required for AWS CodeCommit)
+	default: // github-app
+		if strings.TrimSpace(req.AppID) == "" {
+			return errors.New("appId is required for github-app type")
+		}
+		if strings.TrimSpace(req.InstallationID) == "" {
+			return errors.New("installationId is required for github-app type")
+		}
+		if strings.TrimSpace(req.PrivateKey) == "" {
+			return errors.New("privateKey is required for github-app type")
+		}
 	}
 
 	return nil
@@ -539,6 +556,9 @@ func (req *CreateGitSecretRequest) Sanitize() {
 	req.Token = strings.TrimSpace(req.Token)
 	req.SSHKey = strings.TrimSpace(req.SSHKey)
 	req.SSHKEYID = strings.TrimSpace(req.SSHKEYID)
+	req.AppID = strings.TrimSpace(req.AppID)
+	req.InstallationID = strings.TrimSpace(req.InstallationID)
+	req.PrivateKey = strings.TrimSpace(req.PrivateKey)
 }
 
 // CreateWorkflowRunRequest represents the request to create a new workflow run

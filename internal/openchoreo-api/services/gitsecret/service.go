@@ -23,6 +23,7 @@ import (
 const (
 	secretTypeBasicAuth      = "basic-auth"
 	secretTypeSSHAuth        = "ssh-auth"
+	secretTypeGithubApp      = "github-app"
 	gitSecretTypeLabel       = "openchoreo.dev/secret-type"
 	gitSecretTypeValue       = "git-credentials"
 	gitSecretAuthTypeLabel   = "kubernetes.io/secret-type"
@@ -110,7 +111,7 @@ func (s *gitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 	}
 
 	// Create or update K8s Secret in workflow plane using Server-Side Apply
-	secret := s.buildGitSecret(req.SecretName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKeyID)
+	secret := s.buildGitSecret(req.SecretName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKeyID, req.AppID, req.InstallationID, req.PrivateKey)
 	if err := wpInfo.client.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
 		s.logger.Error("Failed to apply workflow plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to apply workflow plane secret: %w", err)
@@ -290,11 +291,12 @@ func (s *gitSecretService) resolveClusterWorkflowPlane(ctx context.Context, name
 	}, nil
 }
 
-func (s *gitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNamespace, secretType, username, token, sshKey, sshKeyID string) *corev1.Secret {
+func (s *gitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNamespace, secretType, username, token, sshKey, sshKeyID, appID, installationID, privateKey string) *corev1.Secret {
 	var k8sSecretType corev1.SecretType
 	var secretData map[string]string
 
-	if secretType == secretTypeBasicAuth {
+	switch secretType {
+	case secretTypeBasicAuth:
 		k8sSecretType = corev1.SecretTypeBasicAuth
 		secretData = map[string]string{
 			"password": token,
@@ -302,7 +304,14 @@ func (s *gitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNa
 		if username != "" {
 			secretData["username"] = username
 		}
-	} else {
+	case secretTypeGithubApp:
+		k8sSecretType = corev1.SecretTypeOpaque
+		secretData = map[string]string{
+			"app-id":          appID,
+			"installation-id": installationID,
+			"private-key":     privateKey,
+		}
+	default:
 		k8sSecretType = corev1.SecretTypeSSHAuth
 		secretData = map[string]string{
 			"ssh-privatekey": sshKey,
@@ -335,7 +344,8 @@ func (s *gitSecretService) buildSecretReference(namespaceName, secretName, secre
 	var k8sSecretType corev1.SecretType
 	var dataSources []openchoreov1alpha1.SecretDataSource
 
-	if secretType == secretTypeBasicAuth {
+	switch secretType {
+	case secretTypeBasicAuth:
 		k8sSecretType = corev1.SecretTypeBasicAuth
 		dataSources = []openchoreov1alpha1.SecretDataSource{
 			{
@@ -355,7 +365,32 @@ func (s *gitSecretService) buildSecretReference(namespaceName, secretName, secre
 				},
 			})
 		}
-	} else {
+	case secretTypeGithubApp:
+		k8sSecretType = corev1.SecretTypeOpaque
+		dataSources = []openchoreov1alpha1.SecretDataSource{
+			{
+				SecretKey: "app-id",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "app-id",
+				},
+			},
+			{
+				SecretKey: "installation-id",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "installation-id",
+				},
+			},
+			{
+				SecretKey: "private-key",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "private-key",
+				},
+			},
+		}
+	default:
 		k8sSecretType = corev1.SecretTypeSSHAuth
 		dataSources = []openchoreov1alpha1.SecretDataSource{
 			{
@@ -407,7 +442,8 @@ func (s *gitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 
 	var dataMatches []map[string]any
 
-	if secretType == secretTypeBasicAuth {
+	switch secretType {
+	case secretTypeBasicAuth:
 		dataMatches = []map[string]any{
 			{
 				"match": map[string]any{
@@ -430,7 +466,37 @@ func (s *gitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 				},
 			})
 		}
-	} else {
+	case secretTypeGithubApp:
+		dataMatches = []map[string]any{
+			{
+				"match": map[string]any{
+					"secretKey": "app-id",
+					"remoteRef": map[string]any{
+						"remoteKey": remoteKey,
+						"property":  "app-id",
+					},
+				},
+			},
+			{
+				"match": map[string]any{
+					"secretKey": "installation-id",
+					"remoteRef": map[string]any{
+						"remoteKey": remoteKey,
+						"property":  "installation-id",
+					},
+				},
+			},
+			{
+				"match": map[string]any{
+					"secretKey": "private-key",
+					"remoteRef": map[string]any{
+						"remoteKey": remoteKey,
+						"property":  "private-key",
+					},
+				},
+			},
+		}
+	default:
 		dataMatches = []map[string]any{
 			{
 				"match": map[string]any{
@@ -522,6 +588,10 @@ func validateCredentials(req *CreateGitSecretParams) error {
 	case secretTypeSSHAuth:
 		if req.SSHKey == "" {
 			return &services.ValidationError{Msg: "sshKey is required for ssh-auth type"}
+		}
+	case secretTypeGithubApp:
+		if req.AppID == "" || req.InstallationID == "" || req.PrivateKey == "" {
+			return &services.ValidationError{Msg: "appId, installationId and privateKey are required for github-app type"}
 		}
 	default:
 		return &services.ValidationError{Msg: fmt.Sprintf("unsupported secret type: %s", req.SecretType)}

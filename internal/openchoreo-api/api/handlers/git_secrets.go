@@ -82,6 +82,15 @@ func (h *Handler) CreateGitSecret(
 	if request.Body.SshKeyId != nil {
 		params.SSHKeyID = *request.Body.SshKeyId
 	}
+	if request.Body.AppId != nil {
+		params.AppID = *request.Body.AppId
+	}
+	if request.Body.InstallationId != nil {
+		params.InstallationID = *request.Body.InstallationId
+	}
+	if request.Body.PrivateKey != nil {
+		params.PrivateKey = *request.Body.PrivateKey
+	}
 
 	result, err := h.services.GitSecretService.CreateGitSecret(ctx, request.NamespaceName, params)
 	if err != nil {

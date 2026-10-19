@@ -21,6 +21,9 @@ type CreateGitSecretParams struct {
 	Token             string
 	SSHKey            string
 	SSHKeyID          string
+	AppID             string
+	InstallationID    string
+	PrivateKey        string
 	WorkflowPlaneKind string
 	WorkflowPlaneName string
 }
