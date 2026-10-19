@@ -23,6 +23,8 @@ const (
 	ReasonComponentNotFound controller.ConditionReason = "ComponentNotFound"
 	// ReasonReleaseLinesNotEnabled indicates the owning Component does not have releaseLinesEnabled.
 	ReasonReleaseLinesNotEnabled controller.ConditionReason = "ReleaseLinesNotEnabled"
+	// ReasonReleaseLinesNotAllowed indicates the component type does not allow release lines.
+	ReasonReleaseLinesNotAllowed controller.ConditionReason = "ReleaseLinesNotAllowed"
 	// ReasonInvalidConfiguration indicates the line or its effective Component is invalid.
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 	// ReasonWorkloadNotFound indicates the line has no Workload yet.

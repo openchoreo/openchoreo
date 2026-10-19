@@ -312,6 +312,39 @@ func TestCreateComponent(t *testing.T) {
 		assert.Equal(t, testProjectName, result.Labels[labels.LabelKeyProjectName])
 	})
 
+	lineComp := func() *openchoreov1alpha1.Component {
+		return &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "line-comp"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+				ComponentType:       openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+				ReleaseLinesEnabled: true,
+			},
+		}
+	}
+
+	t.Run("release lines on a type that allows them", func(t *testing.T) {
+		ct := testComponentType()
+		ct.Spec.ReleaseLines = openchoreov1alpha1.ReleaseLinePolicyAllowed
+		svc := newService(t, testProject(), ct)
+		_, err := svc.CreateComponent(ctx, testNamespace, lineComp())
+		require.NoError(t, err)
+	})
+
+	t.Run("release lines on a type that does not allow them", func(t *testing.T) {
+		svc := newService(t, testProject(), testComponentType())
+		_, err := svc.CreateComponent(ctx, testNamespace, lineComp())
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+		assert.Contains(t, vErr.Msg, `component type "deployment/web-app" does not allow release lines`)
+	})
+
+	t.Run("release lines on an unresolved type are left to the controller", func(t *testing.T) {
+		svc := newService(t, testProject())
+		_, err := svc.CreateComponent(ctx, testNamespace, lineComp())
+		require.NoError(t, err)
+	})
+
 	t.Run("nil input", func(t *testing.T) {
 		svc := newService(t, testProject())
 		_, err := svc.CreateComponent(ctx, testNamespace, nil)

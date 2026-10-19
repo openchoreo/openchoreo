@@ -76,3 +76,57 @@ func TestValidateReleaseLineOwner(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateReleaseLinesAllowed(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&openchoreov1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "ct-allowed", Namespace: "ns"},
+			Spec:       openchoreov1alpha1.ComponentTypeSpec{ReleaseLines: openchoreov1alpha1.ReleaseLinePolicyAllowed},
+		},
+		&openchoreov1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "ct-default", Namespace: "ns"},
+		},
+		&openchoreov1alpha1.ClusterComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "cct-allowed"},
+			Spec:       openchoreov1alpha1.ClusterComponentTypeSpec{ReleaseLines: openchoreov1alpha1.ReleaseLinePolicyAllowed},
+		},
+		&openchoreov1alpha1.ClusterComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "cct-disallowed"},
+			Spec:       openchoreov1alpha1.ClusterComponentTypeSpec{ReleaseLines: openchoreov1alpha1.ReleaseLinePolicyDisallowed},
+		},
+	).Build()
+
+	ct := openchoreov1alpha1.ComponentTypeRefKindComponentType
+	cct := openchoreov1alpha1.ComponentTypeRefKindClusterComponentType
+	tests := []struct {
+		name    string
+		ref     openchoreov1alpha1.ComponentTypeRef
+		allowed bool
+	}{
+		{"namespaced type allows", openchoreov1alpha1.ComponentTypeRef{Kind: ct, Name: "deployment/ct-allowed"}, true},
+		{"namespaced type without a policy", openchoreov1alpha1.ComponentTypeRef{Kind: ct, Name: "deployment/ct-default"}, false},
+		{"kind omitted resolves the namespaced type", openchoreov1alpha1.ComponentTypeRef{Name: "deployment/ct-allowed"}, true},
+		{"cluster type allows", openchoreov1alpha1.ComponentTypeRef{Kind: cct, Name: "deployment/cct-allowed"}, true},
+		{"cluster type disallows", openchoreov1alpha1.ComponentTypeRef{Kind: cct, Name: "deployment/cct-disallowed"}, false},
+		{"missing type is left to the controller", openchoreov1alpha1.ComponentTypeRef{Kind: cct, Name: "deployment/missing"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateReleaseLinesAllowed(context.Background(), c, "ns", tt.ref)
+			if tt.allowed {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				return
+			}
+			var vErr *ValidationError
+			if !errors.As(err, &vErr) {
+				t.Fatalf("expected a ValidationError, got %v", err)
+			}
+		})
+	}
+}

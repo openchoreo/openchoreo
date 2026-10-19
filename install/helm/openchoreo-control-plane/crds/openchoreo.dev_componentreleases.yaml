@@ -315,6 +315,16 @@ spec:
                           - rule
                           type: object
                         type: array
+                      releaseLines:
+                        description: |-
+                          ReleaseLines states whether Components of this type can enable release lines.
+                          Set it to Allowed only when the resources name every component-scoped object per release line,
+                          from metadata.name, or from metadata.componentName and metadata.releaseLineName.
+                          Defaults to Disallowed.
+                        enum:
+                        - Allowed
+                        - Disallowed
+                        type: string
                       resources:
                         description: |-
                           Resources are templates that generate Kubernetes resources dynamically.

@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,4 +50,45 @@ func ValidateReleaseLineOwner(ctx context.Context, c client.Reader, namespace, p
 		return &ValidationError{Msg: fmt.Sprintf("release line %q not found for component %q", releaseLine, componentName)}
 	}
 	return nil
+}
+
+// ValidateReleaseLinesAllowed checks that a component type allows release lines.
+// A type that doesn't exist is left to the controller, which reports it on the component.
+func ValidateReleaseLinesAllowed(ctx context.Context, c client.Reader, namespace string, ref openchoreov1alpha1.ComponentTypeRef) error {
+	name := ref.Name
+	if _, n, ok := strings.Cut(ref.Name, "/"); ok {
+		name = n
+	}
+
+	var policy openchoreov1alpha1.ReleaseLinePolicy
+	if ref.Kind == openchoreov1alpha1.ComponentTypeRefKindClusterComponentType {
+		cct := &openchoreov1alpha1.ClusterComponentType{}
+		if err := c.Get(ctx, client.ObjectKey{Name: name}, cct); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to get ClusterComponentType %s: %w", name, err)
+		}
+		policy = cct.Spec.ReleaseLines
+	} else {
+		ct := &openchoreov1alpha1.ComponentType{}
+		if err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, ct); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to get ComponentType %s: %w", name, err)
+		}
+		policy = ct.Spec.ReleaseLines
+	}
+
+	if !policy.AllowsReleaseLines() {
+		return ReleaseLinesNotAllowedError(ref.Name)
+	}
+	return nil
+}
+
+// ReleaseLinesNotAllowedError reports a component type that does not allow release lines.
+func ReleaseLinesNotAllowedError(componentTypeName string) error {
+	return &ValidationError{Msg: fmt.Sprintf(
+		"component type %q does not allow release lines; its spec.releaseLines must be Allowed", componentTypeName)}
 }

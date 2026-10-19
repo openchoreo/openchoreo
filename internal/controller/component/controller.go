@@ -135,6 +135,13 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	if comp.Spec.ReleaseLinesEnabled {
+		// Releases already deployed stay as they are; only new ones are held back.
+		if !ct.Spec.ReleaseLines.AllowsReleaseLines() {
+			msg := fmt.Sprintf("%s %q does not allow release lines; set spec.releaseLines to Allowed on the component type",
+				comp.Spec.ComponentType.Kind, comp.Spec.ComponentType.Name)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonReleaseLinesNotAllowed, msg)
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, r.reconcileReleaseLineComponent(ctx, comp)
 	}
 

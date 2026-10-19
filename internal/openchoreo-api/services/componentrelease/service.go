@@ -124,6 +124,17 @@ func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, na
 		return nil, fmt.Errorf("failed to check component release existence: %w", err)
 	}
 
+	owner := cr.Spec.Owner
+	if err := services.ValidateReleaseLineOwner(ctx, s.k8sClient, namespaceName,
+		owner.ProjectName, owner.ComponentName, owner.ReleaseLine); err != nil {
+		return nil, err
+	}
+	if owner.ReleaseLine != "" {
+		if err := s.validateReleaseLinesAllowed(ctx, namespaceName, owner.ComponentName); err != nil {
+			return nil, err
+		}
+	}
+
 	cr.Namespace = namespaceName
 	cr.Status = openchoreov1alpha1.ComponentReleaseStatus{}
 
@@ -142,6 +153,19 @@ func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, na
 	cr.TypeMeta = componentReleaseTypeMeta
 	s.logger.Debug("Component release created successfully", "namespace", namespaceName, "componentRelease", cr.Name)
 	return cr, nil
+}
+
+// validateReleaseLinesAllowed checks the owning component's type allows release lines.
+// A component that doesn't exist is left to the controller.
+func (s *componentReleaseService) validateReleaseLinesAllowed(ctx context.Context, namespaceName, componentName string) error {
+	comp := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentName, Namespace: namespaceName}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get component %s: %w", componentName, err)
+	}
+	return services.ValidateReleaseLinesAllowed(ctx, s.k8sClient, namespaceName, comp.Spec.ComponentType)
 }
 
 func (s *componentReleaseService) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error {

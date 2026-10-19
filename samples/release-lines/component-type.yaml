@@ -11,6 +11,7 @@ metadata:
     openchoreo.dev/description: "The service component type, with data plane objects named per release line"
 spec:
   workloadType: deployment
+  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow

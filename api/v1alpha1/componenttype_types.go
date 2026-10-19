@@ -53,6 +53,22 @@ func (s *SchemaSection) IsOpenAPIV3() bool {
 	return s != nil && s.OpenAPIV3Schema != nil
 }
 
+// ReleaseLinePolicy states whether Components of a type can enable release lines.
+// +kubebuilder:validation:Enum=Allowed;Disallowed
+type ReleaseLinePolicy string
+
+const (
+	// ReleaseLinePolicyAllowed lets Components of the type enable release lines.
+	ReleaseLinePolicyAllowed ReleaseLinePolicy = "Allowed"
+	// ReleaseLinePolicyDisallowed keeps Components of the type off release lines. An empty policy means the same.
+	ReleaseLinePolicyDisallowed ReleaseLinePolicy = "Disallowed"
+)
+
+// AllowsReleaseLines reports whether Components under this policy can enable release lines.
+func (p ReleaseLinePolicy) AllowsReleaseLines() bool {
+	return p == ReleaseLinePolicyAllowed
+}
+
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
 // +kubebuilder:validation:XValidation:rule="!(has(self.validations) && size(self.validations) > 0 && has(self.preRenderValidations) && size(self.preRenderValidations) > 0)",message="set only one of spec.validations or spec.preRenderValidations; validations is deprecated, use preRenderValidations"
@@ -92,6 +108,13 @@ type ComponentTypeSpec struct {
 	// If empty or omitted, no additional component-level traits are allowed.
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
+
+	// ReleaseLines states whether Components of this type can enable release lines.
+	// Set it to Allowed only when the resources name every component-scoped object per release line,
+	// from metadata.name, or from metadata.componentName and metadata.releaseLineName.
+	// Defaults to Disallowed.
+	// +optional
+	ReleaseLines ReleaseLinePolicy `json:"releaseLines,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
 	//

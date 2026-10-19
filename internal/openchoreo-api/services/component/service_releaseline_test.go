@@ -79,10 +79,17 @@ func lineSeedObjects(t *testing.T) []client.Object {
 	nextWorkload.Spec.Container.Image = "app:next"
 
 	return []client.Object{
-		testProject(), testDeploymentPipeline(), comp, testComponentType(),
+		testProject(), testDeploymentPipeline(), comp, lineComponentType(),
 		testReleaseLine("main", testProjectName, testComponentName), next,
 		mainWorkload, nextWorkload,
 	}
+}
+
+// lineComponentType is the test component type with release lines allowed.
+func lineComponentType() *openchoreov1alpha1.ComponentType {
+	ct := testComponentType()
+	ct.Spec.ReleaseLines = openchoreov1alpha1.ReleaseLinePolicyAllowed
+	return ct
 }
 
 func TestGenerateRelease_ReleaseLine(t *testing.T) {
@@ -113,6 +120,20 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 		svc := newService(t, lineSeedObjects(t)...)
 		_, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseLine: "v9"})
 		require.ErrorIs(t, err, ErrReleaseLineNotFound)
+	})
+
+	t.Run("line rejected when the component type does not allow lines", func(t *testing.T) {
+		objs := lineSeedObjects(t)
+		for i, obj := range objs {
+			if _, ok := obj.(*openchoreov1alpha1.ComponentType); ok {
+				objs[i] = testComponentType()
+			}
+		}
+		svc := newService(t, objs...)
+		_, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseLine: "next"})
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+		assert.Contains(t, vErr.Msg, "does not allow release lines")
 	})
 
 	t.Run("line rejected when not enabled", func(t *testing.T) {

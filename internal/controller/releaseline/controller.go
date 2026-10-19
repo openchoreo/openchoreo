@@ -130,6 +130,12 @@ func (r *Reconciler) reconcileLine(ctx context.Context, line *openchoreov1alpha1
 		liftFailure()
 		return nil
 	}
+	if !ct.Spec.ReleaseLines.AllowsReleaseLines() {
+		controller.MarkFalseCondition(line, ConditionReady, ReasonReleaseLinesNotAllowed,
+			fmt.Sprintf("%s %q does not allow release lines; set spec.releaseLines to Allowed on the component type",
+				comp.Spec.ComponentType.Kind, comp.Spec.ComponentType.Name))
+		return nil
+	}
 	if ok, err := r.steps.ValidWorkflow(ctx, effective, ct); err != nil || !ok {
 		liftFailure()
 		return err

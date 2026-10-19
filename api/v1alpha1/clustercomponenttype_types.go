@@ -47,6 +47,13 @@ type ClusterComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []ClusterTraitRef `json:"allowedTraits,omitempty"`
 
+	// ReleaseLines states whether Components of this type can enable release lines.
+	// Set it to Allowed only when the resources name every component-scoped object per release line,
+	// from metadata.name, or from metadata.componentName and metadata.releaseLineName.
+	// Defaults to Disallowed.
+	// +optional
+	ReleaseLines ReleaseLinePolicy `json:"releaseLines,omitempty"`
+
 	// Validations are CEL-based rules evaluated during rendering.
 	//
 	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
@@ -117,6 +124,7 @@ func (s *ClusterComponentTypeSpec) ToComponentTypeSpec() ComponentTypeSpec {
 		EnvironmentConfigs: s.EnvironmentConfigs,
 		Traits:             traits,
 		AllowedTraits:      allowedTraits,
+		ReleaseLines:       s.ReleaseLines,
 		//nolint:staticcheck // deprecated field still copied for backward compatibility
 		Validations:           s.Validations,
 		PreRenderValidations:  s.PreRenderValidations,

@@ -67,6 +67,12 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 		return nil, err
 	}
 
+	if component.Spec.ReleaseLinesEnabled {
+		if err := services.ValidateReleaseLinesAllowed(ctx, s.k8sClient, namespaceName, component.Spec.ComponentType); err != nil {
+			return nil, err
+		}
+	}
+
 	exists, err := s.componentExists(ctx, namespaceName, component.Name)
 	if err != nil {
 		s.logger.Error("Failed to check component existence", "error", err)
@@ -287,6 +293,9 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	componentTypeSpec, err := s.fetchComponentTypeSpec(ctx, &component.Spec.ComponentType, namespaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch component type: %w", err)
+	}
+	if lineName != "" && !componentTypeSpec.ReleaseLines.AllowsReleaseLines() {
+		return nil, services.ReleaseLinesNotAllowedError(component.Spec.ComponentType.Name)
 	}
 
 	// Fetch all trait specs (embedded from ComponentType + component-level)
