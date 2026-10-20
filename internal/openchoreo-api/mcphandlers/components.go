@@ -755,7 +755,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 		ocLabels.LabelKeyComponentName: componentName,
 	}
 	if releaseLine != "" {
-		line, err := h.services.ComponentService.GetReleaseLine(ctx, namespaceName, componentName, releaseLine)
+		line, err := h.services.ReleaseLineService.GetReleaseLine(ctx, namespaceName, componentName, releaseLine)
 		if err != nil {
 			return nil, err
 		}
@@ -851,7 +851,7 @@ func (h *MCPHandler) resolveComponentTypeKind(ctx context.Context, namespaceName
 func (h *MCPHandler) ListReleaseLines(
 	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
 ) (any, error) {
-	result, err := h.services.ComponentService.ListReleaseLines(ctx, namespaceName, componentName, toServiceListOptions(opts))
+	result, err := h.services.ReleaseLineService.ListReleaseLines(ctx, namespaceName, componentName, toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -861,7 +861,7 @@ func (h *MCPHandler) ListReleaseLines(
 func (h *MCPHandler) GetReleaseLine(
 	ctx context.Context, namespaceName, componentName, releaseLineName string,
 ) (any, error) {
-	rl, err := h.services.ComponentService.GetReleaseLine(ctx, namespaceName, componentName, releaseLineName)
+	rl, err := h.services.ReleaseLineService.GetReleaseLine(ctx, namespaceName, componentName, releaseLineName)
 	if err != nil {
 		return nil, err
 	}
@@ -875,7 +875,7 @@ func (h *MCPHandler) CreateReleaseLine(
 	if err != nil {
 		return nil, err
 	}
-	created, err := h.services.ComponentService.CreateReleaseLine(ctx, namespaceName, componentName, &rl)
+	created, err := h.services.ReleaseLineService.CreateReleaseLine(ctx, namespaceName, componentName, &rl)
 	if err != nil {
 		return nil, err
 	}
@@ -883,14 +883,52 @@ func (h *MCPHandler) CreateReleaseLine(
 	return mutationResult(created, "created"), nil
 }
 
-func (h *MCPHandler) UpdateReleaseLine(
-	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+func (h *MCPHandler) PatchReleaseLine(
+	ctx context.Context, namespaceName, componentName string, patch *gen.ReleaseLine, reset []string,
 ) (any, error) {
-	rl, err := convertSpec[gen.ReleaseLine, openchoreov1alpha1.ReleaseLine](*line)
+	p, err := convertSpec[gen.ReleaseLine, openchoreov1alpha1.ReleaseLine](*patch)
 	if err != nil {
 		return nil, err
 	}
-	updated, err := h.services.ComponentService.UpdateReleaseLine(ctx, namespaceName, componentName, &rl)
+	rl, err := h.services.ReleaseLineService.GetReleaseLine(ctx, namespaceName, componentName, p.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if description := p.Annotations[controller.AnnotationKeyDescription]; description != "" {
+		if rl.Annotations == nil {
+			rl.Annotations = map[string]string{}
+		}
+		rl.Annotations[controller.AnnotationKeyDescription] = description
+	}
+	if p.Spec.AutoDeploy != nil {
+		rl.Spec.AutoDeploy = p.Spec.AutoDeploy
+	}
+	if patch.Spec != nil && patch.Spec.Parameters != nil {
+		rl.Spec.Parameters = p.Spec.Parameters
+	}
+	if patch.Spec != nil && patch.Spec.Traits != nil {
+		rl.Spec.Traits = p.Spec.Traits
+	}
+	if p.Spec.Workflow != nil && p.Spec.Workflow.Parameters != nil {
+		rl.Spec.Workflow = &openchoreov1alpha1.ReleaseLineWorkflow{Parameters: p.Spec.Workflow.Parameters}
+	}
+	for _, field := range reset {
+		switch field {
+		case "auto_deploy":
+			rl.Spec.AutoDeploy = nil
+		case "parameters":
+			rl.Spec.Parameters = nil
+		case "traits":
+			rl.Spec.Traits = nil
+		case "workflow_parameters":
+			rl.Spec.Workflow = nil
+		default:
+			return nil, fmt.Errorf("reset: unknown field %q", field)
+		}
+	}
+
+	updated, err := h.services.ReleaseLineService.UpdateReleaseLine(ctx, namespaceName, componentName, rl)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +939,7 @@ func (h *MCPHandler) UpdateReleaseLine(
 func (h *MCPHandler) DeleteReleaseLine(
 	ctx context.Context, namespaceName, componentName, releaseLineName string,
 ) (any, error) {
-	if err := h.services.ComponentService.DeleteReleaseLine(ctx, namespaceName, componentName, releaseLineName); err != nil {
+	if err := h.services.ReleaseLineService.DeleteReleaseLine(ctx, namespaceName, componentName, releaseLineName); err != nil {
 		return nil, err
 	}
 	return map[string]any{

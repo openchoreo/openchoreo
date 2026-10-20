@@ -22,6 +22,8 @@ import (
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componentmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component/mocks"
 	releasebindingmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding/mocks"
+	releaselinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline"
+	releaselinemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline/mocks"
 	workflowrunmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun/mocks"
 	workloadmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload/mocks"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
@@ -68,9 +70,10 @@ func TestTriggerWorkflowRun_ReleaseLine(t *testing.T) {
 
 	t.Run("merges the line's workflow parameters and labels the run", func(t *testing.T) {
 		compSvc := componentmocks.NewMockService(t)
+		rlSvc := releaselinemocks.NewMockService(t)
 		wfrSvc := workflowrunmocks.NewMockService(t)
 		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(comp, nil)
-		compSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).
 			Return(makeLine(t, map[string]any{"repository": map[string]any{"branch": "next"}}), nil)
 		wfrSvc.EXPECT().
 			CreateWorkflowRun(mock.Anything, testNS, mock.MatchedBy(func(wr *openchoreov1alpha1.WorkflowRun) bool {
@@ -83,20 +86,21 @@ func TestTriggerWorkflowRun_ReleaseLine(t *testing.T) {
 			})).
 			Return(&openchoreov1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Name: testComponent + "-workflow-abc"}}, nil)
 
-		h := newTestHandler(withComponentService(compSvc), withWorkflowRunService(wfrSvc))
+		h := newTestHandler(withComponentService(compSvc), withReleaseLineService(rlSvc), withWorkflowRunService(wfrSvc))
 		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "", testLine)
 		require.NoError(t, err)
 	})
 
 	t.Run("unknown line propagates the service error", func(t *testing.T) {
 		compSvc := componentmocks.NewMockService(t)
+		rlSvc := releaselinemocks.NewMockService(t)
 		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(comp, nil)
-		compSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).
-			Return(nil, componentsvc.ErrReleaseLineNotFound)
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).
+			Return(nil, releaselinesvc.ErrReleaseLineNotFound)
 
-		h := newTestHandler(withComponentService(compSvc))
+		h := newTestHandler(withComponentService(compSvc), withReleaseLineService(rlSvc))
 		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "", testLine)
-		require.ErrorIs(t, err, componentsvc.ErrReleaseLineNotFound)
+		require.ErrorIs(t, err, releaselinesvc.ErrReleaseLineNotFound)
 	})
 }
 
@@ -182,11 +186,11 @@ func TestReleaseLineHandlers(t *testing.T) {
 		line.Status.Environments = []openchoreov1alpha1.ReleaseLineEnvironment{
 			{Environment: "dev", ReleaseBinding: testComponent + "-next-dev", Release: testComponent + "-next-abc", Ready: true},
 		}
-		compSvc := componentmocks.NewMockService(t)
-		compSvc.EXPECT().ListReleaseLines(mock.Anything, testNS, testComponent, mock.Anything).
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().ListReleaseLines(mock.Anything, testNS, testComponent, mock.Anything).
 			Return(&services.ListResult[openchoreov1alpha1.ReleaseLine]{Items: []openchoreov1alpha1.ReleaseLine{*line}}, nil)
 
-		h := newTestHandler(withComponentService(compSvc))
+		h := newTestHandler(withReleaseLineService(rlSvc))
 		result, err := h.ListReleaseLines(ctx, testNS, testComponent, tools.ListOpts{})
 		require.NoError(t, err)
 		items := result.(map[string]any)["releaseLines"].([]map[string]any)
@@ -201,10 +205,10 @@ func TestReleaseLineHandlers(t *testing.T) {
 	t.Run("get returns the line's overrides", func(t *testing.T) {
 		line := makeLine(t, map[string]any{"branch": "next"})
 		line.Spec.Parameters = rawJSON(t, map[string]any{"logLevel": "warn"})
-		compSvc := componentmocks.NewMockService(t)
-		compSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).Return(line, nil)
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).Return(line, nil)
 
-		h := newTestHandler(withComponentService(compSvc))
+		h := newTestHandler(withReleaseLineService(rlSvc))
 		result, err := h.GetReleaseLine(ctx, testNS, testComponent, testLine)
 		require.NoError(t, err)
 		m := result.(map[string]any)
@@ -219,40 +223,82 @@ func TestReleaseLineHandlers(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: testLine},
 			Spec:     &gen.ReleaseLineSpec{AutoDeploy: &auto, Parameters: &params},
 		}
-		compSvc := componentmocks.NewMockService(t)
-		compSvc.EXPECT().
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().
 			CreateReleaseLine(mock.Anything, testNS, testComponent, mock.MatchedBy(func(rl *openchoreov1alpha1.ReleaseLine) bool {
 				return rl.Name == testLine && rl.Spec.AutoDeploy != nil && !*rl.Spec.AutoDeploy &&
 					string(rl.Spec.Parameters.Raw) == `{"logLevel":"warn"}`
 			})).
 			Return(makeLine(t, nil), nil)
 
-		h := newTestHandler(withComponentService(compSvc))
+		h := newTestHandler(withReleaseLineService(rlSvc))
 		result, err := h.CreateReleaseLine(ctx, testNS, testComponent, line)
 		require.NoError(t, err)
 		assert.Equal(t, "created", result.(map[string]any)["action"])
 	})
 
-	t.Run("update replaces the line", func(t *testing.T) {
-		compSvc := componentmocks.NewMockService(t)
-		compSvc.EXPECT().
-			UpdateReleaseLine(mock.Anything, testNS, testComponent, mock.MatchedBy(func(rl *openchoreov1alpha1.ReleaseLine) bool {
-				return rl.Name == testLine && rl.Spec.Parameters == nil
-			})).
-			Return(makeLine(t, nil), nil)
+	t.Run("patch changes only the given fields and resets others", func(t *testing.T) {
+		existing := makeLine(t, map[string]any{"branch": "next"})
+		auto := false
+		existing.Spec.AutoDeploy = &auto
+		existing.Spec.Parameters = rawJSON(t, map[string]any{"logLevel": "warn"})
+		existing.Annotations = map[string]string{"openchoreo.dev/description": "keep me"}
+		existing.Spec.Traits = []openchoreov1alpha1.ComponentTrait{{Name: "health-probes", InstanceName: "health"}}
 
-		h := newTestHandler(withComponentService(compSvc))
-		result, err := h.UpdateReleaseLine(ctx, testNS, testComponent, &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: testLine}})
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).Return(existing, nil)
+		rlSvc.EXPECT().
+			UpdateReleaseLine(mock.Anything, testNS, testComponent, mock.MatchedBy(func(rl *openchoreov1alpha1.ReleaseLine) bool {
+				return rl.Name == testLine &&
+					string(rl.Spec.Parameters.Raw) == `{"logLevel":"debug"}` &&
+					rl.Spec.AutoDeploy != nil && !*rl.Spec.AutoDeploy &&
+					rl.Annotations["openchoreo.dev/description"] == "keep me" &&
+					rl.Spec.Workflow != nil &&
+					rl.Spec.Traits == nil
+			})).
+			Return(existing, nil)
+
+		params := map[string]any{"logLevel": "debug"}
+		patch := &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: testLine}, Spec: &gen.ReleaseLineSpec{Parameters: &params}}
+		h := newTestHandler(withReleaseLineService(rlSvc))
+		result, err := h.PatchReleaseLine(ctx, testNS, testComponent, patch, []string{"traits"})
 		require.NoError(t, err)
 		assert.Equal(t, "updated", result.(map[string]any)["action"])
 	})
 
+	t.Run("patch with an empty traits list clears them", func(t *testing.T) {
+		existing := makeLine(t, nil)
+		existing.Spec.Traits = []openchoreov1alpha1.ComponentTrait{{Name: "health-probes", InstanceName: "health"}}
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).Return(existing, nil)
+		rlSvc.EXPECT().
+			UpdateReleaseLine(mock.Anything, testNS, testComponent, mock.MatchedBy(func(rl *openchoreov1alpha1.ReleaseLine) bool {
+				return len(rl.Spec.Traits) == 0
+			})).
+			Return(existing, nil)
+
+		traits := []gen.ComponentTrait{}
+		patch := &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: testLine}, Spec: &gen.ReleaseLineSpec{Traits: &traits}}
+		h := newTestHandler(withReleaseLineService(rlSvc))
+		_, err := h.PatchReleaseLine(ctx, testNS, testComponent, patch, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("patch of an unknown line propagates the error", func(t *testing.T) {
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().GetReleaseLine(mock.Anything, testNS, testComponent, testLine).
+			Return(nil, releaselinesvc.ErrReleaseLineNotFound)
+		h := newTestHandler(withReleaseLineService(rlSvc))
+		_, err := h.PatchReleaseLine(ctx, testNS, testComponent, &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: testLine}}, nil)
+		require.ErrorIs(t, err, releaselinesvc.ErrReleaseLineNotFound)
+	})
+
 	t.Run("delete propagates errors", func(t *testing.T) {
-		compSvc := componentmocks.NewMockService(t)
-		compSvc.EXPECT().DeleteReleaseLine(mock.Anything, testNS, testComponent, testLine).
+		rlSvc := releaselinemocks.NewMockService(t)
+		rlSvc.EXPECT().DeleteReleaseLine(mock.Anything, testNS, testComponent, testLine).
 			Return(errors.New("boom"))
 
-		h := newTestHandler(withComponentService(compSvc))
+		h := newTestHandler(withReleaseLineService(rlSvc))
 		_, err := h.DeleteReleaseLine(ctx, testNS, testComponent, testLine)
 		require.Error(t, err)
 	})

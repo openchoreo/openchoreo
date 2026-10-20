@@ -48,7 +48,7 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterListReleaseLines,
 		t.RegisterGetReleaseLine,
 		t.RegisterCreateReleaseLine,
-		t.RegisterUpdateReleaseLine,
+		t.RegisterPatchReleaseLine,
 		t.RegisterDeleteReleaseLine,
 		// Platform standards (read-only). These are scope-collapsed: pass scope="cluster"
 		// to operate on the platform-wide cluster-scoped resource.

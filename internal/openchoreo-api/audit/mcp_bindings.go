@@ -60,7 +60,7 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 	"CreateReleaseBinding": {ToolName: "create_release_binding"},
 
 	"CreateComponentReleaseLine": {ToolName: "create_release_line", ResourceArg: "name"},
-	"UpdateComponentReleaseLine": {ToolName: "update_release_line", ResourceArg: "release_line_name"},
+	"UpdateComponentReleaseLine": {ToolName: "patch_release_line", ResourceArg: "release_line_name"},
 	"DeleteComponentReleaseLine": {ToolName: "delete_release_line", ResourceArg: "release_line_name"},
 	"UpdateReleaseBinding":       {ToolName: "update_release_binding", ResourceArg: "binding_name"},
 	"DeleteReleaseBinding":       {ToolName: "delete_release_binding", ResourceArg: "binding_name"},

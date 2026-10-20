@@ -18,14 +18,14 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
-	componentsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	releaselinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline"
+	releaselinesvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline/mocks"
 )
 
-func releaseLineHandler(svc *componentsvcmocks.MockService) *Handler {
+func releaseLineHandler(svc *releaselinesvcmocks.MockService) *Handler {
 	return &Handler{
-		services: &handlerservices.Services{ComponentService: svc},
+		services: &handlerservices.Services{ReleaseLineService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
@@ -34,7 +34,7 @@ func TestGetComponentReleaseLineHandler(t *testing.T) {
 	ctx := testContext()
 
 	t.Run("returns the line", func(t *testing.T) {
-		svc := componentsvcmocks.NewMockService(t)
+		svc := releaselinesvcmocks.NewMockService(t)
 		svc.EXPECT().GetReleaseLine(mock.Anything, "test-ns", "hello", "next").
 			Return(&openchoreov1alpha1.ReleaseLine{ObjectMeta: metav1.ObjectMeta{Name: "next"}}, nil)
 		resp, err := releaseLineHandler(svc).GetComponentReleaseLine(ctx, gen.GetComponentReleaseLineRequestObject{
@@ -51,11 +51,11 @@ func TestGetComponentReleaseLineHandler(t *testing.T) {
 		want any
 	}{
 		"forbidden":         {svcpkg.ErrForbidden, gen.GetComponentReleaseLine403JSONResponse{}},
-		"unknown component": {componentsvc.ErrComponentNotFound, gen.GetComponentReleaseLine404JSONResponse{}},
-		"unknown line":      {componentsvc.ErrReleaseLineNotFound, gen.GetComponentReleaseLine404JSONResponse{}},
+		"unknown component": {releaselinesvc.ErrComponentNotFound, gen.GetComponentReleaseLine404JSONResponse{}},
+		"unknown line":      {releaselinesvc.ErrReleaseLineNotFound, gen.GetComponentReleaseLine404JSONResponse{}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			svc := componentsvcmocks.NewMockService(t)
+			svc := releaselinesvcmocks.NewMockService(t)
 			svc.EXPECT().GetReleaseLine(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tc.err)
 			resp, err := releaseLineHandler(svc).GetComponentReleaseLine(ctx, gen.GetComponentReleaseLineRequestObject{
 				NamespaceName: "test-ns", ComponentName: "hello", ReleaseLineName: "next",
@@ -70,7 +70,7 @@ func TestCreateComponentReleaseLineHandler(t *testing.T) {
 	ctx := testContext()
 
 	t.Run("creates the line", func(t *testing.T) {
-		svc := componentsvcmocks.NewMockService(t)
+		svc := releaselinesvcmocks.NewMockService(t)
 		svc.EXPECT().CreateReleaseLine(mock.Anything, "test-ns", "hello", mock.Anything).
 			RunAndReturn(func(_ context.Context, _, _ string, rl *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error) {
 				assert.Equal(t, "next", rl.Name)
@@ -85,7 +85,7 @@ func TestCreateComponentReleaseLineHandler(t *testing.T) {
 	})
 
 	t.Run("namespace mismatch", func(t *testing.T) {
-		svc := componentsvcmocks.NewMockService(t)
+		svc := releaselinesvcmocks.NewMockService(t)
 		resp, err := releaseLineHandler(svc).CreateComponentReleaseLine(ctx, gen.CreateComponentReleaseLineRequestObject{
 			NamespaceName: "test-ns", ComponentName: "hello",
 			Body: &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: "next", Namespace: ptr.To("other-ns")}},
@@ -99,13 +99,13 @@ func TestCreateComponentReleaseLineHandler(t *testing.T) {
 		want any
 	}{
 		"forbidden":          {svcpkg.ErrForbidden, gen.CreateComponentReleaseLine403JSONResponse{}},
-		"unknown component":  {componentsvc.ErrComponentNotFound, gen.CreateComponentReleaseLine404JSONResponse{}},
-		"lines not enabled":  {componentsvc.ErrReleaseLinesNotEnabled, gen.CreateComponentReleaseLine400JSONResponse{}},
-		"name taken":         {componentsvc.ErrReleaseLineAlreadyExists, gen.CreateComponentReleaseLine409JSONResponse{}},
+		"unknown component":  {releaselinesvc.ErrComponentNotFound, gen.CreateComponentReleaseLine404JSONResponse{}},
+		"lines not enabled":  {releaselinesvc.ErrReleaseLinesNotEnabled, gen.CreateComponentReleaseLine400JSONResponse{}},
+		"name taken":         {releaselinesvc.ErrReleaseLineAlreadyExists, gen.CreateComponentReleaseLine409JSONResponse{}},
 		"owner of other one": {&svcpkg.ValidationError{Msg: "spec.owner.componentName must be \"hello\""}, gen.CreateComponentReleaseLine400JSONResponse{}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			svc := componentsvcmocks.NewMockService(t)
+			svc := releaselinesvcmocks.NewMockService(t)
 			svc.EXPECT().CreateReleaseLine(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tc.err)
 			resp, err := releaseLineHandler(svc).CreateComponentReleaseLine(ctx, gen.CreateComponentReleaseLineRequestObject{
 				NamespaceName: "test-ns", ComponentName: "hello",
@@ -121,7 +121,7 @@ func TestUpdateComponentReleaseLineHandler(t *testing.T) {
 	ctx := testContext()
 
 	t.Run("uses the path name", func(t *testing.T) {
-		svc := componentsvcmocks.NewMockService(t)
+		svc := releaselinesvcmocks.NewMockService(t)
 		svc.EXPECT().UpdateReleaseLine(mock.Anything, "test-ns", "hello", mock.Anything).
 			RunAndReturn(func(_ context.Context, _, _ string, rl *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error) {
 				assert.Equal(t, "next", rl.Name, "path must override body name")
@@ -136,8 +136,8 @@ func TestUpdateComponentReleaseLineHandler(t *testing.T) {
 	})
 
 	t.Run("unknown line", func(t *testing.T) {
-		svc := componentsvcmocks.NewMockService(t)
-		svc.EXPECT().UpdateReleaseLine(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, componentsvc.ErrReleaseLineNotFound)
+		svc := releaselinesvcmocks.NewMockService(t)
+		svc.EXPECT().UpdateReleaseLine(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, releaselinesvc.ErrReleaseLineNotFound)
 		resp, err := releaseLineHandler(svc).UpdateComponentReleaseLine(ctx, gen.UpdateComponentReleaseLineRequestObject{
 			NamespaceName: "test-ns", ComponentName: "hello", ReleaseLineName: "next",
 			Body: &gen.ReleaseLine{Metadata: gen.ObjectMeta{Name: "next"}},
@@ -156,10 +156,10 @@ func TestDeleteComponentReleaseLineHandler(t *testing.T) {
 	}{
 		"deleted":      {nil, gen.DeleteComponentReleaseLine204Response{}},
 		"forbidden":    {svcpkg.ErrForbidden, gen.DeleteComponentReleaseLine403JSONResponse{}},
-		"unknown line": {componentsvc.ErrReleaseLineNotFound, gen.DeleteComponentReleaseLine404JSONResponse{}},
+		"unknown line": {releaselinesvc.ErrReleaseLineNotFound, gen.DeleteComponentReleaseLine404JSONResponse{}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			svc := componentsvcmocks.NewMockService(t)
+			svc := releaselinesvcmocks.NewMockService(t)
 			svc.EXPECT().DeleteReleaseLine(mock.Anything, "test-ns", "hello", "next").Return(tc.err)
 			resp, err := releaseLineHandler(svc).DeleteComponentReleaseLine(ctx, gen.DeleteComponentReleaseLineRequestObject{
 				NamespaceName: "test-ns", ComponentName: "hello", ReleaseLineName: "next",

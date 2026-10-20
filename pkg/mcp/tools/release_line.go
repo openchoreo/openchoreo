@@ -15,7 +15,7 @@ import (
 )
 
 // releaseLineArgs are the writable fields of a release line, shared by create_release_line and
-// update_release_line.
+// patch_release_line.
 type releaseLineArgs struct {
 	NamespaceName      string           `json:"namespace_name"`
 	ComponentName      string           `json:"component_name"`
@@ -163,28 +163,63 @@ func (t *Toolsets) RegisterCreateReleaseLine(s *mcp.Server, perms map[string]Too
 	})
 }
 
-func (t *Toolsets) RegisterUpdateReleaseLine(s *mcp.Server, perms map[string]ToolPermission) {
-	const name = "update_release_line"
+// Overrides patch_release_line can remove so the line inherits them from the component again.
+const (
+	resetAutoDeploy         = "auto_deploy"
+	resetParameters         = "parameters"
+	resetTraits             = "traits"
+	resetWorkflowParameters = "workflow_parameters"
+)
+
+func (t *Toolsets) RegisterPatchReleaseLine(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "patch_release_line"
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateReleaseLine}
 	props := releaseLineSpecProperties()
 	props["namespace_name"] = defaultStringProperty()
 	props["component_name"] = stringProperty("Use list_components to discover valid names")
 	props["release_line_name"] = stringProperty("Use list_release_lines to discover valid names")
+	props["description"] = stringProperty(
+		"Optional: Updated human-readable description. Empty string is treated as no-change.")
+	props["reset"] = map[string]any{
+		"type": "array",
+		"description": "Optional: Overrides to remove so the line inherits them from the component again. " +
+			"A field can't be both set and reset.",
+		"items": map[string]any{
+			"type": "string",
+			"enum": []string{resetAutoDeploy, resetParameters, resetTraits, resetWorkflowParameters},
+		},
+	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "Replace a release line's overrides. This is a full replacement: omitted fields are " +
-			"removed from the line, which then inherits them from the component. Use get_release_line to " +
-			"read the current overrides first.",
+		Description: "Patch (partially update) a release line's overrides. Only the fields provided are " +
+			"updated; omitted fields remain unchanged. A provided parameters, traits or workflow_parameters " +
+			"value replaces the line's existing override for that field. Use reset to remove an override.",
 		InputSchema: createSchema(props, []string{"namespace_name", "component_name", "release_line_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		releaseLineArgs
-		ReleaseLineName string `json:"release_line_name"`
+		ReleaseLineName string   `json:"release_line_name"`
+		Reset           []string `json:"reset"`
 	}) (*mcp.CallToolResult, any, error) {
-		line, err := args.toReleaseLine(args.ReleaseLineName)
+		set := map[string]bool{
+			resetAutoDeploy:         args.AutoDeploy != nil,
+			resetParameters:         args.Parameters != nil,
+			resetTraits:             args.Traits != nil,
+			resetWorkflowParameters: args.WorkflowParameters != nil,
+		}
+		for _, field := range args.Reset {
+			isSet, known := set[field]
+			if !known {
+				return nil, nil, fmt.Errorf("reset: unknown field %q", field)
+			}
+			if isSet {
+				return nil, nil, fmt.Errorf("%s can't be both set and reset", field)
+			}
+		}
+		patch, err := args.toReleaseLine(args.ReleaseLineName)
 		if err != nil {
 			return nil, nil, err
 		}
-		result, err := t.ComponentToolset.UpdateReleaseLine(ctx, args.NamespaceName, args.ComponentName, line)
+		result, err := t.ComponentToolset.PatchReleaseLine(ctx, args.NamespaceName, args.ComponentName, patch, args.Reset)
 		return handleToolResult(result, err)
 	})
 }
