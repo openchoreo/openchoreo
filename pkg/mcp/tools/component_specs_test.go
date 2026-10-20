@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 const (
@@ -23,6 +25,7 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentSchemaSpecs()...)
 	specs = append(specs, componentPlatformStandardsSpecs()...)
 	specs = append(specs, componentBindingSpecs()...)
+	specs = append(specs, releaseLineSpecs()...)
 	return specs
 }
 
@@ -112,17 +115,22 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "component"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "name", "component_type"},
-			optionalParams:      []string{"display_name", "description"},
+			optionalParams:      []string{"display_name", "description", "release_lines_enabled"},
 			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"project_name":   testProjectName,
-				"name":           "new-component",
-				"component_type": "WebApplication",
+				"namespace_name":        testNamespaceName,
+				"project_name":          testProjectName,
+				"name":                  "new-component",
+				"component_type":        "WebApplication",
+				"release_lines_enabled": true,
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != testProjectName {
 					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testProjectName, args[0], args[1])
+				}
+				req, ok := args[2].(*gen.CreateComponentRequest)
+				if !ok || req.ReleaseLinesEnabled == nil || !*req.ReleaseLinesEnabled {
+					t.Errorf("Expected releaseLinesEnabled true, got %v", args[2])
 				}
 			},
 		},
@@ -199,16 +207,18 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "workload"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name", "workload_spec"},
+			optionalParams:      []string{"release_line"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,
+				"release_line":   testReleaseLineName,
 				"workload_spec":  map[string]interface{}{"container": map[string]interface{}{"image": "example.com/test:latest"}},
 			},
 			expectedMethod: "CreateWorkload",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseLineName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testNamespaceName, testComponentName, testReleaseLineName, args[0], args[1], args[2])
 				}
 			},
 		},

@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
+
+	"github.com/openchoreo/openchoreo/internal/observer/store/sqlschema"
 )
 
 const (
@@ -125,6 +127,13 @@ func (s *sqlStore) runSchemaMigrations(ctx context.Context) error {
 			return fmt.Errorf("failed to add trigger_ai_cost_analysis column: %w", err)
 		}
 		s.logger.Info("Successfully added trigger_ai_cost_analysis column")
+	}
+
+	// Release line columns, for incident_entries tables created before release lines.
+	for _, column := range []string{"release_line_name", "release_line_id"} {
+		if err := sqlschema.AddColumnIfMissing(ctx, s.db, s.backend == BackendPostgreSQL, "incident_entries", column, "TEXT"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -240,6 +249,8 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			entry.ComponentID,
 			entry.EnvironmentID,
 			entry.ProjectID,
+			entry.ReleaseLineName,
+			entry.ReleaseLineID,
 		}
 	} else {
 		query = insertIncidentEntrySQLiteQuery
@@ -262,6 +273,8 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			entry.ComponentID,
 			entry.EnvironmentID,
 			entry.ProjectID,
+			entry.ReleaseLineName,
+			entry.ReleaseLineID,
 		}
 	}
 
@@ -346,6 +359,10 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 		conditions = append(conditions, "environment_id = "+nextPlaceholder())
 		args = append(args, value)
 	}
+	if value := strings.TrimSpace(params.ReleaseLineID); value != "" {
+		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
 
 	whereClause := " WHERE " + strings.Join(conditions, " AND ")
 	countQuery := "SELECT COUNT(*) FROM incident_entries" + whereClause
@@ -367,7 +384,8 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
-		component_id, environment_id, project_id
+		component_id, environment_id, project_id,
+		COALESCE(release_line_name, ''), COALESCE(release_line_id, '')
 	FROM incident_entries` + whereClause + " ORDER BY timestamp_ns " + orderClause + " LIMIT " + limitPh
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -404,6 +422,8 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 			&entry.ComponentID,
 			&entry.EnvironmentID,
 			&entry.ProjectID,
+			&entry.ReleaseLineName,
+			&entry.ReleaseLineID,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan incident entry: %w", err)
 		}
@@ -492,7 +512,7 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 // for the backend's parameter marker.
 //
 // One definition so the column list and scanIncidentEntryRow's scan order
-// cannot drift apart — two hand-maintained copies of an 18-column scan is its
+// cannot drift apart — two hand-maintained copies of a 20-column scan is its
 // own bug, and a mismatch would silently populate the wrong fields.
 func incidentEntrySelectSQL(placeholder string) string {
 	return `SELECT
@@ -500,7 +520,8 @@ func incidentEntrySelectSQL(placeholder string) string {
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
-		component_id, environment_id, project_id
+		component_id, environment_id, project_id,
+		COALESCE(release_line_name, ''), COALESCE(release_line_id, '')
 	FROM incident_entries WHERE id = ` + placeholder
 }
 
@@ -540,6 +561,8 @@ func scanIncidentEntryRow(row *sql.Row, id string) (incidentEntryRow, error) {
 		&r.entry.ComponentID,
 		&r.entry.EnvironmentID,
 		&r.entry.ProjectID,
+		&r.entry.ReleaseLineName,
+		&r.entry.ReleaseLineID,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return incidentEntryRow{}, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
@@ -813,7 +836,9 @@ CREATE TABLE IF NOT EXISTS incident_entries (
 	project_name TEXT,
 	component_id TEXT,
 	environment_id TEXT,
-	project_id TEXT
+	project_id TEXT,
+	release_line_name TEXT,
+	release_line_id TEXT
 );`
 
 const createProjectEnvTimestampIndexQuery = `
@@ -826,8 +851,8 @@ INSERT INTO incident_entries (
 	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 	notes, description,
 	namespace_name, component_name, environment_name, project_name,
-	component_id, environment_id, project_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	component_id, environment_id, project_id, release_line_name, release_line_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 const insertIncidentEntryPostgresQuery = `
 INSERT INTO incident_entries (
@@ -835,5 +860,5 @@ INSERT INTO incident_entries (
 	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 	notes, description,
 	namespace_name, component_name, environment_name, project_name,
-	component_id, environment_id, project_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);`
+	component_id, environment_id, project_id, release_line_name, release_line_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);`

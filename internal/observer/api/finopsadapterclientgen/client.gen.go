@@ -144,6 +144,9 @@ type Namespace = string
 // ProjectUid defines model for ProjectUid.
 type ProjectUid = openapi_types.UUID
 
+// ReleaseLineUid defines model for ReleaseLineUid.
+type ReleaseLineUid = openapi_types.UUID
+
 // StartTime defines model for StartTime.
 type StartTime = time.Time
 
@@ -168,6 +171,12 @@ type GetComponentCostsParams struct {
 	// ComponentUid Component UID. When set, narrows the response to this single component.
 	// Requires `projectUid` to also be set.
 	ComponentUid *ComponentUid `form:"componentUid,omitempty" json:"componentUid,omitempty"`
+
+	// ReleaseLineUid Release line UID. When set, narrows the response to that release line of
+	// the component, filtered on the openchoreo.dev/release-line-uid label.
+	// Requires `componentUid`. Adapters that support it set the
+	// OpenChoreo-Release-Line-Applied response header to "true".
+	ReleaseLineUid *ReleaseLineUid `form:"releaseLineUid,omitempty" json:"releaseLineUid,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window. RFC 3339 timestamp with
 	// second precision (sub-second components are not supported and will
@@ -220,6 +229,16 @@ type GetRecommendationsParams struct {
 	// Component Component name. Required only when `componentUid` is supplied,
 	// since the adapter needs it for the name-based metrics call.
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+
+	// ReleaseLineUid Release line UID. When set, narrows the response to that release line of
+	// the component, filtered on the openchoreo.dev/release-line-uid label.
+	// Requires `componentUid`. Adapters that support it set the
+	// OpenChoreo-Release-Line-Applied response header to "true".
+	ReleaseLineUid *ReleaseLineUid `form:"releaseLineUid,omitempty" json:"releaseLineUid,omitempty"`
+
+	// ReleaseLine Release line name. Required only when `releaseLineUid` is supplied,
+	// since the adapter needs it for the name-based metrics call.
+	ReleaseLine *string `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 }
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
@@ -381,6 +400,22 @@ func NewGetComponentCostsRequest(server string, namespace Namespace, environment
 		if params.ComponentUid != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "componentUid", runtime.ParamLocationQuery, *params.ComponentUid); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ReleaseLineUid != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLineUid", runtime.ParamLocationQuery, *params.ReleaseLineUid); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -568,6 +603,38 @@ func NewGetRecommendationsRequest(server string, namespace Namespace, environmen
 		if params.Component != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ReleaseLineUid != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLineUid", runtime.ParamLocationQuery, *params.ReleaseLineUid); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ReleaseLine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLine", runtime.ParamLocationQuery, *params.ReleaseLine); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err

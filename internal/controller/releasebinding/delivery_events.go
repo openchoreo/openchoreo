@@ -85,6 +85,7 @@ type deliveryEventPayload struct {
 	ProjectUID     string `json:"projectUid,omitempty"`
 	ComponentUID   string `json:"componentUid,omitempty"`
 	EnvironmentUID string `json:"environmentUid,omitempty"`
+	ReleaseLineUID string `json:"releaseLineUid,omitempty"`
 	Phase          string `json:"phase"`
 	FailureReason  string `json:"failureReason,omitempty"`
 	// FailureEpisode identifies which failure->recovery cycle of this rollout the
@@ -658,6 +659,7 @@ func (r *Reconciler) emitDeliveryEvent(
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
+		ReleaseLineUID:       dc.primary.GetLabels()[labels.LabelKeyReleaseLineUID],
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
 		FailureEpisode:       episode,

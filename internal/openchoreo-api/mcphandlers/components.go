@@ -20,6 +20,7 @@ import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -57,6 +58,9 @@ func (h *MCPHandler) CreateComponent(
 	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
+	}
+	if req.ReleaseLinesEnabled != nil {
+		component.Spec.ReleaseLinesEnabled = *req.ReleaseLinesEnabled
 	}
 	if req.Parameters != nil {
 		paramsBytes, err := json.Marshal(*req.Parameters)
@@ -143,10 +147,11 @@ func (h *MCPHandler) ListComponentReleases(
 }
 
 func (h *MCPHandler) CreateComponentRelease(
-	ctx context.Context, namespaceName, componentName, releaseName string,
+	ctx context.Context, namespaceName, componentName, releaseName, releaseLine string,
 ) (any, error) {
 	cr, err := h.services.ComponentService.GenerateRelease(ctx, namespaceName, componentName, &componentsvc.GenerateReleaseRequest{
 		ReleaseName: releaseName,
+		ReleaseLine: releaseLine,
 	})
 	if err != nil {
 		return nil, err
@@ -189,7 +194,11 @@ func (h *MCPHandler) CreateReleaseBinding(
 	ctx context.Context, namespaceName string,
 	req *gen.ReleaseBindingSpec,
 ) (any, error) {
-	bindingName := fmt.Sprintf("%s-%s", req.Owner.ComponentName, req.Environment)
+	releaseLine := ""
+	if req.Owner.ReleaseLine != nil {
+		releaseLine = *req.Owner.ReleaseLine
+	}
+	bindingName := releaseline.ScopedName(req.Owner.ComponentName, releaseLine, req.Environment)
 
 	rb := &openchoreov1alpha1.ReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,6 +209,7 @@ func (h *MCPHandler) CreateReleaseBinding(
 			Owner: openchoreov1alpha1.ReleaseBindingOwner{
 				ProjectName:   req.Owner.ProjectName,
 				ComponentName: req.Owner.ComponentName,
+				ReleaseLine:   releaseLine,
 			},
 			Environment: req.Environment,
 		},
@@ -349,7 +359,7 @@ func (h *MCPHandler) DeleteComponentRelease(ctx context.Context, namespaceName, 
 }
 
 func (h *MCPHandler) CreateWorkload(
-	ctx context.Context, namespaceName, componentName string, workloadSpec any,
+	ctx context.Context, namespaceName, componentName, releaseLine string, workloadSpec any,
 ) (any, error) {
 	// Look up the component to get the project name
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
@@ -371,11 +381,12 @@ func (h *MCPHandler) CreateWorkload(
 	spec.Owner = openchoreov1alpha1.WorkloadOwner{
 		ProjectName:   component.Spec.Owner.ProjectName,
 		ComponentName: componentName,
+		ReleaseLine:   releaseLine,
 	}
 
 	workload := &openchoreov1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentName + "-workload",
+			Name:      releaseline.ScopedName(componentName, releaseLine, "workload"),
 			Namespace: namespaceName,
 		},
 		Spec: spec,
@@ -725,7 +736,7 @@ func (h *MCPHandler) GetWorkflow(ctx context.Context, namespaceName, workflowNam
 }
 
 func (h *MCPHandler) TriggerWorkflowRun(
-	ctx context.Context, namespaceName, projectName, componentName, commit string,
+	ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string,
 ) (any, error) {
 	// Get the component to read its workflow configuration
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
@@ -737,8 +748,24 @@ func (h *MCPHandler) TriggerWorkflowRun(
 		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
 	}
 
-	// Start with the component's existing parameters
+	// Start with the component's existing parameters, with the line's overrides merged on top
 	parameters := component.Spec.Workflow.Parameters
+	labels := map[string]string{
+		ocLabels.LabelKeyProjectName:   projectName,
+		ocLabels.LabelKeyComponentName: componentName,
+	}
+	if releaseLine != "" {
+		line, err := h.services.ComponentService.GetReleaseLine(ctx, namespaceName, componentName, releaseLine)
+		if err != nil {
+			return nil, err
+		}
+		if line.Spec.Workflow != nil {
+			if parameters, err = releaseline.MergeParameters(parameters, line.Spec.Workflow.Parameters); err != nil {
+				return nil, fmt.Errorf("failed to apply workflow parameters of release line %s: %w", releaseLine, err)
+			}
+		}
+		labels[ocLabels.LabelKeyReleaseLine] = releaseLine
+	}
 
 	// If a commit is provided, inject it into the parameters
 	if commit != "" && parameters != nil {
@@ -760,10 +787,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: componentName + "-workflow-",
 			Namespace:    namespaceName,
-			Labels: map[string]string{
-				ocLabels.LabelKeyProjectName:   projectName,
-				ocLabels.LabelKeyComponentName: componentName,
-			},
+			Labels:       labels,
 		},
 		Spec: openchoreov1alpha1.WorkflowRunSpec{
 			Workflow: openchoreov1alpha1.WorkflowRunConfig{
@@ -822,4 +846,67 @@ func (h *MCPHandler) resolveComponentTypeKind(ctx context.Context, namespaceName
 	}
 
 	return "", fmt.Errorf("component type %q not found: no ComponentType in namespace %q or ClusterComponentType with that name", typeName, namespaceName)
+}
+
+func (h *MCPHandler) ListReleaseLines(
+	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
+) (any, error) {
+	result, err := h.services.ComponentService.ListReleaseLines(ctx, namespaceName, componentName, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapTransformedList("releaseLines", result.Items, result.NextCursor, releaseLineSummary), nil
+}
+
+func (h *MCPHandler) GetReleaseLine(
+	ctx context.Context, namespaceName, componentName, releaseLineName string,
+) (any, error) {
+	rl, err := h.services.ComponentService.GetReleaseLine(ctx, namespaceName, componentName, releaseLineName)
+	if err != nil {
+		return nil, err
+	}
+	return releaseLineDetail(rl), nil
+}
+
+func (h *MCPHandler) CreateReleaseLine(
+	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+) (any, error) {
+	rl, err := convertSpec[gen.ReleaseLine, openchoreov1alpha1.ReleaseLine](*line)
+	if err != nil {
+		return nil, err
+	}
+	created, err := h.services.ComponentService.CreateReleaseLine(ctx, namespaceName, componentName, &rl)
+	if err != nil {
+		return nil, err
+	}
+	setAuditResource(ctx, created)
+	return mutationResult(created, "created"), nil
+}
+
+func (h *MCPHandler) UpdateReleaseLine(
+	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+) (any, error) {
+	rl, err := convertSpec[gen.ReleaseLine, openchoreov1alpha1.ReleaseLine](*line)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := h.services.ComponentService.UpdateReleaseLine(ctx, namespaceName, componentName, &rl)
+	if err != nil {
+		return nil, err
+	}
+	setAuditResource(ctx, updated)
+	return mutationResult(updated, "updated"), nil
+}
+
+func (h *MCPHandler) DeleteReleaseLine(
+	ctx context.Context, namespaceName, componentName, releaseLineName string,
+) (any, error) {
+	if err := h.services.ComponentService.DeleteReleaseLine(ctx, namespaceName, componentName, releaseLineName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      releaseLineName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
 }

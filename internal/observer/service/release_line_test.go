@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
@@ -36,6 +39,8 @@ func newReleaseLineResolver(t *testing.T) *ResourceUIDResolver {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/components/comp/releaselines/next"):
 			_, _ = w.Write([]byte(uidResponse(sampleReleaseLineUID)))
+		case strings.Contains(r.URL.Path, "/releaselines/"):
+			w.WriteHeader(http.StatusNotFound)
 		case strings.Contains(r.URL.Path, "/projects/"):
 			_, _ = w.Write([]byte(uidResponse(sampleProjectUID)))
 		case strings.Contains(r.URL.Path, "/components/"):
@@ -240,4 +245,104 @@ func TestDecodeAdapterSyncResponse_ReleaseLineApplied(t *testing.T) {
 			assert.Nil(t, result.ReleaseLineApplied)
 		}
 	}
+}
+
+func TestAlertService_QueryReleaseLine(t *testing.T) {
+	strp := func(s string) *string { return &s }
+	scope := gen.ComponentSearchScope{
+		Namespace: "ns", Project: strp("proj"), Component: strp("comp"), Environment: strp("dev"), ReleaseLine: strp("next"),
+	}
+	window := func() (time.Time, time.Time) {
+		return time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC), time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC)
+	}
+
+	t.Run("alerts are filtered by the line's UID and carry the line", func(t *testing.T) {
+		store := &fakeAlertEntryStore{entries: []alertentry.AlertEntry{{
+			ID: "a-1", Timestamp: "2026-03-07T10:20:30Z", ReleaseLineName: "next", ReleaseLineID: sampleReleaseLineUID,
+		}}, total: 1}
+		svc := &AlertService{alertEntryStore: store, resolver: newReleaseLineResolver(t), logger: discardLogger()}
+		start, end := window()
+		resp, err := svc.QueryAlerts(context.Background(), gen.AlertsQueryRequest{StartTime: start, EndTime: end, SearchScope: scope})
+		require.NoError(t, err)
+		assert.Equal(t, sampleReleaseLineUID, store.lastQueryParams.ReleaseLineID)
+		labels := (*resp.Alerts)[0].Metadata.Labels
+		require.NotNil(t, labels.ReleaseLineName)
+		assert.Equal(t, "next", *labels.ReleaseLineName)
+		assert.Equal(t, sampleReleaseLineUID, labels.ReleaseLineUid.String())
+	})
+
+	t.Run("incidents are filtered by the line's UID", func(t *testing.T) {
+		store := &fakeIncidentEntryStore{}
+		svc := &AlertService{incidentEntryStore: store, resolver: newReleaseLineResolver(t), logger: discardLogger()}
+		start, end := window()
+		_, err := svc.QueryIncidents(context.Background(), gen.IncidentsQueryRequest{StartTime: start, EndTime: end, SearchScope: scope})
+		require.NoError(t, err)
+		assert.Equal(t, sampleReleaseLineUID, store.lastQueryParams.ReleaseLineID)
+	})
+
+	t.Run("an unknown line is a scope error", func(t *testing.T) {
+		svc := &AlertService{alertEntryStore: &fakeAlertEntryStore{}, resolver: newReleaseLineResolver(t), logger: discardLogger()}
+		start, end := window()
+		unknown := scope
+		unknown.ReleaseLine = strp("v9")
+		_, err := svc.QueryAlerts(context.Background(), gen.AlertsQueryRequest{StartTime: start, EndTime: end, SearchScope: unknown})
+		require.ErrorIs(t, err, ErrScopeNotFound)
+	})
+}
+
+func TestFinOpsAdapter_ReleaseLine(t *testing.T) {
+	serve := func(t *testing.T, applied bool, captured *url.Values) *FinOpsAdapter {
+		t.Helper()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			*captured = r.URL.Query()
+			if applied {
+				w.Header().Set(observability.ReleaseLineAppliedHeader, "true")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"items":[]}`))
+		}))
+		t.Cleanup(server.Close)
+		adapter, err := NewFinOpsAdapter(server.URL, 30*time.Second, newReleaseLineResolver(t), discardLogger())
+		require.NoError(t, err)
+		return adapter
+	}
+	costs := func() *types.CostQueryRequest {
+		return &types.CostQueryRequest{
+			Namespace: "ns", Environment: "dev", Project: "proj", Component: "comp", ReleaseLine: "next",
+			StartTime: "2026-05-23T10:00:01Z", EndTime: "2026-05-24T10:00:01Z",
+		}
+	}
+
+	t.Run("costs forward the line's UID", func(t *testing.T) {
+		var query url.Values
+		_, err := serve(t, true, &query).GetComponentCosts(context.Background(), costs())
+		require.NoError(t, err)
+		assert.Equal(t, sampleReleaseLineUID, query.Get("releaseLineUid"))
+	})
+
+	t.Run("recommendations forward the line's UID and name", func(t *testing.T) {
+		var query url.Values
+		_, err := serve(t, true, &query).GetRecommendations(context.Background(), &types.RecommendationQueryRequest{
+			Namespace: "ns", Environment: "dev", Project: "proj", Component: "comp", ReleaseLine: "next",
+			StartTime: "2026-05-23T10:00:01Z", EndTime: "2026-05-24T10:00:01Z",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, sampleReleaseLineUID, query.Get("releaseLineUid"))
+		assert.Equal(t, "next", query.Get("releaseLine"))
+	})
+
+	t.Run("an adapter that ignores the line is not supported", func(t *testing.T) {
+		var query url.Values
+		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), costs())
+		require.ErrorIs(t, err, ErrReleaseLineNotSupported)
+	})
+
+	t.Run("a query without a line needs no confirmation", func(t *testing.T) {
+		var query url.Values
+		req := costs()
+		req.ReleaseLine = ""
+		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), req)
+		require.NoError(t, err)
+		assert.Empty(t, query.Get("releaseLineUid"))
+	})
 }

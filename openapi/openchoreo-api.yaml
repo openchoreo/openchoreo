@@ -7781,6 +7781,9 @@ components:
           description: Whether to automatically deploy to default environment
           default: false
           example: true
+        releaseLinesEnabled:
+          type: boolean
+          description: Deploys the component only through explicit ReleaseLines. Can only be set when the component is created, and the component type must allow release lines.
         parameters:
           type: object
           description: Component type parameters

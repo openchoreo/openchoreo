@@ -145,6 +145,9 @@ func componentSummary(c openchoreov1alpha1.Component) map[string]any {
 	m["projectName"] = c.Spec.Owner.ProjectName
 	m["componentType"] = c.Spec.ComponentType.Name
 	m["autoDeploy"] = c.Spec.AutoDeploy
+	if c.Spec.ReleaseLinesEnabled {
+		m["releaseLinesEnabled"] = true
+	}
 	if c.Spec.AutoBuild != nil {
 		m["autoBuild"] = *c.Spec.AutoBuild
 	}
@@ -163,6 +166,9 @@ func componentDetail(c *openchoreov1alpha1.Component) map[string]any {
 		"name": c.Spec.ComponentType.Name,
 	}
 	m["autoDeploy"] = c.Spec.AutoDeploy
+	if c.Spec.ReleaseLinesEnabled {
+		m["releaseLinesEnabled"] = true
+	}
 	if c.Spec.AutoBuild != nil {
 		m["autoBuild"] = *c.Spec.AutoBuild
 	}
@@ -214,6 +220,7 @@ func workloadSummary(w openchoreov1alpha1.Workload) map[string]any {
 	m := extractCommonMeta(&w)
 	m["projectName"] = w.Spec.Owner.ProjectName
 	m["componentName"] = w.Spec.Owner.ComponentName
+	setIfNotEmpty(m, "releaseLine", w.Spec.Owner.ReleaseLine)
 	m["image"] = w.Spec.Container.Image
 	if len(w.Spec.Endpoints) > 0 {
 		names := make([]string, 0, len(w.Spec.Endpoints))
@@ -231,6 +238,61 @@ func workloadDetail(w *openchoreov1alpha1.Workload) map[string]any {
 		m["spec"] = spec
 	}
 	return m
+}
+
+// ---------------------------------------------------------------------------
+// ReleaseLine
+// ---------------------------------------------------------------------------
+
+func releaseLineSummary(rl openchoreov1alpha1.ReleaseLine) map[string]any {
+	m := extractCommonMeta(&rl)
+	m["projectName"] = rl.Spec.Owner.ProjectName
+	m["componentName"] = rl.Spec.Owner.ComponentName
+	if rl.Spec.AutoDeploy != nil {
+		m["autoDeploy"] = *rl.Spec.AutoDeploy
+	}
+	if rl.Status.LatestRelease != nil {
+		m["latestRelease"] = rl.Status.LatestRelease.Name
+	}
+	if envs := releaseLineEnvironments(rl.Status.Environments); envs != nil {
+		m["environments"] = envs
+	}
+	setIfNotEmpty(m, "status", readyStatus(rl.Status.Conditions))
+	return m
+}
+
+func releaseLineDetail(rl *openchoreov1alpha1.ReleaseLine) map[string]any {
+	m := releaseLineSummary(*rl)
+	if rl.Spec.Parameters != nil {
+		m["parameters"] = rawExtensionToAny(rl.Spec.Parameters)
+	}
+	if len(rl.Spec.Traits) > 0 {
+		m["traits"] = rl.Spec.Traits
+	}
+	if rl.Spec.Workflow != nil && rl.Spec.Workflow.Parameters != nil {
+		m["workflow"] = map[string]any{"parameters": rawExtensionToAny(rl.Spec.Workflow.Parameters)}
+	}
+	if conds := conditionsSummary(rl.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
+func releaseLineEnvironments(envs []openchoreov1alpha1.ReleaseLineEnvironment) []map[string]any {
+	if len(envs) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(envs))
+	for _, e := range envs {
+		env := map[string]any{
+			"environment":    e.Environment,
+			"releaseBinding": e.ReleaseBinding,
+			"ready":          e.Ready,
+		}
+		setIfNotEmpty(env, "release", e.Release)
+		out = append(out, env)
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------
@@ -333,6 +395,7 @@ func componentReleaseSummary(cr openchoreov1alpha1.ComponentRelease) map[string]
 	m := extractCommonMeta(&cr)
 	m["projectName"] = cr.Spec.Owner.ProjectName
 	m["componentName"] = cr.Spec.Owner.ComponentName
+	setIfNotEmpty(m, "releaseLine", cr.Spec.Owner.ReleaseLine)
 	return m
 }
 
@@ -340,6 +403,7 @@ func componentReleaseDetail(cr *openchoreov1alpha1.ComponentRelease) map[string]
 	m := extractCommonMeta(cr)
 	m["projectName"] = cr.Spec.Owner.ProjectName
 	m["componentName"] = cr.Spec.Owner.ComponentName
+	setIfNotEmpty(m, "releaseLine", cr.Spec.Owner.ReleaseLine)
 	m["componentType"] = map[string]any{
 		"kind": string(cr.Spec.ComponentType.Kind),
 		"name": cr.Spec.ComponentType.Name,
@@ -370,6 +434,7 @@ func releaseBindingSummary(rb openchoreov1alpha1.ReleaseBinding) map[string]any 
 	m := extractCommonMeta(&rb)
 	m["projectName"] = rb.Spec.Owner.ProjectName
 	m["componentName"] = rb.Spec.Owner.ComponentName
+	setIfNotEmpty(m, "releaseLine", rb.Spec.Owner.ReleaseLine)
 	m["environment"] = rb.Spec.Environment
 	setIfNotEmpty(m, "releaseName", rb.Spec.ReleaseName)
 	if rb.Spec.State != "" {
@@ -389,6 +454,7 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 	m := extractCommonMeta(rb)
 	m["projectName"] = rb.Spec.Owner.ProjectName
 	m["componentName"] = rb.Spec.Owner.ComponentName
+	setIfNotEmpty(m, "releaseLine", rb.Spec.Owner.ReleaseLine)
 	m["environment"] = rb.Spec.Environment
 	setIfNotEmpty(m, "releaseName", rb.Spec.ReleaseName)
 	if rb.Spec.State != "" {

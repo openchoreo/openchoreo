@@ -1086,7 +1086,7 @@ type ComponentSearchScope struct {
 	Namespace   string  `json:"namespace"`
 	Project     *string `json:"project,omitempty"`
 
-	// ReleaseLine Restricts the result to one release line of the component. Requires component and environment.
+	// ReleaseLine Restricts the result to one release line of the component. Requires component. Logs, events, metrics and traces also require environment.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
@@ -1764,6 +1764,12 @@ type ResourceLabels struct {
 
 	// ProjectUid The UID of the project
 	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+
+	// ReleaseLineName The name of the component's release line. Absent for components without release lines.
+	ReleaseLineName *string `json:"releaseLineName,omitempty"`
+
+	// ReleaseLineUid The UID of the component's release line. Absent for components without release lines.
+	ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 }
 
 // ResourceMetricsTimeSeries defines model for ResourceMetricsTimeSeries.
@@ -2103,6 +2109,9 @@ type FinOpsNamespace = string
 // FinOpsProject defines model for FinOpsProject.
 type FinOpsProject = string
 
+// FinOpsReleaseLine defines model for FinOpsReleaseLine.
+type FinOpsReleaseLine = string
+
 // FinOpsStartTime defines model for FinOpsStartTime.
 type FinOpsStartTime = time.Time
 
@@ -2156,6 +2165,9 @@ type GetComponentCostsParams struct {
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
 
+	// ReleaseLine Release line of the component, for components with release lines enabled. When set, narrows the response to that line. Requires `component`.
+	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
+
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
 	StartTime FinOpsStartTime `form:"startTime" json:"startTime"`
 
@@ -2175,6 +2187,9 @@ type GetRecommendationsParams struct {
 
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
+
+	// ReleaseLine Release line of the component, for components with release lines enabled. When set, narrows the response to that line. Requires `component`.
+	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
 	StartTime FinOpsStartTime `form:"startTime" json:"startTime"`

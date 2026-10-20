@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
+
+	"github.com/openchoreo/openchoreo/internal/observer/store/sqlschema"
 )
 
 const (
@@ -74,6 +76,12 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createAlertRuleCRTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create alert_entries cr index: %w", err)
 	}
+	// Release line columns, for alert_entries tables created before release lines.
+	for _, column := range []string{"release_line_name", "release_line_id"} {
+		if err := sqlschema.AddColumnIfMissing(initCtx, s.db, s.backend == BackendPostgreSQL, "alert_entries", column, "TEXT"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -122,6 +130,8 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 			entry.ComponentID,
 			entry.EnvironmentID,
 			entry.ProjectID,
+			entry.ReleaseLineName,
+			entry.ReleaseLineID,
 			entry.IncidentEnabled,
 			entry.Severity,
 			entry.Description,
@@ -150,6 +160,8 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 			entry.ComponentID,
 			entry.EnvironmentID,
 			entry.ProjectID,
+			entry.ReleaseLineName,
+			entry.ReleaseLineID,
 			entry.IncidentEnabled,
 			entry.Severity,
 			entry.Description,
@@ -244,6 +256,10 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 		conditions = append(conditions, "environment_id = "+nextPlaceholder())
 		args = append(args, value)
 	}
+	if value := strings.TrimSpace(params.ReleaseLineID); value != "" {
+		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
 
 	whereClause := " WHERE " + strings.Join(conditions, " AND ")
 	countQuery := "SELECT COUNT(*) FROM alert_entries" + whereClause
@@ -263,7 +279,8 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 	query := `SELECT
 		id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
 		namespace_name, component_name, environment_name, project_name,
-		component_id, environment_id, project_id, incident_enabled,
+		component_id, environment_id, project_id,
+		COALESCE(release_line_name, ''), COALESCE(release_line_id, ''), incident_enabled,
 		severity, description, notification_channels,
 		source_type, source_query, source_metric,
 		condition_operator, condition_threshold, condition_window, condition_interval
@@ -293,6 +310,8 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 			&entry.ComponentID,
 			&entry.EnvironmentID,
 			&entry.ProjectID,
+			&entry.ReleaseLineName,
+			&entry.ReleaseLineID,
 			&entry.IncidentEnabled,
 			&entry.Severity,
 			&entry.Description,
@@ -380,6 +399,8 @@ CREATE TABLE IF NOT EXISTS alert_entries (
 	component_id TEXT,
 	environment_id TEXT,
 	project_id TEXT,
+	release_line_name TEXT,
+	release_line_id TEXT,
 	incident_enabled BOOLEAN NOT NULL,
 	severity TEXT,
 	description TEXT,
@@ -405,12 +426,12 @@ const insertAlertEntrySQLiteQuery = `
 INSERT INTO alert_entries (
 	id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
 	namespace_name, component_name, environment_name, project_name,
-	component_id, environment_id, project_id,
+	component_id, environment_id, project_id, release_line_name, release_line_id,
 	incident_enabled,
 	severity, description, notification_channels,
 	source_type, source_query, source_metric,
 	condition_operator, condition_threshold, condition_window, condition_interval
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 const createAlertRuleCRTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_alert_entries_cr_ts
@@ -430,9 +451,9 @@ const insertAlertEntryPostgresQuery = `
 INSERT INTO alert_entries (
 	id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
 	namespace_name, component_name, environment_name, project_name,
-	component_id, environment_id, project_id,
+	component_id, environment_id, project_id, release_line_name, release_line_id,
 	incident_enabled,
 	severity, description, notification_channels,
 	source_type, source_query, source_metric,
 	condition_operator, condition_threshold, condition_window, condition_interval
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24);`
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26);`

@@ -48,12 +48,18 @@ paths:
         - $ref: '#/components/parameters/EnvironmentUid'
         - $ref: '#/components/parameters/ProjectUid'
         - $ref: '#/components/parameters/ComponentUid'
+        - $ref: '#/components/parameters/ReleaseLineUid'
         - $ref: '#/components/parameters/StartTime'
         - $ref: '#/components/parameters/EndTime'
         - $ref: '#/components/parameters/Granularity'
       responses:
         '200':
           description: A list of component cost records.
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              description: Set to "true" when the adapter restricted the result to the requested release line.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -146,9 +152,24 @@ paths:
           schema:
             type: string
             example: checkout-service
+        - $ref: '#/components/parameters/ReleaseLineUid'
+        - name: releaseLine
+          in: query
+          required: false
+          description: |
+            Release line name. Required only when `releaseLineUid` is supplied,
+            since the adapter needs it for the name-based metrics call.
+          schema:
+            type: string
+            example: next
       responses:
         '200':
           description: A list of right-sizing recommendations.
+          headers:
+            OpenChoreo-Release-Line-Applied:
+              description: Set to "true" when the adapter restricted the result to the requested release line.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -220,6 +241,20 @@ components:
         type: string
         format: uuid
         example: 'ff0efd12-6f80-4c5e-9ca1-edc021cc57c4'
+
+    ReleaseLineUid:
+      name: releaseLineUid
+      in: query
+      required: false
+      description: |
+        Release line UID. When set, narrows the response to that release line of
+        the component, filtered on the openchoreo.dev/release-line-uid label.
+        Requires `componentUid`. Adapters that support it set the
+        OpenChoreo-Release-Line-Applied response header to "true".
+      schema:
+        type: string
+        format: uuid
+        example: '9f8e7d6c-5b4a-4321-8fed-cba987654321'
 
     StartTime:
       name: startTime

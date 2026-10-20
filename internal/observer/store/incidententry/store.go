@@ -43,6 +43,8 @@ type IncidentEntry struct {
 	ComponentID           string
 	EnvironmentID         string
 	ProjectID             string
+	ReleaseLineName       string
+	ReleaseLineID         string
 }
 
 // ErrIncidentNotFound is returned when an incident with the given ID does not exist.
@@ -59,6 +61,7 @@ type QueryParams struct {
 	ProjectID     string
 	ComponentID   string
 	EnvironmentID string
+	ReleaseLineID string
 	Limit         int
 	SortOrder     string
 }

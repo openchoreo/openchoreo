@@ -583,7 +583,7 @@ func TestCreateWorkload(t *testing.T) {
 
 		h := newTestHandler(withComponentService(compSvc), withWorkloadService(wlSvc))
 		spec := map[string]interface{}{"container": map[string]interface{}{"image": "nginx"}}
-		_, err := h.CreateWorkload(ctx, testNS, testComponent, spec)
+		_, err := h.CreateWorkload(ctx, testNS, testComponent, "", spec)
 		require.NoError(t, err)
 	})
 
@@ -592,7 +592,7 @@ func TestCreateWorkload(t *testing.T) {
 		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(nil, errors.New("component not found"))
 
 		h := newTestHandler(withComponentService(compSvc))
-		_, err := h.CreateWorkload(ctx, testNS, testComponent, map[string]interface{}{})
+		_, err := h.CreateWorkload(ctx, testNS, testComponent, "", map[string]interface{}{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "component not found")
 	})
@@ -974,7 +974,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 			Return(makeCreatedRun(), nil)
 
 		h := newTestHandler(withComponentService(compSvc), withWorkflowRunService(wfrSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123", "")
 		require.NoError(t, err)
 	})
 
@@ -996,7 +996,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 			Return(makeCreatedRun(), nil)
 
 		h := newTestHandler(withComponentService(compSvc), withWorkflowRunService(wfrSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123", "")
 		require.NoError(t, err)
 	})
 
@@ -1021,7 +1021,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 			Return(makeCreatedRun(), nil)
 
 		h := newTestHandler(withComponentService(compSvc), withWorkflowRunService(wfrSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "", "")
 		require.NoError(t, err)
 	})
 
@@ -1034,7 +1034,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(comp, nil)
 
 		h := newTestHandler(withComponentService(compSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not have a workflow configured")
 	})
@@ -1045,7 +1045,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(comp, nil)
 
 		h := newTestHandler(withComponentService(compSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "abc123", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not have a workflow configured")
 	})
@@ -1064,7 +1064,7 @@ func TestTriggerWorkflowRun(t *testing.T) {
 			Return(makeCreatedRun(), nil)
 
 		h := newTestHandler(withComponentService(compSvc), withWorkflowRunService(wfrSvc))
-		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "")
+		_, err := h.TriggerWorkflowRun(ctx, testNS, testProject, testComponent, "", "")
 		require.NoError(t, err)
 	})
 }

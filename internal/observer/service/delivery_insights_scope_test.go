@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
 )
 
 // scopeResolverStub answers every level with the name as its UID, except the one
@@ -45,6 +46,10 @@ func (r scopeResolverStub) GetComponentUID(_ context.Context, _, _, component st
 
 func (r scopeResolverStub) GetEnvironmentUID(_ context.Context, _, environment string) (string, error) {
 	return r.resolve("environment", environment)
+}
+
+func (r scopeResolverStub) GetReleaseLineUID(_ context.Context, _, _, releaseLine string) (string, error) {
+	return r.resolve("release line", releaseLine)
 }
 
 // TestDeliveryInsightsScopeResolution covers both query operations against a scope
@@ -127,4 +132,59 @@ func TestWrapScopeErrorKeepsTheAlertsSentinel(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAlertsResolveSearchScope)
 	assert.ErrorIs(t, err, ErrScopeNotFound)
 	assert.NotErrorIs(t, err, ErrDeliveryInsightsResolveSearchScope)
+}
+
+// TestDeliveryInsightsReleaseLineScope pins that a release line narrows both the
+// fact-backed summary and the rollup-backed series to that line.
+func TestDeliveryInsightsReleaseLineScope(t *testing.T) {
+	ctx := context.Background()
+	end := time.Now().UTC().Truncate(time.Hour)
+	start := end.AddDate(0, 0, -7)
+	deployed := end.Add(-24 * time.Hour).UnixMilli()
+
+	fact := func(releaseUID, lineUID string, offsetMs int64) deliveryinsights.DeploymentFact {
+		ready := deployed + offsetMs
+		return deliveryinsights.DeploymentFact{
+			ReleaseUID: releaseUID, Namespace: "acme", ProjectUID: "shop", ComponentUID: "checkout",
+			EnvironmentUID: "prod", ReleaseLineUID: lineUID, ReadyMs: &ready,
+			Outcome: deliveryinsights.OutcomeSuccess, UpdatedAtMs: ready,
+		}
+	}
+	facts := []deliveryinsights.DeploymentFact{
+		fact("rel-main", "main", 0), fact("rel-next-1", "next", 1000), fact("rel-next-2", "next", 2000),
+	}
+	store := newDeliveryInsightsTestStore(t)
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+	require.NoError(t, store.UpsertRollups(ctx, deliveryinsights.BuildRollups(facts, nil, deployed)))
+
+	svc := NewDeliveryInsightsService(store, scopeResolverStub{}, slog.Default(), true, func() bool { return true })
+	scope := gen.ComponentSearchScope{Namespace: "acme", Project: strPtr("shop"), Component: strPtr("checkout")}
+
+	total := func(scope gen.ComponentSearchScope) (int, int) {
+		t.Helper()
+		resp, err := svc.QueryDoraMetrics(ctx, gen.DoraMetricsQueryRequest{StartTime: start, EndTime: end, SearchScope: scope})
+		require.NoError(t, err)
+		seriesTotal := 0
+		for _, p := range *resp.Series.DeploymentFrequency {
+			if p.Count != nil {
+				seriesTotal += *p.Count
+			}
+		}
+		require.NotNil(t, resp.Summary.DeploymentFrequency.Total)
+		return *resp.Summary.DeploymentFrequency.Total, seriesTotal
+	}
+
+	summary, series := total(scope)
+	assert.Equal(t, 3, summary, "the component counts every line")
+	assert.Equal(t, 3, series)
+
+	scope.ReleaseLine = strPtr("next")
+	summary, series = total(scope)
+	assert.Equal(t, 2, summary)
+	assert.Equal(t, 2, series)
+
+	deployments, err := svc.QueryDoraDeployments(ctx, gen.DoraDeploymentsQueryRequest{StartTime: start, EndTime: end, SearchScope: scope})
+	require.NoError(t, err)
+	require.NotNil(t, deployments.TotalCount)
+	assert.Equal(t, 2, *deployments.TotalCount)
 }

@@ -3,7 +3,11 @@
 
 package tools
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
 
 // deploymentToolSpecs returns test specs for deployment toolset.
 // Note: component release operations (list/create/get/schema) are registered by the PE toolset,
@@ -67,12 +71,13 @@ func deploymentBindingSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "environment", "release_name"},
 			optionalParams: []string{
 				"component_type_environment_configs",
-				"trait_environment_configs", "workload_overrides",
+				"trait_environment_configs", "workload_overrides", "release_line",
 			},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
+				"release_line":   testReleaseLineName,
 				"environment":    "dev",
 				"release_name":   testReleaseName,
 			},
@@ -81,6 +86,10 @@ func deploymentBindingSpecs() []toolTestSpec {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %s, got %v",
 						testNamespaceName, args[0])
+				}
+				req, ok := args[1].(*gen.ReleaseBindingSpec)
+				if !ok || req.Owner.ReleaseLine == nil || *req.Owner.ReleaseLine != testReleaseLineName {
+					t.Errorf("Expected owner.releaseLine %s, got %v", testReleaseLineName, args[1])
 				}
 			},
 		},

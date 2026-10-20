@@ -45,6 +45,11 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterDeleteWorkload,
 		t.RegisterGetWorkloadSchema,
 		t.RegisterGetComponentSchema,
+		t.RegisterListReleaseLines,
+		t.RegisterGetReleaseLine,
+		t.RegisterCreateReleaseLine,
+		t.RegisterUpdateReleaseLine,
+		t.RegisterDeleteReleaseLine,
 		// Platform standards (read-only). These are scope-collapsed: pass scope="cluster"
 		// to operate on the platform-wide cluster-scoped resource.
 		t.RegisterListComponentTypes,

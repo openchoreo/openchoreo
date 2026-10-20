@@ -30,6 +30,7 @@ type ScopeUIDResolver interface {
 	GetProjectUID(ctx context.Context, namespace, project string) (string, error)
 	GetComponentUID(ctx context.Context, namespace, project, component string) (string, error)
 	GetEnvironmentUID(ctx context.Context, namespace, environment string) (string, error)
+	GetReleaseLineUID(ctx context.Context, namespace, component, releaseLine string) (string, error)
 }
 
 // DeliveryInsightsService serves the Delivery Insights (DORA metrics) read API.
@@ -86,6 +87,7 @@ type resolvedDeliveryInsightsScope struct {
 	projectUID     string
 	componentUID   string
 	environmentUID string
+	releaseLineUID string
 }
 
 func (s *DoraMetricsService) resolveScope(
@@ -95,6 +97,7 @@ func (s *DoraMetricsService) resolveScope(
 	project := strings.TrimSpace(stringPtrValue(scope.Project))
 	component := strings.TrimSpace(stringPtrValue(scope.Component))
 	environment := strings.TrimSpace(stringPtrValue(scope.Environment))
+	releaseLine := strings.TrimSpace(stringPtrValue(scope.ReleaseLine))
 
 	rs := resolvedDeliveryInsightsScope{
 		scopeType: deliveryinsights.ScopeTypeNamespace,
@@ -136,6 +139,15 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
+	if releaseLine != "" {
+		uid, err := s.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
+		if err != nil {
+			return rs, wrapDeliveryInsightsScopeError(err, "release line", releaseLine)
+		}
+		rs.releaseLineUID = uid
+		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+		rs.scopeUID = uid
+	}
 	return rs, nil
 }
 
@@ -151,6 +163,7 @@ func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) delivery
 		ProjectUID:     rs.projectUID,
 		ComponentUID:   rs.componentUID,
 		EnvironmentUID: rs.environmentUID,
+		ReleaseLineUID: rs.releaseLineUID,
 		StartMs:        startMs,
 		EndMs:          endMs,
 		// The metrics are statistics over the window, so every matching row has to be

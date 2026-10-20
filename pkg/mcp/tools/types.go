@@ -170,7 +170,9 @@ type PEToolsetHandler interface {
 
 	// Component release operations
 	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
-	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
+	CreateComponentRelease(
+		ctx context.Context, namespaceName, componentName, releaseName, releaseLine string,
+	) (any, error)
 	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 	GetComponentReleaseSchema(
 		ctx context.Context, namespaceName, componentName, releaseName string,
@@ -434,7 +436,7 @@ type ComponentToolsetHandler interface {
 	ListWorkloads(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	CreateWorkload(
-		ctx context.Context, namespaceName, componentName string, workloadSpec any,
+		ctx context.Context, namespaceName, componentName, releaseLine string, workloadSpec any,
 	) (any, error)
 	UpdateWorkload(
 		ctx context.Context, namespaceName, workloadName string, workloadSpec any,
@@ -443,6 +445,13 @@ type ComponentToolsetHandler interface {
 	DeleteWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
+
+	// Release lines of a component with release lines enabled
+	ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
+	GetReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (any, error)
+	CreateReleaseLine(ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine) (any, error)
+	UpdateReleaseLine(ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine) (any, error)
+	DeleteReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (any, error)
 
 	// Platform standards (read-only, namespace-scoped)
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -464,7 +473,9 @@ type ComponentToolsetHandler interface {
 // DeploymentToolsetHandler handles release, deployment, and promotion operations
 type DeploymentToolsetHandler interface {
 	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
-	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
+	CreateComponentRelease(
+		ctx context.Context, namespaceName, componentName, releaseName, releaseLine string,
+	) (any, error)
 	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 	GetComponentReleaseSchema(
 		ctx context.Context, namespaceName, componentName, releaseName string,
@@ -525,7 +536,7 @@ type DeploymentToolsetHandler interface {
 // BuildToolsetHandler handles workflow and CI/CD operations
 type BuildToolsetHandler interface {
 	TriggerWorkflowRun(
-		ctx context.Context, namespaceName, projectName, componentName, commit string,
+		ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string,
 	) (any, error)
 	CreateWorkflowRun(
 		ctx context.Context, namespaceName, workflowName string,

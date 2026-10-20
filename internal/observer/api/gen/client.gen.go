@@ -907,6 +907,22 @@ func NewGetComponentCostsRequest(server string, namespace FinOpsNamespace, envir
 
 		}
 
+		if params.ReleaseLine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLine", runtime.ParamLocationQuery, *params.ReleaseLine); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "startTime", runtime.ParamLocationQuery, params.StartTime); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -1013,6 +1029,22 @@ func NewGetRecommendationsRequest(server string, namespace FinOpsNamespace, envi
 		if params.Component != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ReleaseLine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLine", runtime.ParamLocationQuery, *params.ReleaseLine); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -2159,6 +2191,7 @@ type GetComponentCostsResp struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2186,6 +2219,7 @@ type GetRecommendationsResp struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -3226,6 +3260,13 @@ func ParseGetComponentCostsResp(rsp *http.Response) (*GetComponentCostsResp, err
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
 	}
 
 	return response, nil
@@ -3286,6 +3327,13 @@ func ParseGetRecommendationsResp(rsp *http.Response) (*GetRecommendationsResp, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

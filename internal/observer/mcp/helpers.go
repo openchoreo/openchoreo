@@ -53,6 +53,42 @@ func validateComponentScope(namespace, project, component string) error {
 	return nil
 }
 
+// validateComponentLineScope validates a component scope that may name a release line, which
+// requires the component and the environment.
+func validateComponentLineScope(namespace, project, component, environment, releaseLine string) error {
+	if err := validateComponentScope(namespace, project, component); err != nil {
+		return err
+	}
+	if releaseLine != "" && (component == "" || environment == "") {
+		return invalidArgument(fmt.Errorf("component and environment are required when release_line is provided"))
+	}
+	return nil
+}
+
+// validateComponentLineAnyEnvScope validates a component scope that may name a release line on a
+// query that spans environments, which requires only the component.
+func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine string) error {
+	if err := validateComponentScope(namespace, project, component); err != nil {
+		return err
+	}
+	if releaseLine != "" && component == "" {
+		return invalidArgument(fmt.Errorf("component is required when release_line is provided"))
+	}
+	return nil
+}
+
+// releaseLineProperty is the release_line argument of component-scoped query tools.
+func releaseLineProperty() map[string]any {
+	return stringProperty("Release line of the component, for components with release lines enabled. " +
+		"Restricts the result to that line. Requires component and environment")
+}
+
+// releaseLineAnyEnvProperty is the release_line argument of query tools that span environments.
+func releaseLineAnyEnvProperty() map[string]any {
+	return stringProperty("Release line of the component, for components with release lines enabled. " +
+		"Restricts the result to that line. Requires component")
+}
+
 // validateFinOpsScope validates the scope fields for FinOps queries, which
 // additionally require an environment.
 func validateFinOpsScope(namespace, environment, project, component string) error {

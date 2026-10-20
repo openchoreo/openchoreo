@@ -91,6 +91,7 @@ func toTypesCostQuery(
 		Environment: environment,
 		Project:     derefString(params.Project),
 		Component:   derefString(params.Component),
+		ReleaseLine: derefString(params.ReleaseLine),
 		StartTime:   rfc3339OrEmpty(params.StartTime),
 		EndTime:     rfc3339OrEmpty(params.EndTime),
 		Granularity: derefString(params.Granularity),
@@ -107,6 +108,7 @@ func toTypesRecommendationQuery(
 		Environment: environment,
 		Project:     derefString(params.Project),
 		Component:   derefString(params.Component),
+		ReleaseLine: derefString(params.ReleaseLine),
 		StartTime:   rfc3339OrEmpty(params.StartTime),
 		EndTime:     rfc3339OrEmpty(params.EndTime),
 	}

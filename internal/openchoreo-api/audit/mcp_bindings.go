@@ -58,8 +58,12 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 	// identity comes back from the service call, same as a body-carried REST
 	// create with no RESTResourceParam).
 	"CreateReleaseBinding": {ToolName: "create_release_binding"},
-	"UpdateReleaseBinding": {ToolName: "update_release_binding", ResourceArg: "binding_name"},
-	"DeleteReleaseBinding": {ToolName: "delete_release_binding", ResourceArg: "binding_name"},
+
+	"CreateComponentReleaseLine": {ToolName: "create_release_line", ResourceArg: "name"},
+	"UpdateComponentReleaseLine": {ToolName: "update_release_line", ResourceArg: "release_line_name"},
+	"DeleteComponentReleaseLine": {ToolName: "delete_release_line", ResourceArg: "release_line_name"},
+	"UpdateReleaseBinding":       {ToolName: "update_release_binding", ResourceArg: "binding_name"},
+	"DeleteReleaseBinding":       {ToolName: "delete_release_binding", ResourceArg: "binding_name"},
 
 	// ComponentRelease. GenerateRelease is bound here, not exempted: its MCP
 	// tool (create_component_release) and REST's GenerateRelease handler both
