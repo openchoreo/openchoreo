@@ -7,7 +7,7 @@ An alert has been triggered in OpenChoreo. Systematically investigate and identi
 - **Current Project:** {{ scope.project }}
 
 
-All your analysis should be scoped to the current namespace and environment and project. Everything else is considered external to your investigation
+All your analysis should be scoped to the current namespace and environment and project.{% if scope.release_line %} The alert fired on the `{{ scope.release_line }}` release line of the component, so scope the component's telemetry and bindings to that line.{% endif %} Everything else is considered external to your investigation
 
 ### Alert Details
 
@@ -25,6 +25,9 @@ All your analysis should be scoped to the current namespace and environment and 
 ### Alert Origin
 
 - **Component:** {{ scope.component }}
+{% if scope.release_line -%}
+- **Release Line:** {{ scope.release_line }}
+{% endif -%}
 
 {% if alert.rule.source -%}
 ### Alert Rule Source
