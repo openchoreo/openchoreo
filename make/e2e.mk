@@ -485,6 +485,8 @@ e2e.setup-configure: ## Apply default resources, register planes, and link obser
 	@$(call log_info, Applying default resources)
 	$(E2E_KUBECTL) label namespace default openchoreo.dev/control-plane=true --overwrite
 	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/all.yaml
+	@# Release lines need a line-safe component type, which ships separately from the defaults.
+	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/release-lines/component-type.yaml
 	@$(MAKE) _e2e.configure-dp
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.configure-wp; fi
 	@if [ "$(E2E_WITH_OBSERVABILITY)" = "true" ]; then $(MAKE) _e2e.configure-op; fi
@@ -913,6 +915,8 @@ e2e.multi.setup-configure: ## Apply default resources, register planes, link obs
 	@$(call log_info, Applying default resources)
 	$(E2E_MC_CP_KUBECTL) label namespace default openchoreo.dev/control-plane=true --overwrite
 	$(E2E_MC_CP_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/all.yaml
+	@# Release lines need a line-safe component type, which ships separately from the defaults.
+	$(E2E_MC_CP_KUBECTL) apply -f $(PROJECT_DIR)/samples/release-lines/component-type.yaml
 	@$(MAKE) _e2e.mc.configure-dp
 	@$(MAKE) _e2e.mc.configure-wp
 	@$(MAKE) _e2e.mc.configure-op
