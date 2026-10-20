@@ -190,12 +190,33 @@ func TestHandleHTTPProxy_BlockedPath(t *testing.T) {
 
 	s := New(&Config{}, fakeClient, testLogger())
 
-	// Access kube-system secrets - should be blocked
-	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets", nil)
-	w := httptest.NewRecorder()
-	s.handleHTTPProxy(w, req)
+	// The handler must reject the real core paths, not only the kube-system prefix.
+	blocked := []struct {
+		name   string
+		method string
+		url    string
+	}{
+		{"kube-system secrets", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets"},
+		{"other namespace secret", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/openchoreo-control-plane/secrets"},
+		{"secret get", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/default/secrets/my-secret"},
+		{"post secret", http.MethodPost, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/default/secrets"},
+		{"cluster serviceaccounts", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/serviceaccounts"},
+		{"namespaced serviceaccounts", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/default/serviceaccounts"},
+		{"serviceaccount token", http.MethodPost, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/default/serviceaccounts/default/token"},
+		{"dot segment secret", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/./v1/namespaces/default/secrets"},
+		{"watch query still blocked", http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/default/secrets?watch=true"},
+	}
 
-	assert.Equal(t, http.StatusForbidden, w.Code)
+	for _, tt := range blocked {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.url, nil)
+			w := httptest.NewRecorder()
+			s.handleHTTPProxy(w, req)
+
+			assert.Equal(t, http.StatusForbidden, w.Code)
+			assert.Contains(t, w.Body.String(), "Access to path is blocked")
+		})
+	}
 }
 
 func TestHandleHTTPTunnelResponse(t *testing.T) {
