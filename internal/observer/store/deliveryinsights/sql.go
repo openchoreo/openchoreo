@@ -142,6 +142,19 @@ var migrations = []migration{
 				ON recovery_fact(failure_started_ms);`,
 		},
 	},
+	{
+		version: 4,
+		statements: []string{
+			// The release line a fact belongs to, empty for components without lines,
+			// so delivery metrics can be read for one line of a component.
+			`ALTER TABLE deployment_fact ADD COLUMN release_line_uid TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE recovery_fact ADD COLUMN release_line_uid TEXT NOT NULL DEFAULT '';`,
+			`CREATE INDEX IF NOT EXISTS idx_deployment_fact_release_line_env_ready
+				ON deployment_fact(release_line_uid, environment_uid, ready_ms);`,
+			`CREATE INDEX IF NOT EXISTS idx_recovery_fact_release_line_env_started
+				ON recovery_fact(release_line_uid, environment_uid, failure_started_ms);`,
+		},
+	},
 }
 
 // migrationAdvisoryLockKey namespaces the PostgreSQL advisory lock that serializes
@@ -181,9 +194,12 @@ const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
 	release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
-	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms,
+	release_line_uid
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (release_uid) DO UPDATE SET
+	release_line_uid = CASE WHEN excluded.release_line_uid <> ''
+		THEN excluded.release_line_uid ELSE deployment_fact.release_line_uid END,
 	namespace = CASE WHEN excluded.namespace <> ''
 		THEN excluded.namespace ELSE deployment_fact.namespace END,
 	project_uid = CASE WHEN excluded.project_uid <> ''
@@ -229,9 +245,12 @@ ON CONFLICT (release_uid) DO UPDATE SET
 const upsertRecoveryFactQuery = `INSERT INTO recovery_fact (
 	id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
-	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	failure_started_ms, recovered_ms, duration_ms, updated_at_ms,
+	release_line_uid
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
+	release_line_uid = CASE WHEN excluded.release_line_uid <> ''
+		THEN excluded.release_line_uid ELSE recovery_fact.release_line_uid END,
 	release_uid = CASE WHEN excluded.release_uid <> ''
 		THEN excluded.release_uid ELSE recovery_fact.release_uid END,
 	incident_id = CASE WHEN excluded.incident_id <> ''
@@ -534,6 +553,7 @@ func (s *sqlStore) UpsertDeploymentFacts(ctx context.Context, facts []Deployment
 				f.CommitSHA, nullableInt64(f.CommitAuthoredMs), nullableInt64(f.StartedMs),
 				nullableInt64(f.ReadyMs), f.Outcome, f.FailedBy, f.FailureReason,
 				f.IncidentID, nullableInt64(f.LeadTimeMs), f.UpdatedAtMs,
+				f.ReleaseLineUID,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to upsert deployment fact %q: %w", f.ReleaseUID, err)
@@ -561,7 +581,7 @@ func (s *sqlStore) UpsertRecoveryFacts(ctx context.Context, facts []RecoveryFact
 				f.ID, f.Namespace, f.ProjectUID, f.ComponentUID, f.EnvironmentUID,
 				f.ReleaseUID, f.IncidentID, f.Severity, f.Source,
 				f.FailureStartedMs, nullableInt64(f.RecoveredMs), nullableInt64(f.DurationMs),
-				f.UpdatedAtMs,
+				f.UpdatedAtMs, f.ReleaseLineUID,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to upsert recovery fact %q: %w", f.ID, err)
@@ -670,7 +690,8 @@ func (s *sqlStore) QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]Dep
 	base := `SELECT release_uid, namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
 	commit_sha, commit_authored_ms, started_ms, ready_ms,
-	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms
+	outcome, failed_by, failure_reason, incident_id, lead_time_ms, updated_at_ms,
+	release_line_uid
 FROM deployment_fact` + where +
 		// release_uid breaks ties: paging LIMIT/OFFSET over a non-unique sort key
 		// duplicates or drops rows when a tie straddles a page boundary, and a batch
@@ -723,7 +744,7 @@ func (s *sqlStore) scanDeploymentFacts(
 			&f.EnvironmentUID, &f.ProjectName, &f.ComponentName, &f.EnvironmentName,
 			&f.ComponentRelease, &f.CommitSHA, &authored, &started, &ready,
 			&f.Outcome, &f.FailedBy, &f.FailureReason, &f.IncidentID, &leadTime,
-			&f.UpdatedAtMs); err != nil {
+			&f.UpdatedAtMs, &f.ReleaseLineUID); err != nil {
 			return nil, fmt.Errorf("failed to scan deployment fact: %w", err)
 		}
 		f.CommitAuthoredMs = int64Ptr(authored)
@@ -739,7 +760,7 @@ func (s *sqlStore) scanDeploymentFacts(
 }
 
 func (s *sqlStore) AttributeIncident(
-	ctx context.Context, componentUID, environmentUID, incidentID string,
+	ctx context.Context, componentUID, environmentUID, releaseLineUID, incidentID string,
 	triggeredMs, windowMs int64,
 ) (AttributionResult, error) {
 	if strings.TrimSpace(componentUID) == "" || strings.TrimSpace(environmentUID) == "" {
@@ -751,9 +772,16 @@ func (s *sqlStore) AttributeIncident(
 
 	// The deployment "live" at the trigger is the latest one that occurred at or
 	// before it, within the attribution window.
+	// An incident of a release line is matched to that line's deployments only.
+	lineCondition, lineArgs := "", []any{}
+	if strings.TrimSpace(releaseLineUID) != "" {
+		lineCondition = " AND release_line_uid = ?"
+		lineArgs = append(lineArgs, releaseLineUID)
+	}
+	// #nosec G202 -- lineCondition is a constant fragment with a placeholder
 	query := s.rebind(`SELECT release_uid, ` + occurredMsExpr + ` AS occurred_ms
 FROM deployment_fact
-WHERE component_uid = ? AND environment_uid = ?
+WHERE component_uid = ? AND environment_uid = ?` + lineCondition + `
 	AND ` + occurredMsExpr + ` <= ? AND ` + occurredMsExpr + ` > ?
 ORDER BY occurred_ms DESC LIMIT 1;`)
 
@@ -771,9 +799,8 @@ WHERE release_uid = ? AND failed_by = '';`)
 	var result AttributionResult
 	var noRows bool
 	err := s.execInTx(ctx, func(tx *sql.Tx) error {
-		scanErr := tx.QueryRowContext(ctx, query,
-			componentUID, environmentUID, triggeredMs, triggeredMs-windowMs,
-		).Scan(&result.ReleaseUID, &result.OccurredMs)
+		args := append(append([]any{componentUID, environmentUID}, lineArgs...), triggeredMs, triggeredMs-windowMs)
+		scanErr := tx.QueryRowContext(ctx, query, args...).Scan(&result.ReleaseUID, &result.OccurredMs)
 		if errors.Is(scanErr, sql.ErrNoRows) {
 			noRows = true
 			return nil
@@ -808,7 +835,7 @@ func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]Recov
 
 	base := `SELECT id, namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
-	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
+	failure_started_ms, recovered_ms, duration_ms, updated_at_ms, release_line_uid
 FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 		" ORDER BY failure_started_ms ASC, id ASC"
 
@@ -845,7 +872,7 @@ func (s *sqlStore) scanRecoveryFacts(
 		var recovered, duration sql.NullInt64
 		if err := rows.Scan(&f.ID, &f.Namespace, &f.ProjectUID, &f.ComponentUID,
 			&f.EnvironmentUID, &f.ReleaseUID, &f.IncidentID, &f.Severity, &f.Source,
-			&f.FailureStartedMs, &recovered, &duration, &f.UpdatedAtMs); err != nil {
+			&f.FailureStartedMs, &recovered, &duration, &f.UpdatedAtMs, &f.ReleaseLineUID); err != nil {
 			return nil, fmt.Errorf("failed to scan recovery fact: %w", err)
 		}
 		f.RecoveredMs = int64Ptr(recovered)
@@ -1080,6 +1107,7 @@ func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 		{"project_uid", q.ProjectUID},
 		{"component_uid", q.ComponentUID},
 		{"environment_uid", q.EnvironmentUID},
+		{"release_line_uid", q.ReleaseLineUID},
 	}
 	for _, f := range scopeFilters {
 		if value := strings.TrimSpace(f.value); value != "" {
@@ -1213,7 +1241,7 @@ func validateRollupQuery(q *RollupQuery) error {
 
 func validateScopeType(scopeType string) error {
 	switch scopeType {
-	case ScopeTypeNamespace, ScopeTypeProject, ScopeTypeComponent:
+	case ScopeTypeNamespace, ScopeTypeProject, ScopeTypeComponent, ScopeTypeReleaseLine:
 		return nil
 	default:
 		return fmt.Errorf("unsupported rollup scope type %q", scopeType)

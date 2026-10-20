@@ -43,8 +43,22 @@ func TestQueryComponentLogs(t *testing.T) {
 			Return(&types.LogsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withLogsService(logsSvc))
-		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, "err", []string{logLevelError}, 50, sortOrderAsc)
+		require.NoError(t, err)
+	})
+
+	t.Run("forwards the release line", func(t *testing.T) {
+		logsSvc := mocks.NewMockLogsQuerier(t)
+		logsSvc.EXPECT().
+			QueryLogs(mock.Anything, mock.MatchedBy(func(req *types.LogsQueryRequest) bool {
+				return req.SearchScope.Component.ReleaseLine == "next"
+			})).
+			Return(&types.LogsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withLogsService(logsSvc))
+		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment, "next",
+			testStartTime, testEndTime, "", nil, 0, "")
 		require.NoError(t, err)
 	})
 
@@ -57,7 +71,7 @@ func TestQueryComponentLogs(t *testing.T) {
 			Return(&types.LogsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withLogsService(logsSvc))
-		_, err := h.QueryComponentLogs(ctx, testNamespace, "", "", "", testStartTime, testEndTime, "", nil, 0, "")
+		_, err := h.QueryComponentLogs(ctx, testNamespace, "", "", "", "", testStartTime, testEndTime, "", nil, 0, "")
 		require.NoError(t, err)
 	})
 
@@ -66,7 +80,7 @@ func TestQueryComponentLogs(t *testing.T) {
 		logsSvc.EXPECT().QueryLogs(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
 
 		h := newTestMCPHandler(t, withLogsService(logsSvc))
-		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryComponentLogs(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, "", nil, 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "backend down")
@@ -119,7 +133,7 @@ func TestQueryResourceMetrics(t *testing.T) {
 			Return(map[string]any{}, nil)
 
 		h := newTestMCPHandler(t, withMetricsService(metricsSvc))
-		_, err := h.QueryResourceMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryResourceMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, &step)
 		require.NoError(t, err)
 	})
@@ -133,7 +147,7 @@ func TestQueryResourceMetrics(t *testing.T) {
 			Return(nil, nil)
 
 		h := newTestMCPHandler(t, withMetricsService(metricsSvc))
-		_, err := h.QueryResourceMetrics(ctx, testNamespace, "", "", "", testStartTime, testEndTime, nil)
+		_, err := h.QueryResourceMetrics(ctx, testNamespace, "", "", "", "", testStartTime, testEndTime, nil)
 		require.NoError(t, err)
 	})
 }
@@ -149,13 +163,27 @@ func TestQueryHTTPMetrics(t *testing.T) {
 		Return(nil, nil)
 
 	h := newTestMCPHandler(t, withMetricsService(metricsSvc))
-	_, err := h.QueryHTTPMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment,
+	_, err := h.QueryHTTPMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 		testStartTime, testEndTime, nil)
 	require.NoError(t, err)
 }
 
 func TestQueryTraces(t *testing.T) {
 	ctx := context.Background()
+
+	t.Run("forwards the release line", func(t *testing.T) {
+		tracesSvc := mocks.NewMockTracesQuerier(t)
+		tracesSvc.EXPECT().
+			QueryTraces(mock.Anything, mock.MatchedBy(func(req *types.TracesQueryRequest) bool {
+				return req.SearchScope.ReleaseLine == "next"
+			})).
+			Return(&types.TracesQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withTracesService(tracesSvc))
+		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment, "next",
+			testStartTime, testEndTime, 0, "")
+		require.NoError(t, err)
+	})
 
 	t.Run("parses RFC3339 and forwards request", func(t *testing.T) {
 		tracesSvc := mocks.NewMockTracesQuerier(t)
@@ -173,14 +201,14 @@ func TestQueryTraces(t *testing.T) {
 			Return(&types.TracesQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withTracesService(tracesSvc))
-		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 25, sortOrderAsc)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid start_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			"not-rfc3339", testEndTime, 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid start_time")
@@ -188,7 +216,7 @@ func TestQueryTraces(t *testing.T) {
 
 	t.Run("invalid end_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryTraces(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, "bad", 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid end_time")
@@ -208,14 +236,14 @@ func TestQueryTraceSpans(t *testing.T) {
 			Return(&types.SpansQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withTracesService(tracesSvc))
-		_, err := h.QueryTraceSpans(ctx, testTraceID, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryTraceSpans(ctx, testTraceID, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 200, sortOrderDesc)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid start_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryTraceSpans(ctx, testTraceID, testNamespace, "", "", "",
+		_, err := h.QueryTraceSpans(ctx, testTraceID, testNamespace, "", "", "", "",
 			"not-a-time", testEndTime, 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid start_time")
@@ -248,7 +276,7 @@ func TestQueryAlerts(t *testing.T) {
 			Return(&obsgen.AlertsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withAlertIncidentService(alertsSvc))
-		_, err := h.QueryAlerts(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryAlerts(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 30, sortOrderAsc)
 		require.NoError(t, err)
 	})
@@ -264,14 +292,14 @@ func TestQueryAlerts(t *testing.T) {
 			Return(&obsgen.AlertsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withAlertIncidentService(alertsSvc))
-		_, err := h.QueryAlerts(ctx, testNamespace, "", "", "",
+		_, err := h.QueryAlerts(ctx, testNamespace, "", "", "", "",
 			testStartTime, testEndTime, 10, sortOrderDesc)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid end_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryAlerts(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryAlerts(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, "not-a-time", 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid end_time")
@@ -296,14 +324,14 @@ func TestQueryIncidents(t *testing.T) {
 			Return(&obsgen.IncidentsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withAlertIncidentService(incSvc))
-		_, err := h.QueryIncidents(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryIncidents(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 15, sortOrderDesc)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid start_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryIncidents(ctx, testNamespace, "", "", "",
+		_, err := h.QueryIncidents(ctx, testNamespace, "", "", "", "",
 			"bad", testEndTime, 10, sortOrderDesc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid start_time")
@@ -333,7 +361,7 @@ func TestQueryComponentEvents(t *testing.T) {
 			Return(&types.EventsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withEventsService(eventsSvc))
-		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 50, sortOrderAsc)
 		require.NoError(t, err)
 	})
@@ -347,7 +375,7 @@ func TestQueryComponentEvents(t *testing.T) {
 			Return(&types.EventsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withEventsService(eventsSvc))
-		_, err := h.QueryComponentEvents(ctx, testNamespace, "", "", "", testStartTime, testEndTime, 0, "")
+		_, err := h.QueryComponentEvents(ctx, testNamespace, "", "", "", "", testStartTime, testEndTime, 0, "")
 		require.NoError(t, err)
 	})
 
@@ -356,7 +384,7 @@ func TestQueryComponentEvents(t *testing.T) {
 		eventsSvc.EXPECT().QueryEvents(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
 
 		h := newTestMCPHandler(t, withEventsService(eventsSvc))
-		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			testStartTime, testEndTime, 10, sortOrderDesc)
 		require.Error(t, err)
 	})
@@ -404,28 +432,28 @@ func TestQueryCosts(t *testing.T) {
 			Return(map[string]any{}, nil)
 
 		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
-		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, testProject, testComponent,
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, testProject, testComponent, "",
 			testStartTime, testEndTime, "1d")
 		require.NoError(t, err)
 	})
 
 	t.Run("missing environment is rejected", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryCosts(ctx, testNamespace, "", "", "", testStartTime, testEndTime, "")
+		_, err := h.QueryCosts(ctx, testNamespace, "", "", "", "", testStartTime, testEndTime, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "environment is required")
 	})
 
 	t.Run("component without project is rejected", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", testComponent, testStartTime, testEndTime, "")
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", testComponent, "", testStartTime, testEndTime, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "project is required")
 	})
 
 	t.Run("invalid granularity is rejected", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime, "5x")
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", "", testStartTime, testEndTime, "5x")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "granularity")
 	})
@@ -435,7 +463,7 @@ func TestQueryCosts(t *testing.T) {
 		finopsSvc.EXPECT().GetComponentCosts(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
 
 		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
-		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime, "")
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", "", testStartTime, testEndTime, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "backend down")
 	})
@@ -458,14 +486,14 @@ func TestQueryRecommendations(t *testing.T) {
 			Return(map[string]any{}, nil)
 
 		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
-		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, testProject, testComponent,
+		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, testProject, testComponent, "",
 			testStartTime, testEndTime)
 		require.NoError(t, err)
 	})
 
 	t.Run("missing environment is rejected", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryRecommendations(ctx, testNamespace, "", "", "", testStartTime, testEndTime)
+		_, err := h.QueryRecommendations(ctx, testNamespace, "", "", "", "", testStartTime, testEndTime)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "environment is required")
 	})
@@ -475,7 +503,7 @@ func TestQueryRecommendations(t *testing.T) {
 		finopsSvc.EXPECT().GetRecommendations(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
 
 		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
-		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime)
+		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, "", "", "", testStartTime, testEndTime)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "backend down")
 	})
@@ -507,7 +535,7 @@ func TestQueryDoraMetrics(t *testing.T) {
 			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withDeliveryInsightsService(deliveryInsightsSvc))
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment,
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment, "",
 			"weekly", testStartTime, testEndTime, []string{"leadTime"})
 		require.NoError(t, err)
 	})
@@ -525,14 +553,14 @@ func TestQueryDoraMetrics(t *testing.T) {
 			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withDeliveryInsightsService(deliveryInsightsSvc))
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "",
 			"", testStartTime, testEndTime, nil)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid start_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "",
 			"", "not-a-time", testEndTime, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid start_time")
@@ -540,7 +568,7 @@ func TestQueryDoraMetrics(t *testing.T) {
 
 	t.Run("invalid end_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "",
 			"", testStartTime, "not-a-time", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid end_time")
@@ -593,7 +621,7 @@ func TestQueryDoraMetricsEnforcesHTTPValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newTestMCPHandler(t, withDeliveryInsightsService(mocks.NewMockDeliveryInsightsService(t)))
-			_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+			_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "",
 				tc.granularity, tc.start, tc.end, tc.metrics)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.wantErr)

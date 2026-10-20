@@ -348,6 +348,7 @@ func (s *AlertService) buildAlertDetails(req internalgen.AlertWebhookRequest, al
 		Project:          alertRule.Labels[labels.LabelKeyProjectName],
 		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
 		ReleaseLine:      alertRule.Labels[labels.LabelKeyReleaseLine],
+		ReleaseLineID:    alertRule.Labels[labels.LabelKeyReleaseLineUID],
 	}
 
 	alertDetails.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
@@ -406,6 +407,8 @@ func (s *AlertService) buildAlertEntry(alertDetails *legacytypes.AlertDetails, r
 		ComponentID:          alertDetails.ComponentID,
 		EnvironmentID:        alertDetails.EnvironmentID,
 		ProjectID:            alertDetails.ProjectID,
+		ReleaseLineName:      alertDetails.ReleaseLine,
+		ReleaseLineID:        alertDetails.ReleaseLineID,
 		IncidentEnabled:      alertDetails.IncidentEnabled,
 		Severity:             string(alertRule.Spec.Severity),
 		Description:          alertRule.Spec.Description,
@@ -462,6 +465,8 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 		ComponentID:           alertDetails.ComponentID,
 		EnvironmentID:         alertDetails.EnvironmentID,
 		ProjectID:             alertDetails.ProjectID,
+		ReleaseLineName:       alertDetails.ReleaseLine,
+		ReleaseLineID:         alertDetails.ReleaseLineID,
 	}); err != nil {
 		s.logger.Warn("Failed to store incident entry", "error", err, "alertID", alertID)
 	}

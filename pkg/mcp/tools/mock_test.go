@@ -180,9 +180,9 @@ func (m *MockCoreToolsetHandler) ListComponentReleases(
 }
 
 func (m *MockCoreToolsetHandler) CreateComponentRelease(
-	ctx context.Context, namespaceName, componentName, releaseName string,
+	ctx context.Context, namespaceName, componentName, releaseName, releaseLine string,
 ) (any, error) {
-	m.recordCall("CreateComponentRelease", namespaceName, componentName, releaseName)
+	m.recordCall("CreateComponentRelease", namespaceName, componentName, releaseName, releaseLine)
 	return `{"name":"release-1"}`, nil
 }
 
@@ -224,9 +224,9 @@ func (m *MockCoreToolsetHandler) UpdateReleaseBinding(
 }
 
 func (m *MockCoreToolsetHandler) CreateWorkload(
-	ctx context.Context, namespaceName, componentName string, workloadSpec interface{},
+	ctx context.Context, namespaceName, componentName, releaseLine string, workloadSpec interface{},
 ) (any, error) {
-	m.recordCall("CreateWorkload", namespaceName, componentName, workloadSpec)
+	m.recordCall("CreateWorkload", namespaceName, componentName, releaseLine, workloadSpec)
 	return `{"name":"workload-1"}`, nil
 }
 
@@ -251,6 +251,43 @@ func (m *MockCoreToolsetHandler) GetComponentSchema(
 	return emptyObjectSchema, nil
 }
 
+const mockReleaseLineResult = `{"name":"main"}`
+
+func (m *MockCoreToolsetHandler) ListReleaseLines(
+	ctx context.Context, namespaceName, componentName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListReleaseLines", namespaceName, componentName, opts)
+	return `{"releaseLines":[{"name":"main"}]}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetReleaseLine(
+	ctx context.Context, namespaceName, componentName, releaseLineName string,
+) (any, error) {
+	m.recordCall("GetReleaseLine", namespaceName, componentName, releaseLineName)
+	return mockReleaseLineResult, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateReleaseLine(
+	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+) (any, error) {
+	m.recordCall("CreateReleaseLine", namespaceName, componentName, line)
+	return mockReleaseLineResult, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateReleaseLine(
+	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+) (any, error) {
+	m.recordCall("UpdateReleaseLine", namespaceName, componentName, line)
+	return mockReleaseLineResult, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteReleaseLine(
+	ctx context.Context, namespaceName, componentName, releaseLineName string,
+) (any, error) {
+	m.recordCall("DeleteReleaseLine", namespaceName, componentName, releaseLineName)
+	return `{"name":"main","action":"deleted"}`, nil
+}
+
 func (m *MockCoreToolsetHandler) PatchComponent(
 	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
@@ -266,9 +303,9 @@ func (m *MockCoreToolsetHandler) GetComponentReleaseSchema(
 }
 
 func (m *MockCoreToolsetHandler) TriggerWorkflowRun(
-	ctx context.Context, namespaceName, projectName, componentName, commit string,
+	ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string,
 ) (any, error) {
-	m.recordCall("TriggerWorkflowRun", namespaceName, projectName, componentName, commit)
+	m.recordCall("TriggerWorkflowRun", namespaceName, projectName, componentName, commit, releaseLine)
 	return `{"name":"my-component-workflow-run","status":"Running"}`, nil
 }
 

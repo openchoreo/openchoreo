@@ -31,6 +31,8 @@ type AlertEntry struct {
 	ComponentID          string
 	EnvironmentID        string
 	ProjectID            string
+	ReleaseLineName      string
+	ReleaseLineID        string
 	IncidentEnabled      bool
 	Severity             string
 	Description          string
@@ -52,6 +54,7 @@ type QueryParams struct {
 	ProjectID     string
 	ComponentID   string
 	EnvironmentID string
+	ReleaseLineID string
 	Limit         int
 	SortOrder     string
 }

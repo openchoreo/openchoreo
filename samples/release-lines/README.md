@@ -84,7 +84,7 @@ Delete a line. This undeploys it from every environment and removes its releases
 occ component releaseline delete hello next --namespace default
 ```
 
-The API server serves these under `/api/v1/namespaces/default/components/hello/releaselines/{line}` with `GET`, `PUT` and `DELETE`, and creates a line with `POST` on the list path. Reading a line needs `component:view`, and creating, changing or deleting one needs `component:update`.
+The API server serves these under `/api/v1/namespaces/default/components/hello/releaselines/{line}` with `GET`, `PUT` and `DELETE`, and creates a line with `POST` on the list path. Reading a line needs `releaseline:view`, and creating, changing or deleting one needs `releaseline:create`, `releaseline:update` or `releaseline:delete`. The default `developer` and `platform-engineer` roles have all four.
 
 ## Call each line
 

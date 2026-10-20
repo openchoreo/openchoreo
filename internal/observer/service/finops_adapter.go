@@ -18,6 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/finopsadapterclientgen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 var (
@@ -85,12 +86,17 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, err
 	}
+	releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	if err != nil {
+		return nil, err
+	}
 
 	params := &finopsadapterclientgen.GetComponentCostsParams{
-		StartTime:    startTime,
-		EndTime:      endTime,
-		ProjectUid:   projectUID,
-		ComponentUid: componentUID,
+		StartTime:      startTime,
+		EndTime:        endTime,
+		ProjectUid:     projectUID,
+		ComponentUid:   componentUID,
+		ReleaseLineUid: releaseLineUID,
 	}
 	if req.Granularity != "" {
 		granularity := req.Granularity
@@ -109,6 +115,9 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	resp, err := a.client.GetComponentCostsWithResponse(ctx, req.Namespace, environmentUID, params)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFinOpsRetrieval, err)
+	}
+	if err := checkReleaseLineApplied(releaseLineUID, resp.StatusCode(), resp.HTTPResponse); err != nil {
+		return nil, err
 	}
 	return rawFinOpsResponse(resp.StatusCode(), resp.Body)
 }
@@ -135,13 +144,22 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, err
 	}
+	releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	if err != nil {
+		return nil, err
+	}
 
 	params := &finopsadapterclientgen.GetRecommendationsParams{
-		StartTime:    startTime,
-		EndTime:      endTime,
-		ProjectUid:   projectUID,
-		ComponentUid: componentUID,
-		Environment:  req.Environment,
+		StartTime:      startTime,
+		EndTime:        endTime,
+		ProjectUid:     projectUID,
+		ComponentUid:   componentUID,
+		ReleaseLineUid: releaseLineUID,
+		Environment:    req.Environment,
+	}
+	if req.ReleaseLine != "" {
+		releaseLine := req.ReleaseLine
+		params.ReleaseLine = &releaseLine
 	}
 	if req.Project != "" {
 		project := req.Project
@@ -163,6 +181,9 @@ func (a *FinOpsAdapter) GetRecommendations(
 	resp, err := a.client.GetRecommendationsWithResponse(ctx, req.Namespace, environmentUID, params, forwardBearerToken)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFinOpsRetrieval, err)
+	}
+	if err := checkReleaseLineApplied(releaseLineUID, resp.StatusCode(), resp.HTTPResponse); err != nil {
+		return nil, err
 	}
 	return rawFinOpsResponse(resp.StatusCode(), resp.Body)
 }
@@ -222,6 +243,40 @@ func (a *FinOpsAdapter) resolveScope(
 	}
 
 	return environmentUID, projectUID, componentUID, nil
+}
+
+// resolveReleaseLine resolves an optional release line name to its UID.
+func (a *FinOpsAdapter) resolveReleaseLine(
+	ctx context.Context, namespace, component, releaseLine string,
+) (*openapi_types.UUID, error) {
+	if releaseLine == "" {
+		return nil, nil
+	}
+	if component == "" {
+		return nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
+	}
+	uidStr, err := a.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to get release line UID: %w", ErrFinOpsResolveScope, err)
+	}
+	uid, err := uuid.Parse(uidStr)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid release line UID %q: %w", ErrFinOpsResolveScope, uidStr, err)
+	}
+	return &uid, nil
+}
+
+// checkReleaseLineApplied rejects a successful response to a release-line query that the
+// adapter did not restrict to the line, so costs of every line are never passed off as one
+// line's.
+func checkReleaseLineApplied(releaseLineUID *openapi_types.UUID, statusCode int, resp *http.Response) error {
+	if releaseLineUID == nil || statusCode < 200 || statusCode >= 300 {
+		return nil
+	}
+	if resp == nil || !observability.ReleaseLineApplied(resp.Header) {
+		return fmt.Errorf("%w: finops adapter", ErrReleaseLineNotSupported)
+	}
+	return nil
 }
 
 // parseFinOpsWindow validates and parses the RFC 3339 start/end times.

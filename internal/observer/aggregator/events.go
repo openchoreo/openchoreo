@@ -89,6 +89,7 @@ type deliveryEventPayload struct {
 	ProjectUID           string `json:"projectUid"`
 	ComponentUID         string `json:"componentUid"`
 	EnvironmentUID       string `json:"environmentUid"`
+	ReleaseLineUID       string `json:"releaseLineUid"`
 	Commit               string `json:"commit"`
 	CommitAuthoredAt     string `json:"commitAuthoredAt"`
 	FailureReason        string `json:"failureReason"`
@@ -251,6 +252,7 @@ func (a *Aggregator) foldEvent(
 		ProjectUID:       payload.ProjectUID,
 		ComponentUID:     payload.ComponentUID,
 		EnvironmentUID:   payload.EnvironmentUID,
+		ReleaseLineUID:   payload.ReleaseLineUID,
 		ProjectName:      event.ProjectName,
 		ComponentName:    event.ComponentName,
 		EnvironmentName:  event.EnvironmentName,
@@ -287,6 +289,7 @@ func (a *Aggregator) foldEvent(
 			ProjectUID:       payload.ProjectUID,
 			ComponentUID:     payload.ComponentUID,
 			EnvironmentUID:   payload.EnvironmentUID,
+			ReleaseLineUID:   payload.ReleaseLineUID,
 			ReleaseUID:       payload.RolloutID,
 			Source:           deliveryinsights.RecoverySourceHealth,
 			FailureStartedMs: eventMs,
@@ -300,6 +303,7 @@ func (a *Aggregator) foldEvent(
 			ProjectUID:     payload.ProjectUID,
 			ComponentUID:   payload.ComponentUID,
 			EnvironmentUID: payload.EnvironmentUID,
+			ReleaseLineUID: payload.ReleaseLineUID,
 			ReleaseUID:     payload.RolloutID,
 			Source:         deliveryinsights.RecoverySourceHealth,
 			// On merge the store keeps the existing row's failure start (from the

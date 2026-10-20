@@ -16,6 +16,9 @@ type CostQueryRequest struct {
 	// Component name. Optional; when set, narrows the response to this component.
 	// Requires Project to also be set.
 	Component string
+	// ReleaseLine name. Optional; when set, narrows the response to this release line
+	// of the component. Requires Component.
+	ReleaseLine string
 	// StartTime is the inclusive lower bound of the cost window (RFC 3339).
 	StartTime string
 	// EndTime is the exclusive upper bound of the cost window (RFC 3339).
@@ -34,6 +37,7 @@ type RecommendationQueryRequest struct {
 	Environment string
 	Project     string
 	Component   string
+	ReleaseLine string
 	StartTime   string
 	EndTime     string
 }

@@ -1787,6 +1787,9 @@ type CreateComponentRequest struct {
 	// Parameters Component type parameters
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
+	// ReleaseLinesEnabled Deploys the component only through explicit ReleaseLines. Can only be set when the component is created, and the component type must allow release lines.
+	ReleaseLinesEnabled *bool `json:"releaseLinesEnabled,omitempty"`
+
 	// Traits Trait instances to attach to the component
 	Traits *[]ComponentTraitInput `json:"traits,omitempty"`
 

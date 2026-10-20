@@ -353,19 +353,22 @@ func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server, perms map[str
 			"snapshots that can be deployed to environments through release bindings. The component " +
 			"must have at least one successful build or workload. If the source repository does not " +
 			"contain a workload descriptor (workload.yaml), use update_workload to configure the " +
-			"workload before creating a release.",
+			"workload before creating a release. For a component with release lines, set release_line: the " +
+			"release is built from that line's workload and overrides.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
+			"release_line":   releaseLineProperty(),
 			"release_name":   stringProperty("Optional release name. If omitted, a name will be auto-generated"),
 		}, []string{"namespace_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
 		ComponentName string `json:"component_name"`
+		ReleaseLine   string `json:"release_line"`
 		ReleaseName   string `json:"release_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.CreateComponentRelease(
-			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName)
+			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName, args.ReleaseLine)
 		return handleToolResult(result, err)
 	})
 }

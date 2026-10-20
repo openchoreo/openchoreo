@@ -296,6 +296,7 @@ paths:
         - $ref: "#/components/parameters/FinOpsEnvironment"
         - $ref: "#/components/parameters/FinOpsProject"
         - $ref: "#/components/parameters/FinOpsComponent"
+        - $ref: "#/components/parameters/FinOpsReleaseLine"
         - $ref: "#/components/parameters/FinOpsStartTime"
         - $ref: "#/components/parameters/FinOpsEndTime"
         - $ref: "#/components/parameters/FinOpsGranularity"
@@ -336,6 +337,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: The FinOps adapter does not support filtering by release line
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations:
     get:
@@ -355,6 +362,7 @@ paths:
         - $ref: "#/components/parameters/FinOpsEnvironment"
         - $ref: "#/components/parameters/FinOpsProject"
         - $ref: "#/components/parameters/FinOpsComponent"
+        - $ref: "#/components/parameters/FinOpsReleaseLine"
         - $ref: "#/components/parameters/FinOpsStartTime"
         - $ref: "#/components/parameters/FinOpsEndTime"
       responses:
@@ -390,6 +398,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: The FinOps adapter does not support filtering by release line
           content:
             application/json:
               schema:
@@ -1272,6 +1286,14 @@ components:
       schema:
         type: string
         example: checkout-service
+    FinOpsReleaseLine:
+      name: releaseLine
+      in: query
+      required: false
+      description: Release line of the component, for components with release lines enabled. When set, narrows the response to that line. Requires `component`.
+      schema:
+        type: string
+        example: next
     FinOpsStartTime:
       name: startTime
       in: query
@@ -1506,7 +1528,7 @@ components:
           type: string
         releaseLine:
           type: string
-          description: Restricts the result to one release line of the component. Requires component and environment.
+          description: Restricts the result to one release line of the component. Requires component. Logs, events, metrics and traces also require environment.
       required: [namespace]
 
     WorkflowSearchScope:
@@ -3308,6 +3330,13 @@ components:
         projectUid:
           type: string
           description: The UID of the project
+          format: uuid
+        releaseLineName:
+          type: string
+          description: The name of the component's release line. Absent for components without release lines.
+        releaseLineUid:
+          type: string
+          description: The UID of the component's release line. Absent for components without release lines.
           format: uuid
 
     AlertRuleSource:

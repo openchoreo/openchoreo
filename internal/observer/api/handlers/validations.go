@@ -164,6 +164,15 @@ func validateReleaseLineScope(component, environment, releaseLine string) error 
 	return nil
 }
 
+// validateReleaseLineComponentScope validates a release line on a query that spans environments,
+// which needs only the component the line belongs to.
+func validateReleaseLineComponentScope(component, releaseLine string) error {
+	if strings.TrimSpace(releaseLine) != "" && strings.TrimSpace(component) == "" {
+		return fmt.Errorf("searchScope.component is required when searchScope.releaseLine is provided")
+	}
+	return nil
+}
+
 // validateWorkflowScope validates the WorkflowSearchScope
 // Per OpenAPI spec, only namespace is required
 func validateWorkflowScope(scope *types.WorkflowSearchScope) error {
@@ -842,6 +851,9 @@ func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine)); err != nil {
+		return err
+	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {
 			return fmt.Errorf("limit must be a positive integer greater than zero")
@@ -881,6 +893,9 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine)); err != nil {
+		return err
 	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {
@@ -940,6 +955,9 @@ func ValidateCostQueryRequest(req *types.CostQueryRequest) error {
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
 	}
+	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
+		return fmt.Errorf("releaseLine requires component to also be set")
+	}
 	if req.Granularity != "" && !timeGranularityPattern.MatchString(req.Granularity) {
 		return fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)")
 	}
@@ -962,6 +980,9 @@ func ValidateRecommendationQueryRequest(req *types.RecommendationQueryRequest) e
 	}
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
+	}
+	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
+		return fmt.Errorf("releaseLine requires component to also be set")
 	}
 	return nil
 }
@@ -1099,5 +1120,5 @@ func validateDoraScopeAndWindow(scope *gen.ComponentSearchScope, startTime, endT
 		(scope.Project == nil || strings.TrimSpace(*scope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	return nil
+	return validateReleaseLineComponentScope(derefString(scope.Component), derefString(scope.ReleaseLine))
 }

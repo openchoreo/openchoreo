@@ -48,8 +48,8 @@ var setResourceExemptions = map[string]string{}
 // On a mismatch: if the new method writes, give it a Create/Update/Patch name
 // or add it to extraWriteMethods; if it only reads, just update the total.
 const (
-	wantCheckedWriteMethods = 54
-	wantHandlerMethods      = 170
+	wantCheckedWriteMethods = 56
+	wantHandlerMethods      = 175
 )
 
 // TestMCPHandlers_WritesCallSetResource statically guards the UID gap on the
