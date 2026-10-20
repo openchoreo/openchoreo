@@ -618,6 +618,8 @@ func validateTrait(doc *parser.DocumentNode, pair SchemaPair) ([]Finding, error)
 	c.resourceEntries(mappingValue(spec, fieldCreates), env, provider)
 	c.patchEntries(mappingValue(spec, fieldPatches), env, provider)
 	c.patchEntries(mappingValue(spec, fieldRemoves), env, provider)
+	c.validationRules(mappingValue(spec, fieldValidations), env)
+	c.validationRules(mappingValue(spec, fieldPreRenderValidations), env)
 	c.postRenderValidations(mappingValue(spec, fieldPostRenderValidations), env, provider)
 	return c.findings, nil
 }
