@@ -18,6 +18,9 @@ import (
 // methodCallTool is the MCP method name for tool invocation.
 const methodCallTool = "tools/call"
 
+// resourceTypeReleaseLine is the audit resource type of release line operations.
+const resourceTypeReleaseLine = "releaseline"
+
 // newAuditMiddleware returns the mcp.Middleware that emits one audit event
 // per tools/call on a bound tool. Everything else — initialize, ping,
 // tools/list, notifications, and calls to unbound tools — passes through
@@ -68,12 +71,17 @@ func newAuditMiddleware(
 			// reaches AuthzChecker.Check (and thus audit.SetHierarchy) at
 			// all. A service-layer Check later overrides it with the
 			// resolved hierarchy — see audit.SeedHierarchy's doc comment.
+			releaseLine := firstArg(args, "release_line", "release_line_name")
+			// A release line is its own line, whichever argument names it (create_release_line uses "name").
+			if op.ResourceType == resourceTypeReleaseLine && resourceName != "" {
+				releaseLine = resourceName
+			}
 			audit.SeedHierarchy(ctx, audit.Hierarchy{
 				Namespace:   namespaceName,
 				Project:     argFromParsed(args, "project_name"),
 				Component:   argFromParsed(args, "component_name"),
 				Resource:    argFromParsed(args, "resource_name"),
-				ReleaseLine: firstArg(args, "release_line", "release_line_name"),
+				ReleaseLine: releaseLine,
 			})
 
 			// A panic in next must still produce an audit record — recover just

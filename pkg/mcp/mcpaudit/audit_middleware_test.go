@@ -302,6 +302,48 @@ func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
 	}
 }
 
+// TestNewMiddleware_SeedsReleaseLineOfReleaseLineTools guards that a release line operation records
+// the line it acts on, including create_release_line, which names the line in "name", so a
+// filter-layer denial still matches release line audit filters.
+func TestNewMiddleware_SeedsReleaseLineOfReleaseLineTools(t *testing.T) {
+	op := &audit.Operation{
+		ID: "CreateComponentReleaseLine", Action: "create_component_release_line", ResourceType: "releaseline",
+		Category: audit.CategoryManagement,
+	}
+	bindings := map[audit.MCPBindingKey]audit.MCPBinding{
+		{ToolName: "create_release_line"}: {Operation: op, ResourceArg: "name"},
+		{ToolName: "patch_release_line"}:  {Operation: op, ResourceArg: "release_line_name"},
+	}
+	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+		return &mcp.CallToolResult{}, nil
+	}
+
+	for tool, args := range map[string]string{
+		"create_release_line": `{"name":"next","namespace_name":"ns-1","component_name":"c1"}`,
+		"patch_release_line":  `{"release_line_name":"next","namespace_name":"ns-1","component_name":"c1"}`,
+	} {
+		t.Run(tool, func(t *testing.T) {
+			sink := &recordingSink{}
+			mw := testMiddleware(t, MiddlewareOptions{
+				Emitter: testEmitter(t, sink), Bindings: bindings, Config: audit.MiddlewareConfig{Enabled: true},
+			})
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Name: tool, Arguments: json.RawMessage(args)},
+			}
+			if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(sink.events) != 1 {
+				t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+			}
+			want := audit.Hierarchy{Namespace: "ns-1", Component: "c1", ReleaseLine: "next"}
+			if sink.events[0].Hierarchy != want {
+				t.Errorf("Hierarchy = %+v, want %+v", sink.events[0].Hierarchy, want)
+			}
+		})
+	}
+}
+
 // TestNewMiddleware_HandlerSetResultWins covers the escape hatch a server
 // whose only authz check lives inside the tool handler depends on: the SDK
 // folds the handler's error into CallToolResult.IsError, so classifyResult
