@@ -92,6 +92,24 @@ def test_analyze_returns_pending_and_schedules_task(app):
     assert task_kwargs["scope"] is SCOPE
 
 
+@pytest.mark.parametrize("release_line", ["canary", None])
+def test_analyze_passes_release_line_to_scope(app, release_line):
+    backend = MagicMock()
+    backend.upsert_rca_report = AsyncMock()
+    resolve = AsyncMock(return_value=SCOPE)
+    body = {**ANALYZE_BODY, **({"release_line": release_line} if release_line else {})}
+
+    with (
+        patch("src.api.agent_routes.resolve_component_scope", resolve),
+        patch("src.api.agent_routes.get_report_backend", return_value=backend),
+        patch("src.api.agent_routes.run_analysis"),
+    ):
+        resp = TestClient(app).post("/api/v1alpha1/rca-agent/analyze", json=body)
+
+    assert resp.status_code == 200
+    assert resolve.await_args.kwargs["release_line"] == release_line
+
+
 def test_analyze_returns_500_when_backend_fails(app):
     backend = MagicMock()
     backend.upsert_rca_report = AsyncMock(side_effect=RuntimeError("db down"))

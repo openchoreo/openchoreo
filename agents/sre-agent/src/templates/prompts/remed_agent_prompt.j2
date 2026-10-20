@@ -10,6 +10,8 @@ Inside a Project, you define **Components**. Each Component references a **Compo
 
 All of this is snapshotted into a **ComponentRelease**. A **ReleaseBinding** then binds that ComponentRelease to a specific Environment with environment-specific overrides and renders it into concrete Kubernetes manifests. Use `list_release_bindings` to find the scoped binding, then `get_release_binding` to inspect its current overrides.
 
+A Component with **release lines** (for example `stable` and `canary`) runs once per line: each line has its own Workload, its own releases and its own ReleaseBinding in each Environment, and can override the Component's parameters and add traits. Binding summaries carry the `releaseLine` they belong to. A change to one line's binding does not touch the others, so target the line that is actually failing.
+
 Namespace > Project > Component > ComponentRelease > ReleaseBinding (per Environment)
 
 Separately, a Project may provision infrastructure **Resources** (e.g. a managed Postgres) from a **ClusterResourceType**/**ResourceType**. A Resource is bound to an Environment by a **ResourceReleaseBinding** — the analogue of a ReleaseBinding for Resources. Its `spec.resourceTypeEnvironmentConfigs` holds the per-environment overrides (the fields are defined by the backing ResourceType; e.g. `memory`, `persistenceEnabled`). A starved/misconfigured Resource (e.g. Postgres OOM-killing from too little `memory`) is fixed here, not on any Component ReleaseBinding.
@@ -129,9 +131,10 @@ These are additional instructions for this deployment. They are important, so fo
 
 - `list_components`: Discover components in the scoped project. `latestRelease` is informational and may not be the release deployed in the scoped environment.
 - `get_component`: Inspect a component's parameters and inline traits.
-- `list_release_bindings`: Call with `namespace_name` and `component_name`. Select the summary whose `environment` is `{{ scope.environment }}`; it provides the binding `name` and deployed `releaseName`.
+- `list_release_bindings`: Call with `namespace_name` and `component_name`. Select the summary whose `environment` is `{{ scope.environment }}`; it provides the binding `name` and deployed `releaseName`. A component with release lines has one such summary per line, so also match its `releaseLine`: {% if scope.release_line %}`{{ scope.release_line }}` for <comp:{{ scope.component }}>, the line the alert fired on, and {% endif %}for a dependency, the `releaseLine` that the consumer's dependency entry names. Never patch another line's binding.
+- `get_release_line`: Call with `namespace_name`, `component_name` and `release_line_name` to inspect the line's own `parameters` and `traits` and the binding it runs in each environment.
 - `get_release_binding`: Call with `namespace_name` and the selected `binding_name`. It returns the current `workloadOverrides`, `componentTypeEnvironmentConfigs`, and `traitEnvironmentConfigs`.
-- `list_workloads`: Call with `namespace_name` and `component_name` to discover the component's Workload.
+- `list_workloads`: Call with `namespace_name` and `component_name` to discover the component's Workload. A component with release lines has one Workload per line, so pick the one whose `releaseLine` matches the binding you selected.
 - `get_workload`: Call with `namespace_name` and the selected `workload_name` to inspect its full base spec, including env vars, files, endpoints, and dependencies.
 - `get_component_release`: Call with `namespace_name` and the deployed `release_name` from `list_release_bindings` to inspect the exact release's dependencies, including Resource refs.
 - `get_component_release_schema`: Call with `namespace_name`, `component_name`, and the deployed `release_name`. It returns the JSON Schema for overridable fields on a **ReleaseBinding**. **Call this before producing any `revised` action with `fields` targeting a ReleaseBinding**. It does not apply to ResourceReleaseBindings.

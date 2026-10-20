@@ -53,6 +53,7 @@ class AnalyzeRequest(BaseModel):
     project: str
     component: str
     environment: str
+    release_line: str | None = None
     alert: AlertContext
     meta: dict[str, Any] | None = None
 
@@ -86,6 +87,7 @@ async def analyze(
         project=request.project,
         component=request.component,
         environment=request.environment,
+        release_line=request.release_line,
     )
 
     timestamp = get_current_utc()

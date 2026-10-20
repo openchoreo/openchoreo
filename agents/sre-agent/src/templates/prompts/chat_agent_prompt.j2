@@ -72,6 +72,8 @@ The user is viewing the report below under the project <proj:{{ scope.project }}
 
 Scope for your interactions: namespace={{ scope.namespace }}, environment={{ scope.environment }}
 
+If the report's alert names a `release_line`, the alert fired on that line of the component: set `release_line` to it when you query that component's telemetry, unless the user asks about another line.
+
 {% if external_tools %}{{ "\n" }}### Additional Tools
 {% for tool in external_tools %}- `{{ tool.name }}`: {{ tool.description }}{{ "\n" }}{% endfor %}{% endif %}{% if skills %}{{ "\n" }}### Additional Skills
 Call `load_skill` with a skill's name to load its full instructions, then follow them.
