@@ -40,6 +40,7 @@ Suites are labeled by tier on their top-level `Describe`, so CI can shard them a
 | 1 | Connection Resolution | Component-to-component connections resolve and route traffic |
 | 1 | NetworkPolicy Enforcement | Cross-project/namespace traffic is isolated as declared |
 | 1 | GCP Microservices Demo | A realistic multi-service application deploys end to end |
+| 1 | Release Lines | Two lines of one component deploy, override, promote and delete independently, and line rules are enforced |
 | 2 | Authorization | Roles, bindings, namespace scoping, deny overrides, CEL conditions, propagation |
 | 2 | Gateway Routing | HTTP routing of deployed endpoints through the gateway |
 | 2 | OpenChoreo API | The control-plane REST API |
@@ -128,6 +129,26 @@ Source: [`suites/microservicesdemo/microservicesdemo_test.go:50`](suites/microse
 2. Promote the redis ResourceReleaseBinding to its latest release (the manual step the sample README asks of users)
 3. Wait for redis then all 10 component ReleaseBindings to reach Ready, and every pod to be Running
 4. Through the public gateway URL, GET `/` (proves frontend → productcatalog gRPC), `/product/<id>` (product + currency RPCs), and `/cart` (cart RPC) — all must return 200
+
+</details>
+
+<details>
+<summary><b>Release Lines</b> (tier 1) — deploy a component with two lines → per-line objects and routes → line overrides → promote one line → validation → delete one line</summary>
+
+Source: [`suites/releaselines/releaselines_test.go:24`](suites/releaselines/releaselines_test.go#L24)
+
+Needs the `release-line-service` ClusterComponentType from `samples/release-lines/component-type.yaml`, which `make e2e.setup` installs. Line names are unique within a namespace, so every line in the suite has its own name.
+
+1. Create a `greeter` component with release lines enabled and a readiness-probe trait, a `stable` line with no overrides, and a `canary` line that logs at debug, adds a liveness probe to the component's trait and adds an autoscaler trait. Each line gets its own Workload
+2. Both lines auto-deploy to development through their own ReleaseBindings, each line reports development as ready, and the component reports `ReleaseLinesReconciled`
+3. Each line renders its own Deployment and Service in the same data plane namespace, and each Service selects only its own line's pods
+4. Each line answers on its own service URL and on its own public route through the gateway
+5. Overrides apply per line: `LOG_LEVEL` is `info` on stable and `debug` on canary, only canary has the liveness probe and the autoscaler, and a line that lists only its own trait still keeps the component's readiness probe, since a line can't remove a component trait
+6. Bind canary's latest release to staging: canary reports staging, and only canary runs in the staging namespace
+7. Validation: a second component can't create a line named `stable` (`already exists`), a component type that doesn't allow lines marks the component `ReleaseLinesNotAllowed`, and a Workload without a line marks the component `InvalidConfiguration` until it's removed
+8. Delete the canary line: its bindings, releases, Workload and Deployments in both environments are removed, while stable stays Ready and keeps serving
+
+When running against a cluster other than the e2e one, set `E2E_CLUSTER_DATAPLANE` to its ClusterDataPlane (for example `default` on a local k3d install).
 
 </details>
 
