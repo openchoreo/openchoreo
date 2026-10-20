@@ -39,6 +39,7 @@ import (
 	projectreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectreleasebinding"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	releaselinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
 	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
 	resourcereleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding"
@@ -82,6 +83,7 @@ type Services struct {
 	K8sResourcesService                           k8sresourcessvc.Service
 	MetadataService                               metadatasvc.Service
 	ReleaseBindingService                         releasebindingsvc.Service
+	ReleaseLineService                            releaselinesvc.Service
 	ResourceService                               resourcesvc.Service
 	ResourceReleaseService                        resourcereleasesvc.Service
 	ResourceReleaseBindingService                 resourcereleasebindingsvc.Service
@@ -125,6 +127,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, resourceTree, logger.With("component", "k8sresources-service")),
 		MetadataService:                               metadatasvc.NewService(k8sClient, auditCfg, logger.With("component", "metadata-service")),
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
+		ReleaseLineService:                            releaselinesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releaseline-service")),
 		ResourceService:                               resourcesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resource-service")),
 		ResourceReleaseService:                        resourcereleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcerelease-service")),
 		ResourceReleaseBindingService:                 resourcereleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcereleasebinding-service")),

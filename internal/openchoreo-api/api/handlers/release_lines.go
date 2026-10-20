@@ -11,7 +11,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	releaselinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
@@ -24,12 +24,12 @@ func (h *Handler) ListComponentReleaseLines(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
-	result, err := h.services.ComponentService.ListReleaseLines(ctx, request.NamespaceName, request.ComponentName, opts)
+	result, err := h.services.ReleaseLineService.ListReleaseLines(ctx, request.NamespaceName, request.ComponentName, opts)
 	if err != nil {
 		switch {
 		case errors.Is(err, svcerrors.ErrForbidden):
 			return gen.ListComponentReleaseLines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		case errors.Is(err, componentsvc.ErrComponentNotFound):
+		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.ListComponentReleaseLines404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
 		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
@@ -54,14 +54,14 @@ func (h *Handler) GetComponentReleaseLine(
 ) (gen.GetComponentReleaseLineResponseObject, error) {
 	h.logger.Debug("GetComponentReleaseLine called", "namespaceName", request.NamespaceName, "component", request.ComponentName, "releaseLine", request.ReleaseLineName)
 
-	rl, err := h.services.ComponentService.GetReleaseLine(ctx, request.NamespaceName, request.ComponentName, request.ReleaseLineName)
+	rl, err := h.services.ReleaseLineService.GetReleaseLine(ctx, request.NamespaceName, request.ComponentName, request.ReleaseLineName)
 	if err != nil {
 		switch {
 		case errors.Is(err, svcerrors.ErrForbidden):
 			return gen.GetComponentReleaseLine403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		case errors.Is(err, componentsvc.ErrComponentNotFound):
+		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.GetComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		case errors.Is(err, componentsvc.ErrReleaseLineNotFound):
+		case errors.Is(err, releaselinesvc.ErrReleaseLineNotFound):
 			return gen.GetComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
 		}
 		h.logger.Error("Failed to get release line", "error", err)
@@ -95,16 +95,16 @@ func (h *Handler) CreateComponentReleaseLine(
 		return gen.CreateComponentReleaseLine400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
 
-	created, err := h.services.ComponentService.CreateReleaseLine(ctx, request.NamespaceName, request.ComponentName, &rlCR)
+	created, err := h.services.ReleaseLineService.CreateReleaseLine(ctx, request.NamespaceName, request.ComponentName, &rlCR)
 	if err != nil {
 		switch {
 		case errors.Is(err, svcerrors.ErrForbidden):
 			return gen.CreateComponentReleaseLine403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		case errors.Is(err, componentsvc.ErrComponentNotFound):
+		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.CreateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		case errors.Is(err, componentsvc.ErrReleaseLinesNotEnabled):
+		case errors.Is(err, releaselinesvc.ErrReleaseLinesNotEnabled):
 			return gen.CreateComponentReleaseLine400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
-		case errors.Is(err, componentsvc.ErrReleaseLineAlreadyExists):
+		case errors.Is(err, releaselinesvc.ErrReleaseLineAlreadyExists):
 			return gen.CreateComponentReleaseLine409JSONResponse{ConflictJSONResponse: conflict("A release line with this name already exists in the namespace")}, nil
 		}
 		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
@@ -147,14 +147,14 @@ func (h *Handler) UpdateComponentReleaseLine(
 	}
 	rlCR.Name = request.ReleaseLineName
 
-	updated, err := h.services.ComponentService.UpdateReleaseLine(ctx, request.NamespaceName, request.ComponentName, &rlCR)
+	updated, err := h.services.ReleaseLineService.UpdateReleaseLine(ctx, request.NamespaceName, request.ComponentName, &rlCR)
 	if err != nil {
 		switch {
 		case errors.Is(err, svcerrors.ErrForbidden):
 			return gen.UpdateComponentReleaseLine403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		case errors.Is(err, componentsvc.ErrComponentNotFound):
+		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.UpdateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		case errors.Is(err, componentsvc.ErrReleaseLineNotFound):
+		case errors.Is(err, releaselinesvc.ErrReleaseLineNotFound):
 			return gen.UpdateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
 		}
 		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
@@ -184,13 +184,13 @@ func (h *Handler) DeleteComponentReleaseLine(
 ) (gen.DeleteComponentReleaseLineResponseObject, error) {
 	h.logger.Info("DeleteComponentReleaseLine called", "namespaceName", request.NamespaceName, "component", request.ComponentName, "releaseLine", request.ReleaseLineName)
 
-	if err := h.services.ComponentService.DeleteReleaseLine(ctx, request.NamespaceName, request.ComponentName, request.ReleaseLineName); err != nil {
+	if err := h.services.ReleaseLineService.DeleteReleaseLine(ctx, request.NamespaceName, request.ComponentName, request.ReleaseLineName); err != nil {
 		switch {
 		case errors.Is(err, svcerrors.ErrForbidden):
 			return gen.DeleteComponentReleaseLine403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		case errors.Is(err, componentsvc.ErrComponentNotFound):
+		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.DeleteComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		case errors.Is(err, componentsvc.ErrReleaseLineNotFound):
+		case errors.Is(err, releaselinesvc.ErrReleaseLineNotFound):
 			return gen.DeleteComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
 		}
 		h.logger.Error("Failed to delete release line", "error", err)

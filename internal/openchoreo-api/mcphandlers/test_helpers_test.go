@@ -19,6 +19,7 @@ import (
 	projectreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectreleasebinding"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	releaselinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
 	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
 	resourcereleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding"
@@ -79,6 +80,10 @@ func withProjectReleaseBindingService(s projectreleasebindingsvc.Service) func(*
 
 func withReleaseBindingService(s releasebindingsvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.ReleaseBindingService = s }
+}
+
+func withReleaseLineService(s releaselinesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ReleaseLineService = s }
 }
 
 func withWorkloadService(s workloadsvc.Service) func(*handlerservices.Services) {

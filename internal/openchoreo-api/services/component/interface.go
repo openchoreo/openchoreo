@@ -31,9 +31,4 @@ type Service interface {
 	GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error)
 	GetComponentReleaseSchema(ctx context.Context, namespaceName, releaseName, componentName string) (*extv1.JSONSchemaProps, error)
-	ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ReleaseLine], error)
-	GetReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (*openchoreov1alpha1.ReleaseLine, error)
-	CreateReleaseLine(ctx context.Context, namespaceName, componentName string, releaseLine *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error)
-	UpdateReleaseLine(ctx context.Context, namespaceName, componentName string, releaseLine *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error)
-	DeleteReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) error
 }

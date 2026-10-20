@@ -4,7 +4,10 @@
 package tools
 
 import (
+	"context"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -110,28 +113,21 @@ func releaseLineSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "update_release_line",
+			name:                "patch_release_line",
 			toolset:             "component",
-			descriptionKeywords: []string{"release line"},
+			descriptionKeywords: []string{"patch", "release line"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name", "release_line_name"},
-			optionalParams:      []string{"description", "auto_deploy", "parameters", "traits", "workflow_parameters"},
+			optionalParams:      []string{"description", "auto_deploy", "parameters", "traits", "workflow_parameters", "reset"},
 			testArgs: map[string]any{
 				"namespace_name":    testNamespaceName,
 				"component_name":    testComponentName,
 				"release_line_name": testReleaseLineName,
 				"parameters":        map[string]any{"logLevel": "debug"},
+				"reset":             []any{"auto_deploy", "traits"},
 			},
-			expectedMethod: "UpdateReleaseLine",
-			validateCall: func(t *testing.T, args []interface{}) {
-				line := lineArg(t, args)
-				if line.Metadata.Name != testReleaseLineName {
-					t.Errorf("Expected name %s, got %s", testReleaseLineName, line.Metadata.Name)
-				}
-				if line.Spec == nil || line.Spec.AutoDeploy != nil || line.Spec.Workflow != nil {
-					t.Errorf("Expected only parameters to be set, got %+v", line.Spec)
-				}
-			},
+			expectedMethod: "PatchReleaseLine",
+			validateCall:   validatePatchReleaseLineCall,
 		},
 		{
 			name:                "delete_release_line",
@@ -151,5 +147,46 @@ func releaseLineSpecs() []toolTestSpec {
 				}
 			},
 		},
+	}
+}
+
+func TestPatchReleaseLine_RejectsSetAndReset(t *testing.T) {
+	clientSession, mockHandler := setupTestServer(t)
+	result, err := clientSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "patch_release_line",
+		Arguments: map[string]any{
+			"namespace_name":    testNamespaceName,
+			"component_name":    testComponentName,
+			"release_line_name": testReleaseLineName,
+			"auto_deploy":       true,
+			"reset":             []any{"auto_deploy"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected protocol error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("expected IsError=true when a field is both set and reset")
+	}
+	if _, called := mockHandler.calls["PatchReleaseLine"]; called {
+		t.Error("PatchReleaseLine must not be called when a field is both set and reset")
+	}
+}
+
+func validatePatchReleaseLineCall(t *testing.T, args []interface{}) {
+	line, ok := args[2].(*gen.ReleaseLine)
+	if !ok {
+		t.Fatalf("Expected *gen.ReleaseLine, got %T", args[2])
+	}
+	if line.Metadata.Name != testReleaseLineName {
+		t.Errorf("Expected name %s, got %s", testReleaseLineName, line.Metadata.Name)
+	}
+	if line.Spec == nil || line.Spec.Parameters == nil || line.Spec.AutoDeploy != nil ||
+		line.Spec.Traits != nil || line.Spec.Workflow != nil {
+		t.Errorf("Expected only parameters to be set, got %+v", line.Spec)
+	}
+	reset, ok := args[3].([]string)
+	if !ok || len(reset) != 2 || reset[0] != "auto_deploy" || reset[1] != "traits" {
+		t.Errorf("Expected reset [auto_deploy traits], got %v", args[3])
 	}
 }

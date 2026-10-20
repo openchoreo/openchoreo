@@ -274,10 +274,10 @@ func (m *MockCoreToolsetHandler) CreateReleaseLine(
 	return mockReleaseLineResult, nil
 }
 
-func (m *MockCoreToolsetHandler) UpdateReleaseLine(
-	ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine,
+func (m *MockCoreToolsetHandler) PatchReleaseLine(
+	ctx context.Context, namespaceName, componentName string, patch *gen.ReleaseLine, reset []string,
 ) (any, error) {
-	m.recordCall("UpdateReleaseLine", namespaceName, componentName, line)
+	m.recordCall("PatchReleaseLine", namespaceName, componentName, patch, reset)
 	return mockReleaseLineResult, nil
 }
 

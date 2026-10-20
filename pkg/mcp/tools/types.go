@@ -450,7 +450,10 @@ type ComponentToolsetHandler interface {
 	ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (any, error)
 	CreateReleaseLine(ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine) (any, error)
-	UpdateReleaseLine(ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine) (any, error)
+	// PatchReleaseLine applies the fields set in patch and removes the overrides named in reset.
+	PatchReleaseLine(
+		ctx context.Context, namespaceName, componentName string, patch *gen.ReleaseLine, reset []string,
+	) (any, error)
 	DeleteReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (any, error)
 
 	// Platform standards (read-only, namespace-scoped)
