@@ -4,6 +4,7 @@
 package export
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"testing"
@@ -35,7 +36,34 @@ func TestRun_PrintsIncompleteCoverage(t *testing.T) {
 	var output bytes.Buffer
 
 	require.NoError(t, Run(t.Context(), mockClient, &output, t.TempDir()))
-	assert.Contains(t, output.String(), "0 component(s)")
+	assert.Contains(t, output.String(), "0 resource(s)")
 	assert.Contains(t, output.String(), "Coverage is incomplete")
-	assert.Contains(t, output.String(), "workloads")
+	assert.Contains(t, output.String(), "component releases and release bindings")
+}
+
+func TestPromptKeepPlaintext(t *testing.T) {
+	finding := Withheld{
+		Kind: "Component", Namespace: "acme", Project: "shop", Name: "api",
+		Reasons: []string{".spec.parameters.dbPassword"},
+	}
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "yes keeps", input: "y\n", want: true},
+		{name: "no strips", input: "n\n", want: false},
+		{name: "empty defaults to strip", input: "\n", want: false},
+		{name: "invalid then yes", input: "maybe\nyes\n", want: true},
+		{name: "eof defaults to strip", input: "", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			got := promptKeepPlaintext(bufio.NewReader(bytes.NewBufferString(test.input)), &output, finding)
+			assert.Equal(t, test.want, got)
+			assert.Contains(t, output.String(), ".spec.parameters.dbPassword")
+			assert.NotContains(t, output.String(), "secret-value")
+		})
+	}
 }

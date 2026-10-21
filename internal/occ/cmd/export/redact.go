@@ -19,6 +19,36 @@ func findPlaintextSecrets(object map[string]any) []string {
 	return findings
 }
 
+func stripPlaintextSecrets(object map[string]any) int {
+	return stripValues(object)
+}
+
+func stripValues(node any) int {
+	stripped := 0
+	switch value := node.(type) {
+	case map[string]any:
+		if key, ok := value["key"].(string); ok && sensitiveName.MatchString(key) {
+			if secretValue, ok := value["value"].(string); ok && secretValue != "" {
+				delete(value, "value")
+				stripped++
+			}
+		}
+		for key, child := range value {
+			if secretValue, ok := child.(string); ok && secretValue != "" && key != "key" && sensitiveName.MatchString(key) {
+				delete(value, key)
+				stripped++
+				continue
+			}
+			stripped += stripValues(child)
+		}
+	case []any:
+		for _, child := range value {
+			stripped += stripValues(child)
+		}
+	}
+	return stripped
+}
+
 func walk(node any, currentPath string, findings *[]string) {
 	switch value := node.(type) {
 	case map[string]any:

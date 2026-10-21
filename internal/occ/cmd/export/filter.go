@@ -9,21 +9,26 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"sigs.k8s.io/yaml"
 )
 
 var labelsToDrop = map[string]bool{
-	labels.LabelKeyProjectUID:     true,
-	labels.LabelKeyComponentUID:   true,
-	labels.LabelKeyEnvironmentUID: true,
-	labels.LabelKeyResourceUID:    true,
-	labels.LabelKeyCreatedBy:      true,
-	labels.LabelKeyManagedBy:      true,
+	labels.LabelKeyProjectUID:               true,
+	labels.LabelKeyComponentUID:             true,
+	labels.LabelKeyEnvironmentUID:           true,
+	labels.LabelKeyResourceUID:              true,
+	labels.LabelKeyCreatedBy:                true,
+	labels.LabelKeyManagedBy:                true,
+	"kustomize.toolkit.fluxcd.io/name":      true,
+	"kustomize.toolkit.fluxcd.io/namespace": true,
 }
 
-func componentObject(component gen.Component, namespace string) (map[string]any, error) {
-	raw, err := json.Marshal(component)
+var namespaceLabelsToDrop = map[string]bool{
+	"kubernetes.io/metadata.name": true,
+}
+
+func normalizeObject(value any, kind, namespace string) (map[string]any, error) {
+	raw, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("marshal API response: %w", err)
 	}
@@ -35,8 +40,12 @@ func componentObject(component gen.Component, namespace string) (map[string]any,
 	}
 
 	delete(object, "status")
-	object["apiVersion"] = componentAPIVersion
-	object["kind"] = "Component"
+	apiVersion := openchoreoAPIVersion
+	if kind == "Namespace" {
+		apiVersion = namespaceAPIVersion
+	}
+	object["apiVersion"] = apiVersion
+	object["kind"] = kind
 	metadata, ok := object["metadata"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("API response is missing metadata")
@@ -47,10 +56,14 @@ func componentObject(component gen.Component, namespace string) (map[string]any,
 	} {
 		delete(metadata, key)
 	}
-	metadata["namespace"] = namespace
+	if namespace == "" {
+		delete(metadata, "namespace")
+	} else {
+		metadata["namespace"] = namespace
+	}
 	if labelsMap, ok := metadata["labels"].(map[string]any); ok {
 		for key := range labelsMap {
-			if labelsToDrop[key] {
+			if labelsToDrop[key] || (kind == "Namespace" && namespaceLabelsToDrop[key]) {
 				delete(labelsMap, key)
 			}
 		}
