@@ -33,6 +33,7 @@ finops_reports = Table(
     Column("project", String, nullable=True),
     Column("component", String, nullable=True),
     Column("environment", String, nullable=True),
+    Column("release_line", String, nullable=True),
     Column("report", Text, nullable=True),
     Index("idx_namespace_project_component", "namespace", "project", "component"),
     Index("idx_timestamp", "timestamp"),
@@ -95,6 +96,7 @@ class SQLReportBackend(ReportBackend):
         project: str | None = None,
         component: str | None = None,
         environment: str | None = None,
+        release_line: str | None = None,
     ) -> dict[str, Any]:
         doc_timestamp = timestamp or datetime.now(UTC)
         ts_str = doc_timestamp.isoformat()
@@ -113,6 +115,7 @@ class SQLReportBackend(ReportBackend):
             "project": project,
             "component": component,
             "environment": environment,
+            "release_line": release_line,
             "report": report_json,
         }
 
@@ -123,6 +126,7 @@ class SQLReportBackend(ReportBackend):
             "project": project,
             "component": component,
             "environment": environment,
+            "release_line": release_line,
         }
         if report_json is not None:
             update_values["report"] = report_json
@@ -202,6 +206,7 @@ class SQLReportBackend(ReportBackend):
         status: str | None = None,
         limit: int = 100,
         sort: str = "desc",
+        release_line: str | None = None,
     ) -> dict[str, Any]:
         conditions = [
             finops_reports.c.namespace == namespace,
@@ -209,6 +214,8 @@ class SQLReportBackend(ReportBackend):
         ]
         if component is not None:
             conditions.append(finops_reports.c.component == component)
+        if release_line is not None:
+            conditions.append(finops_reports.c.release_line == release_line)
         if start_time is not None:
             conditions.append(finops_reports.c.timestamp >= start_time)
         if end_time is not None:
@@ -235,6 +242,7 @@ class SQLReportBackend(ReportBackend):
                 "project": row["project"],
                 "component": row["component"],
                 "environment": row["environment"],
+                "releaseLine": row["release_line"],
                 "timestamp": row["timestamp"],
                 "summary": row["summary"],
                 "status": row["status"],
@@ -261,6 +269,7 @@ def _row_to_doc(row: Any) -> dict[str, Any]:
         "project": row["project"],
         "component": row["component"],
         "environment": row["environment"],
+        "releaseLine": row["release_line"],
         "status": row["status"],
         "summary": row["summary"],
     }
