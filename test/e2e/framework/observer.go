@@ -6,6 +6,7 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -177,6 +178,35 @@ func AcquireObserverToken(q ObserverQueryFrom) (string, error) {
 	return resp.AccessToken, nil
 }
 
+// AcquireObserverTokenForClient does a client_credentials grant for a client
+// that authenticates with client_secret_post, such as mcp-e2e-subject-client.
+func AcquireObserverTokenForClient(q ObserverQueryFrom, clientID, clientSecret string) (string, error) {
+	tokenURL := thunderTokenURLInCluster
+	if q.ThunderTokenURL != "" {
+		tokenURL = q.ThunderTokenURL
+	}
+	out, err := KubectlExecByLabel(q.KubeContext, q.Namespace, q.PodLabel, q.Container,
+		"curl", "-sS", "--fail-with-body",
+		"-m", fmt.Sprintf("%d", observerQueryHTTPTimeoutSc),
+		"-H", "Content-Type: application/x-www-form-urlencoded",
+		"-X", "POST",
+		"--data-urlencode", "grant_type=client_credentials",
+		"--data-urlencode", "client_id="+clientID,
+		"--data-urlencode", "client_secret="+clientSecret,
+		tokenURL,
+	)
+	if err != nil {
+		return "", fmt.Errorf("thunder token request failed: %w (body: %s)", err, out)
+	}
+	var resp struct {
+		AccessToken string `json:"access_token"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &resp); jerr != nil || resp.AccessToken == "" {
+		return "", fmt.Errorf("thunder token response missing access_token (body: %s)", out)
+	}
+	return resp.AccessToken, nil
+}
+
 // QueryLogs POSTs to /api/v1/logs/query and returns the parsed response.
 // Pass a bearer token acquired via AcquireObserverToken. Errors include the
 // HTTP body so flakes are diagnosable from CI logs.
@@ -216,6 +246,46 @@ func QueryTraces(q ObserverQueryFrom, token string, req TracesQueryRequest) (*Tr
 		return nil, fmt.Errorf("traces query decode failed: %w (body: %s)", jerr, body)
 	}
 	return &resp, nil
+}
+
+// QueryRawTraces POSTs a tracing backend's native request to
+// /api/v1alpha1/traces/raw-query and returns the HTTP status and body, so
+// specs can assert on error responses too.
+func QueryRawTraces(q ObserverQueryFrom, token, contentType, body string) (int, string, error) {
+	return observerPostWithStatus(q, token, "/api/v1alpha1/traces/raw-query", contentType, body)
+}
+
+// observerPostWithStatus is observerPost for a body sent as is, without
+// --fail-with-body: it returns the HTTP status alongside the body instead of
+// failing on a non-2xx answer.
+func observerPostWithStatus(q ObserverQueryFrom, token, path, contentType, body string) (int, string, error) {
+	baseURL := observerURL
+	if q.ObserverURL != "" {
+		baseURL = q.ObserverURL
+	}
+	out, err := KubectlExecByLabel(q.KubeContext, q.Namespace, q.PodLabel, q.Container,
+		"curl", "-sS",
+		"-m", fmt.Sprintf("%d", observerQueryHTTPTimeoutSc),
+		"-w", "\n%{http_code}",
+		"-H", "Content-Type: "+contentType,
+		"-H", "Authorization: Bearer "+token,
+		"-X", "POST",
+		"--data-binary", body,
+		baseURL+path,
+	)
+	if err != nil {
+		return 0, out, fmt.Errorf("POST %s failed: %w (body: %s)", path, err, out)
+	}
+	out = strings.TrimSpace(out)
+	idx := strings.LastIndex(out, "\n")
+	status, convErr := strconv.Atoi(strings.TrimSpace(out[idx+1:]))
+	if convErr != nil {
+		return 0, out, fmt.Errorf("POST %s: no HTTP status in curl output: %s", path, out)
+	}
+	if idx < 0 {
+		return status, "", nil
+	}
+	return status, out[:idx], nil
 }
 
 // observerPost runs `kubectl exec <pod> -- curl ...` to POST through the
