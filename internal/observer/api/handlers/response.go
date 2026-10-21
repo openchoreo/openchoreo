@@ -24,7 +24,8 @@ import (
 //     Each is a json.RawMessage passed straight through from the metrics or
 //     finops adapter (service/metrics_adapter.go, service/finops_adapter.go);
 //     observer never inspects the payload, so typing them would mean decoding
-//     bodies it currently proxies untouched.
+//     bodies it currently proxies untouched. QueryRawTraces likewise passes the
+//     tracing backend's own result through untouched.
 //   - QueryLogs, QueryEvents, QueryRuntimeTopology, QueryTraces,
 //     QuerySpansForTrace, GetSpanDetailsForTrace, GetPlatformLogs,
 //     QueryAuditLogs, QueryAuditLogFilterValues, Health and
@@ -94,6 +95,10 @@ func (resp apiResponse) VisitQuerySpansForTraceResponse(w http.ResponseWriter) e
 }
 
 func (resp apiResponse) VisitGetSpanDetailsForTraceResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}
+
+func (resp apiResponse) VisitQueryRawTracesResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }
 
