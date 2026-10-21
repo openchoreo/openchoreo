@@ -287,6 +287,10 @@ const (
 
 	// Traces actions
 	ActionViewTraces = "traces:view"
+	// Cluster-scoped: runs a read-only query, in the tracing backend's own query
+	// language, over every trace the observability plane holds, with no ownership
+	// check. Operator-scoped by design, like platformlogs:view.
+	ActionRawQueryTraces = "traces:rawquery"
 
 	// Alerts actions
 	ActionViewAlerts = "alerts:view"
@@ -563,6 +567,9 @@ var systemActions = []Action{
 
 	// traces (dynamic scope: namespace or project depending on query)
 	{Name: ActionViewTraces, LowestScope: ScopeProject, IsInternal: false},
+	// Raw trace queries are not scoped by the query, so nothing below the
+	// cluster can satisfy them.
+	{Name: ActionRawQueryTraces, LowestScope: ScopeCluster, IsInternal: false},
 
 	// alerts (dynamic scope: namespace, project, or component depending on query)
 	{Name: ActionViewAlerts, LowestScope: ScopeComponent, IsInternal: false},
