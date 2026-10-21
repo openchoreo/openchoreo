@@ -16,6 +16,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -166,7 +167,7 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(s.remoteKeys, req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType, sortedKeys(req.Data))
+	pushSecret := buildPushSecret(s.remoteKeys, req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType)
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
@@ -182,7 +183,9 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 
 // UpdateSecret replaces a secret's data with the supplied final state.
 // Keys present in the existing secret but absent from req.Data are pruned
-// from the K8s Secret, PushSecret, and SecretReference.
+// from the K8s Secret, the value pushed to the store, and the SecretReference.
+// A PushSecret created before secrets were pushed as one entry is replaced
+// without letting external-secrets delete the existing store entry.
 func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*corev1.Secret, error) {
 	s.logger.Debug("Updating secret", "namespace", namespaceName, "secret", secretName)
 
@@ -219,7 +222,11 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(s.remoteKeys, secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType, newKeys)
+	if err := dropPerKeyPushSecret(ctx, planeInfo.k8sClient, targetNs, secretName); err != nil {
+		return nil, fmt.Errorf("failed to replace per-key push secret in target plane: %w", err)
+	}
+
+	pushSecret := buildPushSecret(s.remoteKeys, secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType)
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
@@ -593,21 +600,8 @@ func buildK8sSecret(name, targetNamespace string, secretType corev1.SecretType, 
 	}
 }
 
-func buildPushSecret(remoteKeys remoteKeyFormat, name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType, keys []string) *unstructured.Unstructured {
+func buildPushSecret(remoteKeys remoteKeyFormat, name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType) *unstructured.Unstructured {
 	remoteKey := remoteKeyFor(remoteKeys, ownerNamespace, secretType, name)
-
-	dataMatches := make([]map[string]any, 0, len(keys))
-	for _, k := range keys {
-		dataMatches = append(dataMatches, map[string]any{
-			"match": map[string]any{
-				"secretKey": k,
-				"remoteRef": map[string]any{
-					"remoteKey": remoteKey,
-					"property":  k,
-				},
-			},
-		})
-	}
 
 	ps := &unstructured.Unstructured{}
 	ps.SetAPIVersion(pushSecretAPIVersion)
@@ -626,9 +620,67 @@ func buildPushSecret(remoteKeys remoteKeyFormat, name, ownerNamespace, targetNam
 		"selector": map[string]any{
 			"secret": map[string]any{"name": name},
 		},
-		"data": dataMatches,
+		// One entry with no secretKey or property pushes every key of the
+		// Secret as a single value that replaces what the store holds. A key
+		// removed later is simply absent from the next push, so the store
+		// never needs a per-key delete, which some providers (AWS Secrets
+		// Manager, Azure Key Vault) apply to the whole secret.
+		"data": []map[string]any{
+			{"match": map[string]any{
+				"remoteRef": map[string]any{"remoteKey": remoteKey},
+			}},
+		},
 	}
 	return ps
+}
+
+// dropPerKeyPushSecret removes a PushSecret that still pushes one entry per
+// key, without letting external-secrets delete anything from the store.
+// Switching such a PushSecret to a single whole-secret entry in place makes
+// external-secrets delete each old per-key entry from the store right after
+// pushing the new one. Turning deletion off and removing the finalizer first
+// lets the object go immediately, and the whole-secret PushSecret applied next
+// starts with no synced entries to prune.
+func dropPerKeyPushSecret(ctx context.Context, k8sClient client.Client, namespace, name string) error {
+	ps := &unstructured.Unstructured{}
+	ps.SetAPIVersion(pushSecretAPIVersion)
+	ps.SetKind(pushSecretKind)
+	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, ps); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil
+		}
+		return fmt.Errorf("failed to get push secret: %w", err)
+	}
+	if !hasPerKeyEntries(ps) {
+		return nil
+	}
+
+	orphan := []byte(`{"spec":{"deletionPolicy":"None"},"metadata":{"finalizers":null}}`)
+	if err := k8sClient.Patch(ctx, ps, client.RawPatch(types.MergePatchType, orphan)); err != nil {
+		return fmt.Errorf("failed to turn off push secret deletion: %w", err)
+	}
+	if err := k8sClient.Delete(ctx, ps); err != nil && client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete push secret: %w", err)
+	}
+	return nil
+}
+
+// hasPerKeyEntries reports whether a PushSecret pushes individual keys, that
+// is, whether any data entry sets a secretKey or a property.
+func hasPerKeyEntries(ps *unstructured.Unstructured) bool {
+	entries, _, _ := unstructured.NestedSlice(ps.Object, "spec", "data")
+	for _, e := range entries {
+		entry, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		secretKey, _, _ := unstructured.NestedString(entry, "match", "secretKey")
+		property, _, _ := unstructured.NestedString(entry, "match", "remoteRef", "property")
+		if secretKey != "" || property != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func buildSecretReference(remoteKeys remoteKeyFormat, ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {

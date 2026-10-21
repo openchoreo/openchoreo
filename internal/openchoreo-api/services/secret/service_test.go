@@ -5,14 +5,17 @@ package secret
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +33,9 @@ const (
 	testSecretName = "my-secret"
 	testLabelValue = "payments"
 )
+
+// externalSecretsGroup is the API group of the PushSecret CRD.
+const externalSecretsGroup = "external-secrets.io"
 
 // defaultRemoteKeys is the key layout a default install uses.
 var defaultRemoteKeys = remoteKeyFormat{prefix: config.DefaultRemoteKeyPrefix, separator: config.DefaultRemoteKeySeparator}
@@ -252,8 +258,7 @@ func TestBuildK8sSecret(t *testing.T) {
 }
 
 func TestBuildPushSecret(t *testing.T) {
-	ps := buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store",
-		corev1.SecretTypeOpaque, []string{"a", "b"})
+	ps := buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store", corev1.SecretTypeOpaque)
 
 	if ps.GetAPIVersion() != pushSecretAPIVersion {
 		t.Errorf("apiVersion = %q", ps.GetAPIVersion())
@@ -285,22 +290,21 @@ func TestBuildPushSecret(t *testing.T) {
 	if storeRefs[0]["name"] != "vault-store" {
 		t.Errorf("store name = %v", storeRefs[0]["name"])
 	}
+	// One entry with only the remote key pushes the whole Secret as one value.
 	data := spec["data"].([]map[string]any)
-	if len(data) != 2 {
-		t.Fatalf("data length = %d", len(data))
+	if len(data) != 1 {
+		t.Fatalf("data length = %d, want 1", len(data))
 	}
-	for i, want := range []string{"a", "b"} {
-		match := data[i]["match"].(map[string]any)
-		if match["secretKey"] != want {
-			t.Errorf("data[%d].secretKey = %v", i, match["secretKey"])
-		}
-		remoteRef := match["remoteRef"].(map[string]any)
-		if remoteRef["remoteKey"] != "secret/ns1/generic/my-secret" {
-			t.Errorf("data[%d].remoteKey = %v", i, remoteRef["remoteKey"])
-		}
-		if remoteRef["property"] != want {
-			t.Errorf("data[%d].property = %v", i, remoteRef["property"])
-		}
+	match := data[0]["match"].(map[string]any)
+	if _, ok := match["secretKey"]; ok {
+		t.Errorf("secretKey = %v, want none", match["secretKey"])
+	}
+	remoteRef := match["remoteRef"].(map[string]any)
+	if remoteRef["remoteKey"] != "secret/ns1/generic/my-secret" {
+		t.Errorf("remoteKey = %v", remoteRef["remoteKey"])
+	}
+	if _, ok := remoteRef["property"]; ok {
+		t.Errorf("property = %v, want none", remoteRef["property"])
 	}
 }
 
@@ -610,9 +614,9 @@ func TestDeleteSecret_PlaneNotFound(t *testing.T) {
 
 // targetPlaneClient builds a fake client that:
 //   - swallows SSA Patch calls (records count)
-//   - returns NotFound for unstructured (PushSecret) Delete
+//   - returns NotFound for unstructured (PushSecret) Get and Delete
 //
-// Real Delete on typed objects still goes through the underlying tracker.
+// Real Get and Delete on typed objects still go through the underlying tracker.
 type patchRec struct {
 	count int
 }
@@ -623,6 +627,13 @@ func newTargetPlaneClient(t *testing.T, scheme *runtime.Scheme, objs []client.Ob
 		WithScheme(scheme).
 		WithObjects(objs...).
 		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				// No PushSecret exists yet in the target plane.
+				if gvk := obj.GetObjectKind().GroupVersionKind(); gvk.Group == externalSecretsGroup {
+					return apierrors.NewNotFound(schema.GroupResource{Group: gvk.Group, Resource: "pushsecrets"}, key.Name)
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
 			Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
 				if rec != nil {
 					rec.count++
@@ -632,7 +643,7 @@ func newTargetPlaneClient(t *testing.T, scheme *runtime.Scheme, objs []client.Ob
 			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
 				// PushSecret is an unstructured external CRD; surface NotFound for it
 				// so the service treats it as already-gone.
-				if obj.GetObjectKind().GroupVersionKind().Group == "external-secrets.io" {
+				if obj.GetObjectKind().GroupVersionKind().Group == externalSecretsGroup {
 					gvk := obj.GetObjectKind().GroupVersionKind()
 					return apierrors.NewNotFound(schema.GroupResource{Group: gvk.Group, Resource: "pushsecrets"}, obj.GetName())
 				}
@@ -1005,6 +1016,175 @@ func TestUpdateSecret_Success_KeysChanged(t *testing.T) {
 	}
 }
 
+// servedPushSecret returns ps the way the API server serves it, with
+// JSON-typed values, so it can be deep-copied and read with the unstructured
+// helpers.
+func servedPushSecret(t *testing.T, ps *unstructured.Unstructured) *unstructured.Unstructured {
+	t.Helper()
+	raw, err := json.Marshal(ps.Object)
+	if err != nil {
+		t.Fatalf("marshal push secret: %v", err)
+	}
+	out := &unstructured.Unstructured{}
+	if err := out.UnmarshalJSON(raw); err != nil {
+		t.Fatalf("unmarshal push secret: %v", err)
+	}
+	return out
+}
+
+// perKeyPushSecret returns a PushSecret in the shape created before secrets
+// were pushed as one entry: one data entry per key, each with a property.
+func perKeyPushSecret(t *testing.T, keys ...string) *unstructured.Unstructured {
+	t.Helper()
+	ps := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
+		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+	entries := make([]any, 0, len(keys))
+	for _, k := range keys {
+		entries = append(entries, map[string]any{"match": map[string]any{
+			"secretKey": k,
+			"remoteRef": map[string]any{"remoteKey": "secret/ns1/generic/my-secret", "property": k},
+		}})
+	}
+	if err := unstructured.SetNestedSlice(ps.Object, entries, "spec", "data"); err != nil {
+		t.Fatalf("set data: %v", err)
+	}
+	ps.SetFinalizers([]string{"pushsecret.externalsecrets.io/finalizer"})
+	return ps
+}
+
+// newRecordingPlaneClient builds a fake target plane client that serves
+// existing as the current PushSecret (nil means none) and records each write
+// in order.
+func newRecordingPlaneClient(t *testing.T, scheme *runtime.Scheme, existing *unstructured.Unstructured, calls *[]string) client.Client {
+	t.Helper()
+	return fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				u, ok := obj.(*unstructured.Unstructured)
+				if !ok || u.GroupVersionKind().Group != externalSecretsGroup {
+					return c.Get(ctx, key, obj, opts...)
+				}
+				if existing == nil {
+					return apierrors.NewNotFound(schema.GroupResource{Group: externalSecretsGroup, Resource: "pushsecrets"}, key.Name)
+				}
+				u.Object = existing.DeepCopy().Object
+				return nil
+			},
+			Patch: func(_ context.Context, _ client.WithWatch, obj client.Object, patch client.Patch, _ ...client.PatchOption) error {
+				kind := obj.GetObjectKind().GroupVersionKind().Kind
+				if patch.Type() == client.Apply.Type() {
+					*calls = append(*calls, "apply "+kind)
+					return nil
+				}
+				data, err := patch.Data(obj)
+				if err != nil {
+					return err
+				}
+				*calls = append(*calls, "patch "+kind+" "+string(data))
+				return nil
+			},
+			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
+				*calls = append(*calls, "delete "+obj.GetObjectKind().GroupVersionKind().Kind)
+				return nil
+			},
+		}).
+		Build()
+}
+
+// TestUpdateSecret_ReplacesPerKeyPushSecret checks that a PushSecret with one
+// entry per key is dropped with deletion turned off and its finalizer removed
+// before the whole-secret PushSecret is applied, so external-secrets does not
+// delete the existing store entry.
+func TestUpdateSecret_ReplacesPerKeyPushSecret(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	var calls []string
+	targetClient := newRecordingPlaneClient(t, scheme, perKeyPushSecret(t, "a", "b"), &calls)
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+	if _, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1", "b": "2"},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{
+		"apply Secret",
+		`patch PushSecret {"spec":{"deletionPolicy":"None"},"metadata":{"finalizers":null}}`,
+		"delete PushSecret",
+		"apply PushSecret",
+	}
+	if !slices.Equal(calls, want) {
+		t.Errorf("target plane writes = %q, want %q", calls, want)
+	}
+}
+
+// TestUpdateSecret_KeepsWholeSecretPushSecret checks that a PushSecret that
+// already pushes the whole secret is applied in place.
+func TestUpdateSecret_KeepsWholeSecretPushSecret(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	existing := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
+		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+	var calls []string
+	targetClient := newRecordingPlaneClient(t, scheme, existing, &calls)
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+	if _, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1"},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"apply Secret", "apply PushSecret"}
+	if !slices.Equal(calls, want) {
+		t.Errorf("target plane writes = %q, want %q", calls, want)
+	}
+}
+
+func TestHasPerKeyEntries(t *testing.T) {
+	whole := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
+		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+	propertyOnly := perKeyPushSecret(t, "a")
+	unstructured.RemoveNestedField(propertyOnly.Object, "spec", "data")
+	if err := unstructured.SetNestedSlice(propertyOnly.Object, []any{map[string]any{"match": map[string]any{
+		"remoteRef": map[string]any{"remoteKey": "secret/ns1/generic/my-secret", "property": "a"},
+	}}}, "spec", "data"); err != nil {
+		t.Fatalf("set data: %v", err)
+	}
+	noData := whole.DeepCopy()
+	unstructured.RemoveNestedField(noData.Object, "spec", "data")
+
+	tests := []struct {
+		name string
+		ps   *unstructured.Unstructured
+		want bool
+	}{
+		{"whole secret", whole, false},
+		{"one entry per key", perKeyPushSecret(t, "a", "b"), true},
+		{"property without secretKey", propertyOnly, true},
+		{"no data", noData, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasPerKeyEntries(tt.ps); got != tt.want {
+				t.Errorf("hasPerKeyEntries = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUpdateSecret_LabelsApplied(t *testing.T) {
 	scheme := newTestScheme(t)
 	wp := newWorkflowPlane()
@@ -1224,8 +1404,7 @@ func TestBuildersHonorDashSeparator(t *testing.T) {
 func assertBuildersAgreeOnKey(t *testing.T, format remoteKeyFormat, wantKey string) {
 	t.Helper()
 
-	ps := buildPushSecret(format, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store",
-		corev1.SecretTypeOpaque, []string{"a"})
+	ps := buildPushSecret(format, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store", corev1.SecretTypeOpaque)
 	spec, ok := ps.Object["spec"].(map[string]any)
 	if !ok {
 		t.Fatal("spec is not a map")
