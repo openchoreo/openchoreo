@@ -979,7 +979,7 @@ func TestUpdateSecret_Success_SameKeys(t *testing.T) {
 	}
 	got2 := dataSourceKeys(updated.Spec.Data)
 	want := []string{"a", "b"}
-	if !sameStringSlice(got2, want) {
+	if !slices.Equal(got2, want) {
 		t.Errorf("spec.data keys = %v, want %v", got2, want)
 	}
 }
@@ -1011,9 +1011,56 @@ func TestUpdateSecret_Success_KeysChanged(t *testing.T) {
 	}
 	got := dataSourceKeys(updated.Spec.Data)
 	want := []string{"a", "c"}
-	if !sameStringSlice(got, want) {
+	if !slices.Equal(got, want) {
 		t.Errorf("spec.data keys = %v, want %v", got, want)
 	}
+}
+
+// After the separator changes, an update with the same keys pushes to the new
+// remote key, so the SecretReference must move to that key too.
+func TestUpdateSecret_MovesSecretReferenceToNewRemoteKey(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	targetClient := newTargetPlaneClient(t, scheme, nil, &patchRec{})
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	dashKeys := remoteKeyFormat{prefix: config.DefaultRemoteKeyPrefix, separator: "-"}
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: dashKeys}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1", "b": "2"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated := &openchoreov1alpha1.SecretReference{}
+	if err := cpClient.Get(context.Background(),
+		client.ObjectKey{Name: testSecretName, Namespace: testNamespace}, updated); err != nil {
+		t.Fatalf("get SecretReference: %v", err)
+	}
+	want := remoteKeyFor(dashKeys, testNamespace, corev1.SecretTypeOpaque, testSecretName)
+	for _, src := range updated.Spec.Data {
+		if src.RemoteRef.Key != want || src.RemoteRef.Property != src.SecretKey {
+			t.Errorf("spec.data[%s].remoteRef = %+v, want key %q property %q", src.SecretKey, src.RemoteRef, want, src.SecretKey)
+		}
+	}
+}
+
+// dataSourceKeys returns the sorted secretKey values of a SecretReference's
+// data sources.
+func dataSourceKeys(sources []openchoreov1alpha1.SecretDataSource) []string {
+	keys := make([]string, 0, len(sources))
+	for _, src := range sources {
+		keys = append(keys, src.SecretKey)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // servedPushSecret returns ps the way the API server serves it, with

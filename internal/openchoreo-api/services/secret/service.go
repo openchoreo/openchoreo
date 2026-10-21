@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -231,13 +232,16 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
 
-	existingKeys := dataSourceKeys(secretRef.Spec.Data)
+	// Compare the whole data, not only the key names. After a separator or
+	// prefix change the remote key differs too, and the SecretReference must
+	// point at the key the PushSecret now writes.
+	newData := buildSecretDataSources(s.remoteKeys, namespaceName, secretName, secretType, newKeys)
 	newLabels := mergeManagedLabels(req.Labels)
 
-	keysChanged := !sameStringSlice(existingKeys, newKeys)
+	dataChanged := !slices.Equal(secretRef.Spec.Data, newData)
 	labelsChanged := !maps.Equal(secretRef.Labels, newLabels)
-	if keysChanged || labelsChanged {
-		secretRef.Spec.Data = buildSecretDataSources(s.remoteKeys, namespaceName, secretName, secretType, newKeys)
+	if dataChanged || labelsChanged {
+		secretRef.Spec.Data = newData
 		secretRef.Labels = newLabels
 		if err := s.k8sClient.Update(ctx, secretRef); err != nil {
 			if apierrors.IsInvalid(err) {
@@ -762,31 +766,6 @@ func isManagedSecret(sr *openchoreov1alpha1.SecretReference) bool {
 		return false
 	}
 	return sr.Labels[managedByLabel] == managedByOpenchoreoAPI
-}
-
-// dataSourceKeys returns the sorted list of secretKey values declared on a
-// SecretReference's data sources.
-func dataSourceKeys(sources []openchoreov1alpha1.SecretDataSource) []string {
-	keys := make([]string, 0, len(sources))
-	for _, src := range sources {
-		keys = append(keys, src.SecretKey)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// sameStringSlice reports whether two sorted string slices contain the same
-// elements in the same order.
-func sameStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // stringMapToBytes converts a string→string data map (as supplied by callers)
