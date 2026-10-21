@@ -5,6 +5,7 @@ package observability
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -16,6 +17,21 @@ type TracingAdapter interface {
 	GetSpans(ctx context.Context, traceID string, params TracesQueryParams) (*SpansResult, error)
 	// GetSpanDetails retrieves detailed information about a specific span
 	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*SpanDetail, error)
+	// QueryRawTraces runs a read-only request, written for the tracing backend's
+	// own API, and returns the backend's own response
+	QueryRawTraces(ctx context.Context, params RawTracesQueryParams) (*RawTracesQueryResult, error)
+}
+
+// RawTracesQueryParams is a raw trace query: the tracing backend's native
+// request and its media type (application/json or text/plain).
+type RawTracesQueryParams struct {
+	ContentType string
+	Body        []byte
+}
+
+// RawTracesQueryResult holds the tracing backend's own response to a raw query.
+type RawTracesQueryResult struct {
+	Body json.RawMessage
 }
 
 // SpanStatus represents the execution status of a span, following the

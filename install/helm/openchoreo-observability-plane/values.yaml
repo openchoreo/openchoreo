@@ -598,6 +598,31 @@ observer:
     # default: "30s"
     # @schema
     timeout: "30s"
+    # @schema
+    # type: object
+    # description: Limits for raw trace queries (POST /api/v1alpha1/traces/raw-query). A raw query is the tracing backend's native request and is not scoped, so these bound how it runs. Set the tracing module's own raw query limits to match.
+    # @schema
+    rawQuery:
+      # @schema
+      # type: string
+      # description: Query timeout. The observer waits a few seconds longer than this for the tracing adapter, which stops the query at its own timeout
+      # default: "30s"
+      # @schema
+      timeout: "30s"
+      # @schema
+      # type: integer
+      # description: Largest raw query request body accepted, in bytes. A larger request gets 413
+      # minimum: 1
+      # default: 1048576
+      # @schema
+      maxRequestBytes: 1048576
+      # @schema
+      # type: integer
+      # description: Largest raw query result accepted, in bytes. A larger result is rejected rather than returned partially
+      # minimum: 1
+      # default: 10485760
+      # @schema
+      maxResponseBytes: 10485760
 
   # @schema
   # type: object

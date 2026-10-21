@@ -83,6 +83,65 @@ func (_c *MockTracesQuerier_GetSpanDetails_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// QueryRawTraces provides a mock function with given fields: ctx, req
+func (_m *MockTracesQuerier) QueryRawTraces(ctx context.Context, req *types.RawTracesQueryRequest) (*types.RawTracesQueryResponse, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for QueryRawTraces")
+	}
+
+	var r0 *types.RawTracesQueryResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.RawTracesQueryRequest) (*types.RawTracesQueryResponse, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.RawTracesQueryRequest) *types.RawTracesQueryResponse); ok {
+		r0 = rf(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.RawTracesQueryResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.RawTracesQueryRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockTracesQuerier_QueryRawTraces_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QueryRawTraces'
+type MockTracesQuerier_QueryRawTraces_Call struct {
+	*mock.Call
+}
+
+// QueryRawTraces is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *types.RawTracesQueryRequest
+func (_e *MockTracesQuerier_Expecter) QueryRawTraces(ctx interface{}, req interface{}) *MockTracesQuerier_QueryRawTraces_Call {
+	return &MockTracesQuerier_QueryRawTraces_Call{Call: _e.mock.On("QueryRawTraces", ctx, req)}
+}
+
+func (_c *MockTracesQuerier_QueryRawTraces_Call) Run(run func(ctx context.Context, req *types.RawTracesQueryRequest)) *MockTracesQuerier_QueryRawTraces_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*types.RawTracesQueryRequest))
+	})
+	return _c
+}
+
+func (_c *MockTracesQuerier_QueryRawTraces_Call) Return(_a0 *types.RawTracesQueryResponse, _a1 error) *MockTracesQuerier_QueryRawTraces_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockTracesQuerier_QueryRawTraces_Call) RunAndReturn(run func(context.Context, *types.RawTracesQueryRequest) (*types.RawTracesQueryResponse, error)) *MockTracesQuerier_QueryRawTraces_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // QuerySpans provides a mock function with given fields: ctx, traceID, req
 func (_m *MockTracesQuerier) QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error) {
 	ret := _m.Called(ctx, traceID, req)

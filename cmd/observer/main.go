@@ -117,8 +117,10 @@ func main() {
 	// Initialize tracing adapter
 	logger.Info("Initializing tracing adapter", "adapter_url", sanitizeURL(cfg.Adapters.TracingAdapterURL))
 	tracingAdapter, err := service.NewTracingAdapter(service.TracingAdapterConfig{
-		BaseURL: cfg.Adapters.TracingAdapterURL,
-		Timeout: cfg.Adapters.TracingAdapterTimeout,
+		BaseURL:                  cfg.Adapters.TracingAdapterURL,
+		Timeout:                  cfg.Adapters.TracingAdapterTimeout,
+		RawQueryTimeout:          cfg.Adapters.TracingRawQueryTimeout,
+		RawQueryMaxResponseBytes: cfg.Adapters.TracingRawQueryMaxResponseBytes,
 	})
 	if err != nil {
 		logger.Error("Failed to create tracing adapter", "error", err)
@@ -398,6 +400,8 @@ func main() {
 		AuthMiddleware: authMiddleware,
 		AuditEmitter:   auditEmitter,
 		AuditConfig:    auditMiddlewareConfig,
+
+		RawQueryMaxRequestBytes: cfg.Adapters.TracingRawQueryMaxRequestBytes,
 	})
 	if err != nil {
 		logger.Error("Failed to build observer middlewares", "error", err)
@@ -425,9 +429,15 @@ func main() {
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests
 	// before the mux's method-based routing returns 405.
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	//
+	// Raw trace queries may run up to their own timeout, which can be longer than
+	// the server's write timeout, so that one route gets a longer write deadline.
+	rawQueryWriteDeadline := cfg.Adapters.TracingRawQueryTimeout + 2*service.RawQueryDeadlineMargin
 	server := &http.Server{
-		Addr:         addr,
-		Handler:      observermiddleware.CORS(cfg.CORS.AllowedOrigins)(publicHTTPHandler),
+		Addr: addr,
+		Handler: observermiddleware.ExtendWriteDeadline(
+			http.MethodPost, "/api/v1alpha1/traces/raw-query", rawQueryWriteDeadline, publicAPILogger,
+		)(observermiddleware.CORS(cfg.CORS.AllowedOrigins)(publicHTTPHandler)),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

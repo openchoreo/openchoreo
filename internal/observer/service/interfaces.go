@@ -58,6 +58,7 @@ type TracesQuerier interface {
 	QueryTraces(ctx context.Context, req *types.TracesQueryRequest) (*types.TracesQueryResponse, error)
 	QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error)
 	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error)
+	QueryRawTraces(ctx context.Context, req *types.RawTracesQueryRequest) (*types.RawTracesQueryResponse, error)
 }
 
 // FinOpsQuerier is the interface for querying cost insights and right-sizing

@@ -39,6 +39,28 @@ func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
 	assert.Equal(t, 45*time.Second, cfg.Adapters.FinOpsAdapterTimeout)
 }
 
+func TestLoad_TracingRawQueryDefaults(t *testing.T) {
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 30*time.Second, cfg.Adapters.TracingRawQueryTimeout)
+	assert.Equal(t, int64(1<<20), cfg.Adapters.TracingRawQueryMaxRequestBytes)
+	assert.Equal(t, int64(10<<20), cfg.Adapters.TracingRawQueryMaxResponseBytes)
+}
+
+func TestLoad_TracingRawQueryEnvOverride(t *testing.T) {
+	t.Setenv("TRACING_RAW_QUERY_TIMEOUT", "20s")
+	t.Setenv("TRACING_RAW_QUERY_MAX_REQUEST_BYTES", "4096")
+	t.Setenv("TRACING_RAW_QUERY_MAX_RESPONSE_BYTES", "1048576")
+
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 20*time.Second, cfg.Adapters.TracingRawQueryTimeout)
+	assert.Equal(t, int64(4096), cfg.Adapters.TracingRawQueryMaxRequestBytes)
+	assert.Equal(t, int64(1<<20), cfg.Adapters.TracingRawQueryMaxResponseBytes)
+}
+
 func TestLoad_WithEnvironmentVariables(t *testing.T) {
 	t.Setenv("SERVER_PORT", "8080")
 	t.Setenv("LOG_LEVEL", "debug")
@@ -138,10 +160,13 @@ func TestValidate(t *testing.T) {
 				Timeout:           30 * time.Second,
 			},
 			Adapters: AdaptersConfig{
-				MetricsAdapterURL:     "http://localhost:9090",
-				MetricsAdapterTimeout: 30 * time.Second,
-				FinOpsAdapterURL:      "http://localhost:9101",
-				FinOpsAdapterTimeout:  30 * time.Second,
+				MetricsAdapterURL:               "http://localhost:9090",
+				MetricsAdapterTimeout:           30 * time.Second,
+				FinOpsAdapterURL:                "http://localhost:9101",
+				FinOpsAdapterTimeout:            30 * time.Second,
+				TracingRawQueryTimeout:          30 * time.Second,
+				TracingRawQueryMaxRequestBytes:  1 << 20,
+				TracingRawQueryMaxResponseBytes: 10 << 20,
 			},
 		}
 	}
@@ -155,6 +180,21 @@ func TestValidate(t *testing.T) {
 			name:      "valid config",
 			mutate:    func(c *Config) {},
 			expectErr: false,
+		},
+		{
+			name:      "raw trace query timeout must be positive",
+			mutate:    func(c *Config) { c.Adapters.TracingRawQueryTimeout = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "raw trace query max request bytes must be positive",
+			mutate:    func(c *Config) { c.Adapters.TracingRawQueryMaxRequestBytes = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "raw trace query max response bytes must be positive",
+			mutate:    func(c *Config) { c.Adapters.TracingRawQueryMaxResponseBytes = 0 },
+			expectErr: true,
 		},
 		{
 			name:      "invalid port - too low",

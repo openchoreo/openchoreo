@@ -63,6 +63,12 @@ type AdaptersConfig struct {
 	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
 	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
 
+	// Raw trace queries run in the tracing backend's own query language, so
+	// they are bounded by these limits rather than by a scope.
+	TracingRawQueryTimeout          time.Duration `koanf:"tracing.rawquery.timeout"`
+	TracingRawQueryMaxRequestBytes  int64         `koanf:"tracing.rawquery.max.request.bytes"`
+	TracingRawQueryMaxResponseBytes int64         `koanf:"tracing.rawquery.max.response.bytes"`
+
 	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
 	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
 
@@ -276,6 +282,9 @@ func Load() (*Config, error) {
 		"LOGS_ADAPTER_TIMEOUT":                      "adapters.logs.adapter.timeout",
 		"TRACING_ADAPTER_URL":                       "adapters.tracing.adapter.url",
 		"TRACING_ADAPTER_TIMEOUT":                   "adapters.tracing.adapter.timeout",
+		"TRACING_RAW_QUERY_TIMEOUT":                 "adapters.tracing.rawquery.timeout",
+		"TRACING_RAW_QUERY_MAX_REQUEST_BYTES":       "adapters.tracing.rawquery.max.request.bytes",
+		"TRACING_RAW_QUERY_MAX_RESPONSE_BYTES":      "adapters.tracing.rawquery.max.response.bytes",
 		"METRICS_ADAPTER_URL":                       "adapters.metrics.adapter.url",
 		"METRICS_ADAPTER_TIMEOUT":                   "adapters.metrics.adapter.timeout",
 		"FINOPS_ADAPTER_URL":                        "adapters.finops.adapter.url",
@@ -450,10 +459,14 @@ func getDefaults() map[string]interface{} {
 			"logs.adapter.timeout":    "30s",
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
-			"metrics.adapter.url":     "http://metrics-adapter:9099",
-			"metrics.adapter.timeout": "30s",
-			"finops.adapter.url":      "http://finops-adapter:9101",
-			"finops.adapter.timeout":  "30s",
+
+			"tracing.rawquery.timeout":            "30s",
+			"tracing.rawquery.max.request.bytes":  1024 * 1024,
+			"tracing.rawquery.max.response.bytes": 10 * 1024 * 1024,
+			"metrics.adapter.url":                 "http://metrics-adapter:9099",
+			"metrics.adapter.timeout":             "30s",
+			"finops.adapter.url":                  "http://finops-adapter:9101",
+			"finops.adapter.timeout":              "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -581,6 +594,19 @@ func (c *Config) validateUIDResolver() error {
 	return nil
 }
 
+func (c *Config) validateTracingRawQuery() error {
+	if c.Adapters.TracingRawQueryTimeout <= 0 {
+		return fmt.Errorf("tracing raw query timeout must be positive")
+	}
+	if c.Adapters.TracingRawQueryMaxRequestBytes <= 0 {
+		return fmt.Errorf("tracing raw query max request bytes must be positive")
+	}
+	if c.Adapters.TracingRawQueryMaxResponseBytes <= 0 {
+		return fmt.Errorf("tracing raw query max response bytes must be positive")
+	}
+	return nil
+}
+
 func (c *Config) validate() error {
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)
@@ -616,6 +642,10 @@ func (c *Config) validate() error {
 		return err
 	}
 	if err := c.validateDeliveryInsights(); err != nil {
+		return err
+	}
+
+	if err := c.validateTracingRawQuery(); err != nil {
 		return err
 	}
 

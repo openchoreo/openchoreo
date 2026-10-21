@@ -316,6 +316,11 @@ func (m *MockTracesQuerier) GetSpanDetails(_ context.Context, traceID string, sp
 	return m.spanInfo, nil
 }
 
+// QueryRawTraces is not exposed through MCP; it satisfies the interface only.
+func (m *MockTracesQuerier) QueryRawTraces(_ context.Context, _ *types.RawTracesQueryRequest) (*types.RawTracesQueryResponse, error) {
+	return nil, errors.New("raw trace queries are not exposed through MCP")
+}
+
 func (m *MockTracesQuerier) lastTracesRequest() *types.TracesQueryRequest {
 	if len(m.tracesRequests) == 0 {
 		return nil

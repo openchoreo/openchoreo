@@ -52,6 +52,11 @@ data:
   LOGS_ADAPTER_TIMEOUT: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
   TRACING_ADAPTER_URL: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9100" | quote }}
   TRACING_ADAPTER_TIMEOUT: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}
+  {{- /* rawQuery may be absent from values reused from an earlier release */}}
+  {{- $rawQuery := .Values.observer.tracingAdapter.rawQuery | default dict }}
+  TRACING_RAW_QUERY_TIMEOUT: {{ $rawQuery.timeout | default "30s" | quote }}
+  TRACING_RAW_QUERY_MAX_REQUEST_BYTES: {{ $rawQuery.maxRequestBytes | default 1048576 | int64 | quote }}
+  TRACING_RAW_QUERY_MAX_RESPONSE_BYTES: {{ $rawQuery.maxResponseBytes | default 10485760 | int64 | quote }}
   FINOPS_ADAPTER_URL: {{ .Values.observer.finOpsAdapter.url | default "http://finops-adapter:9101" | quote }}
   FINOPS_ADAPTER_TIMEOUT: {{ .Values.observer.finOpsAdapter.timeout | default "30s" | quote }}
   FINOPS_AGENT_ENABLED: {{ .Values.finOpsAgent.enabled | default false | quote }}
