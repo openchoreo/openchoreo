@@ -56,6 +56,10 @@ var RESTExemptions = map[string]string{
 	"QueryRuntimeTopology": reasonReadAsPOST,
 	"QueryTraces":          reasonReadAsPOST,
 
+	// Public spec — declared but not served yet; it answers 501 until it is
+	// implemented, and is audited from then on.
+	"QueryRawTraces": "Declared in the API but not served yet: it answers 501 and returns no data.",
+
 	// Public spec — GET.
 	"GetComponentCosts":                 reasonRead,
 	"GetOAuthProtectedResourceMetadata": reasonRead,
