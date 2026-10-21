@@ -9,6 +9,7 @@ Adding your organization is a small contribution that has a big impact. You can 
 | [WSO2](https://wso2.com) | Service Provider | Production | WSO2 bootstrapped the OpenChoreo project and uses it as the foundational technology behind the WSO2 Cloud platform. OpenChoreo is also used internally as the unified application platform for deploying and operating all internal applications. | Dec 2025 |
 | [Kubewarden](https://kubewarden.io) | Another Project | Integration | CNCF project providing a Kubernetes admission controller. Integrates with OpenChoreo as a data plane admission controller, and maintains a [howto for using Kubewarden with OpenChoreo](https://docs.kubewarden.io/admission-controller/1.37/en/howtos/openchoreo.html) in its own documentation. | Sep 2026 |
 | [SLTMobitel](https://www.slt.lk) | end user | Production | SLTMobitel, a leading telecommunications provider in Sri Lanka, uses OpenChoreo to power its internal developer platform on on-premises Kubernetes infrastructure. | Oct 2026 |
+| [WSO2 Agent Manager](https://github.com/wso2/agent-manager) | Another Project | Production | Open control plane for deploying, managing, and governing AI agents at scale. Built on OpenChoreo, which it uses to build and deploy platform-hosted agents, and ships OpenChoreo build and observability extensions as Helm charts. | Oct 2026 |
 
 ## Field reference
 
