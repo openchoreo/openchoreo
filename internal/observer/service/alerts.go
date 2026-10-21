@@ -585,6 +585,9 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 			"rule":      ruleInfo,
 		},
 	}
+	if alertDetails.ReleaseLine != "" {
+		rcaPayload["release_line"] = alertDetails.ReleaseLine
+	}
 
 	payloadBytes, err := json.Marshal(rcaPayload)
 	if err != nil {
@@ -617,14 +620,19 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 		}
 	}
 
+	searchScope := map[string]interface{}{
+		"component":   alertDetails.Component,
+		"namespace":   alertDetails.Namespace,
+		"project":     alertDetails.Project,
+		"environment": alertDetails.Environment,
+	}
+	if alertDetails.ReleaseLine != "" {
+		searchScope["releaseLine"] = alertDetails.ReleaseLine
+	}
+
 	// Build the FinOps analysis payload
 	finOpsPayload := map[string]interface{}{
-		"searchScope": map[string]interface{}{
-			"component":   alertDetails.Component,
-			"namespace":   alertDetails.Namespace,
-			"project":     alertDetails.Project,
-			"environment": alertDetails.Environment,
-		},
+		"searchScope": searchScope,
 		"budgetedCost": map[string]interface{}{
 			"amount":   float64(alertRule.Spec.Condition.Threshold),
 			"period":   alertRule.Spec.Condition.Window.Duration.String(),
