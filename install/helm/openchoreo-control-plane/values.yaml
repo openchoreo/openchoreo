@@ -177,6 +177,13 @@ features:
     # @schema
     remoteKeyPrefix: "secret"
 
+    # @schema
+    # enum: ["/", "-"]
+    # description: Separator that joins the segments of every key written to the external secret store, including the segments of a nested remoteKeyPrefix. Use "/" for stores that accept path-style keys, such as OpenBao, Vault and AWS Secrets Manager, giving <prefix>/<namespace>/<type>/<name>. Use "-" for Azure Key Vault, which only allows letters, digits and "-" in secret names, giving <prefix>-<namespace>-<type>-<name>. This is an install-time setting, since changing it after secrets exist does not move existing entries.
+    # default: "/"
+    # @schema
+    remoteKeySeparator: "/"
+
 # @schema
 # type: object
 # description: Controller Manager configuration - the main controller for OpenChoreo CRDs

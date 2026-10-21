@@ -3,12 +3,27 @@
 
 package config
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/openchoreo/openchoreo/internal/config"
+)
 
 // DefaultRemoteKeyPrefix is the first segment prepended to every remote key
 // written to the external secret store. It matches the value used before the
 // prefix became configurable, so existing installs keep their key layout.
 const DefaultRemoteKeyPrefix = "secret"
+
+// DefaultRemoteKeySeparator joins the segments of every remote key. It matches
+// the path-style layout used before the separator became configurable, so
+// existing installs keep their key layout.
+const DefaultRemoteKeySeparator = "/"
+
+// remoteKeySeparators lists the accepted separators. "/" gives path-style keys
+// for stores such as OpenBao, Vault and AWS Secrets Manager. "-" gives flat
+// keys for Azure Key Vault, which only allows letters, digits and "-" in
+// secret names.
+var remoteKeySeparators = []string{"/", "-"}
 
 // SecretManagementConfig defines settings for the Secret management API endpoints.
 type SecretManagementConfig struct {
@@ -31,14 +46,36 @@ type SecretManagementConfig struct {
 	// configuration. Changing it after secrets exist does not move the existing
 	// entries; they must be migrated separately.
 	RemoteKeyPrefix string `koanf:"remote_key_prefix"`
+
+	// RemoteKeySeparator joins the segments of every key written to the
+	// external secret store, including the segments of a nested prefix. "/"
+	// gives "<prefix>/<namespace>/<segment>/<name>". "-" gives
+	// "<prefix>-<namespace>-<segment>-<name>", for stores that reject "/" in
+	// secret names, such as Azure Key Vault.
+	//
+	// Like RemoteKeyPrefix, this decides where secrets are stored, so it is
+	// install-time configuration.
+	RemoteKeySeparator string `koanf:"remote_key_separator"`
 }
 
 // SecretManagementDefaults returns the default Secret management configuration.
 func SecretManagementDefaults() SecretManagementConfig {
 	return SecretManagementConfig{
-		Enabled:         false,
-		RemoteKeyPrefix: DefaultRemoteKeyPrefix,
+		Enabled:            false,
+		RemoteKeyPrefix:    DefaultRemoteKeyPrefix,
+		RemoteKeySeparator: DefaultRemoteKeySeparator,
 	}
+}
+
+// Validate validates the Secret management configuration.
+func (c *SecretManagementConfig) Validate(path *config.Path) config.ValidationErrors {
+	var errs config.ValidationErrors
+
+	if err := config.MustBeOneOf(path.Child("remote_key_separator"), c.RemoteKeySeparator, remoteKeySeparators); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errs
 }
 
 // NormalizedRemoteKeyPrefix returns the configured prefix with every empty
