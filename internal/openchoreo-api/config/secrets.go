@@ -19,11 +19,13 @@ const DefaultRemoteKeyPrefix = "secret"
 // existing installs keep their key layout.
 const DefaultRemoteKeySeparator = "/"
 
-// remoteKeySeparators lists the accepted separators. "/" gives path-style keys
-// for stores such as OpenBao, Vault and AWS Secrets Manager. "-" gives flat
-// keys for Azure Key Vault, which only allows letters, digits and "-" in
-// secret names.
-var remoteKeySeparators = []string{"/", "-"}
+// remoteKeySeparators lists the accepted separators: the characters, other
+// than letters and digits, that AWS Secrets Manager allows in secret names,
+// all of which OpenBao and Vault accept too. "/" gives path-style keys. "-" is
+// the only one Azure Key Vault allows, and GCP Secret Manager allows "-" and
+// "_". "-" and "." can also appear inside namespace and secret names, so with
+// those two, different secrets can map to the same key.
+var remoteKeySeparators = []string{"/", "-", "_", ".", "+", "=", "@"}
 
 // SecretManagementConfig defines settings for the Secret management API endpoints.
 type SecretManagementConfig struct {
@@ -51,7 +53,13 @@ type SecretManagementConfig struct {
 	// external secret store, including the segments of a nested prefix. "/"
 	// gives "<prefix>/<namespace>/<segment>/<name>". "-" gives
 	// "<prefix>-<namespace>-<segment>-<name>", for stores that reject "/" in
-	// secret names, such as Azure Key Vault.
+	// secret names, such as Azure Key Vault. See remoteKeySeparators for the
+	// accepted values.
+	//
+	// Keys are joined as-is, never rewritten or shortened, so the separator
+	// and the resulting keys must fit the store's naming rules, including its
+	// length limit (127 characters for Azure Key Vault, 255 for GCP Secret
+	// Manager, 512 for AWS Secrets Manager).
 	//
 	// Like RemoteKeyPrefix, this decides where secrets are stored, so it is
 	// install-time configuration.

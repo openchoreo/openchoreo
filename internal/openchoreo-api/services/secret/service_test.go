@@ -1387,6 +1387,20 @@ func TestRemoteKeyForDashSeparator(t *testing.T) {
 	}
 }
 
+// TestRemoteKeyForOtherSeparators checks that every other accepted separator
+// joins all segments, including those of a nested prefix, and nothing else.
+func TestRemoteKeyForOtherSeparators(t *testing.T) {
+	for _, sep := range []string{"_", ".", "+", "=", "@"} {
+		t.Run(sep, func(t *testing.T) {
+			format := remoteKeyFormat{prefix: "oc/secrets", separator: sep}
+			want := "oc" + sep + "secrets" + sep + "ns1" + sep + "generic" + sep + "my-secret"
+			if got := remoteKeyFor(format, testNamespace, corev1.SecretTypeOpaque, testSecretName); got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 // TestBuildersHonorEmptyPrefix pins the fix for the duplicate-entry bug: with an
 // empty prefix the PushSecret and the SecretReference must agree on a key that
 // carries no leading segment, so the key cannot collide with the KV mount name.

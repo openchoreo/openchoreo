@@ -178,8 +178,8 @@ features:
     remoteKeyPrefix: "secret"
 
     # @schema
-    # enum: ["/", "-"]
-    # description: Separator that joins the segments of every key written to the external secret store, including the segments of a nested remoteKeyPrefix. Use "/" for stores that accept path-style keys, such as OpenBao, Vault and AWS Secrets Manager, giving <prefix>/<namespace>/<type>/<name>. Use "-" for Azure Key Vault, which only allows letters, digits and "-" in secret names, giving <prefix>-<namespace>-<type>-<name>. This is an install-time setting, since changing it after secrets exist does not move existing entries.
+    # enum: ["/", "-", "_", ".", "+", "=", "@"]
+    # description: Separator that joins the segments of every key written to the external secret store, including the segments of a nested remoteKeyPrefix. "/" gives path-style keys <prefix>/<namespace>/<type>/<name> for OpenBao, Vault and AWS Secrets Manager. "-" is the only separator Azure Key Vault allows and works with every store. "_" works with GCP Secret Manager, AWS Secrets Manager, OpenBao and Vault, and ".", "+", "=" and "@" work with AWS Secrets Manager, OpenBao and Vault. With "-" or ".", two different secrets can map to the same key, since those characters can also appear in namespace and secret names. Keys are joined as-is and never shortened, so they must fit the store's name length limit (127 characters for Azure Key Vault, 255 for GCP Secret Manager, 512 for AWS Secrets Manager). This is an install-time setting, since changing it after secrets exist does not move existing entries.
     # default: "/"
     # @schema
     remoteKeySeparator: "/"

@@ -33,7 +33,7 @@ func TestSecretManagementDefaults(t *testing.T) {
 
 func TestSecretManagementConfig_Validate(t *testing.T) {
 	invalidSeparator := config.ValidationErrors{
-		{Field: "secret_management.remote_key_separator", Message: "must be one of: /, -"},
+		{Field: "secret_management.remote_key_separator", Message: "must be one of: /, -, _, ., +, =, @"},
 	}
 	tests := []struct {
 		name           string
@@ -42,8 +42,14 @@ func TestSecretManagementConfig_Validate(t *testing.T) {
 	}{
 		{"slash", "/", nil},
 		{"dash", "-", nil},
+		{"underscore", "_", nil},
+		{"dot", ".", nil},
+		{"plus", "+", nil},
+		{"equals", "=", nil},
+		{"at", "@", nil},
 		{"empty", "", invalidSeparator},
-		{"underscore", "_", invalidSeparator},
+		{"colon", ":", invalidSeparator},
+		{"hash", "#", invalidSeparator},
 		{"multi-character", "--", invalidSeparator},
 	}
 	for _, tt := range tests {
