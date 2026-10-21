@@ -662,6 +662,21 @@ func dropPerKeyPushSecret(ctx context.Context, k8sClient client.Client, namespac
 	if err := k8sClient.Delete(ctx, ps); err != nil && client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete push secret: %w", err)
 	}
+
+	// Without finalizers the delete is immediate. If the same object is still
+	// there, applying the whole-secret PushSecret would update it in place,
+	// keeping its per-key synced entries and turning deletion back on, which
+	// brings back the deletes this function avoids. Stop instead.
+	current := &unstructured.Unstructured{}
+	current.SetAPIVersion(pushSecretAPIVersion)
+	current.SetKind(pushSecretKind)
+	err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, current)
+	switch {
+	case client.IgnoreNotFound(err) != nil:
+		return fmt.Errorf("failed to check push secret deletion: %w", err)
+	case err == nil && current.GetUID() == ps.GetUID():
+		return fmt.Errorf("push secret %s/%s is still being deleted", namespace, name)
+	}
 	return nil
 }
 

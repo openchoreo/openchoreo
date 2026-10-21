@@ -1049,14 +1049,17 @@ func perKeyPushSecret(t *testing.T, keys ...string) *unstructured.Unstructured {
 		t.Fatalf("set data: %v", err)
 	}
 	ps.SetFinalizers([]string{"pushsecret.externalsecrets.io/finalizer"})
+	ps.SetUID("per-key-push-secret")
 	return ps
 }
 
 // newRecordingPlaneClient builds a fake target plane client that serves
 // existing as the current PushSecret (nil means none) and records each write
-// in order.
-func newRecordingPlaneClient(t *testing.T, scheme *runtime.Scheme, existing *unstructured.Unstructured, calls *[]string) client.Client {
+// in order. A deleted PushSecret is gone afterwards unless lingers is set,
+// which models a delete that only marks the object for deletion.
+func newRecordingPlaneClient(t *testing.T, scheme *runtime.Scheme, existing *unstructured.Unstructured, lingers bool, calls *[]string) client.Client {
 	t.Helper()
+	deleted := false
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithInterceptorFuncs(interceptor.Funcs{
@@ -1065,7 +1068,7 @@ func newRecordingPlaneClient(t *testing.T, scheme *runtime.Scheme, existing *uns
 				if !ok || u.GroupVersionKind().Group != externalSecretsGroup {
 					return c.Get(ctx, key, obj, opts...)
 				}
-				if existing == nil {
+				if existing == nil || (deleted && !lingers) {
 					return apierrors.NewNotFound(schema.GroupResource{Group: externalSecretsGroup, Resource: "pushsecrets"}, key.Name)
 				}
 				u.Object = existing.DeepCopy().Object
@@ -1086,6 +1089,7 @@ func newRecordingPlaneClient(t *testing.T, scheme *runtime.Scheme, existing *uns
 			},
 			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
 				*calls = append(*calls, "delete "+obj.GetObjectKind().GroupVersionKind().Kind)
+				deleted = true
 				return nil
 			},
 		}).
@@ -1103,7 +1107,7 @@ func TestUpdateSecret_ReplacesPerKeyPushSecret(t *testing.T) {
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
 
 	var calls []string
-	targetClient := newRecordingPlaneClient(t, scheme, perKeyPushSecret(t, "a", "b"), &calls)
+	targetClient := newRecordingPlaneClient(t, scheme, perKeyPushSecret(t, "a", "b"), false, &calls)
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
@@ -1125,6 +1129,34 @@ func TestUpdateSecret_ReplacesPerKeyPushSecret(t *testing.T) {
 	}
 }
 
+// TestUpdateSecret_StopsWhenPerKeyPushSecretLingers checks that the update
+// fails, without applying the whole-secret PushSecret, when the per-key
+// PushSecret is still there after the delete. Applying it would update the old
+// object in place, keeping its per-key synced entries with deletion turned
+// back on.
+func TestUpdateSecret_StopsWhenPerKeyPushSecretLingers(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	var calls []string
+	targetClient := newRecordingPlaneClient(t, scheme, perKeyPushSecret(t, "a", "b"), true, &calls)
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1", "b": "2"},
+	})
+	if err == nil {
+		t.Fatal("expected an error while the per-key PushSecret is still there")
+	}
+	if slices.Contains(calls, "apply PushSecret") {
+		t.Errorf("whole-secret PushSecret applied over the old object: %q", calls)
+	}
+}
+
 // TestUpdateSecret_KeepsWholeSecretPushSecret checks that a PushSecret that
 // already pushes the whole secret is applied in place.
 func TestUpdateSecret_KeepsWholeSecretPushSecret(t *testing.T) {
@@ -1136,7 +1168,7 @@ func TestUpdateSecret_KeepsWholeSecretPushSecret(t *testing.T) {
 	existing := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
 		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
 	var calls []string
-	targetClient := newRecordingPlaneClient(t, scheme, existing, &calls)
+	targetClient := newRecordingPlaneClient(t, scheme, existing, false, &calls)
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
 	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
 
