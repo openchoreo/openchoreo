@@ -120,6 +120,8 @@ func (s *tracesServiceWithAuthz) QueryRawTraces(
 	ctx context.Context,
 	req *types.RawTracesQueryRequest,
 ) (*types.RawTracesQueryResponse, error) {
+	// Recorded before the check, so a denied raw query is audited with its query.
+	audit.SetRequest(ctx, rawTracesQueryParameters(req))
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionRawQueryTraces,

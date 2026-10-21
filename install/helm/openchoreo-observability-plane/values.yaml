@@ -556,10 +556,11 @@ observer:
     #   additionalProperties: true
     # default: [{"match":{"operations":["QueryLogs","GetPlatformLogs","QuerySpansForTrace","GetSpanDetailsForTrace"]},"set":{"publish":false}}]
     # @schema
-    # Reads of the audit trail are published. Log and span reads are defined
-    # but unpublished: they fire on every query, and each record carries what
-    # was asked for and how many entries came back. Drop an operation from
-    # this entry to record its reads.
+    # Reads of the audit trail are published, and so are raw trace queries
+    # (QueryRawTraces), which read traces outside any scope. Log and span reads
+    # are defined but unpublished: they fire on every query, and each record
+    # carries what was asked for and how many entries came back. Drop an
+    # operation from this entry to record its reads.
     policies:
       - match:
           operations:

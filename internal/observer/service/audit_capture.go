@@ -4,6 +4,8 @@
 package service
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -117,6 +119,30 @@ func spansQueryParameters(req *types.TracesQueryRequest) map[string]any {
 	putString(scope, "environment", req.SearchScope.Environment)
 	putGroup(p, "searchScope", scope)
 	return p
+}
+
+// rawTracesQueryParameters records the raw request as text: a JSON request as
+// compact JSON, a text request as written, with its media type. Request
+// parameters are capped by the audit middleware, so a long request is recorded
+// in part.
+func rawTracesQueryParameters(req *types.RawTracesQueryRequest) map[string]any {
+	if req == nil {
+		return nil
+	}
+	p := map[string]any{}
+	putString(p, "contentType", req.ContentType)
+	putString(p, "query", rawQueryText(req.ContentType, req.Body))
+	return p
+}
+
+func rawQueryText(contentType string, body []byte) string {
+	if strings.HasPrefix(contentType, "application/json") {
+		var compact bytes.Buffer
+		if json.Compact(&compact, body) == nil {
+			return compact.String()
+		}
+	}
+	return string(body)
 }
 
 // spanId is a path parameter, but resource.name holds the trace and an MCP

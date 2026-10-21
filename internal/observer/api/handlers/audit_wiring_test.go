@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -400,4 +401,40 @@ func TestQueryAuditLogFilterValuesEmitsNoAuditEvent(t *testing.T) {
 		"the filter values read is exempted in RESTExemptions, on volume rather than sensitivity")
 	assert.Contains(t, observeraudit.RESTExemptions, "QueryAuditLogFilterValues",
 		"the emptiness above is only intentional while the exemption stands")
+}
+
+// A raw trace query reads traces outside any scope, so it is audited, published
+// by default, and records the query it ran.
+func TestQueryRawTracesAuditEvent(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryRawTraces", mock.Anything, mock.Anything).
+		Return(&types.RawTracesQueryResponse{Body: json.RawMessage(`{"hits":[]}`)}, nil)
+	// The request is recorded by the authz wrapper, so the test goes through it.
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: service.NewTracesServiceWithAuthz(svc, nil, noopLogger()),
+	}
+
+	emitter, sink := newAuditSink(t)
+	srv := newPublicServerWithAudit(t, h, authAs("operator-1"), emitter)
+
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, rawQueryRequest("application/json",
+		`{"query": {"sql": "SELECT trace_id FROM \"default\" LIMIT 10"}}`))
+	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
+	events := auditEvents(t, sink)
+	require.Len(t, events, 1, "a raw trace query must emit exactly one audit event")
+	event := events[0]
+
+	assert.Equal(t, "QueryRawTraces", event["operation_id"])
+	assert.Equal(t, "read_raw_traces", event["action"])
+	assert.Equal(t, "access", event["category"])
+	assert.Equal(t, "success", event["result"])
+	assert.Equal(t, map[string]any{"parameters": map[string]any{
+		"contentType": "application/json",
+		"query":       `{"query":{"sql":"SELECT trace_id FROM \"default\" LIMIT 10"}}`,
+	}}, event["request"])
 }

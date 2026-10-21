@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -245,4 +247,71 @@ func TestGetSpanDetails_DeniedRecordsRequestOnly(t *testing.T) {
 
 	require.NotNil(t, data.Parameters)
 	assert.Nil(t, data.Returned)
+}
+
+func TestQueryRawTraces_RecordsTheRequest(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		want        string
+	}{
+		{"text body as written", "text/plain", "AppDependencies\n| where Success == false\n| take 10",
+			"AppDependencies\n| where Success == false\n| take 10"},
+		{"JSON body as compact JSON", "application/json",
+			"{\n  \"size\": 0,\n  \"query\": {\"term\": {\"status.code\": \"Error\"}}\n}",
+			`{"size":0,"query":{"term":{"status.code":"Error"}}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inner := mocks.NewMockTracesQuerier(t)
+			inner.EXPECT().QueryRawTraces(mock.Anything, mock.Anything).
+				Return(&types.RawTracesQueryResponse{Body: []byte(`{"hits":{"hits":[{"_source":{"attributes":{"db.statement":"` +
+					leakSpanAttribute + `"}}}]}}`)}, nil)
+			svc := NewTracesServiceWithAuthz(inner, mockPDPAllow(t), testLogger())
+
+			ctx, data := auditedCtx(authedCtx())
+			_, err := svc.QueryRawTraces(ctx, &types.RawTracesQueryRequest{
+				ContentType: tt.contentType, Body: []byte(tt.body),
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, map[string]any{
+				"contentType": tt.contentType,
+				"query":       tt.want,
+			}, data.Parameters)
+
+			record := publishedRecord(t, ctx, data, "QueryRawTraces")
+			assert.NotContains(t, record, leakSpanAttribute, "the result must never be recorded")
+		})
+	}
+}
+
+func TestQueryRawTraces_RecordsADeniedQuery(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	svc := NewTracesServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
+
+	ctx, data := auditedCtx(authedCtx())
+	_, err := svc.QueryRawTraces(ctx, &types.RawTracesQueryRequest{ContentType: "text/plain", Body: []byte("SELECT 1")})
+	require.Error(t, err)
+
+	assert.Equal(t, "SELECT 1", data.Parameters["query"])
+}
+
+func TestQueryRawTraces_CapsALongQuery(t *testing.T) {
+	inner := mocks.NewMockTracesQuerier(t)
+	inner.EXPECT().QueryRawTraces(mock.Anything, mock.Anything).
+		Return(&types.RawTracesQueryResponse{Body: []byte(`{}`)}, nil)
+	svc := NewTracesServiceWithAuthz(inner, mockPDPAllow(t), testLogger())
+
+	long := "SELECT trace_id FROM \"default\" WHERE " + strings.Repeat("http_method = 'GET' OR ", 50) + "1 = 1"
+
+	ctx, data := auditedCtx(authedCtx())
+	_, err := svc.QueryRawTraces(ctx, &types.RawTracesQueryRequest{ContentType: "text/plain", Body: []byte(long)})
+	require.NoError(t, err)
+
+	recorded, ok := data.Parameters["query"].(string)
+	require.True(t, ok)
+	assert.Equal(t, audit.MaxParameterLength, utf8.RuneCountInString(recorded))
+	assert.True(t, strings.HasPrefix(long, recorded))
 }

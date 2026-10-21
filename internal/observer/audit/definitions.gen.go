@@ -33,6 +33,10 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryAccess,
 		},
 		{
+			ID: "QueryRawTraces", Action: "read_raw_traces", ResourceType: "trace",
+			Category: audit.CategoryAccess,
+		},
+		{
 			ID: "QuerySpansForTrace", Action: "read_trace_spans", ResourceType: "trace",
 			Category: audit.CategoryAccess, RESTResourceParam: "traceId",
 		},
