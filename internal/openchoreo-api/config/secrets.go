@@ -56,11 +56,6 @@ type SecretManagementConfig struct {
 	// secret names, such as Azure Key Vault. See remoteKeySeparators for the
 	// accepted values.
 	//
-	// Keys are joined as-is, never rewritten or shortened, so the separator
-	// and the resulting keys must fit the store's naming rules, including its
-	// length limit (127 characters for Azure Key Vault, 255 for GCP Secret
-	// Manager, 512 for AWS Secrets Manager).
-	//
 	// Like RemoteKeyPrefix, this decides where secrets are stored, so it is
 	// install-time configuration.
 	RemoteKeySeparator string `koanf:"remote_key_separator"`
