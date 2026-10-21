@@ -8,6 +8,8 @@ kind: Component
 metadata:
   name: hello
   namespace: default
+  annotations:
+    openchoreo.dev/description: "Greeter service built from source, deployed through the main and next release lines"
 spec:
   owner:
     projectName: default
@@ -37,6 +39,8 @@ kind: ReleaseLine
 metadata:
   name: main
   namespace: default
+  annotations:
+    openchoreo.dev/description: "Stable line, built from the main branch"
 spec:
   owner:
     projectName: default
@@ -50,6 +54,8 @@ kind: ReleaseLine
 metadata:
   name: next
   namespace: default
+  annotations:
+    openchoreo.dev/description: "Preview line, built from the next branch"
 spec:
   owner:
     projectName: default
