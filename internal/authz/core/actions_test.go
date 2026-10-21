@@ -229,6 +229,28 @@ func TestActionViewDeliveryInsightsRegistered(t *testing.T) {
 		"%s is granted to roles, so it must not be internal-only", ActionViewDeliveryInsights)
 }
 
+// TestActionRawQueryTracesRegistered pins the raw trace query action and its
+// metadata. A raw query is not scoped by namespace, project or component, so
+// the action must only be grantable at cluster scope: a namespace-scoped grant
+// must never authorize a query that can read every trace on the plane.
+func TestActionRawQueryTracesRegistered(t *testing.T) {
+	var found *Action
+	for i := range PublicActions() {
+		if PublicActions()[i].Name == ActionRawQueryTraces {
+			found = &PublicActions()[i]
+			break
+		}
+	}
+
+	require.NotNil(t, found, "%s must be registered as a public action", ActionRawQueryTraces)
+	require.Equal(t, "traces:rawquery", ActionRawQueryTraces,
+		"the action name is referenced by role grants in values.yaml and must not drift")
+	require.Equal(t, ScopeCluster, found.LowestScope,
+		"raw trace queries are not scoped below the cluster")
+	require.False(t, found.IsInternal,
+		"%s is granted to roles, so it must not be internal-only", ActionRawQueryTraces)
+}
+
 // TestActionInvokePortalAssistantRegistered pins the Portal Assistant invoke action and its
 // metadata. It is invoked at cluster scope for chat and warmup endpoints.
 func TestActionInvokePortalAssistantRegistered(t *testing.T) {

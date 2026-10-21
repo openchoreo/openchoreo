@@ -11,6 +11,7 @@ const (
 	ActionViewAuditLogs        Action = "auditlogs:view"
 	ActionViewEvents           Action = "events:view"
 	ActionViewTraces           Action = "traces:view"
+	ActionRawQueryTraces       Action = "traces:rawquery"
 	ActionViewMetrics          Action = "metrics:view"
 	ActionViewAlerts           Action = "alerts:view"
 	ActionViewIncidents        Action = "incidents:view"

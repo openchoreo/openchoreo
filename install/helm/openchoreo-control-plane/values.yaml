@@ -1643,6 +1643,7 @@ openchoreoApi:
                 - "events:view"
                 - "metrics:view"
                 - "traces:view"
+                - "traces:rawquery"
                 - "alerts:view"
                 - "incidents:view"
                 - "rcareport:view"
