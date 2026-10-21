@@ -23,6 +23,7 @@ class FinOpsReportSummary(BaseModel):
     project: str
     environment: str | None = None
     component: str | None = None
+    release_line: str | None = Field(default=None, alias="releaseLine")
     timestamp: str
     summary: str | None = None
     status: str
@@ -43,6 +44,7 @@ class FinOpsReportDetailed(BaseModel):
     project: str
     environment: str | None = None
     component: str | None = None
+    release_line: str | None = Field(default=None, alias="releaseLine")
     timestamp: str
     status: str
     report: dict[str, Any] | None = None
@@ -59,6 +61,7 @@ async def list_finops_reports(
     namespace: str,
     project: str,
     component: str | None = None,
+    release_line: Annotated[str | None, Query(alias="releaseLine")] = None,
     start_time: Annotated[str | None, Query(alias="startTime")] = None,
     end_time: Annotated[str | None, Query(alias="endTime")] = None,
     limit: Annotated[int, Query(ge=1, le=10000)] = 100,
@@ -72,6 +75,7 @@ async def list_finops_reports(
         namespace=namespace,
         project=project,
         component=component,
+        release_line=release_line,
         start_time=start_time,
         end_time=end_time,
         status=status,
@@ -111,6 +115,7 @@ async def get_finops_report(
         project=result["project"],
         environment=result.get("environment"),
         component=result["component"],
+        releaseLine=result.get("releaseLine"),
         timestamp=result["@timestamp"],
         status=result["status"],
         report=result.get("report"),

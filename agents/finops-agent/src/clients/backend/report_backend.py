@@ -20,6 +20,7 @@ class ReportBackend(ABC):
         project: str | None = None,
         component: str | None = None,
         environment: str | None = None,
+        release_line: str | None = None,
     ) -> dict[str, Any]: ...
 
     @abstractmethod
@@ -39,6 +40,7 @@ class ReportBackend(ABC):
         status: str | None = None,
         limit: int = 100,
         sort: str = "desc",
+        release_line: str | None = None,
     ) -> dict[str, Any]: ...
 
     @abstractmethod
