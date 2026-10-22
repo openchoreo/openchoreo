@@ -10,6 +10,7 @@ Adding your organization is a small contribution that has a big impact. You can 
 | [Kubewarden](https://kubewarden.io) | Another Project | Integration | CNCF project providing a Kubernetes admission controller. Integrates with OpenChoreo as a data plane admission controller, and maintains a [howto for using Kubewarden with OpenChoreo](https://docs.kubewarden.io/admission-controller/1.37/en/howtos/openchoreo.html) in its own documentation. | Sep 2026 |
 | [SLTMobitel](https://www.slt.lk) | end user | Production | SLTMobitel, a leading telecommunications provider in Sri Lanka, uses OpenChoreo to power its internal developer platform on on-premises Kubernetes infrastructure. | Oct 2026 |
 | [WSO2 Agent Manager](https://github.com/wso2/agent-manager) | Another Project | Production | Open control plane for deploying, managing, and governing AI agents at scale. Built on OpenChoreo, which it uses to build and deploy platform-hosted agents, and ships OpenChoreo build and observability extensions as Helm charts. | Oct 2026 |
+| [Inova IT Systems](https://inovaitsys.com/) | Consultancy | Production | Inova IT Systems is a software solutions provider that helps enterprises design, implement and operate internal developer platforms on OpenChoreo, from platform setup and integration through to ongoing support. | Oct 2026 |
 
 ## Field reference
 
