@@ -25,12 +25,12 @@ func (p *LogsAdapter) GetComponentEvents(
 ) (*observability.ComponentEventsResult, error) {
 	var scope logsadapterclientgen.EventsQueryRequest_SearchScope
 	if err := scope.FromComponentSearchScope(logsadapterclientgen.ComponentSearchScope{
-		Namespace:      params.Namespace,
-		ProjectUid:     nonEmptyStrPtr(params.ProjectID),
-		ComponentUid:   nonEmptyStrPtr(params.ComponentID),
-		EnvironmentUid: nonEmptyStrPtr(params.EnvironmentID),
-		ReleaseLineUid: nonEmptyStrPtr(params.ReleaseLineID),
-		MainLineOnly:   truePtr(params.MainLineOnly),
+		Namespace:       params.Namespace,
+		ProjectUid:      nonEmptyStrPtr(params.ProjectID),
+		ComponentUid:    nonEmptyStrPtr(params.ComponentID),
+		EnvironmentUid:  nonEmptyStrPtr(params.EnvironmentID),
+		ReleaseLineUid:  nonEmptyStrPtr(params.ReleaseLineID),
+		DefaultLineOnly: truePtr(params.DefaultLineOnly),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to build component events search scope: %w", err)
 	}

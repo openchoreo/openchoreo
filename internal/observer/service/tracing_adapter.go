@@ -72,7 +72,7 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
 	}
 
-	body, err := tracesAdapterBody(reqBody, params.MainLineOnly)
+	body, err := tracesAdapterBody(reqBody, params.DefaultLineOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		reqBody.IncludeAttributes = &params.IncludeAttributes
 	}
 
-	body, err := tracesAdapterBody(reqBody, params.MainLineOnly)
+	body, err := tracesAdapterBody(reqBody, params.DefaultLineOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -323,14 +323,14 @@ func convertTracesResponse(resp *gen.TracesQueryResponse) *observability.TracesQ
 	return result
 }
 
-// tracesAdapterBody encodes a traces request for the adapter, adding mainLineOnly to its search
-// scope when the query covers the component's main line only. The observer's own API has no such field.
-func tracesAdapterBody(reqBody any, mainLineOnly bool) (io.Reader, error) {
+// tracesAdapterBody encodes a traces request for the adapter, adding defaultLineOnly to its search
+// scope when the query covers the component's default line only. The observer's own API has no such field.
+func tracesAdapterBody(reqBody any, defaultLineOnly bool) (io.Reader, error) {
 	raw, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode traces request: %w", err)
 	}
-	if !mainLineOnly {
+	if !defaultLineOnly {
 		return bytes.NewReader(raw), nil
 	}
 	var body map[string]any
@@ -341,7 +341,7 @@ func tracesAdapterBody(reqBody any, mainLineOnly bool) (io.Reader, error) {
 	if scope == nil {
 		scope = map[string]any{}
 	}
-	scope["mainLineOnly"] = true
+	scope["defaultLineOnly"] = true
 	body["searchScope"] = scope
 	raw, err = json.Marshal(body)
 	if err != nil {

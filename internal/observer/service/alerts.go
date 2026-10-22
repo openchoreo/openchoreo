@@ -483,7 +483,7 @@ func (s *AlertService) sendNotificationAsync(alertID string, alertDetails *legac
 	}
 }
 
-// notificationDetails names the main line in a notification when the component has release lines.
+// notificationDetails names the default line in a notification when the component has release lines.
 func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *legacytypes.AlertDetails) *legacytypes.AlertDetails {
 	if alertDetails.ReleaseLine != "" || alertDetails.Component == "" || s.resolver == nil {
 		return alertDetails
@@ -498,7 +498,7 @@ func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *le
 		return alertDetails
 	}
 	details := *alertDetails
-	details.ReleaseLine = releaseline.MainLine
+	details.ReleaseLine = releaseline.DefaultLine
 	return &details
 }
 
@@ -606,8 +606,8 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 			"rule":      ruleInfo,
 		},
 	}
-	// An alert without a release line comes from the component's main line.
-	rcaPayload["release_line"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
+	// An alert without a release line comes from the component's default line.
+	rcaPayload["release_line"] = cmp.Or(alertDetails.ReleaseLine, releaseline.DefaultLine)
 
 	payloadBytes, err := json.Marshal(rcaPayload)
 	if err != nil {
@@ -646,8 +646,8 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 		"project":     alertDetails.Project,
 		"environment": alertDetails.Environment,
 	}
-	// An alert without a release line comes from the component's main line.
-	searchScope["releaseLine"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
+	// An alert without a release line comes from the component's default line.
+	searchScope["releaseLine"] = cmp.Or(alertDetails.ReleaseLine, releaseline.DefaultLine)
 
 	// Build the FinOps analysis payload
 	finOpsPayload := map[string]interface{}{

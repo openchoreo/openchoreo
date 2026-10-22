@@ -82,14 +82,14 @@ func NewDeliveryInsightsService(
 
 // resolvedDeliveryInsightsScope is a search scope translated to store keys.
 type resolvedDeliveryInsightsScope struct {
-	scopeType      string
-	scopeUID       string
-	namespace      string
-	projectUID     string
-	componentUID   string
-	environmentUID string
-	releaseLineUID string
-	mainLineOnly   bool
+	scopeType       string
+	scopeUID        string
+	namespace       string
+	projectUID      string
+	componentUID    string
+	environmentUID  string
+	releaseLineUID  string
+	defaultLineOnly bool
 }
 
 func (s *DoraMetricsService) resolveScope(
@@ -141,8 +141,8 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
-	if releaseLine == releaseline.MainLine && rs.componentUID != "" {
-		rs.mainLineOnly = true
+	if releaseLine == releaseline.DefaultLine && rs.componentUID != "" {
+		rs.defaultLineOnly = true
 		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
 		rs.scopeUID = rs.componentUID
 	} else if releaseLine != "" {
@@ -165,14 +165,14 @@ func wrapDeliveryInsightsScopeError(err error, resourceType, resourceName string
 
 func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) deliveryinsights.FactQuery {
 	return deliveryinsights.FactQuery{
-		Namespace:      rs.namespace,
-		ProjectUID:     rs.projectUID,
-		ComponentUID:   rs.componentUID,
-		EnvironmentUID: rs.environmentUID,
-		ReleaseLineUID: rs.releaseLineUID,
-		MainLineOnly:   rs.mainLineOnly,
-		StartMs:        startMs,
-		EndMs:          endMs,
+		Namespace:       rs.namespace,
+		ProjectUID:      rs.projectUID,
+		ComponentUID:    rs.componentUID,
+		EnvironmentUID:  rs.environmentUID,
+		ReleaseLineUID:  rs.releaseLineUID,
+		DefaultLineOnly: rs.defaultLineOnly,
+		StartMs:         startMs,
+		EndMs:           endMs,
 		// The metrics are statistics over the window, so every matching row has to be
 		// read. Any cap here keeps one end of an ordered distribution and drops the
 		// other, so percentiles come out biased while CountDeployments stays exact --

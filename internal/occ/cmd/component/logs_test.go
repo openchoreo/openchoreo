@@ -108,10 +108,10 @@ func TestFilterLogsByContainer(t *testing.T) {
 
 func TestFilterLogsByReleaseLine(t *testing.T) {
 	nextPod := releaseline.ObjectBaseName("hello", "next", "development") + "-7d9c8b6f5-abcde"
-	mainPod := "hello-development-1a2b3c4d-6c8d7b5f4-fghij"
+	defaultPod := "hello-development-1a2b3c4d-6c8d7b5f4-fghij"
 	logs := []client.LogEntry{
 		{Log: "n1", Metadata: &client.LogMetadata{PodName: nextPod}},
-		{Log: "m1", Metadata: &client.LogMetadata{PodName: mainPod}},
+		{Log: "m1", Metadata: &client.LogMetadata{PodName: defaultPod}},
 		{Log: "no-meta"},
 	}
 
@@ -129,12 +129,12 @@ func TestFilterLogsByReleaseLine(t *testing.T) {
 	assert.Len(t, got, 1)
 }
 
-func TestPrintLogs_MainLineKeyword(t *testing.T) {
-	logs := []client.LogEntry{{Log: "from main", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
+func TestPrintLogs_DefaultLineKeyword(t *testing.T) {
+	logs := []client.LogEntry{{Log: "from default", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
 	out := testutil.CaptureStdout(t, func() {
-		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "main"})
+		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "default"})
 	})
-	assert.Contains(t, out, "from main", "the observer already restricted the logs to the main line")
+	assert.Contains(t, out, "from default", "the observer already restricted the logs to the default line")
 }
 
 // --- printLogEntry ---

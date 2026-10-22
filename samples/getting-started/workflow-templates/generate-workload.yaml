@@ -106,7 +106,7 @@ spec:
             echo ">> occ version: $(occ version 2>/dev/null || echo 'unknown')"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
-            echo ">> Release line: ${RELEASE_LINE:-main}"
+            echo ">> Release line: ${RELEASE_LINE:-default}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               echo ">> Workload descriptor: found (${DESCRIPTOR_PATH}/workload.yaml)"
             else

@@ -110,11 +110,11 @@ type ReleaseLineEnvironment struct {
 // +kubebuilder:printcolumn:name="Environments",type=string,JSONPath=`.status.environments[*].environment`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be at most 63 characters"
-// +kubebuilder:validation:XValidation:rule="self.metadata.name != 'main'",message="main is the component's implicit line and cannot be a ReleaseLine"
+// +kubebuilder:validation:XValidation:rule="self.metadata.name != 'default'",message="default is the component's implicit line and cannot be a ReleaseLine"
 
 // ReleaseLine is a named series of releases of one Component that evolves independently of the
 // component's other lines. Each line has its own Workload, ComponentReleases, and at most one
-// ReleaseBinding per Environment. Every component also has an implicit main line, which has no
+// ReleaseBinding per Environment. Every component also has an implicit default line, which has no
 // ReleaseLine: resources without spec.owner.releaseLine belong to it.
 type ReleaseLine struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -35,9 +35,9 @@ func lineSeedObjects(t *testing.T) []client.Object {
 	next := testReleaseLine("next", testProjectName, testComponentName)
 	next.Spec.Parameters = rawJSON(t, map[string]any{"logLevel": "debug"})
 
-	mainWorkload := testWorkload()
-	mainWorkload.Name = testComponentName + "-workload"
-	mainWorkload.Spec.Container.Image = "app:main"
+	defaultWorkload := testWorkload()
+	defaultWorkload.Name = testComponentName + "-workload"
+	defaultWorkload.Spec.Container.Image = "app:default"
 
 	nextWorkload := testWorkload()
 	nextWorkload.Name = testComponentName + "-next-workload"
@@ -46,7 +46,7 @@ func lineSeedObjects(t *testing.T) []client.Object {
 
 	return []client.Object{
 		testProject(), testDeploymentPipeline(), comp, lineComponentType(),
-		next, mainWorkload, nextWorkload,
+		next, defaultWorkload, nextWorkload,
 	}
 }
 
@@ -75,8 +75,8 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 		assert.Equal(t, map[string]any{"logLevel": "debug", "replicas": float64(1)}, params)
 	})
 
-	for name, line := range map[string]string{"no line": "", "main line keyword": "main"} {
-		t.Run(name+" builds the main line", func(t *testing.T) {
+	for name, line := range map[string]string{"no line": "", "default line keyword": "default"} {
+		t.Run(name+" builds the default line", func(t *testing.T) {
 			svc := newService(t, lineSeedObjects(t)...)
 			result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseLine: line})
 			require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 			assert.False(t, strings.HasPrefix(result.Name, testComponentName+"-next-"), result.Name)
 			assert.Empty(t, result.Spec.Owner.ReleaseLine)
 			assert.NotContains(t, result.Labels, labels.LabelKeyReleaseLine)
-			assert.Equal(t, "app:main", result.Spec.Workload.Container.Image)
+			assert.Equal(t, "app:default", result.Spec.Workload.Container.Image)
 		})
 	}
 

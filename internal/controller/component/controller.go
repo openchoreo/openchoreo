@@ -134,7 +134,7 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
-	// Validate and fetch the main line's Workload
+	// Validate and fetch the default line's Workload
 	workload, err := r.validateAndFetchWorkload(ctx, comp)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -318,7 +318,7 @@ func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *opencho
 		}
 		if len(lines) > 0 {
 			controller.MarkTrueCondition(comp, ConditionReady, ReasonReleaseLinesReconciled,
-				"The main line has no Workload; the component deploys through its release lines")
+				"The default line has no Workload; the component deploys through its release lines")
 			return nil, nil
 		}
 		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)

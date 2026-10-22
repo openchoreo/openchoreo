@@ -108,16 +108,16 @@ func (s *EventsService) queryComponentEvents(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentEventsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
-		ReleaseLineID: scope.ReleaseLineUID,
-		MainLineOnly:  scope.MainLineOnly,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLineUID,
+		DefaultLineOnly: scope.DefaultLineOnly,
 	}
 
 	result, err := s.eventsAdapter.GetComponentEvents(ctx, params)

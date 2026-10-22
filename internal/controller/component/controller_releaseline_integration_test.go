@@ -74,19 +74,19 @@ var _ = Describe("Component Controller — Release lines", func() {
 		}
 	})
 
-	Context("When the component has a release line next to its main line", func() {
+	Context("When the component has a release line next to its default line", func() {
 		BeforeEach(func() {
 			v2 := newLine(v2Line)
 			v2.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"resources":{"memory":"256Mi"}}`)}
 			create(
 				v2,
-				minimalWorkload("rl-wl-main", project, compName, "nginx:1"),
+				minimalWorkload("rl-wl-default", project, compName, "nginx:1"),
 				newLineWorkload("rl-wl-v2", v2Line, "nginx:2"),
 				comp,
 			)
 		})
 
-		It("deploys the main line from the workload without a line and leaves the release line alone", func() {
+		It("deploys the default line from the workload without a line and leaves the release line alone", func() {
 			reconcileUntilCondition(ctx, r, compName, ReasonComponentReleaseReady)
 
 			bindings := &openchoreov1alpha1.ReleaseBindingList{}
@@ -108,7 +108,7 @@ var _ = Describe("Component Controller — Release lines", func() {
 			create(newLine(v2Line), newLineWorkload("rl-wl-v2", v2Line, "nginx:2"), comp)
 		})
 
-		It("is ready and deploys nothing for the main line", func() {
+		It("is ready and deploys nothing for the default line", func() {
 			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesReconciled)
 
 			Expect(fetchComp(ctx, compName).Status.LatestRelease).To(BeNil())
@@ -119,14 +119,14 @@ var _ = Describe("Component Controller — Release lines", func() {
 		})
 	})
 
-	It("rejects a ReleaseLine named main", func() {
-		err := k8sClient.Create(ctx, newLine("main"))
+	It("rejects a ReleaseLine named default", func() {
+		err := k8sClient.Create(ctx, newLine("default"))
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("main is the component's implicit line"))
+		Expect(err.Error()).To(ContainSubstring("default is the component's implicit line"))
 	})
 
-	It("rejects main as an owner release line", func() {
-		wl := newLineWorkload("rl-wl-keyword", "main", "nginx:1")
+	It("rejects default as an owner release line", func() {
+		wl := newLineWorkload("rl-wl-keyword", "default", "nginx:1")
 		err := k8sClient.Create(ctx, wl)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("omit releaseLine"))

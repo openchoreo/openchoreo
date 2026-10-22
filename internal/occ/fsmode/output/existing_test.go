@@ -89,7 +89,7 @@ metadata:
 		assert.Empty(t, path)
 	})
 
-	t.Run("main line and release lines kept apart", func(t *testing.T) {
+	t.Run("default line and release lines kept apart", func(t *testing.T) {
 		dir := t.TempDir()
 		for _, name := range []string{"my-comp-20250315-2", "my-comp-next-20250316-1", "my-comp-2026q4-20250317-1"} {
 			writeYAML(t, dir, name+".yaml", "metadata:\n  name: "+name+"\n")

@@ -64,16 +64,16 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 	}
 
 	params := observability.TracesQueryParams{
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
-		Namespace:     req.SearchScope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		ReleaseLineID: lines.UID,
-		MainLineOnly:  lines.MainOnly,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		StartTime:       req.StartTime,
+		EndTime:         req.EndTime,
+		Namespace:       req.SearchScope.Namespace,
+		ProjectID:       projectUID,
+		ComponentID:     componentUID,
+		EnvironmentID:   environmentUID,
+		ReleaseLineID:   lines.UID,
+		DefaultLineOnly: lines.DefaultOnly,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
 	}
 
 	result, err := s.tracingAdapter.GetTraces(ctx, params)
@@ -157,7 +157,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		ComponentID:       componentUID,
 		EnvironmentID:     environmentUID,
 		ReleaseLineID:     lines.UID,
-		MainLineOnly:      lines.MainOnly,
+		DefaultLineOnly:   lines.DefaultOnly,
 		TraceID:           traceID,
 		Limit:             req.Limit,
 		SortOrder:         req.SortOrder,

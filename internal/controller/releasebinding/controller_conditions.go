@@ -68,11 +68,11 @@ const (
 	ReasonReleaseLineNotFound controller.ConditionReason = "ReleaseLineNotFound"
 
 	// ReasonReleaseLineNameCollision indicates a release line renders a data plane object that
-	// another line of the same component, including its main line, also renders
+	// another line of the same component, including its default line, also renders
 	ReasonReleaseLineNameCollision controller.ConditionReason = "ReleaseLineNameCollision"
 
 	// ReasonReleaseLinePodLabelOverlap indicates a release line renders pods that carry the component
-	// UID label, which the main line's selectors would also match
+	// UID label, which the default line's selectors would also match
 	ReasonReleaseLinePodLabelOverlap controller.ConditionReason = "ReleaseLinePodLabelOverlap"
 
 	// Rendering issues (Status=False)

@@ -876,7 +876,7 @@ type ClusterComponentTypeSpec struct {
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
 
-	// ReleaseLines Whether Components of this type can have release lines besides their main line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+	// ReleaseLines Whether Components of this type can have release lines besides their default line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
 	ReleaseLines *ClusterComponentTypeSpecReleaseLines `json:"releaseLines,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
@@ -931,7 +931,7 @@ type ClusterComponentTypeSpecAllowedTraitsKind string
 // ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Must be "ClusterWorkflow".
 type ClusterComponentTypeSpecAllowedWorkflowsKind string
 
-// ClusterComponentTypeSpecReleaseLines Whether Components of this type can have release lines besides their main line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+// ClusterComponentTypeSpecReleaseLines Whether Components of this type can have release lines besides their default line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
 type ClusterComponentTypeSpecReleaseLines string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
@@ -1448,7 +1448,7 @@ type ComponentReleaseSpec struct {
 		// ProjectName Parent project name
 		ProjectName string `json:"projectName"`
 
-		// ReleaseLine Release line this release belongs to. Omitted for the main line.
+		// ReleaseLine Release line this release belongs to. Omitted for the default line.
 		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner"`
 
@@ -1608,7 +1608,7 @@ type ComponentTypeSpec struct {
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
 
-	// ReleaseLines Whether Components of this type can have release lines besides their main line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+	// ReleaseLines Whether Components of this type can have release lines besides their default line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
 	ReleaseLines *ComponentTypeSpecReleaseLines `json:"releaseLines,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
@@ -1663,7 +1663,7 @@ type ComponentTypeSpecAllowedTraitsKind string
 // ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference (Workflow or ClusterWorkflow)
 type ComponentTypeSpecAllowedWorkflowsKind string
 
-// ComponentTypeSpecReleaseLines Whether Components of this type can have release lines besides their main line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
+// ComponentTypeSpecReleaseLines Whether Components of this type can have release lines besides their default line. Allowed only when the resources name every component-scoped object per release line. Omitted means Disallowed.
 type ComponentTypeSpecReleaseLines string
 
 // ComponentTypeSpecResourcesTargetPlane Target plane for deployment
@@ -1800,7 +1800,7 @@ type CreateComponentWorkflowRunRequest struct {
 	// Commit Optional commit SHA to build instead of the latest commit of the configured revision
 	Commit *string `json:"commit,omitempty"`
 
-	// ReleaseLine Release line to build. Omitted or main builds the main line.
+	// ReleaseLine Release line to build. Omitted or default builds the default line.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
@@ -2264,7 +2264,7 @@ type GatewaySpec struct {
 
 // GenerateReleaseRequest Request to generate an immutable release snapshot from the current component state
 type GenerateReleaseRequest struct {
-	// ReleaseLine Release line to release from, built from the line's Workload and overrides. Omitted or main releases the main line.
+	// ReleaseLine Release line to release from, built from the line's Workload and overrides. Omitted or default releases the default line.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 
 	// ReleaseName Optional release name (auto-generated if not provided)
@@ -3124,7 +3124,7 @@ type ReleaseBindingSpec struct {
 		// ProjectName Name of the project
 		ProjectName string `json:"projectName"`
 
-		// ReleaseLine Release line this binding belongs to. Omitted for the main line.
+		// ReleaseLine Release line this binding belongs to. Omitted for the default line.
 		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner"`
 
@@ -4599,7 +4599,7 @@ type WorkloadConnection struct {
 	// Project Target component's project name. If empty, defaults to the same project as the consumer.
 	Project *string `json:"project,omitempty"`
 
-	// ReleaseLine Target component's release line. Omitted targets its main line.
+	// ReleaseLine Target component's release line. Omitted targets its default line.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 
 	// Visibility Visibility level at which this connection consumes the endpoint
@@ -4740,7 +4740,7 @@ type WorkloadSpec struct {
 		// ProjectName Name of the owning project
 		ProjectName string `json:"projectName"`
 
-		// ReleaseLine Release line of the owning component. Omitted for the main line.
+		// ReleaseLine Release line of the owning component. Omitted for the default line.
 		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner,omitempty"`
 

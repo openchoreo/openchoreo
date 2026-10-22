@@ -30,12 +30,12 @@ type LogsAdapterConfig struct {
 // componentSearchScope represents the search scope for component log queries
 // matching the adapter's expected request format.
 type componentSearchScope struct {
-	Namespace      string `json:"namespace"`
-	ProjectUID     string `json:"projectUid,omitempty"`
-	ComponentUID   string `json:"componentUid,omitempty"`
-	EnvironmentUID string `json:"environmentUid,omitempty"`
-	ReleaseLineUID string `json:"releaseLineUid,omitempty"`
-	MainLineOnly   bool   `json:"mainLineOnly,omitempty"`
+	Namespace       string `json:"namespace"`
+	ProjectUID      string `json:"projectUid,omitempty"`
+	ComponentUID    string `json:"componentUid,omitempty"`
+	EnvironmentUID  string `json:"environmentUid,omitempty"`
+	ReleaseLineUID  string `json:"releaseLineUid,omitempty"`
+	DefaultLineOnly bool   `json:"defaultLineOnly,omitempty"`
 }
 
 // workflowSearchScope represents the search scope for workflow log queries
@@ -124,12 +124,12 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 
 	adapterReq := backendLogsRequest{
 		SearchScope: componentSearchScope{
-			Namespace:      params.Namespace,
-			ProjectUID:     params.ProjectID,
-			ComponentUID:   params.ComponentID,
-			EnvironmentUID: params.EnvironmentID,
-			ReleaseLineUID: params.ReleaseLineID,
-			MainLineOnly:   params.MainLineOnly,
+			Namespace:       params.Namespace,
+			ProjectUID:      params.ProjectID,
+			ComponentUID:    params.ComponentID,
+			EnvironmentUID:  params.EnvironmentID,
+			ReleaseLineUID:  params.ReleaseLineID,
+			DefaultLineOnly: params.DefaultLineOnly,
 		},
 		StartTime:    params.StartTime,
 		EndTime:      params.EndTime,

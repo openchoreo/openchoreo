@@ -27,7 +27,7 @@ func TestTriggerRCAAnalysis_ReleaseLine(t *testing.T) {
 		wantLine    any
 	}{
 		{name: "line alert carries the line", releaseLine: "canary", wantLine: "canary"},
-		{name: "main line alert names main", releaseLine: "", wantLine: "main"},
+		{name: "default line alert names default", releaseLine: "", wantLine: "default"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestTriggerFinOpsAnalysis_ReleaseLine(t *testing.T) {
 		wantLine    any
 	}{
 		{name: "line alert carries the line", releaseLine: "canary", wantLine: "canary"},
-		{name: "main line alert names main", releaseLine: "", wantLine: "main"},
+		{name: "default line alert names default", releaseLine: "", wantLine: "default"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

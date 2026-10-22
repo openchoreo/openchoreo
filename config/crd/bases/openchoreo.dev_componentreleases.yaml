@@ -318,7 +318,7 @@ spec:
                         type: array
                       releaseLines:
                         description: |-
-                          ReleaseLines states whether Components of this type can have release lines besides their main line.
+                          ReleaseLines states whether Components of this type can have release lines besides their default line.
                           Set it to Allowed only when the resources name every component-scoped object per release line,
                           from metadata.name, or from metadata.componentName and metadata.releaseLineName.
                           Defaults to Disallowed.
@@ -513,13 +513,14 @@ spec:
                   releaseLine:
                     description: |-
                       ReleaseLine names the ReleaseLine this resource belongs to.
-                      Empty for the component's main line, which is implicit and has no ReleaseLine.
+                      Empty for the component's default line, which is implicit and has no ReleaseLine.
                     maxLength: 63
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                     x-kubernetes-validations:
-                    - message: main is the implicit line; omit releaseLine for it
-                      rule: self != 'main'
+                    - message: default is the implicit line; omit releaseLine for
+                        it
+                      rule: self != 'default'
                 required:
                 - componentName
                 - projectName
@@ -1118,15 +1119,15 @@ spec:
                               type: string
                             releaseLine:
                               description: |-
-                                ReleaseLine is the target component's release line. Empty targets its main line.
+                                ReleaseLine is the target component's release line. Empty targets its default line.
                                 It never follows the consumer's own line.
                               maxLength: 63
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                               type: string
                               x-kubernetes-validations:
-                              - message: main is the implicit line; omit releaseLine
+                              - message: default is the implicit line; omit releaseLine
                                   for it
-                                rule: self != 'main'
+                                rule: self != 'default'
                             visibility:
                               description: Visibility is the visibility level at which
                                 this connection consumes the endpoint.

@@ -315,7 +315,7 @@ func (h *ExecHandler) resolveComponentProject(ctx context.Context, namespace, co
 
 // resolvePod resolves the target pod for exec by traversing:
 // component → environment → dataplane → pod (specific pod if podName set, else first Ready pod).
-// Only pods of releaseLine are considered; an empty line is the component's main line.
+// Only pods of releaseLine are considered; an empty line is the component's default line.
 func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName, podName, releaseLine string) (*execPodInfo, error) {
 	// Verify the component exists
 	comp := &openchoreov1alpha1.Component{}
@@ -493,7 +493,7 @@ func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, nam
 }
 
 // execPodSelector selects the pods of one line of a component in an environment. An empty line
-// selects the main line, whose pods carry no release line label.
+// selects the default line, whose pods carry no release line label.
 func execPodSelector(namespace, componentName, envName, releaseLine string) string {
 	selector := fmt.Sprintf("%s=%s,%s=%s,%s=%s",
 		labels.LabelKeyComponentName, componentName, labels.LabelKeyEnvironmentName, envName, labels.LabelKeyNamespaceName, namespace)

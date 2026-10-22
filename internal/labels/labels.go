@@ -25,15 +25,15 @@ const (
 	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
 
 	// LabelKeyReleaseLine identifies the release line a rendered object belongs to.
-	// Absent for the component's main line.
+	// Absent for the component's default line.
 	LabelKeyReleaseLine = "openchoreo.dev/release-line"
 
 	// LabelKeyReleaseLineUID holds the UID of the ReleaseLine a rendered object belongs to, which
-	// observability backends filter on. Absent for the component's main line.
+	// observability backends filter on. Absent for the component's default line.
 	LabelKeyReleaseLineUID = "openchoreo.dev/release-line-uid"
 
 	// LabelKeyReleaseLineComponentUID holds the component UID on a release line's pods, which don't
-	// carry LabelKeyComponentUID so that the main line's selectors never match them.
+	// carry LabelKeyComponentUID so that the default line's selectors never match them.
 	LabelKeyReleaseLineComponentUID = "openchoreo.dev/release-line-component-uid"
 
 	// LabelKeyResourceName identifies the Resource (managed-infrastructure

@@ -20,8 +20,8 @@ type ComponentEventsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 	// ReleaseLineID restricts the events to one release line of the component.
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
-	// MainLineOnly restricts the query to the component's main line.
-	MainLineOnly bool `json:"mainLineOnly,omitempty"`
+	// DefaultLineOnly restricts the query to the component's default line.
+	DefaultLineOnly bool `json:"defaultLineOnly,omitempty"`
 }
 
 // WorkflowEventsParams holds parameters for workflow run Kubernetes event queries

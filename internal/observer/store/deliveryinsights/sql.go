@@ -1115,7 +1115,7 @@ func (s *sqlStore) factScopeConditions(q FactQuery) ([]string, []any) {
 			args = append(args, value)
 		}
 	}
-	if q.MainLineOnly && strings.TrimSpace(q.ReleaseLineUID) == "" {
+	if q.DefaultLineOnly && strings.TrimSpace(q.ReleaseLineUID) == "" {
 		conditions = append(conditions, "release_line_uid = ''")
 	}
 	return conditions, args

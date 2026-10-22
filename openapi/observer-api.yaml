@@ -1290,7 +1290,7 @@ components:
       name: releaseLine
       in: query
       required: false
-      description: Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers every line of the component. Requires `component`.
+      description: Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers every line of the component. Requires `component`.
       schema:
         type: string
         example: next
@@ -1528,7 +1528,7 @@ components:
           type: string
         releaseLine:
           type: string
-          description: Restricts the result to one release line of the component, and main to its main line. Omitted covers every line of the component. Requires component. Logs, events, metrics and traces also require environment.
+          description: Restricts the result to one release line of the component, and default to its default line. Omitted covers every line of the component. Requires component. Logs, events, metrics and traces also require environment.
       required: [namespace]
 
     WorkflowSearchScope:
@@ -2547,7 +2547,7 @@ components:
           type: string
         release_line:
           type: string
-          description: The component's release line. Absent for its main line.
+          description: The component's release line. Absent for its default line.
         resource:
           type: string
           description: The Resource level of the hierarchy, a sibling of `component`.
@@ -3333,10 +3333,10 @@ components:
           format: uuid
         releaseLineName:
           type: string
-          description: The name of the component's release line. Absent for its main line.
+          description: The name of the component's release line. Absent for its default line.
         releaseLineUid:
           type: string
-          description: The UID of the component's release line. Absent for its main line.
+          description: The UID of the component's release line. Absent for its default line.
           format: uuid
 
     AlertRuleSource:

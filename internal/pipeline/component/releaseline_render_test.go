@@ -109,23 +109,23 @@ spec:
 		return out
 	}
 
-	mainLine, v2 := render("main"), render("v2")
+	v1, v2 := render("v1"), render("v2")
 
 	kinds := map[string]bool{}
-	for _, r := range mainLine {
+	for _, r := range v1 {
 		kinds[r["kind"].(string)] = true
 	}
 	for _, kind := range []string{"Deployment", "Service", "HTTPRoute", "ConfigMap"} {
 		assert.True(t, kinds[kind], "expected the service type to render a %s", kind)
 	}
 
-	mainIDs := identities(mainLine)
+	v1IDs := identities(v1)
 	for id := range identities(v2) {
-		assert.False(t, mainIDs[id], "both release lines render %s", id)
+		assert.False(t, v1IDs[id], "both release lines render %s", id)
 	}
 
-	mainSvc, v2Svc := find(mainLine, "Service")[0], find(v2, "Service")[0]
-	assert.NotEqual(t, mainSvc["spec"].(map[string]any)["selector"], v2Svc["spec"].(map[string]any)["selector"])
+	v1Svc, v2Svc := find(v1, "Service")[0], find(v2, "Service")[0]
+	assert.NotEqual(t, v1Svc["spec"].(map[string]any)["selector"], v2Svc["spec"].(map[string]any)["selector"])
 
 	pathsOf := func(resources []map[string]any) map[string]bool {
 		paths := map[string]bool{}
@@ -138,12 +138,12 @@ spec:
 		}
 		return paths
 	}
-	mainPaths := pathsOf(mainLine)
+	v1Paths := pathsOf(v1)
 	for path := range pathsOf(v2) {
-		assert.False(t, mainPaths[path], "both release lines route %s", path)
+		assert.False(t, v1Paths[path], "both release lines route %s", path)
 	}
 
-	assert.Equal(t, "orders-main", mainSvc["metadata"].(map[string]any)["name"])
+	assert.Equal(t, "orders-v1", v1Svc["metadata"].(map[string]any)["name"])
 	unlined := find(render(""), "Service")[0]
 	assert.Equal(t, "orders", unlined["metadata"].(map[string]any)["name"],
 		"a component without lines keeps its component-named Service")

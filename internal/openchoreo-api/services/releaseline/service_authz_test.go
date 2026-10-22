@@ -31,7 +31,7 @@ func TestListReleaseLines_AuthzCheck(t *testing.T) {
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
 		opts := services.ListOptions{Limit: 10}
-		lines := &services.ListResult[openchoreov1alpha1.ReleaseLine]{Items: []openchoreov1alpha1.ReleaseLine{{ObjectMeta: metav1.ObjectMeta{Name: "main"}}}}
+		lines := &services.ListResult[openchoreov1alpha1.ReleaseLine]{Items: []openchoreov1alpha1.ReleaseLine{{ObjectMeta: metav1.ObjectMeta{Name: "default"}}}}
 		mockSvc := mocks.NewMockService(t)
 		mockSvc.On("ListReleaseLines", mock.Anything, "ns-1", "my-comp", opts).Return(lines, nil)
 

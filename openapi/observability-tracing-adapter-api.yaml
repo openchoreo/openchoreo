@@ -262,10 +262,10 @@ components:
             openchoreo.dev/component-uid label, and set the OpenChoreo-Release-Line-Applied
             response header to "true". Without it, component covers every line of the component:
             release line spans carry the component UID as openchoreo.dev/release-line-component-uid.
-        mainLineOnly:
+        defaultLineOnly:
           type: boolean
           description: >
-            Restricts the result to the component's main line: spans with the component UID and
+            Restricts the result to the component's default line: spans with the component UID and
             without a release line UID. Adapters that support it set the
             OpenChoreo-Release-Line-Applied response header to "true".
       required: [namespace]

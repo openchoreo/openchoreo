@@ -35,7 +35,7 @@ type DeployParams struct {
 	Release       string   // --release flag (optional release name)
 	To            string   // --to flag (target env for promotion)
 	Set           []string // --set values (type.path=value)
-	ReleaseLine   string   // --release-line flag; empty or "main" is the main line
+	ReleaseLine   string   // --release-line flag; empty or "default" is the default line
 }
 
 func (p DeployParams) GetNamespace() string     { return p.Namespace }
@@ -135,7 +135,7 @@ type ExecParams struct {
 	Command     []string // command to run; defaults to ["/bin/sh"] when empty
 	TTY         bool
 	Stdin       bool
-	ReleaseLine string // empty or "main" is the main line
+	ReleaseLine string // empty or "default" is the default line
 }
 
 func (p ExecParams) GetNamespace() string     { return p.Namespace }
