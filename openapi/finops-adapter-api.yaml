@@ -49,6 +49,7 @@ paths:
         - $ref: '#/components/parameters/ProjectUid'
         - $ref: '#/components/parameters/ComponentUid'
         - $ref: '#/components/parameters/ReleaseLineUid'
+        - $ref: '#/components/parameters/MainLineOnly'
         - $ref: '#/components/parameters/StartTime'
         - $ref: '#/components/parameters/EndTime'
         - $ref: '#/components/parameters/Granularity'
@@ -153,6 +154,7 @@ paths:
             type: string
             example: checkout-service
         - $ref: '#/components/parameters/ReleaseLineUid'
+        - $ref: '#/components/parameters/MainLineOnly'
         - name: releaseLine
           in: query
           required: false
@@ -235,7 +237,9 @@ components:
       in: query
       required: false
       description: |
-        Component UID. When set, narrows the response to this single component.
+        Component UID. When set, narrows the response to this single component,
+        every line of it: the main line's pods carry it as openchoreo.dev/component-uid,
+        and release line pods as openchoreo.dev/release-line-component-uid.
         Requires `projectUid` to also be set.
       schema:
         type: string
@@ -248,13 +252,26 @@ components:
       required: false
       description: |
         Release line UID. When set, narrows the response to that release line of
-        the component, filtered on the openchoreo.dev/release-line-uid label.
+        the component, filtered on the openchoreo.dev/release-line-uid label alone,
+        since release line pods don't carry the openchoreo.dev/component-uid label.
         Requires `componentUid`. Adapters that support it set the
         OpenChoreo-Release-Line-Applied response header to "true".
       schema:
         type: string
         format: uuid
         example: '9f8e7d6c-5b4a-4321-8fed-cba987654321'
+
+    MainLineOnly:
+      name: mainLineOnly
+      in: query
+      required: false
+      description: |
+        Narrows the response to the component's main line: openchoreo.dev/component-uid
+        without an openchoreo.dev/release-line-uid label. Requires `componentUid`.
+        Adapters that support it set the OpenChoreo-Release-Line-Applied response
+        header to "true".
+      schema:
+        type: boolean
 
     StartTime:
       name: startTime

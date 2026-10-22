@@ -91,6 +91,10 @@ type rollupScope struct {
 // scopesForFact returns every rollup a fact contributes to: namespace, project, component and
 // release line scope, each both unsliced (environmentUID "") and sliced by the fact's environment.
 func scopesForFact(namespace, projectUID, componentUID, environmentUID, releaseLineUID string) []rollupScope {
+	if releaseLineUID == "" {
+		// The main line's rollups are keyed by its component's UID.
+		releaseLineUID = componentUID
+	}
 	scopes := make([]rollupScope, 0, 8)
 	for _, s := range []rollupScope{
 		{ScopeTypeNamespace, namespace, "", namespace, ""},

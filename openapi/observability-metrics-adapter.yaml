@@ -388,14 +388,26 @@ components:
           type: string
         componentUid:
           type: string
+          description: >
+            The UID of the component. On its own it covers every line of the component: the main
+            line's pods carry it as openchoreo.dev/component-uid, and release line pods as
+            openchoreo.dev/release-line-component-uid. Adapters that match both set the
+            OpenChoreo-Release-Line-Applied response header to "true".
         environmentUid:
           type: string
         releaseLineUid:
           type: string
           description: >
             The UID of the component's release line to restrict the result to. Adapters
-            that support it filter on the openchoreo.dev/release-line-uid label and set
+            that support it filter on the openchoreo.dev/release-line-uid label alone, since
+            release line pods don't carry the openchoreo.dev/component-uid label, and set
             the OpenChoreo-Release-Line-Applied response header to "true".
+        mainLineOnly:
+          type: boolean
+          description: >
+            Restricts the result to the component's main line: openchoreo.dev/component-uid
+            without an openchoreo.dev/release-line-uid label. Adapters that support it set the
+            OpenChoreo-Release-Line-Applied response header to "true".
       required: [namespace]
 
     # Request schemas for metrics
@@ -841,9 +853,9 @@ components:
               type: string
               description: >
                 The UID of the component's release line the rule evaluates, filtered on the
-                openchoreo.dev/release-line-uid label. Absent for components without release
-                lines. Adapters that scope the rule to it set the OpenChoreo-Release-Line-Applied
-                response header to "true".
+                openchoreo.dev/release-line-uid label alone. Absent for the component's main line,
+                which componentUid covers. Adapters that scope the rule to it set the
+                OpenChoreo-Release-Line-Applied response header to "true".
               format: uuid
         source:
           type: object

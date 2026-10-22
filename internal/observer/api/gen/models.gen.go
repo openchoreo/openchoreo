@@ -678,7 +678,7 @@ type AuditLogResource struct {
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
 
-	// ReleaseLine The component's release line. Absent for components without release lines.
+	// ReleaseLine The component's release line. Absent for its main line.
 	ReleaseLine *string `json:"release_line,omitempty"`
 
 	// Resource The Resource level of the hierarchy, a sibling of `component`.
@@ -1086,7 +1086,7 @@ type ComponentSearchScope struct {
 	Namespace   string  `json:"namespace"`
 	Project     *string `json:"project,omitempty"`
 
-	// ReleaseLine Restricts the result to one release line of the component. Requires component. Logs, events, metrics and traces also require environment.
+	// ReleaseLine Restricts the result to one release line of the component, and main to its main line. Omitted covers every line of the component. Requires component. Logs, events, metrics and traces also require environment.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
@@ -1765,10 +1765,10 @@ type ResourceLabels struct {
 	// ProjectUid The UID of the project
 	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
 
-	// ReleaseLineName The name of the component's release line. Absent for components without release lines.
+	// ReleaseLineName The name of the component's release line. Absent for its main line.
 	ReleaseLineName *string `json:"releaseLineName,omitempty"`
 
-	// ReleaseLineUid The UID of the component's release line. Absent for components without release lines.
+	// ReleaseLineUid The UID of the component's release line. Absent for its main line.
 	ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 }
 
@@ -2165,7 +2165,7 @@ type GetComponentCostsParams struct {
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
 
-	// ReleaseLine Release line of the component, for components with release lines enabled. When set, narrows the response to that line. Requires `component`.
+	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers every line of the component. Requires `component`.
 	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
@@ -2188,7 +2188,7 @@ type GetRecommendationsParams struct {
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
 
-	// ReleaseLine Release line of the component, for components with release lines enabled. When set, narrows the response to that line. Requires `component`.
+	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers every line of the component. Requires `component`.
 	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).

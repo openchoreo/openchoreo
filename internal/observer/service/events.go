@@ -117,6 +117,7 @@ func (s *EventsService) queryComponentEvents(
 		Limit:         req.Limit,
 		SortOrder:     req.SortOrder,
 		ReleaseLineID: scope.ReleaseLineUID,
+		MainLineOnly:  scope.MainLineOnly,
 	}
 
 	result, err := s.eventsAdapter.GetComponentEvents(ctx, params)

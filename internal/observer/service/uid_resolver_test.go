@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
@@ -427,4 +430,33 @@ func TestGetComponentUIDRejectsAComponentOfAnotherProject(t *testing.T) {
 	if !errors.Is(err, ErrResourceNotFound) {
 		t.Fatalf("expected ErrResourceNotFound, got %v", err)
 	}
+}
+
+func TestResolveReleaseLineScope(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/namespaces/ns/components/hello/releaselines/next" {
+			_, _ = w.Write([]byte(`{"metadata":{"name":"next","uid":"uid-next"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer apiServer.Close()
+	r := newTestResolver(t, apiServer, nil, nil)
+	ctx := context.Background()
+
+	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "")
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers every line of the component")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "main")
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{MainOnly: true}, scope)
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next")
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{UID: "uid-next"}, scope)
+
+	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost")
+	require.ErrorIs(t, err, ErrResourceNotFound)
 }

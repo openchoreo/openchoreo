@@ -60,6 +60,8 @@ type internalSearchScope struct {
 	ComponentUID   string
 	EnvironmentUID string
 	ReleaseLineUID string
+	// MainLineOnly restricts the scope to the component's main line
+	MainLineOnly bool
 
 	// Names kept to filter by release line when the adapter cannot
 	ComponentName   string
@@ -136,6 +138,7 @@ func (s *LogsService) queryComponentLogs(
 		Limit:         req.Limit,
 		SortOrder:     req.SortOrder,
 		ReleaseLineID: scope.ReleaseLineUID,
+		MainLineOnly:  scope.MainLineOnly,
 	}
 
 	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
@@ -290,7 +293,7 @@ func resolveSearchScope(
 		if err != nil {
 			return nil, err
 		}
-		releaseLineUID, err := resolver.GetReleaseLineUID(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+		lines, err := resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +302,8 @@ func resolveSearchScope(
 			ProjectUID:      projectUID,
 			ComponentUID:    componentUID,
 			EnvironmentUID:  environmentUID,
-			ReleaseLineUID:  releaseLineUID,
+			ReleaseLineUID:  lines.UID,
+			MainLineOnly:    lines.MainOnly,
 			ComponentName:   scope.Component,
 			EnvironmentName: scope.Environment,
 			ReleaseLine:     scope.ReleaseLine,

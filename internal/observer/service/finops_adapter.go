@@ -86,7 +86,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, mainLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +97,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 		ProjectUid:     projectUID,
 		ComponentUid:   componentUID,
 		ReleaseLineUid: releaseLineUID,
+		MainLineOnly:   mainLineOnly,
 	}
 	if req.Granularity != "" {
 		granularity := req.Granularity
@@ -144,7 +145,7 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, mainLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
 	if err != nil {
 		return nil, err
 	}
@@ -155,9 +156,10 @@ func (a *FinOpsAdapter) GetRecommendations(
 		ProjectUid:     projectUID,
 		ComponentUid:   componentUID,
 		ReleaseLineUid: releaseLineUID,
+		MainLineOnly:   mainLineOnly,
 		Environment:    req.Environment,
 	}
-	if req.ReleaseLine != "" {
+	if releaseLineUID != nil {
 		releaseLine := req.ReleaseLine
 		params.ReleaseLine = &releaseLine
 	}
@@ -245,25 +247,30 @@ func (a *FinOpsAdapter) resolveScope(
 	return environmentUID, projectUID, componentUID, nil
 }
 
-// resolveReleaseLine resolves an optional release line name to its UID.
+// resolveReleaseLine resolves an optional release line name to its UID, or to the main line only
+// for the main line keyword. No line covers every line of the component.
 func (a *FinOpsAdapter) resolveReleaseLine(
 	ctx context.Context, namespace, component, releaseLine string,
-) (*openapi_types.UUID, error) {
-	if releaseLine == "" {
-		return nil, nil
+) (*openapi_types.UUID, *bool, error) {
+	if releaseLine != "" && component == "" {
+		return nil, nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
 	}
-	if component == "" {
-		return nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
-	}
-	uidStr, err := a.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
+	lines, err := a.resolver.ResolveReleaseLineScope(ctx, namespace, component, releaseLine)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get release line UID: %w", ErrFinOpsResolveScope, err)
+		return nil, nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrFinOpsResolveScope, err)
 	}
-	uid, err := uuid.Parse(uidStr)
+	if lines.MainOnly {
+		mainOnly := true
+		return nil, &mainOnly, nil
+	}
+	if lines.UID == "" {
+		return nil, nil, nil
+	}
+	uid, err := uuid.Parse(lines.UID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid release line UID %q: %w", ErrFinOpsResolveScope, uidStr, err)
+		return nil, nil, fmt.Errorf("%w: invalid release line UID %q: %w", ErrFinOpsResolveScope, lines.UID, err)
 	}
-	return &uid, nil
+	return &uid, nil, nil
 }
 
 // checkReleaseLineApplied rejects a successful response to a release-line query that the

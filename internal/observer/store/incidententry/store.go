@@ -62,8 +62,10 @@ type QueryParams struct {
 	ComponentID   string
 	EnvironmentID string
 	ReleaseLineID string
-	Limit         int
-	SortOrder     string
+	// MainLineOnly restricts the query to entries of components' main lines.
+	MainLineOnly bool
+	Limit        int
+	SortOrder    string
 }
 
 // IncidentEntryStore defines lifecycle and write operations for incident persistence.

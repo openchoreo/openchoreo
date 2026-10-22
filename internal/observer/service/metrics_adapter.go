@@ -113,6 +113,8 @@ type metricsAdapterSearchScope struct {
 	ProjectUID     *string `json:"projectUid,omitempty"`
 	EnvironmentUID *string `json:"environmentUid,omitempty"`
 	ReleaseLineUID *string `json:"releaseLineUid,omitempty"`
+	// MainLineOnly restricts the query to the component's main line.
+	MainLineOnly bool `json:"mainLineOnly,omitempty"`
 }
 
 // MetricsAdapter forwards metrics queries to an external metrics adapter service.
@@ -189,10 +191,11 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 			return nil, fmt.Errorf("%w: failed to get environment UID: %w", ErrMetricsResolveSearchScope, err)
 		}
 	}
-	releaseLineUID, err := a.resolver.GetReleaseLineUID(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+	lines, err := a.resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get release line UID: %w", ErrMetricsResolveSearchScope, err)
+		return nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrMetricsResolveSearchScope, err)
 	}
+	releaseLineUID := lines.UID
 
 	// Build adapter request with resolved UIDs
 	adapterReq := metricsAdapterRequest{
@@ -216,6 +219,7 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 	if releaseLineUID != "" {
 		adapterReq.SearchScope.ReleaseLineUID = &releaseLineUID
 	}
+	adapterReq.SearchScope.MainLineOnly = lines.MainOnly
 
 	a.logger.Debug("Forwarding metrics query to adapter",
 		"metric", req.Metric,

@@ -4,8 +4,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -69,7 +72,11 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
 	}
 
-	resp, err := t.client.QueryTracesWithResponse(ctx, reqBody)
+	body, err := tracesAdapterBody(reqBody, params.MainLineOnly)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.client.QueryTracesWithBodyWithResponse(ctx, "application/json", body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -120,7 +127,11 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		reqBody.IncludeAttributes = &params.IncludeAttributes
 	}
 
-	resp, err := t.client.QuerySpansForTraceWithResponse(ctx, traceID, reqBody)
+	body, err := tracesAdapterBody(reqBody, params.MainLineOnly)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.client.QuerySpansForTraceWithBodyWithResponse(ctx, traceID, "application/json", body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -310,4 +321,31 @@ func convertTracesResponse(resp *gen.TracesQueryResponse) *observability.TracesQ
 	}
 
 	return result
+}
+
+// tracesAdapterBody encodes a traces request for the adapter, adding mainLineOnly to its search
+// scope when the query covers the component's main line only. The observer's own API has no such field.
+func tracesAdapterBody(reqBody any, mainLineOnly bool) (io.Reader, error) {
+	raw, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	if !mainLineOnly {
+		return bytes.NewReader(raw), nil
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	scope, _ := body["searchScope"].(map[string]any)
+	if scope == nil {
+		scope = map[string]any{}
+	}
+	scope["mainLineOnly"] = true
+	body["searchScope"] = scope
+	raw, err = json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	return bytes.NewReader(raw), nil
 }

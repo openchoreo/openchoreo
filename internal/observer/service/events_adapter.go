@@ -30,6 +30,7 @@ func (p *LogsAdapter) GetComponentEvents(
 		ComponentUid:   nonEmptyStrPtr(params.ComponentID),
 		EnvironmentUid: nonEmptyStrPtr(params.EnvironmentID),
 		ReleaseLineUid: nonEmptyStrPtr(params.ReleaseLineID),
+		MainLineOnly:   truePtr(params.MainLineOnly),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to build component events search scope: %w", err)
 	}
@@ -162,6 +163,13 @@ func nonEmptyStrPtr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+func truePtr(b bool) *bool {
+	if !b {
+		return nil
+	}
+	return &b
 }
 
 // intPtrVal safely dereferences an *int, returning 0 for nil.
