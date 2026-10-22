@@ -2,6 +2,18 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.3.2
+
+Changes since [v1.3.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.1).
+
+### Bug Fixes
+
+- **(AI Agents)** The finops-agent, sre-agent, and portal-assistant work with newer OpenAI models. They use the Responses API when calling `api.openai.com` directly, and `langchain-openai` is now 1.7.2 or later so gpt-6 models have context-window profiles. ([#5084](https://github.com/openchoreo/openchoreo/pull/5084))
+- **(MCP)** MCP clients on protocol 2026-07-28, such as Kiro, no longer time out on `subscriptions/listen`. The acknowledgement is now flushed through the auth wrapper on both the API server and Observer `/mcp` endpoints. ([#4922](https://github.com/openchoreo/openchoreo/pull/4922))
+- **(Secret Management)** Secrets are pushed to the external store as one entry instead of one entry per key. This fixes Azure Key Vault writing every secret in a namespace to a single secret, and AWS Secrets Manager and Azure deleting the whole secret when a key is removed. The new `features.secretManagement.remoteKeySeparator` Helm value (default `/`, use `-` for Azure Key Vault) sets the separator in remote keys. Existing PushSecrets are replaced on their next update. ([#5076](https://github.com/openchoreo/openchoreo/pull/5076))
+- **(Security)** Images no longer trust the compromised eMudhra emSign ECC Root CA - G3, or the Comodo AAA Services root removed with it. The control plane, CLI, quick-start, AI agent, and Backstage UI images move to base images with the updated CA bundle; the sre-agent runtime moves from Debian 12 to Debian 13 (`distroless/cc`), since Debian 12 distroless images are no longer rebuilt; the AI agents use certifi 2026.10.19; and the Backstage UI runs on Node 22.23.4. ([#5093](https://github.com/openchoreo/openchoreo/pull/5093), [#5096](https://github.com/openchoreo/openchoreo/pull/5096), [#5097](https://github.com/openchoreo/openchoreo/pull/5097), [#5098](https://github.com/openchoreo/openchoreo/pull/5098), [#5099](https://github.com/openchoreo/openchoreo/pull/5099), [#5100](https://github.com/openchoreo/openchoreo/pull/5100), [#5101](https://github.com/openchoreo/openchoreo/pull/5101), [#5102](https://github.com/openchoreo/openchoreo/pull/5102), [#5094](https://github.com/openchoreo/openchoreo/pull/5094), [#5095](https://github.com/openchoreo/openchoreo/pull/5095), [#5106](https://github.com/openchoreo/openchoreo/pull/5106), [#5103](https://github.com/openchoreo/openchoreo/pull/5103), [#5104](https://github.com/openchoreo/openchoreo/pull/5104), [#5105](https://github.com/openchoreo/openchoreo/pull/5105), [#5092](https://github.com/openchoreo/openchoreo/pull/5092), [#5107](https://github.com/openchoreo/openchoreo/pull/5107), [#863](https://github.com/openchoreo/backstage-plugins/pull/863))
+- **(Security)** Binaries are built with Go 1.26.10, whose `crypto/x509` rejects certificate chains that contain the compromised eMudhra intermediate certificates ([GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809)). ([#5108](https://github.com/openchoreo/openchoreo/pull/5108))
+
 ## v1.3.1
 
 Changes since [v1.3.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.0).
