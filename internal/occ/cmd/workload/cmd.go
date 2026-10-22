@@ -46,6 +46,10 @@ Examples:
   occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest --output-path workload-cr.yaml
 
+  # Create the workload of a release line, named product-catalog-next-workload
+  occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
+    --component product-catalog --release-line next --image myimage:next
+
   # Create workload with commit provenance, for Delivery Insights' Lead Time for Changes
   occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest \
@@ -64,6 +68,7 @@ Examples:
 				NamespaceName:    flags.GetNamespace(cmd),
 				ProjectName:      flags.GetProject(cmd),
 				ComponentName:    flags.GetComponent(cmd),
+				ReleaseLine:      flags.GetReleaseLine(cmd),
 				ImageURL:         image,
 				OutputPath:       flags.GetOutputPath(cmd),
 				DryRun:           flags.GetDryRun(cmd),
@@ -86,6 +91,7 @@ Examples:
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
+	flags.AddReleaseLine(cmd)
 	flags.AddOutputPath(cmd)
 	flags.AddDryRun(cmd)
 	flags.AddMode(cmd)
