@@ -39,6 +39,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 
@@ -63,6 +64,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if added, err := r.ensureFinalizer(ctx, ep); err != nil || added {
+		return ctrl.Result{}, err
+	}
+
+	if updated, err := r.ensureOwnerReference(ctx, ep); err != nil || updated {
 		return ctrl.Result{}, err
 	}
 

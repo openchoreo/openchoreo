@@ -53,6 +53,16 @@ const (
 	// identification across name reuse.
 	LabelKeyEndpointCRUID = "openchoreo.dev/endpoint-uid"
 
+	// LabelKeySourceComponent marks an Endpoint as created for one component's
+	// workload endpoint (portal, occ or GitOps tooling at component creation).
+	// While every backend of the Endpoint is that component, the Endpoint
+	// controller makes the Component its owner so deleting the component deletes
+	// the Endpoint; otherwise the Project owns it.
+	LabelKeySourceComponent = "openchoreo.dev/source-component"
+	// LabelKeySourceEndpoint names the workload endpoint of the source component
+	// an Endpoint was created for.
+	LabelKeySourceEndpoint = "openchoreo.dev/source-endpoint"
+
 	// LabelKeyCreatedBy identifies which controller initially created a resource (audit trail).
 	// Example: A namespace created by renderedrelease-controller would have created-by=renderedrelease-controller.
 	// Note: For shared resources like namespaces, the creator and lifecycle manager may differ.
