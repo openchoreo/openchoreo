@@ -14,11 +14,13 @@ data:
     # are activated by setting the corresponding `backstage.externalCI.<provider>.enabled`
     # value to true and by populating the matching keys in the Secret referenced
     # by `backstage.secretName`.
+{{- if .Values.backstage.externalCI.jenkins.enabled }}
     # Jenkins: requires the `jenkins.io/job-full-name` annotation on the Component.
     jenkins:
       baseUrl: ${JENKINS_BASE_URL}
       username: ${JENKINS_USERNAME}
       apiKey: ${JENKINS_API_KEY}
+{{- end }}
 {{- if .Values.backstage.externalCI.githubActions.enabled }}
     # GitHub Actions: requires the `github.com/project-slug` annotation on the Component.
     # See https://backstage.io/docs/integrations/github/locations for the Backstage GitHub
