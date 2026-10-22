@@ -93,6 +93,18 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
+	// AllowedEndpoints declares which EndpointType or ClusterEndpointType
+	// exposes a workload endpoint of a Component of this type, keyed on the
+	// endpoint's protocol and requested visibility. Clients creating a Component
+	// (portal, occ, GitOps tooling) generate one Endpoint per workload endpoint
+	// from the default entry matching it. If empty or omitted, no Endpoints are
+	// generated and the ComponentType keeps rendering its own routes.
+	// At most one default entry may match any (protocol, visibility) pair.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	AllowedEndpoints []AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// Validations are CEL-based rules evaluated during rendering.
 	//
 	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
@@ -117,6 +129,44 @@ type ComponentTypeSpec struct {
 	// is "proxy", a matching resource id is not required.
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
+}
+
+// AllowedEndpointType maps workload endpoints of a given protocol and
+// visibility to the EndpointType that exposes them.
+type AllowedEndpointType struct {
+	// Name is an optional alias for this entry. A workload endpoint may name it
+	// to pick this entry when several match the same protocol and visibility.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name,omitempty"`
+
+	// Protocols are the workload endpoint protocols this entry applies to.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=6
+	// +listType=set
+	Protocols []EndpointProtocol `json:"protocols"`
+
+	// Visibilities are the requested visibilities this entry applies to. The
+	// project scope is implicit for every workload endpoint and is never
+	// exposed through an Endpoint, so the admission webhook rejects it here.
+	// (Not a CEL rule: this type is embedded in ComponentRelease, whose schema
+	// is already close to the CRD's CEL cost budget.)
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=3
+	// +listType=set
+	Visibilities []EndpointVisibility `json:"visibilities"`
+
+	// Ref is the EndpointType or ClusterEndpointType that exposes matching
+	// workload endpoints.
+	// +kubebuilder:validation:Required
+	Ref EndpointTypeRef `json:"ref"`
+
+	// Default marks this entry as the automatic choice for its protocols and
+	// visibilities. Matching entries without it are still allowed, but only
+	// when chosen explicitly.
+	// +optional
+	Default bool `json:"default,omitempty"`
 }
 
 // EffectivePreRenderValidations returns the pre-render validation rules to apply.

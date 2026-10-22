@@ -49,6 +49,96 @@ spec:
           spec:
             description: ComponentTypeSpec defines the desired state of ComponentType.
             properties:
+              allowedEndpoints:
+                description: |-
+                  AllowedEndpoints declares which EndpointType or ClusterEndpointType
+                  exposes a workload endpoint of a Component of this type, keyed on the
+                  endpoint's protocol and requested visibility. Clients creating a Component
+                  (portal, occ, GitOps tooling) generate one Endpoint per workload endpoint
+                  from the default entry matching it. If empty or omitted, no Endpoints are
+                  generated and the ComponentType keeps rendering its own routes.
+                  At most one default entry may match any (protocol, visibility) pair.
+                items:
+                  description: |-
+                    AllowedEndpointType maps workload endpoints of a given protocol and
+                    visibility to the EndpointType that exposes them.
+                  properties:
+                    default:
+                      description: |-
+                        Default marks this entry as the automatic choice for its protocols and
+                        visibilities. Matching entries without it are still allowed, but only
+                        when chosen explicitly.
+                      type: boolean
+                    name:
+                      description: |-
+                        Name is an optional alias for this entry. A workload endpoint may name it
+                        to pick this entry when several match the same protocol and visibility.
+                      maxLength: 63
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    protocols:
+                      description: Protocols are the workload endpoint protocols this
+                        entry applies to.
+                      items:
+                        description: EndpointProtocol defines the different API technologies
+                          supported by the endpoint
+                        type: string
+                      maxItems: 6
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    ref:
+                      description: |-
+                        Ref is the EndpointType or ClusterEndpointType that exposes matching
+                        workload endpoints.
+                      properties:
+                        kind:
+                          default: EndpointType
+                          description: Kind is the kind of endpoint type (EndpointType
+                            or ClusterEndpointType).
+                          enum:
+                          - EndpointType
+                          - ClusterEndpointType
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the EndpointType or ClusterEndpointType to reference.
+                            Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    visibilities:
+                      description: |-
+                        Visibilities are the requested visibilities this entry applies to. The
+                        project scope is implicit for every workload endpoint and is never
+                        exposed through an Endpoint, so the admission webhook rejects it here.
+                        (Not a CEL rule: this type is embedded in ComponentRelease, whose schema
+                        is already close to the CRD's CEL cost budget.)
+                      items:
+                        description: |-
+                          EndpointVisibility defines the visibility scope for an endpoint.
+                          It determines which components can access the endpoint and how that access is enforced at runtime.
+                        enum:
+                        - project
+                        - namespace
+                        - internal
+                        - external
+                        type: string
+                      maxItems: 3
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - protocols
+                  - ref
+                  - visibilities
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
               allowedTraits:
                 description: |-
                   AllowedTraits restricts which Trait or ClusterTrait CRs developers can attach to Components of this type.

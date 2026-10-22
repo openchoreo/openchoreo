@@ -47,6 +47,18 @@ type ClusterComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []ClusterTraitRef `json:"allowedTraits,omitempty"`
 
+	// AllowedEndpoints declares which ClusterEndpointType exposes a workload
+	// endpoint of a Component of this type, keyed on the endpoint's protocol and
+	// requested visibility. Only ClusterEndpointType references are allowed since
+	// ClusterComponentType is cluster-scoped. If empty or omitted, no Endpoints
+	// are generated and the ClusterComponentType keeps rendering its own routes.
+	// At most one default entry may match any (protocol, visibility) pair.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.all(e, e.ref.kind == 'ClusterEndpointType')",message="ClusterComponentType may only reference ClusterEndpointType in allowedEndpoints"
+	AllowedEndpoints []AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// Validations are CEL-based rules evaluated during rendering.
 	//
 	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
@@ -106,6 +118,11 @@ func (s *ClusterComponentTypeSpec) ToComponentTypeSpec() ComponentTypeSpec {
 			EnvironmentConfigs: t.EnvironmentConfigs,
 		}
 	}
+	var allowedEndpoints []AllowedEndpointType
+	if s.AllowedEndpoints != nil {
+		allowedEndpoints = make([]AllowedEndpointType, len(s.AllowedEndpoints))
+		copy(allowedEndpoints, s.AllowedEndpoints)
+	}
 	allowedWorkflows := make([]WorkflowRef, len(s.AllowedWorkflows))
 	for i, ref := range s.AllowedWorkflows {
 		allowedWorkflows[i] = WorkflowRef{Kind: WorkflowRefKind(ref.Kind), Name: ref.Name}
@@ -117,6 +134,7 @@ func (s *ClusterComponentTypeSpec) ToComponentTypeSpec() ComponentTypeSpec {
 		EnvironmentConfigs: s.EnvironmentConfigs,
 		Traits:             traits,
 		AllowedTraits:      allowedTraits,
+		AllowedEndpoints:   allowedEndpoints,
 		//nolint:staticcheck // deprecated field still copied for backward compatibility
 		Validations:           s.Validations,
 		PreRenderValidations:  s.PreRenderValidations,

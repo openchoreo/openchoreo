@@ -479,8 +479,24 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `traits[]` | ComponentTypeTrait[] | No | Pre-configured embedded traits with parameter/environmentConfig bindings |
 | `allowedTraits[]` | TraitRef[] | No | Additional traits developers can attach |
 | `allowedWorkflows[]` | WorkflowRef[] | No | Permitted build workflows |
+| `allowedEndpoints[]` | AllowedEndpointType[] | No | Which (Cluster)EndpointType exposes a workload endpoint, by protocol and visibility. Empty: no Endpoints are generated and the type renders its own routes |
 | `validations[]` | ValidationRule[] | No | CEL validation rules |
 | `resources[]` | ResourceTemplate[] | Yes (min 1) | K8s resource templates with CEL expressions |
+
+**AllowedEndpointType Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Alias a workload endpoint can name when several entries match |
+| `protocols[]` | string[] | Yes | Workload endpoint protocols (HTTP, gRPC, GraphQL, Websocket, TCP, UDP) |
+| `visibilities[]` | string[] | Yes | namespace, internal, external (project is implicit and rejected) |
+| `ref` | EndpointTypeRef | Yes | The EndpointType or ClusterEndpointType to use |
+| `default` | bool | No | Automatic choice for its protocols and visibilities. At most one default per (protocol, visibility), enforced by the webhook |
+
+Clients that create a Component (portal, occ, GitOps tooling) generate one `Endpoint` per matched
+workload endpoint from the default entry, labeled `openchoreo.dev/source-component` and
+`openchoreo.dev/source-endpoint`. A PE opting a type in should drop the type's own route resources
+for the matched endpoints, otherwise both the type's route and the Endpoint's route render.
 
 **ResourceTemplate Fields:**
 
@@ -497,7 +513,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 - `ocSchema` — OpenChoreo shorthand format (e.g., `replicas: "integer | default=1"`)
 - `openAPIV3Schema` — Standard OpenAPI v3 JSON Schema
 
-**Cluster-scoped variant** (`ClusterComponentType`) only references `ClusterTrait` and `ClusterWorkflow`.
+**Cluster-scoped variant** (`ClusterComponentType`) only references `ClusterTrait`, `ClusterWorkflow` and `ClusterEndpointType`.
 
 [Back to Top](#overview)
 

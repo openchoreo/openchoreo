@@ -24,6 +24,13 @@ const (
 	ActionInfoLowestScopeResource  ActionInfoLowestScope = "resource"
 )
 
+// Defines values for AllowedEndpointTypeVisibilities.
+const (
+	AllowedEndpointTypeVisibilitiesExternal  AllowedEndpointTypeVisibilities = "external"
+	AllowedEndpointTypeVisibilitiesInternal  AllowedEndpointTypeVisibilities = "internal"
+	AllowedEndpointTypeVisibilitiesNamespace AllowedEndpointTypeVisibilities = "namespace"
+)
+
 // Defines values for AuthzRoleBindingSpecEffect.
 const (
 	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
@@ -546,6 +553,27 @@ type AgentConnectionStatus struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// AllowedEndpointType Maps workload endpoints of a given protocol and visibility to the EndpointType that exposes them.
+type AllowedEndpointType struct {
+	// Default Marks this entry as the automatic choice for its protocols and visibilities.
+	Default *bool `json:"default,omitempty"`
+
+	// Name Optional alias a workload endpoint can name to pick this entry when several match.
+	Name *string `json:"name,omitempty"`
+
+	// Protocols Workload endpoint protocols this entry applies to (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
+	Protocols []string `json:"protocols"`
+
+	// Ref Reference to an EndpointType or ClusterEndpointType template.
+	Ref EndpointTypeRef `json:"ref"`
+
+	// Visibilities Requested visibilities this entry applies to. Project visibility is implicit and not accepted.
+	Visibilities []AllowedEndpointTypeVisibilities `json:"visibilities"`
+}
+
+// AllowedEndpointTypeVisibilities defines model for AllowedEndpointType.Visibilities.
+type AllowedEndpointTypeVisibilities string
+
 // AuditLogsFeature Audit trail read path
 type AuditLogsFeature struct {
 	// Enabled Whether audit logging is enabled
@@ -883,6 +911,9 @@ type ClusterComponentTypeList struct {
 
 // ClusterComponentTypeSpec Desired state of a ClusterComponentType
 type ClusterComponentTypeSpec struct {
+	// AllowedEndpoints Declares which ClusterEndpointType exposes a workload endpoint of a Component of this type, keyed on the endpoint's protocol and requested visibility. Only ClusterEndpointType references are allowed. Clients creating a Component generate one Endpoint per workload endpoint from the default entry matching it. If empty or omitted, no Endpoints are generated and the type keeps rendering its own routes. At most one default entry may match any (protocol, visibility) pair.
+	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (always ClusterTrait) and "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
 		// Kind Kind of trait reference (must be ClusterTrait)
@@ -1641,6 +1672,9 @@ type ComponentTypeList struct {
 
 // ComponentTypeSpec Desired state of a ComponentType
 type ComponentTypeSpec struct {
+	// AllowedEndpoints Declares which EndpointType or ClusterEndpointType exposes a workload endpoint of a Component of this type, keyed on the endpoint's protocol and requested visibility. Clients creating a Component generate one Endpoint per workload endpoint from the default entry matching it. If empty or omitted, no Endpoints are generated and the type keeps rendering its own routes. At most one default entry may match any (protocol, visibility) pair.
+	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// AllowedTraits Restricts which Trait or ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (Trait or ClusterTrait, defaults to Trait) and "name". For example: {"kind": "Trait", "name": "my-trait"} or {"kind": "ClusterTrait", "name": "my-cluster-trait"}. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
 		// Kind Kind of trait reference

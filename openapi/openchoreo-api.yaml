@@ -9459,6 +9459,17 @@ components:
                 type: string
                 description: Name of the ClusterTrait resource
                 minLength: 1
+        allowedEndpoints:
+          type: array
+          description: >-
+            Declares which ClusterEndpointType exposes a workload endpoint of a Component of this type,
+            keyed on the endpoint's protocol and requested visibility. Only ClusterEndpointType references
+            are allowed. Clients creating a Component generate one Endpoint per workload endpoint from the
+            default entry matching it. If empty or omitted, no Endpoints are generated and the type keeps
+            rendering its own routes. At most one default entry may match any (protocol, visibility) pair.
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AllowedEndpointType'
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -9778,6 +9789,17 @@ components:
               name:
                 type: string
                 description: Name of the Trait or ClusterTrait resource
+        allowedEndpoints:
+          type: array
+          description: >-
+            Declares which EndpointType or ClusterEndpointType exposes a workload endpoint of a Component
+            of this type, keyed on the endpoint's protocol and requested visibility. Clients creating a
+            Component generate one Endpoint per workload endpoint from the default entry matching it. If
+            empty or omitted, no Endpoints are generated and the type keeps rendering its own routes. At
+            most one default entry may match any (protocol, visibility) pair.
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AllowedEndpointType'
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -12318,6 +12340,38 @@ components:
           minLength: 1
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           example: http-gateway
+
+    AllowedEndpointType:
+      type: object
+      description: Maps workload endpoints of a given protocol and visibility to the EndpointType that exposes them.
+      required:
+        - protocols
+        - visibilities
+        - ref
+      properties:
+        name:
+          type: string
+          description: Optional alias a workload endpoint can name to pick this entry when several match.
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        protocols:
+          type: array
+          description: Workload endpoint protocols this entry applies to (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
+          minItems: 1
+          items:
+            type: string
+        visibilities:
+          type: array
+          description: Requested visibilities this entry applies to. Project visibility is implicit and not accepted.
+          minItems: 1
+          items:
+            type: string
+            enum: [namespace, internal, external]
+        ref:
+          $ref: '#/components/schemas/EndpointTypeRef'
+        default:
+          type: boolean
+          description: Marks this entry as the automatic choice for its protocols and visibilities.
 
     # -------------------------------------------------------------------------
     # Endpoints

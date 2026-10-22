@@ -123,6 +123,11 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	allowedWorkflowErrs := validateAllowedWorkflows(cct)
 	allErrs = append(allErrs, allowedWorkflowErrs...)
 
+	// Validate allowedEndpoints
+	allErrs = append(allErrs, component.ValidateAllowedEndpoints(
+		cct.Spec.AllowedEndpoints, field.NewPath("spec", "allowedEndpoints"),
+	)...)
+
 	return allErrs
 }
 
