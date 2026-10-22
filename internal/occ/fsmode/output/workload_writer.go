@@ -19,6 +19,7 @@ type WorkloadWriteParams struct {
 	RepoPath      string
 	ProjectName   string
 	ComponentName string
+	ReleaseLine   string                       // Empty for the component's main line
 	OutputPath    string                       // If specified, always use this path
 	WorkloadCR    *openchoreov1alpha1.Workload // The generated workload CR
 	DryRun        bool
@@ -76,13 +77,16 @@ func (w *WorkloadWriter) resolveOutputPath(params WorkloadWriteParams) string {
 	}
 
 	// Priority 2: Check if workload already exists for this component
-	existingWorkload, ok := w.index.GetWorkloadForComponent(params.ProjectName, params.ComponentName, "")
+	existingWorkload, ok := w.index.GetWorkloadForComponent(params.ProjectName, params.ComponentName, params.ReleaseLine)
 	if ok && existingWorkload != nil {
 		// Replace existing workload file
 		return existingWorkload.FilePath
 	}
 
 	workloadFileName := "workload.yaml"
+	if params.ReleaseLine != "" {
+		workloadFileName = "workload-" + params.ReleaseLine + ".yaml"
+	}
 
 	// Priority 3: Find component location and write alongside it
 	component, ok := w.index.GetComponent(params.Namespace, params.ComponentName)

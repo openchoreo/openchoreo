@@ -24,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	synth "github.com/openchoreo/openchoreo/internal/occ/resources/workload"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
@@ -100,10 +101,17 @@ func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.C
 
 	idx := fsmode.WrapIndex(persistentIndex.Index)
 
+	line := releaseline.Normalize(params.ReleaseLine)
+	if line != "" {
+		if _, ok := idx.GetReleaseLine(params.ProjectName, params.ComponentName, line); !ok {
+			return fmt.Errorf("release line %q of component %q (project: %q) not found", line, params.ComponentName, params.ProjectName)
+		}
+	}
+
 	var workloadCR *openchoreov1alpha1.Workload
 
 	if params.FilePath == "" {
-		if entry, ok := idx.GetWorkloadForComponent(params.ProjectName, params.ComponentName, ""); ok {
+		if entry, ok := idx.GetWorkloadForComponent(params.ProjectName, params.ComponentName, line); ok {
 			typedWorkload, err := typed.NewWorkload(entry)
 			if err != nil {
 				return fmt.Errorf("failed to read existing workload: %w", err)
@@ -142,6 +150,7 @@ func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.C
 		RepoPath:      repoPath,
 		ProjectName:   params.ProjectName,
 		ComponentName: params.ComponentName,
+		ReleaseLine:   line,
 		OutputPath:    params.OutputPath,
 		WorkloadCR:    workloadCR,
 		DryRun:        params.DryRun,
@@ -236,6 +245,7 @@ func toSynthParams(p CreateParams) synth.CreateWorkloadParams {
 		NamespaceName:    p.NamespaceName,
 		ProjectName:      p.ProjectName,
 		ComponentName:    p.ComponentName,
+		ReleaseLine:      p.ReleaseLine,
 		ImageURL:         p.ImageURL,
 		OutputPath:       p.OutputPath,
 		DryRun:           p.DryRun,

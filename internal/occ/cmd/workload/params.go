@@ -9,6 +9,7 @@ type CreateParams struct {
 	NamespaceName string
 	ProjectName   string
 	ComponentName string
+	ReleaseLine   string // Empty or main for the component's main line
 	ImageURL      string
 	OutputPath    string
 	DryRun        bool
