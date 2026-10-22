@@ -1,5 +1,5 @@
 # Use Alpine for minimal image with shell support
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24@sha256:71e9b7bae160ba167fa17414401b94cbcdaf3c32feeab9298bd794a2a0614c35
 
 ARG TARGETOS
 ARG TARGETARCH
