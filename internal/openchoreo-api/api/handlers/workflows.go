@@ -439,10 +439,29 @@ func (h *Handler) GetWorkflowRunStatus(
 		steps = append(steps, step)
 	}
 
+	var conditions *[]gen.Condition
+	if len(status.Conditions) > 0 {
+		conds := make([]gen.Condition, 0, len(status.Conditions))
+		for _, c := range status.Conditions {
+			msg := c.Message
+			obsGen := c.ObservedGeneration
+			conds = append(conds, gen.Condition{
+				Type:               c.Type,
+				Status:             gen.ConditionStatus(c.Status),
+				Reason:             c.Reason,
+				Message:            &msg,
+				ObservedGeneration: &obsGen,
+				LastTransitionTime: c.LastTransitionTime.Time,
+			})
+		}
+		conditions = &conds
+	}
+
 	return gen.GetWorkflowRunStatus200JSONResponse{
 		Status:               gen.WorkflowRunStatusResponseStatus(status.Status),
 		Steps:                steps,
 		HasLiveObservability: status.HasLiveObservability,
+		Conditions:           conditions,
 	}, nil
 }
 

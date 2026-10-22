@@ -800,6 +800,7 @@ func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 		Status:               overallStatus,
 		Steps:                steps,
 		HasLiveObservability: hasLiveObservability,
+		Conditions:           wfRun.Status.Conditions,
 	}, nil
 }
 
@@ -859,6 +860,14 @@ func computeWorkflowRunStatus(conditions []metav1.Condition) string {
 	for _, condition := range conditions {
 		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
 			return workflowRunStatusRunning
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowCompleted" && condition.Status == metav1.ConditionFalse {
+			if condition.Reason != "" && condition.Reason != "WorkflowPending" && condition.Reason != "WorkflowRunning" {
+				return workflowRunStatusFailed
+			}
 		}
 	}
 

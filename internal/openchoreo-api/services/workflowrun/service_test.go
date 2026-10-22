@@ -473,6 +473,70 @@ func TestComputeWorkflowRunStatus(t *testing.T) {
 		assert.Equal(t, workflowRunStatusSucceeded, computeWorkflowRunStatus(conditions))
 	})
 
+	t.Run("pre-argo rendering failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowRenderingFailed"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo plane not found", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowPlaneNotFound"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo plane resolution failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowPlaneResolutionFailed"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo workflow resolution failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowResolutionFailed"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo component validation failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "ComponentValidationFailed"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo future unknown failure reason returns failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "AnyFutureFailureReason"},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo workflow pending reason returns pending", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowPending"},
+		}
+		assert.Equal(t, workflowRunStatusPending, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("pre-argo workflow running reason returns pending", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowRunning"},
+		}
+		assert.Equal(t, workflowRunStatusPending, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("running workflow takes precedence over stale pre-argo failure reason", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowCompleted", Status: metav1.ConditionFalse, Reason: "WorkflowPlaneResolutionFailed"},
+			{Type: "WorkflowRunning", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusRunning, computeWorkflowRunStatus(conditions))
+	})
+
 	t.Run("condition false returns pending", func(t *testing.T) {
 		conditions := []metav1.Condition{
 			{Type: "WorkflowRunning", Status: metav1.ConditionFalse},

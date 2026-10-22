@@ -9629,6 +9629,11 @@ components:
           type: boolean
           description: Whether live logs/events are available from the workflow plane
           example: true
+        conditions:
+          type: array
+          description: Kubernetes-style conditions
+          items:
+            $ref: '#/components/schemas/Condition'
 
     WorkflowStepStatus:
       type: object
