@@ -20,13 +20,10 @@ func TestValidateReleaseLineOwner(t *testing.T) {
 	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	component := func(name string, releaseLines bool) *openchoreov1alpha1.Component {
+	component := func(name string) *openchoreov1alpha1.Component {
 		return &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
-			Spec: openchoreov1alpha1.ComponentSpec{
-				Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: "proj"},
-				ReleaseLinesEnabled: releaseLines,
-			},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "proj"}},
 		}
 	}
 	line := func(name, componentName string) *openchoreov1alpha1.ReleaseLine {
@@ -38,9 +35,9 @@ func TestValidateReleaseLineOwner(t *testing.T) {
 		}
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		component("plain", false),
-		component("lined", true),
-		component("other", true),
+		component("plain"),
+		component("lined"),
+		component("other"),
 		line("next", "lined"),
 		line("other-next", "other"),
 	).Build()
@@ -54,9 +51,9 @@ func TestValidateReleaseLineOwner(t *testing.T) {
 	}{
 		{name: "no component", component: ""},
 		{name: "component not found", component: "missing", releaseLine: "next"},
-		{name: "component without release lines", project: "proj", component: "plain"},
+		{name: "main line of a component without release lines", project: "proj", component: "plain"},
+		{name: "main line of a component with release lines", project: "proj", component: "lined"},
 		{name: "line on a component without release lines", project: "proj", component: "plain", releaseLine: "next", wantRejection: true},
-		{name: "component with release lines needs a line", project: "proj", component: "lined", wantRejection: true},
 		{name: "line of the component", project: "proj", component: "lined", releaseLine: "next"},
 		{name: "line without a project", component: "lined", releaseLine: "next"},
 		{name: "line that doesn't exist", project: "proj", component: "lined", releaseLine: "ghost", wantRejection: true},

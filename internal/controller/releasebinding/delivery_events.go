@@ -613,7 +613,7 @@ func degradedFailureReason(
 				return "DeploymentReplicaFailure"
 			}
 		}
-	case rs.Group == "" && rs.Kind == "Pod":
+	case rs.Group == "" && rs.Kind == kindPod:
 		var st corev1.PodStatus
 		if err := json.Unmarshal(rs.Status.Raw, &st); err != nil {
 			return failureReasonDegraded

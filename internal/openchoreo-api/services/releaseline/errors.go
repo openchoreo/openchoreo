@@ -7,7 +7,7 @@ import "errors"
 
 var (
 	ErrComponentNotFound        = errors.New("component not found")
-	ErrReleaseLinesNotEnabled   = errors.New("component does not have release lines enabled")
+	ErrMainLine                 = errors.New("main is the component's implicit line; it has no ReleaseLine to create, change or delete")
 	ErrReleaseLineNotFound      = errors.New("release line not found")
 	ErrReleaseLineAlreadyExists = errors.New("release line already exists")
 )

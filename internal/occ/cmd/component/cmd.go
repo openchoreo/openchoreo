@@ -238,8 +238,11 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Follow logs in real-time
   occ component logs my-component --env dev -f
 
-  # Get logs of one release line of a component
-  occ component logs my-component --release-line next`,
+  # Get logs of one release line of a component; without --release-line, logs cover every line
+  occ component logs my-component --release-line next
+
+  # Get logs of the component's main line only
+  occ component logs my-component --release-line main`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {

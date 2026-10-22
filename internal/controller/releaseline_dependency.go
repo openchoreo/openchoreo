@@ -14,8 +14,9 @@ import (
 )
 
 // ReleaseLineDependencyProblem explains why a dependency on a component's release line matches
-// no ReleaseBinding in the environment. It returns "" when the cause is not about release lines,
-// such as an unknown component or a component without lines that is not deployed.
+// no ReleaseBinding in the environment. A dependency without a line targets the main line. It returns
+// "" when the cause is not about release lines, such as an unknown component or a component without
+// lines that is not deployed.
 func ReleaseLineDependencyProblem(ctx context.Context, c client.Reader,
 	namespace, project, component, releaseLine, environment string) (string, error) {
 	comp := &openchoreov1alpha1.Component{}
@@ -29,13 +30,17 @@ func ReleaseLineDependencyProblem(ctx context.Context, c client.Reader,
 		return "", nil
 	}
 
-	switch {
-	case comp.Spec.ReleaseLinesEnabled && releaseLine == "":
-		return fmt.Sprintf("component %s/%s uses release lines; set releaseLine on the dependency", project, component), nil
-	case !comp.Spec.ReleaseLinesEnabled && releaseLine != "":
-		return fmt.Sprintf("component %s/%s does not have release lines enabled; remove releaseLine from the dependency",
-			project, component), nil
-	case releaseLine == "":
+	if releaseLine == "" {
+		var lines openchoreov1alpha1.ReleaseLineList
+		if err := c.List(ctx, &lines, client.InNamespace(namespace)); err != nil {
+			return "", fmt.Errorf("failed to list release lines: %w", err)
+		}
+		for i := range lines.Items {
+			if lines.Items[i].Spec.Owner.ComponentName == component && lines.Items[i].Spec.Owner.ProjectName == project {
+				return fmt.Sprintf("the main line of component %s/%s is not deployed in environment %s; "+
+					"set releaseLine to depend on one of its release lines", project, component, environment), nil
+			}
+		}
 		return "", nil
 	}
 

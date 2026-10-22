@@ -13,7 +13,5 @@ var (
 	ErrTraitNotFound            = errors.New("trait not found")
 	ErrValidation               = errors.New("validation error")
 	ErrComponentTypeNotFound    = errors.New("component type not found")
-	ErrReleaseLineRequired      = errors.New("component has release lines enabled; a release line is required")
-	ErrReleaseLinesNotEnabled   = errors.New("component does not have release lines enabled")
 	ErrReleaseLineNotFound      = errors.New("release line not found")
 )

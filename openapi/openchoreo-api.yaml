@@ -2970,8 +2970,8 @@ paths:
       summary: Run a component workflow
       description: >-
         Starts a run of the component's configured workflow with the component's workflow parameters.
-        For a component with release lines enabled, releaseLine is required and that line's workflow
-        parameter overrides are applied.
+        With releaseLine set to one of the component's release lines, that line's workflow parameter
+        overrides are applied. Omitted or main builds the main line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3004,7 +3004,7 @@ paths:
     get:
       operationId: listComponentReleaseLines
       summary: List component release lines
-      description: Returns a paginated list of the release lines of a component. The list is empty for a component without release lines.
+      description: Returns a paginated list of the release lines of a component. The first page of an unfiltered list starts with main, the implicit line every component has, described from its bindings without a release line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3033,7 +3033,7 @@ paths:
     post:
       operationId: createComponentReleaseLine
       summary: Create component release line
-      description: Creates a release line for a component with release lines enabled. The owner is taken from the path.
+      description: Creates a release line for a component whose type allows release lines. The owner is taken from the path. The name main is reserved for the implicit main line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3070,7 +3070,7 @@ paths:
     get:
       operationId: getComponentReleaseLine
       summary: Get component release line
-      description: Returns a release line of a component, including its status per environment.
+      description: Returns a release line of a component, including its status per environment. The name main returns the implicit main line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3095,7 +3095,7 @@ paths:
     put:
       operationId: updateComponentReleaseLine
       summary: Update component release line
-      description: Replaces the spec of a release line (full update). The owner cannot change.
+      description: Replaces the spec of a release line (full update). The owner cannot change. The implicit main line cannot be updated.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3130,7 +3130,7 @@ paths:
     delete:
       operationId: deleteComponentReleaseLine
       summary: Delete component release line
-      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed.
+      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed. The implicit main line cannot be deleted.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3139,6 +3139,8 @@ paths:
       responses:
         '204':
           description: Release line deletion accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -7667,9 +7669,6 @@ components:
               description: "Component type reference in format: {workloadType}/{componentTypeName}"
               example: deployment/go-service
               pattern: '^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        releaseLinesEnabled:
-          type: boolean
-          description: Deploys the component only through explicit ReleaseLines. Can only be set when the component is created.
         autoDeploy:
           type: boolean
           description: Whether to automatically deploy to default environment when created
@@ -7781,9 +7780,6 @@ components:
           description: Whether to automatically deploy to default environment
           default: false
           example: true
-        releaseLinesEnabled:
-          type: boolean
-          description: Deploys the component only through explicit ReleaseLines. Can only be set when the component is created, and the component type must allow release lines.
         parameters:
           type: object
           description: Component type parameters
@@ -8716,7 +8712,7 @@ components:
         releaseLines:
           type: string
           description: >-
-            Whether Components of this type can enable release lines. Allowed only when the
+            Whether Components of this type can have release lines besides their main line. Allowed only when the
             resources name every component-scoped object per release line. Omitted means Disallowed.
           enum: [Allowed, Disallowed]
         validations:
@@ -9041,7 +9037,7 @@ components:
         releaseLines:
           type: string
           description: >-
-            Whether Components of this type can enable release lines. Allowed only when the
+            Whether Components of this type can have release lines besides their main line. Allowed only when the
             resources name every component-scoped object per release line. Omitted means Disallowed.
           enum: [Allowed, Disallowed]
         validations:
@@ -10203,7 +10199,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line this release belongs to. Required when the component has release lines enabled.
+              description: Release line this release belongs to. Omitted for the main line.
               example: next
         componentType:
           type: object
@@ -10301,7 +10297,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line this binding belongs to. Required when the component has release lines enabled.
+              description: Release line this binding belongs to. Omitted for the main line.
               example: next
         environment:
           type: string
@@ -11880,7 +11876,7 @@ components:
           example: v1.0.0
         releaseLine:
           type: string
-          description: Release line to release from. Required when the component has release lines enabled; the release is built from the line's Workload and overrides.
+          description: Release line to release from, built from the line's Workload and overrides. Omitted or main releases the main line.
           example: next
 
     CreateComponentWorkflowRunRequest:
@@ -11889,7 +11885,7 @@ components:
       properties:
         releaseLine:
           type: string
-          description: Release line to build. Required when the component has release lines enabled.
+          description: Release line to build. Omitted or main builds the main line.
           example: api-service-v2
         commit:
           type: string
@@ -12797,7 +12793,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line of the owning component. Required when the component has release lines enabled.
+              description: Release line of the owning component. Omitted for the main line.
               example: api-service-v2
         container:
           $ref: '#/components/schemas/WorkloadContainer'
@@ -12950,7 +12946,7 @@ components:
           minLength: 1
         releaseLine:
           type: string
-          description: Target component's release line. Required when the target has release lines enabled.
+          description: Target component's release line. Omitted targets its main line.
         name:
           type: string
           description: Target endpoint name on the target component

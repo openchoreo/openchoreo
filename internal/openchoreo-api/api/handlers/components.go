@@ -357,9 +357,6 @@ func (h *Handler) GenerateRelease(
 		if errors.Is(err, componentsvc.ErrReleaseLineNotFound) {
 			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
 		}
-		if errors.Is(err, componentsvc.ErrReleaseLineRequired) || errors.Is(err, componentsvc.ErrReleaseLinesNotEnabled) {
-			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
-		}
 		if errors.Is(err, componentsvc.ErrValidation) {
 			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}

@@ -80,7 +80,7 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 
 	ctx := context.Background()
 
-	if params.ReleaseLine != "" {
+	if params.ReleaseLine = releaseline.Normalize(params.ReleaseLine); params.ReleaseLine != "" {
 		return cp.startReleaseLineWorkflow(ctx, params)
 	}
 
@@ -274,10 +274,7 @@ func (cp *Component) Deploy(params DeployParams) error {
 	}
 
 	ctx := context.Background()
-
-	if err := cp.checkReleaseLine(ctx, params.Namespace, params.ComponentName, params.ReleaseLine); err != nil {
-		return err
-	}
+	params.ReleaseLine = releaseline.Normalize(params.ReleaseLine)
 
 	var err error
 	var binding *gen.ReleaseBinding
@@ -483,22 +480,6 @@ func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, p
 	}
 
 	return c.CreateReleaseBinding(ctx, params.Namespace, rb)
-}
-
-// checkReleaseLine requires a release line exactly when the component has release lines enabled.
-func (cp *Component) checkReleaseLine(ctx context.Context, namespace, componentName, line string) error {
-	comp, err := cp.client.GetComponent(ctx, namespace, componentName)
-	if err != nil {
-		return err
-	}
-	enabled := comp.Spec != nil && comp.Spec.ReleaseLinesEnabled != nil && *comp.Spec.ReleaseLinesEnabled
-	switch {
-	case enabled && line == "":
-		return fmt.Errorf("component '%s' uses release lines; set --release-line", componentName)
-	case !enabled && line != "":
-		return fmt.Errorf("component '%s' does not have release lines enabled", componentName)
-	}
-	return nil
 }
 
 func optionalString(s string) *string {

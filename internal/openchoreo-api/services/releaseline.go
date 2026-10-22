@@ -15,10 +15,10 @@ import (
 )
 
 // ValidateReleaseLineOwner checks the release line a resource is created for against its
-// component. A component with release lines enabled requires one of its own lines, and a
-// component without them accepts none. A component that doesn't exist is left to the caller.
+// component. An empty line is the component's main line; any other must be one of the component's
+// own lines. A component that doesn't exist is left to the caller.
 func ValidateReleaseLineOwner(ctx context.Context, c client.Reader, namespace, projectName, componentName, releaseLine string) error {
-	if componentName == "" {
+	if componentName == "" || releaseLine == "" {
 		return nil
 	}
 	component := &openchoreov1alpha1.Component{}
@@ -27,15 +27,6 @@ func ValidateReleaseLineOwner(ctx context.Context, c client.Reader, namespace, p
 			return nil
 		}
 		return fmt.Errorf("failed to get component %s: %w", componentName, err)
-	}
-
-	switch {
-	case !component.Spec.ReleaseLinesEnabled && releaseLine == "":
-		return nil
-	case !component.Spec.ReleaseLinesEnabled:
-		return &ValidationError{Msg: fmt.Sprintf("component %q does not have release lines enabled", componentName)}
-	case releaseLine == "":
-		return &ValidationError{Msg: fmt.Sprintf("component %q has release lines enabled; a release line is required", componentName)}
 	}
 
 	line := &openchoreov1alpha1.ReleaseLine{}

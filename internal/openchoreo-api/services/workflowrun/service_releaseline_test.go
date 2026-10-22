@@ -28,9 +28,8 @@ func TestTriggerWorkflow_ReleaseLine(t *testing.T) {
 		return &runtime.RawExtension{Raw: b}
 	}
 
-	newComponent := func(name string, enabled bool) *openchoreov1alpha1.Component {
+	newComponent := func(name string) *openchoreov1alpha1.Component {
 		comp := testutil.NewComponent(testNamespace, "proj", name)
-		comp.Spec.ReleaseLinesEnabled = enabled
 		comp.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{
 			Kind: openchoreov1alpha1.WorkflowRefKindWorkflow,
 			Name: testWorkflowName,
@@ -60,8 +59,8 @@ func TestTriggerWorkflow_ReleaseLine(t *testing.T) {
 
 	objects := []client.Object{
 		testutil.NewWorkflow(testNamespace, testWorkflowName),
-		newComponent("lines", true),
-		newComponent("plain", false),
+		newComponent("lines"),
+		newComponent("plain"),
 		newLine("lines-next", "lines", "next"),
 		newLine("lines-main", "lines", ""),
 		newLine("other-next", "other", "next"),
@@ -100,18 +99,21 @@ func TestTriggerWorkflow_ReleaseLine(t *testing.T) {
 			string(run.Spec.Workflow.Parameters.Raw))
 	})
 
-	t.Run("a component without release lines is unchanged", func(t *testing.T) {
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "plain", "", "")
-		require.NoError(t, err)
-		assert.NotContains(t, fetchRun(t, result.Name).Labels, ocLabels.LabelKeyReleaseLine)
-	})
+	for _, line := range []string{"", "main"} {
+		t.Run("the main line builds the component's parameters: "+line, func(t *testing.T) {
+			result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "lines", "", line)
+			require.NoError(t, err)
 
-	t.Run("rejects invalid combinations", func(t *testing.T) {
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "", "lines", "", "")
-		require.ErrorIs(t, err, ErrReleaseLineRequired)
+			run := fetchRun(t, result.Name)
+			assert.NotContains(t, run.Labels, ocLabels.LabelKeyReleaseLine)
+			assert.JSONEq(t, `{"repository":{"url":"https://github.com/example/repo","revision":{"branch":"main"}}}`,
+				string(run.Spec.Workflow.Parameters.Raw))
+		})
+	}
 
-		_, err = svc.TriggerWorkflow(ctx, testNamespace, "", "plain", "", "lines-next")
-		require.ErrorIs(t, err, ErrReleaseLinesNotEnabled)
+	t.Run("rejects a line the component does not have", func(t *testing.T) {
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "", "plain", "", "lines-next")
+		require.ErrorIs(t, err, ErrReleaseLineNotFound)
 
 		_, err = svc.TriggerWorkflow(ctx, testNamespace, "", "lines", "", "absent")
 		require.ErrorIs(t, err, ErrReleaseLineNotFound)

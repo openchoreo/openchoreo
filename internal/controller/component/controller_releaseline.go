@@ -7,6 +7,10 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
@@ -21,29 +25,19 @@ func filterWorkloadsByLine(items []openchoreov1alpha1.Workload, line string) []o
 	return out
 }
 
-// reconcileReleaseLineComponent validates a component with releaseLinesEnabled. Such a component
-// deploys only through its ReleaseLines, which the ReleaseLine controller reconciles.
-func (r *Reconciler) reconcileReleaseLineComponent(ctx context.Context, comp *openchoreov1alpha1.Component) error {
-	firstEnv, err := r.validateAndFetchDeploymentPipeline(ctx, comp)
-	if err != nil || firstEnv == "" {
-		return err
+// listReleaseLines returns the ReleaseLines owned by the component.
+func (r *Reconciler) listReleaseLines(ctx context.Context, comp *openchoreov1alpha1.Component) ([]openchoreov1alpha1.ReleaseLine, error) {
+	var lines openchoreov1alpha1.ReleaseLineList
+	if err := r.List(ctx, &lines,
+		client.InNamespace(comp.Namespace),
+		client.MatchingFields{controller.IndexKeyReleaseLineOwner: controller.MakeReleaseLineOwnerKey(comp.Spec.Owner.ProjectName, comp.Name)}); err != nil {
+		return nil, fmt.Errorf("failed to list release lines: %w", err)
 	}
+	return lines.Items, nil
+}
 
-	workloads, err := NewSteps(r.Client, r.Scheme, r.Recorder).Workloads(ctx, comp)
-	if err != nil {
-		return err
-	}
-	var unlined []string
-	for _, w := range filterWorkloadsByLine(workloads, "") {
-		unlined = append(unlined, w.Name)
-	}
-	if len(unlined) > 0 {
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration,
-			fmt.Sprintf("Component has release lines enabled; Workloads %v must set spec.owner.releaseLine", unlined))
-		return nil
-	}
-
-	controller.MarkTrueCondition(comp, ConditionReady, ReasonReleaseLinesReconciled,
-		"Component deploys through its release lines; see each ReleaseLine for its status")
-	return nil
+// findComponentForReleaseLine maps a ReleaseLine to its owner Component.
+func (r *Reconciler) findComponentForReleaseLine(_ context.Context, obj client.Object) []ctrl.Request {
+	line := obj.(*openchoreov1alpha1.ReleaseLine)
+	return []ctrl.Request{{NamespacedName: types.NamespacedName{Namespace: line.Namespace, Name: line.Spec.Owner.ComponentName}}}
 }

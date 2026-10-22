@@ -224,7 +224,7 @@ func categorizeResource(gvk schema.GroupVersionKind, workloadType WorkloadType) 
 		return CategoryPrimaryWorkload
 	case gvk.Group == batchAPIGroup && (gvk.Kind == kindJob || gvk.Kind == kindCronJob):
 		return CategoryPrimaryWorkload
-	case gvk.Group == "" && gvk.Kind == "Pod":
+	case gvk.Group == "" && gvk.Kind == kindPod:
 		return CategoryOperational
 
 	// Supporting infrastructure

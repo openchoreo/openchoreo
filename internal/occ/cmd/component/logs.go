@@ -28,12 +28,8 @@ func (cp *Component) Logs(params LogsParams) error {
 	apiClient := cp.client
 
 	// Verify the component exists
-	comp, err := apiClient.GetComponent(ctx, params.Namespace, params.Component)
-	if err != nil {
+	if _, err := apiClient.GetComponent(ctx, params.Namespace, params.Component); err != nil {
 		return fmt.Errorf("failed to get component: %w", err)
-	}
-	if params.ReleaseLine != "" && (comp.Spec == nil || comp.Spec.ReleaseLinesEnabled == nil || !*comp.Spec.ReleaseLinesEnabled) {
-		return fmt.Errorf("component '%s' does not have release lines enabled", params.Component)
 	}
 
 	// If environment not specified, get the lowest environment from deployment pipeline
@@ -162,9 +158,10 @@ func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string
 }
 
 // printLogs prints the entries, restricting to a release line and a single container when requested.
+// The observer restricts logs to the main line itself; its pods share no name prefix with the lines'.
 func printLogs(logs []client.LogEntry, params LogsParams) {
-	if params.ReleaseLine != "" {
-		logs = filterLogsByReleaseLine(logs, params.Component, params.ReleaseLine, params.Environment)
+	if line := releaseline.Normalize(params.ReleaseLine); line != "" {
+		logs = filterLogsByReleaseLine(logs, params.Component, line, params.Environment)
 	}
 	if params.Container != "" {
 		logs = filterLogsByContainer(logs, params.Container)

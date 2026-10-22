@@ -2,21 +2,23 @@
 
 This sample builds two lines of the same component from two branches of a Git repository and runs them side by side in one environment, following [discussion #4702](https://github.com/openchoreo/openchoreo/discussions/4702).
 
-A component either does not use release lines, which is how every component works today, or it opts in with `spec.releaseLinesEnabled: true` at creation. An opted-in component has no implicit line: every Workload, ComponentRelease, and ReleaseBinding names a `ReleaseLine`. The flag cannot be changed later, so an existing component adopts release lines by migrating to a new component. The component's type must allow release lines with `spec.releaseLines: Allowed`. Otherwise the component is not released and reports `ReleaseLinesNotAllowed`.
+Every component has an implicit `main` line, which is the component itself: its Workload, ComponentReleases and ReleaseBindings leave `spec.owner.releaseLine` empty, and nothing about them changes when other lines are added. A `ReleaseLine` adds another line next to it, with its own Workload, releases and binding per environment. Adding a line to an existing component needs no migration and no change to what already runs. `main` is reserved: no ReleaseLine can take that name.
+
+The component's type must allow release lines with `spec.releaseLines: Allowed`. Otherwise its ReleaseLines are not released and report `ReleaseLinesNotAllowed`. The default component types allow them.
 
 The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
 | Release line | Branch | Response version |
 |---|---|---|
-| `main` | `main` | `v1.0` |
+| `main` (the component) | `main` | `v1.0` |
 | `next` | `next` | `v1.1` |
 
 ## Files
 
-- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type with component-scoped objects (Service, HTTPRoutes, backends, gateway paths) named from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide. It sets `releaseLines: Allowed`.
+- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type, which already names component-scoped objects (Service, HTTPRoutes, backends, gateway paths) from `metadata.componentName` and `metadata.releaseLineName` so the lines of a component never collide, plus a `logLevel` parameter for the `next` line to override.
 - `build-workflow.yaml`: the `release-line-dockerfile-builder` ClusterWorkflow. It is the default dockerfile builder, except that it passes the run's release line to the workload generation step.
 - `generate-workload-template.yaml`: the `release-line-generate-workload` ClusterWorkflowTemplate. It is the default workload generation step, except that it publishes the built image to the run's release line, as the Workload `<component>-<release-line>-workload`.
-- `release-lines.yaml`: the component and its two release lines. The `next` line overrides only the branch to build.
+- `release-lines.yaml`: the component, whose own configuration is its `main` line, and the `next` release line. The `next` line overrides the branch to build, the log level and the health probes.
 
 ## Deploy
 
@@ -43,14 +45,14 @@ kubectl apply -f samples/release-lines/release-lines.yaml
 ## Build each line
 
 ```bash
-occ component workflow run hello --release-line main --namespace default
+occ component workflow run hello --namespace default
 ```
 
 ```bash
 occ component workflow run hello --release-line next --namespace default
 ```
 
-Each run builds the line's branch and creates or updates that line's Workload from the branch's `workload.yaml`. The component then deploys each line to the first environment of the pipeline.
+The first run builds the main line, the same as for any component, and `--release-line main` does the same. The second builds the `next` branch. Each run creates or updates its line's Workload from the branch's `workload.yaml`, and the line deploys to the first environment of the pipeline.
 
 ```bash
 kubectl get releaselines,workloads,releasebindings -n default
@@ -66,7 +68,7 @@ occ component releaseline list hello --namespace default
 kubectl get releaselines -n default --field-selector spec.owner.componentName=hello
 ```
 
-Both show each line's environments. `occ` lists one row per line and environment, with the bound release and whether the binding is ready. The API server serves the same list at `GET /api/v1/namespaces/default/components/hello/releaselines`.
+`occ` and the API server list `main` first, described from the bindings without a release line, then the ReleaseLines. `kubectl` shows only the ReleaseLines, since `main` has no object. `occ` lists one row per line and environment, with the bound release and whether the binding is ready. The API server serves the same list at `GET /api/v1/namespaces/default/components/hello/releaselines`.
 
 ## Manage a line
 
@@ -84,23 +86,25 @@ Delete a line. This undeploys it from every environment and removes its releases
 occ component releaseline delete hello next --namespace default
 ```
 
-The API server serves these under `/api/v1/namespaces/default/components/hello/releaselines/{line}` with `GET`, `PUT` and `DELETE`, and creates a line with `POST` on the list path. Reading a line needs `releaseline:view`, and creating, changing or deleting one needs `releaseline:create`, `releaseline:update` or `releaseline:delete`. The default `developer` and `platform-engineer` roles have all four.
+The API server serves these under `/api/v1/namespaces/default/components/hello/releaselines/{line}` with `GET`, `PUT` and `DELETE`, and creates a line with `POST` on the list path. `main` can be read but not created, changed or deleted. Reading a line needs `releaseline:view`, and creating, changing or deleting one needs `releaseline:create`, `releaseline:update` or `releaseline:delete`. The default `developer` and `platform-engineer` roles have all four.
 
 ## Call each line
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/hello-main-http/greet
+curl http://development-default.openchoreoapis.localhost:19080/hello-http/greet
 ```
 
 ```bash
 curl http://development-default.openchoreoapis.localhost:19080/hello-next-http/greet
 ```
 
-All lines render into the project's namespace. Each line's objects are named from `metadata.name`, or from `metadata.componentName` and `metadata.releaseLineName`, and its pods carry an `openchoreo.dev/release-line` label. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
+All lines render into the project's namespace. The main line's objects keep the names a component without lines gets. A release line's objects are named from `metadata.name`, or from `metadata.componentName` and `metadata.releaseLineName`, so they never take the main line's names. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
+
+A release line's pods carry the `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid` labels, and their component's UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, which the main line's selectors require. So the main line's Service and Deployment never select a release line's pods, and its selectors never change when lines are added. A component type must label pods with `metadata.podSelectors` for this to hold. A release line whose pods carry `openchoreo.dev/component-uid` reports `ReleaseLinePodLabelOverlap` and is not deployed.
 
 ## Consume a specific line
 
-A dependency on a component with release lines must name the line:
+A dependency without `releaseLine` targets the component's main line, and keeps doing so when the component adds lines. To depend on another line, name it:
 
 ```yaml
 dependencies:
@@ -112,6 +116,8 @@ dependencies:
       envBindings:
         address: HELLO_URL
 ```
+
+`occ remote` follows the same rule, so a workload running on your machine reaches the line its dependency names. When you also run a line of `hello` locally, `occ remote` wires the dependency to it, and `--local hello@next=127.0.0.1:9092` gives that line its own port.
 
 ## Promote a line
 
@@ -143,4 +149,24 @@ occ component logs hello --release-line next --namespace default --project defau
 occ component exec hello --release-line next --namespace default --project default
 ```
 
-`exec` requires `--release-line` for a component with release lines. `logs` without it shows the logs of every line.
+`exec` without `--release-line` runs in a pod of the main line. `logs` without it shows the logs of every line, and `--release-line main` shows the main line's only.
+
+## GitOps
+
+In a GitOps repository, keep each ReleaseLine and its Workload next to the component, and generate releases and bindings in file-system mode. `--all` and `--project` cover every line of each component:
+
+```bash
+occ componentrelease generate --mode file-system --namespace default --all
+```
+
+```bash
+occ releasebinding generate --mode file-system --all --use-pipeline default --target-env development
+```
+
+`--release-line` picks one line of `--component`, for example to promote `next` alone:
+
+```bash
+occ releasebinding generate --mode file-system --project default --component hello --release-line next --use-pipeline default --target-env staging
+```
+
+A line's releases are named `hello-next-<date>-<n>`. Its bindings are named `hello-next-<environment>`, as the control plane names them. A component whose main line has no Workload is released through its lines only.

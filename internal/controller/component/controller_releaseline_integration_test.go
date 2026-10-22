@@ -21,7 +21,6 @@ var _ = Describe("Component Controller — Release lines", func() {
 		compName     = "rl-comp"
 		project      = "rl-proj"
 		pipelineName = "rl-pipe"
-		mainLine     = "rl-comp-main"
 		v2Line       = "rl-comp-v2"
 	)
 	var (
@@ -75,73 +74,19 @@ var _ = Describe("Component Controller — Release lines", func() {
 		}
 	})
 
-	Context("When the component has release lines enabled", func() {
-		var v2 *openchoreov1alpha1.ReleaseLine
-
+	Context("When the component has a release line next to its main line", func() {
 		BeforeEach(func() {
-			comp.Spec.ReleaseLinesEnabled = true
-			v2 = newLine(v2Line)
+			v2 := newLine(v2Line)
 			v2.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"resources":{"memory":"256Mi"}}`)}
 			create(
-				newLine(mainLine), v2,
-				newLineWorkload("rl-wl-main", mainLine, "nginx:1"),
+				v2,
+				minimalWorkload("rl-wl-main", project, compName, "nginx:1"),
 				newLineWorkload("rl-wl-v2", v2Line, "nginx:2"),
 				comp,
 			)
 		})
 
-		It("leaves deployment to the ReleaseLine controller and has no implicit line", func() {
-			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesReconciled)
-
-			Expect(fetchComp(ctx, compName).Status.LatestRelease).To(BeNil())
-			bindings := &openchoreov1alpha1.ReleaseBindingList{}
-			Expect(k8sClient.List(ctx, bindings, client.InNamespace(itNamespace),
-				client.MatchingFields{controller.IndexKeyReleaseBindingOwnerComponentName: compName})).To(Succeed())
-			Expect(bindings.Items).To(BeEmpty())
-		})
-
-		It("rejects a workload that does not name a line", func() {
-			create(minimalWorkload("rl-wl-unlined", project, compName, "nginx:latest"))
-
-			reconcileUntilCondition(ctx, r, compName, ReasonInvalidConfiguration)
-			Expect(conditionFor(fetchComp(ctx, compName)).Message).To(ContainSubstring("rl-wl-unlined"))
-		})
-
-		It("is held back while its component type does not allow release lines", func() {
-			setPolicy := func(policy openchoreov1alpha1.ReleaseLinePolicy) {
-				Eventually(func(g Gomega) {
-					ct := &openchoreov1alpha1.ComponentType{}
-					g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: ctName, Namespace: itNamespace}, ct)).To(Succeed())
-					ct.Spec.ReleaseLines = policy
-					g.Expect(k8sClient.Update(ctx, ct)).To(Succeed())
-				}, itTimeout, itInterval).Should(Succeed())
-			}
-
-			setPolicy("")
-			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesNotAllowed)
-			Expect(conditionFor(fetchComp(ctx, compName)).Message).To(ContainSubstring(ctName))
-
-			setPolicy(openchoreov1alpha1.ReleaseLinePolicyAllowed)
-			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesReconciled)
-		})
-
-		It("cannot be switched off after creation", func() {
-			Eventually(func(g Gomega) {
-				c := fetchComp(ctx, compName)
-				c.Spec.ReleaseLinesEnabled = false
-				err := k8sClient.Update(ctx, c)
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring("releaseLinesEnabled can only be set when the component is created"))
-			}, itTimeout, itInterval).Should(Succeed())
-		})
-	})
-
-	Context("When the component does not have release lines enabled", func() {
-		BeforeEach(func() {
-			create(minimalWorkload("rl-wl", project, compName, "nginx:1"), newLine(v2Line), comp)
-		})
-
-		It("keeps deploying without lines", func() {
+		It("deploys the main line from the workload without a line and leaves the release line alone", func() {
 			reconcileUntilCondition(ctx, r, compName, ReasonComponentReleaseReady)
 
 			bindings := &openchoreov1alpha1.ReleaseBindingList{}
@@ -150,16 +95,40 @@ var _ = Describe("Component Controller — Release lines", func() {
 			Expect(bindings.Items).To(HaveLen(1))
 			Expect(bindings.Items[0].Spec.Owner.ReleaseLine).To(BeEmpty())
 			Expect(bindings.Items[0].Name).To(Equal(compName + "-dev"))
+
+			release := &openchoreov1alpha1.ComponentRelease{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Name: bindings.Items[0].Spec.ReleaseName, Namespace: itNamespace}, release)).To(Succeed())
+			Expect(release.Spec.Owner.ReleaseLine).To(BeEmpty())
+			Expect(release.Spec.Workload.Container.Image).To(Equal("nginx:1"))
+		})
+	})
+
+	Context("When only the release lines have workloads", func() {
+		BeforeEach(func() {
+			create(newLine(v2Line), newLineWorkload("rl-wl-v2", v2Line, "nginx:2"), comp)
 		})
 
-		It("cannot be switched on after creation", func() {
-			Eventually(func(g Gomega) {
-				c := fetchComp(ctx, compName)
-				c.Spec.ReleaseLinesEnabled = true
-				err := k8sClient.Update(ctx, c)
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring("releaseLinesEnabled can only be set when the component is created"))
-			}, itTimeout, itInterval).Should(Succeed())
+		It("is ready and deploys nothing for the main line", func() {
+			reconcileUntilCondition(ctx, r, compName, ReasonReleaseLinesReconciled)
+
+			Expect(fetchComp(ctx, compName).Status.LatestRelease).To(BeNil())
+			bindings := &openchoreov1alpha1.ReleaseBindingList{}
+			Expect(k8sClient.List(ctx, bindings, client.InNamespace(itNamespace),
+				client.MatchingFields{controller.IndexKeyReleaseBindingOwnerComponentName: compName})).To(Succeed())
+			Expect(bindings.Items).To(BeEmpty())
 		})
+	})
+
+	It("rejects a ReleaseLine named main", func() {
+		err := k8sClient.Create(ctx, newLine("main"))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("main is the component's implicit line"))
+	})
+
+	It("rejects main as an owner release line", func() {
+		wl := newLineWorkload("rl-wl-keyword", "main", "nginx:1")
+		err := k8sClient.Create(ctx, wl)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("omit releaseLine"))
 	})
 })

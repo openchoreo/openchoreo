@@ -25,6 +25,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
@@ -72,7 +73,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	envName := query.Get("env")
 	container := query.Get("container")
 	podName := query.Get("pod")
-	releaseLine := query.Get("releaseLine")
+	releaseLine := releaseline.Normalize(query.Get("releaseLine"))
 	commands := query["command"]
 	tty := query.Get("tty") == "true"
 	stdin := query.Get("stdin") == "true"
@@ -314,7 +315,7 @@ func (h *ExecHandler) resolveComponentProject(ctx context.Context, namespace, co
 
 // resolvePod resolves the target pod for exec by traversing:
 // component → environment → dataplane → pod (specific pod if podName set, else first Ready pod).
-// For a component with release lines, only pods of releaseLine are considered.
+// Only pods of releaseLine are considered; an empty line is the component's main line.
 func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName, podName, releaseLine string) (*execPodInfo, error) {
 	// Verify the component exists
 	comp := &openchoreov1alpha1.Component{}
@@ -324,13 +325,6 @@ func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, 
 		}
 		return nil, infraErrorf("failed to look up component %q: %w", componentName, err)
 	}
-	switch {
-	case comp.Spec.ReleaseLinesEnabled && releaseLine == "":
-		return nil, fmt.Errorf("component %q uses release lines; a release line is required", componentName)
-	case !comp.Spec.ReleaseLinesEnabled && releaseLine != "":
-		return nil, fmt.Errorf("component %q does not have release lines enabled", componentName)
-	}
-
 	// Resolve environment — if not specified, derive from the project's deployment pipeline.
 	// resolveLowestEnvironment validates project existence, so no separate check is needed here.
 	if envName == "" {
@@ -498,14 +492,15 @@ func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, nam
 	return "", "", nil, fmt.Errorf("no running pods found for component %q in environment %q", componentName, envName)
 }
 
-// execPodSelector selects the pods of a component (and of one of its release lines, when set) in an environment.
+// execPodSelector selects the pods of one line of a component in an environment. An empty line
+// selects the main line, whose pods carry no release line label.
 func execPodSelector(namespace, componentName, envName, releaseLine string) string {
 	selector := fmt.Sprintf("%s=%s,%s=%s,%s=%s",
 		labels.LabelKeyComponentName, componentName, labels.LabelKeyEnvironmentName, envName, labels.LabelKeyNamespaceName, namespace)
 	if releaseLine != "" {
-		selector += fmt.Sprintf(",%s=%s", labels.LabelKeyReleaseLine, releaseLine)
+		return selector + fmt.Sprintf(",%s=%s", labels.LabelKeyReleaseLine, releaseLine)
 	}
-	return selector
+	return selector + ",!" + labels.LabelKeyReleaseLine
 }
 
 // findNamedPod finds a specific pod by name and verifies it belongs to the component and is ready.

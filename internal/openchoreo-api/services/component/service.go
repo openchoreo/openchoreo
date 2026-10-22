@@ -67,12 +67,6 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 		return nil, err
 	}
 
-	if component.Spec.ReleaseLinesEnabled {
-		if err := services.ValidateReleaseLinesAllowed(ctx, s.k8sClient, namespaceName, component.Spec.ComponentType); err != nil {
-			return nil, err
-		}
-	}
-
 	exists, err := s.componentExists(ctx, namespaceName, component.Name)
 	if err != nil {
 		s.logger.Error("Failed to check component existence", "error", err)
@@ -258,7 +252,7 @@ func (s *componentService) DeleteComponent(ctx context.Context, namespaceName, c
 
 func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
 	releaseName := strings.TrimSpace(req.ReleaseName)
-	lineName := strings.TrimSpace(req.ReleaseLine)
+	lineName := releaseline.Normalize(req.ReleaseLine)
 
 	s.logger.Debug("Generating component release", "namespace", namespaceName, "component", componentName, "release", releaseName, "releaseLine", lineName)
 

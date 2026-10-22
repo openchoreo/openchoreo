@@ -39,8 +39,8 @@ spec:
         description: |-
           ReleaseLine is a named series of releases of one Component that evolves independently of the
           component's other lines. Each line has its own Workload, ComponentReleases, and at most one
-          ReleaseBinding per Environment. The owning Component must have spec.releaseLinesEnabled set;
-          such a component has no implicit line, so its default line (e.g. "main") is an explicit ReleaseLine.
+          ReleaseBinding per Environment. Every component also has an implicit main line, which has no
+          ReleaseLine: resources without spec.owner.releaseLine belong to it.
         properties:
           apiVersion:
             description: |-
@@ -258,6 +258,8 @@ spec:
         x-kubernetes-validations:
         - message: metadata.name must be at most 63 characters
           rule: size(self.metadata.name) <= 63
+        - message: main is the component's implicit line and cannot be a ReleaseLine
+          rule: self.metadata.name != 'main'
     selectableFields:
     - jsonPath: .spec.owner.projectName
     - jsonPath: .spec.owner.componentName

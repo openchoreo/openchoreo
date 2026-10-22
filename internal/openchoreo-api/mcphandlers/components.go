@@ -59,9 +59,6 @@ func (h *MCPHandler) CreateComponent(
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
-	if req.ReleaseLinesEnabled != nil {
-		component.Spec.ReleaseLinesEnabled = *req.ReleaseLinesEnabled
-	}
 	if req.Parameters != nil {
 		paramsBytes, err := json.Marshal(*req.Parameters)
 		if err != nil {

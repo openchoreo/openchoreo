@@ -1,20 +1,18 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-# A Component built from source that deploys through explicit release lines.
-# releaseLinesEnabled can only be set at creation; the component has no implicit line.
+# A Component built from source. Its own configuration is its implicit main line, built from the main branch.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: hello
   namespace: default
   annotations:
-    openchoreo.dev/description: "Greeter service built from source, deployed through the main and next release lines"
+    openchoreo.dev/description: "Greeter service built from source, with a next release line beside its main line"
 spec:
   owner:
     projectName: default
   autoDeploy: true
-  releaseLinesEnabled: true
   componentType:
     kind: ClusterComponentType
     name: deployment/release-line-service
@@ -30,21 +28,6 @@ spec:
       docker:
         context: "."
         filePath: "./Dockerfile"
-
----
-
-# Builds from the component's branch (main).
-apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseLine
-metadata:
-  name: main
-  namespace: default
-  annotations:
-    openchoreo.dev/description: "Stable line, built from the main branch"
-spec:
-  owner:
-    projectName: default
-    componentName: hello
 
 ---
 

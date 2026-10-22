@@ -825,7 +825,6 @@ func makeReleaseName(name string) *string { return &name }
 
 func TestDeploy_GenerateReleaseError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(nil, fmt.Errorf("generate failed"))
 
 	cp := New(mc)
@@ -839,7 +838,6 @@ func TestDeploy_GenerateReleaseError(t *testing.T) {
 
 func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: testReleaseName},
 	}, nil)
@@ -868,7 +866,6 @@ func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
 func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 	relName := "rel-2"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: relName},
 	}, nil)
@@ -902,7 +899,6 @@ func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 func TestDeploy_Promote_Success(t *testing.T) {
 	relName := testReleaseName
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -945,7 +941,6 @@ func TestDeploy_Promote_Success(t *testing.T) {
 func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 	relName := "rel-2"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: relName},
 	}, nil)
@@ -974,7 +969,6 @@ func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 	relName := "rel-1"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -1015,7 +1009,6 @@ func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 
 func TestDeploy_Promote_NoSourceBinding(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{},
@@ -1488,7 +1481,6 @@ func TestList_WithProjectFilter(t *testing.T) {
 
 func TestDeploy_PipelineError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 	}, nil)
@@ -1501,7 +1493,6 @@ func TestDeploy_PipelineError(t *testing.T) {
 
 func TestDeploy_GetReleaseBindingError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 	}, nil)
@@ -1517,7 +1508,6 @@ func TestDeploy_GetReleaseBindingError(t *testing.T) {
 
 func TestPromote_PipelineError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(nil, fmt.Errorf("pipeline not found"))
 
 	cp := New(mc)
@@ -1527,7 +1517,6 @@ func TestPromote_PipelineError(t *testing.T) {
 
 func TestPromote_ListBindingsError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("list error"))
 
@@ -1539,7 +1528,6 @@ func TestPromote_ListBindingsError(t *testing.T) {
 func TestPromote_GetTargetBindingError(t *testing.T) {
 	relName := "rel-1"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -1588,13 +1576,6 @@ func TestStartWorkflow_ReleaseLineRejectsSet(t *testing.T) {
 	assert.ErrorContains(t, err, "--set cannot be combined with --release-line")
 }
 
-func expectComponent(mc *mocks.MockInterface, name string, releaseLinesEnabled bool) {
-	mc.EXPECT().GetComponent(mock.Anything, "ns", name).Return(&gen.Component{
-		Metadata: gen.ObjectMeta{Name: name},
-		Spec:     &gen.ComponentSpec{ReleaseLinesEnabled: &releaseLinesEnabled},
-	}, nil)
-}
-
 const lineNext = "next"
 
 type bindingOwner = struct {
@@ -1603,25 +1584,27 @@ type bindingOwner = struct {
 	ReleaseLine   *string `json:"releaseLine,omitempty"`
 }
 
-func TestDeploy_ReleaseLineRequired(t *testing.T) {
+func TestDeploy_MainLineKeyword(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "hello", true)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
+		return req.ReleaseLine == nil
+	})).Return(&gen.ComponentRelease{Metadata: gen.ObjectMeta{Name: "hello-20260101-1"}}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "hello-dev").Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return rb.Metadata.Name == "hello-dev" && rb.Spec.Owner.ReleaseLine == nil
+	})).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "hello-dev"},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: makeReleaseName("hello-20260101-1")},
+	}, nil)
 
-	err := New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello"})
-	assert.EqualError(t, err, "component 'hello' uses release lines; set --release-line")
-}
-
-func TestDeploy_ReleaseLinesNotEnabled(t *testing.T) {
-	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "my-comp", false)
-
-	err := New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "my-comp", ReleaseLine: "next"})
-	assert.EqualError(t, err, "component 'my-comp' does not have release lines enabled")
+	testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "main"}))
+	})
 }
 
 func TestDeploy_ReleaseLine_DeployToLowestEnv(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "hello", true)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
 		return req.ReleaseLine != nil && *req.ReleaseLine == lineNext
 	})).Return(&gen.ComponentRelease{Metadata: gen.ObjectMeta{Name: "hello-next-20260101-1"}}, nil)
@@ -1645,7 +1628,6 @@ func TestDeploy_ReleaseLine_DeployToLowestEnv(t *testing.T) {
 func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
 	main, next := "main", "next"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "hello", true)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -1671,7 +1653,6 @@ func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
 
 func TestDeploy_ReleaseLine_RollbackPinsRelease(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "hello", true)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 	existing := &gen.ReleaseBinding{
@@ -1694,7 +1675,6 @@ func TestDeploy_ReleaseLine_RollbackPinsRelease(t *testing.T) {
 func TestDeploy_ReleaseLine_NoSourceBindingOnLine(t *testing.T) {
 	main := "main"
 	mc := mocks.NewMockInterface(t)
-	expectComponent(mc, "hello", true)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "hello-main-dev"}, Spec: &gen.ReleaseBindingSpec{

@@ -115,22 +115,20 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "component"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "name", "component_type"},
-			optionalParams:      []string{"display_name", "description", "release_lines_enabled"},
+			optionalParams:      []string{"display_name", "description"},
 			testArgs: map[string]any{
-				"namespace_name":        testNamespaceName,
-				"project_name":          testProjectName,
-				"name":                  "new-component",
-				"component_type":        "WebApplication",
-				"release_lines_enabled": true,
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"name":           "new-component",
+				"component_type": "WebApplication",
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != testProjectName {
 					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testProjectName, args[0], args[1])
 				}
-				req, ok := args[2].(*gen.CreateComponentRequest)
-				if !ok || req.ReleaseLinesEnabled == nil || !*req.ReleaseLinesEnabled {
-					t.Errorf("Expected releaseLinesEnabled true, got %v", args[2])
+				if _, ok := args[2].(*gen.CreateComponentRequest); !ok {
+					t.Errorf("Expected a CreateComponentRequest, got %v", args[2])
 				}
 			},
 		},

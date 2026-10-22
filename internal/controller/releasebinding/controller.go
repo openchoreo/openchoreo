@@ -255,7 +255,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	releaseLine, ok, err := r.validateReleaseLine(ctx, releaseBinding, component)
+	releaseLine, ok, err := r.validateReleaseLine(ctx, releaseBinding)
 	if err != nil || !ok {
 		return ctrl.Result{}, err
 	}
@@ -380,6 +380,9 @@ func (r *Reconciler) buildMetadataContext(
 		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
 		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
 		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
+		// The main line selects on the component UID, so a line's pods carry it under another key.
+		delete(podSelectors, labels.LabelKeyComponentUID)
+		podSelectors[labels.LabelKeyReleaseLineComponentUID] = componentUID
 	}
 
 	return pipelinecontext.MetadataContext{
@@ -673,6 +676,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 				logger.Info(collision)
 				return ctrl.Result{}, nil
 			}
+		}
+		overlap, err := findMainLinePodLabel(releaseBinding.Spec.Owner.ReleaseLine, dataPlaneReleaseResources)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if overlap != "" {
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLinePodLabelOverlap, overlap)
+			logger.Info(overlap)
+			return ctrl.Result{}, nil
 		}
 	}
 	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{

@@ -446,7 +446,7 @@ type ComponentToolsetHandler interface {
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
 
-	// Release lines of a component with release lines enabled
+	// Release lines of a component
 	ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (any, error)
 	CreateReleaseLine(ctx context.Context, namespaceName, componentName string, line *gen.ReleaseLine) (any, error)

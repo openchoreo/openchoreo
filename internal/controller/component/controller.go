@@ -134,18 +134,7 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
-	if comp.Spec.ReleaseLinesEnabled {
-		// Releases already deployed stay as they are; only new ones are held back.
-		if !ct.Spec.ReleaseLines.AllowsReleaseLines() {
-			msg := fmt.Sprintf("%s %q does not allow release lines; set spec.releaseLines to Allowed on the component type",
-				comp.Spec.ComponentType.Kind, comp.Spec.ComponentType.Name)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonReleaseLinesNotAllowed, msg)
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, r.reconcileReleaseLineComponent(ctx, comp)
-	}
-
-	// Validate and fetch Workload
+	// Validate and fetch the main line's Workload
 	workload, err := r.validateAndFetchWorkload(ctx, comp)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -323,6 +312,15 @@ func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *opencho
 
 	workloadList.Items = filterWorkloadsByLine(workloadList.Items, "")
 	if len(workloadList.Items) == 0 {
+		lines, err := r.listReleaseLines(ctx, comp)
+		if err != nil {
+			return nil, err
+		}
+		if len(lines) > 0 {
+			controller.MarkTrueCondition(comp, ConditionReady, ReasonReleaseLinesReconciled,
+				"The main line has no Workload; the component deploys through its release lines")
+			return nil, nil
+		}
 		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
 		logger.Info(msg, "component", comp.Name, "ownerKey", ownerKey)
@@ -901,6 +899,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForClusterWorkflow)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
+		Watches(&openchoreov1alpha1.ReleaseLine{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentForReleaseLine)).
 		Watches(&openchoreov1alpha1.Project{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForProject)).
 		Watches(&openchoreov1alpha1.DeploymentPipeline{},

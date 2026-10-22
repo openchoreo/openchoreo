@@ -28,8 +28,8 @@ const (
 
 	// lineComponentType allows release lines. The e2e setup installs it from samples/release-lines.
 	lineComponentType = "deployment/release-line-service"
-	// plainComponentType does not allow release lines.
-	plainComponentType = "deployment/service"
+	// noLinesComponentType does not allow release lines. The suite creates it.
+	noLinesComponentType = "deployment/rl-no-lines"
 
 	componentGreeter = "greeter"
 	componentEcho    = "echo"
@@ -39,6 +39,8 @@ const (
 	lineStable   = "stable"
 	lineCanary   = "canary"
 	lineEchoMain = "echo-main"
+	// linePlainNext is a line of the plain component, whose type doesn't allow release lines.
+	linePlainNext = "plain-next"
 
 	healthTrait   = "health"
 	scalerTrait   = "scaler"
@@ -179,10 +181,9 @@ func lineComponent(name, componentType string, traits []openchoreov1alpha1.Compo
 				Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
 				Name: componentType,
 			},
-			AutoDeploy:          true,
-			ReleaseLinesEnabled: true,
-			Parameters:          rawJSON(map[string]any{"logLevel": "info"}),
-			Traits:              traits,
+			AutoDeploy: true,
+			Parameters: rawJSON(map[string]any{"logLevel": "info"}),
+			Traits:     traits,
 		},
 	}
 }
@@ -200,8 +201,8 @@ func releaseLine(name, component string) *openchoreov1alpha1.ReleaseLine {
 	}
 }
 
-// lineWorkload is the greeter Workload of one release line. An empty line gives a Workload without
-// one, which a component with release lines enabled rejects.
+// lineWorkload is the greeter Workload of one release line. An empty line gives the Workload of the
+// component's main line.
 func lineWorkload(component, line string) *openchoreov1alpha1.Workload {
 	name := component + "-workload"
 	if line != "" {
@@ -233,8 +234,8 @@ func lineWorkload(component, line string) *openchoreov1alpha1.Workload {
 	}
 }
 
-// greeterYAML is a component with release lines enabled and a readiness probe trait, plus two
-// lines. stable inherits everything. canary logs at debug, adds a liveness probe to the
+// greeterYAML is a component with a readiness probe trait and two release lines, and no Workload
+// for its main line yet. stable inherits everything. canary logs at debug, adds a liveness probe to the
 // component's health trait, and adds an autoscaler trait of its own.
 func greeterYAML() string {
 	health := openchoreov1alpha1.ComponentTrait{
@@ -279,6 +280,22 @@ func greeterYAML() string {
 		lineWorkload(componentGreeter, lineStable),
 		lineWorkload(componentGreeter, lineCanary),
 	)
+}
+
+// noLinesComponentTypeYAML is a ClusterComponentType that does not allow release lines.
+func noLinesComponentTypeYAML() string {
+	_, name, _ := strings.Cut(noLinesComponentType, "/")
+	return mustYAMLDocs(&openchoreov1alpha1.ClusterComponentType{
+		TypeMeta:   metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ClusterComponentType"},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
+			WorkloadType: "deployment",
+			Resources: []openchoreov1alpha1.ResourceTemplate{{
+				ID:       "deployment",
+				Template: rawJSON(map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "${metadata.name}"}}),
+			}},
+		},
+	})
 }
 
 // promotionYAML binds a release of a line to staging.

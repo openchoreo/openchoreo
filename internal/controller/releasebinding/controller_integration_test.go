@@ -167,11 +167,11 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 
 // releaseFixture returns a Release pre-labeled so that hasOwnedReleases
 // will match it for the given ReleaseBinding owner fields.
-func releaseFixture(name, namespace, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
+func releaseFixture(name, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
 	rel := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				labels.LabelKeyProjectName:     project,
 				labels.LabelKeyComponentName:   component,
@@ -801,7 +801,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Pre-creating a Release with the matching labels so handleUndeploy finds it")
 			Expect(k8sClient.Create(ctx,
-				releaseFixture(releaseName, ns, project, compName, envName),
+				releaseFixture(releaseName, project, compName, envName),
 			)).To(Succeed())
 
 			By("First reconcile: handleUndeploy deletes the Release and sets being-undeployed conditions")
@@ -922,9 +922,9 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			project  = "lines-proj"
 			compName = "lines-comp"
 			envName  = "lines-env"
-			rbName   = "lines-comp-main-lines-env"
+			rbName   = "lines-comp-lines-env"
 		)
-		mainRelease := compName + "-main-" + envName
+		mainRelease := compName + "-" + envName
 		nextRelease := compName + "-next-" + envName
 		req := reconcileRequest(rbName)
 
@@ -937,15 +937,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 		It("deletes only the Releases of its own line", func() {
 			r := testReconciler()
 
+			By("deleting the main line's binding, whose Releases carry no release line label")
 			rb := rbFixture(rbName, project, compName, envName, "rel", true)
-			rb.Spec.Owner.ReleaseLine = "main"
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
-			for line, name := range map[string]string{"main": mainRelease, "next": nextRelease} {
-				rel := releaseFixture(name, ns, project, compName, envName)
-				rel.Labels[labels.LabelKeyReleaseLine] = line
-				Expect(k8sClient.Create(ctx, rel)).To(Succeed())
-			}
+			Expect(k8sClient.Create(ctx, releaseFixture(mainRelease, project, compName, envName))).To(Succeed())
+			rel := releaseFixture(nextRelease, project, compName, envName)
+			rel.Labels[labels.LabelKeyReleaseLine] = "next"
+			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
 
 			Expect(k8sClient.Delete(ctx, rb)).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -987,7 +986,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
 			By("Creating an owned Release with matching labels AND a blocking finalizer")
-			rel := releaseFixture(releaseName, ns, project, compName, envName, blockFinalizer)
+			rel := releaseFixture(releaseName, project, compName, envName, blockFinalizer)
 			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
 
 			By("Triggering deletion of the ReleaseBinding")

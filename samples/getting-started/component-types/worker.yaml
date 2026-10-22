@@ -6,6 +6,7 @@ metadata:
     openchoreo.dev/description: "A long-running background or event-driven component with no endpoints"
 spec:
   workloadType: deployment
+  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow

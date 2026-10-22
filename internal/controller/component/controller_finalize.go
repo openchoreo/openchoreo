@@ -242,15 +242,13 @@ func (r *Reconciler) hasOwnedWorkflowRuns(ctx context.Context, comp *openchoreov
 // hasOwnedReleaseLines checks if any ReleaseLines owned by this Component still exist,
 // and deletes them if they exist.
 func (r *Reconciler) hasOwnedReleaseLines(ctx context.Context, comp *openchoreov1alpha1.Component) (bool, error) {
-	lineList := &openchoreov1alpha1.ReleaseLineList{}
-	if err := r.List(ctx, lineList,
-		client.InNamespace(comp.Namespace),
-		client.MatchingFields{controller.IndexKeyReleaseLineOwner: controller.MakeReleaseLineOwnerKey(comp.Spec.Owner.ProjectName, comp.Name)}); err != nil {
-		return false, fmt.Errorf("failed to list release lines: %w", err)
+	lines, err := r.listReleaseLines(ctx, comp)
+	if err != nil {
+		return false, err
 	}
 
-	for i := range lineList.Items {
-		line := &lineList.Items[i]
+	for i := range lines {
+		line := &lines[i]
 		if !line.DeletionTimestamp.IsZero() {
 			continue
 		}
@@ -259,5 +257,5 @@ func (r *Reconciler) hasOwnedReleaseLines(ctx context.Context, comp *openchoreov
 		}
 	}
 
-	return len(lineList.Items) > 0, nil
+	return len(lines) > 0, nil
 }

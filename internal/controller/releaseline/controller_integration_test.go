@@ -36,7 +36,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 		compName     = "rl-comp"
 		project      = "rl-proj"
 		pipelineName = "rl-pipe"
-		mainLine     = "main"
+		stableLine   = "stable"
 		v2Line       = "v2"
 	)
 	var (
@@ -107,11 +107,10 @@ var _ = Describe("ReleaseLine Controller", func() {
 		comp = &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{Name: compName, Namespace: ns},
 			Spec: openchoreov1alpha1.ComponentSpec{
-				Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: project},
-				ComponentType:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "deployment/" + ctName},
-				AutoDeploy:          true,
-				ReleaseLinesEnabled: true,
-				Parameters:          &runtime.RawExtension{Raw: []byte(`{"replicas":1,"resources":{"cpu":"100m","memory":"128Mi"}}`)},
+				Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: project},
+				ComponentType: openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "deployment/" + ctName},
+				AutoDeploy:    true,
+				Parameters:    &runtime.RawExtension{Raw: []byte(`{"replicas":1,"resources":{"cpu":"100m","memory":"128Mi"}}`)},
 			},
 		}
 		create(
@@ -165,18 +164,18 @@ var _ = Describe("ReleaseLine Controller", func() {
 		}
 	})
 
-	Context("When the component has release lines enabled", func() {
+	Context("When the component has release lines", func() {
 		BeforeEach(func() {
 			v2 := newLine(v2Line)
 			v2.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"resources":{"memory":"256Mi"}}`)}
-			create(comp, newLine(mainLine), v2,
-				newWorkload("rl-wl-main", mainLine, "nginx:1"),
+			create(comp, newLine(stableLine), v2,
+				newWorkload("rl-wl-stable", stableLine, "nginx:1"),
 				newWorkload("rl-wl-v2", v2Line, "nginx:2"))
 		})
 
 		It("releases and binds every line independently", func() {
 			releases := map[string]string{}
-			for _, name := range []string{mainLine, v2Line} {
+			for _, name := range []string{stableLine, v2Line} {
 				line := reconcileUntil(name, ReasonComponentReleaseReady)
 				Expect(line.Finalizers).To(ContainElement(ReleaseLineFinalizer))
 				Expect(line.Status.LatestRelease).NotTo(BeNil())
@@ -224,7 +223,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 
 			line := reconcileUntil(v2Line, ReasonReconciled)
 			Expect(line.Status.LatestRelease).To(BeNil())
-			reconcileUntil(mainLine, ReasonComponentReleaseReady)
+			reconcileUntil(stableLine, ReasonComponentReleaseReady)
 		})
 
 		It("does not release a line while its component type does not allow release lines", func() {
@@ -235,7 +234,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 				g.Expect(k8sClient.Update(ctx, ct)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
-			line := reconcileUntil(mainLine, ReasonReleaseLinesNotAllowed)
+			line := reconcileUntil(stableLine, ReasonReleaseLinesNotAllowed)
 			Expect(line.Status.LatestRelease).To(BeNil())
 			Eventually(func(g Gomega) {
 				g.Expect(bindingsOf(g)).To(BeEmpty())
@@ -248,7 +247,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 		})
 
 		It("removes the line's release, binding and workload when the line is deleted", func() {
-			reconcileUntil(mainLine, ReasonComponentReleaseReady)
+			reconcileUntil(stableLine, ReasonComponentReleaseReady)
 			reconcileUntil(v2Line, ReasonComponentReleaseReady)
 
 			Expect(k8sClient.Delete(ctx, newLine(v2Line))).To(Succeed())
@@ -264,20 +263,14 @@ var _ = Describe("ReleaseLine Controller", func() {
 				for _, b := range bindingsOf(g) {
 					lines[b.Spec.Owner.ReleaseLine] = true
 				}
-				g.Expect(lines).To(Equal(map[string]bool{mainLine: true}))
+				g.Expect(lines).To(Equal(map[string]bool{stableLine: true}))
 
 				wl := &openchoreov1alpha1.Workload{}
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: "rl-wl-v2", Namespace: ns}, wl)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "rl-wl-main", Namespace: ns}, wl)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "rl-wl-stable", Namespace: ns}, wl)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 		})
-	})
-
-	It("flags a line whose component does not have release lines enabled", func() {
-		comp.Spec.ReleaseLinesEnabled = false
-		create(comp, newLine(v2Line))
-		reconcileUntil(v2Line, ReasonReleaseLinesNotEnabled)
 	})
 
 	It("flags a line whose component does not exist", func() {

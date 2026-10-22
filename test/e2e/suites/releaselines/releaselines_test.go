@@ -68,6 +68,8 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			By("skipping cleanup because E2E_KEEP_RESOURCES=true")
 			return
 		}
+		_, noLinesType, _ := strings.Cut(noLinesComponentType, "/")
+		_, _ = framework.Kubectl(kubeContext, "delete", "clustercomponenttype", noLinesType, "--ignore-not-found", "--wait=false")
 		By("cleaning up control plane namespace (cascades to DP namespaces)")
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs, "--ignore-not-found", "--wait=false")
 		for _, ns := range []string{dpDevNs, dpStagingNs} {
@@ -235,33 +237,59 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 		})
 
 		It("rejects release lines on a component type that doesn't allow them", func() {
-			output, err := framework.KubectlApplyLiteral(kubeContext,
-				mustYAMLDocs(lineComponent(componentPlain, plainComponentType, nil)))
+			output, err := framework.KubectlApplyLiteral(kubeContext, noLinesComponentTypeYAML())
+			Expect(err).NotTo(HaveOccurred(), "failed to create the component type: %s", output)
+			output, err = framework.KubectlApplyLiteral(kubeContext, mustYAMLDocs(
+				lineComponent(componentPlain, noLinesComponentType, nil),
+				releaseLine(linePlainNext, componentPlain),
+			))
 			Expect(err).NotTo(HaveOccurred(), "failed to create plain component: %s", output)
 
 			Eventually(func(g Gomega) {
-				g.Expect(jsonpath(g, "component", componentPlain,
+				g.Expect(jsonpath(g, "releaseline", linePlainNext,
 					`{.status.conditions[?(@.type=="Ready")].reason}`)).To(Equal("ReleaseLinesNotAllowed"))
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
-		It("flags a Workload without a line on a component with release lines", func() {
-			unlined := mustYAMLDocs(lineWorkload(componentGreeter, ""))
-			output, err := framework.KubectlApplyLiteral(kubeContext, unlined)
-			Expect(err).NotTo(HaveOccurred(), "failed to create unlined workload: %s", output)
+		It("rejects a ReleaseLine named main", func() {
+			output, err := kubectlCreate(mustYAMLDocs(releaseLine("main", componentGreeter)))
+			Expect(err).To(HaveOccurred())
+			Expect(output).To(ContainSubstring("main is the component's implicit line"))
+		})
+	})
+
+	Context("the main line", func() {
+		It("deploys the main line next to the release lines without sharing their pods", func() {
+			By("creating the Workload of greeter's main line")
+			output, err := framework.KubectlApplyLiteral(kubeContext, mustYAMLDocs(lineWorkload(componentGreeter, "")))
+			Expect(err).NotTo(HaveOccurred(), "failed to create the main line workload: %s", output)
 
 			Eventually(func(g Gomega) {
-				g.Expect(jsonpath(g, "component", componentGreeter,
-					`{.status.conditions[?(@.type=="Ready")].reason}`)).To(Equal("InvalidConfiguration"))
+				g.Expect(jsonpath(g, "releasebinding", componentGreeter+"-"+envDev,
+					`{.status.conditions[?(@.type=="Ready")].status}`)).To(Equal("True"))
+				g.Expect(jsonpath(g, "releasebinding", componentGreeter+"-"+envDev, "{.spec.owner.releaseLine}")).To(BeEmpty())
+			}, 4*time.Minute, 3*time.Second).Should(Succeed())
+
+			By("checking the main line's Service selects only the main line's pods")
+			Eventually(func(g Gomega) {
+				selector, err := framework.Kubectl(kubeContext, "get", "service", componentGreeter, "-n", dpDevNs,
+					"-o", "go-template={{range $k, $v := .spec.selector}}{{$k}}={{$v}},{{end}}")
+				g.Expect(err).NotTo(HaveOccurred())
+				out, err := framework.Kubectl(kubeContext, "get", "pods", "-n", dpDevNs,
+					"-l", strings.TrimSuffix(selector, ","), "-o", "json")
+				g.Expect(err).NotTo(HaveOccurred())
+				var pods corev1.PodList
+				g.Expect(json.Unmarshal([]byte(out), &pods)).To(Succeed())
+				g.Expect(pods.Items).NotTo(BeEmpty())
+				for _, pod := range pods.Items {
+					g.Expect(pod.Labels).NotTo(HaveKey(labelReleaseLine), "pod %s of a release line", pod.Name)
+				}
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
-			By("removing the unlined workload")
-			output, err = framework.KubectlDeleteLiteral(kubeContext, unlined)
-			Expect(err).NotTo(HaveOccurred(), "failed to delete unlined workload: %s", output)
-			Eventually(func(g Gomega) {
-				g.Expect(jsonpath(g, "component", componentGreeter,
-					`{.status.conditions[?(@.type=="Ready")].reason}`)).To(Equal("ReleaseLinesReconciled"))
-			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+			By("checking a line's Service doesn't select the main line's pods")
+			for _, line := range []string{lineStable, lineCanary} {
+				Expect(lineDeployment(line).Spec.Selector.MatchLabels).NotTo(HaveKey("openchoreo.dev/component-uid"))
+			}
 		})
 	})
 
