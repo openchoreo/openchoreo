@@ -17,7 +17,12 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
-const defaultPlaneName = "default"
+const (
+	defaultPlaneName = "default"
+
+	// defaultLogsLimit is the page size when --tail is unset, matching the observer's default.
+	defaultLogsLimit = 100
+)
 
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
@@ -96,7 +101,7 @@ func (cp *Component) Logs(params LogsParams) error {
 	return cp.fetchAndPrintLogs(ctx, observerURL, credential.Token, environmentUID, params, startTime, endTime)
 }
 
-// fetchAndPrintLogs fetches logs for a given time range and prints them
+// fetchAndPrintLogs prints the newest entries in the given time range
 func (cp *Component) fetchAndPrintLogs(
 	ctx context.Context,
 	observerURL string,
@@ -106,19 +111,42 @@ func (cp *Component) fetchAndPrintLogs(
 	startTime time.Time,
 	endTime time.Time,
 ) error {
-	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
+	logs, err := cp.fetchNewestLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
-	}
-
-	// When --tail is used, logs are fetched in desc order; reverse for chronological display
-	if params.Tail > 0 {
-		reverseLogs(logs)
 	}
 
 	printLogs(logs, params.Container)
 
 	return nil
+}
+
+// fetchNewestLogs returns the newest entries in the window in chronological order. The query
+// runs newest-first so that the limit keeps the latest entries, then the page is flipped.
+func (cp *Component) fetchNewestLogs(
+	ctx context.Context,
+	observerURL string,
+	token string,
+	environmentID string,
+	params LogsParams,
+	startTime time.Time,
+	endTime time.Time,
+) ([]client.LogEntry, error) {
+	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime,
+		tailLimit(params.Tail), "desc")
+	if err != nil {
+		return nil, err
+	}
+	reverseLogs(logs)
+	return logs, nil
+}
+
+// tailLimit resolves --tail into a page size, an unset flag meaning the default page.
+func tailLimit(tail int) int {
+	if tail <= 0 {
+		return defaultLogsLimit
+	}
+	return tail
 }
 
 // printLogEntry prints a log entry, prefixing the container name when known so logs from
@@ -173,15 +201,10 @@ func (cp *Component) followLogs(
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Initial fetch (respects --tail for the initial batch)
-	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
+	// Initial batch is the newest entries (respects --tail)
+	logs, err := cp.fetchNewestLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
-	}
-
-	// When --tail is used, initial logs are fetched in desc order; reverse for chronological display
-	if params.Tail > 0 {
-		reverseLogs(logs)
 	}
 
 	// Print initial logs
@@ -196,9 +219,6 @@ func (cp *Component) followLogs(
 		}
 	}
 
-	// Clear tail for subsequent polls — fetch all new logs in ascending order
-	params.Tail = 0
-
 	// Poll for new logs
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -211,7 +231,9 @@ func (cp *Component) followLogs(
 		case <-ticker.C:
 			endTime = time.Now()
 
-			logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
+			// Polls read ascending so new entries print in order; --tail applies to the initial batch only
+			logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime,
+				defaultLogsLimit, "asc")
 			if err != nil {
 				// Check if context was cancelled
 				if ctx.Err() != nil {
@@ -249,12 +271,9 @@ func (cp *Component) fetchLogs(
 	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
+	limit int,
+	sortOrder string,
 ) ([]client.LogEntry, error) {
-	sortOrder := "asc"
-	if params.Tail > 0 {
-		sortOrder = "desc"
-	}
-
 	reqBody := client.ComponentLogsRequest{
 		StartTime:       startTime.Format(observability.LogTimestampFormat),
 		EndTime:         endTime.Format(observability.LogTimestampFormat),
@@ -263,7 +282,7 @@ func (cp *Component) fetchLogs(
 		ProjectName:     params.Project,
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
-		Limit:           int64(params.Tail),
+		Limit:           int64(limit),
 		SortOrder:       sortOrder,
 		LogType:         "runtime",
 	}
