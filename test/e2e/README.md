@@ -137,7 +137,7 @@ Source: [`suites/microservicesdemo/microservicesdemo_test.go:50`](suites/microse
 
 Source: [`suites/releaselines/releaselines_test.go:24`](suites/releaselines/releaselines_test.go#L24)
 
-Needs the `release-line-service` ClusterComponentType from `samples/release-lines/component-type.yaml`, which `make e2e.setup` installs. Line names are unique within a namespace, so every line in the suite has its own name.
+Installs the `release-line-service` ClusterComponentType from `fixtures/releaselines/component-type.yaml`, the default `service` type with a `logLevel` parameter for the lines to override, and removes it afterwards. Line names are unique within a namespace, so every line in the suite has its own name.
 
 1. Create a `greeter` component with release lines enabled and a readiness-probe trait, a `stable` line with no overrides, and a `canary` line that logs at debug, adds a liveness probe to the component's trait and adds an autoscaler trait. Each line gets its own Workload
 2. Both lines auto-deploy to development through their own ReleaseBindings, each line reports development as ready, and the component reports `ReleaseLinesReconciled`
