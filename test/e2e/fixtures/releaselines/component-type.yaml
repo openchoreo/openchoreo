@@ -1,21 +1,19 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-# The default service component type, with every component-scoped object named from
-# metadata.componentName and metadata.releaseLineName so the release lines of a component never collide.
+# The default service component type with a logLevel parameter, so the release lines e2e suite can
+# check that a line overrides the component's parameters.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: release-line-service
   annotations:
-    openchoreo.dev/description: "The service component type, with data plane objects named per release line"
+    openchoreo.dev/description: "The service component type, with a logLevel parameter for release line overrides"
 spec:
   workloadType: deployment
   releaseLines: Allowed
 
   allowedWorkflows:
-    - kind: ClusterWorkflow
-      name: release-line-dockerfile-builder
     - kind: ClusterWorkflow
       name: paketo-buildpacks-builder
     - kind: ClusterWorkflow

@@ -17,11 +17,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
-// TestPipeline_Render_ReleaseLineServiceTypeLinesDoNotCollide renders the release line sample's
-// service ComponentType for two release lines of one component and checks that they share the
+// TestPipeline_Render_DefaultServiceTypeLinesDoNotCollide renders the default service
+// ComponentType for two release lines of one component and checks that they share the
 // project namespace without sharing any object name, gateway path, or pod selector.
-func TestPipeline_Render_ReleaseLineServiceTypeLinesDoNotCollide(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "samples", "release-lines", "component-type.yaml"))
+func TestPipeline_Render_DefaultServiceTypeLinesDoNotCollide(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "samples", "getting-started", "component-types", "service.yaml"))
 	require.NoError(t, err)
 	var cct v1alpha1.ClusterComponentType
 	require.NoError(t, yaml.Unmarshal(raw, &cct))

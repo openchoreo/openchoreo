@@ -15,10 +15,10 @@ spec:
   autoDeploy: true
   componentType:
     kind: ClusterComponentType
-    name: deployment/release-line-service
+    name: deployment/service
   workflow:
     kind: ClusterWorkflow
-    name: release-line-dockerfile-builder
+    name: dockerfile-builder
     parameters:
       repository:
         url: "https://github.com/chathuranga95/go-greeter"
@@ -31,7 +31,7 @@ spec:
 
 ---
 
-# Inherits everything on the Component, builds from the next branch, logs at warn, and adds health probes.
+# Inherits everything on the Component, builds from the next branch, and adds health probes.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ReleaseLine
 metadata:
@@ -43,8 +43,6 @@ spec:
   owner:
     projectName: default
     componentName: hello
-  parameters:
-    logLevel: warn
   workflow:
     parameters:
       repository:

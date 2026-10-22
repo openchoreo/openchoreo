@@ -15,26 +15,11 @@ The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
 ## Files
 
-- `component-type.yaml`: the `release-line-service` ClusterComponentType. It is the default `service` type, which already names component-scoped objects (Service, HTTPRoutes, backends, gateway paths) from `metadata.componentName` and `metadata.releaseLineName` so the lines of a component never collide, plus a `logLevel` parameter for the `next` line to override.
-- `build-workflow.yaml`: the `release-line-dockerfile-builder` ClusterWorkflow. It is the default dockerfile builder, except that it passes the run's release line to the workload generation step.
-- `generate-workload-template.yaml`: the `release-line-generate-workload` ClusterWorkflowTemplate. It is the default workload generation step, except that it publishes the built image to the run's release line, as the Workload `<component>-<release-line>-workload`.
-- `release-lines.yaml`: the component, whose own configuration is its `default` line, and the `next` release line. The `next` line overrides the branch to build, the log level and the health probes.
+- `release-lines.yaml`: the `hello` component, whose own configuration is its `default` line, and the `next` release line. The `next` line overrides the branch to build and adds health probes.
+
+The component uses the default `deployment/service` type and `dockerfile-builder` workflow, so the sample needs nothing else. The default component types name component-scoped objects (Service, HTTPRoutes, backends, gateway paths) from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide. The default build workflows publish each line's build to that line's own Workload, `<component>-<line>-workload`.
 
 ## Deploy
-
-```bash
-kubectl apply -f samples/release-lines/component-type.yaml -f samples/release-lines/build-workflow.yaml -f samples/release-lines/generate-workload-template.yaml
-```
-
-On a multi-cluster install, the ClusterWorkflowTemplate belongs on the workflow plane cluster and the rest on the control plane cluster. With the k3d multi-cluster setup:
-
-```bash
-kubectl --context k3d-openchoreo-cp apply -f samples/release-lines/component-type.yaml -f samples/release-lines/build-workflow.yaml
-```
-
-```bash
-kubectl --context k3d-openchoreo-wp apply -f samples/release-lines/generate-workload-template.yaml
-```
 
 ```bash
 kubectl apply -f samples/release-lines/release-lines.yaml
@@ -57,6 +42,8 @@ The first run builds the default line, the same as for any component, and `--rel
 ```bash
 kubectl get releaselines,workloads,releasebindings -n default
 ```
+
+Each line keeps its own Workload. A line inherits the component's spec, meaning its parameters, traits and workflow parameters with the line's overrides applied, but not the default line's Workload. An environment variable added to `hello-workload` reaches the default line only, and one added to `hello-next-workload` reaches `next` only. A build replaces its line's Workload from the branch's `workload.yaml`, so keep a line's environment variables in that file, or set them per environment under `workloadOverrides.container` in the line's ReleaseBinding.
 
 ## List the lines of a component
 

@@ -26,7 +26,7 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	// lineComponentType allows release lines. The e2e setup installs it from samples/release-lines.
+	// lineComponentType allows release lines and has a logLevel parameter. The suite installs it from fixtures/releaselines.
 	lineComponentType = "deployment/release-line-service"
 	// noLinesComponentType does not allow release lines. The suite creates it.
 	noLinesComponentType = "deployment/rl-no-lines"

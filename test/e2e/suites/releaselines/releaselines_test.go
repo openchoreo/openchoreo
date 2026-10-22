@@ -26,13 +26,15 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("checking the release line component type is installed")
-		_, err := framework.Kubectl(kubeContext, "get", "clustercomponenttype", "release-line-service")
-		Expect(err).NotTo(HaveOccurred(),
-			"ClusterComponentType release-line-service is missing; the e2e setup installs it from samples/release-lines")
+		By("installing the release line component type")
+		root, err := framework.RepoRoot()
+		Expect(err).NotTo(HaveOccurred())
+		output, err := framework.Kubectl(kubeContext, "apply", "-f",
+			filepath.Join(root, "test/e2e/fixtures/releaselines/component-type.yaml"))
+		Expect(err).NotTo(HaveOccurred(), "failed to install the release line component type: %s", output)
 
 		By("creating control plane namespace")
-		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
+		output, err = framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to create CP namespace: %s", output)
 
 		By("applying platform resources (pipeline, environments, project)")
@@ -68,8 +70,10 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			By("skipping cleanup because E2E_KEEP_RESOURCES=true")
 			return
 		}
-		_, noLinesType, _ := strings.Cut(noLinesComponentType, "/")
-		_, _ = framework.Kubectl(kubeContext, "delete", "clustercomponenttype", noLinesType, "--ignore-not-found", "--wait=false")
+		for _, componentType := range []string{noLinesComponentType, lineComponentType} {
+			_, name, _ := strings.Cut(componentType, "/")
+			_, _ = framework.Kubectl(kubeContext, "delete", "clustercomponenttype", name, "--ignore-not-found", "--wait=false")
+		}
 		By("cleaning up control plane namespace (cascades to DP namespaces)")
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs, "--ignore-not-found", "--wait=false")
 		for _, ns := range []string{dpDevNs, dpStagingNs} {
