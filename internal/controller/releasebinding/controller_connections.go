@@ -211,10 +211,10 @@ func buildConnectionItems(
 		return nil
 	}
 
-	// Build lookup: "namespace/project/component/endpoint/visibility" → ResolvedConnection
+	// Build lookup: "namespace/project/component/releaseLine/endpoint/visibility" → ResolvedConnection
 	resolved := make(map[string]openchoreov1alpha1.ResolvedConnection, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = rc
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.ReleaseLine, rc.Endpoint, string(rc.Visibility))] = rc
 	}
 
 	items := make([]pipelinecontext.ConnectionItem, 0, len(connections))
@@ -232,7 +232,7 @@ func buildConnectionItems(
 			Visibility: conn.Visibility,
 		}
 
-		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, conn.Visibility)
+		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.ReleaseLine, conn.Name, conn.Visibility)
 		if rc, ok := resolved[key]; ok {
 			item.EnvVars = buildEnvVarsForConnection(conn, rc)
 		}
@@ -333,23 +333,23 @@ func allConnectionsResolved(
 	}
 	resolved := make(map[string]struct{}, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = struct{}{}
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.ReleaseLine, rc.Endpoint, string(rc.Visibility))] = struct{}{}
 	}
 	for _, conn := range connections {
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, conn.Visibility)]; !ok {
+		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.ReleaseLine, conn.Name, conn.Visibility)]; !ok {
 			return false
 		}
 	}
 	return true
 }
 
-// connectionKey builds a lookup key for a connection target.
-func connectionKey(namespace, project, component, endpoint, visibility string) string {
-	return namespace + "/" + project + "/" + component + "/" + endpoint + "/" + visibility
+// connectionKey builds a lookup key for a connection target. Each line of a component is its own target.
+func connectionKey(namespace, project, component, releaseLine, endpoint, visibility string) string {
+	return namespace + "/" + project + "/" + component + "/" + releaseLine + "/" + endpoint + "/" + visibility
 }
 
 // setConnectionsCondition sets the ConnectionsResolved condition on the ReleaseBinding.
