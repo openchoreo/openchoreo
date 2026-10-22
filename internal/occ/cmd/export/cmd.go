@@ -24,10 +24,11 @@ func NewExportCmd(newClient client.NewClientFunc) *cobra.Command {
 		Short: "Export declarative configuration as YAML",
 		Long: `Export supported resources from every namespace into a GitOps-oriented directory tree.
 
-This version exports Namespace, Project, Component, and Workload resources.
-It writes only OpenChoreo resource manifests and does not create or modify
-Kustomize or Flux configuration. Release bindings and platform resources are
-not included yet; review the reported coverage gaps before using the output with Flux.`,
+This version exports supported cluster-scoped resources, namespace platform
+configuration, Namespaces, Projects, Components, Workloads, ComponentReleases,
+and ReleaseBindings. It writes only OpenChoreo resource manifests and does not
+create or modify Kustomize or Flux configuration. Review the reported coverage
+gaps before using the output with Flux.`,
 		Example: `  occ export -o ./my-gitops-repo`,
 		Args:    cobra.NoArgs,
 		PreRunE: auth.RequireLogin(),
@@ -38,7 +39,7 @@ not included yet; review the reported coverage gaps before using the output with
 				return err
 			}
 			reader := bufio.NewReader(cmd.InOrStdin())
-			return runWithSecretDecision(context.Background(), cl, cmd.OutOrStdout(), outputDir,
+			return runWithSecretDecision(context.Background(), cl, cmd.OutOrStdout(), Params{OutputDir: outputDir},
 				func(finding Withheld) bool {
 					return promptKeepPlaintext(reader, cmd.OutOrStdout(), finding)
 				})
@@ -50,15 +51,15 @@ not included yet; review the reported coverage gaps before using the output with
 }
 
 // Run executes the export and prints a summary to w.
-func Run(ctx context.Context, c client.Interface, w io.Writer, outputDir string) error {
-	return runWithSecretDecision(ctx, c, w, outputDir, nil)
+func Run(ctx context.Context, c client.Interface, w io.Writer, params Params) error {
+	return runWithSecretDecision(ctx, c, w, params, nil)
 }
 
-func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, outputDir string, keep func(Withheld) bool) error {
-	report, err := runEngine(ctx, c, Options{OutputDir: outputDir, KeepPlaintext: keep})
+func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, params Params, keep func(Withheld) bool) error {
+	report, err := runEngine(ctx, c, Options{OutputDir: params.OutputDir, KeepPlaintext: keep})
 	if report != nil {
 		fmt.Fprintf(w, "Exported %d resource(s) to %s: %d created, %d updated, %d unchanged\n",
-			report.Exported, outputDir, report.Created, report.Updated, report.Unchanged)
+			report.Exported, params.OutputDir, report.Created, report.Updated, report.Unchanged)
 		kinds := make([]string, 0, len(report.ExportedByKind))
 		for kind := range report.ExportedByKind {
 			kinds = append(kinds, kind)

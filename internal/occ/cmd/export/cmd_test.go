@@ -32,13 +32,14 @@ func TestNewExportCmd_RequiresOutputFlag(t *testing.T) {
 
 func TestRun_PrintsIncompleteCoverage(t *testing.T) {
 	mockClient := mocks.NewMockInterface(t)
+	expectNoClusterResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
 	var output bytes.Buffer
 
-	require.NoError(t, Run(t.Context(), mockClient, &output, t.TempDir()))
+	require.NoError(t, Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()}))
 	assert.Contains(t, output.String(), "0 resource(s)")
 	assert.Contains(t, output.String(), "Coverage is incomplete")
-	assert.Contains(t, output.String(), "component releases and release bindings")
+	assert.Contains(t, output.String(), "ProjectRelease and ProjectReleaseBinding")
 }
 
 func TestPromptKeepPlaintext(t *testing.T) {

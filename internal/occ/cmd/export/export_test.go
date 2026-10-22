@@ -39,6 +39,8 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 		Status: &gen.ComponentStatus{},
 	}
 	mockClient := mocks.NewMockInterface(t)
+	expectNoClusterResources(mockClient)
+	expectNoNamespacePlatformResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
 	}, nil)
@@ -57,6 +59,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 			}{ComponentName: "api", ProjectName: "shop"}},
 		}},
 	}, nil)
+	mockClient.EXPECT().ListReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 
 	report, err := runEngine(context.Background(), mockClient, Options{OutputDir: root})
 	require.NoError(t, err)
@@ -132,6 +135,49 @@ func TestRun_UpdatesExistingComponentFile(t *testing.T) {
 	data, err := os.ReadFile(componentPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "two")
+}
+
+func TestRun_ExportsReleaseBindingsAndReferencedReleases(t *testing.T) {
+	root := t.TempDir()
+	mockClient := mocks.NewMockInterface(t)
+	expectNoClusterResources(mockClient)
+	expectNoNamespacePlatformResources(mockClient)
+	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
+		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
+	}, nil)
+	mockClient.EXPECT().ListProjects(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectList{
+		Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: "shop"}}},
+	}, nil)
+	mockClient.EXPECT().ListComponents(mock.Anything, "acme", "shop", mock.Anything).Return(&gen.ComponentList{
+		Items: []gen.Component{{Metadata: gen.ObjectMeta{Name: "api"}, Spec: componentSpec("shop")}},
+	}, nil)
+	mockClient.EXPECT().ListWorkloads(mock.Anything, "acme", mock.Anything).Return(&gen.WorkloadList{}, nil)
+	mockClient.EXPECT().ListReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{{
+			Metadata: gen.ObjectMeta{Name: "api-dev"},
+			Spec: &gen.ReleaseBindingSpec{
+				Environment: "dev",
+				Owner: struct {
+					ComponentName string `json:"componentName"`
+					ProjectName   string `json:"projectName"`
+				}{ComponentName: "api", ProjectName: "shop"},
+				ReleaseName: stringPointer("api-release-1"),
+			},
+		}},
+	}, nil)
+	mockClient.EXPECT().GetComponentRelease(mock.Anything, "acme", "api-release-1").Return(&gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{Name: "api-release-1"},
+		Spec: &gen.ComponentReleaseSpec{Owner: struct {
+			ComponentName string `json:"componentName"`
+			ProjectName   string `json:"projectName"`
+		}{ComponentName: "api", ProjectName: "shop"}},
+	}, nil)
+
+	report, err := runEngine(context.Background(), mockClient, Options{OutputDir: root})
+	require.NoError(t, err)
+	assert.Equal(t, 5, report.Exported)
+	assert.Equal(t, "ReleaseBinding", readManifest(t, root, "namespaces/acme/projects/shop/components/api/release-bindings/api-dev.yaml")["kind"])
+	assert.Equal(t, "ComponentRelease", readManifest(t, root, "namespaces/acme/projects/shop/components/api/releases/api-release-1.yaml")["kind"])
 }
 
 func TestRun_StripsPlaintextSecretByDefault(t *testing.T) {
@@ -219,6 +265,8 @@ func mockComponentClient(t *testing.T, envKey, envValue string) *mocks.MockInter
 		component.Spec.Parameters = &parameters
 	}
 	mockClient := mocks.NewMockInterface(t)
+	expectNoClusterResources(mockClient)
+	expectNoNamespacePlatformResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
 	}, nil)
@@ -229,7 +277,41 @@ func mockComponentClient(t *testing.T, envKey, envValue string) *mocks.MockInter
 		Items: []gen.Component{component},
 	}, nil)
 	mockClient.EXPECT().ListWorkloads(mock.Anything, "acme", mock.Anything).Return(&gen.WorkloadList{}, nil)
+	mockClient.EXPECT().ListReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 	return mockClient
+}
+
+func componentSpec(project string) *gen.ComponentSpec {
+	return &gen.ComponentSpec{Owner: struct {
+		ProjectName string `json:"projectName"`
+	}{ProjectName: project}}
+}
+
+func expectNoClusterResources(mc *mocks.MockInterface) {
+	empty := mock.Anything
+	mc.EXPECT().ListClusterComponentTypes(empty, empty).Return(&gen.ClusterComponentTypeList{}, nil)
+	mc.EXPECT().ListClusterTraits(empty, empty).Return(&gen.ClusterTraitList{}, nil)
+	mc.EXPECT().ListClusterWorkflows(empty, empty).Return(&gen.ClusterWorkflowList{}, nil)
+	mc.EXPECT().ListClusterDataPlanes(empty, empty).Return(&gen.ClusterDataPlaneList{}, nil)
+	mc.EXPECT().ListClusterWorkflowPlanes(empty, empty).Return(&gen.ClusterWorkflowPlaneList{}, nil)
+	mc.EXPECT().ListClusterObservabilityPlanes(empty, empty).Return(&gen.ClusterObservabilityPlaneList{}, nil)
+	mc.EXPECT().ListClusterRoles(empty, empty).Return(&gen.ClusterAuthzRoleList{}, nil)
+	mc.EXPECT().ListClusterRoleBindings(empty, empty).Return(&gen.ClusterAuthzRoleBindingList{}, nil)
+}
+
+func expectNoNamespacePlatformResources(mc *mocks.MockInterface) {
+	empty := mock.Anything
+	mc.EXPECT().ListEnvironments(empty, empty, empty).Return(&gen.EnvironmentList{}, nil)
+	mc.EXPECT().ListDeploymentPipelines(empty, empty, empty).Return(&gen.DeploymentPipelineList{}, nil)
+	mc.EXPECT().ListDataPlanes(empty, empty, empty).Return(&gen.DataPlaneList{}, nil)
+	mc.EXPECT().ListWorkflowPlanes(empty, empty, empty).Return(&gen.WorkflowPlaneList{}, nil)
+	mc.EXPECT().ListObservabilityPlanes(empty, empty, empty).Return(&gen.ObservabilityPlaneList{}, nil)
+	mc.EXPECT().ListComponentTypes(empty, empty, empty).Return(&gen.ComponentTypeList{}, nil)
+	mc.EXPECT().ListTraits(empty, empty, empty).Return(&gen.TraitList{}, nil)
+	mc.EXPECT().ListWorkflows(empty, empty, empty).Return(&gen.WorkflowList{}, nil)
+	mc.EXPECT().ListNamespaceRoles(empty, empty, empty).Return(&gen.AuthzRoleList{}, nil)
+	mc.EXPECT().ListNamespaceRoleBindings(empty, empty, empty).Return(&gen.AuthzRoleBindingList{}, nil)
+	mc.EXPECT().ListSecretReferences(empty, empty, empty).Return(&gen.SecretReferenceList{}, nil)
 }
 
 func stringPointer(value string) *string { return &value }
