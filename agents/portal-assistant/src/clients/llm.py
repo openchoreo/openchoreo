@@ -1,6 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 from typing import Any
 
 from langchain.chat_models import init_chat_model
@@ -9,14 +10,19 @@ from langchain_core.language_models import BaseChatModel
 from src.config import settings
 
 
-def _requires_responses_api(model_name: str) -> bool:
-    # gpt-5.x-mini / gpt-5.x-nano / o-series-mini reject ``reasoning_effort``
-    # on /v1/chat/completions when function tools are bound and require
-    # /v1/responses instead. langchain-openai routes to the responses
-    # endpoint when ``use_responses_api=True``. Match on the model segment
-    # after the optional ``provider:`` prefix.
-    base = model_name.split(":", 1)[-1].lower()
-    return base.endswith("-mini") or base.endswith("-nano")
+def _is_openai_model(model_name: str) -> bool:
+    provider = model_name.split(":", 1)[0].lower() if ":" in model_name else "openai"
+    return provider == "openai"
+
+
+def _has_base_url_override(kwargs: dict[str, Any]) -> bool:
+    # ChatOpenAI itself falls back to OPENAI_API_BASE/OPENAI_BASE_URL when no
+    # base_url kwarg is given, so those env vars can route elsewhere too.
+    return bool(
+        kwargs.get("base_url")
+        or os.environ.get("OPENAI_API_BASE")
+        or os.environ.get("OPENAI_BASE_URL")
+    )
 
 
 def get_model(
@@ -41,9 +47,11 @@ def get_model(
     # ping) can override without touching configuration.
     if settings.portal_assistant_reasoning_effort and "reasoning_effort" not in kwargs:
         kwargs["reasoning_effort"] = settings.portal_assistant_reasoning_effort
-        if (
-            _requires_responses_api(model_name)
-            and "use_responses_api" not in kwargs
-        ):
-            kwargs["use_responses_api"] = True
+    # Force /v1/responses for direct OpenAI traffic only; a base_url override may point elsewhere.
+    if (
+        not _has_base_url_override(kwargs)
+        and _is_openai_model(model_name)
+        and "use_responses_api" not in kwargs
+    ):
+        kwargs["use_responses_api"] = True
     return init_chat_model(model=model_name, api_key=api_key, **kwargs)
