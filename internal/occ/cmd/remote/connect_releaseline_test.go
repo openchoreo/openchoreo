@@ -6,6 +6,7 @@ package remote
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -36,34 +37,82 @@ func helloDep(line string) v1alpha1.WorkloadConnection {
 }
 
 func TestBuildResolveRequestCarriesReleaseLine(t *testing.T) {
-	wl := lineWorkload("caller", "", helloDep("next"))
+	wl := lineWorkload("caller", "", helloDep("next"), helloDep("main"))
 	req := buildResolveRequest(wl, "default", "development", wl.Spec.Dependencies.Endpoints)
-	if len(req.Endpoints) != 1 || req.Endpoints[0].ReleaseLine != "next" {
+	if len(req.Endpoints) != 2 || req.Endpoints[0].ReleaseLine != "next" {
 		t.Fatalf("release line not sent: %+v", req.Endpoints)
+	}
+	if req.Endpoints[1].ReleaseLine != "" {
+		t.Fatalf("the main line keyword must be sent as the main line, got %q", req.Endpoints[1].ReleaseLine)
 	}
 }
 
-// A dependency links to a local workload only when that workload is the named line.
+// A dependency links to a local workload only when that workload is the named line. The main
+// line keyword names the main line, in a workload's owner and in a dependency alike.
 func TestSplitDependenciesMatchesReleaseLine(t *testing.T) {
-	found := []discovered{
-		{path: "hello-next.yaml", wl: lineWorkload("hello", "next")},
-		{path: "hello-main.yaml", wl: lineWorkload("hello", "main")},
+	tests := []struct {
+		name     string
+		mainLine string
+		mainDep  string
+	}{
+		{name: "main line without a line", mainLine: "", mainDep: ""},
+		{name: "main line keyword in the workload", mainLine: "main", mainDep: ""},
+		{name: "main line keyword in the dependency", mainLine: "", mainDep: "main"},
 	}
-	if err := assignIdentities(found, ""); err != nil {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found := []discovered{
+				{path: "hello-next.yaml", wl: lineWorkload("hello", "next")},
+				{path: "hello.yaml", wl: lineWorkload("hello", tt.mainLine)},
+			}
+			if err := assignIdentities(found, ""); err != nil {
+				t.Fatal(err)
+			}
+			byIdentity, err := indexByIdentity(found)
+			if err != nil {
+				t.Fatalf("two lines of one component must not clash: %v", err)
+			}
+
+			caller := lineWorkload("caller", "", helloDep("next"), helloDep(tt.mainDep), helloDep("canary"))
+			remote, links := splitDependencies(caller, "default", byIdentity)
+			got := make([]string, 0, len(links))
+			for _, l := range links {
+				got = append(got, l.provider+" "+l.key)
+			}
+			want := []string{
+				"hello@next " + remoteconnect.EndpointTargetKey("default", "hello", "next", "http"),
+				"hello " + remoteconnect.EndpointTargetKey("default", "hello", "", "http"),
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("expected local links to hello@next and hello, got %v", got)
+			}
+			if len(remote) != 1 || remote[0].ReleaseLine != "canary" {
+				t.Fatalf("expected the canary dependency to resolve remotely, got %+v", remote)
+			}
+		})
+	}
+}
+
+// Two lines of one component run on their own ports, so --local addresses each line.
+func TestLocalOverridesPerReleaseLine(t *testing.T) {
+	overrides, err := parseLocalOverrides([]string{"hello=127.0.0.1:9091", "hello@next=127.0.0.1:9092", "web@main=127.0.0.1:9093"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	byIdentity, err := indexByIdentity(found)
-	if err != nil {
-		t.Fatalf("two lines of one component must not clash: %v", err)
+	for _, tt := range []struct {
+		provider string
+		port     int
+	}{{"hello", 9091}, {"hello@next", 9092}, {"web", 9093}, {"hello@canary", 9090}} {
+		_, port := localLink{provider: tt.provider, defaultPort: 9090}.target(overrides)
+		if port != tt.port {
+			t.Errorf("%s: got port %d, want %d", tt.provider, port, tt.port)
+		}
 	}
 
-	caller := lineWorkload("caller", "", helloDep("next"), helloDep("canary"))
-	remote, links := splitDependencies(caller, "default", byIdentity)
-	if len(links) != 1 || links[0].key != remoteconnect.EndpointTargetKey("default", "hello", "next", "http") {
-		t.Fatalf("expected one local link to hello@next, got %+v", links)
-	}
-	if len(remote) != 1 || remote[0].ReleaseLine != "canary" {
-		t.Fatalf("expected the canary dependency to resolve remotely, got %+v", remote)
+	for _, bad := range []string{"@next=127.0.0.1:9092", "hello@=127.0.0.1:9092"} {
+		if _, err := parseLocalOverrides([]string{bad}); err == nil {
+			t.Errorf("%s: expected an error", bad)
+		}
 	}
 }
 
@@ -74,7 +123,8 @@ func TestConnectFailsWhenNoDependencyConnects(t *testing.T) {
 	d := New(&fakeResolver{resp: &remoteconnect.ResolveResponse{
 		Capability: "cap",
 		Unconnectable: []remoteconnect.Unconnectable{{
-			Ref: "ep/finance/ledger-svc/http", Reason: "component finance/ledger-svc uses release lines; set releaseLine on the dependency",
+			Ref: "ep/finance/ledger-svc/http", Reason: "the main line of component finance/ledger-svc is not deployed in environment development; " +
+				"set releaseLine to depend on one of its release lines",
 		}},
 	}})
 	shellRan := false
@@ -88,7 +138,7 @@ func TestConnectFailsWhenNoDependencyConnects(t *testing.T) {
 	if shellRan {
 		t.Fatal("a shell must not open when nothing connected")
 	}
-	if !strings.Contains(out.String(), "set releaseLine on the dependency") {
+	if !strings.Contains(out.String(), "set releaseLine to depend on one of its release lines") {
 		t.Errorf("reason missing from output:\n%s", out.String())
 	}
 	if strings.Contains(out.String(), "Tunnels open") {

@@ -735,13 +735,18 @@ func TestResolveResourceReportsNothingWhenEndpointsResolved(t *testing.T) {
 	}
 }
 
-// Each release line of a provider resolves to its own binding and its own key, and a
-// dependency without a line never falls through to a line's binding.
+// Each line of a provider, its main line included, resolves to its own binding and its own key.
 func TestResolveEndpointPerReleaseLine(t *testing.T) {
 	env, dp := testEnvironmentAndDataPlane()
-	lineRB := func(line string) *openchoreov1alpha1.ReleaseBinding {
+	hostOf := func(line string) string {
+		if line == "" {
+			return "hello.dp-ns.svc.cluster.local"
+		}
+		return "hello-" + line + ".dp-ns.svc.cluster.local"
+	}
+	lineRB := func(name, line string) *openchoreov1alpha1.ReleaseBinding {
 		return &openchoreov1alpha1.ReleaseBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "hello-" + line + "-development", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 			Spec: openchoreov1alpha1.ReleaseBindingSpec{
 				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "doclet", ComponentName: "hello", ReleaseLine: line},
 				Environment: "development",
@@ -749,20 +754,23 @@ func TestResolveEndpointPerReleaseLine(t *testing.T) {
 			Status: openchoreov1alpha1.ReleaseBindingStatus{
 				Endpoints: []openchoreov1alpha1.EndpointURLStatus{{
 					Name:       httpStr,
-					ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: httpStr, Host: "hello-" + line + ".dp-ns.svc.cluster.local", Port: 9090},
+					ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: httpStr, Host: hostOf(line), Port: 9090},
 				}},
 			},
 		}
 	}
 	hello := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{Name: "hello", Namespace: "default"},
-		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"},
-			ReleaseLinesEnabled: true,
+		Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"}},
+	}
+	next := &openchoreov1alpha1.ReleaseLine{
+		ObjectMeta: metav1.ObjectMeta{Name: "next", Namespace: "default"},
+		Spec: openchoreov1alpha1.ReleaseLineSpec{
+			Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: "doclet", ComponentName: "hello"},
 		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(remoteConnectScheme(t)).
-		WithObjects(env, dp, hello, lineRB("main"), lineRB("next")).Build()
+		WithObjects(env, dp, hello, next, lineRB("hello-development", ""), lineRB("hello-next-development", "next")).Build()
 
 	_, priv, _ := ed25519.GenerateKey(nil)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -781,7 +789,7 @@ func TestResolveEndpointPerReleaseLine(t *testing.T) {
 	}
 	resp, err := h.resolve(context.Background(), remoteconnect.ResolveRequest{
 		Namespace: "default", Project: "doclet", Component: "caller", Environment: "development",
-		Endpoints: []remoteconnect.EndpointDep{dep("main", "MAIN_URL"), dep("next", "NEXT_URL"), dep("", "HELLO_URL")},
+		Endpoints: []remoteconnect.EndpointDep{dep("", "HELLO_URL"), dep("next", "NEXT_URL"), dep("main", "MAIN_URL"), dep("ghost", "GHOST_URL")},
 	}, "user:alice")
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -791,18 +799,23 @@ func TestResolveEndpointPerReleaseLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify capability: %v", err)
 	}
-	for _, line := range []string{"main", "next"} {
+	for _, line := range []string{"", "next"} {
 		key := remoteconnect.EndpointTargetKey("doclet", "hello", line, httpStr)
 		findTarget(t, resp.Targets, key)
 		target, ok := claims.TargetByKey(key)
-		if !ok || target.Host != "hello-"+line+".dp-ns.svc.cluster.local" {
+		if !ok || target.Host != hostOf(line) {
 			t.Fatalf("line %q: bad capability target %+v ok=%v", line, target, ok)
 		}
 	}
-	if len(resp.Unconnectable) != 1 || resp.Unconnectable[0].Ref != "ep/doclet/hello/http" {
-		t.Fatalf("expected only the dependency without a line to be unconnectable, got %+v", resp.Unconnectable)
+	if len(resp.Unconnectable) != 1 {
+		t.Fatalf("expected only the dependency on an unknown line to be unconnectable, got %+v", resp.Unconnectable)
 	}
-	if want := "component doclet/hello uses release lines; set releaseLine on the dependency"; resp.Unconnectable[0].Reason != want {
+	for _, target := range resp.Targets {
+		if strings.Contains(target.Key, "@main") {
+			t.Fatalf("the main line keyword must resolve to the main line, got target %q", target.Key)
+		}
+	}
+	if want := `release line "ghost" not found for component doclet/hello`; resp.Unconnectable[0].Reason != want {
 		t.Fatalf("reason = %q, want %q", resp.Unconnectable[0].Reason, want)
 	}
 }
@@ -813,10 +826,7 @@ func TestResolveReleaseLineReasonRequiresAuthorization(t *testing.T) {
 	env, dp := testEnvironmentAndDataPlane()
 	hello := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{Name: "hello", Namespace: "default"},
-		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"},
-			ReleaseLinesEnabled: true,
-		},
+		Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "doclet"}},
 	}
 	cl := fake.NewClientBuilder().WithScheme(remoteConnectScheme(t)).WithObjects(env, dp, hello).Build()
 	_, priv, _ := ed25519.GenerateKey(nil)
@@ -829,7 +839,7 @@ func TestResolveReleaseLineReasonRequiresAuthorization(t *testing.T) {
 	}
 	resp, err := h.resolve(context.Background(), remoteconnect.ResolveRequest{
 		Namespace: "default", Project: "doclet", Component: "caller", Environment: "development",
-		Endpoints: []remoteconnect.EndpointDep{{Component: "hello", Name: httpStr, Visibility: "project"}},
+		Endpoints: []remoteconnect.EndpointDep{{Component: "hello", ReleaseLine: "ghost", Name: httpStr, Visibility: "project"}},
 	}, "user:alice")
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
