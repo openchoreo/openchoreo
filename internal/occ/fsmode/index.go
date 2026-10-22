@@ -5,8 +5,10 @@ package fsmode
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
@@ -15,6 +17,8 @@ import (
 type OwnerRef struct {
 	ProjectName   string
 	ComponentName string
+	// ReleaseLine is the owner's release line, empty for the component's main line.
+	ReleaseLine string
 }
 
 // ExtractOwnerRef extracts owner reference information from a resource entry
@@ -25,6 +29,7 @@ func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
 
 	// For Component resources, componentName is in metadata.name
 	// For ComponentRelease and ReleaseBinding, both are in spec.owner
+	// For ReleaseLine resources, the release line is metadata.name
 	kind := entry.Resource.GroupVersionKind().Kind
 
 	ownerMap := entry.GetNestedMap("spec", "owner")
@@ -34,10 +39,14 @@ func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
 
 	projectName, _ := ownerMap["projectName"].(string)
 	componentName, _ := ownerMap["componentName"].(string)
+	releaseLine, _ := ownerMap["releaseLine"].(string)
 
-	// For Component resources, get componentName from metadata.name
-	if kind == "Component" {
+	switch kind {
+	case ComponentGVK.Kind:
 		componentName = entry.Name()
+		releaseLine = ""
+	case ReleaseLineGVK.Kind:
+		releaseLine = entry.Name()
 	}
 
 	if projectName == "" && componentName == "" {
@@ -47,7 +56,18 @@ func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
 	return &OwnerRef{
 		ProjectName:   projectName,
 		ComponentName: componentName,
+		ReleaseLine:   releaseLine,
 	}
+}
+
+// componentKey keys an index by component.
+func componentKey(projectName, componentName string) string {
+	return projectName + "/" + componentName
+}
+
+// lineKey keys an index by a component's release line, empty for its main line.
+func lineKey(projectName, componentName, releaseLine string) string {
+	return projectName + "/" + componentName + "/" + releaseLine
 }
 
 // Index wraps the generic index with OpenChoreo-specific functionality
@@ -56,30 +76,32 @@ type Index struct {
 	mu sync.RWMutex
 
 	// OpenChoreo-specific indexes
-	componentsByProject   map[string][]*index.ResourceEntry // projectName -> components
-	workloadsByComponent  map[string]*index.ResourceEntry   // "project/component" -> workload
-	componentTypes        map[string]*index.ResourceEntry   // typeName -> componentType
-	traits                map[string]*index.ResourceEntry   // traitName -> trait
-	clusterComponentTypes map[string]*index.ResourceEntry   // typeName -> clusterComponentType
-	clusterTraits         map[string]*index.ResourceEntry   // traitName -> clusterTrait
-	releasesByComponent   map[string][]*index.ResourceEntry // "project/component" -> releases
-	releaseBindingsByEnv  map[string][]*index.ResourceEntry // "project/component/env" -> bindings
-	deploymentPipelines   map[string]*index.ResourceEntry   // pipelineName -> pipeline
+	componentsByProject     map[string][]*index.ResourceEntry // projectName -> components
+	workloadsByLine         map[string]*index.ResourceEntry   // "project/component/line" -> workload
+	componentTypes          map[string]*index.ResourceEntry   // typeName -> componentType
+	traits                  map[string]*index.ResourceEntry   // traitName -> trait
+	clusterComponentTypes   map[string]*index.ResourceEntry   // typeName -> clusterComponentType
+	clusterTraits           map[string]*index.ResourceEntry   // traitName -> clusterTrait
+	releaseLinesByComponent map[string][]*index.ResourceEntry // "project/component" -> release lines
+	releasesByLine          map[string][]*index.ResourceEntry // "project/component/line" -> releases
+	releaseBindingsByEnv    map[string][]*index.ResourceEntry // "project/component/line/env" -> bindings
+	deploymentPipelines     map[string]*index.ResourceEntry   // pipelineName -> pipeline
 }
 
 // WrapIndex wraps an existing generic index with OpenChoreo-specific functionality
 func WrapIndex(idx *index.Index) *Index {
 	ocIndex := &Index{
-		Index:                 idx,
-		componentsByProject:   make(map[string][]*index.ResourceEntry),
-		workloadsByComponent:  make(map[string]*index.ResourceEntry),
-		componentTypes:        make(map[string]*index.ResourceEntry),
-		traits:                make(map[string]*index.ResourceEntry),
-		clusterComponentTypes: make(map[string]*index.ResourceEntry),
-		clusterTraits:         make(map[string]*index.ResourceEntry),
-		releasesByComponent:   make(map[string][]*index.ResourceEntry),
-		releaseBindingsByEnv:  make(map[string][]*index.ResourceEntry),
-		deploymentPipelines:   make(map[string]*index.ResourceEntry),
+		Index:                   idx,
+		componentsByProject:     make(map[string][]*index.ResourceEntry),
+		workloadsByLine:         make(map[string]*index.ResourceEntry),
+		componentTypes:          make(map[string]*index.ResourceEntry),
+		traits:                  make(map[string]*index.ResourceEntry),
+		clusterComponentTypes:   make(map[string]*index.ResourceEntry),
+		clusterTraits:           make(map[string]*index.ResourceEntry),
+		releaseLinesByComponent: make(map[string][]*index.ResourceEntry),
+		releasesByLine:          make(map[string][]*index.ResourceEntry),
+		releaseBindingsByEnv:    make(map[string][]*index.ResourceEntry),
+		deploymentPipelines:     make(map[string]*index.ResourceEntry),
 	}
 
 	// Build OpenChoreo-specific indexes from existing resources
@@ -101,11 +123,18 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 		}
 
 	case WorkloadGVK:
+		// Index by release line
+		owner := ExtractOwnerRef(entry)
+		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
+			idx.workloadsByLine[lineKey(owner.ProjectName, owner.ComponentName, owner.ReleaseLine)] = entry
+		}
+
+	case ReleaseLineGVK:
 		// Index by component
 		owner := ExtractOwnerRef(entry)
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
-			key := fmt.Sprintf("%s/%s", owner.ProjectName, owner.ComponentName)
-			idx.workloadsByComponent[key] = entry
+			key := componentKey(owner.ProjectName, owner.ComponentName)
+			idx.releaseLinesByComponent[key] = append(idx.releaseLinesByComponent[key], entry)
 		}
 
 	case ComponentTypeGVK:
@@ -137,19 +166,19 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 		}
 
 	case ComponentReleaseGVK:
-		// Index by component
+		// Index by release line
 		owner := ExtractOwnerRef(entry)
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
-			key := fmt.Sprintf("%s/%s", owner.ProjectName, owner.ComponentName)
-			idx.releasesByComponent[key] = append(idx.releasesByComponent[key], entry)
+			key := lineKey(owner.ProjectName, owner.ComponentName, owner.ReleaseLine)
+			idx.releasesByLine[key] = append(idx.releasesByLine[key], entry)
 		}
 
 	case ReleaseBindingGVK:
-		// Index by component and environment
+		// Index by release line and environment
 		owner := ExtractOwnerRef(entry)
 		envName := entry.GetNestedString("spec", "environment")
 		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" && envName != "" {
-			key := fmt.Sprintf("%s/%s/%s", owner.ProjectName, owner.ComponentName, envName)
+			key := lineKey(owner.ProjectName, owner.ComponentName, owner.ReleaseLine) + "/" + envName
 			idx.releaseBindingsByEnv[key] = append(idx.releaseBindingsByEnv[key], entry)
 		}
 
@@ -169,12 +198,13 @@ func (idx *Index) rebuildSpecializedIndexes() {
 
 	// Clear existing indexes
 	idx.componentsByProject = make(map[string][]*index.ResourceEntry)
-	idx.workloadsByComponent = make(map[string]*index.ResourceEntry)
+	idx.workloadsByLine = make(map[string]*index.ResourceEntry)
 	idx.componentTypes = make(map[string]*index.ResourceEntry)
 	idx.traits = make(map[string]*index.ResourceEntry)
 	idx.clusterComponentTypes = make(map[string]*index.ResourceEntry)
 	idx.clusterTraits = make(map[string]*index.ResourceEntry)
-	idx.releasesByComponent = make(map[string][]*index.ResourceEntry)
+	idx.releaseLinesByComponent = make(map[string][]*index.ResourceEntry)
+	idx.releasesByLine = make(map[string][]*index.ResourceEntry)
 	idx.releaseBindingsByEnv = make(map[string][]*index.ResourceEntry)
 	idx.deploymentPipelines = make(map[string]*index.ResourceEntry)
 
@@ -243,14 +273,61 @@ func (idx *Index) GetTypedClusterTrait(name string) (*typed.ClusterTrait, error)
 	return typed.NewClusterTrait(entry)
 }
 
-// GetWorkloadForComponent retrieves the workload for a specific component
-func (idx *Index) GetWorkloadForComponent(projectName, componentName string) (*index.ResourceEntry, bool) {
+// GetWorkloadForComponent retrieves the workload of a component's release line, or of its main
+// line when releaseLine is empty
+func (idx *Index) GetWorkloadForComponent(projectName, componentName, releaseLine string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s", projectName, componentName)
-	entry, ok := idx.workloadsByComponent[key]
+	entry, ok := idx.workloadsByLine[lineKey(projectName, componentName, releaseLine)]
 	return entry, ok
+}
+
+// GetReleaseLine retrieves a release line of a component
+func (idx *Index) GetReleaseLine(projectName, componentName, releaseLine string) (*index.ResourceEntry, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	for _, entry := range idx.releaseLinesByComponent[componentKey(projectName, componentName)] {
+		if entry.Name() == releaseLine {
+			return entry, true
+		}
+	}
+	return nil, false
+}
+
+// GetTypedReleaseLine retrieves a release line of a component and returns it typed
+func (idx *Index) GetTypedReleaseLine(projectName, componentName, releaseLine string) (*v1alpha1.ReleaseLine, error) {
+	entry, ok := idx.GetReleaseLine(projectName, componentName, releaseLine)
+	if !ok {
+		return nil, fmt.Errorf("release line %q of component %q (project: %q) not found", releaseLine, componentName, projectName)
+	}
+	return typed.FromEntry[v1alpha1.ReleaseLine](entry)
+}
+
+// ListReleaseLinesForComponent returns the names of a component's release lines, sorted
+func (idx *Index) ListReleaseLinesForComponent(projectName, componentName string) []string {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	entries := idx.releaseLinesByComponent[componentKey(projectName, componentName)]
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ComponentLines returns the lines of a component to release: its main line, shown as "", then
+// each release line. The main line is left out when it has no workload and the component has
+// release lines, since the component then deploys only through them.
+func (idx *Index) ComponentLines(projectName, componentName string) []string {
+	lines := idx.ListReleaseLinesForComponent(projectName, componentName)
+	if _, ok := idx.GetWorkloadForComponent(projectName, componentName, ""); !ok && len(lines) > 0 {
+		return lines
+	}
+	return append([]string{""}, lines...)
 }
 
 // ListComponents returns all components
@@ -298,22 +375,26 @@ func (idx *Index) GetTypedTrait(name string) (*typed.Trait, error) {
 	return typed.NewTrait(entry)
 }
 
-// GetTypedWorkloadForComponent retrieves the workload for a specific component and returns a typed wrapper
-func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string) (*typed.Workload, error) {
-	entry, ok := idx.GetWorkloadForComponent(projectName, componentName)
+// GetTypedWorkloadForComponent retrieves the workload of a component's release line, or of its main
+// line when releaseLine is empty, and returns a typed wrapper
+func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName, releaseLine string) (*typed.Workload, error) {
+	entry, ok := idx.GetWorkloadForComponent(projectName, componentName, releaseLine)
 	if !ok {
+		if releaseLine != "" {
+			return nil, fmt.Errorf("workload for release line %q of component %q (project: %q) not found", releaseLine, componentName, projectName)
+		}
 		return nil, fmt.Errorf("workload for component %q (project: %q) not found", componentName, projectName)
 	}
 	return typed.NewWorkload(entry)
 }
 
-// ListReleasesForComponent returns all component releases for a specific component
-func (idx *Index) ListReleasesForComponent(projectName, componentName string) []*index.ResourceEntry {
+// ListReleasesForComponent returns the component releases of a component's release line, or of its
+// main line when releaseLine is empty
+func (idx *Index) ListReleasesForComponent(projectName, componentName, releaseLine string) []*index.ResourceEntry {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s", projectName, componentName)
-	return idx.releasesByComponent[key]
+	return idx.releasesByLine[lineKey(projectName, componentName, releaseLine)]
 }
 
 // GetProject retrieves a project by namespace and name
@@ -335,14 +416,14 @@ func (idx *Index) ListReleaseBindings() []*index.ResourceEntry {
 	return idx.Index.List(ReleaseBindingGVK)
 }
 
-// GetReleaseBindingForEnv retrieves a release binding for a specific component and environment
-// Returns the first binding found for the given component and environment
-func (idx *Index) GetReleaseBindingForEnv(projectName, componentName, envName string) (*index.ResourceEntry, bool) {
+// GetReleaseBindingForEnv retrieves a release binding of a component's release line, or of its main
+// line when releaseLine is empty, in an environment
+// Returns the first binding found for the given line and environment
+func (idx *Index) GetReleaseBindingForEnv(projectName, componentName, releaseLine, envName string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	key := fmt.Sprintf("%s/%s/%s", projectName, componentName, envName)
-	bindings := idx.releaseBindingsByEnv[key]
+	bindings := idx.releaseBindingsByEnv[lineKey(projectName, componentName, releaseLine)+"/"+envName]
 	if len(bindings) == 0 {
 		return nil, false
 	}

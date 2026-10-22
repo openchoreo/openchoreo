@@ -30,6 +30,7 @@ type BulkReleaseResult struct {
 type ReleaseInfo struct {
 	ComponentName string
 	ProjectName   string
+	ReleaseLine   string // Empty for the component's main line
 	ReleaseName   string
 	Release       *unstructured.Unstructured
 }
@@ -38,10 +39,11 @@ type ReleaseInfo struct {
 type ReleaseError struct {
 	ComponentName string
 	ProjectName   string
+	ReleaseLine   string // Empty for the component's main line
 	Error         error
 }
 
-// GenerateBulkReleases generates releases for multiple components
+// GenerateBulkReleases generates releases for each line of multiple components
 func (g *ReleaseGenerator) GenerateBulkReleases(opts BulkReleaseOptions) (*BulkReleaseResult, error) {
 	// Discover components to process
 	components, err := g.discoverComponents(opts)
@@ -70,29 +72,34 @@ func (g *ReleaseGenerator) GenerateBulkReleases(opts BulkReleaseOptions) (*BulkR
 			continue
 		}
 
-		releaseOpts := ReleaseOptions{
-			ComponentName: comp.Name,
-			ProjectName:   comp.ProjectName(),
-			Version:       opts.Version,
-			Namespace:     opts.Namespace,
-		}
-
-		release, err := g.GenerateRelease(releaseOpts)
-		if err != nil {
-			result.Errors = append(result.Errors, ReleaseError{
+		for _, line := range g.index.ComponentLines(comp.ProjectName(), comp.Name) {
+			releaseOpts := ReleaseOptions{
 				ComponentName: comp.Name,
 				ProjectName:   comp.ProjectName(),
-				Error:         err,
-			})
-			continue
-		}
+				ReleaseLine:   line,
+				Version:       opts.Version,
+				Namespace:     opts.Namespace,
+			}
 
-		result.Releases = append(result.Releases, ReleaseInfo{
-			ComponentName: comp.Name,
-			ProjectName:   comp.ProjectName(),
-			ReleaseName:   release.GetName(),
-			Release:       release,
-		})
+			release, err := g.GenerateRelease(releaseOpts)
+			if err != nil {
+				result.Errors = append(result.Errors, ReleaseError{
+					ComponentName: comp.Name,
+					ProjectName:   comp.ProjectName(),
+					ReleaseLine:   line,
+					Error:         err,
+				})
+				continue
+			}
+
+			result.Releases = append(result.Releases, ReleaseInfo{
+				ComponentName: comp.Name,
+				ProjectName:   comp.ProjectName(),
+				ReleaseLine:   line,
+				ReleaseName:   release.GetName(),
+				Release:       release,
+			})
+		}
 	}
 
 	return result, nil

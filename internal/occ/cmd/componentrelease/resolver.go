@@ -19,10 +19,12 @@ import (
 //  2. Otherwise, use a "releases/" directory alongside the component file.
 func buildOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
-		// Priority 1: Use directory of existing releases
-		releases := ocIndex.ListReleasesForComponent(projectName, componentName)
-		if len(releases) > 0 {
-			return filepath.Dir(releases[0].FilePath)
+		// Priority 1: Use directory of existing releases of any of the component's lines
+		for _, entry := range ocIndex.ListReleases() {
+			owner := fsmode.ExtractOwnerRef(entry)
+			if owner != nil && owner.ProjectName == projectName && owner.ComponentName == componentName {
+				return filepath.Dir(entry.FilePath)
+			}
 		}
 
 		// Priority 2: Use "releases/" next to the component file
