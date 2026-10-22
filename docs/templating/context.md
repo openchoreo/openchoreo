@@ -433,6 +433,7 @@ The `workload` object provides helper methods for endpoint-driven resource gener
 | Helper Method                                | Description                                                                                                                                          |
 |----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | `workload.toServicePorts()`                  | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization                                                     |
+| `workload.toContainerPorts()`                | Converts endpoints map to a named container ports list, one entry per unique container port and protocol                                           |
 | `workload.toEndpointResources(endpointName)` | Opt-in: parses the named endpoint's API schema (`schema` field) into a list of routes for rendering exact per-route gateway matches. Returns a CEL optional |
 
 `toEndpointResources` reads `workload.endpoints.<name>.schema` (OpenAPI for HTTP, protobuf for gRPC) and returns a CEL

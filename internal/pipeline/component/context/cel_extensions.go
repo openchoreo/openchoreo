@@ -15,6 +15,7 @@ const (
 	configurationsIdentifier = "configurations"
 	dependenciesIdentifier   = "dependencies"
 	derivedIdentifier        = "derived"
+	workloadIdentifier       = "workload"
 )
 
 // CELExtensions returns CEL environment options for configuration, workload,
@@ -31,6 +32,7 @@ func CELExtensions() []cel.EnvOption {
 			toConfigEnvsByContainerMacro,
 			toSecretEnvsByContainerMacro,
 			toServicePortsMacro,
+			toContainerPortsMacro,
 			toContainerEnvsMacro,
 			toEndpointResourcesMacro,
 		),
@@ -111,8 +113,16 @@ var toSecretEnvsByContainerMacro = cel.ReceiverMacro("toSecretEnvsByContainer", 
 
 var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == workloadIdentifier {
 			return derivedField(eh, "servicePorts"), nil
+		}
+		return nil, nil
+	})
+
+var toContainerPortsMacro = cel.ReceiverMacro("toContainerPorts", 0,
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == workloadIdentifier {
+			return derivedField(eh, "containerPorts"), nil
 		}
 		return nil, nil
 	})
@@ -133,7 +143,7 @@ var toContainerEnvsMacro = cel.ReceiverMacro("toContainerEnvs", 0,
 // avoided unless a template opts in.
 var toEndpointResourcesMacro = cel.ReceiverMacro("toEndpointResources", 1,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == workloadIdentifier {
 			return eh.NewCall(operators.OptIndex, derivedField(eh, "endpointResources"), args[0]), nil
 		}
 		return nil, nil
