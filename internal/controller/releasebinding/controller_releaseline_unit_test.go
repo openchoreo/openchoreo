@@ -374,3 +374,41 @@ func TestFindDefaultLinePodLabel(t *testing.T) {
 		})
 	}
 }
+
+// Dependencies on two lines of one component's endpoint each get their own line's address.
+func TestBuildConnectionItems_PerReleaseLine(t *testing.T) {
+	resolvedOn := func(line, host string) openchoreov1alpha1.ResolvedConnection {
+		return openchoreov1alpha1.ResolvedConnection{
+			Namespace: testNamespace, Project: testProjectName, Component: "hello", ReleaseLine: line, Endpoint: "http",
+			Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+			URL:        openchoreov1alpha1.EndpointURL{Scheme: "http", Host: host, Port: 9090},
+		}
+	}
+	dependOn := func(line, env string) openchoreov1alpha1.WorkloadConnection {
+		return openchoreov1alpha1.WorkloadConnection{
+			Component: "hello", ReleaseLine: line, Name: "http",
+			Visibility:  string(openchoreov1alpha1.EndpointVisibilityProject),
+			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{Address: env},
+		}
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec:       openchoreov1alpha1.ReleaseBindingSpec{Owner: openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProjectName}},
+		Status: openchoreov1alpha1.ReleaseBindingStatus{ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
+			resolvedOn("", "hello.dp.svc"), resolvedOn(testReleaseLine, "hello-v2.dp.svc"),
+		}},
+	}
+	conns := []openchoreov1alpha1.WorkloadConnection{dependOn("", "HELLO_URL"), dependOn(testReleaseLine, "HELLO_V2_URL")}
+
+	got := map[string]string{}
+	for _, item := range buildConnectionItems(rb, conns) {
+		for _, ev := range item.EnvVars {
+			got[ev.Name] = ev.Value
+		}
+	}
+	assert.Equal(t, map[string]string{"HELLO_URL": "http://hello.dp.svc:9090", "HELLO_V2_URL": "http://hello-v2.dp.svc:9090"}, got)
+	assert.True(t, allConnectionsResolved(rb, conns))
+
+	rb.Status.ResolvedConnections = rb.Status.ResolvedConnections[1:]
+	assert.False(t, allConnectionsResolved(rb, conns), "the default line's dependency is unresolved while only the other line resolves")
+}
