@@ -166,7 +166,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		if params.ProjectName == "" {
 			return fmt.Errorf("project name is required when specifying --component")
 		}
-		return cr.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig, resolver)
+		return cr.generateForComponent(gen, params.ComponentName, params.ProjectName, params.ReleaseLine, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig, resolver)
 	}
 
 	// Project-only scope (all components in project)
@@ -262,10 +262,11 @@ func (cr *ComponentRelease) generateForProject(gen *generator.ReleaseGenerator, 
 	return cr.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator, component, project, releaseLine, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	release, err := gen.GenerateRelease(generator.ReleaseOptions{
 		ComponentName: component,
 		ProjectName:   project,
+		ReleaseLine:   releaseLine,
 		Namespace:     namespace,
 		ReleaseName:   customReleaseName,
 	})
@@ -323,14 +324,14 @@ func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator
 func (cr *ComponentRelease) writeResults(result *generator.BulkReleaseResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
-		fmt.Fprintf(os.Stderr, "Error generating release for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
+		fmt.Fprintf(os.Stderr, "Error generating release for %s: %v\n", generator.DescribeLine(e.ProjectName, e.ComponentName, e.ReleaseLine), e.Error)
 	}
 
 	// Write or print releases
 	if dryRun {
 		// Dry-run mode: print all releases to stdout
 		for _, info := range result.Releases {
-			fmt.Printf("# Release: %s (project: %s, component: %s)\n", info.ReleaseName, info.ProjectName, info.ComponentName)
+			fmt.Printf("# Release: %s (project: %s, component: %s%s)\n", info.ReleaseName, info.ProjectName, info.ComponentName, releaseLineNote(info.ReleaseLine))
 			if err := cr.printYAML(info.Release); err != nil {
 				return err
 			}
@@ -377,6 +378,14 @@ func (cr *ComponentRelease) writeResults(result *generator.BulkReleaseResult, ba
 
 	fmt.Printf("\nSummary: %d releases generated, %d errors\n", len(result.Releases), len(result.Errors))
 	return nil
+}
+
+// releaseLineNote names a release line in a dry-run header, and is empty for the main line.
+func releaseLineNote(line string) string {
+	if line == "" {
+		return ""
+	}
+	return ", release line: " + line
 }
 
 func (cr *ComponentRelease) printYAML(resource interface{}) error {

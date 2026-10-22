@@ -15,6 +15,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // BindingGenerator generates ReleaseBinding resources
@@ -31,6 +32,7 @@ func NewBindingGenerator(index *fsmode.Index) *BindingGenerator {
 type BindingOptions struct {
 	ProjectName      string
 	ComponentName    string
+	ReleaseLine      string // The component's release line; empty or main for its main line
 	ComponentRelease string // If empty, auto-select based on environment position
 	TargetEnv        string
 	PipelineInfo     *pipeline.PipelineInfo
@@ -57,6 +59,7 @@ type BindingInfo struct {
 	BindingName      string
 	ProjectName      string
 	ComponentName    string
+	ReleaseLine      string // Empty for the component's main line
 	ReleaseName      string
 	Environment      string
 	Binding          *unstructured.Unstructured
@@ -68,6 +71,7 @@ type BindingInfo struct {
 type BindingError struct {
 	ProjectName   string
 	ComponentName string
+	ReleaseLine   string // Empty for the component's main line
 	Error         error
 }
 
@@ -95,6 +99,14 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 		return nil, err
 	}
 
+	opts.ReleaseLine = releaseline.Normalize(opts.ReleaseLine)
+	if opts.ReleaseLine != "" {
+		if _, ok := g.index.GetReleaseLine(opts.ProjectName, opts.ComponentName, opts.ReleaseLine); !ok {
+			return nil, fmt.Errorf("release line %q of component %s/%s not found",
+				opts.ReleaseLine, opts.ProjectName, opts.ComponentName)
+		}
+	}
+
 	// 3. Select component release
 	releaseName, err := g.selectComponentRelease(opts)
 	if err != nil {
@@ -102,7 +114,7 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 	}
 
 	// 4. Check if binding already exists
-	existingBinding, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
+	existingBinding, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.ReleaseLine, opts.TargetEnv)
 
 	if exists {
 		// UPDATE mode: Read the original file from disk to preserve all fields,
@@ -118,7 +130,7 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 	}
 
 	// CREATE mode: Generate minimal new binding
-	return g.buildMinimalBinding(opts.ProjectName, opts.ComponentName, releaseName, opts.TargetEnv, opts.Namespace), nil
+	return g.buildMinimalBinding(opts.ProjectName, opts.ComponentName, opts.ReleaseLine, releaseName, opts.TargetEnv, opts.Namespace), nil
 }
 
 // GenerateBindingWithInfo generates a single ReleaseBinding and returns rich info
@@ -136,13 +148,14 @@ func (g *BindingGenerator) GenerateBindingWithInfo(opts BindingOptions) (*Bindin
 		BindingName:   bindingName,
 		ProjectName:   opts.ProjectName,
 		ComponentName: opts.ComponentName,
+		ReleaseLine:   releaseline.Normalize(opts.ReleaseLine),
 		ReleaseName:   releaseName,
 		Environment:   opts.TargetEnv,
 		Binding:       binding,
 	}
 
 	// Check if this is an update and capture existing file path
-	entry, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
+	entry, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, info.ReleaseLine, opts.TargetEnv)
 	if exists {
 		info.IsUpdate = true
 		info.ExistingFilePath = entry.FilePath
@@ -151,11 +164,13 @@ func (g *BindingGenerator) GenerateBindingWithInfo(opts BindingOptions) (*Bindin
 	return info, nil
 }
 
-// selectComponentRelease determines which ComponentRelease to use based on:
+// selectComponentRelease determines which ComponentRelease of the binding's release line to use based on:
 // 1. If explicit release name provided -> use it (after validation)
 // 2. If target env is root environment -> use latest release for component
 // 3. If target env is non-root -> find binding in previous environment and use its release
 func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, error) {
+	target := DescribeLine(opts.ProjectName, opts.ComponentName, opts.ReleaseLine)
+
 	// If explicit release provided, validate it exists
 	if opts.ComponentRelease != "" {
 		// Validate release exists in index
@@ -165,15 +180,16 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 			if release.Name() == opts.ComponentRelease {
 				// Verify it belongs to the specified component
 				owner := fsmode.ExtractOwnerRef(release)
-				if owner != nil && owner.ProjectName == opts.ProjectName && owner.ComponentName == opts.ComponentName {
+				if owner != nil && owner.ProjectName == opts.ProjectName && owner.ComponentName == opts.ComponentName &&
+					owner.ReleaseLine == opts.ReleaseLine {
 					found = true
 					break
 				}
 			}
 		}
 		if !found {
-			return "", fmt.Errorf("component release %q not found or does not belong to component %s/%s",
-				opts.ComponentRelease, opts.ProjectName, opts.ComponentName)
+			return "", fmt.Errorf("component release %q not found or does not belong to %s",
+				opts.ComponentRelease, target)
 		}
 		return opts.ComponentRelease, nil
 	}
@@ -186,18 +202,17 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 			ComponentName: opts.ComponentName,
 			ProjectName:   opts.ProjectName,
 			Namespace:     opts.Namespace,
+			ReleaseLine:   opts.ReleaseLine,
 			ReleaseName:   "temp", // placeholder name, not used for spec comparison
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to generate release spec for component %s/%s: %w",
-				opts.ProjectName, opts.ComponentName, err)
+			return "", fmt.Errorf("failed to generate release spec for %s: %w", target, err)
 		}
 
 		// Find the existing release whose spec matches the current component state
-		releases := g.index.ListReleasesForComponent(opts.ProjectName, opts.ComponentName)
+		releases := g.index.ListReleasesForComponent(opts.ProjectName, opts.ComponentName, opts.ReleaseLine)
 		if len(releases) == 0 {
-			return "", fmt.Errorf("no releases found for component %s/%s",
-				opts.ProjectName, opts.ComponentName)
+			return "", fmt.Errorf("no releases found for %s", target)
 		}
 
 		var compareErrs []error
@@ -213,8 +228,7 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 		}
 
 		if len(compareErrs) > 0 {
-			return "", fmt.Errorf("comparing release specs for %s/%s: %w",
-				opts.ProjectName, opts.ComponentName, errors.Join(compareErrs...))
+			return "", fmt.Errorf("comparing release specs for %s: %w", target, errors.Join(compareErrs...))
 		}
 
 		// No release strict-matched the current component state. Before reporting a
@@ -236,8 +250,7 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 			}
 		}
 
-		return "", fmt.Errorf("no matching release found for current component state %s/%s",
-			opts.ProjectName, opts.ComponentName)
+		return "", fmt.Errorf("no matching release found for current component state %s", target)
 	}
 
 	// Non-root environment: get release from previous environment's binding
@@ -247,11 +260,11 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 	}
 
 	// Find binding in previous environment
-	prevBinding, ok := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, prevEnv)
+	prevBinding, ok := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.ReleaseLine, prevEnv)
 	if !ok {
-		return "", fmt.Errorf("no ReleaseBinding found in previous environment %q for component %s/%s; "+
+		return "", fmt.Errorf("no ReleaseBinding found in previous environment %q for %s; "+
 			"create binding in %q first or specify --component-release explicitly",
-			prevEnv, opts.ProjectName, opts.ComponentName, prevEnv)
+			prevEnv, target, prevEnv)
 	}
 
 	// Extract release name from previous binding
@@ -265,23 +278,26 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 
 // buildMinimalBinding creates a new ReleaseBinding with only essential fields
 func (g *BindingGenerator) buildMinimalBinding(
-	projectName, componentName, releaseName, envName, namespace string,
+	projectName, componentName, releaseLine, releaseName, envName, namespace string,
 ) *unstructured.Unstructured {
-	bindingName := fmt.Sprintf("%s-%s", componentName, envName)
+	owner := map[string]interface{}{
+		"projectName":   projectName,
+		"componentName": componentName,
+	}
+	if releaseLine != "" {
+		owner["releaseLine"] = releaseLine
+	}
 
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "openchoreo.dev/v1alpha1",
 			"kind":       "ReleaseBinding",
 			"metadata": map[string]interface{}{
-				"name":      bindingName,
+				"name":      releaseline.ScopedName(componentName, releaseLine, envName),
 				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
-				"owner": map[string]interface{}{
-					"projectName":   projectName,
-					"componentName": componentName,
-				},
+				"owner":       owner,
 				"environment": envName,
 				"releaseName": releaseName,
 			},
@@ -337,50 +353,43 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 		return nil, fmt.Errorf("either All or ProjectName must be specified")
 	}
 
-	// Generate bindings for each component
+	// Generate bindings for each line of each component
 	for _, owner := range components {
-		bindingOpts := BindingOptions{
-			ProjectName:      owner.ProjectName,
-			ComponentName:    owner.ComponentName,
-			ComponentRelease: "", // Auto-select based on environment
-			TargetEnv:        opts.TargetEnv,
-			PipelineInfo:     opts.PipelineInfo,
-			Namespace:        opts.Namespace,
+		for _, line := range g.index.ComponentLines(owner.ProjectName, owner.ComponentName) {
+			bindingOpts := BindingOptions{
+				ProjectName:      owner.ProjectName,
+				ComponentName:    owner.ComponentName,
+				ReleaseLine:      line,
+				ComponentRelease: "", // Auto-select based on environment
+				TargetEnv:        opts.TargetEnv,
+				PipelineInfo:     opts.PipelineInfo,
+				Namespace:        opts.Namespace,
+			}
+
+			info, err := g.GenerateBindingWithInfo(bindingOpts)
+			if err != nil {
+				result.Errors = append(result.Errors, BindingError{
+					ProjectName:   owner.ProjectName,
+					ComponentName: owner.ComponentName,
+					ReleaseLine:   line,
+					Error:         err,
+				})
+				continue
+			}
+
+			result.Bindings = append(result.Bindings, *info)
 		}
-
-		binding, err := g.GenerateBinding(bindingOpts)
-		if err != nil {
-			result.Errors = append(result.Errors, BindingError{
-				ProjectName:   owner.ProjectName,
-				ComponentName: owner.ComponentName,
-				Error:         err,
-			})
-			continue
-		}
-
-		// Check if this is an update or create
-		entry, exists := g.index.GetReleaseBindingForEnv(owner.ProjectName, owner.ComponentName, opts.TargetEnv)
-
-		bindingName := binding.GetName()
-		releaseName := getNestedString(binding.Object, "spec", "releaseName")
-
-		info := BindingInfo{
-			BindingName:   bindingName,
-			ProjectName:   owner.ProjectName,
-			ComponentName: owner.ComponentName,
-			ReleaseName:   releaseName,
-			Environment:   opts.TargetEnv,
-			Binding:       binding,
-			IsUpdate:      exists,
-		}
-		if exists {
-			info.ExistingFilePath = entry.FilePath
-		}
-
-		result.Bindings = append(result.Bindings, info)
 	}
 
 	return result, nil
+}
+
+// DescribeLine describes a component's release line in messages.
+func DescribeLine(projectName, componentName, releaseLine string) string {
+	if releaseLine == "" {
+		return fmt.Sprintf("component %s/%s", projectName, componentName)
+	}
+	return fmt.Sprintf("release line %q of component %s/%s", releaseLine, projectName, componentName)
 }
 
 // readBindingFromFile reads a ReleaseBinding YAML file from disk and returns it

@@ -486,13 +486,13 @@ func TestGetWorkloadForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetWorkloadForComponent("proj-a", "web-app")
+		entry, ok := ocIndex.GetWorkloadForComponent("proj-a", "web-app", "")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-workload", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetWorkloadForComponent("proj-a", "nonexistent")
+		_, ok := ocIndex.GetWorkloadForComponent("proj-a", "nonexistent", "")
 		assert.False(t, ok)
 	})
 }
@@ -501,13 +501,13 @@ func TestGetTypedWorkloadForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		wl, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "web-app")
+		wl, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "web-app", "")
 		require.NoError(t, err)
 		require.NotNil(t, wl)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "nonexistent")
+		_, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "nonexistent", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nonexistent")
 	})
@@ -543,12 +543,12 @@ func TestListReleasesForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("component with releases", func(t *testing.T) {
-		releases := ocIndex.ListReleasesForComponent("proj-a", "web-app")
+		releases := ocIndex.ListReleasesForComponent("proj-a", "web-app", "")
 		assert.Len(t, releases, 2)
 	})
 
 	t.Run("component with no releases", func(t *testing.T) {
-		releases := ocIndex.ListReleasesForComponent("proj-b", "worker")
+		releases := ocIndex.ListReleasesForComponent("proj-b", "worker", "")
 		assert.Empty(t, releases)
 	})
 }
@@ -641,20 +641,95 @@ func TestGetReleaseBindingForEnv(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "dev")
+		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "", "dev")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-dev-binding", entry.Name())
 	})
 
 	t.Run("different environment", func(t *testing.T) {
-		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "staging")
+		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "", "staging")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-staging-binding", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "prod")
+		_, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "", "prod")
 		assert.False(t, ok)
+	})
+}
+
+func TestReleaseLines(t *testing.T) {
+	entry := func(kind, name string, owner map[string]any) *index.ResourceEntry {
+		return &index.ResourceEntry{
+			Resource: &unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       kind,
+				"metadata":   map[string]any{"name": name, "namespace": "ns1"},
+				"spec":       map[string]any{"owner": owner, "environment": "dev"},
+			}},
+			FilePath: "/repo/" + name + ".yaml",
+		}
+	}
+	mainOwner := map[string]any{"projectName": "proj", "componentName": "web"}
+	lineOwner := map[string]any{"projectName": "proj", "componentName": "web", "releaseLine": "next"}
+
+	build := func(t *testing.T, withMain bool) *Index {
+		t.Helper()
+		idx := index.New("/repo")
+		entries := []*index.ResourceEntry{
+			entry("ReleaseLine", "next", mainOwner),
+			entry("Workload", "web-next-workload", lineOwner),
+			entry("ComponentRelease", "web-next-20261021-1", lineOwner),
+			entry("ReleaseBinding", "web-next-dev", lineOwner),
+			entry("ComponentRelease", "web-20261021-1", mainOwner),
+			entry("ReleaseBinding", "web-dev", mainOwner),
+		}
+		if withMain {
+			entries = append(entries, entry("Workload", "web-workload", mainOwner))
+		}
+		for _, e := range entries {
+			require.NoError(t, idx.Add(e))
+		}
+		return WrapIndex(idx)
+	}
+
+	t.Run("owner of a release line", func(t *testing.T) {
+		owner := ExtractOwnerRef(entry("ReleaseLine", "next", mainOwner))
+		require.NotNil(t, owner)
+		assert.Equal(t, OwnerRef{ProjectName: "proj", ComponentName: "web", ReleaseLine: "next"}, *owner)
+		owner = ExtractOwnerRef(entry("Workload", "web-next-workload", lineOwner))
+		require.NotNil(t, owner)
+		assert.Equal(t, "next", owner.ReleaseLine)
+	})
+
+	t.Run("lookups are per line", func(t *testing.T) {
+		ocIndex := build(t, true)
+		for line, want := range map[string]string{"": "web-workload", "next": "web-next-workload"} {
+			wl, ok := ocIndex.GetWorkloadForComponent("proj", "web", line)
+			require.True(t, ok, line)
+			assert.Equal(t, want, wl.Name())
+		}
+		for line, want := range map[string]string{"": "web-20261021-1", "next": "web-next-20261021-1"} {
+			releases := ocIndex.ListReleasesForComponent("proj", "web", line)
+			require.Len(t, releases, 1, line)
+			assert.Equal(t, want, releases[0].Name())
+		}
+		for line, want := range map[string]string{"": "web-dev", "next": "web-next-dev"} {
+			binding, ok := ocIndex.GetReleaseBindingForEnv("proj", "web", line, "dev")
+			require.True(t, ok, line)
+			assert.Equal(t, want, binding.Name())
+		}
+		rl, err := ocIndex.GetTypedReleaseLine("proj", "web", "next")
+		require.NoError(t, err)
+		assert.Equal(t, "web", rl.Spec.Owner.ComponentName)
+		_, err = ocIndex.GetTypedReleaseLine("proj", "web", "canary")
+		assert.Error(t, err)
+	})
+
+	t.Run("component lines", func(t *testing.T) {
+		assert.Equal(t, []string{"", "next"}, build(t, true).ComponentLines("proj", "web"))
+		assert.Equal(t, []string{"next"}, build(t, false).ComponentLines("proj", "web"))
+		assert.Equal(t, []string{""}, build(t, true).ComponentLines("proj", "other"))
 	})
 }
 

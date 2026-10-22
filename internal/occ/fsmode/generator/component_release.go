@@ -14,6 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
 
@@ -37,7 +39,8 @@ type ReleaseOptions struct {
 	ComponentName string
 	ProjectName   string
 	Namespace     string
-	ReleaseName   string    // Optional: custom release name (if empty, auto-generated from component, date, version)
+	ReleaseLine   string    // Optional: the component's release line; empty or main for its main line
+	ReleaseName   string    // Optional: custom release name (if empty, auto-generated from component, line, date, version)
 	Version       string    // Optional: auto-generated if empty
 	Date          time.Time // Optional: uses current date if zero
 }
@@ -46,6 +49,7 @@ type ReleaseOptions struct {
 // It resolves the component, its ComponentType (or ClusterComponentType), the referenced
 // traits, and the workload, then delegates spec assembly to componentrelease.BuildSpec so
 // that filesystem mode produces the same ComponentReleaseSpec as the controller and API server.
+// For a release line, the component carries the line's overrides and the workload is the line's.
 func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.Unstructured, error) {
 	comp, err := g.index.GetTypedComponent(opts.Namespace, opts.ComponentName)
 	if err != nil {
@@ -56,6 +60,19 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	if opts.ProjectName != "" && comp.ProjectName() != opts.ProjectName {
 		return nil, fmt.Errorf("component %q belongs to project %q, not %q",
 			opts.ComponentName, comp.ProjectName(), opts.ProjectName)
+	}
+
+	line := releaseline.Normalize(opts.ReleaseLine)
+	component := comp.Component
+	if line != "" {
+		rl, err := g.index.GetTypedReleaseLine(comp.ProjectName(), comp.Name, line)
+		if err != nil {
+			return nil, err
+		}
+		component, err = releaseline.EffectiveComponent(comp.Component, rl)
+		if err != nil {
+			return nil, fmt.Errorf("release line %q of component %q: %w", line, opts.ComponentName, err)
+		}
 	}
 
 	// Resolve the ComponentType (or ClusterComponentType) spec snapshot.
@@ -84,33 +101,37 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	default:
 		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
 	}
+	if line != "" && !ctSpec.ReleaseLines.AllowsReleaseLines() {
+		return nil, fmt.Errorf("%s %q does not allow release lines; set spec.releaseLines to Allowed on the component type",
+			ctKind, typeName)
+	}
 
 	// Trait kind defaults (Trait / ClusterTrait) are applied by the API server at admission time.
 	// fsmode loads raw YAML, so an omitted kind reaches us as "". Default them here — before
 	// validation, gatherTraits, and BuildSpec — so lookups route correctly, allowedTraits
 	// validation compares like-for-like, and the frozen spec matches control-plane-generated
 	// releases byte-for-byte.
-	defaultTraitKinds(&ctSpec, comp.Component, ctKind)
+	defaultTraitKinds(&ctSpec, component, ctKind)
 
 	// Enforce the same pre-build validation the controller and API server run: component-level
 	// traits must be permitted by allowedTraits, and trait instance names must be unique across
 	// embedded and component-level traits.
-	if err := componentvalidation.ValidateAllowedTraits(comp.Spec.Traits, ctSpec.AllowedTraits); err != nil {
+	if err := componentvalidation.ValidateAllowedTraits(component.Spec.Traits, ctSpec.AllowedTraits); err != nil {
 		return nil, fmt.Errorf("component %q trait validation failed: %w", opts.ComponentName, err)
 	}
-	if err := componentvalidation.ValidateTraitInstanceNameUniqueness(comp.Spec.Traits, ctSpec.Traits); err != nil {
+	if err := componentvalidation.ValidateTraitInstanceNameUniqueness(component.Spec.Traits, ctSpec.Traits); err != nil {
 		return nil, fmt.Errorf("component %q trait validation failed: %w", opts.ComponentName, err)
 	}
 
 	// Gather every Trait/ClusterTrait referenced by both the embedded ComponentType traits
 	// and the component-level traits so BuildSpec can freeze their specs.
-	traits, clusterTraits, err := g.gatherTraits(&ctSpec, comp.Component)
+	traits, clusterTraits, err := g.gatherTraits(&ctSpec, component)
 	if err != nil {
 		return nil, err
 	}
 
 	// Fetch the workload that carries the built container image.
-	wl, err := g.index.GetTypedWorkloadForComponent(comp.ProjectName(), comp.Name)
+	wl, err := g.index.GetTypedWorkloadForComponent(comp.ProjectName(), comp.Name, line)
 	if err != nil {
 		return nil, err
 	}
@@ -118,14 +139,14 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	// Determine release name.
 	releaseName := opts.ReleaseName
 	if releaseName == "" {
-		releaseName, err = GenerateReleaseName(comp.Name, opts.Date, opts.Version, g.index)
+		releaseName, err = GenerateReleaseName(output.ReleaseNameBase(comp.Name, line), opts.Date, opts.Version, g.index)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate release name: %w", err)
 		}
 	}
 
 	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
-		Component: comp.Component,
+		Component: component,
 		ComponentType: v1alpha1.ComponentReleaseComponentType{
 			Kind: v1alpha1.ComponentTypeRefKind(ctKind),
 			Name: comp.Spec.ComponentType.Name,
@@ -138,6 +159,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component release spec: %w", err)
 	}
+	crSpec.Owner.ReleaseLine = line
 
 	return toUnstructuredRelease(releaseName, opts.Namespace, crSpec)
 }

@@ -7,17 +7,33 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
 
-// FindLatestRelease finds the most recent release file for a given component
+// ReleaseNameBase is the part of a generated release name before its date: the component name,
+// followed by the release line for a line's release.
+func ReleaseNameBase(componentName, releaseLine string) string {
+	if releaseLine == "" {
+		return componentName
+	}
+	return componentName + "-" + releaseLine
+}
+
+// releaseNameBaseOf returns the ReleaseNameBase of a release's owner.
+func releaseNameBaseOf(release *unstructured.Unstructured) string {
+	return ReleaseNameBase(getNestedString(release.Object, "spec", "owner", "componentName"),
+		getNestedString(release.Object, "spec", "owner", "releaseLine"))
+}
+
+// FindLatestRelease finds the most recent release file named <base>-<YYYYMMDD>-<version>.yaml,
+// where base is a ReleaseNameBase. A component's main line and each of its release lines have their own base.
 // Returns the release object and the file path, or nil if no existing release found
-func FindLatestRelease(outputDir, componentName string) (*unstructured.Unstructured, string, error) {
+func FindLatestRelease(outputDir, base string) (*unstructured.Unstructured, string, error) {
 	// Check if directory exists
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		return nil, "", nil // No existing releases
@@ -29,27 +45,26 @@ func FindLatestRelease(outputDir, componentName string) (*unstructured.Unstructu
 		return nil, "", fmt.Errorf("failed to read output directory: %w", err)
 	}
 
-	// Find all release files for this component
-	var releaseFiles []string
-	prefix := componentName + "-"
+	// Find the release file with the latest date and version
+	var latestFile, latestDate string
+	latestVersion := -1
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		if strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".yaml") {
-			releaseFiles = append(releaseFiles, name)
+		dateStr, version, ok := parseReleaseFileName(entry.Name(), base)
+		if !ok {
+			continue
+		}
+		if dateStr > latestDate || (dateStr == latestDate && version > latestVersion) {
+			latestFile, latestDate, latestVersion = entry.Name(), dateStr, version
 		}
 	}
 
-	if len(releaseFiles) == 0 {
+	if latestFile == "" {
 		return nil, "", nil // No existing releases
 	}
 
-	// Sort by name (descending) to get the latest
-	// Release names follow pattern: component-YYYYMMDD-version.yaml
-	sort.Sort(sort.Reverse(sort.StringSlice(releaseFiles)))
-	latestFile := releaseFiles[0]
 	latestPath := filepath.Join(outputDir, latestFile)
 
 	// Read and parse the latest release
@@ -66,7 +81,31 @@ func FindLatestRelease(outputDir, componentName string) (*unstructured.Unstructu
 	return &release, latestPath, nil
 }
 
-// GetNextVersionNumber finds the next version number for a component on a given date
+// parseReleaseFileName parses the date and version of a release file named <base>-<YYYYMMDD>-<version>.yaml.
+func parseReleaseFileName(name, base string) (string, int, bool) {
+	rest, ok := strings.CutPrefix(name, base+"-")
+	if !ok {
+		return "", 0, false
+	}
+	rest, ok = strings.CutSuffix(rest, ".yaml")
+	if !ok {
+		return "", 0, false
+	}
+	dateStr, versionStr, ok := strings.Cut(rest, "-")
+	if !ok {
+		return "", 0, false
+	}
+	if _, err := time.Parse("20060102", dateStr); err != nil {
+		return "", 0, false
+	}
+	version, err := strconv.Atoi(versionStr)
+	if err != nil {
+		return "", 0, false
+	}
+	return dateStr, version, true
+}
+
+// GetNextVersionNumber finds the next version number for a ReleaseNameBase on a given date
 // Returns "1" if no releases exist for that date, otherwise returns the incremented version
 func GetNextVersionNumber(outputDir, componentName, dateStr string) (string, error) {
 	// Check if directory exists

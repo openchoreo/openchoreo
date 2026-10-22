@@ -88,6 +88,38 @@ metadata:
 		assert.Nil(t, release)
 		assert.Empty(t, path)
 	})
+
+	t.Run("main line and release lines kept apart", func(t *testing.T) {
+		dir := t.TempDir()
+		for _, name := range []string{"my-comp-20250315-2", "my-comp-next-20250316-1", "my-comp-2026q4-20250317-1"} {
+			writeYAML(t, dir, name+".yaml", "metadata:\n  name: "+name+"\n")
+		}
+
+		for base, want := range map[string]string{
+			"my-comp":        "my-comp-20250315-2.yaml",
+			"my-comp-next":   "my-comp-next-20250316-1.yaml",
+			"my-comp-2026q4": "my-comp-2026q4-20250317-1.yaml",
+		} {
+			_, path, err := FindLatestRelease(dir, base)
+			require.NoError(t, err)
+			assert.Equal(t, filepath.Join(dir, want), path, base)
+		}
+	})
+
+	t.Run("versions compared as numbers", func(t *testing.T) {
+		dir := t.TempDir()
+		writeYAML(t, dir, "my-comp-20250315-9.yaml", "metadata:\n  name: my-comp-20250315-9\n")
+		writeYAML(t, dir, "my-comp-20250315-10.yaml", "metadata:\n  name: my-comp-20250315-10\n")
+
+		_, path, err := FindLatestRelease(dir, "my-comp")
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join(dir, "my-comp-20250315-10.yaml"), path)
+	})
+}
+
+func TestReleaseNameBase(t *testing.T) {
+	assert.Equal(t, "my-comp", ReleaseNameBase("my-comp", ""))
+	assert.Equal(t, "my-comp-next", ReleaseNameBase("my-comp", "next"))
 }
 
 func TestGetNextVersionNumber(t *testing.T) {
