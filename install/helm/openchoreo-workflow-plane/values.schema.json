@@ -23,6 +23,17 @@
           "additionalProperties": true,
           "description": "Argo Workflows controller configuration",
           "properties": {
+            "namespaceParallelism": {
+              "default": 10,
+              "description": "Per-namespace limit on the number of simultaneously running (incomplete) workflows.\nBecause each OpenChoreo namespace runs its builds in its own workflow-plane namespace\n(workflows-\u003cnamespace\u003e), this bounds how many builds a single tenant can run at once,\nso one tenant cannot monopolise a shared workflow plane. Set to null for no limit.\n",
+              "minimum": 1,
+              "required": [],
+              "title": "namespaceParallelism",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
             "resources": {
               "additionalProperties": true,
               "description": "Resource limits and requests for the argo workflows controller",
