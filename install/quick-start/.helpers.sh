@@ -920,9 +920,9 @@ install_control_plane() {
     # But keep monitoring enabled to track pod status
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "true" "1800" \
         "--values" "$SCRIPT_DIR/.values-cp.yaml" \
-        "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "backstage.image.tag=$BACKSTAGE_VERSION" \
+        "--set-string" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
+        "--set-string" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
+        "--set-string" "backstage.image.tag=$BACKSTAGE_VERSION" \
         ${audit_args[@]+"${audit_args[@]}"}
 
     # Wait for cluster-gateway to be ready (required for agent connections)
@@ -1103,7 +1103,7 @@ install_observability_plane() {
 
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$SCRIPT_DIR/.values-op.yaml" \
-        "--set" "observer.image.tag=$OPENCHOREO_VERSION" \
+        "--set-string" "observer.image.tag=$OPENCHOREO_VERSION" \
         "--set" "observer.audit.enabled=true"
 
     # Install logs and metrics observability modules
