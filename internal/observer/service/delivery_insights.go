@@ -16,6 +16,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // ErrDeliveryInsightsResolveSearchScope marks a delivery insights query whose search
@@ -88,6 +89,7 @@ type resolvedDeliveryInsightsScope struct {
 	componentUID   string
 	environmentUID string
 	releaseLineUID string
+	mainLineOnly   bool
 }
 
 func (s *DoraMetricsService) resolveScope(
@@ -139,7 +141,11 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
-	if releaseLine != "" {
+	if releaseLine == releaseline.MainLine && rs.componentUID != "" {
+		rs.mainLineOnly = true
+		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+		rs.scopeUID = rs.componentUID
+	} else if releaseLine != "" {
 		uid, err := s.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
 		if err != nil {
 			return rs, wrapDeliveryInsightsScopeError(err, "release line", releaseLine)
@@ -164,6 +170,7 @@ func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) delivery
 		ComponentUID:   rs.componentUID,
 		EnvironmentUID: rs.environmentUID,
 		ReleaseLineUID: rs.releaseLineUID,
+		MainLineOnly:   rs.mainLineOnly,
 		StartMs:        startMs,
 		EndMs:          endMs,
 		// The metrics are statistics over the window, so every matching row has to be

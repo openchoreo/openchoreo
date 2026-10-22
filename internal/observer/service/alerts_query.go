@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -35,6 +36,7 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
+	mainLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.MainLine
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -79,6 +81,7 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 		ComponentID:   componentUID,
 		EnvironmentID: environmentUID,
 		ReleaseLineID: releaseLineUID,
+		MainLineOnly:  mainLineOnly,
 		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
 		SortOrder:     string(alertSortOrderOrDefault(req.SortOrder)),
 	}
@@ -108,6 +111,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
+	mainLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.MainLine
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -152,6 +156,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 		ComponentID:   componentUID,
 		EnvironmentID: environmentUID,
 		ReleaseLineID: releaseLineUID,
+		MainLineOnly:  mainLineOnly,
 		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
 		SortOrder:     string(incidentSortOrderOrDefault(req.SortOrder)),
 	}

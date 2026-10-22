@@ -26,7 +26,7 @@ Given a component that has triggered a budget alert, you must:
 
 ### Resource Metrics
 - Query CPU and memory metrics for the specific component over the budget analysis period
-- If the request names a release line, set `release_line` to it on every metrics query. A component with release lines runs once per line, and leaving it out sums every line together
+- If the request names a release line, set `release_line` to it on every metrics query, including `main`, the component's implicit main line. A component with release lines runs once per line, and leaving it out sums every line together
 - Collect: requests, limits, average actual usage, peak actual usage, and P95 usage
 - Use human-readable units: `m` for CPU millicores, `Mi`/`Gi` for memory
 
@@ -58,7 +58,7 @@ Given a component that has triggered a budget alert, you must:
 - Set recommended memory request to P95 actual usage + 25% headroom
 - Set recommended memory limit to 1.5x the recommended request (or based on peak usage + headroom)
 - Calculate estimated savings based on the difference between current and recommended resource costs
-- Set `release_binding` to the name of the component's ReleaseBinding for the target environment. The ReleaseBinding name follows the convention `<component>-<environment>` (e.g. `my-service-development`), or `<component>-<release line>-<environment>` (e.g. `my-service-canary-development`) when the request names a release line. Use the component name, release line and environment from the request to construct it.
+- Set `release_binding` to the name of the component's ReleaseBinding for the target environment. The ReleaseBinding name follows the convention `<component>-<environment>` (e.g. `my-service-development`) for the main line, or `<component>-<release line>-<environment>` (e.g. `my-service-canary-development`) when the request names another release line. A request whose release line is `main`, or that names none, uses the main line's name. Use the component name, release line and environment from the request to construct it.
 
 ## Output Format Requirements
 
@@ -174,6 +174,9 @@ label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-mic
 
 # One release line of a component, when the request names a release line
 label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-microservice-demo"+label[openchoreo_dev_environment]:"development"+label[openchoreo_dev_component]:"redis"+label[openchoreo_dev_release_line]:"canary"
+
+# The main line of a component, when the request's release line is main; its pods carry no release line label
+label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-microservice-demo"+label[openchoreo_dev_environment]:"development"+label[openchoreo_dev_component]:"redis"+label[openchoreo_dev_release_line]:""
 
 # All components in a project/environment
 label[openchoreo_dev_project]:"gcp-microservice-demo"+label[openchoreo_dev_environment]:"development"

@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,6 +27,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	legacytypes "github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -476,9 +478,28 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 func (s *AlertService) sendNotificationAsync(alertID string, alertDetails *legacytypes.AlertDetails) {
 	notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := s.sendAlertNotification(notifCtx, alertDetails); err != nil {
+	if err := s.sendAlertNotification(notifCtx, s.notificationDetails(notifCtx, alertDetails)); err != nil {
 		s.logger.Warn("Failed to send alert notification", "error", err, "alertID", alertID)
 	}
+}
+
+// notificationDetails names the main line in a notification when the component has release lines.
+func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *legacytypes.AlertDetails) *legacytypes.AlertDetails {
+	if alertDetails.ReleaseLine != "" || alertDetails.Component == "" || s.resolver == nil {
+		return alertDetails
+	}
+	hasLines, err := s.resolver.HasReleaseLines(ctx, alertDetails.Namespace, alertDetails.Component)
+	if err != nil {
+		s.logger.Warn("Failed to check the release lines of the alert's component", "error", err,
+			"namespace", alertDetails.Namespace, "component", alertDetails.Component)
+		return alertDetails
+	}
+	if !hasLines {
+		return alertDetails
+	}
+	details := *alertDetails
+	details.ReleaseLine = releaseline.MainLine
+	return &details
 }
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
@@ -585,9 +606,8 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 			"rule":      ruleInfo,
 		},
 	}
-	if alertDetails.ReleaseLine != "" {
-		rcaPayload["release_line"] = alertDetails.ReleaseLine
-	}
+	// An alert without a release line comes from the component's main line.
+	rcaPayload["release_line"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
 
 	payloadBytes, err := json.Marshal(rcaPayload)
 	if err != nil {
@@ -626,9 +646,8 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 		"project":     alertDetails.Project,
 		"environment": alertDetails.Environment,
 	}
-	if alertDetails.ReleaseLine != "" {
-		searchScope["releaseLine"] = alertDetails.ReleaseLine
-	}
+	// An alert without a release line comes from the component's main line.
+	searchScope["releaseLine"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
 
 	// Build the FinOps analysis payload
 	finOpsPayload := map[string]interface{}{

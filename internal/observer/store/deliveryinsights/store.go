@@ -44,7 +44,8 @@ const (
 	ScopeTypeNamespace = "namespace"
 	ScopeTypeProject   = "project"
 	ScopeTypeComponent = "component"
-	// ScopeTypeReleaseLine is one release line of a component, keyed by the line's UID.
+	// ScopeTypeReleaseLine is one release line of a component, keyed by the line's UID. The main
+	// line, which has no UID, is keyed by its component's UID.
 	ScopeTypeReleaseLine = "releaseline"
 )
 
@@ -164,8 +165,10 @@ type FactQuery struct {
 	ComponentUID   string
 	EnvironmentUID string
 	ReleaseLineUID string
-	StartMs        int64
-	EndMs          int64
+	// MainLineOnly restricts the query to facts of components' main lines.
+	MainLineOnly bool
+	StartMs      int64
+	EndMs        int64
 	// Limit caps a paged fact read (normalized through normalizeLimit) and is what
 	// the drill-down list wants: a page of rows, newest or oldest first.
 	//

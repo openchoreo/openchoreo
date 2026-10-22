@@ -44,6 +44,8 @@ type ComponentApplicationLogsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 	// ReleaseLineID restricts the logs to one release line of the component.
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
+	// MainLineOnly restricts the query to the component's main line.
+	MainLineOnly bool `json:"mainLineOnly,omitempty"`
 }
 
 // WorkflowLogsParams holds parameters for workflow log queries

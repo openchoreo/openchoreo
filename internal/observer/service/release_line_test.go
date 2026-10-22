@@ -346,3 +346,96 @@ func TestFinOpsAdapter_ReleaseLine(t *testing.T) {
 		assert.Empty(t, query.Get("releaseLineUid"))
 	})
 }
+
+func TestMetricsAdapter_MainLineAndEveryLine(t *testing.T) {
+	for name, tc := range map[string]struct {
+		line         string
+		wantMainOnly bool
+	}{
+		"main line keyword": {line: releaseline.MainLine, wantMainOnly: true},
+		"every line":        {line: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var captured metricsAdapterRequest
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+
+			scope := lineScope()
+			scope.ReleaseLine = tc.line
+			adapter := NewMetricsAdapter(server.URL, 5*time.Second, newReleaseLineResolver(t), discardLogger())
+			_, err := adapter.QueryMetrics(context.Background(), &types.MetricsQueryRequest{
+				Metric: "resource", StartTime: "2026-01-01T00:00:00Z", EndTime: "2026-01-01T01:00:00Z",
+				SearchScope: scope,
+			})
+			require.NoError(t, err)
+			assert.Nil(t, captured.SearchScope.ReleaseLineUID)
+			assert.Equal(t, tc.wantMainOnly, captured.SearchScope.MainLineOnly)
+			require.NotNil(t, captured.SearchScope.ComponentUID)
+			assert.Equal(t, sampleComponentUID, *captured.SearchScope.ComponentUID)
+		})
+	}
+}
+
+func TestTracesAdapterBody_MainLineOnly(t *testing.T) {
+	body := gen.ComponentSearchScope{Namespace: "ns"}
+	r, err := tracesAdapterBody(map[string]any{"searchScope": body}, true)
+	require.NoError(t, err)
+	raw, err := io.ReadAll(r)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"mainLineOnly":true`)
+
+	r, err = tracesAdapterBody(map[string]any{"searchScope": body}, false)
+	require.NoError(t, err)
+	raw, err = io.ReadAll(r)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "mainLineOnly")
+}
+
+func TestAlertService_NotificationDetailsMainLine(t *testing.T) {
+	t.Parallel()
+
+	tokenSrv := newAlwaysOKTokenServer(t)
+	t.Cleanup(tokenSrv.Close)
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/namespaces/ns/components/lined/releaselines":
+			assert.Equal(t, "1", r.URL.Query().Get("limit"))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
+		case "/api/v1/namespaces/ns/components/plain/releaselines":
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(apiSrv.Close)
+
+	svc := newTestAlertService()
+	svc.resolver = newTestResolver(t, apiSrv, tokenSrv, &config.UIDResolverConfig{MaxAuthRetry: 1})
+
+	tests := []struct {
+		name        string
+		component   string
+		releaseLine string
+		want        string
+	}{
+		{name: "main line of a component with lines", component: "lined", want: releaseline.MainLine},
+		{name: "component without lines", component: "plain", want: ""},
+		{name: "release line", component: "lined", releaseLine: "next", want: "next"},
+		{name: "lookup failure", component: "missing", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			details := &types.AlertDetails{Namespace: "ns", Component: tt.component, ReleaseLine: tt.releaseLine}
+			got := svc.notificationDetails(context.Background(), details)
+
+			assert.Equal(t, tt.want, got.ReleaseLine)
+			assert.Equal(t, tt.releaseLine, details.ReleaseLine, "the stored alert keeps its release line")
+		})
+	}
+}

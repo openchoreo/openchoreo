@@ -60,6 +60,8 @@ type TracesQueryParams struct {
 	ComponentID   string `json:"componentId,omitempty"`
 	EnvironmentID string `json:"environmentId,omitempty"`
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
+	// MainLineOnly restricts the query to the component's main line.
+	MainLineOnly bool `json:"mainLineOnly,omitempty"`
 
 	// Query options
 	TraceID           string `json:"traceId,omitempty"`
