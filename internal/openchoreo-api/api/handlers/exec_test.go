@@ -134,38 +134,11 @@ func TestExecHandler_ComponentNotFound(t *testing.T) {
 
 func TestExecPodSelector(t *testing.T) {
 	require.Equal(t,
-		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default",
+		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default,!openchoreo.dev/release-line",
 		execPodSelector("default", "hello", "development", ""))
 	require.Equal(t,
 		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default,openchoreo.dev/release-line=next",
 		execPodSelector("default", "hello", "development", "next"))
-}
-
-func TestExecHandler_ReleaseLineMismatch(t *testing.T) {
-	lined := execComponent("hello", "default")
-	lined.Spec.ReleaseLinesEnabled = true
-
-	cases := []struct {
-		name, component, query, want string
-		objs                         []client.Object
-	}{
-		{"line required", "hello", "", `component "hello" uses release lines; a release line is required`, []client.Object{lined}},
-		{"lines not enabled", "greeter", "&releaseLine=next", `component "greeter" does not have release lines enabled`,
-			[]client.Object{execComponent("greeter", "default")}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			h := newExecHandler(t, testutil.AllowPDP(), tc.objs...)
-			req := httptest.NewRequest(http.MethodGet,
-				"/exec/namespaces/default/components/"+tc.component+"?env=development&project=default"+tc.query,
-				nil).WithContext(testutil.AuthzContext())
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusBadRequest, rec.Code)
-			require.Contains(t, rec.Body.String(), tc.want)
-		})
-	}
 }
 
 // The release line requested for exec reaches the ABAC context, so the audit record names it.
@@ -180,4 +153,18 @@ func TestExecHandler_AuthzReleaseLineContext(t *testing.T) {
 
 	require.Len(t, pdp.Captured, 1, "authz check should run before pod resolution")
 	require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
+}
+
+// The main line keyword reaches the ABAC context as the main line, which has no release line.
+func TestExecHandler_MainLineKeyword(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=main",
+		nil).WithContext(testutil.AuthzContext())
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Len(t, pdp.Captured, 1)
+	require.Empty(t, pdp.Captured[0].Context.Resource.ReleaseLine)
 }

@@ -53,18 +53,18 @@ func (s *SchemaSection) IsOpenAPIV3() bool {
 	return s != nil && s.OpenAPIV3Schema != nil
 }
 
-// ReleaseLinePolicy states whether Components of a type can enable release lines.
+// ReleaseLinePolicy states whether Components of a type can have release lines.
 // +kubebuilder:validation:Enum=Allowed;Disallowed
 type ReleaseLinePolicy string
 
 const (
-	// ReleaseLinePolicyAllowed lets Components of the type enable release lines.
+	// ReleaseLinePolicyAllowed lets Components of the type have release lines.
 	ReleaseLinePolicyAllowed ReleaseLinePolicy = "Allowed"
-	// ReleaseLinePolicyDisallowed keeps Components of the type off release lines. An empty policy means the same.
+	// ReleaseLinePolicyDisallowed limits Components of the type to their main line. An empty policy means the same.
 	ReleaseLinePolicyDisallowed ReleaseLinePolicy = "Disallowed"
 )
 
-// AllowsReleaseLines reports whether Components under this policy can enable release lines.
+// AllowsReleaseLines reports whether Components under this policy can have release lines.
 func (p ReleaseLinePolicy) AllowsReleaseLines() bool {
 	return p == ReleaseLinePolicyAllowed
 }
@@ -109,7 +109,7 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
-	// ReleaseLines states whether Components of this type can enable release lines.
+	// ReleaseLines states whether Components of this type can have release lines besides their main line.
 	// Set it to Allowed only when the resources name every component-scoped object per release line,
 	// from metadata.name, or from metadata.componentName and metadata.releaseLineName.
 	// Defaults to Disallowed.

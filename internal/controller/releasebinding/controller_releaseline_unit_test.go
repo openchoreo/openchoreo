@@ -44,7 +44,7 @@ func lineUID(line string) string {
 	return "uid-" + line
 }
 
-func TestBuildMetadataContext_WithoutReleaseLine(t *testing.T) {
+func TestBuildMetadataContext_MainLine(t *testing.T) {
 	mctx := buildMetadataContextForLine("")
 
 	assert.Empty(t, mctx.ReleaseLineName)
@@ -52,27 +52,44 @@ func TestBuildMetadataContext_WithoutReleaseLine(t *testing.T) {
 	assert.NotContains(t, mctx.Labels, labels.LabelKeyReleaseLine)
 	assert.NotContains(t, mctx.PodSelectors, labels.LabelKeyReleaseLine)
 	assert.NotContains(t, mctx.PodSelectors, labels.LabelKeyReleaseLineUID)
+	assert.Equal(t, "comp-uid", mctx.PodSelectors[labels.LabelKeyComponentUID])
 }
 
 func TestBuildMetadataContext_ReleaseLinesShareNamespaceWithDistinctNames(t *testing.T) {
-	unlined := buildMetadataContextForLine("")
-	mainLine := buildMetadataContextForLine("main")
+	main := buildMetadataContextForLine("")
 	v2 := buildMetadataContextForLine(testReleaseLine)
 
-	assert.Equal(t, unlined.Namespace, v2.Namespace, "release lines render into the project namespace")
-	assert.Equal(t, unlined.Namespace, mainLine.Namespace)
+	assert.Equal(t, main.Namespace, v2.Namespace, "release lines render into the project namespace")
 
 	assert.Equal(t, testReleaseLine, v2.ReleaseLineName)
 	assert.Equal(t, releaseline.ObjectBaseName(testComponentName, testReleaseLine, testEnvStaging), v2.Name)
-	assert.NotEqual(t, mainLine.Name, v2.Name)
-	assert.NotEqual(t, mainLine.ReleaseLineName, v2.ReleaseLineName)
+	assert.NotEqual(t, main.Name, v2.Name)
 
 	assert.Equal(t, testReleaseLine, v2.Labels[labels.LabelKeyReleaseLine])
 	assert.Equal(t, testReleaseLine, v2.PodSelectors[labels.LabelKeyReleaseLine])
 	assert.Equal(t, lineUID(testReleaseLine), v2.Labels[labels.LabelKeyReleaseLineUID])
 	assert.Equal(t, lineUID(testReleaseLine), v2.PodSelectors[labels.LabelKeyReleaseLineUID])
-	assert.Equal(t, "main", mainLine.PodSelectors[labels.LabelKeyReleaseLine])
 	assert.Equal(t, testComponentName, v2.Labels[labels.LabelKeyComponentName])
+}
+
+func TestBuildMetadataContext_SelectorsOfMainLineAndReleaseLineDoNotOverlap(t *testing.T) {
+	main := buildMetadataContextForLine("")
+	v2 := buildMetadataContextForLine(testReleaseLine)
+
+	matches := func(selector, podLabels map[string]string) bool {
+		for k, v := range selector {
+			if podLabels[k] != v {
+				return false
+			}
+		}
+		return true
+	}
+	assert.False(t, matches(main.PodSelectors, v2.PodSelectors), "the main line's selector must not match a release line's pods")
+	assert.False(t, matches(v2.PodSelectors, main.PodSelectors), "a release line's selector must not match the main line's pods")
+	assert.NotContains(t, v2.PodSelectors, labels.LabelKeyComponentUID)
+	assert.Equal(t, "comp-uid", v2.PodSelectors[labels.LabelKeyReleaseLineComponentUID], "a line's pods name their component under another key")
+	assert.NotContains(t, main.PodSelectors, labels.LabelKeyReleaseLineComponentUID)
+	assert.Equal(t, "comp-uid", v2.Labels[labels.LabelKeyComponentUID], "objects of a line keep the component UID label")
 }
 
 func TestMakeReleaseNames_ReleaseLine(t *testing.T) {
@@ -123,29 +140,21 @@ func TestValidateReleaseLine(t *testing.T) {
 	tests := []struct {
 		name       string
 		component  string
-		enabled    bool
 		line       string
 		wantOK     bool
 		wantReason controller.ConditionReason
 	}{
-		{name: "component without release lines", component: testComponentName, line: "", wantOK: true},
-		{name: "line on a component without release lines", component: testComponentName, line: testReleaseLine, wantReason: ReasonInvalidReleaseConfiguration},
-		{name: "missing line on a release-line component", component: testComponentName, enabled: true, line: "", wantReason: ReasonInvalidReleaseConfiguration},
-		{name: "existing line of the component", component: testComponentName, enabled: true, line: testReleaseLine, wantOK: true},
-		{name: "unknown line", component: testComponentName, enabled: true, line: "absent", wantReason: ReasonReleaseLineNotFound},
-		{name: "line of another component", component: "other", enabled: true, line: testReleaseLine, wantReason: ReasonInvalidReleaseConfiguration},
+		{name: "main line", component: testComponentName, line: "", wantOK: true},
+		{name: "existing line of the component", component: testComponentName, line: testReleaseLine, wantOK: true},
+		{name: "unknown line", component: testComponentName, line: "absent", wantReason: ReasonReleaseLineNotFound},
+		{name: "line of another component", component: "other", line: testReleaseLine, wantReason: ReasonInvalidReleaseConfiguration},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rb := makeValidReleaseBinding(testProjectName, tt.component)
 			rb.Namespace = "default"
 			rb.Spec.Owner.ReleaseLine = tt.line
-			comp := &openchoreov1alpha1.Component{
-				ObjectMeta: metav1.ObjectMeta{Name: tt.component, Namespace: "default"},
-				Spec:       openchoreov1alpha1.ComponentSpec{ReleaseLinesEnabled: tt.enabled},
-			}
-
-			line, ok, err := r.validateReleaseLine(context.Background(), rb, comp)
+			line, ok, err := r.validateReleaseLine(context.Background(), rb)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOK, ok)
 			if ok && tt.line != "" {
@@ -181,13 +190,10 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 		}
 	}
 
-	newComponent := func(name string, lined bool) *openchoreov1alpha1.Component {
+	newComponent := func(name string) *openchoreov1alpha1.Component {
 		return &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
-			Spec: openchoreov1alpha1.ComponentSpec{
-				Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
-				ReleaseLinesEnabled: lined,
-			},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName}},
 		}
 	}
 	newLine := func(name, component string) *openchoreov1alpha1.ReleaseLine {
@@ -203,8 +209,9 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(newTarget("main", "main", "main.svc"), newTarget("v2", testReleaseLine, "v2.svc"),
-			newComponent(testComponentName, true), newComponent("plain", false), newLine("canary", testComponentName)).
+		WithObjects(newTarget("main", "", "main.svc"), newTarget("v2", testReleaseLine, "v2.svc"),
+			newComponent(testComponentName), newComponent("plain"), newComponent("lined"),
+			newLine("canary", testComponentName), newLine("beta", "lined")).
 		WithIndex(&openchoreov1alpha1.ReleaseBinding{}, controller.IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
 			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
 			return []string{controller.MakeReleaseBindingOwnerEnvKey(rb.Spec.Owner.ProjectName, rb.Spec.Owner.ComponentName, rb.Spec.Environment)}
@@ -220,7 +227,7 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 	}
 	target := func(line string) openchoreov1alpha1.ConnectionTarget { return targetOf(testComponentName, line) }
 
-	for line, wantHost := range map[string]string{"main": "main.svc", testReleaseLine: "v2.svc"} {
+	for line, wantHost := range map[string]string{"": "main.svc", testReleaseLine: "v2.svc"} {
 		resolved, pending, err := r.resolveConnection(context.Background(), target(line))
 		require.NoError(t, err)
 		require.Nil(t, pending, "line %q", line)
@@ -228,19 +235,14 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 		assert.Equal(t, line, resolved.ReleaseLine)
 	}
 
-	resolved, pending, err := r.resolveConnection(context.Background(), target(""))
-	require.NoError(t, err)
-	assert.Nil(t, resolved, "a release-line component has no implicit line to fall back to")
-	require.NotNil(t, pending)
-	assert.Contains(t, pending.Reason, "set releaseLine on the dependency")
-
 	for name, tc := range map[string]struct {
 		target openchoreov1alpha1.ConnectionTarget
 		want   string
 	}{
-		"line on a component without lines": {targetOf("plain", "next"), "does not have release lines enabled"},
+		"line of a component without lines": {targetOf("plain", "next"), `release line "next" not found`},
 		"unknown line":                      {target("ghost"), `release line "ghost" not found`},
 		"line not deployed":                 {target("canary"), `release line "canary" of component my-project/my-component is not deployed in environment staging`},
+		"main line not deployed":            {targetOf("lined", ""), "the main line of component my-project/lined is not deployed in environment staging"},
 		"component not deployed":            {targetOf("plain", ""), "ReleaseBinding not found"},
 		"unknown component":                 {targetOf("ghost", ""), "ReleaseBinding not found"},
 	} {
@@ -333,4 +335,42 @@ func TestFindReleaseLineCollision(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, msg)
 	})
+}
+
+func TestFindMainLinePodLabel(t *testing.T) {
+	manifest := func(obj map[string]any) openchoreov1alpha1.RenderedManifest {
+		raw, err := json.Marshal(obj)
+		require.NoError(t, err)
+		return openchoreov1alpha1.RenderedManifest{ID: "r", Object: &runtime.RawExtension{Raw: raw}}
+	}
+	podTemplate := func(podLabels map[string]any) map[string]any {
+		return map[string]any{"template": map[string]any{"metadata": map[string]any{"labels": podLabels}}}
+	}
+	lineLabels := map[string]any{labels.LabelKeyReleaseLine: testReleaseLine, labels.LabelKeyComponentName: "comp"}
+	mainLabels := map[string]any{labels.LabelKeyComponentUID: "c-1", labels.LabelKeyComponentName: "comp"}
+
+	tests := []struct {
+		name string
+		obj  map[string]any
+		want string
+	}{
+		{"deployment with line pod labels", map[string]any{"kind": "Deployment", "metadata": map[string]any{"name": "d"}, "spec": podTemplate(lineLabels)}, ""},
+		{"service", map[string]any{"kind": "Service", "metadata": map[string]any{"name": "s", "labels": mainLabels}}, ""},
+		{"deployment with the component UID on its pods", map[string]any{"kind": "Deployment", "metadata": map[string]any{"name": "d"}, "spec": podTemplate(mainLabels)}, `Deployment "d"`},
+		{"cronjob with the component UID on its pods", map[string]any{"kind": "CronJob", "metadata": map[string]any{"name": "c"},
+			"spec": map[string]any{"jobTemplate": map[string]any{"spec": podTemplate(mainLabels)}}}, `CronJob "c"`},
+		{"pod with the component UID", map[string]any{"kind": "Pod", "metadata": map[string]any{"name": "p", "labels": mainLabels}}, `Pod "p"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			msg, err := findMainLinePodLabel(testReleaseLine, []openchoreov1alpha1.RenderedManifest{manifest(tt.obj)})
+			require.NoError(t, err)
+			if tt.want == "" {
+				assert.Empty(t, msg)
+				return
+			}
+			assert.Contains(t, msg, tt.want)
+			assert.Contains(t, msg, labels.LabelKeyComponentUID)
+		})
+	}
 }

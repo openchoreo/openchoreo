@@ -6,6 +6,7 @@ metadata:
     openchoreo.dev/description: "A component that runs to completion on a schedule"
 spec:
   workloadType: cronjob
+  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow

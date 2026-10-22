@@ -42,9 +42,7 @@ func (h *Handler) CreateComponentWorkflowRun(
 			return gen.CreateComponentWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		case errors.Is(err, workflowrunsvc.ErrReleaseLineNotFound):
 			return gen.CreateComponentWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
-		case errors.Is(err, workflowrunsvc.ErrReleaseLineRequired),
-			errors.Is(err, workflowrunsvc.ErrReleaseLinesNotEnabled),
-			errors.Is(err, workflowrunsvc.ErrInvalidCommitSHA):
+		case errors.Is(err, workflowrunsvc.ErrInvalidCommitSHA):
 			return gen.CreateComponentWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
 		h.logger.Error("Failed to trigger component workflow run", "error", err)

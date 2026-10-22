@@ -90,10 +90,11 @@ func (t *Toolsets) RegisterListReleaseLines(s *mcp.Server, perms map[string]Tool
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseLine}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "List the release lines of a component with release lines enabled. A release line is a " +
-			"named series of releases of the component (e.g. main, next), built and deployed on its own, " +
-			"with its own workload, releases and release bindings. Shows each line's overrides, latest " +
-			"release and the environments it runs in. Supports pagination via limit and cursor.",
+		Description: "List the release lines of a component. A release line is a named series of releases " +
+			"of the component (e.g. v2, next), built and deployed on its own, with its own workload, releases " +
+			"and release bindings. Every component has the implicit main line, listed first, which uses the " +
+			"component's own configuration. Shows each line's overrides, latest release and the environments " +
+			"it runs in. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
@@ -140,12 +141,12 @@ func (t *Toolsets) RegisterCreateReleaseLine(s *mcp.Server, perms map[string]Too
 	props := releaseLineSpecProperties()
 	props["namespace_name"] = defaultStringProperty()
 	props["component_name"] = stringProperty(
-		"Component with release lines enabled. Use list_components to discover valid names")
+		"Component whose type allows release lines. Use list_components to discover valid names")
 	props["name"] = stringProperty("Release line name (lowercase, alphanumeric, hyphens only, max 63 chars). " +
-		"Unique within the namespace, across all components")
+		"Unique within the namespace, across all components. main is reserved for the implicit main line")
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "Create a release line for a component with release lines enabled. The line starts from " +
+		Description: "Create a release line for a component, next to its implicit main line. The line starts from " +
 			"the component's configuration and can override its parameters, traits, workflow parameters and " +
 			"auto_deploy. After creating it, build the line with trigger_workflow_run (release_line) or create " +
 			"its workload with create_workload (release_line).",
@@ -249,6 +250,6 @@ func (t *Toolsets) RegisterDeleteReleaseLine(s *mcp.Server, perms map[string]Too
 
 // releaseLineProperty is the release_line argument of tools that act on one line of a component.
 func releaseLineProperty() map[string]any {
-	return stringProperty("Release line of the component. Required when the component has release lines " +
-		"enabled, and must be omitted otherwise. Use list_release_lines to discover valid names")
+	return stringProperty("Optional: release line of the component. Omit it, or use main, for the component's " +
+		"main line. Use list_release_lines to discover valid names")
 }

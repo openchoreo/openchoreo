@@ -15,14 +15,9 @@ import (
 )
 
 // componentForLine returns the component with the release line's overrides applied, or the component
-// itself when line is empty. It enforces that a line is given exactly when the component uses lines.
+// itself for the main line.
 func (s *componentService) componentForLine(ctx context.Context, comp *openchoreov1alpha1.Component, line string) (*openchoreov1alpha1.Component, error) {
-	switch {
-	case comp.Spec.ReleaseLinesEnabled && line == "":
-		return nil, ErrReleaseLineRequired
-	case !comp.Spec.ReleaseLinesEnabled && line != "":
-		return nil, ErrReleaseLinesNotEnabled
-	case line == "":
+	if line = releaseline.Normalize(line); line == "" {
 		return comp, nil
 	}
 

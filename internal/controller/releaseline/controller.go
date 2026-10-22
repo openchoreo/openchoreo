@@ -6,7 +6,6 @@ package releaseline
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -93,11 +92,6 @@ func (r *Reconciler) reconcileLine(ctx context.Context, line *openchoreov1alpha1
 	if comp.Spec.Owner.ProjectName != line.Spec.Owner.ProjectName {
 		controller.MarkFalseCondition(line, ConditionReady, ReasonInvalidConfiguration,
 			fmt.Sprintf("Component %q belongs to project %q, not %q", comp.Name, comp.Spec.Owner.ProjectName, line.Spec.Owner.ProjectName))
-		return nil
-	}
-	if !comp.Spec.ReleaseLinesEnabled {
-		controller.MarkFalseCondition(line, ConditionReady, ReasonReleaseLinesNotEnabled,
-			fmt.Sprintf("Component %q does not have spec.releaseLinesEnabled; create a new component with it set to use release lines", comp.Name))
 		return nil
 	}
 	if !comp.DeletionTimestamp.IsZero() {
@@ -228,26 +222,5 @@ func (r *Reconciler) environments(ctx context.Context, comp *openchoreov1alpha1.
 		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerComponentName: comp.Name}); err != nil {
 		return nil, fmt.Errorf("failed to list ReleaseBindings: %w", err)
 	}
-	return lineEnvironments(bindings.Items, comp.Spec.Owner.ProjectName, line), nil
-}
-
-// lineEnvironments summarizes the line's ReleaseBindings, one entry per environment, sorted by environment.
-func lineEnvironments(bindings []openchoreov1alpha1.ReleaseBinding, projectName, line string) []openchoreov1alpha1.ReleaseLineEnvironment {
-	var envs []openchoreov1alpha1.ReleaseLineEnvironment
-	seen := map[string]bool{}
-	for i := range bindings {
-		rb := &bindings[i]
-		if rb.Spec.Owner.ProjectName != projectName || rb.Spec.Owner.ReleaseLine != line || seen[rb.Spec.Environment] {
-			continue
-		}
-		seen[rb.Spec.Environment] = true
-		envs = append(envs, openchoreov1alpha1.ReleaseLineEnvironment{
-			Environment:    rb.Spec.Environment,
-			ReleaseBinding: rb.Name,
-			Release:        rb.Spec.ReleaseName,
-			Ready:          meta.IsStatusConditionTrue(rb.Status.Conditions, string(ConditionReady)),
-		})
-	}
-	sort.Slice(envs, func(i, j int) bool { return envs[i].Environment < envs[j].Environment })
-	return envs
+	return rlconfig.Environments(bindings.Items, comp.Spec.Owner.ProjectName, comp.Name, line), nil
 }

@@ -33,10 +33,15 @@ func testComponent() *openchoreov1alpha1.Component {
 	return testutil.NewComponent(testNamespace, testProjectName, testComponentName)
 }
 
-func linesEnabledComponent() *openchoreov1alpha1.Component {
-	comp := testComponent()
-	comp.Spec.ReleaseLinesEnabled = true
-	return comp
+func testBinding(name, component, line, env string) *openchoreov1alpha1.ReleaseBinding {
+	return &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProjectName, ComponentName: component, ReleaseLine: line},
+			Environment: env,
+			ReleaseName: name + "-release",
+		},
+	}
 }
 
 func testReleaseLine(name, project, component string) *openchoreov1alpha1.ReleaseLine {
@@ -55,24 +60,43 @@ func rawParams(raw string) *runtime.RawExtension {
 func TestListReleaseLines(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns only the component's lines", func(t *testing.T) {
+	t.Run("starts with the main line and returns only the component's lines", func(t *testing.T) {
 		svc := newService(t,
 			testComponent(),
 			testReleaseLine("next", testProjectName, testComponentName),
-			testReleaseLine("main", testProjectName, testComponentName),
+			testReleaseLine("v2", testProjectName, testComponentName),
 			testReleaseLine("other-comp", testProjectName, "other"),
 			testReleaseLine("other-proj", "other", testComponentName),
+			testBinding("main-dev", testComponentName, "", "development"),
+			testBinding("next-dev", testComponentName, "next", "development"),
+			testBinding("other-dev", "other", "", "development"),
 		)
 		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10})
 		require.NoError(t, err)
-		require.Len(t, result.Items, 2)
-		assert.ElementsMatch(t, []string{"main", "next"}, []string{result.Items[0].Name, result.Items[1].Name})
-		assert.Equal(t, releaseLineTypeMeta, result.Items[0].TypeMeta)
+		require.Len(t, result.Items, 3)
+		assert.Equal(t, "main", result.Items[0].Name)
+		assert.Empty(t, result.Items[0].UID)
+		assert.Equal(t, []openchoreov1alpha1.ReleaseLineEnvironment{
+			{Environment: "development", ReleaseBinding: "main-dev", Release: "main-dev-release"},
+		}, result.Items[0].Status.Environments)
+		assert.ElementsMatch(t, []string{"next", "v2"}, []string{result.Items[1].Name, result.Items[2].Name})
+		for _, item := range result.Items {
+			assert.Equal(t, releaseLineTypeMeta, item.TypeMeta)
+		}
 	})
 
-	t.Run("component without lines", func(t *testing.T) {
+	t.Run("component without lines has only its main line", func(t *testing.T) {
 		svc := newService(t, testComponent())
 		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		assert.Equal(t, "main", result.Items[0].Name)
+		assert.Equal(t, testComponentName, result.Items[0].Spec.Owner.ComponentName)
+	})
+
+	t.Run("a filtered list leaves out the main line", func(t *testing.T) {
+		svc := newService(t, testComponent())
+		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10, LabelSelector: "team=a"})
 		require.NoError(t, err)
 		assert.Empty(t, result.Items)
 	})
@@ -87,7 +111,7 @@ func TestListReleaseLines(t *testing.T) {
 func TestGetReleaseLine(t *testing.T) {
 	ctx := context.Background()
 	svc := newService(t,
-		linesEnabledComponent(),
+		testComponent(),
 		testReleaseLine("next", testProjectName, testComponentName),
 		testReleaseLine("other", testProjectName, "other-comp"),
 	)
@@ -96,6 +120,14 @@ func TestGetReleaseLine(t *testing.T) {
 		rl, err := svc.GetReleaseLine(ctx, testNamespace, testComponentName, "next")
 		require.NoError(t, err)
 		assert.Equal(t, "next", rl.Name)
+		assert.Equal(t, releaseLineTypeMeta, rl.TypeMeta)
+	})
+
+	t.Run("returns the implicit main line", func(t *testing.T) {
+		rl, err := svc.GetReleaseLine(ctx, testNamespace, testComponentName, "main")
+		require.NoError(t, err)
+		assert.Equal(t, "main", rl.Name)
+		assert.Equal(t, testComponentName, rl.Spec.Owner.ComponentName)
 		assert.Equal(t, releaseLineTypeMeta, rl.TypeMeta)
 	})
 
@@ -119,7 +151,7 @@ func TestCreateReleaseLine(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("fills the owner from the component", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent())
+		svc := newService(t, testComponent())
 		rl := &openchoreov1alpha1.ReleaseLine{ObjectMeta: metav1.ObjectMeta{Name: "next"}}
 		created, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, rl)
 		require.NoError(t, err)
@@ -133,7 +165,7 @@ func TestCreateReleaseLine(t *testing.T) {
 	})
 
 	t.Run("owner naming another component", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent())
+		svc := newService(t, testComponent())
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", testProjectName, "other-comp"))
 		var vErr *services.ValidationError
 		require.ErrorAs(t, err, &vErr)
@@ -141,21 +173,30 @@ func TestCreateReleaseLine(t *testing.T) {
 	})
 
 	t.Run("owner naming another project", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent())
+		svc := newService(t, testComponent())
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", "other-proj", testComponentName))
 		var vErr *services.ValidationError
 		require.ErrorAs(t, err, &vErr)
 		assert.Contains(t, vErr.Msg, "spec.owner.projectName")
 	})
 
-	t.Run("component without release lines", func(t *testing.T) {
+	t.Run("main is reserved", func(t *testing.T) {
 		svc := newService(t, testComponent())
+		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("main", "", ""))
+		require.ErrorIs(t, err, ErrMainLine)
+	})
+
+	t.Run("component type that does not allow release lines", func(t *testing.T) {
+		ct := &openchoreov1alpha1.ComponentType{ObjectMeta: metav1.ObjectMeta{Name: "web-app", Namespace: testNamespace}}
+		svc := newService(t, testComponent(), ct)
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", "", ""))
-		require.ErrorIs(t, err, ErrReleaseLinesNotEnabled)
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+		assert.Contains(t, vErr.Msg, "does not allow release lines")
 	})
 
 	t.Run("name taken by another component's line", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("next", testProjectName, "other-comp"))
+		svc := newService(t, testComponent(), testReleaseLine("next", testProjectName, "other-comp"))
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", "", ""))
 		require.ErrorIs(t, err, ErrReleaseLineAlreadyExists)
 	})
@@ -171,7 +212,7 @@ func TestUpdateReleaseLine(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("replaces the spec and keeps the owner", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("next", testProjectName, testComponentName))
+		svc := newService(t, testComponent(), testReleaseLine("next", testProjectName, testComponentName))
 		rl := &openchoreov1alpha1.ReleaseLine{ObjectMeta: metav1.ObjectMeta{Name: "next"}}
 		rl.Spec.Parameters = rawParams(`{"logLevel":"debug"}`)
 		updated, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, rl)
@@ -185,16 +226,22 @@ func TestUpdateReleaseLine(t *testing.T) {
 	})
 
 	t.Run("owner naming another component", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("next", testProjectName, testComponentName))
+		svc := newService(t, testComponent(), testReleaseLine("next", testProjectName, testComponentName))
 		_, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", testProjectName, "other-comp"))
 		var vErr *services.ValidationError
 		require.ErrorAs(t, err, &vErr)
 	})
 
 	t.Run("line of another component", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("other", testProjectName, "other-comp"))
+		svc := newService(t, testComponent(), testReleaseLine("other", testProjectName, "other-comp"))
 		_, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("other", "", ""))
 		require.ErrorIs(t, err, ErrReleaseLineNotFound)
+	})
+
+	t.Run("the main line", func(t *testing.T) {
+		svc := newService(t, testComponent())
+		_, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("main", "", ""))
+		require.ErrorIs(t, err, ErrMainLine)
 	})
 }
 
@@ -202,19 +249,24 @@ func TestDeleteReleaseLine(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("deletes the component's line", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("next", testProjectName, testComponentName))
+		svc := newService(t, testComponent(), testReleaseLine("next", testProjectName, testComponentName))
 		require.NoError(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "next"))
 		_, err := svc.GetReleaseLine(ctx, testNamespace, testComponentName, "next")
 		require.ErrorIs(t, err, ErrReleaseLineNotFound)
 	})
 
 	t.Run("line of another component is kept", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent(), testReleaseLine("other", testProjectName, "other-comp"))
+		svc := newService(t, testComponent(), testReleaseLine("other", testProjectName, "other-comp"))
 		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "other"), ErrReleaseLineNotFound)
 	})
 
 	t.Run("unknown line", func(t *testing.T) {
-		svc := newService(t, linesEnabledComponent())
+		svc := newService(t, testComponent())
 		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "missing"), ErrReleaseLineNotFound)
+	})
+
+	t.Run("the main line", func(t *testing.T) {
+		svc := newService(t, testComponent())
+		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "main"), ErrMainLine)
 	})
 }

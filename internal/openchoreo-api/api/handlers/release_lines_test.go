@@ -100,7 +100,7 @@ func TestCreateComponentReleaseLineHandler(t *testing.T) {
 	}{
 		"forbidden":          {svcpkg.ErrForbidden, gen.CreateComponentReleaseLine403JSONResponse{}},
 		"unknown component":  {releaselinesvc.ErrComponentNotFound, gen.CreateComponentReleaseLine404JSONResponse{}},
-		"lines not enabled":  {releaselinesvc.ErrReleaseLinesNotEnabled, gen.CreateComponentReleaseLine400JSONResponse{}},
+		"main line":          {releaselinesvc.ErrMainLine, gen.CreateComponentReleaseLine400JSONResponse{}},
 		"name taken":         {releaselinesvc.ErrReleaseLineAlreadyExists, gen.CreateComponentReleaseLine409JSONResponse{}},
 		"owner of other one": {&svcpkg.ValidationError{Msg: "spec.owner.componentName must be \"hello\""}, gen.CreateComponentReleaseLine400JSONResponse{}},
 	} {

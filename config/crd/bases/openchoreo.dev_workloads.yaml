@@ -202,12 +202,15 @@ spec:
                           type: string
                         releaseLine:
                           description: |-
-                            ReleaseLine is the target component's release line.
-                            Required when the target has releaseLinesEnabled; must be empty otherwise.
+                            ReleaseLine is the target component's release line. Empty targets its main line.
                             It never follows the consumer's own line.
                           maxLength: 63
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                           type: string
+                          x-kubernetes-validations:
+                          - message: main is the implicit line; omit releaseLine for
+                              it
+                            rule: self != 'main'
                         visibility:
                           description: Visibility is the visibility level at which
                             this connection consumes the endpoint.
@@ -355,10 +358,13 @@ spec:
                   releaseLine:
                     description: |-
                       ReleaseLine names the ReleaseLine this resource belongs to.
-                      Required when the component has releaseLinesEnabled; must be empty otherwise.
+                      Empty for the component's main line, which is implicit and has no ReleaseLine.
                     maxLength: 63
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
+                    x-kubernetes-validations:
+                    - message: main is the implicit line; omit releaseLine for it
+                      rule: self != 'main'
                 required:
                 - componentName
                 - projectName

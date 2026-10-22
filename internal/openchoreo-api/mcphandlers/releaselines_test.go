@@ -57,8 +57,7 @@ func TestTriggerWorkflowRun_ReleaseLine(t *testing.T) {
 	comp := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{Name: testComponent},
 		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner:               openchoreov1alpha1.ComponentOwner{ProjectName: testProject},
-			ReleaseLinesEnabled: true,
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProject},
 			Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
 				Name: "build-wf",
 				Parameters: rawJSON(t, map[string]any{
@@ -157,24 +156,6 @@ func TestCreateComponentRelease_ReleaseLine(t *testing.T) {
 	result, err := h.CreateComponentRelease(ctx, testNS, testComponent, "", testLine)
 	require.NoError(t, err)
 	assert.Equal(t, testComponent+"-"+testLine+"-abc", result.(map[string]any)["name"])
-}
-
-func TestCreateComponent_ReleaseLinesEnabled(t *testing.T) {
-	ctx := context.Background()
-	enabled := true
-	compSvc := componentmocks.NewMockService(t)
-	compSvc.EXPECT().
-		CreateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
-			return c.Spec.ReleaseLinesEnabled
-		})).
-		Return(&openchoreov1alpha1.Component{ObjectMeta: metav1.ObjectMeta{Name: testComponent}}, nil)
-
-	h := newTestHandler(withComponentService(compSvc))
-	_, err := h.CreateComponent(ctx, testNS, testProject, &gen.CreateComponentRequest{
-		Name:                testComponent,
-		ReleaseLinesEnabled: &enabled,
-	})
-	require.NoError(t, err)
 }
 
 func TestReleaseLineHandlers(t *testing.T) {

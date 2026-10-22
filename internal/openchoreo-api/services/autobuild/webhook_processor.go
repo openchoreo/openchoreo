@@ -131,8 +131,8 @@ func (t buildTarget) String() string {
 	return name
 }
 
-// findBuildTargets finds the components, and the release lines of components with release
-// lines enabled, that should be built for the webhook event.
+// findBuildTargets finds the main lines and release lines of components that should be built for
+// the webhook event.
 func (s *webhookProcessor) findBuildTargets(ctx context.Context, event *git.WebhookEvent) ([]buildTarget, error) {
 	componentList := &v1alpha1.ComponentList{}
 	if err := s.k8sClient.List(ctx, componentList); err != nil {
@@ -152,11 +152,8 @@ func (s *webhookProcessor) findBuildTargets(ctx context.Context, event *git.Webh
 			continue
 		}
 
-		if !comp.Spec.ReleaseLinesEnabled {
-			if s.isAffected(ctx, comp, "", comp.Spec.Workflow.Parameters, event) {
-				targets = append(targets, buildTarget{component: comp})
-			}
-			continue
+		if s.isAffected(ctx, comp, "", comp.Spec.Workflow.Parameters, event) {
+			targets = append(targets, buildTarget{component: comp})
 		}
 
 		lines, err := s.listReleaseLines(ctx, comp)

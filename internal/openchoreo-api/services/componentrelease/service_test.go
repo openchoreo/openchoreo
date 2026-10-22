@@ -169,7 +169,6 @@ func TestCreateComponentRelease(t *testing.T) {
 						Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
 						Name: "deployment/line-type",
 					},
-					ReleaseLinesEnabled: true,
 				},
 			},
 			&openchoreov1alpha1.ClusterComponentType{
@@ -199,12 +198,12 @@ func TestCreateComponentRelease(t *testing.T) {
 		requireValidationError(t, err, `release line "v9" not found for component "test-comp"`)
 	})
 
-	t.Run("release without a line for a component with release lines", func(t *testing.T) {
+	t.Run("main line release of a component with release lines", func(t *testing.T) {
 		svc := newService(t, lineObjects(openchoreov1alpha1.ReleaseLinePolicyAllowed)...)
 		cr := lineRelease()
 		cr.Spec.Owner.ReleaseLine = ""
 		_, err := svc.CreateComponentRelease(ctx, testNamespace, cr)
-		requireValidationError(t, err, "a release line is required")
+		require.NoError(t, err)
 	})
 
 	t.Run("line release on a type that allows release lines", func(t *testing.T) {

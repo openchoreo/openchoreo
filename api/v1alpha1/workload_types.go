@@ -171,11 +171,11 @@ type WorkloadConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// ReleaseLine is the target component's release line.
-	// Required when the target has releaseLinesEnabled; must be empty otherwise.
+	// ReleaseLine is the target component's release line. Empty targets its main line.
 	// It never follows the consumer's own line.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	ReleaseLine string `json:"releaseLine,omitempty"`
 
@@ -346,9 +346,10 @@ type WorkloadOwner struct {
 	ComponentName string `json:"componentName"`
 
 	// ReleaseLine names the ReleaseLine this resource belongs to.
-	// Required when the component has releaseLinesEnabled; must be empty otherwise.
+	// Empty for the component's main line, which is implicit and has no ReleaseLine.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	ReleaseLine string `json:"releaseLine,omitempty"`
 }

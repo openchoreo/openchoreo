@@ -94,9 +94,7 @@ func (r *Reconciler) linesOfComponents(watched client.Object, mapComponents hand
 			if err := r.Get(ctx, req.NamespacedName, comp); err != nil {
 				continue
 			}
-			if comp.Spec.ReleaseLinesEnabled {
-				requests = append(requests, r.linesOfComponent(ctx, comp)...)
-			}
+			requests = append(requests, r.linesOfComponent(ctx, comp)...)
 		}
 		switch watched.(type) {
 		case *openchoreov1alpha1.Trait:

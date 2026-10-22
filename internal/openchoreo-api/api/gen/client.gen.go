@@ -19183,6 +19183,7 @@ func (r CreateComponentReleaseLineResp) StatusCode() int {
 type DeleteComponentReleaseLineResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -30452,6 +30453,13 @@ func ParseDeleteComponentReleaseLineResp(rsp *http.Response) (*DeleteComponentRe
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

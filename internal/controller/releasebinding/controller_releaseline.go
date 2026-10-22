@@ -21,26 +21,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// validateReleaseLine checks the binding's release line against the component: a component with
-// releaseLinesEnabled requires an existing ReleaseLine of its own, any other component requires none.
-// Returns the binding's ReleaseLine, nil without one, and false with a condition set when the
+// validateReleaseLine checks the binding's release line. A binding without a line belongs to its
+// component's implicit main line; one with a line requires an existing ReleaseLine of the component.
+// Returns the binding's ReleaseLine, nil for the main line, and false with a condition set when the
 // binding must not be rendered.
 func (r *Reconciler) validateReleaseLine(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
-	component *openchoreov1alpha1.Component,
 ) (*openchoreov1alpha1.ReleaseLine, bool, error) {
 	lineName := releaseBinding.Spec.Owner.ReleaseLine
-	switch {
-	case component.Spec.ReleaseLinesEnabled && lineName == "":
-		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonInvalidReleaseConfiguration,
-			fmt.Sprintf("Component %q has release lines enabled; spec.owner.releaseLine is required", component.Name))
-		return nil, false, nil
-	case !component.Spec.ReleaseLinesEnabled && lineName != "":
-		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonInvalidReleaseConfiguration,
-			fmt.Sprintf("Component %q does not have release lines enabled; spec.owner.releaseLine must be empty", component.Name))
-		return nil, false, nil
-	case lineName == "":
+	if lineName == "" {
 		return nil, true, nil
 	}
 
@@ -85,8 +75,8 @@ func (r *Reconciler) findReleaseBindingsForReleaseLine(ctx context.Context, obj 
 }
 
 // findReleaseLineCollision reports objects the binding would render on the target plane that another
-// RenderedRelease of the same component and environment already renders there. Returns an empty
-// string when there is no collision.
+// RenderedRelease of the same component and environment, including the main line's, already renders
+// there. Returns an empty string when there is no collision.
 func (r *Reconciler) findReleaseLineCollision(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
@@ -154,4 +144,36 @@ func manifestKeys(resources []openchoreov1alpha1.RenderedManifest) (map[string]b
 		keys[fmt.Sprintf("%s %s/%s", kind, obj.GetNamespace(), obj.GetName())] = true
 	}
 	return keys, nil
+}
+
+const kindPod = "Pod"
+
+// findMainLinePodLabel reports a pod template of a release line that carries the component UID label.
+// The main line selects its pods on that label, so it would also match the line's pods. Returns an
+// empty string when no pod template carries it.
+func findMainLinePodLabel(line string, resources []openchoreov1alpha1.RenderedManifest) (string, error) {
+	for _, res := range resources {
+		if res.Object == nil {
+			continue
+		}
+		obj := &unstructured.Unstructured{}
+		if err := obj.UnmarshalJSON(res.Object.Raw); err != nil {
+			return "", fmt.Errorf("failed to decode rendered resource %q: %w", res.ID, err)
+		}
+		var podLabels map[string]string
+		switch obj.GetKind() {
+		case kindPod:
+			podLabels = obj.GetLabels()
+		case "CronJob":
+			podLabels, _, _ = unstructured.NestedStringMap(obj.Object, "spec", "jobTemplate", "spec", "template", "metadata", "labels")
+		default:
+			podLabels, _, _ = unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "labels")
+		}
+		if _, ok := podLabels[labels.LabelKeyComponentUID]; ok {
+			return fmt.Sprintf("Release line %q renders %s %q with pod label %s, which the main line's selectors also match; "+
+				"label pods with metadata.podSelectors in the ComponentType and Traits",
+				line, obj.GetKind(), obj.GetName(), labels.LabelKeyComponentUID), nil
+		}
+	}
+	return "", nil
 }

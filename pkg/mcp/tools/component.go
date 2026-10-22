@@ -11,6 +11,7 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 //nolint:dupl // paginated list handlers share similar structure
@@ -145,13 +146,6 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 				"description": "Optional: Automatically triggers the component deployment if the component or" +
 					" related resources such as build, configs are updated. Defaults to true.",
 			},
-			"release_lines_enabled": map[string]any{
-				"type": "boolean",
-				"description": "Optional: Deploy the component only through release lines, named lines of the " +
-					"component (e.g. main, next) that are built and deployed independently. Can only be set at " +
-					"creation, and the component type must allow release lines. The component deploys nothing " +
-					"until a line is created with create_release_line. Defaults to false.",
-			},
 			"parameters": map[string]any{
 				"type":        "object",
 				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
@@ -177,7 +171,6 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 		Description   string                 `json:"description"`
 		ComponentType string                 `json:"component_type"`
 		AutoDeploy    *bool                  `json:"auto_deploy,omitempty"`
-		ReleaseLines  *bool                  `json:"release_lines_enabled,omitempty"`
 		Parameters    map[string]interface{} `json:"parameters"`
 		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
@@ -208,7 +201,6 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 		} else {
 			componentReq.AutoDeploy = args.AutoDeploy
 		}
-		componentReq.ReleaseLinesEnabled = args.ReleaseLines
 
 		// Convert parameters if provided
 		if args.Parameters != nil {
@@ -263,9 +255,9 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"one. To promote a component to a new environment, create(or update) the release binding " +
 			"in the target environment with the desired component release. If the project's deployment " +
 			"pipeline promotes into that environment, the release must already be bound in a source " +
-			"environment for the same component and project, otherwise the request is rejected. For a " +
-			"component with release lines, each line has its own binding per environment: set release_line, " +
-			"and bind a release of that line.",
+			"environment for the same component and project, otherwise the request is rejected. Each " +
+			"release line of a component has its own binding per environment: set release_line for a line " +
+			"other than main, and bind a release of that line.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
@@ -312,8 +304,8 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 				ProjectName:   args.ProjectName,
 			},
 		}
-		if args.ReleaseLine != "" {
-			createReq.Owner.ReleaseLine = &args.ReleaseLine
+		if line := releaseline.Normalize(args.ReleaseLine); line != "" {
+			createReq.Owner.ReleaseLine = &line
 		}
 		if args.ReleaseName != "" {
 			createReq.ReleaseName = &args.ReleaseName
@@ -543,8 +535,8 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPe
 			"Use this for components that follow the from-image approach (i.e., they do not use workflows to " +
 			"build images from source). For components that use workflows to build from source, the workload " +
 			"is generated automatically; use update_workload to modify it if the source repository does not " +
-			"contain a workload descriptor (workload.yaml). For a component with release lines, each line has " +
-			"its own workload: set release_line. " +
+			"contain a workload descriptor (workload.yaml). Each release line has its own workload: set " +
+			"release_line for a line other than main. " +
 			"Use get_workload_schema to see the full workload_spec structure before calling this tool.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -562,7 +554,7 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPe
 		WorkloadSpec  map[string]interface{} `json:"workload_spec"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.CreateWorkload(
-			ctx, args.NamespaceName, args.ComponentName, args.ReleaseLine, args.WorkloadSpec)
+			ctx, args.NamespaceName, args.ComponentName, releaseline.Normalize(args.ReleaseLine), args.WorkloadSpec)
 		return handleToolResult(result, err)
 	})
 }
@@ -642,7 +634,7 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server, perms map[string]To
 		Name: name,
 		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
 			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping. " +
-			"For a component with release lines, set release_line to build that line: the line's workflow " +
+			"Set release_line to build a line other than main: the line's workflow " +
 			"parameters are merged onto the component's, and the build updates the line's workload.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),

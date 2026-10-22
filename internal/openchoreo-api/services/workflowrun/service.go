@@ -876,6 +876,7 @@ func computeWorkflowRunStatus(conditions []metav1.Condition) string {
 // TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
 // This is used by both the authorized API handler path and the webhook path (unauthz).
 func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string) (*models.WorkflowRunTriggerResponse, error) {
+	releaseLine = releaselinepkg.Normalize(releaseLine)
 	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit, "releaseLine", releaseLine)
 
 	// Retrieve component
@@ -1128,18 +1129,13 @@ func setNestedStringInParams(raw *runtime.RawExtension, dottedPath, value string
 }
 
 // resolveWorkflowParameters returns the component's workflow parameters, with the release line's
-// overrides applied when the component uses release lines.
+// overrides applied for a line other than main.
 func (s *workflowRunService) resolveWorkflowParameters(
 	ctx context.Context,
 	component *openchoreov1alpha1.Component,
 	releaseLine string,
 ) (*runtime.RawExtension, error) {
-	switch {
-	case component.Spec.ReleaseLinesEnabled && releaseLine == "":
-		return nil, ErrReleaseLineRequired
-	case !component.Spec.ReleaseLinesEnabled && releaseLine != "":
-		return nil, ErrReleaseLinesNotEnabled
-	case releaseLine == "":
+	if releaseLine == "" {
 		return component.Spec.Workflow.Parameters, nil
 	}
 

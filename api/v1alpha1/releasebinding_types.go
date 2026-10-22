@@ -25,7 +25,7 @@ type ConnectionTarget struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// ReleaseLine is the target component's release line. Empty for its main line.
 	// +optional
 	ReleaseLine string `json:"releaseLine,omitempty"`
 
@@ -58,7 +58,7 @@ type ResolvedConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// ReleaseLine is the target component's release line. Empty for its main line.
 	// +optional
 	ReleaseLine string `json:"releaseLine,omitempty"`
 
@@ -87,7 +87,7 @@ type PendingConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// ReleaseLine is the target component's release line. Empty for components without release lines.
+	// ReleaseLine is the target component's release line. Empty for its main line.
 	// +optional
 	ReleaseLine string `json:"releaseLine,omitempty"`
 
@@ -222,9 +222,10 @@ type ReleaseBindingOwner struct {
 	ComponentName string `json:"componentName"`
 
 	// ReleaseLine names the ReleaseLine this resource belongs to.
-	// Required when the component has releaseLinesEnabled; must be empty otherwise.
+	// Empty for the component's main line, which is implicit and has no ReleaseLine.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	ReleaseLine string `json:"releaseLine,omitempty"`
 }

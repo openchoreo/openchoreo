@@ -34,7 +34,7 @@ const (
 	// Used when autoDeploy is enabled
 	ReasonComponentReleaseReady controller.ConditionReason = "ComponentReleaseReady"
 
-	// ReasonReleaseLinesReconciled indicates a component with release lines enabled was reconciled;
+	// ReasonReleaseLinesReconciled indicates a component whose main line has no Workload was reconciled;
 	// per-line outcomes are reported on each ReleaseLine
 	ReasonReleaseLinesReconciled controller.ConditionReason = "ReleaseLinesReconciled"
 
@@ -56,8 +56,6 @@ const (
 	ReasonWorkflowNotAllowed controller.ConditionReason = "WorkflowNotAllowed"
 	// ReasonWorkflowNotFound indicates the referenced Workflow doesn't exist
 	ReasonWorkflowNotFound controller.ConditionReason = "WorkflowNotFound"
-	// ReasonReleaseLinesNotAllowed indicates release lines are enabled but the component type does not allow them
-	ReasonReleaseLinesNotAllowed controller.ConditionReason = "ReleaseLinesNotAllowed"
 
 	// AutoDeploy issues (Status=False)
 

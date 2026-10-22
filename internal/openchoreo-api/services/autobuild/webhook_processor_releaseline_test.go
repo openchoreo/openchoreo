@@ -45,9 +45,9 @@ func makeReleaseLine(name, component string, workflowParameters *runtime.RawExte
 	return line
 }
 
-// newReleaseLineWebhookClient returns a client with component "api", which has release lines
-// enabled and builds branch "stable", and these lines:
-//   - main: inherits the component's branch
+// newReleaseLineWebhookClient returns a client with component "api", whose main line builds
+// branch "stable", and these release lines:
+//   - copy: inherits the component's branch
 //   - next: builds branch "next"
 //   - pinned: builds branch "next", pinned to a commit
 //
@@ -56,13 +56,12 @@ func newReleaseLineWebhookClient(t *testing.T) client.Client {
 	t.Helper()
 	comp := makeAutoBuildComponent("api", "team-a", "build", testRepoURL, "stable", rawJSON)
 	comp.Spec.Owner.ProjectName = "proj"
-	comp.Spec.ReleaseLinesEnabled = true
 	workflow := makeWorkflowWithBranch("build", "team-a")
 	workflow.Spec.Parameters.OpenAPIV3Schema.Raw = []byte(testSchemaURLBranchAndCommit)
 
 	return fake.NewClientBuilder().WithScheme(newTestSchemeForWebhook(t)).WithObjects(
 		comp, workflow,
-		makeReleaseLine("main", "api", nil),
+		makeReleaseLine("copy", "api", nil),
 		makeReleaseLine("next", "api", revision(map[string]any{"branch": "next"})),
 		makeReleaseLine("pinned", "api", revision(map[string]any{"branch": "next", "commit": "abc123"})),
 		makeReleaseLine("other-next", "other", revision(map[string]any{"branch": "next"})),
@@ -74,7 +73,7 @@ func TestFindBuildTargets_ReleaseLines(t *testing.T) {
 		branch string
 		want   []string
 	}{
-		{branch: "stable", want: []string{"team-a/api@main"}},
+		{branch: "stable", want: []string{"team-a/api", "team-a/api@copy"}},
 		{branch: "next", want: []string{"team-a/api@next"}},
 		{branch: "other", want: []string{}},
 	}

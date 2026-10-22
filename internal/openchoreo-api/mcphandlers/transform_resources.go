@@ -145,9 +145,6 @@ func componentSummary(c openchoreov1alpha1.Component) map[string]any {
 	m["projectName"] = c.Spec.Owner.ProjectName
 	m["componentType"] = c.Spec.ComponentType.Name
 	m["autoDeploy"] = c.Spec.AutoDeploy
-	if c.Spec.ReleaseLinesEnabled {
-		m["releaseLinesEnabled"] = true
-	}
 	if c.Spec.AutoBuild != nil {
 		m["autoBuild"] = *c.Spec.AutoBuild
 	}
@@ -166,9 +163,6 @@ func componentDetail(c *openchoreov1alpha1.Component) map[string]any {
 		"name": c.Spec.ComponentType.Name,
 	}
 	m["autoDeploy"] = c.Spec.AutoDeploy
-	if c.Spec.ReleaseLinesEnabled {
-		m["releaseLinesEnabled"] = true
-	}
 	if c.Spec.AutoBuild != nil {
 		m["autoBuild"] = *c.Spec.AutoBuild
 	}
