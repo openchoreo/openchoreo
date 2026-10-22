@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim@sha256:e37a03b464436ee45750a0d027e4b802ffe579c96b78dcc7e6ef736ca8c658dd AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim@sha256:d8e732839dfc4225a1ff698803b478b2223c05636c055d3add41ab9dbec0f315 AS builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
