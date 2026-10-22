@@ -49,6 +49,14 @@ type EndpointSpec struct {
 	// +optional
 	Schema *Schema `json:"schema,omitempty"`
 
+	// AutoDeploy deploys the Endpoint to the first environment of its project's
+	// deployment pipeline: the Endpoint controller creates the EndpointReleaseBinding
+	// for that environment and advances it to each new EndpointRelease. Later
+	// environments are promoted explicitly, as with Component.spec.autoDeploy.
+	// When not specified, defaults to false (zero value).
+	// +optional
+	AutoDeploy bool `json:"autoDeploy,omitempty"`
+
 	// Parameters contains values for the parameter schema declared on the referenced
 	// EndpointType (or ClusterEndpointType). Validated against the schema by the
 	// Endpoint controller; failures surface via status.conditions.

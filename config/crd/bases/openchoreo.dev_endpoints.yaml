@@ -61,6 +61,14 @@ spec:
           spec:
             description: EndpointSpec defines the desired state of Endpoint.
             properties:
+              autoDeploy:
+                description: |-
+                  AutoDeploy deploys the Endpoint to the first environment of its project's
+                  deployment pipeline: the Endpoint controller creates the EndpointReleaseBinding
+                  for that environment and advances it to each new EndpointRelease. Later
+                  environments are promoted explicitly, as with Component.spec.autoDeploy.
+                  When not specified, defaults to false (zero value).
+                type: boolean
               backendRefs:
                 description: |-
                   BackendRefs lists the backends this Endpoint routes traffic to, with

@@ -125,6 +125,9 @@ func (h *MCPHandler) UpdateEndpoint(
 			}
 			existing.Spec.BackendRefs = backends
 		}
+		if req.Spec.AutoDeploy != nil {
+			existing.Spec.AutoDeploy = *req.Spec.AutoDeploy
+		}
 		if req.Spec.Parameters != nil {
 			paramsBytes, err := json.Marshal(*req.Spec.Parameters)
 			if err != nil {

@@ -10,8 +10,9 @@ import (
 
 // EndpointReleaseBindingSpec defines the desired state of EndpointReleaseBinding.
 // Pins an EndpointRelease to an Environment and carries per-env overrides.
-// The Endpoint controller never creates or modifies EndpointReleaseBindings;
-// they are authored externally (kubectl, GitOps, API server).
+// Bindings are authored externally (kubectl, GitOps, API server), except the
+// first-environment binding of an Endpoint with spec.autoDeploy, which the
+// Endpoint controller creates and advances to each new EndpointRelease.
 type EndpointReleaseBindingSpec struct {
 	// Owner identifies the endpoint and project this EndpointReleaseBinding belongs to.
 	// +kubebuilder:validation:Required

@@ -45,6 +45,11 @@ const (
 	// Endpoint's traffic.
 	ReasonBackendNotExposed controller.ConditionReason = "BackendNotExposed"
 
+	// ReasonAutoDeployFailed indicates spec.autoDeploy is set but the first
+	// environment could not be resolved from the project's deployment pipeline.
+	// The EndpointRelease is still cut; only the automatic deployment is blocked.
+	ReasonAutoDeployFailed controller.ConditionReason = "AutoDeployFailed"
+
 	// ReasonFinalizing indicates the Endpoint is being finalized.
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )

@@ -37,8 +37,10 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointtypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterendpointtypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -128,6 +130,20 @@ func (r *Reconciler) reconcile(ctx context.Context, old, ep *openchoreov1alpha1.
 		ep.Status.LatestRelease = &openchoreov1alpha1.LatestEndpointRelease{
 			Name: releaseName,
 			Hash: releaseHash,
+		}
+	}
+
+	if ep.Spec.AutoDeploy {
+		env, problem, err := r.firstEnvironment(ctx, ep)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if problem != "" {
+			controller.MarkFalseCondition(ep, ConditionReady, ReasonAutoDeployFailed, problem)
+			return ctrl.Result{}, nil
+		}
+		if err := r.ensureAutoDeployBinding(ctx, ep, env, ep.Status.LatestRelease.Name); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 

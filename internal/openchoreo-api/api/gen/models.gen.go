@@ -2288,6 +2288,9 @@ type EndpointReleaseSpecVisibility string
 
 // EndpointSpec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
 type EndpointSpec struct {
+	// AutoDeploy Deploys the Endpoint to the first environment of its project's deployment pipeline. The controller creates that environment's EndpointReleaseBinding and advances it to each new EndpointRelease; later environments are promoted explicitly. Defaults to false.
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+
 	// BackendRefs Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
 	BackendRefs []EndpointBackendRef `json:"backendRefs"`
 

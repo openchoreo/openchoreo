@@ -85,6 +85,9 @@ func endpointDetail(ep *openchoreov1alpha1.Endpoint) map[string]any {
 	if ep.Spec.Parameters != nil {
 		m["parameters"] = rawExtensionToAny(ep.Spec.Parameters)
 	}
+	if ep.Spec.AutoDeploy {
+		m["autoDeploy"] = true
+	}
 	if ep.Status.LatestRelease != nil {
 		m["latestRelease"] = map[string]any{
 			"name": ep.Status.LatestRelease.Name,
