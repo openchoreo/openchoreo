@@ -28,6 +28,7 @@ import (
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/template"
+	"github.com/openchoreo/openchoreo/internal/workflowrunartifacts"
 )
 
 // Reconciler reconciles a WorkflowRun object
@@ -133,6 +134,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return validationResult.result, nil
 		}
 	}
+
+	// Validate again at submission time. This protects direct CRD clients and
+	// catches a short-lived artifact that expired while the run was queued.
+	if err := workflowrunartifacts.Validate(workflowRun.Spec.InputArtifacts, time.Now()); err != nil {
+		setWorkflowRenderingFailedCondition(workflowRun, fmt.Errorf("invalid input artifacts: %w", err))
+		return ctrl.Result{}, nil
+	}
+	workflowRun.Status.InputArtifacts = workflowrunartifacts.StatusMetadata(workflowRun.Spec.InputArtifacts)
 
 	// Resolve the Workflow or ClusterWorkflow based on WorkflowRunConfig.Kind
 	workflowResult, err := controller.ResolveWorkflow(ctx, r.Client, workflowRun.Namespace, workflowRun.Spec.Workflow.Kind, workflowRun.Spec.Workflow.Name)
