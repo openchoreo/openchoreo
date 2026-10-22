@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 	authmw "github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -355,6 +356,8 @@ func (h *RemoteConnectHandler) authorizeResourceSecrets(ctx context.Context, req
 
 // resolve turns declared dependencies into connection targets + a signed capability.
 func (h *RemoteConnectHandler) resolve(ctx context.Context, req remoteconnect.ResolveRequest, subject string) (*remoteconnect.ResolveResponse, error) {
+	req.Endpoints = normalizeReleaseLines(req.Endpoints)
+
 	// Every dependency for a given environment resolves through the same data
 	// plane (an Environment has exactly one DataPlaneRef), so this runs once per
 	// request rather than once per dependency.
@@ -907,6 +910,17 @@ func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, proje
 }
 
 var errNoReleaseBinding = errors.New("no release binding")
+
+// normalizeReleaseLines returns a copy of the endpoint dependencies in which a dependency on the
+// main line keyword is a dependency on the main line.
+func normalizeReleaseLines(deps []remoteconnect.EndpointDep) []remoteconnect.EndpointDep {
+	normalized := make([]remoteconnect.EndpointDep, len(deps))
+	for i, dep := range deps {
+		dep.ReleaseLine = releaseline.Normalize(dep.ReleaseLine)
+		normalized[i] = dep
+	}
+	return normalized
+}
 
 // unresolvedEndpointReason is unavailableReason, except for a release line mismatch on a
 // component the caller is already authorized to connect to, which names the problem. Anything

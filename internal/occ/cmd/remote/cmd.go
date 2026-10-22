@@ -19,6 +19,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // NewRemoteCmd builds the `remote` command.
@@ -106,7 +107,8 @@ func NewRemoteCmd() *cobra.Command {
 			"dependencies or contacting the control plane")
 	cmd.Flags().StringArrayVar(&localArgs, "local", nil,
 		"Override the local host:port for a cross-linked dependency's provider component "+
-			"(component=host:port), e.g. --local comp2=127.0.0.1:9091. Repeatable. Defaults to "+
+			"(component=host:port, or component@line=host:port for a release line), e.g. --local "+
+			"comp2=127.0.0.1:9091. Repeatable. Defaults to "+
 			"127.0.0.1:<the provider's declared endpoint port> when not given.")
 	// --no-secrets fetches nothing, so there is nothing for --show-secrets to print.
 	cmd.MarkFlagsMutuallyExclusive("show-secrets", "no-secrets")
@@ -117,7 +119,7 @@ func NewRemoteCmd() *cobra.Command {
 }
 
 // parseLocalOverrides parses --local component=host:port values into a lookup keyed
-// by component name.
+// by componentRef. component@line names a release line, and component@main its main line.
 func parseLocalOverrides(raw []string) (map[string]LocalTarget, error) {
 	if len(raw) == 0 {
 		return nil, nil
@@ -127,6 +129,12 @@ func parseLocalOverrides(raw []string) (map[string]LocalTarget, error) {
 		component, hostport, ok := strings.Cut(v, "=")
 		if !ok || component == "" || hostport == "" {
 			return nil, fmt.Errorf("invalid --local value %q: expected component=host:port", v)
+		}
+		if name, line, hasLine := strings.Cut(component, "@"); hasLine {
+			if name == "" || line == "" {
+				return nil, fmt.Errorf("invalid --local value %q: expected component@line=host:port", v)
+			}
+			component = componentRef(name, releaseline.Normalize(line))
 		}
 		host, portStr, err := net.SplitHostPort(hostport)
 		if err != nil {
