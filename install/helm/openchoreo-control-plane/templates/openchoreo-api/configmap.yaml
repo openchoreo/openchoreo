@@ -65,6 +65,7 @@ data:
     secret_management:
       enabled: {{ .Values.features.secretManagement.enabled }}
       remote_key_prefix: {{ .Values.features.secretManagement.remoteKeyPrefix | quote }}
+      remote_key_separator: {{ .Values.features.secretManagement.remoteKeySeparator | quote }}
 
     cluster_gateway:
       enabled: {{ if hasKey .Values.openchoreoApi.clusterGateway "enabled" }}{{ .Values.openchoreoApi.clusterGateway.enabled }}{{ else }}true{{ end }}
