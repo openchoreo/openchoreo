@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -57,16 +60,24 @@ func kvNamespace(ownerNamespace string) string {
 	return kvNamespacePrefix + ownerNamespace
 }
 
-// remoteKeyFor maps a (namespace, secretType, name) tuple to the key path used
-// in the external secret store. prefix is the configured first segment; an
-// empty prefix omits the segment.
-func remoteKeyFor(prefix, namespace string, secretType corev1.SecretType, name string) string {
-	segment := remoteKeySegment(secretType)
-	key := fmt.Sprintf("%s/%s/%s", namespace, segment, name)
-	if prefix == "" {
-		return key
+// remoteKeyFormat decides how keys in the external secret store are laid out.
+type remoteKeyFormat struct {
+	// prefix is the normalized, "/"-separated first segment of every key.
+	// Empty means no prefix segment.
+	prefix string
+	// separator joins the key segments, including those of a nested prefix.
+	separator string
+}
+
+// remoteKeyFor maps a (namespace, secretType, name) tuple to the key used in
+// the external secret store, joining the prefix segments, namespace, type
+// segment and name with the configured separator.
+func remoteKeyFor(format remoteKeyFormat, namespace string, secretType corev1.SecretType, name string) string {
+	segments := []string{namespace, remoteKeySegment(secretType), name}
+	if format.prefix != "" {
+		segments = append(strings.Split(format.prefix, "/"), segments...)
 	}
-	return prefix + "/" + key
+	return strings.Join(segments, format.separator)
 }
 
 func remoteKeySegment(secretType corev1.SecretType) string {
@@ -89,21 +100,25 @@ type secretService struct {
 	k8sClient           client.Client
 	planeClientProvider kubernetesClient.PlaneClientProvider
 	logger              *slog.Logger
-	// remoteKeyPrefix is the first segment of every key written to the
-	// external secret store. Empty means no prefix segment.
-	remoteKeyPrefix string
+	// remoteKeys decides the layout of every key written to the external
+	// secret store.
+	remoteKeys remoteKeyFormat
 }
 
 var _ Service = (*secretService)(nil)
 
 // NewService creates a new secret service without authorization.
-// secretCfg supplies the remote key prefix used for external store keys.
+// secretCfg supplies the remote key prefix and separator used for external
+// store keys.
 func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.PlaneClientProvider, secretCfg config.SecretManagementConfig, logger *slog.Logger) Service {
 	return &secretService{
 		k8sClient:           k8sClient,
 		planeClientProvider: planeClientProvider,
 		logger:              logger,
-		remoteKeyPrefix:     secretCfg.NormalizedRemoteKeyPrefix(),
+		remoteKeys: remoteKeyFormat{
+			prefix:    secretCfg.NormalizedRemoteKeyPrefix(),
+			separator: secretCfg.RemoteKeySeparator,
+		},
 	}
 }
 
@@ -153,12 +168,12 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(s.remoteKeyPrefix, req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType, sortedKeys(req.Data))
+	pushSecret := buildPushSecret(s.remoteKeys, req.SecretName, namespaceName, targetNs, planeInfo.secretStoreName, req.SecretType)
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
 
-	secretRef := buildSecretReference(s.remoteKeyPrefix, namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data), req.Labels)
+	secretRef := buildSecretReference(s.remoteKeys, namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data), req.Labels)
 	if err := s.k8sClient.Create(ctx, secretRef); err != nil {
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
 	}
@@ -169,7 +184,9 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 
 // UpdateSecret replaces a secret's data with the supplied final state.
 // Keys present in the existing secret but absent from req.Data are pruned
-// from the K8s Secret, PushSecret, and SecretReference.
+// from the K8s Secret, the value pushed to the store, and the SecretReference.
+// A PushSecret created before secrets were pushed as one entry is replaced
+// without letting external-secrets delete the existing store entry.
 func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*corev1.Secret, error) {
 	s.logger.Debug("Updating secret", "namespace", namespaceName, "secret", secretName)
 
@@ -206,18 +223,25 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
 	}
 
-	pushSecret := buildPushSecret(s.remoteKeyPrefix, secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType, newKeys)
+	if err := dropPerKeyPushSecret(ctx, planeInfo.k8sClient, targetNs, secretName); err != nil {
+		return nil, fmt.Errorf("failed to replace per-key push secret in target plane: %w", err)
+	}
+
+	pushSecret := buildPushSecret(s.remoteKeys, secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType)
 	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
 
-	existingKeys := dataSourceKeys(secretRef.Spec.Data)
+	// Compare the whole data, not only the key names. After a separator or
+	// prefix change the remote key differs too, and the SecretReference must
+	// point at the key the PushSecret now writes.
+	newData := buildSecretDataSources(s.remoteKeys, namespaceName, secretName, secretType, newKeys)
 	newLabels := mergeManagedLabels(req.Labels)
 
-	keysChanged := !sameStringSlice(existingKeys, newKeys)
+	dataChanged := !slices.Equal(secretRef.Spec.Data, newData)
 	labelsChanged := !maps.Equal(secretRef.Labels, newLabels)
-	if keysChanged || labelsChanged {
-		secretRef.Spec.Data = buildSecretDataSources(s.remoteKeyPrefix, namespaceName, secretName, secretType, newKeys)
+	if dataChanged || labelsChanged {
+		secretRef.Spec.Data = newData
 		secretRef.Labels = newLabels
 		if err := s.k8sClient.Update(ctx, secretRef); err != nil {
 			if apierrors.IsInvalid(err) {
@@ -580,21 +604,8 @@ func buildK8sSecret(name, targetNamespace string, secretType corev1.SecretType, 
 	}
 }
 
-func buildPushSecret(remoteKeyPrefix, name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType, keys []string) *unstructured.Unstructured {
-	remoteKey := remoteKeyFor(remoteKeyPrefix, ownerNamespace, secretType, name)
-
-	dataMatches := make([]map[string]any, 0, len(keys))
-	for _, k := range keys {
-		dataMatches = append(dataMatches, map[string]any{
-			"match": map[string]any{
-				"secretKey": k,
-				"remoteRef": map[string]any{
-					"remoteKey": remoteKey,
-					"property":  k,
-				},
-			},
-		})
-	}
+func buildPushSecret(remoteKeys remoteKeyFormat, name, ownerNamespace, targetNamespace, secretStoreName string, secretType corev1.SecretType) *unstructured.Unstructured {
+	remoteKey := remoteKeyFor(remoteKeys, ownerNamespace, secretType, name)
 
 	ps := &unstructured.Unstructured{}
 	ps.SetAPIVersion(pushSecretAPIVersion)
@@ -613,12 +624,85 @@ func buildPushSecret(remoteKeyPrefix, name, ownerNamespace, targetNamespace, sec
 		"selector": map[string]any{
 			"secret": map[string]any{"name": name},
 		},
-		"data": dataMatches,
+		// One entry with no secretKey or property pushes every key of the
+		// Secret as a single value that replaces what the store holds. A key
+		// removed later is simply absent from the next push, so the store
+		// never needs a per-key delete, which some providers (AWS Secrets
+		// Manager, Azure Key Vault) apply to the whole secret.
+		"data": []map[string]any{
+			{"match": map[string]any{
+				"remoteRef": map[string]any{"remoteKey": remoteKey},
+			}},
+		},
 	}
 	return ps
 }
 
-func buildSecretReference(remoteKeyPrefix, ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {
+// dropPerKeyPushSecret removes a PushSecret that still pushes one entry per
+// key, without letting external-secrets delete anything from the store.
+// Switching such a PushSecret to a single whole-secret entry in place makes
+// external-secrets delete each old per-key entry from the store right after
+// pushing the new one. Turning deletion off and removing the finalizer first
+// lets the object go immediately, and the whole-secret PushSecret applied next
+// starts with no synced entries to prune.
+func dropPerKeyPushSecret(ctx context.Context, k8sClient client.Client, namespace, name string) error {
+	ps := &unstructured.Unstructured{}
+	ps.SetAPIVersion(pushSecretAPIVersion)
+	ps.SetKind(pushSecretKind)
+	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, ps); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil
+		}
+		return fmt.Errorf("failed to get push secret: %w", err)
+	}
+	if !hasPerKeyEntries(ps) {
+		return nil
+	}
+
+	orphan := []byte(`{"spec":{"deletionPolicy":"None"},"metadata":{"finalizers":null}}`)
+	if err := k8sClient.Patch(ctx, ps, client.RawPatch(types.MergePatchType, orphan)); err != nil {
+		return fmt.Errorf("failed to turn off push secret deletion: %w", err)
+	}
+	if err := k8sClient.Delete(ctx, ps); err != nil && client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete push secret: %w", err)
+	}
+
+	// Without finalizers the delete is immediate. If the same object is still
+	// there, applying the whole-secret PushSecret would update it in place,
+	// keeping its per-key synced entries and turning deletion back on, which
+	// brings back the deletes this function avoids. Stop instead.
+	current := &unstructured.Unstructured{}
+	current.SetAPIVersion(pushSecretAPIVersion)
+	current.SetKind(pushSecretKind)
+	err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, current)
+	switch {
+	case client.IgnoreNotFound(err) != nil:
+		return fmt.Errorf("failed to check push secret deletion: %w", err)
+	case err == nil && current.GetUID() == ps.GetUID():
+		return fmt.Errorf("push secret %s/%s is still being deleted", namespace, name)
+	}
+	return nil
+}
+
+// hasPerKeyEntries reports whether a PushSecret pushes individual keys, that
+// is, whether any data entry sets a secretKey or a property.
+func hasPerKeyEntries(ps *unstructured.Unstructured) bool {
+	entries, _, _ := unstructured.NestedSlice(ps.Object, "spec", "data")
+	for _, e := range entries {
+		entry, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		secretKey, _, _ := unstructured.NestedString(entry, "match", "secretKey")
+		property, _, _ := unstructured.NestedString(entry, "match", "remoteRef", "property")
+		if secretKey != "" || property != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func buildSecretReference(remoteKeys remoteKeyFormat, ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {
 	return &openchoreov1alpha1.SecretReference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: openchoreov1alpha1.GroupVersion.String(),
@@ -632,7 +716,7 @@ func buildSecretReference(remoteKeyPrefix, ownerNamespace, name string, secretTy
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: target.Kind, Name: target.Name},
 			Template:    openchoreov1alpha1.SecretTemplate{Type: secretType},
-			Data:        buildSecretDataSources(remoteKeyPrefix, ownerNamespace, name, secretType, keys),
+			Data:        buildSecretDataSources(remoteKeys, ownerNamespace, name, secretType, keys),
 		},
 	}
 }
@@ -649,8 +733,8 @@ func mergeManagedLabels(userLabels map[string]string) map[string]string {
 	return labels
 }
 
-func buildSecretDataSources(remoteKeyPrefix, ownerNamespace, name string, secretType corev1.SecretType, keys []string) []openchoreov1alpha1.SecretDataSource {
-	remoteKey := remoteKeyFor(remoteKeyPrefix, ownerNamespace, secretType, name)
+func buildSecretDataSources(remoteKeys remoteKeyFormat, ownerNamespace, name string, secretType corev1.SecretType, keys []string) []openchoreov1alpha1.SecretDataSource {
+	remoteKey := remoteKeyFor(remoteKeys, ownerNamespace, secretType, name)
 	out := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
 	for _, k := range keys {
 		out = append(out, openchoreov1alpha1.SecretDataSource{
@@ -682,31 +766,6 @@ func isManagedSecret(sr *openchoreov1alpha1.SecretReference) bool {
 		return false
 	}
 	return sr.Labels[managedByLabel] == managedByOpenchoreoAPI
-}
-
-// dataSourceKeys returns the sorted list of secretKey values declared on a
-// SecretReference's data sources.
-func dataSourceKeys(sources []openchoreov1alpha1.SecretDataSource) []string {
-	keys := make([]string, 0, len(sources))
-	for _, src := range sources {
-		keys = append(keys, src.SecretKey)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// sameStringSlice reports whether two sorted string slices contain the same
-// elements in the same order.
-func sameStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // stringMapToBytes converts a string→string data map (as supplied by callers)

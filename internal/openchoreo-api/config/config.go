@@ -130,6 +130,7 @@ func (c *Config) Validate() error {
 		coreconfig.NewPath("audit"), auditconfig.NewVocabulary(apiaudit.GetOperations()), c.Security.KnownActorTypes())...)
 	errs = append(errs, c.RemoteConnect.Validate(coreconfig.NewPath("remote_connect"))...)
 	errs = append(errs, c.ResourceTree.Validate(coreconfig.NewPath("resource_tree"))...)
+	errs = append(errs, c.SecretManagement.Validate(coreconfig.NewPath("secret_management"))...)
 
 	return errs.OrNil()
 }

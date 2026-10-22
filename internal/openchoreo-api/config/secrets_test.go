@@ -7,6 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/openchoreo/openchoreo/internal/config"
 )
 
 func TestSecretManagementDefaults(t *testing.T) {
@@ -14,10 +18,48 @@ func TestSecretManagementDefaults(t *testing.T) {
 	if cfg.Enabled {
 		t.Error("secret management should default to disabled")
 	}
-	// The default prefix must stay "secret" so existing installs keep the key
-	// layout they already have in the external store.
+	// The default prefix and separator must stay "secret" and "/" so existing
+	// installs keep the key layout they already have in the external store.
 	if cfg.RemoteKeyPrefix != DefaultRemoteKeyPrefix {
 		t.Errorf("RemoteKeyPrefix = %q, want %q", cfg.RemoteKeyPrefix, DefaultRemoteKeyPrefix)
+	}
+	if cfg.RemoteKeySeparator != "/" {
+		t.Errorf("RemoteKeySeparator = %q, want %q", cfg.RemoteKeySeparator, "/")
+	}
+	if errs := cfg.Validate(config.NewPath("secret_management")); len(errs) != 0 {
+		t.Errorf("defaults should be valid, got %v", errs)
+	}
+}
+
+func TestSecretManagementConfig_Validate(t *testing.T) {
+	invalidSeparator := config.ValidationErrors{
+		{Field: "secret_management.remote_key_separator", Message: "must be one of: /, -, _, ., +, =, @"},
+	}
+	tests := []struct {
+		name           string
+		separator      string
+		expectedErrors config.ValidationErrors
+	}{
+		{"slash", "/", nil},
+		{"dash", "-", nil},
+		{"underscore", "_", nil},
+		{"dot", ".", nil},
+		{"plus", "+", nil},
+		{"equals", "=", nil},
+		{"at", "@", nil},
+		{"empty", "", invalidSeparator},
+		{"colon", ":", invalidSeparator},
+		{"hash", "#", invalidSeparator},
+		{"multi-character", "--", invalidSeparator},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := SecretManagementConfig{RemoteKeyPrefix: DefaultRemoteKeyPrefix, RemoteKeySeparator: tt.separator}
+			errs := cfg.Validate(config.NewPath("secret_management"))
+			if diff := cmp.Diff(tt.expectedErrors, errs); diff != "" {
+				t.Errorf("validation errors mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -78,6 +120,40 @@ func TestRemoteKeyPrefixLoadsFromYAML(t *testing.T) {
 			}
 			if cfg.SecretManagement.RemoteKeyPrefix != tt.want {
 				t.Errorf("RemoteKeyPrefix = %q, want %q", cfg.SecretManagement.RemoteKeyPrefix, tt.want)
+			}
+		})
+	}
+}
+
+// TestRemoteKeySeparatorLoadsFromYAML feeds the loader the same config shape
+// the Helm chart renders, checking that remote_key_separator reaches the
+// struct and that an omitted value falls back to the path-style default.
+func TestRemoteKeySeparatorLoadsFromYAML(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"slash", "secret_management:\n  enabled: true\n  remote_key_separator: \"/\"\n", "/"},
+		{"dash", "secret_management:\n  enabled: true\n  remote_key_separator: \"-\"\n", "-"},
+		{"omitted falls back to default", "secret_management:\n  enabled: true\n", DefaultRemoteKeySeparator},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			if err := os.WriteFile(path, []byte(tt.yaml), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			loader, err := NewLoader(path, nil)
+			if err != nil {
+				t.Fatalf("NewLoader: %v", err)
+			}
+			var cfg Config
+			if err := loader.Unmarshal("", &cfg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			if cfg.SecretManagement.RemoteKeySeparator != tt.want {
+				t.Errorf("RemoteKeySeparator = %q, want %q", cfg.SecretManagement.RemoteKeySeparator, tt.want)
 			}
 		})
 	}
