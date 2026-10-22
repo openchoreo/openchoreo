@@ -55,10 +55,10 @@ type QueryParams struct {
 	ComponentID   string
 	EnvironmentID string
 	ReleaseLineID string
-	// MainLineOnly restricts the query to entries of components' main lines.
-	MainLineOnly bool
-	Limit        int
-	SortOrder    string
+	// DefaultLineOnly restricts the query to entries of components' default lines.
+	DefaultLineOnly bool
+	Limit           int
+	SortOrder       string
 }
 
 // AlertEntryStore defines lifecycle and write operations for alert entry persistence.

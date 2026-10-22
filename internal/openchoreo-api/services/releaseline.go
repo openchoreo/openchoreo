@@ -15,7 +15,7 @@ import (
 )
 
 // ValidateReleaseLineOwner checks the release line a resource is created for against its
-// component. An empty line is the component's main line; any other must be one of the component's
+// component. An empty line is the component's default line; any other must be one of the component's
 // own lines. A component that doesn't exist is left to the caller.
 func ValidateReleaseLineOwner(ctx context.Context, c client.Reader, namespace, projectName, componentName, releaseLine string) error {
 	if componentName == "" || releaseLine == "" {

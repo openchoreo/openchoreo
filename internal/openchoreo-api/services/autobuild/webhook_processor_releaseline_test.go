@@ -45,7 +45,7 @@ func makeReleaseLine(name, component string, workflowParameters *runtime.RawExte
 	return line
 }
 
-// newReleaseLineWebhookClient returns a client with component "api", whose main line builds
+// newReleaseLineWebhookClient returns a client with component "api", whose default line builds
 // branch "stable", and these release lines:
 //   - copy: inherits the component's branch
 //   - next: builds branch "next"

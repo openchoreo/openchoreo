@@ -1129,7 +1129,7 @@ func setNestedStringInParams(raw *runtime.RawExtension, dottedPath, value string
 }
 
 // resolveWorkflowParameters returns the component's workflow parameters, with the release line's
-// overrides applied for a line other than main.
+// overrides applied for a line other than the default line.
 func (s *workflowRunService) resolveWorkflowParameters(
 	ctx context.Context,
 	component *openchoreov1alpha1.Component,

@@ -60,8 +60,8 @@ type internalSearchScope struct {
 	ComponentUID   string
 	EnvironmentUID string
 	ReleaseLineUID string
-	// MainLineOnly restricts the scope to the component's main line
-	MainLineOnly bool
+	// DefaultLineOnly restricts the scope to the component's default line
+	DefaultLineOnly bool
 
 	// Names kept to filter by release line when the adapter cannot
 	ComponentName   string
@@ -127,18 +127,18 @@ func (s *LogsService) queryComponentLogs(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentApplicationLogsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		SearchPhrase:  req.SearchPhrase,
-		LogLevels:     req.LogLevels,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
-		ReleaseLineID: scope.ReleaseLineUID,
-		MainLineOnly:  scope.MainLineOnly,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		SearchPhrase:    req.SearchPhrase,
+		LogLevels:       req.LogLevels,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLineUID,
+		DefaultLineOnly: scope.DefaultLineOnly,
 	}
 
 	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
@@ -303,7 +303,7 @@ func resolveSearchScope(
 			ComponentUID:    componentUID,
 			EnvironmentUID:  environmentUID,
 			ReleaseLineUID:  lines.UID,
-			MainLineOnly:    lines.MainOnly,
+			DefaultLineOnly: lines.DefaultOnly,
 			ComponentName:   scope.Component,
 			EnvironmentName: scope.Environment,
 			ReleaseLine:     scope.ReleaseLine,

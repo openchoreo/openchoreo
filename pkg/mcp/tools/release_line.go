@@ -92,7 +92,7 @@ func (t *Toolsets) RegisterListReleaseLines(s *mcp.Server, perms map[string]Tool
 		Name: name,
 		Description: "List the release lines of a component. A release line is a named series of releases " +
 			"of the component (e.g. v2, next), built and deployed on its own, with its own workload, releases " +
-			"and release bindings. Every component has the implicit main line, listed first, which uses the " +
+			"and release bindings. Every component has the implicit default line, listed first, which uses the " +
 			"component's own configuration. Shows each line's overrides, latest release and the environments " +
 			"it runs in. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -143,10 +143,10 @@ func (t *Toolsets) RegisterCreateReleaseLine(s *mcp.Server, perms map[string]Too
 	props["component_name"] = stringProperty(
 		"Component whose type allows release lines. Use list_components to discover valid names")
 	props["name"] = stringProperty("Release line name (lowercase, alphanumeric, hyphens only, max 63 chars). " +
-		"Unique within the namespace, across all components. main is reserved for the implicit main line")
+		"Unique within the namespace, across all components. default is reserved for the implicit default line")
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "Create a release line for a component, next to its implicit main line. The line starts from " +
+		Description: "Create a release line for a component, next to its implicit default line. The line starts from " +
 			"the component's configuration and can override its parameters, traits, workflow parameters and " +
 			"auto_deploy. After creating it, build the line with trigger_workflow_run (release_line) or create " +
 			"its workload with create_workload (release_line).",
@@ -250,6 +250,6 @@ func (t *Toolsets) RegisterDeleteReleaseLine(s *mcp.Server, perms map[string]Too
 
 // releaseLineProperty is the release_line argument of tools that act on one line of a component.
 func releaseLineProperty() map[string]any {
-	return stringProperty("Optional: release line of the component. Omit it, or use main, for the component's " +
-		"main line. Use list_release_lines to discover valid names")
+	return stringProperty("Optional: release line of the component. Omit it, or use default, for the component's " +
+		"default line. Use list_release_lines to discover valid names")
 }

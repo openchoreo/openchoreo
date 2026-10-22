@@ -36,7 +36,7 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
-	mainLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.MainLine
+	defaultLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.DefaultLine
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -74,16 +74,16 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 
 	start := time.Now()
 	queryParams := alertentry.QueryParams{
-		StartTime:     req.StartTime.Format(time.RFC3339Nano),
-		EndTime:       req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName: scope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		ReleaseLineID: releaseLineUID,
-		MainLineOnly:  mainLineOnly,
-		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:     string(alertSortOrderOrDefault(req.SortOrder)),
+		StartTime:       req.StartTime.Format(time.RFC3339Nano),
+		EndTime:         req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName:   scope.Namespace,
+		ProjectID:       projectUID,
+		ComponentID:     componentUID,
+		EnvironmentID:   environmentUID,
+		ReleaseLineID:   releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
+		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:       string(alertSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.alertEntryStore.QueryAlertEntries(ctx, queryParams)
@@ -111,7 +111,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
-	mainLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.MainLine
+	defaultLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.DefaultLine
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -149,16 +149,16 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 
 	start := time.Now()
 	queryParams := incidententry.QueryParams{
-		StartTime:     req.StartTime.Format(time.RFC3339Nano),
-		EndTime:       req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName: scope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		ReleaseLineID: releaseLineUID,
-		MainLineOnly:  mainLineOnly,
-		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:     string(incidentSortOrderOrDefault(req.SortOrder)),
+		StartTime:       req.StartTime.Format(time.RFC3339Nano),
+		EndTime:         req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName:   scope.Namespace,
+		ProjectID:       projectUID,
+		ComponentID:     componentUID,
+		EnvironmentID:   environmentUID,
+		ReleaseLineID:   releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
+		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:       string(incidentSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.incidentEntryStore.QueryIncidentEntries(ctx, queryParams)

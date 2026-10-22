@@ -51,8 +51,8 @@ func TestValidateReleaseLineOwner(t *testing.T) {
 	}{
 		{name: "no component", component: ""},
 		{name: "component not found", component: "missing", releaseLine: "next"},
-		{name: "main line of a component without release lines", project: "proj", component: "plain"},
-		{name: "main line of a component with release lines", project: "proj", component: "lined"},
+		{name: "default line of a component without release lines", project: "proj", component: "plain"},
+		{name: "default line of a component with release lines", project: "proj", component: "lined"},
 		{name: "line on a component without release lines", project: "proj", component: "plain", releaseLine: "next", wantRejection: true},
 		{name: "line of the component", project: "proj", component: "lined", releaseLine: "next"},
 		{name: "line without a project", component: "lined", releaseLine: "next"},

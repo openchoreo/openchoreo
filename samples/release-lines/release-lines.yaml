@@ -1,14 +1,14 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-# A Component built from source. Its own configuration is its implicit main line, built from the main branch.
+# A Component built from source. Its own configuration is its implicit default line, built from the main branch.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: hello
   namespace: default
   annotations:
-    openchoreo.dev/description: "Greeter service built from source, with a next release line beside its main line"
+    openchoreo.dev/description: "Greeter service built from source, with a next release line beside its default line"
 spec:
   owner:
     projectName: default

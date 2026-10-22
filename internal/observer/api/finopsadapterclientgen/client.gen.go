@@ -129,6 +129,9 @@ type ResourceProfile struct {
 // ComponentUid defines model for ComponentUid.
 type ComponentUid = openapi_types.UUID
 
+// DefaultLineOnly defines model for DefaultLineOnly.
+type DefaultLineOnly = bool
+
 // EndTime defines model for EndTime.
 type EndTime = time.Time
 
@@ -137,9 +140,6 @@ type EnvironmentUid = openapi_types.UUID
 
 // Granularity defines model for Granularity.
 type Granularity = string
-
-// MainLineOnly defines model for MainLineOnly.
-type MainLineOnly = bool
 
 // Namespace defines model for Namespace.
 type Namespace = string
@@ -172,7 +172,7 @@ type GetComponentCostsParams struct {
 	ProjectUid *ProjectUid `form:"projectUid,omitempty" json:"projectUid,omitempty"`
 
 	// ComponentUid Component UID. When set, narrows the response to this single component,
-	// every line of it: the main line's pods carry it as openchoreo.dev/component-uid,
+	// every line of it: the default line's pods carry it as openchoreo.dev/component-uid,
 	// and release line pods as openchoreo.dev/release-line-component-uid.
 	// Requires `projectUid` to also be set.
 	ComponentUid *ComponentUid `form:"componentUid,omitempty" json:"componentUid,omitempty"`
@@ -184,11 +184,11 @@ type GetComponentCostsParams struct {
 	// OpenChoreo-Release-Line-Applied response header to "true".
 	ReleaseLineUid *ReleaseLineUid `form:"releaseLineUid,omitempty" json:"releaseLineUid,omitempty"`
 
-	// MainLineOnly Narrows the response to the component's main line: openchoreo.dev/component-uid
+	// DefaultLineOnly Narrows the response to the component's default line: openchoreo.dev/component-uid
 	// without an openchoreo.dev/release-line-uid label. Requires `componentUid`.
 	// Adapters that support it set the OpenChoreo-Release-Line-Applied response
 	// header to "true".
-	MainLineOnly *MainLineOnly `form:"mainLineOnly,omitempty" json:"mainLineOnly,omitempty"`
+	DefaultLineOnly *DefaultLineOnly `form:"defaultLineOnly,omitempty" json:"defaultLineOnly,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window. RFC 3339 timestamp with
 	// second precision (sub-second components are not supported and will
@@ -249,11 +249,11 @@ type GetRecommendationsParams struct {
 	// OpenChoreo-Release-Line-Applied response header to "true".
 	ReleaseLineUid *ReleaseLineUid `form:"releaseLineUid,omitempty" json:"releaseLineUid,omitempty"`
 
-	// MainLineOnly Narrows the response to the component's main line: openchoreo.dev/component-uid
+	// DefaultLineOnly Narrows the response to the component's default line: openchoreo.dev/component-uid
 	// without an openchoreo.dev/release-line-uid label. Requires `componentUid`.
 	// Adapters that support it set the OpenChoreo-Release-Line-Applied response
 	// header to "true".
-	MainLineOnly *MainLineOnly `form:"mainLineOnly,omitempty" json:"mainLineOnly,omitempty"`
+	DefaultLineOnly *DefaultLineOnly `form:"defaultLineOnly,omitempty" json:"defaultLineOnly,omitempty"`
 
 	// ReleaseLine Release line name. Required only when `releaseLineUid` is supplied,
 	// since the adapter needs it for the name-based metrics call.
@@ -448,9 +448,9 @@ func NewGetComponentCostsRequest(server string, namespace Namespace, environment
 
 		}
 
-		if params.MainLineOnly != nil {
+		if params.DefaultLineOnly != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "mainLineOnly", runtime.ParamLocationQuery, *params.MainLineOnly); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "defaultLineOnly", runtime.ParamLocationQuery, *params.DefaultLineOnly); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -667,9 +667,9 @@ func NewGetRecommendationsRequest(server string, namespace Namespace, environmen
 
 		}
 
-		if params.MainLineOnly != nil {
+		if params.DefaultLineOnly != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "mainLineOnly", runtime.ParamLocationQuery, *params.MainLineOnly); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "defaultLineOnly", runtime.ParamLocationQuery, *params.DefaultLineOnly); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err

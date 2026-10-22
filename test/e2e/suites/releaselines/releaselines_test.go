@@ -251,18 +251,18 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
-		It("rejects a ReleaseLine named main", func() {
-			output, err := kubectlCreate(mustYAMLDocs(releaseLine("main", componentGreeter)))
+		It("rejects a ReleaseLine named default", func() {
+			output, err := kubectlCreate(mustYAMLDocs(releaseLine("default", componentGreeter)))
 			Expect(err).To(HaveOccurred())
-			Expect(output).To(ContainSubstring("main is the component's implicit line"))
+			Expect(output).To(ContainSubstring("default is the component's implicit line"))
 		})
 	})
 
-	Context("the main line", func() {
-		It("deploys the main line next to the release lines without sharing their pods", func() {
-			By("creating the Workload of greeter's main line")
+	Context("the default line", func() {
+		It("deploys the default line next to the release lines without sharing their pods", func() {
+			By("creating the Workload of greeter's default line")
 			output, err := framework.KubectlApplyLiteral(kubeContext, mustYAMLDocs(lineWorkload(componentGreeter, "")))
-			Expect(err).NotTo(HaveOccurred(), "failed to create the main line workload: %s", output)
+			Expect(err).NotTo(HaveOccurred(), "failed to create the default line workload: %s", output)
 
 			Eventually(func(g Gomega) {
 				g.Expect(jsonpath(g, "releasebinding", componentGreeter+"-"+envDev,
@@ -270,7 +270,7 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 				g.Expect(jsonpath(g, "releasebinding", componentGreeter+"-"+envDev, "{.spec.owner.releaseLine}")).To(BeEmpty())
 			}, 4*time.Minute, 3*time.Second).Should(Succeed())
 
-			By("checking the main line's Service selects only the main line's pods")
+			By("checking the default line's Service selects only the default line's pods")
 			Eventually(func(g Gomega) {
 				selector, err := framework.Kubectl(kubeContext, "get", "service", componentGreeter, "-n", dpDevNs,
 					"-o", "go-template={{range $k, $v := .spec.selector}}{{$k}}={{$v}},{{end}}")
@@ -286,7 +286,7 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 				}
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
-			By("checking a line's Service doesn't select the main line's pods")
+			By("checking a line's Service doesn't select the default line's pods")
 			for _, line := range []string{lineStable, lineCanary} {
 				Expect(lineDeployment(line).Spec.Selector.MatchLabels).NotTo(HaveKey("openchoreo.dev/component-uid"))
 			}

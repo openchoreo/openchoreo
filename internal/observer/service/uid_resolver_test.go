@@ -644,9 +644,9 @@ func TestResolveReleaseLineScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers every line of the component")
 
-	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "main")
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default")
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{MainOnly: true}, scope)
+	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope)
 
 	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next")
 	require.NoError(t, err)

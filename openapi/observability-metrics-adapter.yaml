@@ -389,7 +389,7 @@ components:
         componentUid:
           type: string
           description: >
-            The UID of the component. On its own it covers every line of the component: the main
+            The UID of the component. On its own it covers every line of the component: the default
             line's pods carry it as openchoreo.dev/component-uid, and release line pods as
             openchoreo.dev/release-line-component-uid. Adapters that match both set the
             OpenChoreo-Release-Line-Applied response header to "true".
@@ -402,10 +402,10 @@ components:
             that support it filter on the openchoreo.dev/release-line-uid label alone, since
             release line pods don't carry the openchoreo.dev/component-uid label, and set
             the OpenChoreo-Release-Line-Applied response header to "true".
-        mainLineOnly:
+        defaultLineOnly:
           type: boolean
           description: >
-            Restricts the result to the component's main line: openchoreo.dev/component-uid
+            Restricts the result to the component's default line: openchoreo.dev/component-uid
             without an openchoreo.dev/release-line-uid label. Adapters that support it set the
             OpenChoreo-Release-Line-Applied response header to "true".
       required: [namespace]
@@ -853,7 +853,7 @@ components:
               type: string
               description: >
                 The UID of the component's release line the rule evaluates, filtered on the
-                openchoreo.dev/release-line-uid label alone. Absent for the component's main line,
+                openchoreo.dev/release-line-uid label alone. Absent for the component's default line,
                 which componentUid covers. Adapters that scope the rule to it set the
                 OpenChoreo-Release-Line-Applied response header to "true".
               format: uuid

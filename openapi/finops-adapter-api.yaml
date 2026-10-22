@@ -49,7 +49,7 @@ paths:
         - $ref: '#/components/parameters/ProjectUid'
         - $ref: '#/components/parameters/ComponentUid'
         - $ref: '#/components/parameters/ReleaseLineUid'
-        - $ref: '#/components/parameters/MainLineOnly'
+        - $ref: '#/components/parameters/DefaultLineOnly'
         - $ref: '#/components/parameters/StartTime'
         - $ref: '#/components/parameters/EndTime'
         - $ref: '#/components/parameters/Granularity'
@@ -154,7 +154,7 @@ paths:
             type: string
             example: checkout-service
         - $ref: '#/components/parameters/ReleaseLineUid'
-        - $ref: '#/components/parameters/MainLineOnly'
+        - $ref: '#/components/parameters/DefaultLineOnly'
         - name: releaseLine
           in: query
           required: false
@@ -238,7 +238,7 @@ components:
       required: false
       description: |
         Component UID. When set, narrows the response to this single component,
-        every line of it: the main line's pods carry it as openchoreo.dev/component-uid,
+        every line of it: the default line's pods carry it as openchoreo.dev/component-uid,
         and release line pods as openchoreo.dev/release-line-component-uid.
         Requires `projectUid` to also be set.
       schema:
@@ -261,12 +261,12 @@ components:
         format: uuid
         example: '9f8e7d6c-5b4a-4321-8fed-cba987654321'
 
-    MainLineOnly:
-      name: mainLineOnly
+    DefaultLineOnly:
+      name: defaultLineOnly
       in: query
       required: false
       description: |
-        Narrows the response to the component's main line: openchoreo.dev/component-uid
+        Narrows the response to the component's default line: openchoreo.dev/component-uid
         without an openchoreo.dev/release-line-uid label. Requires `componentUid`.
         Adapters that support it set the OpenChoreo-Release-Line-Applied response
         header to "true".

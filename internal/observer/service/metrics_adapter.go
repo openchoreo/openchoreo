@@ -113,8 +113,8 @@ type metricsAdapterSearchScope struct {
 	ProjectUID     *string `json:"projectUid,omitempty"`
 	EnvironmentUID *string `json:"environmentUid,omitempty"`
 	ReleaseLineUID *string `json:"releaseLineUid,omitempty"`
-	// MainLineOnly restricts the query to the component's main line.
-	MainLineOnly bool `json:"mainLineOnly,omitempty"`
+	// DefaultLineOnly restricts the query to the component's default line.
+	DefaultLineOnly bool `json:"defaultLineOnly,omitempty"`
 }
 
 // MetricsAdapter forwards metrics queries to an external metrics adapter service.
@@ -219,7 +219,7 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 	if releaseLineUID != "" {
 		adapterReq.SearchScope.ReleaseLineUID = &releaseLineUID
 	}
-	adapterReq.SearchScope.MainLineOnly = lines.MainOnly
+	adapterReq.SearchScope.DefaultLineOnly = lines.DefaultOnly
 
 	a.logger.Debug("Forwarding metrics query to adapter",
 		"metric", req.Metric,

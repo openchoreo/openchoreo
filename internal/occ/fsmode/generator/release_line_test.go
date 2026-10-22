@@ -33,9 +33,9 @@ func addEntry(t *testing.T, idx *index.Index, obj map[string]any, filePath strin
 	require.NoError(t, idx.Add(&index.ResourceEntry{Resource: &unstructured.Unstructured{Object: obj}, FilePath: filePath}))
 }
 
-// newLineIndex indexes a component with a main line, when withMain is set, and the release line
+// newLineIndex indexes a component with a default line, when withDefault is set, and the release line
 // "next", which overrides the log level.
-func newLineIndex(t *testing.T, releaseLines string, withMain bool) *index.Index {
+func newLineIndex(t *testing.T, releaseLines string, withDefault bool) *index.Index {
 	t.Helper()
 	idx := index.New("/repo")
 	ctSpec := map[string]any{"workloadType": "deployment", "resources": []any{}, "schema": map[string]any{}}
@@ -71,7 +71,7 @@ func newLineIndex(t *testing.T, releaseLines string, withMain bool) *index.Index
 		"owner":     map[string]any{"projectName": lineProject, "componentName": lineComponent, "releaseLine": lineName},
 		"container": map[string]any{"image": "img:v2"},
 	}, "/repo/projects/my-proj/components/my-comp/workload-next.yaml")
-	if withMain {
+	if withDefault {
 		addWorkload(t, idx, lineNamespace, lineComponent+"-workload", lineProject, lineComponent,
 			map[string]any{"container": map[string]any{"image": "img:v1"}},
 			"/repo/projects/my-proj/components/my-comp/workload.yaml")
@@ -124,8 +124,8 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 		wantLine     any
 		wantLogLevel string
 	}{
-		{name: "main line", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
-		{name: "main line keyword", line: "main", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
+		{name: "default line", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
+		{name: "default line keyword", line: "default", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
 		{name: "release line", line: lineName, wantName: "my-comp-next-20261021-1", wantImage: "img:v2", wantLine: lineName, wantLogLevel: "debug"},
 	}
 	for _, tt := range tests {
@@ -165,16 +165,16 @@ func TestGenerateRelease_ReleaseLinesNotAllowed(t *testing.T) {
 func TestGenerateBulkReleases_ReleaseLines(t *testing.T) {
 	today := time.Now().Format("20060102")
 	tests := []struct {
-		name     string
-		withMain bool
-		want     map[string]string
+		name        string
+		withDefault bool
+		want        map[string]string
 	}{
-		{name: "main and release line", withMain: true, want: map[string]string{"": "my-comp-" + today + "-1", lineName: "my-comp-next-" + today + "-1"}},
-		{name: "component without a main workload", want: map[string]string{lineName: "my-comp-next-" + today + "-1"}},
+		{name: "default and release line", withDefault: true, want: map[string]string{"": "my-comp-" + today + "-1", lineName: "my-comp-next-" + today + "-1"}},
+		{name: "component without a default line workload", want: map[string]string{lineName: "my-comp-next-" + today + "-1"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gen := NewReleaseGenerator(fsmode.WrapIndex(newLineIndex(t, "Allowed", tt.withMain)))
+			gen := NewReleaseGenerator(fsmode.WrapIndex(newLineIndex(t, "Allowed", tt.withDefault)))
 			result, err := gen.GenerateBulkReleases(BulkReleaseOptions{All: true, Namespace: lineNamespace, Version: "1"})
 			require.NoError(t, err)
 			assert.Empty(t, result.Errors)
@@ -223,7 +223,7 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 		name, line, wantName, wantRelease string
 		wantLine                          any
 	}{
-		{name: "promote the main line", wantName: "my-comp-staging", wantRelease: "my-comp-20261021-1"},
+		{name: "promote the default line", wantName: "my-comp-staging", wantRelease: "my-comp-20261021-1"},
 		{name: "promote the release line", line: lineName, wantName: "my-comp-next-staging", wantRelease: "my-comp-next-20261021-1", wantLine: lineName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

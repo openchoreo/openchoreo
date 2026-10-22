@@ -102,7 +102,7 @@ func (h *Handler) CreateComponentReleaseLine(
 			return gen.CreateComponentReleaseLine403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		case errors.Is(err, releaselinesvc.ErrComponentNotFound):
 			return gen.CreateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		case errors.Is(err, releaselinesvc.ErrMainLine):
+		case errors.Is(err, releaselinesvc.ErrDefaultLine):
 			return gen.CreateComponentReleaseLine400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		case errors.Is(err, releaselinesvc.ErrReleaseLineAlreadyExists):
 			return gen.CreateComponentReleaseLine409JSONResponse{ConflictJSONResponse: conflict("A release line with this name already exists in the namespace")}, nil
@@ -156,7 +156,7 @@ func (h *Handler) UpdateComponentReleaseLine(
 			return gen.UpdateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		case errors.Is(err, releaselinesvc.ErrReleaseLineNotFound):
 			return gen.UpdateComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
-		case errors.Is(err, releaselinesvc.ErrMainLine):
+		case errors.Is(err, releaselinesvc.ErrDefaultLine):
 			return gen.UpdateComponentReleaseLine400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
 		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
@@ -194,7 +194,7 @@ func (h *Handler) DeleteComponentReleaseLine(
 			return gen.DeleteComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		case errors.Is(err, releaselinesvc.ErrReleaseLineNotFound):
 			return gen.DeleteComponentReleaseLine404JSONResponse{NotFoundJSONResponse: notFound("ReleaseLine")}, nil
-		case errors.Is(err, releaselinesvc.ErrMainLine):
+		case errors.Is(err, releaselinesvc.ErrDefaultLine):
 			return gen.DeleteComponentReleaseLine400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
 		h.logger.Error("Failed to delete release line", "error", err)

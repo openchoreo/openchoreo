@@ -79,14 +79,14 @@ func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine
 
 // releaseLineProperty is the release_line argument of component-scoped query tools.
 func releaseLineProperty() map[string]any {
-	return stringProperty("Release line of the component. Restricts the result to that line, and main to " +
-		"the component's main line. Omit it to cover every line. Requires component and environment")
+	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
+		"the component's default line. Omit it to cover every line. Requires component and environment")
 }
 
 // releaseLineAnyEnvProperty is the release_line argument of query tools that span environments.
 func releaseLineAnyEnvProperty() map[string]any {
-	return stringProperty("Release line of the component. Restricts the result to that line, and main to " +
-		"the component's main line. Omit it to cover every line. Requires component")
+	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
+		"the component's default line. Omit it to cover every line. Requires component")
 }
 
 // validateFinOpsScope validates the scope fields for FinOps queries, which

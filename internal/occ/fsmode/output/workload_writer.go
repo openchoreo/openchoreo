@@ -19,7 +19,7 @@ type WorkloadWriteParams struct {
 	RepoPath      string
 	ProjectName   string
 	ComponentName string
-	ReleaseLine   string                       // Empty for the component's main line
+	ReleaseLine   string                       // Empty for the component's default line
 	OutputPath    string                       // If specified, always use this path
 	WorkloadCR    *openchoreov1alpha1.Workload // The generated workload CR
 	DryRun        bool

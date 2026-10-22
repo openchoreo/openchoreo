@@ -735,7 +735,7 @@ func TestResolveResourceReportsNothingWhenEndpointsResolved(t *testing.T) {
 	}
 }
 
-// Each line of a provider, its main line included, resolves to its own binding and its own key.
+// Each line of a provider, its default line included, resolves to its own binding and its own key.
 func TestResolveEndpointPerReleaseLine(t *testing.T) {
 	env, dp := testEnvironmentAndDataPlane()
 	hostOf := func(line string) string {
@@ -789,7 +789,7 @@ func TestResolveEndpointPerReleaseLine(t *testing.T) {
 	}
 	resp, err := h.resolve(context.Background(), remoteconnect.ResolveRequest{
 		Namespace: "default", Project: "doclet", Component: "caller", Environment: "development",
-		Endpoints: []remoteconnect.EndpointDep{dep("", "HELLO_URL"), dep("next", "NEXT_URL"), dep("main", "MAIN_URL"), dep("ghost", "GHOST_URL")},
+		Endpoints: []remoteconnect.EndpointDep{dep("", "HELLO_URL"), dep("next", "NEXT_URL"), dep("default", "DEFAULT_URL"), dep("ghost", "GHOST_URL")},
 	}, "user:alice")
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -811,8 +811,8 @@ func TestResolveEndpointPerReleaseLine(t *testing.T) {
 		t.Fatalf("expected only the dependency on an unknown line to be unconnectable, got %+v", resp.Unconnectable)
 	}
 	for _, target := range resp.Targets {
-		if strings.Contains(target.Key, "@main") {
-			t.Fatalf("the main line keyword must resolve to the main line, got target %q", target.Key)
+		if strings.Contains(target.Key, "@default") {
+			t.Fatalf("the default line keyword must resolve to the default line, got target %q", target.Key)
 		}
 	}
 	if want := `release line "ghost" not found for component doclet/hello`; resp.Unconnectable[0].Reason != want {

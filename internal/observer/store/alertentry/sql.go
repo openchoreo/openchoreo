@@ -259,7 +259,7 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 	if value := strings.TrimSpace(params.ReleaseLineID); value != "" {
 		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
 		args = append(args, value)
-	} else if params.MainLineOnly {
+	} else if params.DefaultLineOnly {
 		conditions = append(conditions, "release_line_id = ''")
 	}
 

@@ -251,13 +251,13 @@ func (m *MockCoreToolsetHandler) GetComponentSchema(
 	return emptyObjectSchema, nil
 }
 
-const mockReleaseLineResult = `{"name":"main"}`
+const mockReleaseLineResult = `{"name":"next"}`
 
 func (m *MockCoreToolsetHandler) ListReleaseLines(
 	ctx context.Context, namespaceName, componentName string, opts ListOpts,
 ) (any, error) {
 	m.recordCall("ListReleaseLines", namespaceName, componentName, opts)
-	return `{"releaseLines":[{"name":"main"}]}`, nil
+	return `{"releaseLines":[{"name":"default"},{"name":"next"}]}`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetReleaseLine(
@@ -285,7 +285,7 @@ func (m *MockCoreToolsetHandler) DeleteReleaseLine(
 	ctx context.Context, namespaceName, componentName, releaseLineName string,
 ) (any, error) {
 	m.recordCall("DeleteReleaseLine", namespaceName, componentName, releaseLineName)
-	return `{"name":"main","action":"deleted"}`, nil
+	return `{"name":"next","action":"deleted"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) PatchComponent(

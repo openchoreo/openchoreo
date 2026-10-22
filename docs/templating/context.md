@@ -56,7 +56,7 @@ metadata:
   namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
 
   # Release line identity (see ReleaseLine)
-  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty for the component's main line; combine it with componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide with each other or with the main line
+  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty for the component's default line; combine it with componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide with each other or with the default line
 
   # Common labels for all resources
   labels: # ${metadata.labels}
@@ -74,7 +74,7 @@ metadata:
     openchoreo.dev/project-uid: "xyz789"
 ```
 
-For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the main line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line.
+For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the default line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line.
 
 **Example usage:**
 

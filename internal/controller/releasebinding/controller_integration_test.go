@@ -924,24 +924,24 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			envName  = "lines-env"
 			rbName   = "lines-comp-lines-env"
 		)
-		mainRelease := compName + "-" + envName
+		defaultRelease := compName + "-" + envName
 		nextRelease := compName + "-next-" + envName
 		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
 			forceDelete(rbName)
-			forceDeleteRelease(mainRelease)
+			forceDeleteRelease(defaultRelease)
 			forceDeleteRelease(nextRelease)
 		})
 
 		It("deletes only the Releases of its own line", func() {
 			r := testReconciler()
 
-			By("deleting the main line's binding, whose Releases carry no release line label")
+			By("deleting the default line's binding, whose Releases carry no release line label")
 			rb := rbFixture(rbName, project, compName, envName, "rel", true)
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
-			Expect(k8sClient.Create(ctx, releaseFixture(mainRelease, project, compName, envName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, releaseFixture(defaultRelease, project, compName, envName))).To(Succeed())
 			rel := releaseFixture(nextRelease, project, compName, envName)
 			rel.Labels[labels.LabelKeyReleaseLine] = "next"
 			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
@@ -954,7 +954,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout, interval).Should(Succeed())
 
-			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: mainRelease}, &openchoreov1alpha1.RenderedRelease{})
+			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: defaultRelease}, &openchoreov1alpha1.RenderedRelease{})
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "the binding's own Release is deleted")
 			next := &openchoreov1alpha1.RenderedRelease{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: nextRelease}, next)).To(Succeed())

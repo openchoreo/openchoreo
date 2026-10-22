@@ -158,7 +158,7 @@ func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string
 }
 
 // printLogs prints the entries, restricting to a release line and a single container when requested.
-// The observer restricts logs to the main line itself; its pods share no name prefix with the lines'.
+// The observer restricts logs to the default line itself; its pods share no name prefix with the lines'.
 func printLogs(logs []client.LogEntry, params LogsParams) {
 	if line := releaseline.Normalize(params.ReleaseLine); line != "" {
 		logs = filterLogsByReleaseLine(logs, params.Component, line, params.Environment)

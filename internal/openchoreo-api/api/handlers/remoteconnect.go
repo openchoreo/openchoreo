@@ -912,7 +912,7 @@ func (h *RemoteConnectHandler) findReleaseBinding(ctx context.Context, ns, proje
 var errNoReleaseBinding = errors.New("no release binding")
 
 // normalizeReleaseLines returns a copy of the endpoint dependencies in which a dependency on the
-// main line keyword is a dependency on the main line.
+// default line keyword is a dependency on the default line.
 func normalizeReleaseLines(deps []remoteconnect.EndpointDep) []remoteconnect.EndpointDep {
 	normalized := make([]remoteconnect.EndpointDep, len(deps))
 	for i, dep := range deps {

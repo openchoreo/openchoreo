@@ -675,7 +675,7 @@ func TestListReleaseLines_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.Anything).Return(&gen.ReleaseLineList{
 		Items: []gen.ReleaseLine{
-			{Metadata: gen.ObjectMeta{Name: "main"}},
+			{Metadata: gen.ObjectMeta{Name: "default"}},
 			{Metadata: gen.ObjectMeta{Name: "next"}, Status: &gen.ReleaseLineStatus{Environments: &[]gen.ReleaseLineEnvironment{
 				{Environment: "development", ReleaseBinding: "hello-next-development", Release: &release, Ready: &ready},
 				{Environment: "staging", ReleaseBinding: "hello-next-staging"},
@@ -688,7 +688,7 @@ func TestListReleaseLines_Success(t *testing.T) {
 		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
 	})
 
-	assert.Regexp(t, `main\s+-\s+-\s+-`, out)
+	assert.Regexp(t, `default\s+-\s+-\s+-`, out)
 	assert.Regexp(t, `next\s+development\s+hello-next-fc84488f9\s+True`, out)
 	assert.Regexp(t, `next\s+staging\s+False`, out)
 }
@@ -699,7 +699,7 @@ func TestListReleaseLines_FollowsCursor(t *testing.T) {
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
 		return p.Cursor == nil
 	})).Return(&gen.ReleaseLineList{
-		Items:      []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "main"}}},
+		Items:      []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "default"}}},
 		Pagination: gen.Pagination{NextCursor: &next},
 	}, nil)
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
@@ -713,7 +713,7 @@ func TestListReleaseLines_FollowsCursor(t *testing.T) {
 		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
 	})
 
-	assert.Contains(t, out, "main")
+	assert.Contains(t, out, "default")
 	assert.Contains(t, out, "next")
 }
 
@@ -1584,7 +1584,7 @@ type bindingOwner = struct {
 	ReleaseLine   *string `json:"releaseLine,omitempty"`
 }
 
-func TestDeploy_MainLineKeyword(t *testing.T) {
+func TestDeploy_DefaultLineKeyword(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
 		return req.ReleaseLine == nil
@@ -1599,7 +1599,7 @@ func TestDeploy_MainLineKeyword(t *testing.T) {
 	}, nil)
 
 	testutil.CaptureStdout(t, func() {
-		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "main"}))
+		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "default"}))
 	})
 }
 

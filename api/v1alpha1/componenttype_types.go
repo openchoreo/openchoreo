@@ -60,7 +60,7 @@ type ReleaseLinePolicy string
 const (
 	// ReleaseLinePolicyAllowed lets Components of the type have release lines.
 	ReleaseLinePolicyAllowed ReleaseLinePolicy = "Allowed"
-	// ReleaseLinePolicyDisallowed limits Components of the type to their main line. An empty policy means the same.
+	// ReleaseLinePolicyDisallowed limits Components of the type to their default line. An empty policy means the same.
 	ReleaseLinePolicyDisallowed ReleaseLinePolicy = "Disallowed"
 )
 
@@ -109,7 +109,7 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
-	// ReleaseLines states whether Components of this type can have release lines besides their main line.
+	// ReleaseLines states whether Components of this type can have release lines besides their default line.
 	// Set it to Allowed only when the resources name every component-scoped object per release line,
 	// from metadata.name, or from metadata.componentName and metadata.releaseLineName.
 	// Defaults to Disallowed.

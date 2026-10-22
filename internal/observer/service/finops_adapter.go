@@ -86,18 +86,18 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, mainLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
 	if err != nil {
 		return nil, err
 	}
 
 	params := &finopsadapterclientgen.GetComponentCostsParams{
-		StartTime:      startTime,
-		EndTime:        endTime,
-		ProjectUid:     projectUID,
-		ComponentUid:   componentUID,
-		ReleaseLineUid: releaseLineUID,
-		MainLineOnly:   mainLineOnly,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		ProjectUid:      projectUID,
+		ComponentUid:    componentUID,
+		ReleaseLineUid:  releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
 	}
 	if req.Granularity != "" {
 		granularity := req.Granularity
@@ -145,19 +145,19 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, mainLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
 	if err != nil {
 		return nil, err
 	}
 
 	params := &finopsadapterclientgen.GetRecommendationsParams{
-		StartTime:      startTime,
-		EndTime:        endTime,
-		ProjectUid:     projectUID,
-		ComponentUid:   componentUID,
-		ReleaseLineUid: releaseLineUID,
-		MainLineOnly:   mainLineOnly,
-		Environment:    req.Environment,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		ProjectUid:      projectUID,
+		ComponentUid:    componentUID,
+		ReleaseLineUid:  releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
+		Environment:     req.Environment,
 	}
 	if releaseLineUID != nil {
 		releaseLine := req.ReleaseLine
@@ -247,8 +247,8 @@ func (a *FinOpsAdapter) resolveScope(
 	return environmentUID, projectUID, componentUID, nil
 }
 
-// resolveReleaseLine resolves an optional release line name to its UID, or to the main line only
-// for the main line keyword. No line covers every line of the component.
+// resolveReleaseLine resolves an optional release line name to its UID, or to the default line only
+// for the default line keyword. No line covers every line of the component.
 func (a *FinOpsAdapter) resolveReleaseLine(
 	ctx context.Context, namespace, component, releaseLine string,
 ) (*openapi_types.UUID, *bool, error) {
@@ -259,9 +259,9 @@ func (a *FinOpsAdapter) resolveReleaseLine(
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrFinOpsResolveScope, err)
 	}
-	if lines.MainOnly {
-		mainOnly := true
-		return nil, &mainOnly, nil
+	if lines.DefaultOnly {
+		defaultOnly := true
+		return nil, &defaultOnly, nil
 	}
 	if lines.UID == "" {
 		return nil, nil, nil

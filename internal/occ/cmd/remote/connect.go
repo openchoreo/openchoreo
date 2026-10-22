@@ -77,7 +77,7 @@ type workloadIdentity struct {
 	namespace   string
 	project     string
 	component   string
-	releaseLine string // empty for the component's main line
+	releaseLine string // empty for the component's default line
 }
 
 // ref names the identity's component, as component@line for a release line.
@@ -85,7 +85,7 @@ func (id workloadIdentity) ref() string {
 	return componentRef(id.component, id.releaseLine)
 }
 
-// componentRef names a component's release line as component@line, and its main line as the
+// componentRef names a component's release line as component@line, and its default line as the
 // component alone. It is the key of --local overrides.
 func componentRef(component, releaseLine string) string {
 	if releaseLine == "" {

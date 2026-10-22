@@ -51,19 +51,19 @@ func getComponent(ctx context.Context, c client.Reader, namespaceName, component
 	return comp, nil
 }
 
-// mainLine describes the component's implicit main line from its bindings without a line.
-func (s *releaseLineService) mainLine(ctx context.Context, comp *openchoreov1alpha1.Component) (*openchoreov1alpha1.ReleaseLine, error) {
+// defaultLine describes the component's implicit default line from its bindings without a line.
+func (s *releaseLineService) defaultLine(ctx context.Context, comp *openchoreov1alpha1.Component) (*openchoreov1alpha1.ReleaseLine, error) {
 	var bindings openchoreov1alpha1.ReleaseBindingList
 	if err := s.k8sClient.List(ctx, &bindings, client.InNamespace(comp.Namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list release bindings: %w", err)
 	}
-	rl := releaseline.Main(comp, bindings.Items)
+	rl := releaseline.Default(comp, bindings.Items)
 	rl.TypeMeta = releaseLineTypeMeta
 	return rl, nil
 }
 
 // ListReleaseLines returns a page of the release lines of a component. The first page of an
-// unfiltered list starts with the implicit main line.
+// unfiltered list starts with the implicit default line.
 func (s *releaseLineService) ListReleaseLines(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ReleaseLine], error) {
 	s.logger.Debug("Listing release lines", "namespace", namespaceName, "component", componentName, "limit", opts.Limit, "cursor", opts.Cursor)
 
@@ -106,7 +106,7 @@ func (s *releaseLineService) ListReleaseLines(ctx context.Context, namespaceName
 	if err != nil || opts.Cursor != "" || opts.LabelSelector != "" {
 		return result, err
 	}
-	implicit, err := s.mainLine(ctx, comp)
+	implicit, err := s.defaultLine(ctx, comp)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +151,8 @@ func (s *releaseLineService) GetReleaseLine(ctx context.Context, namespaceName, 
 	if err != nil {
 		return nil, err
 	}
-	if releaseLineName == releaseline.MainLine {
-		return s.mainLine(ctx, comp)
+	if releaseLineName == releaseline.DefaultLine {
+		return s.defaultLine(ctx, comp)
 	}
 	return s.componentReleaseLine(ctx, comp, releaseLineName)
 }
@@ -163,8 +163,8 @@ func (s *releaseLineService) CreateReleaseLine(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("release line cannot be nil")
 	}
 	s.logger.Debug("Creating release line", "namespace", namespaceName, "component", componentName, "releaseLine", rl.Name)
-	if rl.Name == releaseline.MainLine {
-		return nil, ErrMainLine
+	if rl.Name == releaseline.DefaultLine {
+		return nil, ErrDefaultLine
 	}
 
 	comp, err := getComponent(ctx, s.k8sClient, namespaceName, componentName)
@@ -201,8 +201,8 @@ func (s *releaseLineService) UpdateReleaseLine(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("release line cannot be nil")
 	}
 	s.logger.Debug("Updating release line", "namespace", namespaceName, "component", componentName, "releaseLine", rl.Name)
-	if rl.Name == releaseline.MainLine {
-		return nil, ErrMainLine
+	if rl.Name == releaseline.DefaultLine {
+		return nil, ErrDefaultLine
 	}
 
 	comp, err := getComponent(ctx, s.k8sClient, namespaceName, componentName)
@@ -239,8 +239,8 @@ func (s *releaseLineService) UpdateReleaseLine(ctx context.Context, namespaceNam
 // releases and Workload.
 func (s *releaseLineService) DeleteReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) error {
 	s.logger.Debug("Deleting release line", "namespace", namespaceName, "component", componentName, "releaseLine", releaseLineName)
-	if releaseLineName == releaseline.MainLine {
-		return ErrMainLine
+	if releaseLineName == releaseline.DefaultLine {
+		return ErrDefaultLine
 	}
 
 	comp, err := getComponent(ctx, s.k8sClient, namespaceName, componentName)

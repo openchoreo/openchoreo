@@ -65,13 +65,13 @@ func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Disca
 
 func TestLogsService_ReleaseLine(t *testing.T) {
 	nextPod := releaseline.ObjectBaseName("comp", "next", "dev") + "-7d9c8b6f5-abcde"
-	mainPod := releaseline.ObjectBaseName("comp", "main", "dev") + "-6c8d7b5f4-fghij"
+	defaultPod := "comp-dev-1a2b3c4d-6c8d7b5f4-fghij"
 	query := func(t *testing.T, applied bool) (*types.LogsQueryResponse, *fakeLogsAdapter) {
 		t.Helper()
 		adapter := &fakeLogsAdapter{componentResult: &observability.ComponentApplicationLogsResult{
 			Logs: []observability.LogEntry{
 				{Log: "from next", PodName: nextPod},
-				{Log: "from main", PodName: mainPod},
+				{Log: "from default", PodName: defaultPod},
 			},
 			TotalCount:         2,
 			ReleaseLineApplied: applied,
@@ -107,7 +107,7 @@ func TestEventsService_ReleaseLineFallback(t *testing.T) {
 	adapter := &fakeEventsAdapter{componentResult: &observability.ComponentEventsResult{
 		Events: []observability.EventEntry{
 			{Message: "next deployment scaled", ObjectName: releaseline.ObjectBaseName("comp", "next", "dev")},
-			{Message: "main pod started", ObjectName: releaseline.ObjectBaseName("comp", "main", "dev") + "-6c8d7b5f4-fghij"},
+			{Message: "default line pod started", ObjectName: "comp-dev-1a2b3c4d-6c8d7b5f4-fghij"},
 		},
 		TotalCount: 2,
 	}}
@@ -347,13 +347,13 @@ func TestFinOpsAdapter_ReleaseLine(t *testing.T) {
 	})
 }
 
-func TestMetricsAdapter_MainLineAndEveryLine(t *testing.T) {
+func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
 	for name, tc := range map[string]struct {
-		line         string
-		wantMainOnly bool
+		line            string
+		wantDefaultOnly bool
 	}{
-		"main line keyword": {line: releaseline.MainLine, wantMainOnly: true},
-		"every line":        {line: ""},
+		"default line keyword": {line: releaseline.DefaultLine, wantDefaultOnly: true},
+		"every line":           {line: ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var captured metricsAdapterRequest
@@ -372,29 +372,29 @@ func TestMetricsAdapter_MainLineAndEveryLine(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Nil(t, captured.SearchScope.ReleaseLineUID)
-			assert.Equal(t, tc.wantMainOnly, captured.SearchScope.MainLineOnly)
+			assert.Equal(t, tc.wantDefaultOnly, captured.SearchScope.DefaultLineOnly)
 			require.NotNil(t, captured.SearchScope.ComponentUID)
 			assert.Equal(t, sampleComponentUID, *captured.SearchScope.ComponentUID)
 		})
 	}
 }
 
-func TestTracesAdapterBody_MainLineOnly(t *testing.T) {
+func TestTracesAdapterBody_DefaultLineOnly(t *testing.T) {
 	body := gen.ComponentSearchScope{Namespace: "ns"}
 	r, err := tracesAdapterBody(map[string]any{"searchScope": body}, true)
 	require.NoError(t, err)
 	raw, err := io.ReadAll(r)
 	require.NoError(t, err)
-	assert.Contains(t, string(raw), `"mainLineOnly":true`)
+	assert.Contains(t, string(raw), `"defaultLineOnly":true`)
 
 	r, err = tracesAdapterBody(map[string]any{"searchScope": body}, false)
 	require.NoError(t, err)
 	raw, err = io.ReadAll(r)
 	require.NoError(t, err)
-	assert.NotContains(t, string(raw), "mainLineOnly")
+	assert.NotContains(t, string(raw), "defaultLineOnly")
 }
 
-func TestAlertService_NotificationDetailsMainLine(t *testing.T) {
+func TestAlertService_NotificationDetailsDefaultLine(t *testing.T) {
 	t.Parallel()
 
 	tokenSrv := newAlwaysOKTokenServer(t)
@@ -404,9 +404,9 @@ func TestAlertService_NotificationDetailsMainLine(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/namespaces/ns/components/lined/releaselines":
 			assert.Equal(t, "1", r.URL.Query().Get("limit"))
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
 		case "/api/v1/namespaces/ns/components/plain/releaselines":
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -422,7 +422,7 @@ func TestAlertService_NotificationDetailsMainLine(t *testing.T) {
 		releaseLine string
 		want        string
 	}{
-		{name: "main line of a component with lines", component: "lined", want: releaseline.MainLine},
+		{name: "default line of a component with lines", component: "lined", want: releaseline.DefaultLine},
 		{name: "component without lines", component: "plain", want: ""},
 		{name: "release line", component: "lined", releaseLine: "next", want: "next"},
 		{name: "lookup failure", component: "missing", want: ""},
