@@ -25,6 +25,31 @@ import (
 
 const observerTestURL = "http://observer.test"
 
+// logsQuery is the part of the observer request body the logs tests inspect.
+type logsQuery struct {
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	Limit     int64  `json:"limit"`
+	SortOrder string `json:"sortOrder"`
+}
+
+func decodeLogsQuery(r *http.Request) (logsQuery, error) {
+	var q logsQuery
+	err := json.NewDecoder(r.Body).Decode(&q)
+	return q, err
+}
+
+// newestFirstLogs is what the observer returns for a desc query: the newest entry first.
+var newestFirstLogs = []client.LogEntry{
+	{Timestamp: "2026-01-01T00:01:00Z", Log: "third"},
+	{Timestamp: "2026-01-01T00:00:30Z", Log: "second"},
+	{Timestamp: "2026-01-01T00:00:00Z", Log: "first"},
+}
+
+const chronologicalOutput = "2026-01-01T00:00:00Z first\n" +
+	"2026-01-01T00:00:30Z second\n" +
+	"2026-01-01T00:01:00Z third\n"
+
 // setupLogsConfig sets up a test home with OC config containing a non-expired JWT.
 func setupLogsConfig(t *testing.T) {
 	t.Helper()
@@ -269,8 +294,8 @@ func TestLogs_Success(t *testing.T) {
 		assert.Equal(t, observerURL+"/api/v1/logs/query", r.URL.String())
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
 			Logs: []client.LogEntry{
-				{Timestamp: "2026-01-01T00:00:00Z", Log: "app started"},
 				{Timestamp: "2026-01-01T00:01:00Z", Log: "request handled"},
+				{Timestamp: "2026-01-01T00:00:00Z", Log: "app started"},
 			},
 		}), nil
 	}))
@@ -442,38 +467,47 @@ func TestLogs_ObserverAPIError(t *testing.T) {
 	assert.ErrorContains(t, err, "observer query failed")
 }
 
-func TestLogs_WithTail(t *testing.T) {
-	setupLogsConfig(t)
+// TestLogs_ShowsNewestInChronologicalOrder guards against showing the oldest page of the
+// window: the query must read newest-first and the output must be flipped back.
+func TestLogs_ShowsNewestInChronologicalOrder(t *testing.T) {
+	tests := []struct {
+		name      string
+		tail      int
+		wantLimit int64
+	}{
+		{name: "without --tail uses the default limit", tail: 0, wantLimit: defaultLogsLimit},
+		{name: "with --tail uses it as the limit", tail: 3, wantLimit: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupLogsConfig(t)
 
-	observerURL := observerTestURL
-	mc := mocks.NewMockInterface(t)
-	setupMockForLogs(t, mc, observerURL)
+			mc := mocks.NewMockInterface(t)
+			setupMockForLogs(t, mc, observerTestURL)
 
-	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
-		// Verify the request body has desc sort order for tail
-		var body map[string]any
-		err := json.NewDecoder(r.Body).Decode(&body)
-		require.NoError(t, err)
-		assert.Equal(t, "desc", body["sortOrder"])
-		return testutil.JSONResp(http.StatusOK, client.LogResponse{
-			Logs: []client.LogEntry{
-				{Timestamp: "2026-01-01T00:01:00Z", Log: "third"},
-				{Timestamp: "2026-01-01T00:00:30Z", Log: "second"},
-				{Timestamp: "2026-01-01T00:00:00Z", Log: "first"},
-			},
-		}), nil
-	}))
+			var queries []logsQuery
+			testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				q, err := decodeLogsQuery(r)
+				if err != nil {
+					return nil, err
+				}
+				queries = append(queries, q)
+				return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: newestFirstLogs}), nil
+			}))
 
-	cp := New(mc)
-	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, cp.Logs(LogsParams{
-			Namespace: "ns", Project: "my-proj", Component: "my-comp", Tail: 3,
-		}))
-	})
-	// With tail, logs are reversed for chronological display
-	assert.Contains(t, out, "first")
-	assert.Contains(t, out, "second")
-	assert.Contains(t, out, "third")
+			cp := New(mc)
+			out := testutil.CaptureStdout(t, func() {
+				require.NoError(t, cp.Logs(LogsParams{
+					Namespace: "ns", Project: "my-proj", Component: "my-comp", Tail: tt.tail,
+				}))
+			})
+
+			require.Len(t, queries, 1)
+			assert.Equal(t, "desc", queries[0].SortOrder)
+			assert.Equal(t, tt.wantLimit, queries[0].Limit)
+			assert.Equal(t, chronologicalOutput, out)
+		})
+	}
 }
 
 func TestLogs_WithContainerFilter(t *testing.T) {
@@ -505,6 +539,49 @@ func TestLogs_WithContainerFilter(t *testing.T) {
 
 // --- followLogs ---
 
+func TestFollowLogs_InitialBatchIsNewest(t *testing.T) {
+	tests := []struct {
+		name      string
+		tail      int
+		wantLimit int64
+	}{
+		{name: "without --tail uses the default limit", tail: 0, wantLimit: defaultLogsLimit},
+		{name: "with --tail uses it as the limit", tail: 3, wantLimit: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupLogsConfig(t)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var queries []logsQuery
+			testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				q, err := decodeLogsQuery(r)
+				if err != nil {
+					return nil, err
+				}
+				queries = append(queries, q)
+				// Only the initial batch is under test; stop well before the first poll.
+				time.AfterFunc(100*time.Millisecond, cancel)
+				return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: newestFirstLogs}), nil
+			}))
+
+			cp := New(nil)
+			out := testutil.CaptureStdout(t, func() {
+				require.NoError(t, cp.followLogs(ctx, observerTestURL, "token", "env-uid-123", LogsParams{
+					Namespace: "ns", Project: "my-proj", Component: "my-comp", Tail: tt.tail,
+				}, time.Now().Add(-time.Hour), time.Now()))
+			})
+
+			require.Len(t, queries, 1)
+			assert.Equal(t, "desc", queries[0].SortOrder)
+			assert.Equal(t, tt.wantLimit, queries[0].Limit)
+			assert.Equal(t, chronologicalOutput, strings.TrimSuffix(out, "\nStopping log streaming...\n"))
+		})
+	}
+}
+
 // TestFollowLogs_PrintsSubSecondLogOnce guards the follow poll against re-reading the
 // line it printed last: it resumes 1ms past that line, a step that is lost unless the
 // query bounds keep sub-second precision.
@@ -519,12 +596,10 @@ func TestFollowLogs_PrintsSubSecondLogOnce(t *testing.T) {
 
 	requests := 0
 	var pollStart time.Time
+	var sortOrders []string
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
-		var body struct {
-			StartTime string `json:"startTime"`
-			EndTime   string `json:"endTime"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		body, err := decodeLogsQuery(r)
+		if err != nil {
 			return nil, err
 		}
 		start, err := time.Parse(time.RFC3339, body.StartTime)
@@ -537,6 +612,7 @@ func TestFollowLogs_PrintsSubSecondLogOnce(t *testing.T) {
 		}
 
 		requests++
+		sortOrders = append(sortOrders, body.SortOrder)
 		if requests == 2 {
 			// One follow poll is enough to show a repeat; stop well before the next tick.
 			pollStart = start
@@ -559,6 +635,7 @@ func TestFollowLogs_PrintsSubSecondLogOnce(t *testing.T) {
 	})
 
 	require.Equal(t, 2, requests, "expected the initial fetch and one follow poll")
+	assert.Equal(t, []string{"desc", "asc"}, sortOrders, "initial batch reads newest-first, polls read ascending")
 	assert.True(t, pollStart.After(logAt), "follow poll must resume after the last printed line, got start %s", pollStart)
 	assert.Equal(t, 1, strings.Count(out, "request handled"), "line printed more than once:\n%s", out)
 }
