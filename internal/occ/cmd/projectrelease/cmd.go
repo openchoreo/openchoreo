@@ -4,12 +4,15 @@
 package projectrelease
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/specdiff"
 )
 
 func NewProjectReleaseCmd(f client.NewClientFunc) *cobra.Command {
@@ -23,6 +26,7 @@ func NewProjectReleaseCmd(f client.NewClientFunc) *cobra.Command {
 		newListCmd(f),
 		newGetCmd(f),
 		newDeleteCmd(f),
+		newDiffCmd(f),
 	)
 	return cmd
 }
@@ -99,5 +103,41 @@ func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 		},
 	}
 	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newDiffCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "diff [FROM_PROJECT_RELEASE] [TO_PROJECT_RELEASE]",
+		Short: "Compare two project releases",
+		Long: `Compare the specs of two project releases and show the fields that were added,
+removed, or modified going from the first release to the second. Metadata
+such as UIDs and timestamps is not compared.`,
+		Example: `  # Compare two project releases
+  occ projectrelease diff online-store-abc123 online-store-def456 --namespace acme-corp
+
+  # Disable colored output
+  occ projectrelease diff online-store-abc123 online-store-def456 -n acme-corp --color never`,
+		Args:    cmdutil.ExactArgsWithUsage(2),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode, err := specdiff.GetColorMode(cmd)
+			if err != nil {
+				return err
+			}
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).Diff(DiffParams{
+				Namespace: flags.GetNamespace(cmd),
+				From:      args[0],
+				To:        args[1],
+				Color:     mode.Enabled(os.Stdout),
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	specdiff.AddColorFlag(cmd)
 	return cmd
 }

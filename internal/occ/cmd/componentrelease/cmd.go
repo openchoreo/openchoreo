@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/specdiff"
 )
 
 func NewComponentReleaseCmd(f client.NewClientFunc) *cobra.Command {
@@ -28,6 +29,7 @@ func NewComponentReleaseCmd(f client.NewClientFunc) *cobra.Command {
 		newListCmd(f),
 		newGetCmd(f),
 		newDeleteCmd(f),
+		newDiffCmd(f),
 	)
 	return cmd
 }
@@ -182,4 +184,43 @@ func isFlagInArgs(flagName string) bool {
 		}
 	}
 	return false
+}
+
+func newDiffCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "diff [FROM_COMPONENT_RELEASE] [TO_COMPONENT_RELEASE]",
+		Short: "Compare two component releases",
+		Long: `Compare the specs of two component releases and show the fields that were added,
+removed, or modified going from the first release to the second. Metadata
+such as UIDs and timestamps is not compared.`,
+		Example: `  # Compare two component releases
+  occ componentrelease diff checkout-service-20260101-1 checkout-service-20260102-1 --namespace acme-corp
+
+  # Same, using the short alias
+  occ cr diff checkout-service-20260101-1 checkout-service-20260102-1 -n acme-corp
+
+  # Disable colored output
+  occ componentrelease diff checkout-service-20260101-1 checkout-service-20260102-1 -n acme-corp --color never`,
+		Args:    cmdutil.ExactArgsWithUsage(2),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode, err := specdiff.GetColorMode(cmd)
+			if err != nil {
+				return err
+			}
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).Diff(DiffParams{
+				Namespace: flags.GetNamespace(cmd),
+				From:      args[0],
+				To:        args[1],
+				Color:     mode.Enabled(os.Stdout),
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	specdiff.AddColorFlag(cmd)
+	return cmd
 }

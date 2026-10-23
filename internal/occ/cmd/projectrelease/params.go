@@ -20,3 +20,11 @@ type DeleteParams struct {
 	Namespace          string
 	ProjectReleaseName string
 }
+
+// DiffParams defines parameters for comparing two project releases
+type DiffParams struct {
+	Namespace string
+	From      string
+	To        string
+	Color     bool
+}
