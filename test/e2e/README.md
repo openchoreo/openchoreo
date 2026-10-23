@@ -137,15 +137,15 @@ Source: [`suites/microservicesdemo/microservicesdemo_test.go:50`](suites/microse
 
 Source: [`suites/releaselines/releaselines_test.go:24`](suites/releaselines/releaselines_test.go#L24)
 
-Installs the `release-line-service` ClusterComponentType from `fixtures/releaselines/component-type.yaml`, the default `service` type with a `logLevel` parameter for the lines to override, and removes it afterwards. Line names are unique within a namespace, so every line in the suite has its own name.
+Runs on the default `deployment/service` type. Line names are unique within a namespace, so every line in the suite has its own name.
 
-1. Create a `greeter` component with release lines enabled and a readiness-probe trait, a `stable` line with no overrides, and a `canary` line that logs at debug, adds a liveness probe to the component's trait and adds an autoscaler trait. Each line gets its own Workload
+1. Create a `greeter` component with a readiness-probe trait, a `stable` line with no overrides, and a `canary` line that adds a liveness probe to the component's trait and adds an autoscaler trait. Each line gets its own Workload
 2. Both lines auto-deploy to development through their own ReleaseBindings, each line reports development as ready, and the component reports `ReleaseLinesReconciled`
 3. Each line renders its own Deployment and Service in the same data plane namespace, and each Service selects only its own line's pods
 4. Each line answers on its own service URL and on its own public route through the gateway
-5. Overrides apply per line: `LOG_LEVEL` is `info` on stable and `debug` on canary, only canary has the liveness probe and the autoscaler, and a line that lists only its own trait still keeps the component's readiness probe, since a line can't remove a component trait
+5. Overrides apply per line: only canary has the liveness probe and the autoscaler, and a line that lists only its own trait still keeps the component's readiness probe, since a line can't remove a component trait
 6. Bind canary's latest release to staging: canary reports staging, and only canary runs in the staging namespace
-7. Validation: a second component can't create a line named `stable` (`already exists`), a component type that doesn't allow lines marks the component `ReleaseLinesNotAllowed`, and a Workload without a line marks the component `InvalidConfiguration` until it's removed
+7. Validation: a second component can't create a line named `stable` (`already exists`), and a Workload without a line marks the component `InvalidConfiguration` until it's removed
 8. Delete the canary line: its bindings, releases, Workload and Deployments in both environments are removed, while stable stays Ready and keeps serving
 
 When running against a cluster other than the e2e one, set `E2E_CLUSTER_DATAPLANE` to its ClusterDataPlane (for example `default` on a local k3d install).

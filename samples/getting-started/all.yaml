@@ -193,7 +193,6 @@ metadata:
     openchoreo.dev/description: "A long-running background or event-driven component with no endpoints"
 spec:
   workloadType: deployment
-  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow
@@ -376,7 +375,6 @@ metadata:
     openchoreo.dev/description: "A long-running request-serving component with one or more endpoints"
 spec:
   workloadType: deployment
-  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow
@@ -658,7 +656,6 @@ metadata:
     openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
-  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow
@@ -897,7 +894,6 @@ metadata:
     openchoreo.dev/description: "A component that runs to completion on a schedule"
 spec:
   workloadType: cronjob
-  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow

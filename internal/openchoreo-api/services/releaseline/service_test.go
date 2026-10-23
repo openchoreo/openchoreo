@@ -186,15 +186,6 @@ func TestCreateReleaseLine(t *testing.T) {
 		require.ErrorIs(t, err, ErrDefaultLine)
 	})
 
-	t.Run("component type that does not allow release lines", func(t *testing.T) {
-		ct := &openchoreov1alpha1.ComponentType{ObjectMeta: metav1.ObjectMeta{Name: "web-app", Namespace: testNamespace}}
-		svc := newService(t, testComponent(), ct)
-		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", "", ""))
-		var vErr *services.ValidationError
-		require.ErrorAs(t, err, &vErr)
-		assert.Contains(t, vErr.Msg, "does not allow release lines")
-	})
-
 	t.Run("name taken by another component's line", func(t *testing.T) {
 		svc := newService(t, testComponent(), testReleaseLine("next", testProjectName, "other-comp"))
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("next", "", ""))

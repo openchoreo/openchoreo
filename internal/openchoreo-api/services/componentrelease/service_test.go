@@ -159,7 +159,7 @@ func TestCreateComponentRelease(t *testing.T) {
 			},
 		}
 	}
-	lineObjects := func(policy openchoreov1alpha1.ReleaseLinePolicy) []client.Object {
+	lineObjects := func() []client.Object {
 		return []client.Object{
 			&openchoreov1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: testComponentName, Namespace: testNamespace},
@@ -173,7 +173,7 @@ func TestCreateComponentRelease(t *testing.T) {
 			},
 			&openchoreov1alpha1.ClusterComponentType{
 				ObjectMeta: metav1.ObjectMeta{Name: "line-type"},
-				Spec:       openchoreov1alpha1.ClusterComponentTypeSpec{WorkloadType: "deployment", ReleaseLines: policy},
+				Spec:       openchoreov1alpha1.ClusterComponentTypeSpec{WorkloadType: "deployment"},
 			},
 			&openchoreov1alpha1.ReleaseLine{
 				ObjectMeta: metav1.ObjectMeta{Name: "next", Namespace: testNamespace},
@@ -191,7 +191,7 @@ func TestCreateComponentRelease(t *testing.T) {
 	}
 
 	t.Run("line release for an unknown line", func(t *testing.T) {
-		svc := newService(t, lineObjects(openchoreov1alpha1.ReleaseLinePolicyAllowed)...)
+		svc := newService(t, lineObjects()...)
 		cr := lineRelease()
 		cr.Spec.Owner.ReleaseLine = "v9"
 		_, err := svc.CreateComponentRelease(ctx, testNamespace, cr)
@@ -199,23 +199,17 @@ func TestCreateComponentRelease(t *testing.T) {
 	})
 
 	t.Run("default line release of a component with release lines", func(t *testing.T) {
-		svc := newService(t, lineObjects(openchoreov1alpha1.ReleaseLinePolicyAllowed)...)
+		svc := newService(t, lineObjects()...)
 		cr := lineRelease()
 		cr.Spec.Owner.ReleaseLine = ""
 		_, err := svc.CreateComponentRelease(ctx, testNamespace, cr)
 		require.NoError(t, err)
 	})
 
-	t.Run("line release on a type that allows release lines", func(t *testing.T) {
-		svc := newService(t, lineObjects(openchoreov1alpha1.ReleaseLinePolicyAllowed)...)
+	t.Run("line release of one of the component's lines", func(t *testing.T) {
+		svc := newService(t, lineObjects()...)
 		_, err := svc.CreateComponentRelease(ctx, testNamespace, lineRelease())
 		require.NoError(t, err)
-	})
-
-	t.Run("line release on a type that does not allow release lines", func(t *testing.T) {
-		svc := newService(t, lineObjects("")...)
-		_, err := svc.CreateComponentRelease(ctx, testNamespace, lineRelease())
-		requireValidationError(t, err, `component type "deployment/line-type" does not allow release lines`)
 	})
 
 	t.Run("nil input", func(t *testing.T) {

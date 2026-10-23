@@ -101,10 +101,6 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	default:
 		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
 	}
-	if line != "" && !ctSpec.ReleaseLines.AllowsReleaseLines() {
-		return nil, fmt.Errorf("%s %q does not allow release lines; set spec.releaseLines to Allowed on the component type",
-			ctKind, typeName)
-	}
 
 	// Trait kind defaults (Trait / ClusterTrait) are applied by the API server at admission time.
 	// fsmode loads raw YAML, so an omitted kind reaches us as "". Default them here — before

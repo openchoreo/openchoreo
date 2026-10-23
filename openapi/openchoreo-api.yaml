@@ -3033,7 +3033,7 @@ paths:
     post:
       operationId: createComponentReleaseLine
       summary: Create component release line
-      description: Creates a release line for a component whose type allows release lines. The owner is taken from the path. The name default is reserved for the implicit default line.
+      description: Creates a release line for a component. The owner is taken from the path. The name default is reserved for the implicit default line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -8705,12 +8705,6 @@ components:
                 type: string
                 description: Name of the ClusterTrait resource
                 minLength: 1
-        releaseLines:
-          type: string
-          description: >-
-            Whether Components of this type can have release lines besides their default line. Allowed only when the
-            resources name every component-scoped object per release line. Omitted means Disallowed.
-          enum: [Allowed, Disallowed]
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -9030,12 +9024,6 @@ components:
               name:
                 type: string
                 description: Name of the Trait or ClusterTrait resource
-        releaseLines:
-          type: string
-          description: >-
-            Whether Components of this type can have release lines besides their default line. Allowed only when the
-            resources name every component-scoped object per release line. Omitted means Disallowed.
-          enum: [Allowed, Disallowed]
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."

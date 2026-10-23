@@ -157,7 +157,7 @@ func (s *releaseLineService) GetReleaseLine(ctx context.Context, namespaceName, 
 	return s.componentReleaseLine(ctx, comp, releaseLineName)
 }
 
-// CreateReleaseLine creates a release line for a component whose type allows release lines.
+// CreateReleaseLine creates a release line for a component.
 func (s *releaseLineService) CreateReleaseLine(ctx context.Context, namespaceName, componentName string, rl *openchoreov1alpha1.ReleaseLine) (*openchoreov1alpha1.ReleaseLine, error) {
 	if rl == nil {
 		return nil, fmt.Errorf("release line cannot be nil")
@@ -169,9 +169,6 @@ func (s *releaseLineService) CreateReleaseLine(ctx context.Context, namespaceNam
 
 	comp, err := getComponent(ctx, s.k8sClient, namespaceName, componentName)
 	if err != nil {
-		return nil, err
-	}
-	if err := services.ValidateReleaseLinesAllowed(ctx, s.k8sClient, namespaceName, comp.Spec.ComponentType); err != nil {
 		return nil, err
 	}
 	if err := setReleaseLineOwner(comp, rl); err != nil {

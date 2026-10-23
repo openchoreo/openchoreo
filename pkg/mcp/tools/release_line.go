@@ -141,7 +141,7 @@ func (t *Toolsets) RegisterCreateReleaseLine(s *mcp.Server, perms map[string]Too
 	props := releaseLineSpecProperties()
 	props["namespace_name"] = defaultStringProperty()
 	props["component_name"] = stringProperty(
-		"Component whose type allows release lines. Use list_components to discover valid names")
+		"Component to add the release line to. Use list_components to discover valid names")
 	props["name"] = stringProperty("Release line name (lowercase, alphanumeric, hyphens only, max 63 chars). " +
 		"Unique within the namespace, across all components. default is reserved for the implicit default line")
 	mcp.AddTool(s, &mcp.Tool{

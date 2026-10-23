@@ -35,13 +35,10 @@ func addEntry(t *testing.T, idx *index.Index, obj map[string]any, filePath strin
 
 // newLineIndex indexes a component with a default line, when withDefault is set, and the release line
 // "next", which overrides the log level.
-func newLineIndex(t *testing.T, releaseLines string, withDefault bool) *index.Index {
+func newLineIndex(t *testing.T, withDefault bool) *index.Index {
 	t.Helper()
 	idx := index.New("/repo")
 	ctSpec := map[string]any{"workloadType": "deployment", "resources": []any{}, "schema": map[string]any{}}
-	if releaseLines != "" {
-		ctSpec["releaseLines"] = releaseLines
-	}
 	addEntry(t, idx, map[string]any{
 		"apiVersion": "openchoreo.dev/v1alpha1",
 		"kind":       "ComponentType",
@@ -114,7 +111,7 @@ func addLineReleaseBinding(t *testing.T, idx *index.Index, dir, name, line, env,
 }
 
 func TestGenerateRelease_ReleaseLine(t *testing.T) {
-	idx := newLineIndex(t, "Allowed", true)
+	idx := newLineIndex(t, true)
 
 	tests := []struct {
 		name         string
@@ -152,16 +149,6 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 	})
 }
 
-func TestGenerateRelease_ReleaseLinesNotAllowed(t *testing.T) {
-	idx := newLineIndex(t, "", true)
-
-	_, err := NewReleaseGenerator(fsmode.WrapIndex(idx)).GenerateRelease(ReleaseOptions{
-		ComponentName: lineComponent, ProjectName: lineProject, Namespace: lineNamespace, ReleaseLine: lineName,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not allow release lines")
-}
-
 func TestGenerateBulkReleases_ReleaseLines(t *testing.T) {
 	today := time.Now().Format("20060102")
 	tests := []struct {
@@ -174,7 +161,7 @@ func TestGenerateBulkReleases_ReleaseLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gen := NewReleaseGenerator(fsmode.WrapIndex(newLineIndex(t, "Allowed", tt.withDefault)))
+			gen := NewReleaseGenerator(fsmode.WrapIndex(newLineIndex(t, tt.withDefault)))
 			result, err := gen.GenerateBulkReleases(BulkReleaseOptions{All: true, Namespace: lineNamespace, Version: "1"})
 			require.NoError(t, err)
 			assert.Empty(t, result.Errors)
@@ -198,7 +185,7 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 	}
 
 	// Each line has a release matching its current state, and a binding in dev.
-	idx := newLineIndex(t, "Allowed", true)
+	idx := newLineIndex(t, true)
 	for _, r := range []struct{ line, name string }{{"", "my-comp-20261021-1"}, {lineName, "my-comp-next-20261021-1"}} {
 		addEntry(t, idx, generateLineRelease(t, idx, r.line, r.name).Object, "/repo/projects/my-proj/components/my-comp/releases/"+r.name+".yaml")
 	}

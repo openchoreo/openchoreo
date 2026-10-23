@@ -4,8 +4,6 @@ This sample builds two lines of the same component from two branches of a Git re
 
 Every component has an implicit `default` line, which is the component itself: its Workload, ComponentReleases and ReleaseBindings leave `spec.owner.releaseLine` empty, and nothing about them changes when other lines are added. A `ReleaseLine` adds another line next to it, with its own Workload, releases and binding per environment. Adding a line to an existing component needs no migration and no change to what already runs. `default` is reserved: no ReleaseLine can take that name.
 
-The component's type must allow release lines with `spec.releaseLines: Allowed`. Otherwise its ReleaseLines are not released and report `ReleaseLinesNotAllowed`. The default component types allow them.
-
 The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
 
 | Release line | Branch | Response version |
