@@ -2,6 +2,16 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.8
+
+Changes since [v1.2.7](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.7).
+
+### Bug Fixes
+
+- **(Workflows)** Argo workflow controller CPU and memory limits raised to stop workflows getting stuck. ([#5119](https://github.com/openchoreo/openchoreo/pull/5119))
+- **(Security)** Images no longer trust the compromised eMudhra emSign ECC Root CA - G3, or the Comodo AAA Services root removed with it. The control plane, CLI, quick-start, AI agent, and Backstage UI images move to base images with the updated CA bundle; the sre-agent runtime moves from Debian 12 to Debian 13 (`distroless/cc`), since Debian 12 distroless images are no longer rebuilt; the AI agents use certifi 2026.10.19; and the Backstage UI runs on Node 22.23.4. ([#5133](https://github.com/openchoreo/openchoreo/pull/5133), [#5132](https://github.com/openchoreo/openchoreo/pull/5132))
+- **(Security)** Binaries are built with Go 1.26.10, whose `crypto/x509` rejects certificate chains that contain the compromised eMudhra intermediate certificates ([GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809)). ([#5131](https://github.com/openchoreo/openchoreo/pull/5131))
+
 ## v1.2.7
 
 Changes since [v1.2.6](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.6).
