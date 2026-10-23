@@ -46,9 +46,9 @@ export OPENSEARCH_OPERATOR_VERSION=2.8.0
 
 # Observability community modules: 0.0.0-latest-dev (the latest build of
 # community-modules main) on main, pinned to released versions on release branches.
-export LOGS_OPENSEARCH_VERSION=0.6.0
-export TRACES_OPENSEARCH_VERSION=0.6.0
-export METRICS_PROMETHEUS_VERSION=0.7.1
+export LOGS_OPENSEARCH_VERSION=0.7.0
+export TRACES_OPENSEARCH_VERSION=0.8.0
+export METRICS_PROMETHEUS_VERSION=0.8.0
 export EVENTS_OTEL_COLLECTOR_VERSION=0.1.2
 ```
 
