@@ -27,6 +27,7 @@ func TestActionConstantsMirrorCore(t *testing.T) {
 		"ActionViewLogs":         {ActionViewLogs, authzcore.ActionViewLogs},
 		"ActionViewEvents":       {ActionViewEvents, authzcore.ActionViewEvents},
 		"ActionViewTraces":       {ActionViewTraces, authzcore.ActionViewTraces},
+		"ActionRawQueryTraces":   {ActionRawQueryTraces, authzcore.ActionRawQueryTraces},
 		"ActionViewMetrics":      {ActionViewMetrics, authzcore.ActionViewMetrics},
 		"ActionViewAlerts":       {ActionViewAlerts, authzcore.ActionViewAlerts},
 		"ActionViewIncidents":    {ActionViewIncidents, authzcore.ActionViewIncidents},
@@ -58,7 +59,7 @@ func TestActionConstantsAreRegistered(t *testing.T) {
 	for _, action := range []Action{
 		ActionViewLogs, ActionViewEvents, ActionViewTraces, ActionViewMetrics,
 		ActionViewAlerts, ActionViewIncidents, ActionUpdateIncidents,
-		ActionViewFinOps, ActionViewPlatformLogs,
+		ActionViewFinOps, ActionViewPlatformLogs, ActionRawQueryTraces,
 	} {
 		assert.True(t, registered[string(action)],
 			"%q is checked by the observer but not registered in internal/authz/core", action)
