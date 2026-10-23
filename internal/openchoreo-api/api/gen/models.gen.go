@@ -179,6 +179,7 @@ const (
 // Defines values for CreateGitSecretRequestSecretType.
 const (
 	BasicAuth CreateGitSecretRequestSecretType = "basic-auth"
+	GithubApp CreateGitSecretRequestSecretType = "github-app"
 	SshAuth   CreateGitSecretRequestSecretType = "ssh-auth"
 )
 
@@ -1770,6 +1771,15 @@ type CreateComponentRequest struct {
 
 // CreateGitSecretRequest Request body for creating a git secret
 type CreateGitSecretRequest struct {
+	// AppId GitHub App ID (required for github-app)
+	AppId *string `json:"appId,omitempty"`
+
+	// InstallationId GitHub App installation ID (required for github-app)
+	InstallationId *string `json:"installationId,omitempty"`
+
+	// PrivateKey GitHub App private key in PEM format (required for github-app)
+	PrivateKey *string `json:"privateKey,omitempty"`
+
 	// SecretName Name of the git secret
 	SecretName string `json:"secretName"`
 

@@ -247,6 +247,9 @@ func TestBuildGitSecret(t *testing.T) {
 		token      string
 		sshKey     string
 		sshKeyID   string
+		appID      string
+		installID  string
+		privateKey string
 		wantType   corev1.SecretType
 		wantKeys   []string
 	}{
@@ -280,11 +283,20 @@ func TestBuildGitSecret(t *testing.T) {
 			wantType:   corev1.SecretTypeSSHAuth,
 			wantKeys:   []string{"ssh-privatekey"},
 		},
+		{
+			name:       "github-app",
+			secretType: "github-app",
+			appID:      "app-1",
+			installID:  "install-1",
+			privateKey: "-----BEGIN RSA PRIVATE KEY-----",
+			wantType:   corev1.SecretTypeOpaque,
+			wantKeys:   []string{"app-id", "installation-id", "private-key"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			secret := svc.buildGitSecret("test-secret", testNamespace, "workflows-ns1", tt.secretType, tt.username, tt.token, tt.sshKey, tt.sshKeyID)
+			secret := svc.buildGitSecret("test-secret", testNamespace, "workflows-ns1", tt.secretType, tt.username, tt.token, tt.sshKey, tt.sshKeyID, tt.appID, tt.installID, tt.privateKey)
 
 			if secret.Type != tt.wantType {
 				t.Errorf("Type = %v, want %v", secret.Type, tt.wantType)
@@ -1326,6 +1338,76 @@ func TestCreateGitSecret_Success_SSHAuth(t *testing.T) {
 	}
 	if result.WorkflowPlaneKind != workflowPlaneKindClusterWorkflowPlane {
 		t.Errorf("result WorkflowPlaneKind = %q, want %q", result.WorkflowPlaneKind, workflowPlaneKindClusterWorkflowPlane)
+	}
+}
+
+func TestCreateGitSecret_Success_GithubApp(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := &openchoreov1alpha1.WorkflowPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "wp-default",
+			Namespace: testNamespace,
+		},
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
+			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{
+				Name: "my-secret-store",
+			},
+		},
+	}
+
+	var capturedSecret *corev1.Secret
+	wpFakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(_ context.Context, _ client.WithWatch, obj client.Object, _ client.Patch, _ ...client.PatchOption) error {
+				if secret, ok := obj.(*corev1.Secret); ok {
+					capturedSecret = secret
+				}
+				return nil
+			},
+		}).
+		Build()
+
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
+
+	result, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
+		SecretName:        "app-secret",
+		SecretType:        "github-app",
+		AppID:             "123456",
+		InstallationID:    "987654",
+		PrivateKey:        "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
+		WorkflowPlaneName: "wp-default",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Name != "app-secret" {
+		t.Errorf("result Name = %q, want %q", result.Name, "app-secret")
+	}
+
+	if capturedSecret == nil {
+		t.Fatal("expected workflow plane secret to be created")
+	}
+	if capturedSecret.Type != corev1.SecretTypeOpaque {
+		t.Errorf("secret Type = %v, want %v", capturedSecret.Type, corev1.SecretTypeOpaque)
+	}
+	for _, key := range []string{"app-id", "installation-id", "private-key"} {
+		if _, ok := capturedSecret.StringData[key]; !ok {
+			t.Errorf("secret StringData missing key %q", key)
+		}
+	}
+
+	var secretRef openchoreov1alpha1.SecretReference
+	if err := svc.k8sClient.Get(context.Background(), client.ObjectKey{Name: "app-secret", Namespace: testNamespace}, &secretRef); err != nil {
+		t.Fatalf("expected SecretReference to be created: %v", err)
+	}
+	if secretRef.Spec.Template.Type != corev1.SecretTypeOpaque {
+		t.Errorf("SecretReference template type = %v, want %v", secretRef.Spec.Template.Type, corev1.SecretTypeOpaque)
+	}
+	if len(secretRef.Spec.Data) != 3 {
+		t.Errorf("SecretReference data has %d keys, want 3", len(secretRef.Spec.Data))
 	}
 }
 
