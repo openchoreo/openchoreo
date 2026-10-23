@@ -2,6 +2,15 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.9
+
+Changes since [v1.1.8](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.8).
+
+### Security
+
+- **(Container Images)** Images no longer trust the compromised eMudhra emSign ECC Root CA - G3, or the Comodo AAA Services root removed with it. The control plane, CLI, quick-start, OpenSearch init, FinOps/SRE agent, and Portal Assistant images move to base images with the updated CA bundle; the SRE agent runtime moves from Debian 12 to Debian 13 (`distroless/cc`), since Debian 12 distroless images are no longer rebuilt; the agents use certifi 2026.10.19; and the Backstage UI image is rebuilt on Node 22.23.4. ([#5140](https://github.com/openchoreo/openchoreo/pull/5140), [#5141](https://github.com/openchoreo/openchoreo/pull/5141), [#5142](https://github.com/openchoreo/openchoreo/pull/5142), [#5143](https://github.com/openchoreo/openchoreo/pull/5143), [#5144](https://github.com/openchoreo/openchoreo/pull/5144), [#5145](https://github.com/openchoreo/openchoreo/pull/5145), [#5147](https://github.com/openchoreo/openchoreo/pull/5147), [#5148](https://github.com/openchoreo/openchoreo/pull/5148), [#5149](https://github.com/openchoreo/openchoreo/pull/5149), [#5150](https://github.com/openchoreo/openchoreo/pull/5150), [#5151](https://github.com/openchoreo/openchoreo/pull/5151), [#5152](https://github.com/openchoreo/openchoreo/pull/5152), [#5153](https://github.com/openchoreo/openchoreo/pull/5153), [#5146](https://github.com/openchoreo/openchoreo/pull/5146), [#5155](https://github.com/openchoreo/openchoreo/pull/5155))
+- **(Go)** Binaries are built with Go 1.26.10, whose `crypto/x509` rejects certificate chains that contain the compromised eMudhra intermediate certificates ([GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809)). ([#5139](https://github.com/openchoreo/openchoreo/pull/5139))
+
 ## v1.1.8
 
 Changes since [v1.1.7](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.7).
