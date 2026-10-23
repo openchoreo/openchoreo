@@ -6,6 +6,7 @@ package export
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -57,6 +58,9 @@ func Run(ctx context.Context, c client.Interface, w io.Writer, params Params) er
 
 func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, params Params, keep func(Withheld) bool) error {
 	report, err := runEngine(ctx, c, Options{OutputDir: params.OutputDir, KeepPlaintext: keep})
+	if err != nil && isExportPermissionError(err) {
+		return errors.New("your role does not have permission to perform this export operation!")
+	}
 	if report != nil {
 		fmt.Fprintf(w, "Exported %d resource(s) to %s: %d created, %d updated, %d unchanged\n",
 			report.Exported, params.OutputDir, report.Created, report.Updated, report.Unchanged)
@@ -82,6 +86,13 @@ func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer,
 		return err
 	}
 	return nil
+}
+
+func isExportPermissionError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "do not have permission") ||
+		strings.Contains(message, "permission denied") ||
+		strings.Contains(message, "forbidden")
 }
 
 func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) bool {

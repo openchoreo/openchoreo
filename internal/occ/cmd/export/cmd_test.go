@@ -42,6 +42,24 @@ func TestRun_PrintsIncompleteCoverage(t *testing.T) {
 	assert.Contains(t, output.String(), "ProjectRelease and ProjectReleaseBinding")
 }
 
+func TestRun_HidesDeniedResourceKind(t *testing.T) {
+	mockClient := mocks.NewMockInterface(t)
+	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
+	mockClient.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{}, nil)
+	mockClient.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{}, nil)
+	mockClient.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{}, nil)
+	mockClient.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(nil, errors.New("You do not have permission to perform this operation"))
+
+	var output bytes.Buffer
+	err := Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()})
+	require.EqualError(t, err, "you do not have permission to perform this export operation")
+	assert.NotContains(t, err.Error(), "ClusterAuthzRole")
+	assert.Empty(t, output.String(), "authorization failures should not print partial export details")
+}
+
 func TestPromptKeepPlaintext(t *testing.T) {
 	finding := Withheld{
 		Kind: "Component", Namespace: "acme", Project: "shop", Name: "api",
