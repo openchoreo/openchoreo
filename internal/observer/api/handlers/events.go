@@ -61,6 +61,9 @@ func (h *Handler) QueryEvents(
 				"Events query is not implemented by the configured logs adapter",
 			), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
 		h.logger.Error("Failed to query events", "error", err)
 		errorCode := types.ErrorCodeV1EventsInternalGeneric
 		switch {

@@ -88,6 +88,9 @@ func (h *Handler) finOpsError(err error, genericMessage string) apiResponse {
 	if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 		return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 	}
+	if resp, ok := scopeNotFoundResponse(err); ok {
+		return resp
+	}
 	if errors.Is(err, service.ErrReleaseLineNotSupported) {
 		return errorResponse(http.StatusNotImplemented, gen.NotImplemented, "", err.Error())
 	}
