@@ -87,6 +87,7 @@ func gvrList() []schema.GroupVersionResource {
 		// Namespaced
 		"projects",
 		"components",
+		"releaselines",
 		"workloads",
 		"environments",
 		"dataplanes",
