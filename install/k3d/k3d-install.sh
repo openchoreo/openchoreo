@@ -6,7 +6,7 @@ set -euo pipefail
 # Run from a checkout and it reads assets (values files, samples, templates) from
 # disk; run via curl | bash and it fetches them for the requested --version.
 
-# -- versions (keep in sync with install/k3d/single-cluster/README.md) --
+# -- versions (keep in sync with docs/contributors/tested-versions.md) --
 GATEWAY_API_VERSION="v1.5.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"

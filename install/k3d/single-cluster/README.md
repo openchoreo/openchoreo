@@ -25,6 +25,8 @@ docker exec k3d-openchoreo-server-0 sh -c \
 
 ## 2. Install Prerequisites
 
+See [Tested versions of third-party prerequisites](../../../docs/contributors/tested-versions.md) for the tested minor version of each prerequisite.
+
 ### Gateway API CRDs
 
 ```bash
