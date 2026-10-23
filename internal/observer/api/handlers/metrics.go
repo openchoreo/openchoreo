@@ -54,6 +54,9 @@ func (h *Handler) QueryMetrics(
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
 		h.logger.Error("Failed to query metrics", "error", err)
 		errorCode := types.ErrorCodeV1MetricsInternalGeneric
 		switch {
@@ -125,6 +128,9 @@ func (h *Handler) QueryRuntimeTopology(
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
+		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
 		}
 		errorCode := types.ErrorCodeV1RuntimeTopologyInternalGeneric
 		switch {

@@ -70,6 +70,9 @@ func (h *Handler) QueryTraces(
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
 		h.logger.Error("Failed to query traces", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
