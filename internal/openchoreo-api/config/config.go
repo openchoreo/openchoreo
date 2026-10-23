@@ -84,6 +84,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.MCP.ValidateMCPConfig(coreconfig.NewPath("mcp"))...)
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
 	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
+	errs = append(errs, c.SecretManagement.Validate(coreconfig.NewPath("secret_management"))...)
 
 	return errs.OrNil()
 }

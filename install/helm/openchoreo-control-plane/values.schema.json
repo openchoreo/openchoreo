@@ -2586,6 +2586,27 @@
               "description": "Enable the Secret management API and Backstage UI for managing data-plane secrets.",
               "title": "enabled",
               "type": "boolean"
+            },
+            "remoteKeyPrefix": {
+              "default": "secret",
+              "description": "First segment of every key written to the external secret store, as in \u003cprefix\u003e/\u003cnamespace\u003e/\u003ctype\u003e/\u003cname\u003e. Set to an empty string to drop the segment. It must not equal the KV mount name that the ClusterSecretStore points at, otherwise external-secrets writes the value and its ownership metadata to two different paths and leaves a duplicate data-less entry per secret. This is an install-time setting, since changing it after secrets exist does not move existing entries.",
+              "title": "remoteKeyPrefix",
+              "type": "string"
+            },
+            "remoteKeySeparator": {
+              "default": "/",
+              "description": "Separator that joins the segments of every key written to the external secret store, including the segments of a nested remoteKeyPrefix. \"/\" gives path-style keys \u003cprefix\u003e/\u003cnamespace\u003e/\u003ctype\u003e/\u003cname\u003e for OpenBao, Vault and AWS Secrets Manager. \"-\" is the only separator Azure Key Vault allows and works with every store. \"_\" works with GCP Secret Manager, AWS Secrets Manager, OpenBao and Vault, and \".\", \"+\", \"=\" and \"@\" work with AWS Secrets Manager, OpenBao and Vault. With \"-\" or \".\", two different secrets can map to the same key, since those characters can also appear in namespace and secret names. This is an install-time setting, since changing it after secrets exist does not move existing entries.",
+              "enum": [
+                "/",
+                "-",
+                "_",
+                ".",
+                "+",
+                "=",
+                "@"
+              ],
+              "required": [],
+              "title": "remoteKeySeparator"
             }
           },
           "required": [],
