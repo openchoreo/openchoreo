@@ -131,4 +131,33 @@ var _ = Describe("Component Controller — Release lines", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("omit releaseLine"))
 	})
+
+	It("keeps a Workload and a ReleaseBinding on the line they were created on", func() {
+		moves := []struct{ name, from, to string }{
+			{"to-line", "", v2Line},
+			{"to-default", v2Line, ""},
+			{"between-lines", v2Line, v2Line + "-next"},
+		}
+		for _, move := range moves {
+			wl := newLineWorkload("rl-wl-"+move.name, move.from, "nginx:1")
+			create(wl)
+			wl.Spec.Owner.ReleaseLine = move.to
+			err := k8sClient.Update(ctx, wl)
+			Expect(err).To(HaveOccurred(), "workload moved %s", move.name)
+			Expect(err.Error()).To(ContainSubstring("spec.owner is immutable"))
+
+			rb := &openchoreov1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "rl-rb-" + move.name, Namespace: itNamespace},
+				Spec: openchoreov1alpha1.ReleaseBindingSpec{
+					Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: project, ComponentName: compName, ReleaseLine: move.from},
+					Environment: "development",
+				},
+			}
+			create(rb)
+			rb.Spec.Owner.ReleaseLine = move.to
+			err = k8sClient.Update(ctx, rb)
+			Expect(err).To(HaveOccurred(), "release binding moved %s", move.name)
+			Expect(err.Error()).To(ContainSubstring("spec.owner is immutable"))
+		}
+	})
 })
