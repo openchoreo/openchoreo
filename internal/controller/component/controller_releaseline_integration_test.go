@@ -55,9 +55,7 @@ var _ = Describe("Component Controller — Release lines", func() {
 		comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
 			"deployment/"+ctName, true)
 		comp.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"replicas":1,"resources":{"cpu":"100m","memory":"128Mi"}}`)}
-		ct := minimalCT(ctName, "deployment")
-		ct.Spec.ReleaseLines = openchoreov1alpha1.ReleaseLinePolicyAllowed
-		create(ct, minimalProject(project, pipelineName), minimalPipeline(pipelineName))
+		create(minimalCT(ctName, "deployment"), minimalProject(project, pipelineName), minimalPipeline(pipelineName))
 	})
 
 	AfterEach(func() {

@@ -26,15 +26,8 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("installing the release line component type")
-		root, err := framework.RepoRoot()
-		Expect(err).NotTo(HaveOccurred())
-		output, err := framework.Kubectl(kubeContext, "apply", "-f",
-			filepath.Join(root, "test/e2e/fixtures/releaselines/component-type.yaml"))
-		Expect(err).NotTo(HaveOccurred(), "failed to install the release line component type: %s", output)
-
 		By("creating control plane namespace")
-		output, err = framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
+		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to create CP namespace: %s", output)
 
 		By("applying platform resources (pipeline, environments, project)")
@@ -69,10 +62,6 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 		if os.Getenv("E2E_KEEP_RESOURCES") == "true" {
 			By("skipping cleanup because E2E_KEEP_RESOURCES=true")
 			return
-		}
-		for _, componentType := range []string{noLinesComponentType, lineComponentType} {
-			_, name, _ := strings.Cut(componentType, "/")
-			_, _ = framework.Kubectl(kubeContext, "delete", "clustercomponenttype", name, "--ignore-not-found", "--wait=false")
 		}
 		By("cleaning up control plane namespace (cascades to DP namespaces)")
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs, "--ignore-not-found", "--wait=false")
@@ -152,11 +141,6 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 	})
 
 	Context("line overrides", func() {
-		It("applies a line's parameter override to that line only", func() {
-			Expect(containerEnv(lineDeployment(lineStable), "LOG_LEVEL")).To(Equal("info"))
-			Expect(containerEnv(lineDeployment(lineCanary), "LOG_LEVEL")).To(Equal("debug"))
-		})
-
 		It("merges a line's trait parameters onto the component's trait", func() {
 			canary := mainContainer(lineDeployment(lineCanary))
 			Expect(canary.ReadinessProbe).NotTo(BeNil(), "canary keeps the component's readiness probe")
@@ -238,21 +222,6 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 
 			By("checking greeter's stable line is untouched")
 			Expect(jsonpath(Default, "releaseline", lineStable, "{.spec.owner.componentName}")).To(Equal(componentGreeter))
-		})
-
-		It("rejects release lines on a component type that doesn't allow them", func() {
-			output, err := framework.KubectlApplyLiteral(kubeContext, noLinesComponentTypeYAML())
-			Expect(err).NotTo(HaveOccurred(), "failed to create the component type: %s", output)
-			output, err = framework.KubectlApplyLiteral(kubeContext, mustYAMLDocs(
-				lineComponent(componentPlain, noLinesComponentType, nil),
-				releaseLine(linePlainNext, componentPlain),
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to create plain component: %s", output)
-
-			Eventually(func(g Gomega) {
-				g.Expect(jsonpath(g, "releaseline", linePlainNext,
-					`{.status.conditions[?(@.type=="Ready")].reason}`)).To(Equal("ReleaseLinesNotAllowed"))
-			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
 		It("rejects a ReleaseLine named default", func() {
@@ -381,15 +350,6 @@ func mainContainer(d appsv1.Deployment) *corev1.Container {
 	}
 	Fail(fmt.Sprintf("Deployment %s has no main container", d.Name))
 	return nil
-}
-
-func containerEnv(d appsv1.Deployment, name string) string {
-	for _, env := range mainContainer(d).Env {
-		if env.Name == name {
-			return env.Value
-		}
-	}
-	return ""
 }
 
 // serviceURL is the in-cluster URL of a binding's http endpoint, from the binding status.

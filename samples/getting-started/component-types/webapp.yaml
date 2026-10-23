@@ -6,7 +6,6 @@ metadata:
     openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
-  releaseLines: Allowed
 
   allowedWorkflows:
     - kind: ClusterWorkflow

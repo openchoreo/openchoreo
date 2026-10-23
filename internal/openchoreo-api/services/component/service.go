@@ -288,9 +288,6 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch component type: %w", err)
 	}
-	if lineName != "" && !componentTypeSpec.ReleaseLines.AllowsReleaseLines() {
-		return nil, services.ReleaseLinesNotAllowedError(component.Spec.ComponentType.Name)
-	}
 
 	// Fetch all trait specs (embedded from ComponentType + component-level)
 	traits, clusterTraits, err := s.fetchAllTraits(ctx, componentTypeSpec, component)
