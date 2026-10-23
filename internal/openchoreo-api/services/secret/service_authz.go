@@ -12,6 +12,7 @@ import (
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -23,9 +24,9 @@ type secretServiceWithAuthz struct {
 }
 
 // NewServiceWithAuthz creates a new secret service with authorization checks.
-func NewServiceWithAuthz(k8sClient client.Client, planeClientProvider kubernetesClient.PlaneClientProvider, authzPDP authz.PDP, logger *slog.Logger) Service {
+func NewServiceWithAuthz(k8sClient client.Client, planeClientProvider kubernetesClient.PlaneClientProvider, secretCfg config.SecretManagementConfig, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &secretServiceWithAuthz{
-		internal: NewService(k8sClient, planeClientProvider, logger),
+		internal: NewService(k8sClient, planeClientProvider, secretCfg, logger),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }
