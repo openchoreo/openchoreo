@@ -1,6 +1,6 @@
 module github.com/openchoreo/openchoreo
 
-go 1.26.3
+go 1.26.10
 
 require (
 	github.com/bufbuild/protocompile v0.14.1
