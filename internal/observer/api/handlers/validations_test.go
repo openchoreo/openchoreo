@@ -1242,4 +1242,21 @@ func TestValidateReleaseLineScope(t *testing.T) {
 		StartTime: "2024-01-01T00:00:00Z", EndTime: "2024-01-02T00:00:00Z", SearchScope: full,
 	}
 	assert.ErrorContains(t, ValidateRuntimeTopologyRequest(topology), "not supported for runtime topology")
+
+	everyLine := full
+	everyLine.ReleaseLine = ""
+	everyLine.AllReleaseLines = true
+	require.NoError(t, ValidateLogsQueryRequest(logsReq(everyLine)))
+	both := full
+	both.AllReleaseLines = true
+	assert.ErrorContains(t, ValidateLogsQueryRequest(logsReq(both)), "not both")
+
+	all := true
+	traces.SearchScope.AllReleaseLines = &all
+	assert.ErrorContains(t, ValidateTracesQueryRequest(traces), "not both")
+
+	assert.ErrorContains(t, ValidateCostQueryRequest(&types.CostQueryRequest{
+		Namespace: "ns", Environment: "dev", Project: "p", Component: "c", ReleaseLine: "next", AllReleaseLines: true,
+		StartTime: "2024-01-01T00:00:00Z", EndTime: "2024-01-02T00:00:00Z",
+	}), "not both")
 }

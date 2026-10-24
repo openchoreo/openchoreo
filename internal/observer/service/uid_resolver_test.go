@@ -644,19 +644,27 @@ func TestResolveReleaseLineScope(t *testing.T) {
 	r := newTestResolver(t, apiServer, nil, nil)
 	ctx := context.Background()
 
-	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "")
+	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "", false)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers every line of the component")
+	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope, "no line covers the default line, as before release lines")
 
-	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default")
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "", true)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "allLines covers every line of the component")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "", "", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component covers every line")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default", false)
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope)
 
-	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next")
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next", false)
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseLineScope{UID: "uid-next"}, scope)
 
-	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost")
+	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost", false)
 	require.ErrorIs(t, err, ErrResourceNotFound)
 	var notFound *NotFoundError
 	require.ErrorAs(t, err, &notFound)

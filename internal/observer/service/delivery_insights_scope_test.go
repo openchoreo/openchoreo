@@ -19,10 +19,11 @@ import (
 )
 
 // scopeResolverStub answers every level with the name as its UID, except the one
-// level it is told to fail.
+// level it is told to fail. Components have release lines when withLines is set.
 type scopeResolverStub struct {
 	failLevel string
 	failWith  error
+	withLines bool
 }
 
 func (r scopeResolverStub) resolve(level, name string) (string, error) {
@@ -50,6 +51,13 @@ func (r scopeResolverStub) GetEnvironmentUID(_ context.Context, _, environment s
 
 func (r scopeResolverStub) GetReleaseLineUID(_ context.Context, _, _, releaseLine string) (string, error) {
 	return r.resolve("release line", releaseLine)
+}
+
+func (r scopeResolverStub) HasReleaseLines(_ context.Context, _, component string) (bool, error) {
+	if _, err := r.resolve("release lines", component); err != nil {
+		return false, err
+	}
+	return r.withLines, nil
 }
 
 // TestDeliveryInsightsScopeResolution covers both query operations against a scope
@@ -187,4 +195,38 @@ func TestDeliveryInsightsReleaseLineScope(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deployments.TotalCount)
 	assert.Equal(t, 2, *deployments.TotalCount)
+}
+
+// A component scope without a line covers the default line. A component without release lines keeps
+// its component rollups, which hold its history from before release lines.
+func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
+	ctx := context.Background()
+	all := true
+	tests := []struct {
+		name        string
+		withLines   bool
+		line        string
+		all         *bool
+		wantType    string
+		wantDefault bool
+	}{
+		{"no line, component without lines", false, "", nil, deliveryinsights.ScopeTypeComponent, false},
+		{"no line, component with lines", true, "", nil, deliveryinsights.ScopeTypeReleaseLine, true},
+		{"every line", true, "", &all, deliveryinsights.ScopeTypeComponent, false},
+		{"default keyword, component with lines", true, "default", nil, deliveryinsights.ScopeTypeReleaseLine, true},
+		{"default keyword, component without lines", false, "default", nil, deliveryinsights.ScopeTypeComponent, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &DoraMetricsService{resolver: scopeResolverStub{withLines: tt.withLines}, logger: slog.Default()}
+			rs, err := svc.resolveScope(ctx, gen.ComponentSearchScope{
+				Namespace: "acme", Project: strPtr("shop"), Component: strPtr("checkout"),
+				ReleaseLine: strPtr(tt.line), AllReleaseLines: tt.all,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantType, rs.scopeType)
+			assert.Equal(t, "checkout", rs.scopeUID)
+			assert.Equal(t, tt.wantDefault, rs.defaultLineOnly)
+		})
+	}
 }

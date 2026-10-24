@@ -923,6 +923,22 @@ func NewGetComponentCostsRequest(server string, namespace FinOpsNamespace, envir
 
 		}
 
+		if params.AllReleaseLines != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "allReleaseLines", runtime.ParamLocationQuery, *params.AllReleaseLines); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "startTime", runtime.ParamLocationQuery, params.StartTime); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -1045,6 +1061,22 @@ func NewGetRecommendationsRequest(server string, namespace FinOpsNamespace, envi
 		if params.ReleaseLine != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "releaseLine", runtime.ParamLocationQuery, *params.ReleaseLine); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.AllReleaseLines != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "allReleaseLines", runtime.ParamLocationQuery, *params.AllReleaseLines); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err

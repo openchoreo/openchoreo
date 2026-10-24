@@ -293,7 +293,7 @@ func resolveSearchScope(
 		if err != nil {
 			return nil, err
 		}
-		lines, err := resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+		lines, err := resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine, scope.AllReleaseLines)
 		if err != nil {
 			return nil, err
 		}

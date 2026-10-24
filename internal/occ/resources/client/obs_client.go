@@ -59,6 +59,7 @@ type ComponentLogsRequest struct {
 	NamespaceName   string   `json:"namespaceName"`
 	EnvironmentName string   `json:"environmentName"`
 	ReleaseLine     string   `json:"releaseLine,omitempty"`
+	AllReleaseLines bool     `json:"allReleaseLines,omitempty"`
 	Limit           int64    `json:"limit"`
 	SortOrder       string   `json:"sortOrder"`
 	LogType         string   `json:"logType"`
@@ -86,6 +87,9 @@ func (c *ObserverClient) FetchComponentLogs(ctx context.Context, req ComponentLo
 	}
 	if req.ReleaseLine != "" {
 		searchScope["releaseLine"] = req.ReleaseLine
+	}
+	if req.AllReleaseLines {
+		searchScope["allReleaseLines"] = true
 	}
 	payload := map[string]interface{}{
 		"startTime":   req.StartTime,

@@ -250,7 +250,7 @@ func TestDecodeAdapterSyncResponse_ReleaseLineApplied(t *testing.T) {
 func TestAlertService_QueryReleaseLine(t *testing.T) {
 	strp := func(s string) *string { return &s }
 	scope := gen.ComponentSearchScope{
-		Namespace: "ns", Project: strp("proj"), Component: strp("comp"), Environment: strp("dev"), ReleaseLine: strp("next"),
+		Namespace: "ns", Project: strp("proj"), Component: strPtr("comp"), Environment: strp("dev"), ReleaseLine: strp("next"),
 	}
 	window := func() (time.Time, time.Time) {
 		return time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC), time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC)
@@ -337,23 +337,55 @@ func TestFinOpsAdapter_ReleaseLine(t *testing.T) {
 		require.ErrorIs(t, err, ErrReleaseLineNotSupported)
 	})
 
-	t.Run("a query without a line needs no confirmation", func(t *testing.T) {
+	t.Run("a query without a line covers the default line and needs no confirmation", func(t *testing.T) {
 		var query url.Values
 		req := costs()
 		req.ReleaseLine = ""
 		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), req)
 		require.NoError(t, err)
 		assert.Empty(t, query.Get("releaseLineUid"))
+		assert.Equal(t, "true", query.Get("defaultLineOnly"))
 	})
+
+	t.Run("a query for every line sends the component alone", func(t *testing.T) {
+		var query url.Values
+		req := costs()
+		req.ReleaseLine = ""
+		req.AllReleaseLines = true
+		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), req)
+		require.NoError(t, err)
+		assert.Empty(t, query.Get("releaseLineUid"))
+		assert.Empty(t, query.Get("defaultLineOnly"))
+	})
+}
+
+func TestDefaultLineOnly(t *testing.T) {
+	all := true
+	for name, tc := range map[string]struct {
+		scope gen.ComponentSearchScope
+		want  bool
+	}{
+		"no component":       {scope: gen.ComponentSearchScope{Namespace: "ns"}},
+		"component, no line": {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp")}, want: true},
+		"every line":         {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), AllReleaseLines: &all}},
+		"default keyword":    {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("default")}, want: true},
+		"one line":           {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("next")}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, defaultLineOnly(&tc.scope))
+		})
+	}
 }
 
 func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
 	for name, tc := range map[string]struct {
 		line            string
+		all             bool
 		wantDefaultOnly bool
 	}{
 		"default line keyword": {line: releaseline.DefaultLine, wantDefaultOnly: true},
-		"every line":           {line: ""},
+		"no line":              {line: "", wantDefaultOnly: true},
+		"every line":           {line: "", all: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var captured metricsAdapterRequest
@@ -365,6 +397,7 @@ func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
 
 			scope := lineScope()
 			scope.ReleaseLine = tc.line
+			scope.AllReleaseLines = tc.all
 			adapter := NewMetricsAdapter(server.URL, 5*time.Second, newReleaseLineResolver(t), discardLogger())
 			_, err := adapter.QueryMetrics(context.Background(), &types.MetricsQueryRequest{
 				Metric: "resource", StartTime: "2026-01-01T00:00:00Z", EndTime: "2026-01-01T01:00:00Z",

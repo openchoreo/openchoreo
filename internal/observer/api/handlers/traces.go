@@ -37,11 +37,12 @@ func (h *Handler) QueryTraces(
 		Limit:     derefInt(genReq.Limit, 100),
 		SortOrder: sort,
 		SearchScope: types.ComponentSearchScope{
-			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project),
-			Component:   derefString(genReq.SearchScope.Component),
-			Environment: derefString(genReq.SearchScope.Environment),
-			ReleaseLine: derefString(genReq.SearchScope.ReleaseLine),
+			Namespace:       genReq.SearchScope.Namespace,
+			Project:         derefString(genReq.SearchScope.Project),
+			Component:       derefString(genReq.SearchScope.Component),
+			Environment:     derefString(genReq.SearchScope.Environment),
+			ReleaseLine:     derefString(genReq.SearchScope.ReleaseLine),
+			AllReleaseLines: derefBool(genReq.SearchScope.AllReleaseLines),
 		},
 	}
 
@@ -129,11 +130,12 @@ func (h *Handler) QuerySpansForTrace(
 		SortOrder:         sort,
 		IncludeAttributes: derefBool(genReq.IncludeAttributes),
 		SearchScope: types.ComponentSearchScope{
-			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project),
-			Component:   derefString(genReq.SearchScope.Component),
-			Environment: derefString(genReq.SearchScope.Environment),
-			ReleaseLine: derefString(genReq.SearchScope.ReleaseLine),
+			Namespace:       genReq.SearchScope.Namespace,
+			Project:         derefString(genReq.SearchScope.Project),
+			Component:       derefString(genReq.SearchScope.Component),
+			Environment:     derefString(genReq.SearchScope.Environment),
+			ReleaseLine:     derefString(genReq.SearchScope.ReleaseLine),
+			AllReleaseLines: derefBool(genReq.SearchScope.AllReleaseLines),
 		},
 	}
 

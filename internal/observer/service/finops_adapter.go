@@ -86,7 +86,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine)
+	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
 	if err != nil {
 		return nil, err
 	}
@@ -248,14 +248,14 @@ func (a *FinOpsAdapter) resolveScope(
 }
 
 // resolveReleaseLine resolves an optional release line name to its UID, or to the default line only
-// for the default line keyword. No line covers every line of the component.
+// for the default line keyword and for a component without a line. allLines covers every line.
 func (a *FinOpsAdapter) resolveReleaseLine(
-	ctx context.Context, namespace, component, releaseLine string,
+	ctx context.Context, namespace, component, releaseLine string, allLines bool,
 ) (*openapi_types.UUID, *bool, error) {
 	if releaseLine != "" && component == "" {
 		return nil, nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
 	}
-	lines, err := a.resolver.ResolveReleaseLineScope(ctx, namespace, component, releaseLine)
+	lines, err := a.resolver.ResolveReleaseLineScope(ctx, namespace, component, releaseLine, allLines)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrFinOpsResolveScope, err)
 	}

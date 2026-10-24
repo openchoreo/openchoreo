@@ -16,7 +16,6 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
-	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // ErrDeliveryInsightsResolveSearchScope marks a delivery insights query whose search
@@ -32,6 +31,7 @@ type ScopeUIDResolver interface {
 	GetComponentUID(ctx context.Context, namespace, project, component string) (string, error)
 	GetEnvironmentUID(ctx context.Context, namespace, environment string) (string, error)
 	GetReleaseLineUID(ctx context.Context, namespace, component, releaseLine string) (string, error)
+	HasReleaseLines(ctx context.Context, namespace, component string) (bool, error)
 }
 
 // DeliveryInsightsService serves the Delivery Insights (DORA metrics) read API.
@@ -141,10 +141,18 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
-	if releaseLine == releaseline.DefaultLine && rs.componentUID != "" {
-		rs.defaultLineOnly = true
-		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
-		rs.scopeUID = rs.componentUID
+	if defaultLineOnly(&scope) && rs.componentUID != "" {
+		// A component without release lines keeps its component rollups, which equal its default
+		// line's and also hold the history recorded before release lines.
+		hasLines, err := s.resolver.HasReleaseLines(ctx, namespace, component)
+		if err != nil {
+			return rs, wrapDeliveryInsightsScopeError(err, "component", component)
+		}
+		if hasLines {
+			rs.defaultLineOnly = true
+			rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+			rs.scopeUID = rs.componentUID
+		}
 	} else if releaseLine != "" {
 		uid, err := s.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
 		if err != nil {

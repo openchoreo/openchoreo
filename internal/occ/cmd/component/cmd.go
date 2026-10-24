@@ -238,11 +238,11 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Follow logs in real-time
   occ component logs my-component --env dev -f
 
-  # Get logs of one release line of a component; without --release-line, logs cover every line
+  # Get logs of one release line of a component; without it, logs cover the component's default line
   occ component logs my-component --release-line next
 
-  # Get logs of the component's default line only
-  occ component logs my-component --release-line default`,
+  # Get logs of every line of the component
+  occ component logs my-component --all-release-lines`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -251,17 +251,19 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				return err
 			}
 			container, _ := cmd.Flags().GetString("container")
+			allReleaseLines, _ := cmd.Flags().GetBool("all-release-lines")
 			tail := flags.GetTail(cmd)
 			return New(cl).Logs(LogsParams{
-				Namespace:   flags.GetNamespace(cmd),
-				Project:     flags.GetProject(cmd),
-				Component:   args[0],
-				Environment: flags.GetEnvironment(cmd),
-				Container:   container,
-				Follow:      flags.GetFollow(cmd),
-				Since:       flags.GetSince(cmd),
-				ReleaseLine: flags.GetReleaseLine(cmd),
-				Tail:        tail,
+				Namespace:       flags.GetNamespace(cmd),
+				Project:         flags.GetProject(cmd),
+				Component:       args[0],
+				Environment:     flags.GetEnvironment(cmd),
+				Container:       container,
+				Follow:          flags.GetFollow(cmd),
+				Since:           flags.GetSince(cmd),
+				ReleaseLine:     flags.GetReleaseLine(cmd),
+				AllReleaseLines: allReleaseLines,
+				Tail:            tail,
 			})
 		},
 	}
@@ -274,6 +276,8 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
 	flags.AddReleaseLine(cmd)
+	cmd.Flags().Bool("all-release-lines", false, "Get logs of every line of the component instead of its default line")
+	cmd.MarkFlagsMutuallyExclusive("release-line", "all-release-lines")
 	return cmd
 }
 

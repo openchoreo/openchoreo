@@ -39,8 +39,15 @@ func TestQueryAlertEntries_ReleaseLine(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, total, "a component-scoped query returns every line")
 
-	params.ReleaseLineID = "line-next"
+	params.DefaultLineOnly = true
 	entries, total, err := store.QueryAlertEntries(ctx, params)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	assert.Empty(t, entries[0].ReleaseLineID, "the default line has no line UID")
+	params.DefaultLineOnly = false
+
+	params.ReleaseLineID = "line-next"
+	entries, total, err = store.QueryAlertEntries(ctx, params)
 	require.NoError(t, err)
 	require.Equal(t, 1, total)
 	assert.Equal(t, "next", entries[0].ReleaseLineName)
@@ -79,4 +86,10 @@ func TestInitialize_AddsReleaseLineColumnsToExistingTable(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, total)
 	assert.Empty(t, entries[0].ReleaseLineName, "rows written before release lines have no line")
+
+	_, total, err = store.QueryAlertEntries(ctx, QueryParams{
+		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", DefaultLineOnly: true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total, "rows written before release lines belong to the default line")
 }

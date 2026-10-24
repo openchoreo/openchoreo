@@ -121,7 +121,9 @@ type LogsParams struct {
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)
-	ReleaseLine string // optional — empty means logs from every line of the component
+	ReleaseLine string // optional — empty means logs from the component's default line
+	// AllReleaseLines covers every line of the component instead of its default line.
+	AllReleaseLines bool
 }
 
 // ExecParams defines parameters for exec-ing into a component's running pod

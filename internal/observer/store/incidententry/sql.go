@@ -363,7 +363,8 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
 		args = append(args, value)
 	} else if params.DefaultLineOnly {
-		conditions = append(conditions, "release_line_id = ''")
+		// Entries stored before release lines have no release_line_id.
+		conditions = append(conditions, "COALESCE(release_line_id, '') = ''")
 	}
 
 	whereClause := " WHERE " + strings.Join(conditions, " AND ")

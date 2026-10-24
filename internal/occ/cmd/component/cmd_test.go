@@ -5,6 +5,7 @@ package component
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -181,9 +182,19 @@ func TestLogsCmd_FactoryError(t *testing.T) {
 
 func TestLogsCmd_Flags(t *testing.T) {
 	cmd := newLogsCmd(errFactory("unused"))
-	for _, name := range []string{"namespace", "project", "env", "follow", "since", "tail"} {
+	for _, name := range []string{"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected flag %q", name)
 	}
+}
+
+func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
+	cmd := newLogsCmd(errFactory("unused"))
+	cmd.SetArgs([]string{"my-component", "--release-line", "next", "--all-release-lines"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "none of the others can be")
 }
 
 // --- workflow subcommands ---
