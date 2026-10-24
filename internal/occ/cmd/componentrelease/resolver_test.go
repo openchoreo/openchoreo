@@ -73,6 +73,28 @@ func TestBuildOutputDirResolver(t *testing.T) {
 
 		assert.Empty(t, resolver("nonexistent-proj", "nonexistent-comp"))
 	})
+
+	// Regression test for issue #4148: a duplicate owner (same project/component) exists in two
+	// namespaces with releases in distinct directories. The resolver must return the ACTIVE
+	// namespace's release directory. Both namespaces are populated so the namespace-scoped release
+	// lookup cannot pass by Go map-iteration order.
+	t.Run("namespace isolation: resolves active namespace's releases dir", func(t *testing.T) {
+		idx := index.New("/repo")
+
+		addComponent(t, idx, "team-a", "dup-comp", "dup-proj",
+			"/repo/team-a/projects/dup-proj/components/dup-comp/component.yaml")
+		addRelease(t, idx, "team-a", "dup-comp-a", "dup-proj", "dup-comp",
+			"/repo/team-a/projects/dup-proj/components/dup-comp/releases/dup-comp-a.yaml")
+		addComponent(t, idx, "team-b", "dup-comp", "dup-proj",
+			"/repo/team-b/projects/dup-proj/components/dup-comp/component.yaml")
+		addRelease(t, idx, "team-b", "dup-comp-b", "dup-proj", "dup-comp",
+			"/repo/team-b/projects/dup-proj/components/dup-comp/releases/dup-comp-b.yaml")
+
+		ocIndex := fsmode.WrapIndex(idx)
+		resolver := buildOutputDirResolver(ocIndex, "team-a")
+
+		assert.Equal(t, "/repo/team-a/projects/dup-proj/components/dup-comp/releases", resolver("dup-proj", "dup-comp"))
+	})
 }
 
 // addComponent adds a Component resource entry to the index.
