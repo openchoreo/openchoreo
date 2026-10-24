@@ -665,7 +665,10 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"OpenChoreo components: Deployment Frequency, Lead Time for Changes, Change Failure Rate, and " +
 			"Mean Time to Recovery (MTTR). Returns a summary (value, Elite/High/Medium/Low classification, " +
 			"trend vs the previous window of equal length) plus a time-bucketed series for each requested " +
-			"metric. Use this to answer questions like 'how often do we deploy', 'what's our lead time for " +
+			"metric. Lead time also reports 'coverage', the fraction of deployments in the window that " +
+			"carried commit provenance; when it is below 1 the lead time describes only that share of " +
+			"deployments and should be reported together with the coverage rather than on its own. " +
+			"Use this to answer questions like 'how often do we deploy', 'what's our lead time for " +
 			"changes', 'what's our change failure rate', or 'how long does it take to recover from failures'.",
 		InputSchema: createSchema(map[string]any{
 			"namespace":   stringProperty("Namespace (required)"),
