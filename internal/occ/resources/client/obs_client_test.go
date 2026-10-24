@@ -43,7 +43,7 @@ func TestFetchComponentLogs_ReleaseLineScope(t *testing.T) {
 			}))
 			defer server.Close()
 
-			_, err := NewObserverClient(server.URL, "token").FetchComponentLogs(context.Background(), tc.req)
+			_, err := NewObserverClient(server.URL, "").FetchComponentLogs(context.Background(), tc.req)
 			require.NoError(t, err)
 			for key, want := range tc.wantScope {
 				assert.Equal(t, want, body.SearchScope[key], key)

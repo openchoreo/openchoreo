@@ -5,7 +5,6 @@ package component
 
 import (
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -189,10 +188,8 @@ func TestLogsCmd_Flags(t *testing.T) {
 
 func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
 	cmd := newLogsCmd(errFactory("unused"))
-	cmd.SetArgs([]string{"my-component", "--release-line", "next", "--all-release-lines"})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-	err := cmd.Execute()
+	require.NoError(t, cmd.ParseFlags([]string{"--release-line", "next", "--all-release-lines"}))
+	err := cmd.ValidateFlagGroups()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "none of the others can be")
 }
