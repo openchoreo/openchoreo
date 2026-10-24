@@ -157,7 +157,7 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			Expect(lineObjects(Default, "hpa", lineStable)).To(BeEmpty())
 		})
 
-		It("keeps the component's traits on a line, which can't remove them", func() {
+		It("keeps the component's traits on a line that lists only its own", func() {
 			By("listing only the autoscaler on the stable line")
 			patch := `{"spec":{"traits":[{"kind":"ClusterTrait","name":"horizontal-pod-autoscaler",` +
 				`"instanceName":"` + scalerTrait + `","parameters":{"replicas":{"min":1,"max":2}}}]}}`

@@ -55,7 +55,7 @@ func (h *Handler) QueryAlerts(
 		case errors.Is(err, service.ErrAlertsResolveSearchScope):
 			if errors.Is(err, service.ErrScopeNotFound) {
 				return gen.QueryAlerts400JSONResponse(errorPayload(gen.BadRequest,
-					scopeNotFoundCode, scopeNotFoundMessage)), nil
+					scopeNotFoundCode, scopeNotFoundText(err))), nil
 			}
 			h.logger.Error("Failed to resolve alerts search scope", "error", err)
 			return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,

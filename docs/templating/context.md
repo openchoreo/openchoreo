@@ -74,7 +74,7 @@ metadata:
     openchoreo.dev/project-uid: "xyz789"
 ```
 
-For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the default line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line.
+For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the default line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line. To find every pod of a component, match `openchoreo.dev/component-uid` or `openchoreo.dev/release-line-component-uid`.
 
 **Example usage:**
 
@@ -91,7 +91,7 @@ spec:
     matchLabels: ${metadata.podSelectors}
   template:
     metadata:
-      labels: ${oc_merge(metadata.labels, metadata.podSelectors)}
+      labels: ${metadata.podSelectors}
 ```
 
 ### parameters

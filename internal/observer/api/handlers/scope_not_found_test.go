@@ -24,7 +24,7 @@ func TestQueries_ScopeNotFound(t *testing.T) {
 
 	notFound := func(subsystem error) error {
 		return fmt.Errorf("%w: failed to resolve release line: %w", subsystem,
-			fmt.Errorf("%w: /api/v1/namespaces/ns/components/comp/releaselines/ghost", service.ErrResourceNotFound))
+			&service.NotFoundError{Kind: "release line", Name: "ghost"})
 	}
 	base := baseHandler{logger: noopLogger()}
 
@@ -73,6 +73,15 @@ func TestQueries_ScopeNotFound(t *testing.T) {
 			rr := serve(t, h, req)
 			require.Equal(t, http.StatusBadRequest, rr.Code, rr.Body.String())
 			assert.Contains(t, rr.Body.String(), scopeNotFoundCode)
+			assert.Contains(t, rr.Body.String(), `release line \"ghost\" not found`)
 		})
 	}
+}
+
+func TestScopeNotFoundText(t *testing.T) {
+	t.Parallel()
+
+	named := fmt.Errorf("lookup failed: %w", &service.NotFoundError{Kind: "environment", Name: "qa"})
+	assert.Equal(t, `environment "qa" not found`, scopeNotFoundText(named))
+	assert.Equal(t, scopeNotFoundMessage, scopeNotFoundText(service.ErrScopeNotFound))
 }

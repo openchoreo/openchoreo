@@ -32,6 +32,30 @@ var (
 	ErrScopeAuthFailed  = errors.New("observer scope resolution auth failed")
 )
 
+// NotFoundError names a search scope resource that does not exist. It matches ErrResourceNotFound.
+type NotFoundError struct {
+	// Kind is the resource kind, such as "component" or "release line".
+	Kind string
+	Name string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("%s %q not found", e.Kind, e.Name)
+}
+
+// Is reports a NotFoundError as ErrResourceNotFound.
+func (e *NotFoundError) Is(target error) bool {
+	return target == ErrResourceNotFound
+}
+
+// namedNotFound puts the kind and name of a missing resource in front of a not found error.
+func namedNotFound(err error, kind, name string) error {
+	if !errors.Is(err, ErrResourceNotFound) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", &NotFoundError{Kind: kind, Name: name}, err)
+}
+
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
 type ResourceUIDResolver struct {
@@ -79,7 +103,8 @@ func (r *ResourceUIDResolver) GetNamespaceUID(ctx context.Context, namespaceName
 	path := fmt.Sprintf("/api/v1/namespaces/%s", url.PathEscape(namespaceName))
 	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve namespace UID for namespace %q: %w", namespaceName, err)
+		return "", fmt.Errorf("failed to resolve namespace UID for namespace %q: %w", namespaceName,
+			namedNotFound(err, "namespace", namespaceName))
 	}
 
 	return uid, nil
@@ -101,7 +126,7 @@ func (r *ResourceUIDResolver) GetProjectUID(ctx context.Context, namespaceName, 
 			"failed to resolve project UID for namespace %q project %q: %w",
 			namespaceName,
 			projectName,
-			err,
+			namedNotFound(err, "project", projectName),
 		)
 	}
 
@@ -130,7 +155,7 @@ func (r *ResourceUIDResolver) GetComponentUID(
 			namespaceName,
 			projectName,
 			componentName,
-			err,
+			namedNotFound(err, "component", componentName),
 		)
 	}
 
@@ -149,7 +174,7 @@ func (r *ResourceUIDResolver) GetComponentUID(
 		projectName != "" && owner != projectName {
 		return "", fmt.Errorf(
 			"%w: component %q in namespace %q belongs to project %q, not %q",
-			ErrResourceNotFound, componentName, namespaceName, owner, projectName,
+			&NotFoundError{Kind: "component", Name: componentName}, componentName, namespaceName, owner, projectName,
 		)
 	}
 
@@ -172,7 +197,7 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 			"failed to resolve environment UID for namespace %q environment %q: %w",
 			namespaceName,
 			environmentName,
-			err,
+			namedNotFound(err, "environment", environmentName),
 		)
 	}
 
@@ -220,7 +245,7 @@ func (r *ResourceUIDResolver) GetReleaseLineUID(ctx context.Context, namespaceNa
 			namespaceName,
 			componentName,
 			releaseLineName,
-			err,
+			namedNotFound(err, "release line", releaseLineName),
 		)
 	}
 
@@ -235,7 +260,8 @@ func (r *ResourceUIDResolver) HasReleaseLines(ctx context.Context, namespaceName
 		url.PathEscape(componentName))
 	body, err := r.fetchBody(ctx, path)
 	if err != nil {
-		return false, fmt.Errorf("failed to list release lines of component %q in namespace %q: %w", componentName, namespaceName, err)
+		return false, fmt.Errorf("failed to list release lines of component %q in namespace %q: %w", componentName, namespaceName,
+			namedNotFound(err, "component", componentName))
 	}
 
 	var response struct {

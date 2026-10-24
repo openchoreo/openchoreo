@@ -430,6 +430,10 @@ func TestGetComponentUIDRejectsAComponentOfAnotherProject(t *testing.T) {
 	if !errors.Is(err, ErrResourceNotFound) {
 		t.Fatalf("expected ErrResourceNotFound, got %v", err)
 	}
+	var notFound *NotFoundError
+	if !errors.As(err, &notFound) || notFound.Error() != `component "payments-api" not found` {
+		t.Fatalf("expected the component named as not found, without its owner, got %v", err)
+	}
 }
 
 func TestResolveReleaseLineScope(t *testing.T) {
@@ -459,4 +463,7 @@ func TestResolveReleaseLineScope(t *testing.T) {
 
 	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost")
 	require.ErrorIs(t, err, ErrResourceNotFound)
+	var notFound *NotFoundError
+	require.ErrorAs(t, err, &notFound)
+	assert.Equal(t, `release line "ghost" not found`, notFound.Error())
 }
