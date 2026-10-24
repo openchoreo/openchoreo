@@ -33,7 +33,8 @@ const (
 	LabelKeyReleaseLineUID = "openchoreo.dev/release-line-uid"
 
 	// LabelKeyReleaseLineComponentUID holds the component UID on a release line's pods, which don't
-	// carry LabelKeyComponentUID so that the default line's selectors never match them.
+	// carry LabelKeyComponentUID so that the default line's selectors never match them. Match either
+	// label to find every pod of a component.
 	LabelKeyReleaseLineComponentUID = "openchoreo.dev/release-line-component-uid"
 
 	// LabelKeyResourceName identifies the Resource (managed-infrastructure

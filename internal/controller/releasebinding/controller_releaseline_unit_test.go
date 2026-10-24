@@ -360,6 +360,21 @@ func TestFindDefaultLinePodLabel(t *testing.T) {
 		{"cronjob with the component UID on its pods", map[string]any{"kind": "CronJob", "metadata": map[string]any{"name": "c"},
 			"spec": map[string]any{"jobTemplate": map[string]any{"spec": podTemplate(defaultLabels)}}}, `CronJob "c"`},
 		{"pod with the component UID", map[string]any{"kind": "Pod", "metadata": map[string]any{"name": "p", "labels": defaultLabels}}, `Pod "p"`},
+		{"service selecting the line's pods", map[string]any{"kind": "Service", "metadata": map[string]any{"name": "s"},
+			"spec": map[string]any{"selector": lineLabels}}, ""},
+		{"service selecting on the component UID", map[string]any{"kind": "Service", "metadata": map[string]any{"name": "s"},
+			"spec": map[string]any{"selector": defaultLabels}}, `Service "s"`},
+		{"deployment selecting on the component UID", map[string]any{"kind": "Deployment", "metadata": map[string]any{"name": "d"},
+			"spec": map[string]any{"selector": map[string]any{"matchLabels": defaultLabels}, "template": podTemplate(lineLabels)["template"]}}, `Deployment "d"`},
+		{"network policy for the component UID", map[string]any{"kind": "NetworkPolicy", "metadata": map[string]any{"name": "n"},
+			"spec": map[string]any{"podSelector": map[string]any{"matchExpressions": []any{
+				map[string]any{"key": labels.LabelKeyComponentUID, "operator": "Exists"}}}}}, `NetworkPolicy "n"`},
+		{"network policy excluding the component UID", map[string]any{"kind": "NetworkPolicy", "metadata": map[string]any{"name": "n"},
+			"spec": map[string]any{"podSelector": map[string]any{"matchExpressions": []any{
+				map[string]any{"key": labels.LabelKeyComponentUID, "operator": "DoesNotExist"}}}}}, ""},
+		{"network policy peer selecting the component UID", map[string]any{"kind": "NetworkPolicy", "metadata": map[string]any{"name": "n"},
+			"spec": map[string]any{"podSelector": map[string]any{"matchLabels": lineLabels},
+				"ingress": []any{map[string]any{"from": []any{map[string]any{"podSelector": map[string]any{"matchLabels": defaultLabels}}}}}}}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

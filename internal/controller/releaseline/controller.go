@@ -70,8 +70,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if apiequality.Semantic.DeepEqual(old.Status, line.Status) {
 			return
 		}
-		if err := r.Status().Update(ctx, line); err != nil {
-			logger.Error(err, "Failed to update ReleaseLine status")
+		// A merge patch carries no resourceVersion, so a concurrent write to the line doesn't conflict.
+		if err := client.IgnoreNotFound(r.Status().Patch(ctx, line, client.MergeFrom(old))); err != nil {
+			logger.Error(err, "Failed to patch ReleaseLine status")
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()

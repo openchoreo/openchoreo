@@ -148,9 +148,10 @@ func manifestKeys(resources []openchoreov1alpha1.RenderedManifest) (map[string]b
 
 const kindPod = "Pod"
 
-// findDefaultLinePodLabel reports a pod template of a release line that carries the component UID label.
-// The default line selects its pods on that label, so it would also match the line's pods. Returns an
-// empty string when no pod template carries it.
+// findDefaultLinePodLabel reports a release line object that would share pods with the default line:
+// a pod template carrying the component UID label, which the default line's selectors match, or a
+// selector matching on that label, which the default line's pods carry. Returns an empty string when
+// there is none.
 func findDefaultLinePodLabel(line string, resources []openchoreov1alpha1.RenderedManifest) (string, error) {
 	for _, res := range resources {
 		if res.Object == nil {
@@ -174,6 +175,35 @@ func findDefaultLinePodLabel(line string, resources []openchoreov1alpha1.Rendere
 				"label pods with metadata.podSelectors in the ComponentType and Traits",
 				line, obj.GetKind(), obj.GetName(), labels.LabelKeyComponentUID), nil
 		}
+		if selectsComponentUID(obj) {
+			return fmt.Sprintf("Release line %q renders %s %q selecting on %s, which the default line's pods carry; "+
+				"select pods with metadata.podSelectors in the ComponentType and Traits",
+				line, obj.GetKind(), obj.GetName(), labels.LabelKeyComponentUID), nil
+		}
 	}
 	return "", nil
+}
+
+// selectsComponentUID reports whether an object's own selector, spec.selector or spec.podSelector,
+// matches pods on the component UID label. Selectors of other pods, such as network policy peers,
+// are not the object's own and are not checked.
+func selectsComponentUID(obj *unstructured.Unstructured) bool {
+	for _, field := range []string{"selector", "podSelector"} {
+		selector, _, _ := unstructured.NestedMap(obj.Object, "spec", field)
+		if _, ok := selector[labels.LabelKeyComponentUID]; ok {
+			return true
+		}
+		matchLabels, _, _ := unstructured.NestedMap(selector, "matchLabels")
+		if _, ok := matchLabels[labels.LabelKeyComponentUID]; ok {
+			return true
+		}
+		expressions, _, _ := unstructured.NestedSlice(selector, "matchExpressions")
+		for _, e := range expressions {
+			expr, _ := e.(map[string]any)
+			if expr["key"] == labels.LabelKeyComponentUID && (expr["operator"] == "In" || expr["operator"] == "Exists") {
+				return true
+			}
+		}
+	}
+	return false
 }

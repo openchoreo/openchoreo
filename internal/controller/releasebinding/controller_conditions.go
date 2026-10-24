@@ -72,7 +72,8 @@ const (
 	ReasonReleaseLineNameCollision controller.ConditionReason = "ReleaseLineNameCollision"
 
 	// ReasonReleaseLinePodLabelOverlap indicates a release line renders pods that carry the component
-	// UID label, which the default line's selectors would also match
+	// UID label, which the default line's selectors would also match, or selects on that label, which
+	// the default line's pods carry
 	ReasonReleaseLinePodLabelOverlap controller.ConditionReason = "ReleaseLinePodLabelOverlap"
 
 	// Rendering issues (Status=False)

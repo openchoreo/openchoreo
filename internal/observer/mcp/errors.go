@@ -84,6 +84,10 @@ func (h *MCPHandler) toolError(tool string, err error) error {
 		return errors.New("authorization service temporarily unavailable")
 	case errors.Is(err, service.ErrScopeNotFound),
 		errors.Is(err, service.ErrResourceNotFound):
+		var notFound *service.NotFoundError
+		if errors.As(err, &notFound) {
+			return errors.New(notFound.Error())
+		}
 		return errors.New("one or more resources in the search scope were not found")
 	case errors.Is(err, service.ErrScopeResolutionFailed):
 		h.logger.Error("MCP tool could not resolve its search scope", "tool", tool, "error", err)

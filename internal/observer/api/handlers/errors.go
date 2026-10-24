@@ -47,7 +47,16 @@ func scopeNotFoundResponse(err error) (apiResponse, bool) {
 	if !errors.Is(err, service.ErrScopeNotFound) && !errors.Is(err, service.ErrResourceNotFound) {
 		return apiResponse{}, false
 	}
-	return errorResponse(http.StatusBadRequest, gen.BadRequest, scopeNotFoundCode, scopeNotFoundMessage), true
+	return errorResponse(http.StatusBadRequest, gen.BadRequest, scopeNotFoundCode, scopeNotFoundText(err)), true
+}
+
+// scopeNotFoundText names the missing resource when the resolver reported it.
+func scopeNotFoundText(err error) string {
+	var notFound *service.NotFoundError
+	if errors.As(err, &notFound) {
+		return notFound.Error()
+	}
+	return scopeNotFoundMessage
 }
 
 // writeGeneratedError renders a gen.ErrorResponse for an error raised by the
