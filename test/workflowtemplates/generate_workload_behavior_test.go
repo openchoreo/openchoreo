@@ -319,6 +319,52 @@ func TestGenerateWorkload_ClientAssertionReplacesClientSecret(t *testing.T) {
 		"client secret must not be sent when an assertion file is configured")
 }
 
+func TestGenerateWorkload_ClientAssertionPathFromEnvironment(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "azure-identity-token")
+	require.NoError(t, os.WriteFile(tokenFile, []byte("projected.token.value\n"), 0o600))
+	t.Setenv("AZURE_FEDERATED_TOKEN_FILE", tokenFile)
+
+	script := scriptForTemplate(t, "generate-workload.yaml", "generate-workload-cr")
+	env := envForTemplate(t, "generate-workload.yaml", "generate-workload-cr")
+	res := runScriptWithEnv(t, script, env, map[string]string{
+		"occ":  occStub,
+		"yq":   workloadYQStub,
+		"jq":   workloadJQStub,
+		"curl": workloadCurlStub(201, false),
+	}, func(root string) {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol", "source", "service"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "tools", "bin"), 0o755))
+	}, func(root string) []string {
+		return workloadReplacements(root, "service", "", "${AZURE_FEDERATED_TOKEN_FILE}")
+	})
+
+	requireScriptSuccess(t, res, "an environment variable reference should resolve to the projected token path")
+	requireHasCall(t, res, "curl-form client_assertion=projected.token.value",
+		"the assertion must be read from the path the referenced variable holds")
+}
+
+func TestGenerateWorkload_UnsetClientAssertionVariableFailsBeforeCreate(t *testing.T) {
+	script := scriptForTemplate(t, "generate-workload.yaml", "generate-workload-cr")
+	env := envForTemplate(t, "generate-workload.yaml", "generate-workload-cr")
+	res := runScriptWithEnv(t, script, env, map[string]string{
+		"occ":  occStub,
+		"yq":   workloadYQStub,
+		"jq":   workloadJQStub,
+		"curl": workloadCurlStub(201, false),
+	}, func(root string) {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol", "source", "service"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "tools", "bin"), 0o755))
+	}, func(root string) []string {
+		return workloadReplacements(root, "service", "", "${OPENCHOREO_TEST_UNSET_TOKEN_FILE}")
+	})
+
+	requireScriptExitCode(t, res, 1, "an unset assertion path variable should fail before the workload API is called")
+	requireOutputContains(t, res, "is missing or empty",
+		"unset variable failure should name the configured reference")
+	requireNoCall(t, res, "curl POST https://auth.example.test/oauth2/token",
+		"no token request may be attempted when the assertion path variable is unset")
+}
+
 func TestGenerateWorkload_MissingClientAssertionFileFailsBeforeCreate(t *testing.T) {
 	script := scriptForTemplate(t, "generate-workload.yaml", "generate-workload-cr")
 	env := envForTemplate(t, "generate-workload.yaml", "generate-workload-cr")

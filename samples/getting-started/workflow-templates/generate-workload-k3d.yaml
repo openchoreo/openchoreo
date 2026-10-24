@@ -8,9 +8,10 @@ spec:
       # oauth-client-assertion-file expects a projected identity token whose audience
       # matches the federated credential on the identity provider. Getting that token
       # into the pod is platform specific:
-      #   AKS     - annotate the pod's ServiceAccount with azure.workload.identity/client-id
-      #             and uncomment the label below. The webhook then injects the token at
-      #             /var/run/secrets/azure/tokens/azure-identity-token
+      #   AKS     - annotate the pod's ServiceAccount with azure.workload.identity/client-id,
+      #             uncomment the label below and set oauth-client-assertion-file to
+      #             ${AZURE_FEDERATED_TOKEN_FILE}. The webhook mounts the token at a per-pod
+      #             path that only this variable carries
       #   EKS/GKE - IRSA and GKE Workload Identity mint tokens for their own cloud APIs,
       #             so add a projected serviceAccountToken volume with the audience the
       #             identity provider expects
@@ -45,8 +46,9 @@ spec:
           - name: oauth-scope
             default: ""
           # Path to a projected identity token, presented to the token endpoint as an
-          # RFC 7523 client assertion instead of oauth-client-secret. Leave empty to
-          # authenticate with the client secret.
+          # RFC 7523 client assertion instead of oauth-client-secret. A value such as
+          # ${AZURE_FEDERATED_TOKEN_FILE} reads the path from that environment variable.
+          # Leave empty to authenticate with the client secret.
           - name: oauth-client-assertion-file
             default: ""
           # --- OpenChoreo API Server Configuration ---
@@ -193,7 +195,13 @@ spec:
                    --data-urlencode "client_id=${CLIENT_ID}"
 
             if [ -n "${CLIENT_ASSERTION_FILE}" ]; then
-              if [ ! -s "${CLIENT_ASSERTION_FILE}" ]; then
+              # A value such as ${AZURE_FEDERATED_TOKEN_FILE} names the variable holding the
+              # path: Azure Workload Identity mounts the token at a per-pod path.
+              ASSERTION_PATH="${CLIENT_ASSERTION_FILE}"
+              case "${ASSERTION_PATH}" in
+                '$'*) ASSERTION_PATH=$(printenv "$(printf '%s' "${ASSERTION_PATH}" | tr -d '${}')" || true) ;;
+              esac
+              if [ ! -s "${ASSERTION_PATH}" ]; then
                 echo ">> Client assertion file ${CLIENT_ASSERTION_FILE} is missing or empty"
                 exit 1
               fi
@@ -201,7 +209,7 @@ spec:
               # projected token in place, so a value read at pod start can be stale.
               set -- "$@" \
                 --data-urlencode "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
-                --data-urlencode "client_assertion=$(cat "${CLIENT_ASSERTION_FILE}")"
+                --data-urlencode "client_assertion=$(cat "${ASSERTION_PATH}")"
             else
               set -- "$@" --data-urlencode "client_secret=${CLIENT_SECRET}"
             fi

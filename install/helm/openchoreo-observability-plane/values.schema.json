@@ -968,7 +968,7 @@
           "properties": {
             "clientAssertionFile": {
               "default": "",
-              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, OAUTH_CLIENT_SECRET is not required.",
+              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform. Environment variable references are expanded, so ${AZURE_FEDERATED_TOKEN_FILE} follows the per-pod path the Azure Workload Identity webhook injects. When set, OAUTH_CLIENT_SECRET is not required.",
               "title": "clientAssertionFile",
               "type": "string"
             },
@@ -1725,7 +1725,7 @@
         },
         "oauthClientAssertionFile": {
           "default": "",
-          "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, UID_RESOLVER_OAUTH_CLIENT_SECRET is not required.",
+          "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform. Environment variable references are expanded, so ${AZURE_FEDERATED_TOKEN_FILE} follows the per-pod path the Azure Workload Identity webhook injects. When set, UID_RESOLVER_OAUTH_CLIENT_SECRET is not required.",
           "title": "oauthClientAssertionFile",
           "type": "string"
         },
@@ -2144,7 +2144,7 @@
           "properties": {
             "clientAssertionFile": {
               "default": "",
-              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, OAUTH_CLIENT_SECRET is not required.",
+              "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform. Environment variable references are expanded, so ${AZURE_FEDERATED_TOKEN_FILE} follows the per-pod path the Azure Workload Identity webhook injects. When set, OAUTH_CLIENT_SECRET is not required.",
               "title": "clientAssertionFile",
               "type": "string"
             },

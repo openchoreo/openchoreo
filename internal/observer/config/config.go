@@ -186,6 +186,8 @@ type UIDResolverConfig struct {
 	// OAuthClientAssertionFile is the path to a file holding a JWT client assertion
 	// (RFC 7523) presented instead of a client secret. Set this to authenticate with a
 	// platform-projected identity token, such as Azure Workload Identity or EKS IRSA.
+	// Environment variable references are expanded, so ${AZURE_FEDERATED_TOKEN_FILE}
+	// follows the path the Azure Workload Identity webhook injects.
 	OAuthClientAssertionFile string `koanf:"oauth.client.assertion.file"`
 	// OAuthScope is the optional OAuth2 scope to request in the token request
 	OAuthScope string `koanf:"oauth.scope"`

@@ -190,7 +190,7 @@ func TestValidate(t *testing.T) {
 			name: "client assertion file replaces client secret",
 			mutate: func(c *Config) {
 				c.UIDResolver.OAuthClientSecret = ""
-				c.UIDResolver.OAuthClientAssertionFile = "/var/run/secrets/azure/tokens/azure-identity-token"
+				c.UIDResolver.OAuthClientAssertionFile = "${AZURE_FEDERATED_TOKEN_FILE}"
 			},
 			expectErr: false,
 		},

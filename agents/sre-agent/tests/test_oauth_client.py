@@ -93,6 +93,12 @@ def test_grant_kwargs_rereads_assertion_file(tmp_path):
     assert _grant_kwargs("", path)["client_assertion"] == "second-assertion"
 
 
+def test_read_client_assertion_expands_path_variable(tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_FEDERATED_TOKEN_FILE", write_assertion(tmp_path, "projected"))
+
+    assert _read_client_assertion("${TEST_FEDERATED_TOKEN_FILE}") == "projected"
+
+
 def test_read_client_assertion_rejects_empty_file(tmp_path):
     path = write_assertion(tmp_path, "  \n")
 

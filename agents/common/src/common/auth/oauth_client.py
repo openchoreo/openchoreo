@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import os
 import threading
 import time
 from urllib.parse import urlparse, urlunparse
@@ -22,7 +23,12 @@ def _read_client_assertion(path: str) -> str:
     Read on every token request rather than cached: platforms that project an identity
     token, such as Azure Workload Identity and EKS IRSA, rotate the file in place well
     before the pod restarts, so a cached copy would expire.
+
+    The path may reference an environment variable, such as ${AZURE_FEDERATED_TOKEN_FILE}:
+    Azure Workload Identity mounts the token at a per-pod path that only its injected
+    variable carries.
     """
+    path = os.path.expandvars(path)
     with open(path, encoding="utf-8") as f:
         assertion = f.read().strip()
     if not assertion:

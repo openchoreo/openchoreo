@@ -417,17 +417,25 @@ func (r *ResourceUIDResolver) setClientAuth(data url.Values) error {
 		return nil
 	}
 
+	// The path may reference an environment variable, such as ${AZURE_FEDERATED_TOKEN_FILE}:
+	// Azure Workload Identity mounts the token at a per-pod path that only its injected
+	// variable carries.
+	path := os.ExpandEnv(assertionFile)
+	if path == "" {
+		return fmt.Errorf("client assertion file %q resolved to an empty path", assertionFile)
+	}
+
 	// Read on every token request rather than caching: platforms that project an identity
 	// token, such as Azure Workload Identity and EKS IRSA, rotate the file in place well
 	// before the pod restarts, so a cached copy would expire.
-	raw, err := os.ReadFile(assertionFile)
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read client assertion file %q: %w", assertionFile, err)
+		return fmt.Errorf("failed to read client assertion file %q: %w", path, err)
 	}
 
 	assertion := strings.TrimSpace(string(raw))
 	if assertion == "" {
-		return fmt.Errorf("client assertion file %q is empty", assertionFile)
+		return fmt.Errorf("client assertion file %q is empty", path)
 	}
 
 	data.Set("client_assertion_type", clientAssertionType)

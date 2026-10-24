@@ -535,6 +535,36 @@ func TestFetchAccessToken_RereadsClientAssertion(t *testing.T) {
 	}
 }
 
+// TestFetchAccessToken_ExpandsClientAssertionPath verifies that an environment variable
+// reference in the assertion file path is resolved, as Azure Workload Identity exposes its
+// per-pod token path only through AZURE_FEDERATED_TOKEN_FILE.
+func TestFetchAccessToken_ExpandsClientAssertionPath(t *testing.T) {
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	t.Setenv("TEST_FEDERATED_TOKEN_FILE", writeAssertionFile(t, "projected-assertion"))
+	cfg := &config.UIDResolverConfig{
+		OAuthClientAssertionFile: "${TEST_FEDERATED_TOKEN_FILE}",
+		MaxAuthRetry:             0,
+	}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "projected-assertion" {
+		t.Errorf("expected assertion from the expanded path, got %q", got)
+	}
+}
+
 // TestFetchAccessToken_ClientAssertionFileUnusable verifies that an unreadable or empty
 // assertion file fails the token request instead of silently falling back to the secret.
 func TestFetchAccessToken_ClientAssertionFileUnusable(t *testing.T) {
@@ -554,6 +584,12 @@ func TestFetchAccessToken_ClientAssertionFileUnusable(t *testing.T) {
 			name: "empty file",
 			assertionFile: func(t *testing.T) string {
 				return writeAssertionFile(t, "  \n")
+			},
+		},
+		{
+			name: "unset path variable",
+			assertionFile: func(*testing.T) string {
+				return "${OPENCHOREO_TEST_UNSET_TOKEN_FILE}"
 			},
 		},
 	}
