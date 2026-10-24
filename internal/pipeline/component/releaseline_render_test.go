@@ -1,0 +1,150 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package component
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+)
+
+// TestPipeline_Render_DefaultServiceTypeLinesDoNotCollide renders the default service
+// ComponentType for two release lines of one component and checks that they share the
+// project namespace without sharing any object name, gateway path, or pod selector.
+func TestPipeline_Render_DefaultServiceTypeLinesDoNotCollide(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "samples", "getting-started", "component-types", "service.yaml"))
+	require.NoError(t, err)
+	var cct v1alpha1.ClusterComponentType
+	require.NoError(t, yaml.Unmarshal(raw, &cct))
+	ctSpec := cct.Spec.ToComponentTypeSpec()
+
+	var environment v1alpha1.Environment
+	require.NoError(t, yaml.Unmarshal([]byte(`
+metadata: {name: dev, namespace: cp-ns}
+spec:
+  dataPlaneRef: {kind: DataPlane, name: dp}`), &environment))
+	var dataPlane v1alpha1.DataPlane
+	require.NoError(t, yaml.Unmarshal([]byte(`
+metadata: {name: dp, namespace: cp-ns}
+spec:
+  gateway:
+    ingress:
+      external:
+        name: gateway-default
+        namespace: gateway-ns
+        http: {port: 80, host: api.example.com}
+      internal:
+        name: gateway-default
+        namespace: gateway-ns
+        http: {port: 80, host: internal.example.com}`), &dataPlane))
+
+	workload := &v1alpha1.Workload{Spec: v1alpha1.WorkloadSpec{WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+		Container: v1alpha1.Container{Image: "app:1", Env: []v1alpha1.EnvVar{{Key: "MODE", Value: "x"}}},
+		Endpoints: map[string]v1alpha1.WorkloadEndpoint{
+			"http": {Type: v1alpha1.EndpointTypeHTTP, Port: 8080, Visibility: []v1alpha1.EndpointVisibility{
+				v1alpha1.EndpointVisibilityExternal, v1alpha1.EndpointVisibilityInternal,
+			}},
+		},
+	}}}
+
+	render := func(line string) []map[string]any {
+		t.Helper()
+		selectors := map[string]string{"openchoreo.dev/component-uid": "comp-uid", "openchoreo.dev/release-line": line}
+		output, err := NewPipeline().Render(t.Context(), &RenderInput{
+			ComponentType: &v1alpha1.ComponentType{Spec: ctSpec},
+			Component:     &v1alpha1.Component{},
+			Workload:      workload,
+			Environment:   &environment,
+			DataPlane:     &dataPlane,
+			Metadata: context.MetadataContext{
+				Name:               "orders-" + line + "-dev-12345678",
+				Namespace:          "dp-cp-ns-proj-dev-12345678",
+				ComponentName:      "orders",
+				ReleaseLineName:    line,
+				ComponentUID:       "comp-uid",
+				ComponentNamespace: "cp-ns",
+				ProjectName:        "proj",
+				ProjectUID:         "proj-uid",
+				DataPlaneName:      "dp",
+				DataPlaneUID:       "dp-uid",
+				EnvironmentName:    "dev",
+				EnvironmentUID:     "env-uid",
+				Labels:             selectors,
+				Annotations:        map[string]string{},
+				PodSelectors:       selectors,
+			},
+		})
+		require.NoError(t, err)
+		resources := make([]map[string]any, 0, len(output.Resources))
+		for _, rr := range output.Resources {
+			resources = append(resources, rr.Resource)
+		}
+		return resources
+	}
+
+	identities := func(resources []map[string]any) map[string]bool {
+		ids := map[string]bool{}
+		for _, r := range resources {
+			md := r["metadata"].(map[string]any)
+			ids[fmt.Sprintf("%s %s/%s", r["kind"], md["namespace"], md["name"])] = true
+		}
+		return ids
+	}
+	find := func(resources []map[string]any, kind string) []map[string]any {
+		var out []map[string]any
+		for _, r := range resources {
+			if r["kind"] == kind {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+
+	v1, v2 := render("v1"), render("v2")
+
+	kinds := map[string]bool{}
+	for _, r := range v1 {
+		kinds[r["kind"].(string)] = true
+	}
+	for _, kind := range []string{"Deployment", "Service", "HTTPRoute", "ConfigMap"} {
+		assert.True(t, kinds[kind], "expected the service type to render a %s", kind)
+	}
+
+	v1IDs := identities(v1)
+	for id := range identities(v2) {
+		assert.False(t, v1IDs[id], "both release lines render %s", id)
+	}
+
+	v1Svc, v2Svc := find(v1, "Service")[0], find(v2, "Service")[0]
+	assert.NotEqual(t, v1Svc["spec"].(map[string]any)["selector"], v2Svc["spec"].(map[string]any)["selector"])
+
+	pathsOf := func(resources []map[string]any) map[string]bool {
+		paths := map[string]bool{}
+		for _, route := range find(resources, "HTTPRoute") {
+			for _, rule := range route["spec"].(map[string]any)["rules"].([]any) {
+				for _, m := range rule.(map[string]any)["matches"].([]any) {
+					paths[fmt.Sprint(m.(map[string]any)["path"].(map[string]any)["value"])] = true
+				}
+			}
+		}
+		return paths
+	}
+	v1Paths := pathsOf(v1)
+	for path := range pathsOf(v2) {
+		assert.False(t, v1Paths[path], "both release lines route %s", path)
+	}
+
+	assert.Equal(t, "orders-v1", v1Svc["metadata"].(map[string]any)["name"])
+	unlined := find(render(""), "Service")[0]
+	assert.Equal(t, "orders", unlined["metadata"].(map[string]any)["name"],
+		"a component without lines keeps its component-named Service")
+}

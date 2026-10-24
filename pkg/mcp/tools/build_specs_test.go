@@ -21,19 +21,20 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"trigger", "workflow"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
-			optionalParams:      []string{"commit"},
+			optionalParams:      []string{"commit", "release_line"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"commit":         "abc1234",
+				"release_line":   testReleaseLineName,
 			},
 			expectedMethod: "TriggerWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != testProjectName ||
-					args[2] != testComponentName || args[3] != "abc1234" {
-					t.Errorf("Expected (%s, %s, %s, abc1234), got (%v, %v, %v, %v)",
-						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
+					args[2] != testComponentName || args[3] != "abc1234" || args[4] != testReleaseLineName {
+					t.Errorf("Expected (%s, %s, %s, abc1234, %s), got %v",
+						testNamespaceName, testProjectName, testComponentName, testReleaseLineName, args)
 				}
 			},
 		},

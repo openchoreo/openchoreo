@@ -52,8 +52,11 @@ metadata:
   dataPlaneUID: "c3d4e5f6-..."          # ${metadata.dataPlaneUID}
 
   # Generated resource naming (use these in all resource templates)
-  name: "my-service-dev-a1b2c3d4"       # ${metadata.name} - use as prefix for all resource names to avoid conflicts between components
+  name: "my-service-dev-a1b2c3d4"       # ${metadata.name} - use as prefix for all resource names to avoid conflicts between components and their release lines
   namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
+
+  # Release line identity (see ReleaseLine)
+  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty for the component's default line; combine it with componentName for object names (Service, HTTPRoute) and gateway hostnames and paths so release lines of a component do not collide with each other or with the default line
 
   # Common labels for all resources
   labels: # ${metadata.labels}
@@ -71,6 +74,8 @@ metadata:
     openchoreo.dev/project-uid: "xyz789"
 ```
 
+For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the default line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line. To find every pod of a component, match `openchoreo.dev/component-uid` or `openchoreo.dev/release-line-component-uid`.
+
 **Example usage:**
 
 ```yaml
@@ -86,7 +91,7 @@ spec:
     matchLabels: ${metadata.podSelectors}
   template:
     metadata:
-      labels: ${oc_merge(metadata.labels, metadata.podSelectors)}
+      labels: ${metadata.podSelectors}
 ```
 
 ### parameters

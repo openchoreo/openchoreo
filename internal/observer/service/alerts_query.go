@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -34,7 +35,8 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 
 	scope := &req.SearchScope
 
-	var projectUID, componentUID, environmentUID string
+	var projectUID, componentUID, environmentUID, releaseLineUID string
+	defaultLineOnly := defaultLineOnly(scope)
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -61,18 +63,27 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 				return nil, wrapScopeError(err, "environment", environmentName)
 			}
 		}
+		if releaseLineName := stringPtrValue(scope.ReleaseLine); releaseLineName != "" {
+			var err error
+			releaseLineUID, err = s.resolver.GetReleaseLineUID(ctx, scope.Namespace, componentName, releaseLineName)
+			if err != nil {
+				return nil, wrapScopeError(err, "release line", releaseLineName)
+			}
+		}
 	}
 
 	start := time.Now()
 	queryParams := alertentry.QueryParams{
-		StartTime:     req.StartTime.Format(time.RFC3339Nano),
-		EndTime:       req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName: scope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:     string(alertSortOrderOrDefault(req.SortOrder)),
+		StartTime:       req.StartTime.Format(time.RFC3339Nano),
+		EndTime:         req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName:   scope.Namespace,
+		ProjectID:       projectUID,
+		ComponentID:     componentUID,
+		EnvironmentID:   environmentUID,
+		ReleaseLineID:   releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
+		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:       string(alertSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.alertEntryStore.QueryAlertEntries(ctx, queryParams)
@@ -99,7 +110,8 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 
 	scope := &req.SearchScope
 
-	var projectUID, componentUID, environmentUID string
+	var projectUID, componentUID, environmentUID, releaseLineUID string
+	defaultLineOnly := defaultLineOnly(scope)
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -126,18 +138,27 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 				return nil, wrapScopeError(err, "environment", environmentName)
 			}
 		}
+		if releaseLineName := stringPtrValue(scope.ReleaseLine); releaseLineName != "" {
+			var err error
+			releaseLineUID, err = s.resolver.GetReleaseLineUID(ctx, scope.Namespace, componentName, releaseLineName)
+			if err != nil {
+				return nil, wrapScopeError(err, "release line", releaseLineName)
+			}
+		}
 	}
 
 	start := time.Now()
 	queryParams := incidententry.QueryParams{
-		StartTime:     req.StartTime.Format(time.RFC3339Nano),
-		EndTime:       req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName: scope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:     string(incidentSortOrderOrDefault(req.SortOrder)),
+		StartTime:       req.StartTime.Format(time.RFC3339Nano),
+		EndTime:         req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName:   scope.Namespace,
+		ProjectID:       projectUID,
+		ComponentID:     componentUID,
+		EnvironmentID:   environmentUID,
+		ReleaseLineID:   releaseLineUID,
+		DefaultLineOnly: defaultLineOnly,
+		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:       string(incidentSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.incidentEntryStore.QueryIncidentEntries(ctx, queryParams)
@@ -167,6 +188,8 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 				entry.ProjectID,
 				entry.ComponentID,
 				entry.EnvironmentID,
+				entry.ReleaseLineName,
+				entry.ReleaseLineID,
 			),
 		})
 	}
@@ -243,6 +266,8 @@ func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.In
 			entry.ProjectID,
 			entry.ComponentID,
 			entry.EnvironmentID,
+			entry.ReleaseLineName,
+			entry.ReleaseLineID,
 		),
 	}, nil
 }
@@ -264,6 +289,8 @@ func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) gen.Aler
 				entry.ProjectID,
 				entry.ComponentID,
 				entry.EnvironmentID,
+				entry.ReleaseLineName,
+				entry.ReleaseLineID,
 			),
 			AlertRule: &gen.AlertRule{Name: stringPtr(strings.TrimSpace(entry.AlertRuleName))},
 		},
@@ -331,6 +358,7 @@ func notificationChannelsOrNil(raw string) *[]string {
 func buildResourceLabels(
 	namespace, project, component, environment string,
 	projectUID, componentUID, environmentUID string,
+	releaseLine, releaseLineUID string,
 ) *gen.ResourceLabels {
 	return &gen.ResourceLabels{
 		NamespaceName:   stringPtr(strings.TrimSpace(namespace)),
@@ -340,6 +368,8 @@ func buildResourceLabels(
 		ProjectUid:      uuidPtr(projectUID),
 		ComponentUid:    uuidPtr(componentUID),
 		EnvironmentUid:  uuidPtr(environmentUID),
+		ReleaseLineName: stringPtr(strings.TrimSpace(releaseLine)),
+		ReleaseLineUid:  uuidPtr(releaseLineUID),
 	}
 }
 
@@ -362,6 +392,21 @@ func incidentSortOrderOrDefault(order *gen.IncidentsQueryRequestSortOrder) gen.I
 		return gen.IncidentsQueryRequestSortOrderDesc
 	}
 	return *order
+}
+
+// defaultLineOnly reports whether a component search scope covers only the component's default
+// line: it names the default line, or names no line without asking for every line.
+func defaultLineOnly(scope *gen.ComponentSearchScope) bool {
+	if strings.TrimSpace(stringPtrValue(scope.Component)) == "" {
+		return false
+	}
+	switch strings.TrimSpace(stringPtrValue(scope.ReleaseLine)) {
+	case releaseline.DefaultLine:
+		return true
+	case "":
+		return scope.AllReleaseLines == nil || !*scope.AllReleaseLines
+	}
+	return false
 }
 
 func stringPtrValue(v *string) string {

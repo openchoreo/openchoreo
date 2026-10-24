@@ -45,8 +45,8 @@ func (c *AuthzChecker) Check(ctx context.Context, req CheckRequest) error {
 	// REST path parameter or a handler's SetResource call, so both REST
 	// handlers and MCP tools (pkg/mcp/mcpaudit) get the hierarchy for free
 	// instead of each caller having to capture it individually.
-	// Environment comes from the ABAC attributes, which have no hierarchy
-	// level, and keeps the dual-scoped form so the record quotes the
+	// Environment and ReleaseLine come from the ABAC attributes, which have no
+	// hierarchy level. Environment keeps the dual-scoped form so the record quotes the
 	// identifier the decision was made on. Read from the check itself rather
 	// than a field of its own, so callers can't set one and forget the other.
 	audit.SetHierarchy(ctx, audit.Hierarchy{
@@ -55,6 +55,7 @@ func (c *AuthzChecker) Check(ctx context.Context, req CheckRequest) error {
 		Project:     req.Hierarchy.Project,
 		Component:   req.Hierarchy.Component,
 		Resource:    req.Hierarchy.Resource,
+		ReleaseLine: req.Context.Resource.ReleaseLine,
 	})
 
 	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)

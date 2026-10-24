@@ -202,6 +202,21 @@ func TestTriggerCronJob_AuthzCheck(t *testing.T) {
 		require.Equal(t, "releasebinding:update", pdp.Captured[0].Action)
 	})
 
+	t.Run("passes the binding's release line", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		rb := testutil.NewReleaseBinding("ns-1", "proj-1", "comp-1", "dev", "comp-1-next-dev")
+		rb.Spec.Owner.ReleaseLine = "next"
+		mockSvc := mocks.NewMockService(t)
+		svc := k8sresources.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(rb), pdp, testutil.TestLogger())
+		mockSvc.On("TriggerCronJob", mock.Anything, "ns-1", "comp-1-next-dev", (*models.CronJobTriggerRequest)(nil)).
+			Return(&models.CronJobTriggerResponse{JobName: "job-1"}, nil)
+
+		_, err := svc.TriggerCronJob(testutil.AuthzContext(), "ns-1", "comp-1-next-dev", nil)
+		require.NoError(t, err)
+		require.Len(t, pdp.Captured, 1)
+		require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
+	})
+
 	t.Run("release binding not found skips authz", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
 		_, svc := newAuthzSvcWithRB(t, pdp)

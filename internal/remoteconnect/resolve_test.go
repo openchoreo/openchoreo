@@ -95,3 +95,12 @@ func TestComposeAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestEndpointTargetKeyReleaseLine(t *testing.T) {
+	if got := EndpointTargetKey("doclet", "hello", "", "http"); got != "ep/doclet/hello/http" {
+		t.Errorf("without a line: %q", got)
+	}
+	if got := EndpointTargetKey("doclet", "hello", "next", "http"); got != "ep/doclet/hello@next/http" {
+		t.Errorf("with a line: %q", got)
+	}
+}

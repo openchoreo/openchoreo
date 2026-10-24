@@ -64,6 +64,18 @@ const (
 	// ReasonInvalidReleaseConfiguration indicates the ComponentRelease configuration is invalid
 	ReasonInvalidReleaseConfiguration controller.ConditionReason = "InvalidReleaseConfiguration"
 
+	// ReasonReleaseLineNotFound indicates the binding's named ReleaseLine does not exist
+	ReasonReleaseLineNotFound controller.ConditionReason = "ReleaseLineNotFound"
+
+	// ReasonReleaseLineNameCollision indicates a release line renders a data plane object that
+	// another line of the same component, including its default line, also renders
+	ReasonReleaseLineNameCollision controller.ConditionReason = "ReleaseLineNameCollision"
+
+	// ReasonReleaseLinePodLabelOverlap indicates a release line renders pods that carry the component
+	// UID label, which the default line's selectors would also match, or selects on that label, which
+	// the default line's pods carry
+	ReasonReleaseLinePodLabelOverlap controller.ConditionReason = "ReleaseLinePodLabelOverlap"
+
 	// Rendering issues (Status=False)
 
 	// ReasonRenderingFailed indicates failure to render resources

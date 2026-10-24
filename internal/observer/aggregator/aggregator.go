@@ -562,7 +562,7 @@ func (a *Aggregator) foldIncidentPage(
 		processed++
 
 		attribution, attrErr := a.store.AttributeIncident(ctx,
-			entry.ComponentID, entry.EnvironmentID, entry.ID,
+			entry.ComponentID, entry.EnvironmentID, entry.ReleaseLineID, entry.ID,
 			triggeredMs, a.cfg.AttributionWindow.Milliseconds())
 		if attrErr != nil {
 			return nil, 0, 0, attrErr
@@ -599,6 +599,7 @@ func (a *Aggregator) foldIncidentPage(
 			ProjectUID:       entry.ProjectID,
 			ComponentUID:     entry.ComponentID,
 			EnvironmentUID:   entry.EnvironmentID,
+			ReleaseLineUID:   entry.ReleaseLineID,
 			ReleaseUID:       attribution.ReleaseUID,
 			IncidentID:       entry.ID,
 			Source:           deliveryinsights.RecoverySourceIncident,

@@ -151,8 +151,9 @@ func newWorkload(name, componentName, projectName string) gen.Workload {
 				Args:  &args,
 			},
 			Owner: &struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ComponentName: componentName,
 				ProjectName:   projectName,

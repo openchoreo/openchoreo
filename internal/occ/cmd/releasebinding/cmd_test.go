@@ -189,6 +189,16 @@ func TestGenerateCmd_AllWithComponent(t *testing.T) {
 	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
 }
 
+func TestGenerateCmd_ReleaseLineWithoutComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--use-pipeline=main", "--project=my-proj", "--release-line=next"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("project", "my-proj")
+	_ = cmd.Flags().Set("release-line", "next")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--release-line requires --component to be specified")
+}
+
 func TestGenerateCmd_ComponentWithoutProject(t *testing.T) {
 	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--component=my-comp"})
 	cmd := newGenerateCmd()

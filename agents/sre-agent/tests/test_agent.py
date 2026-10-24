@@ -103,6 +103,7 @@ def test_remediation_agent_only_uses_read_tools():
     assert REMED_AGENT.tools == {
         TOOLS.LIST_COMPONENTS,
         TOOLS.GET_COMPONENT,
+        TOOLS.GET_RELEASE_LINE,
         TOOLS.LIST_WORKLOADS,
         TOOLS.GET_WORKLOAD,
         TOOLS.LIST_RELEASE_BINDINGS,

@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -56,6 +59,14 @@ type internalSearchScope struct {
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
+	ReleaseLineUID string
+	// DefaultLineOnly restricts the scope to the component's default line
+	DefaultLineOnly bool
+
+	// Names kept to filter by release line when the adapter cannot
+	ComponentName   string
+	EnvironmentName string
+	ReleaseLine     string
 
 	// For workflow scope
 	WorkflowRunName string
@@ -116,16 +127,18 @@ func (s *LogsService) queryComponentLogs(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentApplicationLogsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		SearchPhrase:  req.SearchPhrase,
-		LogLevels:     req.LogLevels,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		SearchPhrase:    req.SearchPhrase,
+		LogLevels:       req.LogLevels,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLineUID,
+		DefaultLineOnly: scope.DefaultLineOnly,
 	}
 
 	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
@@ -135,6 +148,14 @@ func (s *LogsService) queryComponentLogs(
 	}
 	if result == nil {
 		return nil, fmt.Errorf("%w: component logs adapter returned nil result", ErrLogsRetrieval)
+	}
+
+	if scope.ReleaseLineUID != "" && !result.ReleaseLineApplied {
+		prefix := releaseline.ObjectNamePrefix(scope.ComponentName, scope.ReleaseLine, scope.EnvironmentName)
+		result.Logs = slices.DeleteFunc(result.Logs, func(l observability.LogEntry) bool {
+			return !strings.HasPrefix(l.PodName, prefix)
+		})
+		result.TotalCount = len(result.Logs)
 	}
 
 	s.logger.Debug("Component logs retrieved from adapter",
@@ -272,11 +293,20 @@ func resolveSearchScope(
 		if err != nil {
 			return nil, err
 		}
+		lines, err := resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine, scope.AllReleaseLines)
+		if err != nil {
+			return nil, err
+		}
 		return &internalSearchScope{
 			NamespaceName:   scope.Namespace,
 			ProjectUID:      projectUID,
 			ComponentUID:    componentUID,
 			EnvironmentUID:  environmentUID,
+			ReleaseLineUID:  lines.UID,
+			DefaultLineOnly: lines.DefaultOnly,
+			ComponentName:   scope.Component,
+			EnvironmentName: scope.Environment,
+			ReleaseLine:     scope.ReleaseLine,
 			IsWorkflowScope: false,
 		}, nil
 	}

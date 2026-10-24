@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -105,14 +108,16 @@ func (s *EventsService) queryComponentEvents(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentEventsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLineUID,
+		DefaultLineOnly: scope.DefaultLineOnly,
 	}
 
 	result, err := s.eventsAdapter.GetComponentEvents(ctx, params)
@@ -122,6 +127,14 @@ func (s *EventsService) queryComponentEvents(
 	}
 	if result == nil {
 		return nil, fmt.Errorf("%w: component events adapter returned nil result", ErrEventsRetrieval)
+	}
+
+	if scope.ReleaseLineUID != "" && !result.ReleaseLineApplied {
+		prefix := releaseline.ObjectNamePrefix(scope.ComponentName, scope.ReleaseLine, scope.EnvironmentName)
+		result.Events = slices.DeleteFunc(result.Events, func(e observability.EventEntry) bool {
+			return !strings.HasPrefix(e.ObjectName, prefix)
+		})
+		result.TotalCount = len(result.Events)
 	}
 
 	s.logger.Debug("Component events retrieved from adapter",

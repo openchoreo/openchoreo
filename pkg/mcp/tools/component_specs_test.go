@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 const (
@@ -23,6 +25,7 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentSchemaSpecs()...)
 	specs = append(specs, componentPlatformStandardsSpecs()...)
 	specs = append(specs, componentBindingSpecs()...)
+	specs = append(specs, releaseLineSpecs()...)
 	return specs
 }
 
@@ -124,6 +127,9 @@ func componentBasicSpecs() []toolTestSpec {
 				if args[0] != testNamespaceName || args[1] != testProjectName {
 					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testProjectName, args[0], args[1])
 				}
+				if _, ok := args[2].(*gen.CreateComponentRequest); !ok {
+					t.Errorf("Expected a CreateComponentRequest, got %v", args[2])
+				}
 			},
 		},
 		{
@@ -199,16 +205,18 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "workload"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name", "workload_spec"},
+			optionalParams:      []string{"release_line"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,
+				"release_line":   testReleaseLineName,
 				"workload_spec":  map[string]interface{}{"container": map[string]interface{}{"image": "example.com/test:latest"}},
 			},
 			expectedMethod: "CreateWorkload",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseLineName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testNamespaceName, testComponentName, testReleaseLineName, args[0], args[1], args[2])
 				}
 			},
 		},

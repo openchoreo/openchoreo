@@ -24,6 +24,7 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 )
 
@@ -70,20 +71,35 @@ func New(resolver Resolver) *Remote {
 	}
 }
 
-// workloadIdentity identifies a workload's owning component within a namespace, the
-// key cross-workload dependency matching is done against.
+// workloadIdentity identifies a workload's owning component and release line within a
+// namespace, the key cross-workload dependency matching is done against.
 type workloadIdentity struct {
-	namespace string
-	project   string
-	component string
+	namespace   string
+	project     string
+	component   string
+	releaseLine string // empty for the component's default line
+}
+
+// ref names the identity's component, as component@line for a release line.
+func (id workloadIdentity) ref() string {
+	return componentRef(id.component, id.releaseLine)
+}
+
+// componentRef names a component's release line as component@line, and its default line as the
+// component alone. It is the key of --local overrides.
+func componentRef(component, releaseLine string) string {
+	if releaseLine == "" {
+		return component
+	}
+	return component + "@" + releaseLine
 }
 
 // localLink is an endpoint dependency that resolved to another workload passed on the
 // same `occ remote` invocation, wired directly to a local host:port instead of being
 // tunneled through the control plane.
 type localLink struct {
-	key         string // matches the server's "ep/<component>/<name>" key convention
-	component   string // provider component name; looked up in ConnectParams.LocalOverrides
+	key         string // remoteconnect.EndpointTargetKey, as the server builds it
+	provider    string // provider componentRef; looked up in ConnectParams.LocalOverrides
 	envBindings remoteconnect.EndpointEnvBindings
 	scheme      string
 	basePath    string
@@ -91,7 +107,7 @@ type localLink struct {
 }
 
 func (l localLink) target(overrides map[string]LocalTarget) (string, int) {
-	if t, ok := overrides[l.component]; ok {
+	if t, ok := overrides[l.provider]; ok {
 		return t.Host, t.Port
 	}
 	return "127.0.0.1", l.defaultPort
@@ -191,7 +207,7 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		// With a single workload the returned error is the whole report.
 		if len(found) > 1 {
 			fmt.Fprintf(out, "  ! could not connect %s/%s (%s): %v\n",
-				f.id.project, f.id.component, f.path, werr)
+				f.id.project, f.id.ref(), f.path, werr)
 		}
 		failures++
 		if firstErr == nil {
@@ -202,12 +218,15 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		if len(found) == 1 {
 			return firstErr
 		}
-		return fmt.Errorf("none of the %d workloads could be connected; first failure: %s/%s: %w",
-			len(found), firstID.project, firstID.component, firstErr)
+		return fmt.Errorf("none of the %d workloads could be connected; no session was started (first failure: %s/%s: %w)",
+			len(found), firstID.project, firstID.ref(), firstErr)
 	}
 	if failures > 0 {
 		fmt.Fprintf(out, "! %d of %d workloads could not be connected; their dependencies are missing from this session\n",
 			failures, len(found))
+	}
+	if len(s.listeners) == 0 && len(s.overrides) == 0 && declaresDependencies(found) {
+		return errors.New("none of the declared dependencies could be connected; no session was started")
 	}
 
 	// Started once the workloads are up, so a renewal cannot overlap the resolve that
@@ -238,6 +257,17 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 	return d.runShell(ctx, mergeEnv(os.Environ(), s.overrides))
 }
 
+// declaresDependencies reports whether any of the workloads declares a dependency.
+func declaresDependencies(found []discovered) bool {
+	for _, f := range found {
+		deps := f.wl.Spec.Dependencies
+		if deps != nil && (len(deps.Endpoints) > 0 || len(deps.Resources) > 0) {
+			return true
+		}
+	}
+	return false
+}
+
 // session is the mutable state one invocation accumulates across its workloads.
 type session struct {
 	overrides map[string]string
@@ -257,7 +287,7 @@ type session struct {
 func (d *Remote) connectWorkload(ctx context.Context, p ConnectParams, f discovered,
 	byIdentity map[workloadIdentity]*v1alpha1.Workload, s *session, out io.Writer) error {
 	remoteEndpoints, links := splitDependencies(f.wl, f.id.namespace, byIdentity)
-	fmt.Fprintf(out, "Connecting to %s/%s (%s)...\n", f.id.project, f.id.component, p.Environment)
+	fmt.Fprintf(out, "Connecting to %s/%s (%s)...\n", f.id.project, f.id.ref(), p.Environment)
 
 	err := d.connectRemote(ctx, p, f, remoteEndpoints, s, out)
 	// Local links need no control plane, so they hold even when the remote half failed.
@@ -368,9 +398,10 @@ func assignIdentities(found []discovered, fallbackNamespace string) error {
 			return fmt.Errorf("%s: %w", found[i].path, err)
 		}
 		found[i].id = workloadIdentity{
-			namespace: namespace,
-			project:   wl.Spec.Owner.ProjectName,
-			component: wl.Spec.Owner.ComponentName,
+			namespace:   namespace,
+			project:     wl.Spec.Owner.ProjectName,
+			component:   wl.Spec.Owner.ComponentName,
+			releaseLine: releaseline.Normalize(wl.Spec.Owner.ReleaseLine),
 		}
 	}
 	return nil
@@ -388,7 +419,7 @@ func indexByIdentity(found []discovered) (map[workloadIdentity]*v1alpha1.Workloa
 				where = fmt.Sprintf("%s declares it twice", f.path)
 			}
 			return nil, fmt.Errorf("duplicate workload for %s/%s/%s: %s",
-				f.id.namespace, f.id.project, f.id.component, where)
+				f.id.namespace, f.id.project, f.id.ref(), where)
 		}
 		paths[f.id] = f.path
 		byIdentity[f.id] = f.wl
@@ -422,12 +453,13 @@ func splitDependencies(wl *v1alpha1.Workload, namespace string, byIdentity map[w
 		if providerProject == "" {
 			providerProject = consumerProject
 		}
-		id := workloadIdentity{namespace: namespace, project: providerProject, component: e.Component}
+		line := releaseline.Normalize(e.ReleaseLine)
+		id := workloadIdentity{namespace: namespace, project: providerProject, component: e.Component, releaseLine: line}
 		if provider, ok := byIdentity[id]; ok {
 			if ep, epOK := provider.Spec.Endpoints[e.Name]; epOK {
 				links = append(links, localLink{
-					key:       remoteconnect.EndpointTargetKey(providerProject, e.Component, e.Name),
-					component: e.Component,
+					key:      remoteconnect.EndpointTargetKey(providerProject, e.Component, line, e.Name),
+					provider: id.ref(),
 					envBindings: remoteconnect.EndpointEnvBindings{
 						Address:  e.EnvBindings.Address,
 						Host:     e.EnvBindings.Host,
@@ -857,10 +889,11 @@ func buildResolveRequest(wl *v1alpha1.Workload, namespace, env string, endpoints
 	}
 	for _, e := range endpoints {
 		req.Endpoints = append(req.Endpoints, remoteconnect.EndpointDep{
-			Project:    e.Project,
-			Component:  e.Component,
-			Name:       e.Name,
-			Visibility: e.Visibility,
+			Project:     e.Project,
+			Component:   e.Component,
+			ReleaseLine: releaseline.Normalize(e.ReleaseLine),
+			Name:        e.Name,
+			Visibility:  e.Visibility,
 			EnvBindings: remoteconnect.EndpointEnvBindings{
 				Address:  e.EnvBindings.Address,
 				Host:     e.EnvBindings.Host,

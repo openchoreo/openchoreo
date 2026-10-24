@@ -12,6 +12,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 // createLogAlertRuleViaAdapter forwards a create-alert-rule request to the logs adapter.
@@ -132,6 +133,10 @@ func decodeAdapterSyncResponse(resp *http.Response) (*internalgen.AlertingRuleSy
 	var result internalgen.AlertingRuleSyncResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode adapter sync response: %w", err)
+	}
+	if observability.ReleaseLineApplied(resp.Header) {
+		applied := true
+		result.ReleaseLineApplied = &applied
 	}
 	return &result, nil
 }

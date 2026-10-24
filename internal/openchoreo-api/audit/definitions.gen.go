@@ -67,7 +67,15 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryManagement,
 		},
 		{
+			ID: "CreateComponentReleaseLine", Action: "create_component_release_line", ResourceType: "releaseline",
+			Category: audit.CategoryManagement,
+		},
+		{
 			ID: "CreateComponentType", Action: "create_component_type", ResourceType: "componenttype",
+			Category: audit.CategoryManagement,
+		},
+		{
+			ID: "CreateComponentWorkflowRun", Action: "create_component_workflow_run", ResourceType: "workflowrun",
 			Category: audit.CategoryManagement,
 		},
 		{
@@ -217,6 +225,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "DeleteComponentRelease", Action: "delete_component_release", ResourceType: "componentrelease",
 			Category: audit.CategoryManagement, RESTResourceParam: "componentReleaseName",
+		},
+		{
+			ID: "DeleteComponentReleaseLine", Action: "delete_component_release_line", ResourceType: "releaseline",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseLineName",
 		},
 		{
 			ID: "DeleteComponentType", Action: "delete_component_type", ResourceType: "componenttype",
@@ -389,6 +401,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "UpdateComponent", Action: "update_component", ResourceType: "component",
 			Category: audit.CategoryManagement, RESTResourceParam: "componentName",
+		},
+		{
+			ID: "UpdateComponentReleaseLine", Action: "update_component_release_line", ResourceType: "releaseline",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseLineName",
 		},
 		{
 			ID: "UpdateComponentType", Action: "update_component_type", ResourceType: "componenttype",

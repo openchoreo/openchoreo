@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
@@ -427,4 +430,48 @@ func TestGetComponentUIDRejectsAComponentOfAnotherProject(t *testing.T) {
 	if !errors.Is(err, ErrResourceNotFound) {
 		t.Fatalf("expected ErrResourceNotFound, got %v", err)
 	}
+	var notFound *NotFoundError
+	if !errors.As(err, &notFound) || notFound.Error() != `component "payments-api" not found` {
+		t.Fatalf("expected the component named as not found, without its owner, got %v", err)
+	}
+}
+
+func TestResolveReleaseLineScope(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/namespaces/ns/components/hello/releaselines/next" {
+			_, _ = w.Write([]byte(`{"metadata":{"name":"next","uid":"uid-next"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer apiServer.Close()
+	r := newTestResolver(t, apiServer, nil, nil)
+	ctx := context.Background()
+
+	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope, "no line covers the default line, as before release lines")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "", true)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "allLines covers every line of the component")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "", "", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component covers every line")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope)
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{UID: "uid-next"}, scope)
+
+	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost", false)
+	require.ErrorIs(t, err, ErrResourceNotFound)
+	var notFound *NotFoundError
+	require.ErrorAs(t, err, &notFound)
+	assert.Equal(t, `release line "ghost" not found`, notFound.Error())
 }

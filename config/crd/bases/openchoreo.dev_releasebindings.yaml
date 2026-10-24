@@ -78,6 +78,17 @@ spec:
                       this component
                     minLength: 1
                     type: string
+                  releaseLine:
+                    description: |-
+                      ReleaseLine names the ReleaseLine this resource belongs to.
+                      Empty for the component's default line, which is implicit and has no ReleaseLine.
+                    maxLength: 63
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: default is the implicit line; omit releaseLine for
+                        it
+                      rule: self != 'default'
                 required:
                 - componentName
                 - projectName
@@ -300,6 +311,10 @@ spec:
                       description: Project is the name of the project that owns the
                         target component.
                       minLength: 1
+                      type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for its default line.
                       type: string
                     visibility:
                       description: Visibility is the desired visibility level for
@@ -605,6 +620,10 @@ spec:
                       description: Reason describes why the connection could not be
                         resolved.
                       type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for its default line.
+                      type: string
                   required:
                   - component
                   - endpoint
@@ -673,6 +692,10 @@ spec:
                       description: Project is the name of the project that owns the
                         target component.
                       minLength: 1
+                      type: string
+                    releaseLine:
+                      description: ReleaseLine is the target component's release line.
+                        Empty for its default line.
                       type: string
                     url:
                       description: URL is the resolved endpoint URL.

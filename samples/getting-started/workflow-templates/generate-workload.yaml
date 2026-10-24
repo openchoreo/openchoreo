@@ -9,6 +9,8 @@ spec:
         parameters:
           - name: image
           - name: run-name
+          - name: release-line
+            default: ""
           - name: source-commit
             default: ""
           - name: source-branch
@@ -55,6 +57,8 @@ spec:
             value: '{{inputs.parameters.image}}'
           - name: RUN_NAME
             value: '{{inputs.parameters.run-name}}'
+          - name: RELEASE_LINE
+            value: '{{inputs.parameters.release-line}}'
           - name: SOURCE_COMMIT
             value: '{{inputs.parameters.source-commit}}'
           - name: SOURCE_BRANCH
@@ -102,6 +106,7 @@ spec:
             echo ">> occ version: $(occ version 2>/dev/null || echo 'unknown')"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
+            echo ">> Release line: ${RELEASE_LINE:-default}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               echo ">> Workload descriptor: found (${DESCRIPTOR_PATH}/workload.yaml)"
             else
@@ -117,6 +122,7 @@ spec:
             fi
 
             # --- Step 1: Generate workload CR using occ ---
+            # A run of a release line publishes that line's Workload.
             WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               WORKLOAD_FROM_SOURCE="true"
@@ -126,6 +132,7 @@ spec:
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 --image "${IMAGE}" \
                 --descriptor "workload.yaml" \
                 --source-commit "${SOURCE_COMMIT}" \
@@ -140,6 +147,7 @@ spec:
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 --image "${IMAGE}" \
                 --source-commit "${SOURCE_COMMIT}" \
                 --source-branch "${SOURCE_BRANCH}" \

@@ -47,6 +47,27 @@ async def test_resolve_component_scope_populates_all_uids():
     assert scope.environment_uid == "env-uid"
     assert scope.namespace == "ns"
     assert scope.component == "c"
+    assert scope.release_line is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_component_scope_keeps_release_line():
+    get_mock = AsyncMock(
+        side_effect=[
+            {"metadata": {"uid": "proj-uid"}},
+            {"metadata": {"uid": "comp-uid"}},
+            {"metadata": {"uid": "env-uid"}},
+        ]
+    )
+    with (
+        patch("src.helpers.get", get_mock),
+        patch("src.helpers.get_oauth2_auth", return_value=object()),
+    ):
+        scope = await resolve_component_scope(
+            namespace="ns", project="p", component="c", environment="dev", release_line="canary"
+        )
+
+    assert scope.release_line == "canary"
 
 
 @pytest.mark.asyncio

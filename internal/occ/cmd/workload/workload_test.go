@@ -282,8 +282,9 @@ func TestGet_SuccessWithSpec(t *testing.T) {
 		Spec: &gen.WorkloadSpec{
 			Container: &gen.WorkloadContainer{Image: "registry/my-svc:v1"},
 			Owner: &struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{ComponentName: "comp-a", ProjectName: "proj-1"},
 		},
 	}, nil)

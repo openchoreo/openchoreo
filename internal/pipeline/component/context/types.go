@@ -55,6 +55,10 @@ type MetadataContext struct {
 	// Example: "cp-acme-corp"
 	ComponentNamespace string `json:"componentNamespace" validate:"required"`
 
+	// ReleaseLineName is the release line being rendered; empty for components without release lines.
+	// Example: "orders-v2"
+	ReleaseLineName string `json:"releaseLineName"`
+
 	// Labels are common labels to add to all resources.
 	// Example: {"openchoreo.dev/component": "my-service", ...}
 	Labels map[string]string `json:"labels" validate:"required"`

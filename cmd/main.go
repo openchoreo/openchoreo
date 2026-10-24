@@ -51,6 +51,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/projecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/releaseline"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/resource"
 	"github.com/openchoreo/openchoreo/internal/controller/resourcerelease"
@@ -187,6 +188,7 @@ func setupControlPlaneControllers(
 			RenderTimeout: renderTimeout,
 		},
 		&component.Reconciler{Client: c, Scheme: s},
+		&releaseline.Reconciler{Client: c, Scheme: s},
 		&componenttype.Reconciler{Client: c, Scheme: s},
 		&clustercomponenttype.Reconciler{Client: c, Scheme: s},
 		&trait.Reconciler{Client: c, Scheme: s},

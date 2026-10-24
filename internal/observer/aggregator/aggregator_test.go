@@ -399,6 +399,53 @@ func TestRunOnceFoldsDeliveryEvents(t *testing.T) {
 	assert.Equal(t, now.UnixMilli(), wm)
 }
 
+func TestRunOnceFoldsReleaseLineEvents(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	started := now.Add(-30 * time.Minute)
+
+	source := &fakeEventsSource{events: []DeliveryEvent{
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-main", started, map[string]string{"releaseLineUid": "line-main"}),
+		deliveryEvent(ReasonDeploymentSucceeded, "rel-next", started.Add(time.Minute), map[string]string{"releaseLineUid": "line-next"}),
+		deliveryEvent(ReasonDeploymentFailed, "rel-next-2", started.Add(2*time.Minute), map[string]string{
+			"releaseLineUid": "line-next", "failureReason": "CrashLoopBackOff",
+		}),
+	}}
+	agg := newTestAggregator(store, incidents, source, now)
+	require.NoError(t, runOnce(t, agg))
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+		Namespace: "default", ReleaseLineUID: "line-next",
+		StartMs: started.Add(-time.Hour).UnixMilli(), EndMs: now.UnixMilli(), SortOrder: "ASC",
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 2)
+	assert.Equal(t, "rel-next", facts[0].ReleaseUID)
+
+	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		Namespace: "default", ReleaseLineUID: "line-next", StartMs: started.UnixMilli(), EndMs: now.UnixMilli(),
+	})
+	require.NoError(t, err)
+	require.Len(t, recoveries, 1, "the failure's recovery episode belongs to the line")
+
+	rollups, err := store.QueryRollups(ctx, deliveryinsights.RollupQuery{
+		ScopeType:   deliveryinsights.ScopeTypeReleaseLine,
+		ScopeUID:    "line-next",
+		Namespace:   "default",
+		ProjectUID:  "checkout",
+		Granularity: deliveryinsights.GranularityDaily,
+		StartMs:     deliveryinsights.BucketStartMs(deliveryinsights.GranularityDaily, started.UnixMilli()),
+		EndMs:       now.UnixMilli() + 1,
+	})
+	require.NoError(t, err)
+	require.Len(t, rollups, 1)
+	assert.Equal(t, 2, rollups[0].DeployTotal)
+	assert.Equal(t, 1, rollups[0].DeployFailed)
+}
+
 func TestRunOnceSkipsMalformedEvents(t *testing.T) {
 	t.Parallel()
 

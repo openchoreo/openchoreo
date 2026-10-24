@@ -57,18 +57,20 @@ func peComponentReleaseSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "release"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"release_name"},
+			optionalParams:      []string{"release_name", "release_line"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,
 				"release_name":   testReleaseName,
+				"release_line":   testReleaseLineName,
 			},
 			expectedMethod: "CreateComponentRelease",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testReleaseName,
-						args[0], args[1], args[2])
+				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName ||
+					args[3] != testReleaseLineName {
+					t.Errorf("Expected (%s, %s, %s, %s), got (%v, %v, %v, %v)",
+						testNamespaceName, testComponentName, testReleaseName, testReleaseLineName,
+						args[0], args[1], args[2], args[3])
 				}
 			},
 		},

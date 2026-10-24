@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // Note: validator is initialized in component.go
@@ -122,7 +123,7 @@ func makeTraitContext(input *TraitContextInput, parameters, envConfigs map[strin
 	ctx.Configurations = base.Configurations
 	ctx.Dependencies = newDependenciesContextData(base.Dependencies)
 
-	prefix := base.Metadata.ComponentName + "-" + base.Metadata.EnvironmentName
+	prefix := releaseline.ComponentLineName(ctx.Metadata.ComponentName, ctx.Metadata.ReleaseLineName) + "-" + base.Metadata.EnvironmentName
 	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, base.EndpointResources)
 
 	return ctx

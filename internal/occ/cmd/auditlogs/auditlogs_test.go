@@ -337,6 +337,7 @@ func TestBuildRequest_CleansValues(t *testing.T) {
 	params.ActorIDs = []string{"alice", " bob", "", "alice"}
 	params.Results = []string{" Denied", "denied"}
 	params.Namespaces = []string{" acme-corp "}
+	params.ReleaseLines = []string{" next ", "next"}
 	params.Environments = []string{" production", "acme-corp/ staging "}
 	params.Actions = append(distinct(20), "v0", " v1 ")
 
@@ -346,6 +347,7 @@ func TestBuildRequest_CleansValues(t *testing.T) {
 	assert.Equal(t, []string{"alice", "bob"}, *body.Actor.Id)
 	assert.Equal(t, []obsgen.AuditLogsQueryRequestResult{"denied"}, *body.Result)
 	assert.Equal(t, []string{"acme-corp"}, *body.Resource.Namespace)
+	assert.Equal(t, []string{"next"}, *body.Resource.ReleaseLine)
 	assert.Equal(t, []string{"acme-corp/production", "acme-corp/staging"}, *body.Resource.Environment)
 	assert.Len(t, *body.Action, 20)
 }

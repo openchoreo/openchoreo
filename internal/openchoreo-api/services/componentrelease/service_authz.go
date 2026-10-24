@@ -52,6 +52,7 @@ func (s *componentReleaseServiceWithAuthz) ListComponentReleases(ctx context.Con
 					Project:   cr.Spec.Owner.ProjectName,
 					Component: cr.Spec.Owner.ComponentName,
 				},
+				Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: cr.Spec.Owner.ReleaseLine}},
 			}
 		},
 	)
@@ -73,6 +74,7 @@ func (s *componentReleaseServiceWithAuthz) GetComponentRelease(ctx context.Conte
 			Project:   cr.Spec.Owner.ProjectName,
 			Component: cr.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: cr.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return nil, err
 	}
@@ -92,6 +94,7 @@ func (s *componentReleaseServiceWithAuthz) CreateComponentRelease(ctx context.Co
 			Project:   cr.Spec.Owner.ProjectName,
 			Component: cr.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: cr.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return nil, err
 	}
@@ -114,6 +117,7 @@ func (s *componentReleaseServiceWithAuthz) DeleteComponentRelease(ctx context.Co
 			Project:   cr.Spec.Owner.ProjectName,
 			Component: cr.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: cr.Spec.Owner.ReleaseLine}},
 	}); err != nil {
 		return err
 	}

@@ -16,10 +16,13 @@ router = APIRouter(prefix="/api/v1alpha1", tags=["FinOps Agent"])
 
 
 class SearchScope(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     component: str
     namespace: str
     project: str
     environment: str
+    release_line: str | None = Field(default=None, alias="releaseLine")
 
 
 class BudgetedCost(BaseModel):
@@ -64,6 +67,7 @@ async def analyze(
             project=request.search_scope.project,
             component=request.search_scope.component,
             environment=request.search_scope.environment,
+            release_line=request.search_scope.release_line,
         )
     except Exception as e:
         logger.error("Failed to create FinOps report: %s", type(e).__name__)

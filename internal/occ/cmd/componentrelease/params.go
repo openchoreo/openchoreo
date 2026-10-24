@@ -9,6 +9,7 @@ type GenerateParams struct {
 	Namespace     string // Optional: override namespace from context
 	ProjectName   string // Generate for all components in this project
 	ComponentName string // Generate for specific component
+	ReleaseLine   string // Optional: release line of the component (only valid with --component)
 	ReleaseName   string // Optional: custom release name (only valid with --component)
 	OutputPath    string // Optional: custom output directory
 	DryRun        bool   // Preview without writing files

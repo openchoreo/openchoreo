@@ -242,7 +242,7 @@ func TestGetNestedStringFromRawExtension(t *testing.T) {
 	}
 }
 
-func TestExtractRepoInfoFromComponent(t *testing.T) {
+func TestExtractRepoInfo(t *testing.T) {
 	makeRaw := func(v interface{}) *runtime.RawExtension {
 		b, _ := json.Marshal(v)
 		return &runtime.RawExtension{Raw: b}
@@ -555,7 +555,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 
 			svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
-			gotRepo, gotAppPath, gotBranch, err := svc.extractRepoInfoFromComponent(context.Background(), tt.component)
+			var params *runtime.RawExtension
+			if tt.component.Spec.Workflow != nil {
+				params = tt.component.Spec.Workflow.Parameters
+			}
+			got, err := svc.extractRepoInfo(context.Background(), tt.component, params)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -565,14 +569,14 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if gotRepo != tt.wantRepo {
-				t.Errorf("repoURL: got %q, want %q", gotRepo, tt.wantRepo)
+			if got.url != tt.wantRepo {
+				t.Errorf("repoURL: got %q, want %q", got.url, tt.wantRepo)
 			}
-			if gotAppPath != tt.wantAppPath {
-				t.Errorf("appPath: got %q, want %q", gotAppPath, tt.wantAppPath)
+			if got.appPath != tt.wantAppPath {
+				t.Errorf("appPath: got %q, want %q", got.appPath, tt.wantAppPath)
 			}
-			if gotBranch != tt.wantBranch {
-				t.Errorf("branch: got %q, want %q", gotBranch, tt.wantBranch)
+			if got.branch != tt.wantBranch {
+				t.Errorf("branch: got %q, want %q", got.branch, tt.wantBranch)
 			}
 		})
 	}
@@ -645,15 +649,15 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 		Branch:        "main",
 	}
 
-	affected, err := svc.findAffectedComponents(context.Background(), event)
+	affected, err := svc.findBuildTargets(context.Background(), event)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(affected) != 1 {
 		t.Fatalf("expected 1 affected component, got %d", len(affected))
 	}
-	if affected[0].Name != "svc" {
-		t.Errorf("expected component %q, got %q", "svc", affected[0].Name)
+	if affected[0].component.Name != "svc" {
+		t.Errorf("expected component %q, got %q", "svc", affected[0].component.Name)
 	}
 }
 
@@ -709,7 +713,7 @@ func TestWebhookProviderFilter_Mismatch(t *testing.T) {
 		Branch:        "main",
 	}
 
-	affected, err := svc.findAffectedComponents(context.Background(), event)
+	affected, err := svc.findBuildTargets(context.Background(), event)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -737,7 +741,7 @@ func TestWebhookBranchFilter_Mismatch(t *testing.T) {
 		Branch:        "feature/new-api",
 	}
 
-	affected, err := svc.findAffectedComponents(context.Background(), event)
+	affected, err := svc.findBuildTargets(context.Background(), event)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -780,7 +784,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 				RepositoryURL: "https://github.com/example/repo",
 				Branch:        pushBranch,
 			}
-			affected, err := svc.findAffectedComponents(context.Background(), event)
+			affected, err := svc.findBuildTargets(context.Background(), event)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -788,5 +792,27 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 				t.Fatalf("expected 1 affected component for branch %q (no branch filter), got %d", pushBranch, len(affected))
 			}
 		})
+	}
+}
+
+func TestIsComponentAffected_AppPath(t *testing.T) {
+	tests := []struct {
+		appPath string
+		want    bool
+	}{
+		{appPath: "", want: true},
+		{appPath: ".", want: true},
+		{appPath: "./", want: true},
+		{appPath: "/", want: true},
+		{appPath: "svc", want: true},
+		{appPath: "./svc/", want: true},
+		{appPath: "other", want: false},
+		{appPath: "sv", want: false},
+	}
+	svc := &webhookProcessor{logger: discardLogger()}
+	for _, tt := range tests {
+		if got := svc.isComponentAffected(tt.appPath, []string{"svc/main.go"}); got != tt.want {
+			t.Errorf("appPath %q: got %v, want %v", tt.appPath, got, tt.want)
+		}
 	}
 }

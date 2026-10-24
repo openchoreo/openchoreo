@@ -4,8 +4,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -65,8 +68,15 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 	if params.EnvironmentID != "" {
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
+	if params.ReleaseLineID != "" {
+		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
+	}
 
-	resp, err := t.client.QueryTracesWithResponse(ctx, reqBody)
+	body, err := tracesAdapterBody(reqBody, params.DefaultLineOnly)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.client.QueryTracesWithBodyWithResponse(ctx, "application/json", body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -79,7 +89,9 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 		return nil, fmt.Errorf("unexpected nil response body")
 	}
 
-	return convertTracesResponse(resp.JSON200), nil
+	result := convertTracesResponse(resp.JSON200)
+	result.ReleaseLineApplied = observability.ReleaseLineApplied(resp.HTTPResponse.Header)
+	return result, nil
 }
 
 // GetSpans implements observability.TracingAdapter interface
@@ -108,11 +120,18 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 	if params.EnvironmentID != "" {
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
+	if params.ReleaseLineID != "" {
+		reqBody.SearchScope.ReleaseLine = &params.ReleaseLineID
+	}
 	if params.IncludeAttributes {
 		reqBody.IncludeAttributes = &params.IncludeAttributes
 	}
 
-	resp, err := t.client.QuerySpansForTraceWithResponse(ctx, traceID, reqBody)
+	body, err := tracesAdapterBody(reqBody, params.DefaultLineOnly)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.client.QuerySpansForTraceWithBodyWithResponse(ctx, traceID, "application/json", body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -125,7 +144,9 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		return nil, fmt.Errorf("unexpected nil response body")
 	}
 
-	return convertSpansAdapterResponse(resp.JSON200), nil
+	result := convertSpansAdapterResponse(resp.JSON200)
+	result.ReleaseLineApplied = observability.ReleaseLineApplied(resp.HTTPResponse.Header)
+	return result, nil
 }
 
 // GetSpanDetails implements observability.TracingAdapter interface
@@ -300,4 +321,31 @@ func convertTracesResponse(resp *gen.TracesQueryResponse) *observability.TracesQ
 	}
 
 	return result
+}
+
+// tracesAdapterBody encodes a traces request for the adapter, adding defaultLineOnly to its search
+// scope when the query covers the component's default line only. The observer's own API has no such field.
+func tracesAdapterBody(reqBody any, defaultLineOnly bool) (io.Reader, error) {
+	raw, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	if !defaultLineOnly {
+		return bytes.NewReader(raw), nil
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	scope, _ := body["searchScope"].(map[string]any)
+	if scope == nil {
+		scope = map[string]any{}
+	}
+	scope["defaultLineOnly"] = true
+	body["searchScope"] = scope
+	raw, err = json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode traces request: %w", err)
+	}
+	return bytes.NewReader(raw), nil
 }

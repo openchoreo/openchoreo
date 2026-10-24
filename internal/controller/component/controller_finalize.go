@@ -79,8 +79,14 @@ func (r *Reconciler) finalize(ctx context.Context, old, comp *openchoreov1alpha1
 		return ctrl.Result{}, err
 	}
 
+	hasReleaseLines, err := r.hasOwnedReleaseLines(ctx, comp)
+	if err != nil {
+		logger.Error(err, "Failed to check for owned ReleaseLines")
+		return ctrl.Result{}, err
+	}
+
 	// Requeue if any children still exist
-	if hasReleases || hasBindings || hasWorkloads || hasWorkflowRuns {
+	if hasReleases || hasBindings || hasWorkloads || hasWorkflowRuns || hasReleaseLines {
 		logger.Info("Waiting for owned resources to be deleted")
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
@@ -231,4 +237,25 @@ func (r *Reconciler) hasOwnedWorkflowRuns(ctx context.Context, comp *openchoreov
 	}
 
 	return true, nil
+}
+
+// hasOwnedReleaseLines checks if any ReleaseLines owned by this Component still exist,
+// and deletes them if they exist.
+func (r *Reconciler) hasOwnedReleaseLines(ctx context.Context, comp *openchoreov1alpha1.Component) (bool, error) {
+	lines, err := r.listReleaseLines(ctx, comp)
+	if err != nil {
+		return false, err
+	}
+
+	for i := range lines {
+		line := &lines[i]
+		if !line.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Delete(ctx, line)); err != nil {
+			return false, fmt.Errorf("failed to delete release line %s: %w", line.Name, err)
+		}
+	}
+
+	return len(lines) > 0, nil
 }

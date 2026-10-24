@@ -95,15 +95,22 @@ func (r *Reconciler) hasOwnedReleases(ctx context.Context, releaseBinding *openc
 		return false, fmt.Errorf("failed to list releases: %w", err)
 	}
 
-	if len(releaseList.Items) == 0 {
+	// Other release lines of the component share these labels; keep only this binding's line.
+	owned := releaseList.Items[:0]
+	for i := range releaseList.Items {
+		if releaseList.Items[i].Labels[labels.LabelKeyReleaseLine] == releaseBinding.Spec.Owner.ReleaseLine {
+			owned = append(owned, releaseList.Items[i])
+		}
+	}
+	if len(owned) == 0 {
 		return false, nil
 	}
 
 	// Delete owned Releases that are not already terminating (re-deleting a
 	// terminating Release is a wasted round-trip repeated every requeue).
-	logger.Info("Deleting owned Releases", "count", len(releaseList.Items))
-	for i := range releaseList.Items {
-		release := &releaseList.Items[i]
+	logger.Info("Deleting owned Releases", "count", len(owned))
+	for i := range owned {
+		release := &owned[i]
 		if !release.DeletionTimestamp.IsZero() {
 			continue
 		}

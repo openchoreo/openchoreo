@@ -87,13 +87,15 @@ func toTypesCostQuery(
 	params gen.GetComponentCostsParams,
 ) *types.CostQueryRequest {
 	return &types.CostQueryRequest{
-		Namespace:   namespace,
-		Environment: environment,
-		Project:     derefString(params.Project),
-		Component:   derefString(params.Component),
-		StartTime:   rfc3339OrEmpty(params.StartTime),
-		EndTime:     rfc3339OrEmpty(params.EndTime),
-		Granularity: derefString(params.Granularity),
+		Namespace:       namespace,
+		Environment:     environment,
+		Project:         derefString(params.Project),
+		Component:       derefString(params.Component),
+		ReleaseLine:     derefString(params.ReleaseLine),
+		AllReleaseLines: derefBool(params.AllReleaseLines),
+		StartTime:       rfc3339OrEmpty(params.StartTime),
+		EndTime:         rfc3339OrEmpty(params.EndTime),
+		Granularity:     derefString(params.Granularity),
 	}
 }
 
@@ -103,12 +105,14 @@ func toTypesRecommendationQuery(
 	params gen.GetRecommendationsParams,
 ) *types.RecommendationQueryRequest {
 	return &types.RecommendationQueryRequest{
-		Namespace:   namespace,
-		Environment: environment,
-		Project:     derefString(params.Project),
-		Component:   derefString(params.Component),
-		StartTime:   rfc3339OrEmpty(params.StartTime),
-		EndTime:     rfc3339OrEmpty(params.EndTime),
+		Namespace:       namespace,
+		Environment:     environment,
+		Project:         derefString(params.Project),
+		Component:       derefString(params.Component),
+		ReleaseLine:     derefString(params.ReleaseLine),
+		AllReleaseLines: derefBool(params.AllReleaseLines),
+		StartTime:       rfc3339OrEmpty(params.StartTime),
+		EndTime:         rfc3339OrEmpty(params.EndTime),
 	}
 }
 

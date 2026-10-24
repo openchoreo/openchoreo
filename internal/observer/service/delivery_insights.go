@@ -30,6 +30,8 @@ type ScopeUIDResolver interface {
 	GetProjectUID(ctx context.Context, namespace, project string) (string, error)
 	GetComponentUID(ctx context.Context, namespace, project, component string) (string, error)
 	GetEnvironmentUID(ctx context.Context, namespace, environment string) (string, error)
+	GetReleaseLineUID(ctx context.Context, namespace, component, releaseLine string) (string, error)
+	HasReleaseLines(ctx context.Context, namespace, component string) (bool, error)
 }
 
 // DeliveryInsightsService serves the Delivery Insights (DORA metrics) read API.
@@ -80,12 +82,14 @@ func NewDeliveryInsightsService(
 
 // resolvedDeliveryInsightsScope is a search scope translated to store keys.
 type resolvedDeliveryInsightsScope struct {
-	scopeType      string
-	scopeUID       string
-	namespace      string
-	projectUID     string
-	componentUID   string
-	environmentUID string
+	scopeType       string
+	scopeUID        string
+	namespace       string
+	projectUID      string
+	componentUID    string
+	environmentUID  string
+	releaseLineUID  string
+	defaultLineOnly bool
 }
 
 func (s *DoraMetricsService) resolveScope(
@@ -95,6 +99,7 @@ func (s *DoraMetricsService) resolveScope(
 	project := strings.TrimSpace(stringPtrValue(scope.Project))
 	component := strings.TrimSpace(stringPtrValue(scope.Component))
 	environment := strings.TrimSpace(stringPtrValue(scope.Environment))
+	releaseLine := strings.TrimSpace(stringPtrValue(scope.ReleaseLine))
 
 	rs := resolvedDeliveryInsightsScope{
 		scopeType: deliveryinsights.ScopeTypeNamespace,
@@ -136,6 +141,27 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
+	if defaultLineOnly(&scope) && rs.componentUID != "" {
+		// A component without release lines keeps its component rollups, which equal its default
+		// line's and also hold the history recorded before release lines.
+		hasLines, err := s.resolver.HasReleaseLines(ctx, namespace, component)
+		if err != nil {
+			return rs, wrapDeliveryInsightsScopeError(err, "component", component)
+		}
+		if hasLines {
+			rs.defaultLineOnly = true
+			rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+			rs.scopeUID = rs.componentUID
+		}
+	} else if releaseLine != "" {
+		uid, err := s.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
+		if err != nil {
+			return rs, wrapDeliveryInsightsScopeError(err, "release line", releaseLine)
+		}
+		rs.releaseLineUID = uid
+		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+		rs.scopeUID = uid
+	}
 	return rs, nil
 }
 
@@ -147,12 +173,14 @@ func wrapDeliveryInsightsScopeError(err error, resourceType, resourceName string
 
 func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) deliveryinsights.FactQuery {
 	return deliveryinsights.FactQuery{
-		Namespace:      rs.namespace,
-		ProjectUID:     rs.projectUID,
-		ComponentUID:   rs.componentUID,
-		EnvironmentUID: rs.environmentUID,
-		StartMs:        startMs,
-		EndMs:          endMs,
+		Namespace:       rs.namespace,
+		ProjectUID:      rs.projectUID,
+		ComponentUID:    rs.componentUID,
+		EnvironmentUID:  rs.environmentUID,
+		ReleaseLineUID:  rs.releaseLineUID,
+		DefaultLineOnly: rs.defaultLineOnly,
+		StartMs:         startMs,
+		EndMs:           endMs,
 		// The metrics are statistics over the window, so every matching row has to be
 		// read. Any cap here keeps one end of an ordered distribution and drops the
 		// other, so percentiles come out biased while CountDeployments stays exact --

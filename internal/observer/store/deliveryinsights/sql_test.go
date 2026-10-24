@@ -560,8 +560,17 @@ func TestBuildRollups(t *testing.T) {
 		day.UnixMilli(),
 	)
 
-	// 3 scope types × 2 env slices × 3 granularities = 18 buckets (single day/week/month).
-	assert.Len(t, rollups, 18)
+	// 4 scope types (the default line is keyed by its component) × 2 env slices × 3 granularities
+	// = 24 buckets (single day/week/month).
+	assert.Len(t, rollups, 24)
+	defaultLine := 0
+	for _, r := range rollups {
+		if r.ScopeType == ScopeTypeReleaseLine {
+			assert.Equal(t, "comp-1", r.ScopeUID, "the default line's rollups are keyed by its component")
+			defaultLine++
+		}
+	}
+	assert.Equal(t, 6, defaultLine)
 
 	var componentDaily *MetricRollup
 	for i := range rollups {

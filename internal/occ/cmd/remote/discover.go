@@ -281,11 +281,11 @@ func printDiscovered(out io.Writer, sources []string, found []discovered) {
 	fmt.Fprintf(out, "%s:\n", summary)
 
 	heads := []string{"PATH", "PROJECT", "COMPONENT"}
-	cells := func(f discovered) []string { return []string{f.path, f.id.project, f.id.component} }
+	cells := func(f discovered) []string { return []string{f.path, f.id.project, f.id.ref()} }
 	if !shared {
 		heads = []string{"PATH", "NAMESPACE", "PROJECT", "COMPONENT"}
 		cells = func(f discovered) []string {
-			return []string{f.path, f.id.namespace, f.id.project, f.id.component}
+			return []string{f.path, f.id.namespace, f.id.project, f.id.ref()}
 		}
 	}
 
@@ -312,7 +312,7 @@ func printPlannedLinks(out io.Writer, found []discovered,
 		for _, link := range links {
 			host, port := link.target(overrides)
 			rows = append(rows, []string{
-				f.id.component,
+				f.id.ref(),
 				strings.TrimPrefix(link.key, "ep/"),
 				net.JoinHostPort(host, strconv.Itoa(port)),
 				strings.Join(bindingNames(link.envBindings), ", "),
@@ -341,8 +341,8 @@ func printBindingCollisions(out io.Writer, found []discovered) {
 	owners := map[string][]string{}
 	for _, f := range found {
 		for _, name := range declaredEnvNames(f.wl) {
-			if !slices.Contains(owners[name], f.id.component) {
-				owners[name] = append(owners[name], f.id.component)
+			if !slices.Contains(owners[name], f.id.ref()) {
+				owners[name] = append(owners[name], f.id.ref())
 			}
 		}
 	}

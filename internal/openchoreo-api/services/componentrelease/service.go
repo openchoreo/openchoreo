@@ -124,6 +124,12 @@ func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, na
 		return nil, fmt.Errorf("failed to check component release existence: %w", err)
 	}
 
+	owner := cr.Spec.Owner
+	if err := services.ValidateReleaseLineOwner(ctx, s.k8sClient, namespaceName,
+		owner.ProjectName, owner.ComponentName, owner.ReleaseLine); err != nil {
+		return nil, err
+	}
+
 	cr.Namespace = namespaceName
 	cr.Status = openchoreov1alpha1.ComponentReleaseStatus{}
 

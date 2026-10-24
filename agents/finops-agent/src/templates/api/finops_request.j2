@@ -5,6 +5,9 @@ Analyze the following component that has exceeded its budget:
 - **Namespace**: {{ search_scope.namespace }}
 - **Project**: {{ search_scope.project }}
 - **Environment**: {{ search_scope.environment }}
+{% if search_scope.release_line -%}
+- **Release Line**: {{ search_scope.release_line }}
+{% endif -%}
 
 ## Budget Alert
 - **Triggered at**: {{ budget_alert_triggered_at }}
@@ -20,7 +23,7 @@ Analyze the following component that has exceeded its budget:
 > from this value; do not re-query or recompute it.
 
 Please investigate this budget overrun by:
-1. Querying resource metrics (CPU and memory requests, limits, and actual usage) for this component over the budget period ({{ budgeted_cost.period }})
-2. Querying cost allocation data from the cost analytics backend for this component
+1. Querying resource metrics (CPU and memory requests, limits, and actual usage) for this component{% if search_scope.release_line %}'s `{{ search_scope.release_line }}` release line{% endif %} over the budget period ({{ budgeted_cost.period }})
+2. Querying cost allocation data from the cost analytics backend for this component{% if search_scope.release_line %}'s `{{ search_scope.release_line }}` release line{% endif %}
 3. Analyzing whether the component is overprovisioned
 4. Providing optimization recommendations if applicable

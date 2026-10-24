@@ -29,6 +29,7 @@ type AuditLogsResourceFilter struct {
 	Environments []string `json:"environment,omitempty"`
 	Projects     []string `json:"project,omitempty"`
 	Components   []string `json:"component,omitempty"`
+	ReleaseLines []string `json:"release_line,omitempty"`
 	Resources    []string `json:"resource,omitempty"`
 	Names        []string `json:"name,omitempty"`
 }
@@ -110,6 +111,7 @@ type AuditLogResource struct {
 	Environment string         `json:"environment,omitempty"`
 	Project     string         `json:"project,omitempty"`
 	Component   string         `json:"component,omitempty"`
+	ReleaseLine string         `json:"release_line,omitempty"`
 	Resource    string         `json:"resource,omitempty"`
 	UID         string         `json:"uid,omitempty"`
 	Name        string         `json:"name,omitempty"`

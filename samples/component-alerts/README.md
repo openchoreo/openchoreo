@@ -205,6 +205,7 @@ kubectl delete -f samples/component-alerts/alert-rule-trait.yaml
    - `${component}` - Component name
    - `${project}` - Project name
    - `${environment}` - Environment name
+   - `${releaseLine}` - Release line the alert fired for, empty for components without release lines
    - `${alertTimestamp}` - Alert timestamp
    - `${componentId}` - Component UID
    - `${projectId}` - Project UID

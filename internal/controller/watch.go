@@ -24,6 +24,9 @@ const (
 	// (projectName, componentName, environment) for efficient lookups.
 	IndexKeyReleaseBindingOwnerEnv = "releasebinding.spec.owner.projectName/componentName/environment"
 
+	// IndexKeyReleaseLineOwner indexes ReleaseLine by "projectName/componentName".
+	IndexKeyReleaseLineOwner = "releaseline.spec.owner"
+
 	// IndexKeyComponentOwnerProjectName indexes Component by owner project name.
 	IndexKeyComponentOwnerProjectName = "component.spec.owner.projectName"
 
@@ -64,6 +67,28 @@ func MakeReleaseBindingOwnerEnvKey(projectName, componentName, environment strin
 	return projectName + "/" + componentName + "/" + environment
 }
 
+// MakeReleaseLineOwnerKey creates the index key for the ReleaseLine owner index.
+func MakeReleaseLineOwnerKey(projectName, componentName string) string {
+	return projectName + "/" + componentName
+}
+
+// IndexReleaseLineOwner is the index function for IndexKeyReleaseLineOwner.
+func IndexReleaseLineOwner(obj client.Object) []string {
+	line := obj.(*openchoreov1alpha1.ReleaseLine)
+	return []string{MakeReleaseLineOwnerKey(line.Spec.Owner.ProjectName, line.Spec.Owner.ComponentName)}
+}
+
+// FilterReleaseBindingsByLine returns the bindings on the given release line ("" for bindings without one).
+func FilterReleaseBindingsByLine(items []openchoreov1alpha1.ReleaseBinding, line string) []openchoreov1alpha1.ReleaseBinding {
+	out := items[:0:0]
+	for i := range items {
+		if items[i].Spec.Owner.ReleaseLine == line {
+			out = append(out, items[i])
+		}
+	}
+	return out
+}
+
 // MakeResourceReleaseBindingOwnerEnvKey creates the composite index key for
 // ResourceReleaseBinding lookups by (project, resource, environment). Used by consumer
 // ReleaseBindings to locate the matching provider for a (project, ref, env) tuple.
@@ -98,6 +123,11 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 			)}
 		}); err != nil {
 		return fmt.Errorf("failed to setup ReleaseBinding owner+env index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseLine{},
+		IndexKeyReleaseLineOwner, IndexReleaseLineOwner); err != nil {
+		return fmt.Errorf("failed to setup ReleaseLine owner index: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},

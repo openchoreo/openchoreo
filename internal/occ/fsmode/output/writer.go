@@ -57,11 +57,10 @@ func (w *Writer) WriteRelease(release *unstructured.Unstructured, opts WriteOpti
 	// Determine initial output path (may need version increment)
 	initialPath := w.determineOutputPath(release, opts)
 	outputDir := filepath.Dir(initialPath)
-	componentName := getNestedString(release.Object, "spec", "owner", "componentName")
 
 	// Check for duplicate if requested
 	if opts.SkipIfUnchanged {
-		latestRelease, _, err := FindLatestRelease(outputDir, componentName)
+		latestRelease, _, err := FindLatestRelease(outputDir, releaseNameBaseOf(release))
 		if err != nil {
 			// Log warning but continue (don't fail on duplicate check errors)
 			fmt.Fprintf(os.Stderr, "Warning: failed to check for existing release: %v\n", err)
@@ -84,13 +83,14 @@ func (w *Writer) WriteRelease(release *unstructured.Unstructured, opts WriteOpti
 		// File exists - need to increment version
 		releaseName := finalRelease.GetName()
 
-		// Extract date from release name (format: component-YYYYMMDD-version)
+		// Extract date from release name (format: base-YYYYMMDD-version)
 		parts := strings.Split(releaseName, "-")
 		if len(parts) >= 3 {
+			base := strings.Join(parts[:len(parts)-2], "-")
 			dateStr := parts[len(parts)-2]
 
 			// Get next version number
-			nextVersion, err := GetNextVersionNumber(outputDir, componentName, dateStr)
+			nextVersion, err := GetNextVersionNumber(outputDir, base, dateStr)
 			if err != nil {
 				return "", false, fmt.Errorf("failed to determine next version: %w", err)
 			}
@@ -256,7 +256,7 @@ func (w *Writer) WriteBulkReleases(
 		// Check for duplicate if requested
 		if opts.SkipIfUnchanged {
 			outputDir := filepath.Dir(outputPath)
-			latestRelease, _, err := FindLatestRelease(outputDir, componentName)
+			latestRelease, _, err := FindLatestRelease(outputDir, releaseNameBaseOf(release))
 			if err != nil {
 				// Log warning but continue
 				fmt.Fprintf(os.Stderr, "Warning: failed to check for existing release %s: %v\n", componentName, err)

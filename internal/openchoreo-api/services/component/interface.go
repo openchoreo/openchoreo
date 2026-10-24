@@ -15,6 +15,7 @@ import (
 // GenerateReleaseRequest contains the parameters for generating a component release.
 type GenerateReleaseRequest struct {
 	ReleaseName string
+	ReleaseLine string
 }
 
 // Service defines the component service interface.

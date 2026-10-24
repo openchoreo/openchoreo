@@ -144,6 +144,7 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 	scope.Project = strings.TrimSpace(scope.Project)
 	scope.Component = strings.TrimSpace(scope.Component)
 	scope.Environment = strings.TrimSpace(scope.Environment)
+	scope.ReleaseLine = strings.TrimSpace(scope.ReleaseLine)
 	if scope.Namespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
 	}
@@ -151,6 +152,37 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 	// but if component is provided, project is required
 	if scope.Project == "" && scope.Component != "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	return validateReleaseLineScope(scope.Component, scope.Environment, scope.ReleaseLine, scope.AllReleaseLines)
+}
+
+// validateReleaseLineScope requires a component and an environment alongside a release line.
+func validateReleaseLineScope(component, environment, releaseLine string, allReleaseLines bool) error {
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
+		return err
+	}
+	if strings.TrimSpace(releaseLine) != "" && (strings.TrimSpace(component) == "" || strings.TrimSpace(environment) == "") {
+		return fmt.Errorf("searchScope.component and searchScope.environment are required when searchScope.releaseLine is provided")
+	}
+	return nil
+}
+
+// validateReleaseLineComponentScope validates a release line on a query that spans environments,
+// which needs only the component the line belongs to.
+func validateReleaseLineComponentScope(component, releaseLine string, allReleaseLines bool) error {
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
+		return err
+	}
+	if strings.TrimSpace(releaseLine) != "" && strings.TrimSpace(component) == "" {
+		return fmt.Errorf("searchScope.component is required when searchScope.releaseLine is provided")
+	}
+	return nil
+}
+
+// validateAllReleaseLines rejects allReleaseLines alongside a release line.
+func validateAllReleaseLines(releaseLine string, allReleaseLines bool) error {
+	if allReleaseLines && strings.TrimSpace(releaseLine) != "" {
+		return fmt.Errorf("set searchScope.releaseLine or searchScope.allReleaseLines, not both")
 	}
 	return nil
 }
@@ -342,29 +374,30 @@ var auditLogsTimelineInterval = regexp.MustCompile(auditLogsTimelineIntervalPatt
 // There is deliberately no companion length limit: an over-long value matches
 // no record, which is an answer rather than an error.
 var auditLogsFilterMaxItems = map[string]int{
-	"actor.id":             20,
-	"actor.type":           4,
-	"actor.issuer":         20,
-	"actor.session_id":     20,
-	"actor.entitlements":   20,
-	"resource.type":        20,
-	"resource.namespace":   20,
-	"resource.environment": 20,
-	"resource.project":     20,
-	"resource.component":   20,
-	"resource.resource":    20,
-	"resource.name":        20,
-	"returned.items.name":  20,
-	"action":               20,
-	"category":             3,
-	"result":               3,
-	"surface":              2,
-	"producer":             20,
-	"operation_id":         20,
-	"request_id":           20,
-	"event_id":             20,
-	"source_ip":            20,
-	"user_agent":           20,
+	"actor.id":              20,
+	"actor.type":            4,
+	"actor.issuer":          20,
+	"actor.session_id":      20,
+	"actor.entitlements":    20,
+	"resource.type":         20,
+	"resource.namespace":    20,
+	"resource.environment":  20,
+	"resource.project":      20,
+	"resource.component":    20,
+	"resource.release_line": 20,
+	"resource.resource":     20,
+	"resource.name":         20,
+	"returned.items.name":   20,
+	"action":                20,
+	"category":              3,
+	"result":                3,
+	"surface":               2,
+	"producer":              20,
+	"operation_id":          20,
+	"request_id":            20,
+	"event_id":              20,
+	"source_ip":             20,
+	"user_agent":            20,
 }
 
 // auditLogsFilterPaths are the filters QueryAuditLogFilterValues can list
@@ -373,26 +406,27 @@ var auditLogsFilterMaxItems = map[string]int{
 // event_id and request_id are absent deliberately: both are near-unique per
 // record, so a list of them is not something a client picks from.
 var auditLogsFilterPaths = map[string]bool{
-	"actor.id":             true,
-	"actor.type":           true,
-	"actor.issuer":         true,
-	"actor.session_id":     true,
-	"actor.entitlements":   true,
-	"resource.type":        true,
-	"resource.namespace":   true,
-	"resource.environment": true,
-	"resource.project":     true,
-	"resource.component":   true,
-	"resource.resource":    true,
-	"resource.name":        true,
-	"action":               true,
-	"category":             true,
-	"result":               true,
-	"producer":             true,
-	"surface":              true,
-	"operation_id":         true,
-	"source_ip":            true,
-	"user_agent":           true,
+	"actor.id":              true,
+	"actor.type":            true,
+	"actor.issuer":          true,
+	"actor.session_id":      true,
+	"actor.entitlements":    true,
+	"resource.type":         true,
+	"resource.namespace":    true,
+	"resource.environment":  true,
+	"resource.project":      true,
+	"resource.component":    true,
+	"resource.release_line": true,
+	"resource.resource":     true,
+	"resource.name":         true,
+	"action":                true,
+	"category":              true,
+	"result":                true,
+	"producer":              true,
+	"surface":               true,
+	"operation_id":          true,
+	"source_ip":             true,
+	"user_agent":            true,
 }
 
 var (
@@ -446,6 +480,7 @@ func ValidateAuditLogsQueryRequest(req *types.AuditLogsQueryRequest) error {
 		{"resource.environment", req.Resource.Environments},
 		{"resource.project", req.Resource.Projects},
 		{"resource.component", req.Resource.Components},
+		{"resource.release_line", req.Resource.ReleaseLines},
 		{"resource.resource", req.Resource.Resources},
 		{"resource.name", req.Resource.Names},
 		{"returned.items.name", req.Returned.Items.Names},
@@ -598,6 +633,9 @@ func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
 	if req.SearchScope.Component != "" && req.SearchScope.Project == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
+	if err := validateReleaseLineScope(req.SearchScope.Component, req.SearchScope.Environment, req.SearchScope.ReleaseLine, req.SearchScope.AllReleaseLines); err != nil {
+		return err
+	}
 
 	// Validate step format if provided
 	if req.Step != nil && *req.Step != "" {
@@ -631,6 +669,9 @@ func ValidateRuntimeTopologyRequest(req *types.RuntimeTopologyRequest) error {
 	}
 	if strings.TrimSpace(scope.Environment) == "" {
 		return fmt.Errorf("searchScope.environment is required")
+	}
+	if strings.TrimSpace(scope.ReleaseLine) != "" {
+		return fmt.Errorf("searchScope.releaseLine is not supported for runtime topology")
 	}
 
 	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
@@ -776,6 +817,10 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	if componentVal != "" && projectVal == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
+	if err := validateReleaseLineScope(componentVal, derefString(req.SearchScope.Environment), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
+		return err
+	}
 
 	// Validate and set defaults for limit
 	if req.Limit != nil {
@@ -821,6 +866,10 @@ func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
+		return err
+	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {
 			return fmt.Errorf("limit must be a positive integer greater than zero")
@@ -860,6 +909,10 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
+		return err
 	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {
@@ -919,6 +972,12 @@ func ValidateCostQueryRequest(req *types.CostQueryRequest) error {
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
 	}
+	if req.AllReleaseLines && strings.TrimSpace(req.ReleaseLine) != "" {
+		return fmt.Errorf("set releaseLine or allReleaseLines, not both")
+	}
+	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
+		return fmt.Errorf("releaseLine requires component to also be set")
+	}
 	if req.Granularity != "" && !timeGranularityPattern.MatchString(req.Granularity) {
 		return fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)")
 	}
@@ -941,6 +1000,12 @@ func ValidateRecommendationQueryRequest(req *types.RecommendationQueryRequest) e
 	}
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
+	}
+	if req.AllReleaseLines && strings.TrimSpace(req.ReleaseLine) != "" {
+		return fmt.Errorf("set releaseLine or allReleaseLines, not both")
+	}
+	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
+		return fmt.Errorf("releaseLine requires component to also be set")
 	}
 	return nil
 }
@@ -1078,5 +1143,6 @@ func validateDoraScopeAndWindow(scope *gen.ComponentSearchScope, startTime, endT
 		(scope.Project == nil || strings.TrimSpace(*scope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	return nil
+	return validateReleaseLineComponentScope(derefString(scope.Component), derefString(scope.ReleaseLine),
+		derefBool(scope.AllReleaseLines))
 }

@@ -1,0 +1,68 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# A Component built from source. Its own configuration is its implicit default line, built from the main branch.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: hello
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Greeter service built from source, with a next release line beside its default line"
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/chathuranga95/go-greeter"
+        revision:
+          branch: "main"
+        appPath: "."
+      docker:
+        context: "."
+        filePath: "./Dockerfile"
+
+---
+
+# Inherits everything on the Component, builds from the next branch, and adds health probes.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseLine
+metadata:
+  name: next
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Preview line, built from the next branch"
+spec:
+  owner:
+    projectName: default
+    componentName: hello
+  workflow:
+    parameters:
+      repository:
+        revision:
+          branch: "next"
+          # commit: <commit-sha>
+  traits:
+    - kind: ClusterTrait
+      name: health-probes
+      instanceName: health
+      parameters:
+        readiness:
+          enabled: true
+          handler:
+            httpGet:
+              path: /greet
+              port: 9090
+        liveness:
+          enabled: true
+          handler:
+            httpGet:
+              path: /greet
+              port: 9090

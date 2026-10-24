@@ -78,6 +78,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: releaseLine
+          in: query
+          description: Restricts the result to reports for this release line of the component.
+          schema:
+            type: string
         - name: startTime
           in: query
           description: RFC3339 format
@@ -306,6 +311,10 @@ components:
           type: string
         environment:
           type: string
+        releaseLine:
+          type: string
+          nullable: true
+          description: Release line the budget alert belongs to, for components with release lines.
 
     BudgetedCost:
       type: object
@@ -371,6 +380,9 @@ components:
           type: ["string", "null"]
         component:
           type: ["string", "null"]
+        releaseLine:
+          type: ["string", "null"]
+          description: Release line the budget alert fired on, for components with release lines.
         timestamp:
           type: string
           format: date-time
@@ -394,6 +406,9 @@ components:
           type: ["string", "null"]
         component:
           type: ["string", "null"]
+        releaseLine:
+          type: ["string", "null"]
+          description: Release line the budget alert fired on, for components with release lines.
         timestamp:
           type: string
           format: date-time
