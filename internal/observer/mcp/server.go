@@ -90,36 +90,38 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_component_logs",
 		Description: "Query runtime application logs for components (services, APIs, workers, scheduled tasks) deployed in OpenChoreo. Supports filtering by project, component, environment, time range, log levels, and search phrases.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":     stringProperty("Namespace (required)"),
-			"project":       stringProperty("Project name to filter logs"),
-			"component":     stringProperty("Component name to filter logs"),
-			"environment":   stringProperty("Environment name to filter logs (e.g., 'development', 'production')"),
-			"release_line":  releaseLineProperty(),
-			"start_time":    stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":      stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"search_phrase": stringProperty("Text to search within log messages"),
-			"log_levels":    arrayProperty("Log levels to filter (e.g., ['ERROR', 'WARN', 'INFO', 'DEBUG']). Default: all levels"),
-			"limit":         limitLogsProperty(),
-			"sort_order":    sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter logs"),
+			"component":         stringProperty("Component name to filter logs"),
+			"environment":       stringProperty("Environment name to filter logs (e.g., 'development', 'production')"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"search_phrase":     stringProperty("Text to search within log messages"),
+			"log_levels":        arrayProperty("Log levels to filter (e.g., ['ERROR', 'WARN', 'INFO', 'DEBUG']). Default: all levels"),
+			"limit":             limitLogsProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace    string   `json:"namespace"`
-		Project      string   `json:"project"`
-		Component    string   `json:"component"`
-		Environment  string   `json:"environment"`
-		ReleaseLine  string   `json:"release_line"`
-		StartTime    string   `json:"start_time"`
-		EndTime      string   `json:"end_time"`
-		SearchPhrase string   `json:"search_phrase"`
-		LogLevels    []string `json:"log_levels"`
-		Limit        int      `json:"limit"`
-		SortOrder    string   `json:"sort_order"`
+		Namespace       string   `json:"namespace"`
+		Project         string   `json:"project"`
+		Component       string   `json:"component"`
+		Environment     string   `json:"environment"`
+		ReleaseLine     string   `json:"release_line"`
+		AllReleaseLines bool     `json:"all_release_lines"`
+		StartTime       string   `json:"start_time"`
+		EndTime         string   `json:"end_time"`
+		SearchPhrase    string   `json:"search_phrase"`
+		LogLevels       []string `json:"log_levels"`
+		Limit           int      `json:"limit"`
+		SortOrder       string   `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryComponentLogs(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.SearchPhrase,
 			args.LogLevels, args.Limit, args.SortOrder,
 		)
@@ -232,32 +234,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_component_events",
 		Description: "Query Kubernetes events for components (services, APIs, workers, scheduled tasks) deployed in OpenChoreo. Returns events such as scheduling, scaling, image pulls, and job completions. Supports filtering by project, component, environment, and time range.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter events"),
-			"component":    stringProperty("Component name to filter events"),
-			"environment":  stringProperty("Environment name to filter events (e.g., 'development', 'production')"),
-			"release_line": releaseLineProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitProperty(),
-			"sort_order":   sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter events"),
+			"component":         stringProperty("Component name to filter events"),
+			"environment":       stringProperty("Environment name to filter events (e.g., 'development', 'production')"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryComponentEvents(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -295,26 +299,28 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_resource_metrics",
 		Description: "Query CPU and memory resource usage metrics for components in OpenChoreo. Returns time-series data for CPU usage/requests/limits and memory usage/requests/limits. Useful for capacity planning, identifying resource constraints, and detecting memory leaks.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter metrics"),
-			"component":    stringProperty("Component name to filter metrics"),
-			"environment":  stringProperty("Environment name to filter metrics"),
-			"release_line": releaseLineProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"step":         stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter metrics"),
+			"component":         stringProperty("Component name to filter metrics"),
+			"environment":       stringProperty("Environment name to filter metrics"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"step":              stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Step        string `json:"step"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Step            string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		var step *string
@@ -322,7 +328,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			step = &args.Step
 		}
 		result, err := handler.QueryResourceMetrics(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, step,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -333,26 +339,28 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_http_metrics",
 		Description: "Query HTTP request and latency metrics for components in OpenChoreo. Returns time-series data for request counts (total, successful, unsuccessful), mean latency, and percentile latencies (p50, p90, p99). Useful for monitoring API performance and debugging HTTP errors.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter metrics"),
-			"component":    stringProperty("Component name to filter metrics"),
-			"environment":  stringProperty("Environment name to filter metrics"),
-			"release_line": releaseLineProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"step":         stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter metrics"),
+			"component":         stringProperty("Component name to filter metrics"),
+			"environment":       stringProperty("Environment name to filter metrics"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"step":              stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Step        string `json:"step"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Step            string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		var step *string
@@ -360,7 +368,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			step = &args.Step
 		}
 		result, err := handler.QueryHTTPMetrics(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, step,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -371,32 +379,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_traces",
 		Description: "Query distributed traces for components in OpenChoreo. Returns a list of traces with summary information including trace ID, name, span count, root span details, and duration. Useful for understanding request flows across services and identifying performance bottlenecks.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter traces"),
-			"component":    stringProperty("Component name to filter traces"),
-			"environment":  stringProperty("Environment name to filter traces"),
-			"release_line": releaseLineProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitTraceSpansProperty(),
-			"sort_order":   sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter traces"),
+			"component":         stringProperty("Component name to filter traces"),
+			"environment":       stringProperty("Environment name to filter traces"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitTraceSpansProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryTraces(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -407,35 +417,37 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_trace_spans",
 		Description: "Query all spans within a specific distributed trace in OpenChoreo. Returns span details including span ID, name, parent span, start/end times, and duration. Use the trace ID from query_traces results to drill into individual traces.",
 		InputSchema: createSchema(map[string]any{
-			"trace_id":     stringProperty("Trace ID to retrieve spans for (required). Obtained from query_traces results"),
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name"),
-			"component":    stringProperty("Component name"),
-			"environment":  stringProperty("Environment name"),
-			"release_line": releaseLineProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitTraceSpansProperty(),
-			"sort_order":   sortOrderProperty(),
+			"trace_id":          stringProperty("Trace ID to retrieve spans for (required). Obtained from query_traces results"),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name"),
+			"component":         stringProperty("Component name"),
+			"environment":       stringProperty("Environment name"),
+			"release_line":      releaseLineProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitTraceSpansProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"trace_id", "namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		TraceID     string `json:"trace_id"`
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		TraceID         string `json:"trace_id"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine); err != nil {
+		if err := validateComponentLineScope(args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryTraceSpans(ctx,
 			args.TraceID,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -462,32 +474,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_alerts",
 		Description: "Query fired alerts in OpenChoreo. Supports filtering by project, component, environment, and time range. Useful for investigating recent alerts and details about them.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter alerts"),
-			"component":    stringProperty("Component name to filter alerts"),
-			"environment":  stringProperty("Environment name to filter alerts (e.g., 'development', 'production')"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitProperty(),
-			"sort_order":   sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter alerts"),
+			"component":         stringProperty("Component name to filter alerts"),
+			"environment":       stringProperty("Environment name to filter alerts (e.g., 'development', 'production')"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine); err != nil {
+		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryAlerts(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -498,32 +512,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_incidents",
 		Description: "Query incidents in OpenChoreo. Supports filtering by project, component, environment, and time range. Useful for tracking incident lifecycle and response status. All incidents have an accompanying alert but not the other way around.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to filter incidents"),
-			"component":    stringProperty("Component name to filter incidents"),
-			"environment":  stringProperty("Environment name to filter incidents (e.g., 'development', 'production')"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitProperty(),
-			"sort_order":   sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to filter incidents"),
+			"component":         stringProperty("Component name to filter incidents"),
+			"environment":       stringProperty("Environment name to filter incidents (e.g., 'development', 'production')"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine); err != nil {
+		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryIncidents(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -534,27 +550,29 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_costs",
 		Description: "Query infrastructure costs in OpenChoreo. Returns a flat list of per-component cost records (CPU cost, memory cost, and resource efficiency) for a namespace within the given environment and time range. By default the query covers every component in the namespace+environment; set 'project' to scope it to one project, or 'project'+'component' to scope it to a single component. Useful for cost attribution and spotting inefficient workloads.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"environment":  stringProperty("Environment name (required, e.g., 'development', 'production')"),
-			"project":      stringProperty("Project name. When set, narrows the query to components in this project"),
-			"component":    stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"granularity":  stringProperty("Optional time bucket size in <count><unit> notation where unit is h (hours), d (days), or w (weeks), e.g. '1h', '2d', '3w'. Splits each component into one record per bucket"),
+			"namespace":         stringProperty("Namespace (required)"),
+			"environment":       stringProperty("Environment name (required, e.g., 'development', 'production')"),
+			"project":           stringProperty("Project name. When set, narrows the query to components in this project"),
+			"component":         stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"granularity":       stringProperty("Optional time bucket size in <count><unit> notation where unit is h (hours), d (days), or w (weeks), e.g. '1h', '2d', '3w'. Splits each component into one record per bucket"),
 		}, []string{"namespace", "environment", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Environment string `json:"environment"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Granularity string `json:"granularity"`
+		Namespace       string `json:"namespace"`
+		Environment     string `json:"environment"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Granularity     string `json:"granularity"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		result, err := handler.QueryCosts(ctx,
-			args.Namespace, args.Environment, args.Project, args.Component, args.ReleaseLine,
+			args.Namespace, args.Environment, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.Granularity,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -565,25 +583,27 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "query_recommendations",
 		Description: "Query right-sizing recommendations in OpenChoreo. Returns per-component recommendations comparing current CPU/memory requests and limits against recommended values derived from observed usage, with associated costs, for a namespace within the given environment and time range. By default the query covers every component in the namespace+environment; set 'project' to scope it to one project, or 'project'+'component' to scope it to a single component. Useful for reducing over-provisioning.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"environment":  stringProperty("Environment name (required, e.g., 'development', 'production')"),
-			"project":      stringProperty("Project name. When set, narrows the query to components in this project"),
-			"component":    stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"namespace":         stringProperty("Namespace (required)"),
+			"environment":       stringProperty("Environment name (required, e.g., 'development', 'production')"),
+			"project":           stringProperty("Project name. When set, narrows the query to components in this project"),
+			"component":         stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
 		}, []string{"namespace", "environment", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Environment string `json:"environment"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
+		Namespace       string `json:"namespace"`
+		Environment     string `json:"environment"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		result, err := handler.QueryRecommendations(ctx,
-			args.Namespace, args.Environment, args.Project, args.Component, args.ReleaseLine,
+			args.Namespace, args.Environment, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -689,32 +709,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"metric. Use this to answer questions like 'how often do we deploy', 'what's our lead time for " +
 			"changes', 'what's our change failure rate', or 'how long does it take to recover from failures'.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to scope the metrics to"),
-			"component":    stringProperty("Component name to scope the metrics to (requires project)"),
-			"environment":  stringProperty("Environment name to scope the metrics to (e.g., 'development', 'production')"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"granularity":  granularityProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"metrics":      doraMetricsProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to scope the metrics to"),
+			"component":         stringProperty("Component name to scope the metrics to (requires project)"),
+			"environment":       stringProperty("Environment name to scope the metrics to (e.g., 'development', 'production')"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"granularity":       granularityProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"metrics":           doraMetricsProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string   `json:"namespace"`
-		Project     string   `json:"project"`
-		Component   string   `json:"component"`
-		Environment string   `json:"environment"`
-		ReleaseLine string   `json:"release_line"`
-		Granularity string   `json:"granularity"`
-		StartTime   string   `json:"start_time"`
-		EndTime     string   `json:"end_time"`
-		Metrics     []string `json:"metrics"`
+		Namespace       string   `json:"namespace"`
+		Project         string   `json:"project"`
+		Component       string   `json:"component"`
+		Environment     string   `json:"environment"`
+		ReleaseLine     string   `json:"release_line"`
+		AllReleaseLines bool     `json:"all_release_lines"`
+		Granularity     string   `json:"granularity"`
+		StartTime       string   `json:"start_time"`
+		EndTime         string   `json:"end_time"`
+		Metrics         []string `json:"metrics"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine); err != nil {
+		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryDoraMetrics(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.Granularity, args.StartTime, args.EndTime, args.Metrics,
 		)
 		return handler.handleToolResult(req, result, err)
@@ -730,32 +752,34 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"longest -- and to answer questions like 'what did we deploy to production last week' or " +
 			"'which deployments failed'.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":    stringProperty("Namespace (required)"),
-			"project":      stringProperty("Project name to scope the deployments to"),
-			"component":    stringProperty("Component name to scope the deployments to (requires project)"),
-			"environment":  stringProperty("Environment name to scope the deployments to (e.g., 'development', 'production')"),
-			"release_line": releaseLineAnyEnvProperty(),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitProperty(),
-			"sort_order":   sortOrderProperty(),
+			"namespace":         stringProperty("Namespace (required)"),
+			"project":           stringProperty("Project name to scope the deployments to"),
+			"component":         stringProperty("Component name to scope the deployments to (requires project)"),
+			"environment":       stringProperty("Environment name to scope the deployments to (e.g., 'development', 'production')"),
+			"release_line":      releaseLineAnyEnvProperty(),
+			"all_release_lines": allReleaseLinesProperty(),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitProperty(),
+			"sort_order":        sortOrderProperty(),
 		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		Namespace   string `json:"namespace"`
-		Project     string `json:"project"`
-		Component   string `json:"component"`
-		Environment string `json:"environment"`
-		ReleaseLine string `json:"release_line"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		Namespace       string `json:"namespace"`
+		Project         string `json:"project"`
+		Component       string `json:"component"`
+		Environment     string `json:"environment"`
+		ReleaseLine     string `json:"release_line"`
+		AllReleaseLines bool   `json:"all_release_lines"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine); err != nil {
+		if err := validateComponentLineAnyEnvScope(args.Namespace, args.Project, args.Component, args.ReleaseLine, args.AllReleaseLines); err != nil {
 			return handler.handleToolResult(req, nil, err)
 		}
 		result, err := handler.QueryDoraDeployments(ctx,
-			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine,
+			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
 			args.StartTime, args.EndTime, args.SortOrder, args.Limit,
 		)
 		return handler.handleToolResult(req, result, err)

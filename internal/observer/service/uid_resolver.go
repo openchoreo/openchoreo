@@ -213,13 +213,16 @@ type ReleaseLineScope struct {
 	DefaultOnly bool
 }
 
-// ResolveReleaseLineScope resolves the release line of a component search scope. An empty line
-// covers every line of the component, and the default line keyword covers the default line only.
-func (r *ResourceUIDResolver) ResolveReleaseLineScope(ctx context.Context, namespaceName, componentName, releaseLineName string) (ReleaseLineScope, error) {
-	switch releaseLineName {
-	case "":
+// ResolveReleaseLineScope resolves the release line of a component search scope. Without a line, a
+// component scope covers its default line, as it did before release lines, and allLines covers every
+// line. A scope without a component already covers every line.
+func (r *ResourceUIDResolver) ResolveReleaseLineScope(
+	ctx context.Context, namespaceName, componentName, releaseLineName string, allLines bool,
+) (ReleaseLineScope, error) {
+	switch {
+	case releaseLineName == "" && allLines:
 		return ReleaseLineScope{}, nil
-	case releaseline.DefaultLine:
+	case releaseLineName == "" || releaseLineName == releaseline.DefaultLine:
 		return ReleaseLineScope{DefaultOnly: componentName != ""}, nil
 	}
 	uid, err := r.GetReleaseLineUID(ctx, namespaceName, componentName, releaseLineName)

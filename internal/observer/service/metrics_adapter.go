@@ -191,7 +191,7 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 			return nil, fmt.Errorf("%w: failed to get environment UID: %w", ErrMetricsResolveSearchScope, err)
 		}
 	}
-	lines, err := a.resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+	lines, err := a.resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine, scope.AllReleaseLines)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrMetricsResolveSearchScope, err)
 	}

@@ -283,6 +283,7 @@ func (cp *Component) fetchLogs(
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
 		ReleaseLine:     params.ReleaseLine,
+		AllReleaseLines: params.AllReleaseLines,
 		Limit:           int64(params.Tail),
 		SortOrder:       sortOrder,
 		LogType:         "runtime",

@@ -19,6 +19,8 @@ type CostQueryRequest struct {
 	// ReleaseLine name. Optional; when set, narrows the response to this release line
 	// of the component. Requires Component.
 	ReleaseLine string
+	// AllReleaseLines covers every line of the component. Without it, a component covers its default line.
+	AllReleaseLines bool
 	// StartTime is the inclusive lower bound of the cost window (RFC 3339).
 	StartTime string
 	// EndTime is the exclusive upper bound of the cost window (RFC 3339).
@@ -33,11 +35,12 @@ type CostQueryRequest struct {
 // forwarding, but the FinOps adapter also needs the names forwarded alongside
 // the UIDs (it calls back into the observer's name-based metrics API).
 type RecommendationQueryRequest struct {
-	Namespace   string
-	Environment string
-	Project     string
-	Component   string
-	ReleaseLine string
-	StartTime   string
-	EndTime     string
+	Namespace       string
+	Environment     string
+	Project         string
+	Component       string
+	ReleaseLine     string
+	AllReleaseLines bool
+	StartTime       string
+	EndTime         string
 }

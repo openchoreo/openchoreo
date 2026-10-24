@@ -297,6 +297,7 @@ paths:
         - $ref: "#/components/parameters/FinOpsProject"
         - $ref: "#/components/parameters/FinOpsComponent"
         - $ref: "#/components/parameters/FinOpsReleaseLine"
+        - $ref: "#/components/parameters/FinOpsAllReleaseLines"
         - $ref: "#/components/parameters/FinOpsStartTime"
         - $ref: "#/components/parameters/FinOpsEndTime"
         - $ref: "#/components/parameters/FinOpsGranularity"
@@ -363,6 +364,7 @@ paths:
         - $ref: "#/components/parameters/FinOpsProject"
         - $ref: "#/components/parameters/FinOpsComponent"
         - $ref: "#/components/parameters/FinOpsReleaseLine"
+        - $ref: "#/components/parameters/FinOpsAllReleaseLines"
         - $ref: "#/components/parameters/FinOpsStartTime"
         - $ref: "#/components/parameters/FinOpsEndTime"
       responses:
@@ -1290,10 +1292,17 @@ components:
       name: releaseLine
       in: query
       required: false
-      description: Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers every line of the component. Requires `component`.
+      description: Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers the component's default line, unless `allReleaseLines` is set. Requires `component`.
       schema:
         type: string
         example: next
+    FinOpsAllReleaseLines:
+      name: allReleaseLines
+      in: query
+      required: false
+      description: Covers every line of the component, its default line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
+      schema:
+        type: boolean
     FinOpsStartTime:
       name: startTime
       in: query
@@ -1528,7 +1537,10 @@ components:
           type: string
         releaseLine:
           type: string
-          description: Restricts the result to one release line of the component, and default to its default line. Omitted covers every line of the component. Requires component. Logs, events, metrics and traces also require environment.
+          description: Restricts the result to one release line of the component, and default to its default line. Omitted covers the component's default line, unless allReleaseLines is set. Requires component. Logs, events, metrics and traces also require environment.
+        allReleaseLines:
+          type: boolean
+          description: Covers every line of the component, its default line and its release lines. Can't be combined with releaseLine. Has no effect without component, since a project or environment scope already covers every line.
       required: [namespace]
 
     WorkflowSearchScope:

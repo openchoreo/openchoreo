@@ -19,6 +19,14 @@ func strPtr(s string) *string {
 	return &s
 }
 
+// truePtr returns a pointer to true, or nil for false.
+func truePtr(b bool) *bool {
+	if !b {
+		return nil
+	}
+	return &b
+}
+
 // parseRFC3339Time parses a time string in RFC3339 format.
 func parseRFC3339Time(timeStr string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, timeStr)
@@ -55,8 +63,11 @@ func validateComponentScope(namespace, project, component string) error {
 
 // validateComponentLineScope validates a component scope that may name a release line, which
 // requires the component and the environment.
-func validateComponentLineScope(namespace, project, component, environment, releaseLine string) error {
+func validateComponentLineScope(namespace, project, component, environment, releaseLine string, allReleaseLines bool) error {
 	if err := validateComponentScope(namespace, project, component); err != nil {
+		return err
+	}
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
 		return err
 	}
 	if releaseLine != "" && (component == "" || environment == "") {
@@ -65,10 +76,21 @@ func validateComponentLineScope(namespace, project, component, environment, rele
 	return nil
 }
 
+// validateAllReleaseLines rejects all_release_lines alongside a named release line.
+func validateAllReleaseLines(releaseLine string, allReleaseLines bool) error {
+	if allReleaseLines && releaseLine != "" {
+		return invalidArgument(fmt.Errorf("set release_line or all_release_lines, not both"))
+	}
+	return nil
+}
+
 // validateComponentLineAnyEnvScope validates a component scope that may name a release line on a
 // query that spans environments, which requires only the component.
-func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine string) error {
+func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine string, allReleaseLines bool) error {
 	if err := validateComponentScope(namespace, project, component); err != nil {
+		return err
+	}
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
 		return err
 	}
 	if releaseLine != "" && component == "" {
@@ -80,13 +102,24 @@ func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine
 // releaseLineProperty is the release_line argument of component-scoped query tools.
 func releaseLineProperty() map[string]any {
 	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
-		"the component's default line. Omit it to cover every line. Requires component and environment")
+		"the component's default line. Omitted, the result covers the default line unless all_release_lines is set. " +
+		"Requires component and environment")
 }
 
 // releaseLineAnyEnvProperty is the release_line argument of query tools that span environments.
 func releaseLineAnyEnvProperty() map[string]any {
 	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
-		"the component's default line. Omit it to cover every line. Requires component")
+		"the component's default line. Omitted, the result covers the default line unless all_release_lines is set. " +
+		"Requires component")
+}
+
+// allReleaseLinesProperty is the all_release_lines argument of component-scoped query tools.
+func allReleaseLinesProperty() map[string]any {
+	return map[string]any{
+		"type": "boolean",
+		"description": "Cover every line of the component, its default line and its release lines. " +
+			"Can't be combined with release_line",
+	}
 }
 
 // validateFinOpsScope validates the scope fields for FinOps queries, which

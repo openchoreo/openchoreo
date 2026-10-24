@@ -5,6 +5,7 @@ package incidententry
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -51,4 +52,38 @@ func TestIncidentEntries_ReleaseLine(t *testing.T) {
 	got, err := store.GetIncidentEntry(ctx, nextID)
 	require.NoError(t, err)
 	assert.Equal(t, "line-next", got.ReleaseLineID)
+}
+
+func TestIncidentEntries_DefaultLineIncludesRowsFromBeforeReleaseLines(t *testing.T) {
+	t.Parallel()
+
+	dsn := "file:" + filepath.Join(t.TempDir(), "incidents.db")
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+	ctx := context.Background()
+	require.NoError(t, store.Initialize(ctx))
+
+	for _, line := range []struct{ name, id string }{{"old", ""}, {"", ""}, {"next", "line-next"}} {
+		_, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
+			AlertID:         "alert-" + line.name,
+			Timestamp:       "2026-03-07T10:20:30Z",
+			ComponentID:     "component-1",
+			ReleaseLineName: line.name,
+			ReleaseLineID:   line.id,
+		})
+		require.NoError(t, err)
+	}
+	// A row stored before release lines has no value in the release line columns.
+	db, err := sql.Open("sqlite", dsn)
+	require.NoError(t, err)
+	_, err = db.Exec(`UPDATE incident_entries SET release_line_name = NULL, release_line_id = NULL WHERE alert_id = 'alert-old'`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	_, total, err := store.QueryIncidentEntries(ctx, QueryParams{
+		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1", DefaultLineOnly: true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total, "the default line covers rows with an empty or missing release line")
 }

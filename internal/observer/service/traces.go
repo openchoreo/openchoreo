@@ -119,7 +119,7 @@ func (s *TracesService) resolveSearchScope(ctx context.Context, scope *types.Com
 	}
 
 	if scope.Component != "" {
-		lines, err = s.resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine)
+		lines, err = s.resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine, scope.AllReleaseLines)
 		if err != nil {
 			return "", "", "", ReleaseLineScope{}, fmt.Errorf("failed to resolve release line: %w", err)
 		}

@@ -134,7 +134,7 @@ occ component logs hello --release-line next --namespace default --project defau
 occ component exec hello --release-line next --namespace default --project default
 ```
 
-`exec` without `--release-line` runs in a pod of the default line. `logs` without it shows the logs of every line, and `--release-line default` shows the default line's only.
+Without `--release-line`, `exec` runs in a pod of the default line and `logs` shows the default line's logs, as for a component without lines. `logs --all-release-lines` shows the logs of every line.
 
 ## GitOps
 

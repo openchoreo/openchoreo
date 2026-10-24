@@ -153,11 +153,14 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 	if scope.Project == "" && scope.Component != "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	return validateReleaseLineScope(scope.Component, scope.Environment, scope.ReleaseLine)
+	return validateReleaseLineScope(scope.Component, scope.Environment, scope.ReleaseLine, scope.AllReleaseLines)
 }
 
 // validateReleaseLineScope requires a component and an environment alongside a release line.
-func validateReleaseLineScope(component, environment, releaseLine string) error {
+func validateReleaseLineScope(component, environment, releaseLine string, allReleaseLines bool) error {
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
+		return err
+	}
 	if strings.TrimSpace(releaseLine) != "" && (strings.TrimSpace(component) == "" || strings.TrimSpace(environment) == "") {
 		return fmt.Errorf("searchScope.component and searchScope.environment are required when searchScope.releaseLine is provided")
 	}
@@ -166,9 +169,20 @@ func validateReleaseLineScope(component, environment, releaseLine string) error 
 
 // validateReleaseLineComponentScope validates a release line on a query that spans environments,
 // which needs only the component the line belongs to.
-func validateReleaseLineComponentScope(component, releaseLine string) error {
+func validateReleaseLineComponentScope(component, releaseLine string, allReleaseLines bool) error {
+	if err := validateAllReleaseLines(releaseLine, allReleaseLines); err != nil {
+		return err
+	}
 	if strings.TrimSpace(releaseLine) != "" && strings.TrimSpace(component) == "" {
 		return fmt.Errorf("searchScope.component is required when searchScope.releaseLine is provided")
+	}
+	return nil
+}
+
+// validateAllReleaseLines rejects allReleaseLines alongside a release line.
+func validateAllReleaseLines(releaseLine string, allReleaseLines bool) error {
+	if allReleaseLines && strings.TrimSpace(releaseLine) != "" {
+		return fmt.Errorf("set searchScope.releaseLine or searchScope.allReleaseLines, not both")
 	}
 	return nil
 }
@@ -619,7 +633,7 @@ func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
 	if req.SearchScope.Component != "" && req.SearchScope.Project == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	if err := validateReleaseLineScope(req.SearchScope.Component, req.SearchScope.Environment, req.SearchScope.ReleaseLine); err != nil {
+	if err := validateReleaseLineScope(req.SearchScope.Component, req.SearchScope.Environment, req.SearchScope.ReleaseLine, req.SearchScope.AllReleaseLines); err != nil {
 		return err
 	}
 
@@ -803,7 +817,8 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	if componentVal != "" && projectVal == "" {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	if err := validateReleaseLineScope(componentVal, derefString(req.SearchScope.Environment), derefString(req.SearchScope.ReleaseLine)); err != nil {
+	if err := validateReleaseLineScope(componentVal, derefString(req.SearchScope.Environment), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
 		return err
 	}
 
@@ -851,7 +866,8 @@ func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine)); err != nil {
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
 		return err
 	}
 	if req.Limit != nil {
@@ -894,7 +910,8 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine)); err != nil {
+	if err := validateReleaseLineComponentScope(derefString(req.SearchScope.Component), derefString(req.SearchScope.ReleaseLine),
+		derefBool(req.SearchScope.AllReleaseLines)); err != nil {
 		return err
 	}
 	if req.Limit != nil {
@@ -955,6 +972,9 @@ func ValidateCostQueryRequest(req *types.CostQueryRequest) error {
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
 	}
+	if req.AllReleaseLines && strings.TrimSpace(req.ReleaseLine) != "" {
+		return fmt.Errorf("set releaseLine or allReleaseLines, not both")
+	}
 	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
 		return fmt.Errorf("releaseLine requires component to also be set")
 	}
@@ -980,6 +1000,9 @@ func ValidateRecommendationQueryRequest(req *types.RecommendationQueryRequest) e
 	}
 	if strings.TrimSpace(req.Component) != "" && strings.TrimSpace(req.Project) == "" {
 		return fmt.Errorf("component requires project to also be set")
+	}
+	if req.AllReleaseLines && strings.TrimSpace(req.ReleaseLine) != "" {
+		return fmt.Errorf("set releaseLine or allReleaseLines, not both")
 	}
 	if strings.TrimSpace(req.ReleaseLine) != "" && strings.TrimSpace(req.Component) == "" {
 		return fmt.Errorf("releaseLine requires component to also be set")
@@ -1120,5 +1143,6 @@ func validateDoraScopeAndWindow(scope *gen.ComponentSearchScope, startTime, endT
 		(scope.Project == nil || strings.TrimSpace(*scope.Project) == "") {
 		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
-	return validateReleaseLineComponentScope(derefString(scope.Component), derefString(scope.ReleaseLine))
+	return validateReleaseLineComponentScope(derefString(scope.Component), derefString(scope.ReleaseLine),
+		derefBool(scope.AllReleaseLines))
 }

@@ -36,7 +36,7 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
-	defaultLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.DefaultLine
+	defaultLineOnly := defaultLineOnly(scope)
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -111,7 +111,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	scope := &req.SearchScope
 
 	var projectUID, componentUID, environmentUID, releaseLineUID string
-	defaultLineOnly := stringPtrValue(scope.ReleaseLine) == releaseline.DefaultLine
+	defaultLineOnly := defaultLineOnly(scope)
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -392,6 +392,21 @@ func incidentSortOrderOrDefault(order *gen.IncidentsQueryRequestSortOrder) gen.I
 		return gen.IncidentsQueryRequestSortOrderDesc
 	}
 	return *order
+}
+
+// defaultLineOnly reports whether a component search scope covers only the component's default
+// line: it names the default line, or names no line without asking for every line.
+func defaultLineOnly(scope *gen.ComponentSearchScope) bool {
+	if strings.TrimSpace(stringPtrValue(scope.Component)) == "" {
+		return false
+	}
+	switch strings.TrimSpace(stringPtrValue(scope.ReleaseLine)) {
+	case releaseline.DefaultLine:
+		return true
+	case "":
+		return scope.AllReleaseLines == nil || !*scope.AllReleaseLines
+	}
+	return false
 }
 
 func stringPtrValue(v *string) string {
