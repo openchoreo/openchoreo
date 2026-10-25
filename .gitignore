@@ -46,3 +46,6 @@ go.work
 # Log files
 *.log
 test/e2e/_diagnostics/*
+
+# Local post-render validation sample projects (test fixtures, not committed)
+tools/lint/testData/sample-projects/
