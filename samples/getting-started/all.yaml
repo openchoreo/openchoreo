@@ -258,6 +258,16 @@ spec:
             - Never
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -274,6 +284,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -450,6 +462,16 @@ spec:
             - Never
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -466,6 +488,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -719,6 +743,16 @@ spec:
             - Never
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -735,6 +769,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -969,6 +1005,16 @@ spec:
             - Never
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+
     - id: cronjob
       template:
         apiVersion: batch/v1
@@ -995,6 +1041,8 @@ spec:
                   labels: ${metadata.podSelectors}
                 spec:
                   restartPolicy: ${parameters.restartPolicy}
+                  serviceAccountName: ${metadata.name}
+                  automountServiceAccountToken: false
                   containers:
                     - name: main
                       image: ${workload.container.image}
