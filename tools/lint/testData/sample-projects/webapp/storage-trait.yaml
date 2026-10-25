@@ -1,0 +1,31 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: storage
+  namespace: default
+  labels:
+    openchoreo.dev/name: storage
+  annotations:
+    openchoreo.dev/display-name: Storage
+    openchoreo.dev/description: Attaches persistent storage and requires a single replica.
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-data
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+  postRenderValidations:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      rule: ${resource.spec.replicas <= 2}
+      message: "storage requires at most 1 replica"

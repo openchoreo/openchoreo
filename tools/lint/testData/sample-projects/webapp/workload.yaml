@@ -1,0 +1,20 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: web-app
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: web-app
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      visibility:
+        - external
+  container:
+    image: nginx:1.25
+    env:
+      - key: PORT
+        value: "8080"

@@ -1,0 +1,25 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: default
+  namespace: default
+  labels:
+    openchoreo.dev/name: default
+  annotations:
+    openchoreo.dev/display-name: Default Data Plane
+    openchoreo.dev/description: The default data plane the web application is deployed to.
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      secretKeyRef:
+        name: cluster-agent-client-ca
+        key: ca.crt
+  gateway:
+    egress:
+      external:
+        name: gateway-default
+        namespace: openchoreo-system
+        http:
+          host: web-app.example.com
+          port: 443

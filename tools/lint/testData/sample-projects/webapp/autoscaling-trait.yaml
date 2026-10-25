@@ -1,0 +1,20 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: autoscaling
+  namespace: default
+  labels:
+    openchoreo.dev/name: autoscaling
+  annotations:
+    openchoreo.dev/display-name: Autoscaling
+    openchoreo.dev/description: Scales the workload's Deployment to three replicas.
+spec:
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: replace
+          path: /spec/replicas
+          value: 2

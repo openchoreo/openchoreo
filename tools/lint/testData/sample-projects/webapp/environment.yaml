@@ -1,0 +1,15 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: development
+  namespace: default
+  labels:
+    openchoreo.dev/name: development
+  annotations:
+    openchoreo.dev/display-name: Development
+    openchoreo.dev/description: Development environment for the web application.
+spec:
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
+  isProduction: false

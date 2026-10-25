@@ -1,0 +1,25 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: web-app
+  namespace: default
+  labels:
+    openchoreo.dev/name: web-app
+  annotations:
+    openchoreo.dev/display-name: Web App
+    openchoreo.dev/description: The web application rendered by the web-application ComponentType.
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ComponentType
+    name: deployment/web-application
+  parameters:
+    replicas: 1
+    port: 8080
+  traits:
+    - name: autoscaling
+      instanceName: auto
+    - name: storage
+      instanceName: data
