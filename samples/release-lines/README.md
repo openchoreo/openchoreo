@@ -4,12 +4,12 @@ This sample builds two lines of the same component from two branches of a Git re
 
 Every component has an implicit `default` line, which is the component itself: its Workload, ComponentReleases and ReleaseBindings leave `spec.owner.releaseLine` empty, and nothing about them changes when other lines are added. A `ReleaseLine` adds another line next to it, with its own Workload, releases and binding per environment. Adding a line to an existing component needs no migration and no change to what already runs. `default` is reserved: no ReleaseLine can take that name.
 
-The sample uses [go-greeter](https://github.com/chathuranga95/go-greeter):
+The sample builds the [greeter service](https://github.com/openchoreo/sample-workloads/tree/main/service-go-greeter) of the OpenChoreo sample workloads, which reports its version at `/greeter/version`:
 
-| Release line | Branch | Response version |
+| Release line | Branch | Version |
 |---|---|---|
 | `default` (the component) | `main` | `v1.0` |
-| `next` | `next` | `v1.1` |
+| `next` | `release-lines-next` | `v1.1` |
 
 ## Files
 
@@ -35,7 +35,7 @@ occ component workflow run hello --namespace default
 occ component workflow run hello --release-line next --namespace default
 ```
 
-The first run builds the default line, the same as for any component, and `--release-line default` does the same. The second builds the `next` branch. Each run creates or updates its line's Workload from the branch's `workload.yaml`, and the line deploys to the first environment of the pipeline.
+The first run builds the default line, the same as for any component, and `--release-line default` does the same. The second builds the `release-lines-next` branch. Each run creates or updates its line's Workload from the branch's `workload.yaml`, and the line deploys to the first environment of the pipeline.
 
 ```bash
 kubectl get releaselines,workloads,releasebindings -n default
@@ -76,12 +76,14 @@ The API server serves these under `/api/v1/namespaces/default/components/hello/r
 ## Call each line
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/hello-http/greet
+curl http://development-default.openchoreoapis.localhost:19080/hello-greeter-api/greeter/version
 ```
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/hello-next-http/greet
+curl http://development-default.openchoreoapis.localhost:19080/hello-next-greeter-api/greeter/version
 ```
+
+The default line answers `v1.0` and `next` answers `v1.1`.
 
 All lines render into the project's namespace. The default line's objects keep the names a component without lines gets. A release line's objects are named from `metadata.name`, or from `metadata.componentName` and `metadata.releaseLineName`, so they never take the default line's names. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
 
@@ -96,7 +98,7 @@ dependencies:
   endpoints:
     - component: hello
       releaseLine: next
-      name: http
+      name: greeter-api
       visibility: project
       envBindings:
         address: HELLO_URL
@@ -134,7 +136,7 @@ occ component logs hello --release-line next --namespace default --project defau
 occ component exec hello --release-line next --namespace default --project default
 ```
 
-Without `--release-line`, `exec` runs in a pod of the default line and `logs` shows the default line's logs, as for a component without lines. `logs --all-release-lines` shows the logs of every line.
+Without `--release-line`, `exec` runs in a pod of the default line and `logs` shows the default line's logs, as for a component without lines. The greeter logs each greeting and version request with its version, so each line's logs show which build served it. `logs --all-release-lines` shows the logs of every line.
 
 ## GitOps
 

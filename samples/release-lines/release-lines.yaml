@@ -21,24 +21,24 @@ spec:
     name: dockerfile-builder
     parameters:
       repository:
-        url: "https://github.com/chathuranga95/go-greeter"
+        url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-        appPath: "."
+        appPath: "/service-go-greeter"
       docker:
-        context: "."
-        filePath: "./Dockerfile"
+        context: "/service-go-greeter"
+        filePath: "/service-go-greeter/Dockerfile"
 
 ---
 
-# Inherits everything on the Component, builds from the next branch, and adds health probes.
+# Inherits everything on the Component, builds from the release-lines-next branch, and adds health probes.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ReleaseLine
 metadata:
   name: next
   namespace: default
   annotations:
-    openchoreo.dev/description: "Preview line, built from the next branch"
+    openchoreo.dev/description: "Preview line, built from the release-lines-next branch"
 spec:
   owner:
     projectName: default
@@ -47,7 +47,7 @@ spec:
     parameters:
       repository:
         revision:
-          branch: "next"
+          branch: "release-lines-next"
           # commit: <commit-sha>
   traits:
     - kind: ClusterTrait
@@ -58,11 +58,11 @@ spec:
           enabled: true
           handler:
             httpGet:
-              path: /greet
+              path: /readyz
               port: 9090
         liveness:
           enabled: true
           handler:
             httpGet:
-              path: /greet
+              path: /healthz
               port: 9090
