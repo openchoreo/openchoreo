@@ -274,3 +274,273 @@ func resourceIdentity(rr renderer.RenderedResource) string {
 	}
 	return fmt.Sprintf("%s/%s", template.TruncateFragment(kind), template.TruncateFragment(name))
 }
+
+// PostRenderFailure is the structured form of one declared post-render validation
+// failure. RenderForLint captures these instead of discarding them the way Render's
+// joined error does, so a caller such as the linter can turn each failure into a
+// diagnostic without parsing error text. The fields mirror the parts of the joined
+// error message that identify where the failure came from and what it said.
+type PostRenderFailure struct {
+	// Label identifies the declaring source, e.g. "Trait post/p1" or
+	// "ComponentType web". It matches the label embedded in the joined error.
+	Label string
+
+	// Kind is the target kind the validation selected, e.g. "Deployment".
+	Kind string
+
+	// Resource names the matched resource the failure is about, as "Kind/name".
+	// It is empty when the failure is not tied to a specific resource: a mustMatch
+	// failure that matched nothing, or a when/forEach/where evaluation error.
+	Resource string
+
+	// Message is the failure message: the declared message of a rule failure, or the
+	// error description of an evaluation failure. Declared messages are truncated the
+	// same way the joined error truncates them.
+	Message string
+
+	// Iteration describes the failing forEach iteration, e.g. "forEach route=...".
+	// It is empty when the validation has no forEach or the failure is not per-item.
+	Iteration string
+}
+
+// lintPostRenderCollector collects structured post-render failures and their joined
+// errors for the lint path. It mirrors the bounded-collection behavior of
+// postRenderErrors but additionally records each failure's structured form, so a
+// linter can report individual diagnostics without parsing error text.
+type lintPostRenderCollector struct {
+	errs     []error
+	failures []PostRenderFailure
+	capped   bool
+}
+
+// add records a failure - as joined-error text and as a structured PostRenderFailure -
+// and reports whether the sweep should stop: either the cap is now full, or the render
+// was aborted and every remaining validation would fail the same way. A nil error
+// records nothing and never stops the sweep.
+func (c *lintPostRenderCollector) add(err error, failure PostRenderFailure) (stop bool) {
+	if err == nil {
+		return false
+	}
+	c.errs = append(c.errs, err)
+	c.failures = append(c.failures, failure)
+	if len(c.errs) >= maxPostRenderErrors {
+		c.capped = true
+	}
+	return c.capped || template.IsRenderAborted(err)
+}
+
+func (c *lintPostRenderCollector) err() error {
+	errs := c.errs
+	if c.capped {
+		errs = append(append([]error(nil), errs...),
+			fmt.Errorf("validation stopped after %d failures", maxPostRenderErrors))
+	}
+	return errors.Join(errs...)
+}
+
+// evaluatePostRenderValidationsForLint runs pending validations against the fully
+// rendered resource set and returns each failure's structured PostRenderFailure form
+// alongside the same joined error that evaluatePostRenderValidations would produce.
+// It calls the same existing helpers (filterByWhere, resourceIdentity, iterationDescriber,
+// trait.FindTargetResources, renderer.ShouldInclude, engine.Render, renderer.ToIterableItems)
+// that the production evaluation uses, so the selection and rule-evaluation semantics are
+// identical; the only difference is that structured failures are captured for the caller.
+func evaluatePostRenderValidationsForLint(
+	ctx context.Context,
+	engine *template.Engine,
+	resources []renderer.RenderedResource,
+	pending []pendingPostRender,
+) ([]PostRenderFailure, error) {
+	collected := &lintPostRenderCollector{}
+	for _, p := range pending {
+		for i := range p.validations {
+			if stop := evaluateOnePostRenderForLint(ctx, engine, resources, p, p.validations[i], collected); stop {
+				return collected.failures, collected.err()
+			}
+		}
+	}
+	return collected.failures, collected.err()
+}
+
+// evaluateOnePostRenderForLint mirrors evaluateOnePostRender but feeds the
+// lintPostRenderCollector so each failure is also recorded as a structured
+// PostRenderFailure. It calls the same existing helpers for when-guard evaluation,
+// forEach iteration, and selection.
+func evaluateOnePostRenderForLint(
+	ctx context.Context,
+	engine *template.Engine,
+	resources []renderer.RenderedResource,
+	p pendingPostRender,
+	v v1alpha1.PostRenderValidation,
+	collected *lintPostRenderCollector,
+) (stop bool) {
+	if v.When != "" {
+		include, err := renderer.ShouldInclude(ctx, engine, v.When, p.context)
+		if err != nil {
+			return collected.add(
+				fmt.Errorf("%q post-render validation: when evaluation error: %w", p.label, err),
+				PostRenderFailure{
+					Label:   p.label,
+					Kind:    v.Target.Kind,
+					Message: fmt.Sprintf("when evaluation error: %v", err),
+				})
+		}
+		if !include {
+			return false
+		}
+	}
+
+	if v.ForEach == "" {
+		return evaluatePostRenderSelectionForLint(ctx, engine, resources, p.label, nil, p.context, v, collected)
+	}
+
+	itemsRaw, err := engine.Render(ctx, v.ForEach, p.context)
+	if err != nil {
+		return collected.add(
+			fmt.Errorf("%q post-render validation: forEach evaluation error: %w", p.label, err),
+			PostRenderFailure{
+				Label:   p.label,
+				Kind:    v.Target.Kind,
+				Message: fmt.Sprintf("forEach evaluation error: %v", err),
+			})
+	}
+	items, err := renderer.ToIterableItems(ctx, itemsRaw)
+	if err != nil {
+		return collected.add(
+			fmt.Errorf("%q post-render validation: invalid forEach result: %w", p.label, err),
+			PostRenderFailure{
+				Label:   p.label,
+				Kind:    v.Target.Kind,
+				Message: fmt.Sprintf("invalid forEach result: %v", err),
+			})
+	}
+	varName := v.Var
+	if varName == "" {
+		varName = "item"
+	}
+	for _, item := range items {
+		iterCtx := maps.Clone(p.context)
+		iterCtx[varName] = item
+		if stop := evaluatePostRenderSelectionForLint(ctx, engine, resources, p.label,
+			iterationDescriber(varName, item), iterCtx, v, collected); stop {
+			return true
+		}
+	}
+	return false
+}
+
+// evaluatePostRenderSelectionForLint mirrors evaluatePostRenderSelection but records
+// each failure as a structured PostRenderFailure in the lint collector. It calls the
+// same existing helpers for target selection (trait.FindTargetResources), where
+// filtering (filterByWhere), and resource identification (resourceIdentity).
+func evaluatePostRenderSelectionForLint(
+	ctx context.Context,
+	engine *template.Engine,
+	resources []renderer.RenderedResource,
+	label string,
+	iterDesc func() string,
+	celContext map[string]any,
+	v v1alpha1.PostRenderValidation,
+	collected *lintPostRenderCollector,
+) (stop bool) {
+	suffix := func() string {
+		if iterDesc == nil {
+			return ""
+		}
+		return " (" + iterDesc() + ")"
+	}
+
+	iteration := ""
+	if iterDesc != nil {
+		iteration = iterDesc()
+	}
+
+	target := trait.TargetSpec{
+		Kind:        v.Target.Kind,
+		Group:       v.Target.Group,
+		Version:     v.Target.Version,
+		TargetPlane: v.TargetPlaneOrDefault(),
+	}
+	matched := trait.FindTargetResources(resources, target)
+
+	if v.Target.Where != "" {
+		filtered, err := filterByWhere(ctx, engine, matched, v.Target.Where, celContext)
+		if err != nil {
+			return collected.add(
+				fmt.Errorf("%q post-render validation: %w", label, err),
+				PostRenderFailure{
+					Label:   label,
+					Kind:    v.Target.Kind,
+					Message: err.Error(),
+				})
+		}
+		matched = filtered
+	}
+
+	if len(matched) == 0 {
+		if v.Target.MustMatchOrDefault() {
+			return collected.add(
+				fmt.Errorf("%q post-render validation: no resource matched target %s/%s/%s%s",
+					label, v.Target.Group, v.Target.Version, v.Target.Kind, suffix()),
+				PostRenderFailure{
+					Label:     label,
+					Kind:      v.Target.Kind,
+					Message:   fmt.Sprintf("no resource matched target %s/%s/%s", v.Target.Group, v.Target.Version, v.Target.Kind),
+					Iteration: iteration,
+				})
+		}
+		return false
+	}
+
+	for _, rr := range matched {
+		rctx := maps.Clone(celContext)
+		rctx["resource"] = rr.Resource
+		result, err := engine.Render(ctx, v.Rule, rctx)
+		if err != nil {
+			if collected.add(
+				fmt.Errorf("%q post-render rule evaluation error on %s: %w%s",
+					label, resourceIdentity(rr), err, suffix()),
+				PostRenderFailure{
+					Label:     label,
+					Kind:      v.Target.Kind,
+					Resource:  resourceIdentity(rr),
+					Message:   fmt.Sprintf("rule evaluation error: %v", err),
+					Iteration: iteration,
+				}) {
+				return true
+			}
+			continue
+		}
+		boolResult, ok := result.(bool)
+		if !ok {
+			if collected.add(
+				fmt.Errorf("%q post-render rule on %s must evaluate to boolean, got %T%s",
+					label, resourceIdentity(rr), result, suffix()),
+				PostRenderFailure{
+					Label:     label,
+					Kind:      v.Target.Kind,
+					Resource:  resourceIdentity(rr),
+					Message:   fmt.Sprintf("rule must evaluate to boolean, got %T", result),
+					Iteration: iteration,
+				}) {
+				return true
+			}
+			continue
+		}
+		if !boolResult {
+			if collected.add(
+				fmt.Errorf("%q post-render validation on %s failed: %s%s",
+					label, resourceIdentity(rr), template.TruncateFragment(v.Message), suffix()),
+				PostRenderFailure{
+					Label:     label,
+					Kind:      v.Target.Kind,
+					Resource:  resourceIdentity(rr),
+					Message:   template.TruncateFragment(v.Message),
+					Iteration: iteration,
+				}) {
+				return true
+			}
+		}
+	}
+	return false
+}

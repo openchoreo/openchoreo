@@ -25,10 +25,13 @@ import (
 	"github.com/openchoreo/openchoreo/tools/lint/fixer"
 	"github.com/openchoreo/openchoreo/tools/lint/parallel"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	postrendervalidator "github.com/openchoreo/openchoreo/tools/lint/post-render-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/openchoreo/openchoreo/tools/lint/suppress"
 	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
+
+	"context"
 )
 
 // linterVersion is the version the linter reports, in the -obj report's
@@ -312,13 +315,14 @@ type validateFlags struct {
 	templateVersion string
 	fix             bool
 	dryRun          bool
+	render          bool
 }
 
 // runValidate performs a validation run. Flag parsing, arity checking and the
 // -dry-run/-fix dependency check are the command's responsibility; everything
 // here is the actual work.
 func runValidate(f validateFlags, path string) error {
-	cfg := fixConfig{enabled: f.fix, dryRun: f.dryRun, maxDistance: 3}
+	cfg := fixConfig{enabled: f.fix, dryRun: f.dryRun, maxDistance: 3, render: f.render}
 	if f.noColor {
 		colorOutput = false
 	}
@@ -388,6 +392,23 @@ func runValidate(f validateFlags, path string) error {
 	}
 
 	errs, warns, wrote := validateFile(path, false, buildNamesForFile(path), cfg)
+	if f.render {
+		// A single file cannot be rendered on its own: the bundle needs the
+		// ComponentType, Component and Workload, so the whole folder that
+		// holds the file is rendered instead.
+		siblings, serr := collectYAMLFiles(filepath.Dir(path), false)
+		if serr == nil {
+			for _, d := range runPostRenderValidation(siblings) {
+				printDiagnostic(d)
+				switch d.Severity {
+				case "error":
+					errs++
+				case "warning":
+					warns++
+				}
+			}
+		}
+	}
 	if errs > 0 {
 		fmt.Printf("Validation failed: %d error(s), %d warning(s)%s\n", errs, warns, summaryNote(cfg, countRewritten(wrote)))
 		fmt.Printf("Hint: try 'occ lint vali -fix <folder path>'\n")
@@ -409,6 +430,71 @@ func RunValidate(path string) error {
 	}
 	fmt.Printf("Validation passed: %d warning(s)%s\n", warns, summaryNote(fixConfig{}, countRewritten(wrote)))
 	return nil
+}
+
+// runPostRenderValidation renders the OpenChoreo documents found in the given
+// files as one bundle and reports the post-render diagnostics. The bundle needs
+// the ComponentType, the Component and the Workload together, so a single-file
+// run has to be given its siblings rather than just the file it was asked
+// about. It returns the diagnostics with the file they belong to; a diagnostic
+// that cannot be attributed to one document is attached to the first file.
+func runPostRenderValidation(files []string) []diagnosticJSON {
+	if len(files) == 0 {
+		return nil
+	}
+	var docs []*parser.DocumentNode
+	var sources []postRenderSource
+	for _, p := range files {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		parsed, err := parser.ParseYAML(data)
+		if err != nil {
+			continue
+		}
+		for _, d := range parsed {
+			docs = append(docs, d)
+			sources = append(sources, postRenderSource{doc: d, file: p})
+		}
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+
+	bundle, err := postrendervalidator.BundleFromDocuments(docs)
+	if err != nil {
+		return []diagnosticJSON{{
+			File:     files[0],
+			Severity: "error",
+			Code:     "post-render-error",
+			Message:  err.Error(),
+		}}
+	}
+
+	diags, err := postrendervalidator.ValidateBundle(context.Background(), bundle)
+	if err != nil {
+		return []diagnosticJSON{{
+			File:     files[0],
+			Severity: "error",
+			Code:     "post-render-error",
+			Message:  err.Error(),
+		}}
+	}
+
+	out := make([]diagnosticJSON, 0, len(diags))
+	for _, d := range diags {
+		file, pos := resolvePostRenderDiagnostic(d, sources, files[0])
+		out = append(out, diagnosticJSON{
+			File:     file,
+			Severity: severityName(d.Severity),
+			Code:     d.Code,
+			Line:     pos.Line,
+			Column:   pos.Column,
+			Message:  d.Message,
+		})
+	}
+	return out
 }
 
 // countRewritten turns a single file's rewritten flag into the count the
@@ -525,6 +611,8 @@ type fixConfig struct {
 	dryRun bool
 	// maxDistance is the largest edit distance accepted for a replacement.
 	maxDistance int
+	// render enables post-render validation.
+	render bool
 }
 
 // summaryNote qualifies a run's totals. A dry run's totals are the issues that
@@ -714,6 +802,16 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 		}
 		all = append(all, out.diags...)
 		allFixes = append(allFixes, fixReports(out.path, out.fixes, out.dryRun)...)
+	}
+
+	if cfg.render {
+		renderDiags := runPostRenderValidation(files)
+		all = append(all, renderDiags...)
+		for _, d := range renderDiags {
+			if d.Severity == "error" {
+				failed = true
+			}
+		}
 	}
 
 	printJSON(all, allFixes)
@@ -976,6 +1074,30 @@ func printFixReport(out fileOutcome, includePath bool) {
 // (batch mode), the report is only printed if the file has issues and every
 // diagnostic line is prefixed with the file path. It returns the outcome's
 // error and warning counts, and whether the file was rewritten on disk.
+// printDiagnostic prints a single diagnostic in the same shape as the
+// per-file report, so a post-render finding reads like any other finding.
+func printDiagnostic(d diagnosticJSON) {
+	sev := ruleengine.SeverityError
+	if d.Severity == "warning" {
+		sev = ruleengine.SeverityWarning
+	}
+	loc := d.File
+	if d.Line > 0 {
+		loc = fmt.Sprintf("%s:%d:%d", d.File, d.Line, d.Column)
+	}
+	fmt.Printf("  %s %s [%s] %s\n", iconFor(sev), loc, d.Code, d.Message)
+}
+
+// hasErrorDiag reports whether any of the given diagnostics is an error.
+func hasErrorDiag(diags []diagnosticJSON) bool {
+	for _, d := range diags {
+		if d.Severity == "error" {
+			return true
+		}
+	}
+	return false
+}
+
 func printFileOutcome(out fileOutcome, includePath bool) (errors, warnings int, wrote bool) {
 	if out.err != nil {
 		fmt.Fprintf(os.Stderr, "Error %v\n", out.err)
@@ -1115,6 +1237,14 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 	outcomes := parallel.Run(files, workers, analyze)
 	validate := time.Since(t)
 
+	var renderDiags []diagnosticJSON
+	if cfg.render {
+		// The bundle needs the ComponentType, Component and Workload together,
+		// so the whole scanned set is rendered as one bundle and the findings
+		// are reported after the per-file report.
+		renderDiags = runPostRenderValidation(files)
+	}
+
 	t = time.Now()
 	var totalErrors, totalWarnings, failed, rewritten int
 	for _, out := range outcomes {
@@ -1123,6 +1253,22 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		totalWarnings += warns
 		rewritten += countRewritten(wrote)
 		if errs > 0 {
+			failed++
+		}
+	}
+	if len(renderDiags) > 0 {
+		fmt.Printf("Post-render validation:\n\n")
+		for _, d := range renderDiags {
+			printDiagnostic(d)
+			switch d.Severity {
+			case "error":
+				totalErrors++
+			case "warning":
+				totalWarnings++
+			}
+		}
+		fmt.Println()
+		if hasErrorDiag(renderDiags) {
 			failed++
 		}
 	}

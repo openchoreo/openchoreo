@@ -226,6 +226,7 @@ func newValidateCmd() *cobra.Command {
 				templateVersion: mustString(cmd, "template-version"),
 				fix:             mustBool(cmd, "fix"),
 				dryRun:          mustBool(cmd, "dry-run"),
+				render:          mustBool(cmd, "render"),
 			}
 			// The dependency check runs before the arity check, so that
 			// 'vali -dry-run' reports the dependency rather than the path.
@@ -253,6 +254,7 @@ func newValidateCmd() *cobra.Command {
 	fs.String("template-version", "", "template version to validate against (e.g. v1.2.0, v1.3.0, latest); also saved as the current version")
 	fs.Bool("fix", false, "repair misspelt field, kind and enum values and normalize YAML formatting")
 	fs.Bool("dry-run", false, "with -fix, print the proposed changes as a diff instead of writing them")
+	fs.Bool("render", false, "enable post-render validation")
 
 	// Keep pflag's diagnostics in the shape the previous flag-based CLI used.
 	// The message and the usage block are printed here, in that order, because

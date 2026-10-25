@@ -13,6 +13,9 @@ Dockerfile.cross
 /auditgen
 /auditcoverage
 
+# Built-in-place tool binaries
+/tools/cel-env-generator/cel-env-generator
+
 # Test binary, built with `go test -c`
 *.test
 

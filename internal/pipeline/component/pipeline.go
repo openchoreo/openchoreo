@@ -354,6 +354,338 @@ func (p *Pipeline) Render(ctx context.Context, input *RenderInput) (*RenderOutpu
 	}, nil
 }
 
+// RenderForLint renders like Render but captures declared post-render validation
+// failures as structured PostRenderFailure values instead of aborting, so a linter
+// can report them and still inspect the fully post-processed resources.
+//
+// Non-post-render errors behave as in Render: Resources is nil and a non-nil error
+// is returned (alongside any failures captured earlier).
+func (p *Pipeline) RenderForLint(ctx context.Context, input *RenderInput) (*RenderOutput, []PostRenderFailure, error) {
+	return p.renderForLint(ctx, input)
+}
+
+// renderForLint mirrors Render but calls evaluatePostRenderValidationsForLint so
+// declared post-render failures are captured and the render continues past them.
+func (p *Pipeline) renderForLint(ctx context.Context, input *RenderInput) (*RenderOutput, []PostRenderFailure, error) {
+	ctx, cancel := template.WithRenderTimeout(ctx, p.renderTimeout)
+	defer cancel()
+
+	ctx = renderer.WithForEachBudget(ctx)
+
+	// Validate input
+	if err := p.validateInput(input); err != nil {
+		return nil, nil, fmt.Errorf("invalid input: %w", err)
+	}
+
+	metadata := &RenderMetadata{
+		Warnings: []string{},
+	}
+
+	lrc, err := p.buildLintRenderContext(ctx, input)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	input.ApplyTargetPlaneDefaults()
+
+	// Render base resources from ComponentType
+	resourceRenderer := renderer.NewRenderer(p.templateEngine)
+	renderedResources, err := resourceRenderer.RenderResources(
+		ctx,
+		input.ComponentType.Spec.Resources,
+		lrc.componentContextMap,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to render base resources: %w", err)
+	}
+	metadata.BaseResourceCount = len(renderedResources)
+
+	run := newLintTraitRun(p.templateEngine, input, lrc, renderedResources)
+
+	// Embedded traits run before component-level traits.
+	if err := run.processEmbeddedTraits(ctx, input, metadata); err != nil {
+		return nil, nil, err
+	}
+	if err := run.processComponentTraits(ctx, input, metadata); err != nil {
+		return nil, nil, err
+	}
+
+	// The lint path captures declared post-render failures; the joined error is
+	// discarded because the structured failures carry the same information.
+	failures, _ := evaluatePostRenderValidationsForLint(ctx, p.templateEngine, run.rendered, run.pendingPostRenders)
+
+	return p.finalizeLintRender(input, run.rendered, failures, metadata)
+}
+
+// lintRenderContext holds the contexts built once and shared across a lint render.
+type lintRenderContext struct {
+	traitBase           pipelinecontext.TraitContextBase
+	componentContextMap map[string]any
+}
+
+// buildLintRenderContext builds the component context and the shared trait context
+// base, and evaluates the ComponentType's pre-render validation rules.
+func (p *Pipeline) buildLintRenderContext(ctx context.Context, input *RenderInput) (*lintRenderContext, error) {
+	// Apply workload overrides from ReleaseBinding if present
+	workload := input.Workload
+	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
+		workload = pipelinecontext.MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+	}
+
+	// Pre-compute workload data and configurations once and share across all contexts
+	workloadData := pipelinecontext.ExtractWorkloadData(workload)
+	configurations := pipelinecontext.ExtractConfigurationsFromWorkload(input.SecretReferences, workload)
+	dependenciesData := pipelinecontext.ConnectionsData{
+		Items:     input.DependencyItems,
+		Resources: input.ResourceDependencyItems,
+	}
+
+	// Endpoint API schema parsing is opt-in: only extract resources when a template
+	// references the workload.toEndpointResources() macro.
+	var endpointResources pipelinecontext.EndpointResourceMap
+	if usesEndpointResources(input) {
+		endpointResources = pipelinecontext.ExtractEndpointResources(workload)
+	}
+
+	traitBase := pipelinecontext.TraitContextBase{
+		Metadata:                   input.Metadata,
+		DataPlane:                  input.DataPlane,
+		Environment:                input.Environment,
+		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
+		Configurations:             configurations,
+		Dependencies:               dependenciesData,
+		DefaultNotificationChannel: input.DefaultNotificationChannel,
+	}
+
+	componentContext, err := pipelinecontext.BuildComponentContext(&pipelinecontext.ComponentContextInput{
+		Component:                  input.Component,
+		ComponentType:              input.ComponentType,
+		ReleaseBinding:             input.ReleaseBinding,
+		DataPlane:                  input.DataPlane,
+		Environment:                input.Environment,
+		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
+		Configurations:             configurations,
+		Dependencies:               dependenciesData,
+		Metadata:                   input.Metadata,
+		DefaultNotificationChannel: input.DefaultNotificationChannel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build component context: %w", err)
+	}
+
+	componentContextMap := componentContext.ToMap()
+
+	if err := renderer.EvaluateValidationRules(
+		ctx,
+		p.templateEngine,
+		input.ComponentType.Spec.EffectivePreRenderValidations(),
+		componentContextMap,
+	); err != nil {
+		return nil, fmt.Errorf("component type validation failed: %w", err)
+	}
+
+	return &lintRenderContext{
+		traitBase:           traitBase,
+		componentContextMap: componentContextMap,
+	}, nil
+}
+
+// lintTraitRun threads the mutable state through lint trait processing.
+type lintTraitRun struct {
+	rendered           []renderer.RenderedResource
+	pendingPostRenders []pendingPostRender
+	traitMap           map[string]*v1alpha1.Trait
+	schemaCache        map[string]*pipelinecontext.SchemaBundle
+	processor          *trait.Processor
+	engine             *template.Engine
+	lrc                *lintRenderContext
+}
+
+// newLintTraitRun seeds the trait run with the base resources and trait lookups.
+func newLintTraitRun(
+	engine *template.Engine,
+	input *RenderInput,
+	lrc *lintRenderContext,
+	rendered []renderer.RenderedResource,
+) *lintTraitRun {
+	return &lintTraitRun{
+		rendered:           rendered,
+		pendingPostRenders: componentTypePendingPostRenders(input, lrc.componentContextMap),
+		traitMap:           lintTraitMap(input.Traits),
+		schemaCache:        make(map[string]*pipelinecontext.SchemaBundle),
+		processor:          trait.NewProcessor(engine),
+		engine:             engine,
+		lrc:                lrc,
+	}
+}
+
+// lintTraitMap indexes the trait definitions by "Kind:Name" so a same-name Trait and
+// ClusterTrait can coexist.
+func lintTraitMap(traits []v1alpha1.Trait) map[string]*v1alpha1.Trait {
+	traitMap := make(map[string]*v1alpha1.Trait, len(traits))
+	for i := range traits {
+		t := &traits[i]
+		kind := t.Kind // TypeMeta.Kind — "Trait" or "ClusterTrait"
+		if kind == "" {
+			kind = string(v1alpha1.TraitRefKindTrait)
+		}
+		traitMap[kind+":"+t.Name] = t
+	}
+	return traitMap
+}
+
+// processEmbeddedTraits applies every ComponentType-embedded trait to the rendered
+// resource set, accumulating trait post-render validations and metadata counts.
+func (r *lintTraitRun) processEmbeddedTraits(ctx context.Context, input *RenderInput, metadata *RenderMetadata) error {
+	for _, embeddedTrait := range input.ComponentType.Spec.Traits {
+		embeddedKind := string(embeddedTrait.Kind)
+		if embeddedKind == "" {
+			embeddedKind = string(v1alpha1.TraitRefKindTrait)
+		}
+		t, ok := r.traitMap[embeddedKind+":"+embeddedTrait.Name]
+		if !ok {
+			return fmt.Errorf("embedded trait %s referenced but not found in traits list", embeddedTrait.Name)
+		}
+
+		// Resolve CEL bindings against component context
+		resolvedParams, resolvedEnvironmentConfigs, err := pipelinecontext.ResolveEmbeddedTraitBindings(
+			ctx,
+			r.engine,
+			embeddedTrait,
+			r.lrc.componentContextMap,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to resolve embedded trait bindings for %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		traitContext, err := pipelinecontext.BuildTraitContext(&pipelinecontext.TraitContextInput{
+			TraitContextBase:           r.lrc.traitBase,
+			Trait:                      t,
+			InstanceName:               embeddedTrait.InstanceName,
+			ResolvedParameters:         resolvedParams,
+			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
+			SchemaCache:                r.schemaCache,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(ctx, r.engine, t.Spec.EffectivePreRenderValidations(), traitContextMap); err != nil {
+			return fmt.Errorf("trait %s/%s validation failed: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		beforeCount := len(r.rendered)
+		r.rendered, err = r.processor.ProcessTraits(ctx, r.rendered, t, traitContextMap)
+		if err != nil {
+			return fmt.Errorf("failed to process embedded trait %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		r.addPendingPostRender(embeddedKind, embeddedTrait.Name, embeddedTrait.InstanceName, traitContextMap, t)
+		metadata.TraitCount++
+		metadata.TraitResourceCount += len(r.rendered) - beforeCount
+	}
+	return nil
+}
+
+// processComponentTraits applies each component-level trait instance to the rendered
+// resource set, accumulating trait post-render validations and metadata counts.
+func (r *lintTraitRun) processComponentTraits(ctx context.Context, input *RenderInput, metadata *RenderMetadata) error {
+	for _, traitInstance := range input.Component.Spec.Traits {
+		instanceKind := string(traitInstance.Kind)
+		if instanceKind == "" {
+			instanceKind = string(v1alpha1.TraitRefKindTrait)
+		}
+		t, ok := r.traitMap[instanceKind+":"+traitInstance.Name]
+		if !ok {
+			return fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
+		}
+
+		// Resolve the component-level trait's instance bindings (just JSON deserialization)
+		resolvedParams, resolvedEnvironmentConfigs, err := pipelinecontext.ExtractTraitInstanceBindings(traitInstance, input.ReleaseBinding)
+		if err != nil {
+			return fmt.Errorf("failed to extract trait bindings for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
+		traitContext, err := pipelinecontext.BuildTraitContext(&pipelinecontext.TraitContextInput{
+			TraitContextBase:           r.lrc.traitBase,
+			Trait:                      t,
+			InstanceName:               traitInstance.InstanceName,
+			ResolvedParameters:         resolvedParams,
+			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
+			SchemaCache:                r.schemaCache,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to build trait context for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(ctx, r.engine, t.Spec.EffectivePreRenderValidations(), traitContextMap); err != nil {
+			return fmt.Errorf("trait %s/%s validation failed: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
+		beforeCount := len(r.rendered)
+		r.rendered, err = r.processor.ProcessTraits(ctx, r.rendered, t, traitContextMap)
+		if err != nil {
+			return fmt.Errorf("failed to process trait %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
+		r.addPendingPostRender(instanceKind, traitInstance.Name, traitInstance.InstanceName, traitContextMap, t)
+		metadata.TraitCount++
+		metadata.TraitResourceCount += len(r.rendered) - beforeCount
+	}
+	return nil
+}
+
+// addPendingPostRender records a trait's declared post-render validations (if any) so
+// they are evaluated against the final resource set.
+func (r *lintTraitRun) addPendingPostRender(kind, name, instance string, ctxMap map[string]any, t *v1alpha1.Trait) {
+	if len(t.Spec.PostRenderValidations) == 0 {
+		return
+	}
+	r.pendingPostRenders = append(r.pendingPostRenders, pendingPostRender{
+		label:       fmt.Sprintf("%s %s/%s", kind, name, instance),
+		context:     ctxMap,
+		validations: t.Spec.PostRenderValidations,
+	})
+}
+
+// finalizeLintRender post-processes, validates and sorts the rendered resources,
+// returning the output alongside the captured post-render failures.
+func (p *Pipeline) finalizeLintRender(
+	input *RenderInput,
+	resources []renderer.RenderedResource,
+	failures []PostRenderFailure,
+	metadata *RenderMetadata,
+) (*RenderOutput, []PostRenderFailure, error) {
+	if err := p.postProcessResources(resources, input); err != nil {
+		return nil, failures, fmt.Errorf("failed to post-process resources: %w", err)
+	}
+
+	if err := p.validateResources(resources); err != nil {
+		return nil, failures, fmt.Errorf("validation failed: %w", err)
+	}
+
+	sortRenderedResources(resources)
+
+	metadata.ResourceCount = len(resources)
+
+	return &RenderOutput{
+		Resources: resources,
+		Metadata:  metadata,
+	}, failures, nil
+}
+
 // validateInput ensures the input has all required fields.
 func (p *Pipeline) validateInput(input *RenderInput) error {
 	if err := validate.Struct(input); err != nil {

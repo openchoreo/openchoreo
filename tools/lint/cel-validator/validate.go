@@ -549,7 +549,7 @@ func (c *checker) postRenderValidations(seq *yaml.Node, env *cel.Env, provider *
 		if target := mappingValue(entry, fieldTarget); target != nil {
 			c.where(mappingValue(target, fieldWhere), bodyEnv)
 		}
-		c.templateBool(mappingValue(entry, fieldRule), bodyEnv, fieldRule)
+		c.templateBool(mappingValue(entry, fieldRule), withResource(bodyEnv), fieldRule)
 	}
 }
 
