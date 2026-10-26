@@ -542,6 +542,8 @@ spec:
       value: |
 $(echo "$ca" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 EOF
 
     # Link whichever planes exist to the observability plane (not gated on --with-build,

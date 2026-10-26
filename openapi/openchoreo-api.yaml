@@ -8096,6 +8096,8 @@ components:
           type: string
           description: Base URL of the FinOps Agent API in the observability plane cluster
           example: http://finops-agent.observability-plane.svc:8080
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
 
     ObservabilityPlaneStatus:
       type: object
@@ -8360,6 +8362,8 @@ components:
           type: string
           description: Base URL of the FinOps Agent API in the observability plane cluster
           example: http://finops-agent.observability-plane.svc:8080
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
 
     ClusterObservabilityPlaneStatus:
       type: object
@@ -13077,6 +13081,8 @@ components:
             - ClusterWorkflowPlane
             - DataPlane
             - ClusterDataPlane
+            - ObservabilityPlane
+            - ClusterObservabilityPlane
           example: DataPlane
         name:
           type: string

@@ -64,7 +64,7 @@ type RemoteReference struct {
 // the secret value referenced by this SecretReference.
 type TargetPlaneRef struct {
 	// Kind of the target plane resource.
-	// +kubebuilder:validation:Enum=WorkflowPlane;ClusterWorkflowPlane;DataPlane;ClusterDataPlane
+	// +kubebuilder:validation:Enum=WorkflowPlane;ClusterWorkflowPlane;DataPlane;ClusterDataPlane;ObservabilityPlane;ClusterObservabilityPlane
 	Kind string `json:"kind"`
 
 	// Name of the target plane resource.

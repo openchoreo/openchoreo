@@ -98,6 +98,17 @@ spec:
                 description: RCAAgentURL is the base URL of the RCA Agent API in the
                   observability plane cluster
                 type: string
+              secretStoreRef:
+                description: SecretStoreRef specifies the ESO ClusterSecretStore to
+                  use in the observability plane
+                properties:
+                  name:
+                    description: Name of the ClusterSecretStore resource in the plane's
+                      cluster
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - clusterAgent
             - observerURL

@@ -225,7 +225,12 @@ kubernetes.io/ssh-auth) while still sourcing data the same way.`,
   # Create a basic-auth secret
   occ secret create generic basic --type=kubernetes.io/basic-auth \
     --namespace acme-corp --target-plane DataPlane/dp-prod \
-    --from-literal=username=admin --from-literal=password=s3cret`,
+    --from-literal=username=admin --from-literal=password=s3cret
+
+  # Create SMTP credentials in the observability plane's secret store
+  occ secret create generic smtp-auth \
+    --namespace acme-corp --target-plane ObservabilityPlane/default \
+    --from-literal=username=alerts --from-literal=password=s3cret`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {

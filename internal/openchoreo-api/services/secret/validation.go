@@ -34,10 +34,12 @@ var requiredKeys = map[corev1.SecretType][]string{
 
 // supportedPlaneKinds lists the target plane kinds accepted by the secret API.
 var supportedPlaneKinds = map[string]struct{}{
-	planeKindWorkflowPlane:        {},
-	planeKindClusterWorkflowPlane: {},
-	planeKindDataPlane:            {},
-	planeKindClusterDataPlane:     {},
+	planeKindWorkflowPlane:             {},
+	planeKindClusterWorkflowPlane:      {},
+	planeKindDataPlane:                 {},
+	planeKindClusterDataPlane:          {},
+	planeKindObservabilityPlane:        {},
+	planeKindClusterObservabilityPlane: {},
 }
 
 func validateSecretName(name string) error {

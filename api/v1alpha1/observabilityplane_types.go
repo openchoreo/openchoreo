@@ -42,6 +42,10 @@ type ObservabilityPlaneSpec struct {
 	// FinOpsAgentURL is the base URL of the FinOps Agent API in the observability plane cluster
 	// +optional
 	FinOpsAgentURL string `json:"finOpsAgentURL,omitempty"`
+
+	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the observability plane
+	// +optional
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 }
 
 // ObservabilityPlaneStatus defines the observed state of ObservabilityPlane.

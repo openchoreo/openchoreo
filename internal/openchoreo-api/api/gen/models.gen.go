@@ -366,10 +366,12 @@ const (
 
 // Defines values for TargetPlaneRefKind.
 const (
-	TargetPlaneRefKindClusterDataPlane     TargetPlaneRefKind = "ClusterDataPlane"
-	TargetPlaneRefKindClusterWorkflowPlane TargetPlaneRefKind = "ClusterWorkflowPlane"
-	TargetPlaneRefKindDataPlane            TargetPlaneRefKind = "DataPlane"
-	TargetPlaneRefKindWorkflowPlane        TargetPlaneRefKind = "WorkflowPlane"
+	TargetPlaneRefKindClusterDataPlane          TargetPlaneRefKind = "ClusterDataPlane"
+	TargetPlaneRefKindClusterObservabilityPlane TargetPlaneRefKind = "ClusterObservabilityPlane"
+	TargetPlaneRefKindClusterWorkflowPlane      TargetPlaneRefKind = "ClusterWorkflowPlane"
+	TargetPlaneRefKindDataPlane                 TargetPlaneRefKind = "DataPlane"
+	TargetPlaneRefKindObservabilityPlane        TargetPlaneRefKind = "ObservabilityPlane"
+	TargetPlaneRefKindWorkflowPlane             TargetPlaneRefKind = "WorkflowPlane"
 )
 
 // Defines values for TraitRemoveTargetPlane.
@@ -1042,6 +1044,9 @@ type ClusterObservabilityPlaneSpec struct {
 
 	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
 	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 }
 
 // ClusterObservabilityPlaneStatus Observed state of a ClusterObservabilityPlane
@@ -2597,6 +2602,9 @@ type ObservabilityPlaneSpec struct {
 
 	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
 	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 }
 
 // ObservabilityPlaneStatus Observed state of an ObservabilityPlane

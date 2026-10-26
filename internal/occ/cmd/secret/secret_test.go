@@ -501,6 +501,16 @@ func TestParseTargetPlane(t *testing.T) {
 	assert.Equal(t, gen.TargetPlaneRefKindDataPlane, tp.Kind)
 	assert.Equal(t, "dp-prod", tp.Name)
 
+	for _, kind := range []gen.TargetPlaneRefKind{
+		gen.TargetPlaneRefKindObservabilityPlane,
+		gen.TargetPlaneRefKindClusterObservabilityPlane,
+	} {
+		tp, err = parseTargetPlane(string(kind) + "/default")
+		require.NoError(t, err)
+		assert.Equal(t, kind, tp.Kind)
+		assert.Equal(t, "default", tp.Name)
+	}
+
 	_, err = parseTargetPlane("DataPlane")
 	assert.Error(t, err)
 

@@ -109,11 +109,11 @@ spec:
                 type: string
               secretStoreRef:
                 description: SecretStoreRef specifies the ESO ClusterSecretStore to
-                  use in the data plane
+                  use in the workflow plane
                 properties:
                   name:
-                    description: Name of the ClusterSecretStore resource in the data
-                      plane cluster
+                    description: Name of the ClusterSecretStore resource in the plane's
+                      cluster
                     type: string
                 required:
                 - name

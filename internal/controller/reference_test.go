@@ -1086,6 +1086,45 @@ func TestWorkflowPlaneResult_GetSecretStoreName(t *testing.T) {
 	}
 }
 
+func TestObservabilityPlaneResult_GetSecretStoreName(t *testing.T) {
+	tests := []struct {
+		name   string
+		result *ObservabilityPlaneResult
+		want   string
+	}{
+		{
+			name: "ObservabilityPlane with secret store",
+			result: &ObservabilityPlaneResult{ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{
+				Spec: openchoreov1alpha1.ObservabilityPlaneSpec{SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "my-store"}},
+			}},
+			want: "my-store",
+		},
+		{
+			name: "ClusterObservabilityPlane with secret store",
+			result: &ObservabilityPlaneResult{ClusterObservabilityPlane: &openchoreov1alpha1.ClusterObservabilityPlane{
+				Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "cluster-store"}},
+			}},
+			want: "cluster-store",
+		},
+		{
+			name:   "ObservabilityPlane nil secret store ref",
+			result: &ObservabilityPlaneResult{ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{}},
+			want:   "",
+		},
+		{
+			name:   "empty result",
+			result: &ObservabilityPlaneResult{},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.result.GetSecretStoreName())
+		})
+	}
+}
+
 func TestResolveWorkflow(t *testing.T) {
 	scheme := newScheme(t)
 	ctx := context.Background()

@@ -19,3 +19,5 @@ spec:
   # Backstage returns this URL to the browser for direct observability calls.
   # The Go e2e framework helpers bypass this CR and use in-cluster DNS directly.
   observerURL: http://observer.e2e-op.local:21080
+  secretStoreRef:
+    name: default

@@ -430,6 +430,8 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 EOF
 ```
 

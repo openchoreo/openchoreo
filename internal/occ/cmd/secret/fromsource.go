@@ -24,9 +24,11 @@ func parseTargetPlane(raw string) (*gen.TargetPlaneRef, error) {
 	case gen.TargetPlaneRefKindDataPlane,
 		gen.TargetPlaneRefKindClusterDataPlane,
 		gen.TargetPlaneRefKindWorkflowPlane,
-		gen.TargetPlaneRefKindClusterWorkflowPlane:
+		gen.TargetPlaneRefKindClusterWorkflowPlane,
+		gen.TargetPlaneRefKindObservabilityPlane,
+		gen.TargetPlaneRefKindClusterObservabilityPlane:
 	default:
-		return nil, fmt.Errorf("invalid --target-plane kind %q: must be one of DataPlane, ClusterDataPlane, WorkflowPlane, ClusterWorkflowPlane", kind)
+		return nil, fmt.Errorf("invalid --target-plane kind %q: must be one of DataPlane, ClusterDataPlane, WorkflowPlane, ClusterWorkflowPlane, ObservabilityPlane, ClusterObservabilityPlane", kind)
 	}
 	return &gen.TargetPlaneRef{
 		Kind: gen.TargetPlaneRefKind(kind),
