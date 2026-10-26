@@ -1,6 +1,13 @@
 {{- if .Values.rca.enabled }}
-{{- if not .Values.rca.secretName }}
-{{- fail "rca.secretName is required when rca is enabled. Create a Secret with keys matching the RCA agent's expected env vars (RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET unless rca.oauth.clientAssertionFile is set, and optionally SQL_BACKEND_URI), then set rca.secretName." }}
+{{- $needsSecret := true }}
+{{- if and (eq (.Values.rca.llm.auth | default "api_key") "azure") .Values.rca.oauth.clientAssertionFile (ne (.Values.rca.reportBackend | default "sqlite") "postgresql") }}
+{{- $needsSecret = false }}
+{{- end }}
+{{- if and $needsSecret (not .Values.rca.secretName) }}
+{{- fail "rca.secretName is required when rca is enabled. Create a Secret with keys matching the RCA agent's expected env vars (RCA_LLM_API_KEY unless rca.llm.auth is azure, OAUTH_CLIENT_SECRET unless rca.oauth.clientAssertionFile is set, and SQL_BACKEND_URI when rca.reportBackend is postgresql), then set rca.secretName." }}
+{{- end }}
+{{- if and (eq (.Values.rca.llm.auth | default "api_key") "azure") (not .Values.rca.llm.baseUrl) }}
+{{- fail "rca.llm.baseUrl is required when rca.llm.auth is azure. Set it to the Azure OpenAI endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/." }}
 {{- end }}
 {{- if not .Values.rca.observerApiUrl }}
 {{- fail "rca.observerApiUrl is required when rca is enabled. Set it to the Observer API base URL (e.g. http://observer:8080)." }}
@@ -72,8 +79,10 @@ spec:
           containerPort: {{ .Values.rca.service.port }}
           protocol: TCP
         envFrom:
+        {{- if .Values.rca.secretName }}
         - secretRef:
             name: {{ .Values.rca.secretName }}
+        {{- end }}
         - configMapRef:
             name: rca-agent-config
         {{- if .Values.rca.extraEnvs }}

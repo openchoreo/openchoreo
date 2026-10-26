@@ -927,6 +927,16 @@
           "title": "image",
           "type": "object"
         },
+        "llmAuth": {
+          "default": "api_key",
+          "description": "How the FinOps agent authenticates to the LLM endpoint. api_key sends LLM_API_KEY from secretName. azure sends a Microsoft Entra ID token from DefaultAzureCredential instead, for an Azure OpenAI or Azure AI Foundry endpoint set in llmBaseUrl (e.g., https://\u003cresource\u003e.openai.azure.com/openai/v1/), and LLM_API_KEY is not needed. On AKS, use workload identity - serviceAccount.create, the azure.workload.identity/client-id service account annotation and the azure.workload.identity/use pod label. Set llmName to the deployment name, prefixed as openai:\u003cdeployment\u003e when the deployment is not named after its model.",
+          "enum": [
+            "api_key",
+            "azure"
+          ],
+          "required": [],
+          "title": "llmAuth"
+        },
         "llmBaseUrl": {
           "default": "",
           "description": "Optional OpenAI-compatible base URL for LLM calls. Set this to route through the ai-gateway-agentgateway module (e.g., http://agentgateway-proxy.openchoreo-data-plane) instead of calling the provider directly. When set, the provider API key is managed at the gateway and LLM_API_KEY may be a placeholder.",
@@ -937,6 +947,12 @@
           "default": "",
           "description": "LLM model name (e.g., gpt-5.2)",
           "title": "llmName",
+          "type": "string"
+        },
+        "llmTokenScope": {
+          "default": "",
+          "description": "Microsoft Entra ID scope of the LLM token when llmAuth is azure. Empty uses https://cognitiveservices.azure.com/.default, the scope of Azure OpenAI and Azure AI Foundry.",
+          "title": "llmTokenScope",
           "type": "string"
         },
         "logLevel": {
@@ -1093,7 +1109,7 @@
         },
         "secretName": {
           "default": "finops-agent",
-          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY unless llmAuth is azure, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql). Set to an empty string to mount no Secret when none of these keys is needed (llmAuth is azure, oauth.clientAssertionFile is set and reportBackend is sqlite).",
           "title": "secretName",
           "type": "string"
         },
@@ -2099,6 +2115,16 @@
           "additionalProperties": false,
           "description": "LLM configuration for AI-powered analysis",
           "properties": {
+            "auth": {
+              "default": "api_key",
+              "description": "How the RCA agent authenticates to the LLM endpoint. api_key sends RCA_LLM_API_KEY from secretName. azure sends a Microsoft Entra ID token from DefaultAzureCredential instead, for an Azure OpenAI or Azure AI Foundry endpoint set in baseUrl (e.g., https://\u003cresource\u003e.openai.azure.com/openai/v1/), and RCA_LLM_API_KEY is not needed. On AKS, use workload identity - serviceAccount.create, the azure.workload.identity/client-id service account annotation and the azure.workload.identity/use pod label. Set modelName to the deployment name, and name the deployment after its model (e.g., gpt-5-mini). The RCA agent needs a model name LangChain recognizes, so other deployment names fail, even when prefixed as openai:\u003cdeployment\u003e.",
+              "enum": [
+                "api_key",
+                "azure"
+              ],
+              "required": [],
+              "title": "auth"
+            },
             "baseUrl": {
               "default": "",
               "description": "Optional OpenAI-compatible base URL for LLM calls. Set this to route through the ai-gateway-agentgateway module (e.g., http://agentgateway-proxy.openchoreo-data-plane) instead of calling the provider directly. When set, the provider API key is managed at the gateway and RCA_LLM_API_KEY may be a placeholder.",
@@ -2109,6 +2135,12 @@
               "default": "",
               "description": "LLM model name (e.g., gpt-5.2)",
               "title": "modelName",
+              "type": "string"
+            },
+            "tokenScope": {
+              "default": "",
+              "description": "Microsoft Entra ID scope of the LLM token when auth is azure. Empty uses https://cognitiveservices.azure.com/.default, the scope of Azure OpenAI and Azure AI Foundry.",
+              "title": "tokenScope",
               "type": "string"
             }
           },
@@ -2263,7 +2295,7 @@
         },
         "secretName": {
           "default": "rca-agent-secret",
-          "description": "Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY unless llm.auth is azure, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql). Set to an empty string to mount no Secret when none of these keys is needed (llm.auth is azure, oauth.clientAssertionFile is set and reportBackend is sqlite).",
           "title": "secretName",
           "type": "string"
         },

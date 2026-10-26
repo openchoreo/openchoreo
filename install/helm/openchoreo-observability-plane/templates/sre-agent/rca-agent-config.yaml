@@ -14,6 +14,12 @@ data:
   {{- if .Values.rca.llm.baseUrl }}
   RCA_LLM_BASE_URL: {{ .Values.rca.llm.baseUrl | quote }}
   {{- end }}
+  {{- if ne (.Values.rca.llm.auth | default "api_key") "api_key" }}
+  LLM_AUTH: {{ .Values.rca.llm.auth | quote }}
+  {{- end }}
+  {{- if .Values.rca.llm.tokenScope }}
+  LLM_TOKEN_SCOPE: {{ .Values.rca.llm.tokenScope | quote }}
+  {{- end }}
   REPORT_BACKEND: {{ .Values.rca.reportBackend | quote }}
   OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
   OAUTH_CLIENT_ID: {{ .Values.rca.oauth.clientId | quote }}
