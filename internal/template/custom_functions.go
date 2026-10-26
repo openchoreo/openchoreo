@@ -121,6 +121,8 @@ func (o *omitCELValue) Value() interface{} {
 //
 // oc_dns_label(...strings) - Generate valid Kubernetes DNS label names (≤63 chars)
 //
+// oc_generate_name_limit(int, ...strings) - Generate valid Kubernetes names within a given length
+//
 // oc_hash(string) - Generate 8-character hash from input string
 //
 // # oc_omit() - Conditional Omission
@@ -199,6 +201,18 @@ func (o *omitCELValue) Value() interface{} {
 //	hostnames:
 //	  - ${oc_dns_label(endpointName, metadata.componentName, metadata.environmentName, metadata.componentNamespace)}.example.com
 //
+// # oc_generate_name_limit() - Kubernetes Name Generation with a Custom Length
+//
+// Same as oc_generate_name() but truncates to the length given as the first argument.
+// The length must be at most 253 and leave one character and one hyphen per name part
+// plus the 8-character hash; anything else is an evaluation error.
+//
+//	# CronJob names (≤52 chars)
+//	name: ${oc_generate_name_limit(52, metadata.componentName, metadata.environmentName)}
+//
+//	# Array input
+//	name: ${oc_generate_name_limit(52, [metadata.componentName, "backup"])}
+//
 // # oc_hash() - String Hashing
 //
 // Generates an 8-character hexadecimal hash from an input string using the FNV-32a
@@ -216,7 +230,7 @@ func (o *omitCELValue) Value() interface{} {
 // the per-expression limit and reconcile budget stay blind to whatever it traverses.
 func CustomFunctions() []cel.EnvOption {
 	return []cel.EnvOption{
-		cel.Macros(generateNameMacro, dnslabelMacro, mergeMacro),
+		cel.Macros(generateNameMacro, dnslabelMacro, generateNameLimitMacro, mergeMacro),
 		cel.Function("oc_omit",
 			cel.Overload("oc_omit", []*cel.Type{}, cel.DynType,
 				cel.FunctionBinding(func(values ...ref.Val) ref.Val {
@@ -257,6 +271,18 @@ func CustomFunctions() []cel.EnvOption {
 				[]*cel.Type{cel.ListType(cel.StringType)},
 				cel.StringType,
 				cel.UnaryBinding(generateK8sDNSLabel),
+			),
+		),
+		cel.Function("oc_generate_name_limit",
+			cel.Overload("oc_generate_name_limit_int_string",
+				[]*cel.Type{cel.IntType, cel.StringType},
+				cel.StringType,
+				cel.BinaryBinding(generateK8sNameWithLimit),
+			),
+			cel.Overload("oc_generate_name_limit_int_list",
+				[]*cel.Type{cel.IntType, cel.ListType(cel.StringType)},
+				cel.StringType,
+				cel.BinaryBinding(generateK8sNameWithLimit),
 			),
 		),
 		cel.Function("oc_hash",
@@ -341,24 +367,7 @@ func generateK8sDNSLabelFromStrings(parts []string) ref.Val {
 // generateK8sDNSLabel is the CEL binding for oc_dns_label().
 // Same as generateK8sName but enforces a ≤63 character limit.
 func generateK8sDNSLabel(arg ref.Val) ref.Val {
-	parts := []string{}
-	switch v := arg.Value().(type) {
-	case string:
-		parts = append(parts, v)
-	case []ref.Val:
-		for _, item := range v {
-			if str, ok := item.Value().(string); ok {
-				parts = append(parts, str)
-			}
-		}
-	case []any:
-		for _, item := range v {
-			if str, ok := item.(string); ok {
-				parts = append(parts, str)
-			}
-		}
-	}
-	return generateK8sDNSLabelFromStrings(parts)
+	return generateK8sDNSLabelFromStrings(nameParts(arg))
 }
 
 // generateK8sName is the CEL binding for oc_generate_name().
@@ -368,11 +377,34 @@ func generateK8sDNSLabel(arg ref.Val) ref.Val {
 //
 // See CustomFunctions() for detailed usage examples.
 func generateK8sName(arg ref.Val) ref.Val {
-	// CEL callers can hand us either a list (`["foo", "-", "bar"]`) or a dynamic list of ref.Val.
-	// Accept all of them so reusable template helpers keep working unchanged.
-	parts := []string{}
+	return generateK8sNameFromStrings(nameParts(arg))
+}
 
-	// Handle different input types
+// generateK8sNameWithLimit is the CEL binding for oc_generate_name_limit().
+// Same as generateK8sName but truncates to a caller-supplied limit, rejecting limits that
+// cannot fit every part and the hash suffix or that exceed the DNS subdomain maximum.
+func generateK8sNameWithLimit(limitArg, partsArg ref.Val) ref.Val {
+	limit, ok := limitArg.(types.Int)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(limitArg)
+	}
+	parts := nameParts(partsArg)
+	if len(parts) == 0 {
+		return types.NewErr("oc_generate_name_limit requires at least one name part")
+	}
+	minLimit := kubernetes.MinK8sNameLength(len(parts))
+	if int64(limit) < int64(minLimit) || int64(limit) > kubernetes.MaxResourceNameLength {
+		return types.NewErr("oc_generate_name_limit: maxLength %d is outside [%d, %d] for %d name part(s)",
+			int64(limit), minLimit, kubernetes.MaxResourceNameLength, len(parts))
+	}
+	return types.String(kubernetes.GenerateK8sNameWithLengthLimit(int(limit), parts...))
+}
+
+// nameParts flattens a name-function argument into its string parts. CEL callers can hand
+// us a single string, a list (`["foo", "-", "bar"]`), or a dynamic list of ref.Val; accept
+// all of them so reusable template helpers keep working unchanged.
+func nameParts(arg ref.Val) []string {
+	parts := []string{}
 	switch v := arg.Value().(type) {
 	case string:
 		parts = append(parts, v)
@@ -389,8 +421,7 @@ func generateK8sName(arg ref.Val) ref.Val {
 			}
 		}
 	}
-
-	return generateK8sNameFromStrings(parts)
+	return parts
 }
 
 // generateNameMacro enables variadic syntax for oc_generate_name in templates.
@@ -428,6 +459,24 @@ var dnslabelMacro = cel.GlobalVarArgMacro("oc_dns_label",
 			return nil, nil
 		default:
 			return eh.NewCall("oc_dns_label", eh.NewList(args...)), nil
+		}
+	})
+
+// generateNameLimitMacro enables variadic syntax for oc_generate_name_limit in templates.
+// The first argument is the length limit; the remaining name parts are wrapped in a list:
+//   - oc_generate_name_limit(52, "a", "b") → oc_generate_name_limit(52, ["a", "b"])
+//   - oc_generate_name_limit(52, "a") → passes through unchanged
+var generateNameLimitMacro = cel.GlobalVarArgMacro("oc_generate_name_limit",
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		switch len(args) {
+		case 0, 1:
+			return nil, &common.Error{
+				Message: "oc_generate_name_limit requires a length limit and at least one name part",
+			}
+		case 2:
+			return nil, nil
+		default:
+			return eh.NewCall("oc_generate_name_limit", args[0], eh.NewList(args[1:]...)), nil
 		}
 	})
 
@@ -485,9 +534,10 @@ var mergeMacro = cel.GlobalVarArgMacro("oc_merge",
 //
 // Dispatch is by function name rather than overload ID. Template inputs are declared as
 // cel.DynType, so the checker cannot always pick a single overload for a function that
-// declares more than one — oc_generate_name and oc_dns_label each declare a string and a
-// list form — and an overload-keyed tracker silently misses those calls. The function name
-// is always known, and the argument's own type tells the two forms apart.
+// declares more than one — oc_generate_name, oc_dns_label and oc_generate_name_limit each
+// declare a string and a list form — and an overload-keyed tracker silently misses those
+// calls. The function name is always known, and the argument's own type tells the two forms
+// apart.
 //
 // oc_omit takes no arguments and does no proportional work, so it falls through to cel-go's
 // default cost of one.
@@ -505,6 +555,9 @@ func (customFunctionCostEstimator) CallCost(function, _ string, args []ref.Val, 
 
 	case "oc_generate_name", "oc_dns_label":
 		cost = saturatingAdd(cost, nameInputCost(args[0]))
+
+	case "oc_generate_name_limit":
+		cost = saturatingAdd(cost, nameInputCost(args[1]))
 
 	case "oc_merge":
 		for _, arg := range args {

@@ -61,3 +61,23 @@ var _ = Describe("GenerateK8sName", func() {
 		),
 	)
 })
+
+var _ = Describe("MinK8sNameLength", func() {
+	DescribeTable("should keep one character per part at the minimum limit",
+		func(input []string, expectedName string) {
+			limit := MinK8sNameLength(len(input))
+			generatedName := GenerateK8sNameWithLengthLimit(limit, input...)
+
+			Expect(generatedName).To(Equal(expectedName))
+			Expect(generatedName).To(HaveLen(limit))
+		},
+		Entry("for a single part",
+			[]string{"component"},
+			"c-6985ca1f",
+		),
+		Entry("for multiple parts",
+			[]string{"project", "component", "env"},
+			"p-c-e-e1b6bdb4",
+		),
+	)
+})

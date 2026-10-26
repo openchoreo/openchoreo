@@ -126,6 +126,8 @@ func TestBuildComponentCELEnv_CustomFunctions(t *testing.T) {
 		`oc_merge({}, {})`,
 		`oc_omit()`,
 		`oc_generate_name("prefix")`,
+		`oc_generate_name_limit(52, "prefix")`,
+		`oc_generate_name_limit(52, "prefix", "suffix")`,
 	}
 
 	for _, expr := range testCases {

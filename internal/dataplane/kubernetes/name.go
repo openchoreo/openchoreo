@@ -52,6 +52,13 @@ func GenerateK8sNameWithExtraHashInput(limit int, extraHashInput string, names .
 	return generateK8sName(limit, extraHashInput, names)
 }
 
+// MinK8sNameLength returns the smallest limit that leaves one character and one separator
+// per name part alongside the hash suffix. Smaller limits must not be passed to
+// GenerateK8sNameWithLengthLimit.
+func MinK8sNameLength(numberOfNames int) int {
+	return hashLength + numberOfNames*(1+len(separator))
+}
+
 func generateK8sName(limit int, extraHashInput string, names []string) string {
 	// Clean and sanitize each name part
 	cleanedNames := make([]string, 0, len(names))

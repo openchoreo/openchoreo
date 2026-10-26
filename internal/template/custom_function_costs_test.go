@@ -57,6 +57,18 @@ func TestCustomFunctionCostGrowsWithInputSize(t *testing.T) {
 			},
 		},
 		{
+			name:  "oc_generate_name_limit string",
+			expr:  "${oc_generate_name_limit(253, payload)}",
+			build: func(size int) map[string]any { return map[string]any{"payload": strings.Repeat("a", size)} },
+		},
+		{
+			name: "oc_generate_name_limit list",
+			expr: "${oc_generate_name_limit(253, [payload, payload])}",
+			build: func(size int) map[string]any {
+				return map[string]any{"payload": strings.Repeat("a", size/2)}
+			},
+		},
+		{
 			name: "oc_generate_name list charges empty elements",
 			expr: "${oc_generate_name(payload)}",
 			build: func(size int) map[string]any {
