@@ -75,12 +75,12 @@ type OpenAPIMiddlewareOptions struct {
 //
 // oapi-codegen applies these last-to-first, so the last entry is outermost:
 //
-//	logger → auth → audit → webhookRawBody → handler
+//	logger → auth → audit → webhookRawBody → inputArtifactContract → handler
 //
 // audit sits inside auth so SubjectContext is already populated for it. A
 // request auth rejects never reaches audit; the access log is its only
-// record. webhookRawBody stays innermost so HMAC validation sees the raw
-// bytes.
+// record. webhookRawBody preserves the bytes before inputArtifactContract
+// reads and restores ordinary WorkflowRun request bodies.
 //
 // This is the single definition of the chain — main.go supplies dependencies
 // but owns no ordering, and TestAuditMiddlewareWired drives exactly this
@@ -103,6 +103,7 @@ func OpenAPIMiddlewares(opts OpenAPIMiddlewareOptions) ([]gen.MiddlewareFunc, er
 	loggerMw := apilogger.LoggerMiddleware(opts.Logger.With("component", "openapi"))
 
 	return []gen.MiddlewareFunc{
+		RejectUnsupportedWorkflowRunInputArtifacts,
 		WebhookRawBodyMiddleware,
 		OptionalTriggerBodyMiddleware,
 		auditMw.Handler,

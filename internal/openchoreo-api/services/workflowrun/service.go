@@ -33,6 +33,7 @@ import (
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/workflowrunartifacts"
 )
 
 // workflowRunService handles workflow run business logic without authorization checks.
@@ -63,6 +64,9 @@ func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.Wo
 func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if wfRun == nil {
 		return nil, fmt.Errorf("workflow run cannot be nil")
+	}
+	if err := workflowrunartifacts.Validate(wfRun.Spec.InputArtifacts, time.Now()); err != nil {
+		return nil, &services.ValidationError{Msg: fmt.Sprintf("invalid input artifacts: %v", err)}
 	}
 
 	s.logger.Debug("Creating workflow run", "namespace", namespaceName, "name", wfRun.Name)
@@ -129,6 +133,9 @@ func normalizeWorkflowRefKind(kind openchoreov1alpha1.WorkflowRefKind) openchore
 func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if wfRun == nil {
 		return nil, fmt.Errorf("workflow run cannot be nil")
+	}
+	if err := workflowrunartifacts.Validate(wfRun.Spec.InputArtifacts, time.Now()); err != nil {
+		return nil, &services.ValidationError{Msg: fmt.Sprintf("invalid input artifacts: %v", err)}
 	}
 
 	s.logger.Debug("Updating workflow run", "namespace", namespaceName, "name", wfRun.Name)
