@@ -38,3 +38,12 @@ spec:
                     value: ${parameters.pathPrefix}
               backendRefs: |
                 ${backends.map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})}
+  urls:
+    external:
+      includeWhen: ${gateway.?ingress.?external.?http.hasValue()}
+      scheme: http
+      host: ${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.external.http.host}
+      port: ${gateway.ingress.external.http.port}
+      path: ${parameters.pathPrefix}
+      security:
+        scheme: none

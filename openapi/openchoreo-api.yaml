@@ -12203,6 +12203,8 @@ components:
           description: CEL-based validation rules evaluated before rendering.
           items:
             $ref: '#/components/schemas/ValidationRule'
+        urls:
+          $ref: '#/components/schemas/EndpointTypeURLs'
         resources:
           type: array
           description: |
@@ -12749,6 +12751,151 @@ components:
           description: Per-environment values for EndpointType.spec.environmentConfigs.
           additionalProperties: true
 
+    EndpointTypeURLs:
+      type: object
+      description: |
+        Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+        serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+        context as resources; nothing is read back from the data plane.
+      properties:
+        project:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        namespace:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        internal:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        external:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+
+    EndpointURLTemplate:
+      type: object
+      description: |
+        Template for one URL and the security clients must satisfy to call it. Resolved only when the
+        Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+      required:
+        - scheme
+        - host
+      properties:
+        includeWhen:
+          type: string
+          description: Optional CEL expression, ANDed with the visibility gate, deciding whether the URL is resolved.
+          pattern: '^\$\{[\s\S]+\}\s*$'
+          example: '${gateway.?ingress.?external.?https.hasValue()}'
+        scheme:
+          type: string
+          description: URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+          minLength: 1
+          example: https
+        host:
+          type: string
+          description: Hostname or IP address clients connect to.
+          minLength: 1
+          example: '${metadata.endpointName}.${gateway.ingress.external.https.host}'
+        port:
+          type: string
+          description: Literal or CEL template resolving to an integer between 1 and 65535. Omit for the scheme default.
+          example: '${gateway.ingress.external.https.port}'
+        path:
+          type: string
+          description: URL path the endpoint is served under.
+          example: '${parameters.pathPrefix}'
+        security:
+          $ref: '#/components/schemas/EndpointSecurityTemplate'
+
+    EndpointSecurityTemplate:
+      type: object
+      description: Template for the security enforced at a URL, as declared by the EndpointType.
+      required:
+        - scheme
+      properties:
+        scheme:
+          type: string
+          description: Must resolve to one of none, apiKey, oauth2, basicAuth.
+          minLength: 1
+          example: apiKey
+        apiKey:
+          type: object
+          description: Where to send the key. Required when scheme resolves to apiKey; ignored when a templated scheme resolves to anything else.
+          required:
+            - in
+            - name
+          properties:
+            in:
+              type: string
+              description: Must resolve to header or query.
+              minLength: 1
+              example: header
+            name:
+              type: string
+              description: Header or query parameter name carrying the key.
+              minLength: 1
+              example: api-key
+
+    EndpointReleaseBindingURLs:
+      type: object
+      description: The URL resolved for each visibility in the binding's environment.
+      properties:
+        project:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        namespace:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        internal:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        external:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+
+    ResolvedEndpointURL:
+      type: object
+      description: One resolved URL with the security clients must satisfy to call it.
+      required:
+        - host
+      properties:
+        scheme:
+          type: string
+          example: https
+        host:
+          type: string
+          example: greeter-api-dev-shop-org-1a2b3c4d.example.com
+        port:
+          type: integer
+          format: int32
+          example: 443
+        path:
+          type: string
+          example: /greeter
+        security:
+          $ref: '#/components/schemas/EndpointSecurity'
+
+    EndpointSecurity:
+      type: object
+      description: Security enforced at a URL, as declared by the EndpointType.
+      required:
+        - scheme
+      properties:
+        scheme:
+          type: string
+          enum: [none, apiKey, oauth2, basicAuth]
+          x-enum-varnames:
+            - EndpointSecuritySchemeNone
+            - EndpointSecuritySchemeApiKey
+            - EndpointSecuritySchemeOauth2
+            - EndpointSecuritySchemeBasicAuth
+        apiKey:
+          type: object
+          required:
+            - in
+            - name
+          properties:
+            in:
+              type: string
+              enum: [header, query]
+              x-enum-varnames:
+                - EndpointApiKeyInHeader
+                - EndpointApiKeyInQuery
+            name:
+              type: string
+              example: api-key
+
     ResolvedEndpointBackend:
       type: object
       description: Resolution of one backendRef in the binding's environment, populated by the binding controller.
@@ -12789,7 +12936,7 @@ components:
       properties:
         conditions:
           type: array
-          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
           items:
             $ref: '#/components/schemas/Condition'
         backends:
@@ -12797,6 +12944,8 @@ components:
           description: Resolution of each backendRef in this binding's environment.
           items:
             $ref: '#/components/schemas/ResolvedEndpointBackend'
+        urls:
+          $ref: '#/components/schemas/EndpointReleaseBindingURLs'
 
     # -------------------------------------------------------------------------
     # RenderedRelease

@@ -194,8 +194,9 @@ spec:
               conditions:
                 description: |-
                   Conditions represent the latest available observations of the binding's state.
-                  Includes BackendsResolved, Synced, and Ready (aggregate). observedGeneration
-                  is set per-condition (project convention).
+                  Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, and
+                  Ready (aggregate). observedGeneration is set per-condition (project
+                  convention).
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -254,6 +255,248 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              urls:
+                description: |-
+                  URLs holds, per visibility, the URL the EndpointType resolved for this
+                  binding's environment and the security enforced there. Updated together
+                  with the RenderedRelease, so the values always describe what is deployed:
+                  while rendering is blocked they keep their previous values. A visibility
+                  is absent when the type declares no URL for it, the Endpoint does not
+                  request it, or its includeWhen excludes it.
+                properties:
+                  external:
+                    description: |-
+                      ResolvedEndpointURL is one URL resolved for an environment, with the security
+                      clients must satisfy to call it.
+                    properties:
+                      host:
+                        description: Host is the hostname or IP address.
+                        minLength: 1
+                        type: string
+                      path:
+                        description: Path is the URL path.
+                        type: string
+                      port:
+                        description: Port is the port number.
+                        format: int32
+                        type: integer
+                      scheme:
+                        description: Scheme is the URL scheme (e.g., http, https,
+                          tcp, udp, ws, wss, grpc, grpcs, tls).
+                        type: string
+                      security:
+                        description: |-
+                          Security is what the gateway enforces at this URL, as declared by the
+                          EndpointType. Absent when the type declares none.
+                        properties:
+                          apiKey:
+                            description: APIKey describes how to send the key when
+                              scheme is apiKey.
+                            properties:
+                              in:
+                                description: In is where the key is sent.
+                                enum:
+                                - header
+                                - query
+                                type: string
+                              name:
+                                description: Name is the header or query parameter
+                                  name carrying the key.
+                                type: string
+                            required:
+                            - in
+                            - name
+                            type: object
+                          scheme:
+                            description: Scheme is the authentication scheme clients
+                              must use.
+                            enum:
+                            - none
+                            - apiKey
+                            - oauth2
+                            - basicAuth
+                            type: string
+                        required:
+                        - scheme
+                        type: object
+                    required:
+                    - host
+                    type: object
+                  internal:
+                    description: |-
+                      ResolvedEndpointURL is one URL resolved for an environment, with the security
+                      clients must satisfy to call it.
+                    properties:
+                      host:
+                        description: Host is the hostname or IP address.
+                        minLength: 1
+                        type: string
+                      path:
+                        description: Path is the URL path.
+                        type: string
+                      port:
+                        description: Port is the port number.
+                        format: int32
+                        type: integer
+                      scheme:
+                        description: Scheme is the URL scheme (e.g., http, https,
+                          tcp, udp, ws, wss, grpc, grpcs, tls).
+                        type: string
+                      security:
+                        description: |-
+                          Security is what the gateway enforces at this URL, as declared by the
+                          EndpointType. Absent when the type declares none.
+                        properties:
+                          apiKey:
+                            description: APIKey describes how to send the key when
+                              scheme is apiKey.
+                            properties:
+                              in:
+                                description: In is where the key is sent.
+                                enum:
+                                - header
+                                - query
+                                type: string
+                              name:
+                                description: Name is the header or query parameter
+                                  name carrying the key.
+                                type: string
+                            required:
+                            - in
+                            - name
+                            type: object
+                          scheme:
+                            description: Scheme is the authentication scheme clients
+                              must use.
+                            enum:
+                            - none
+                            - apiKey
+                            - oauth2
+                            - basicAuth
+                            type: string
+                        required:
+                        - scheme
+                        type: object
+                    required:
+                    - host
+                    type: object
+                  namespace:
+                    description: |-
+                      ResolvedEndpointURL is one URL resolved for an environment, with the security
+                      clients must satisfy to call it.
+                    properties:
+                      host:
+                        description: Host is the hostname or IP address.
+                        minLength: 1
+                        type: string
+                      path:
+                        description: Path is the URL path.
+                        type: string
+                      port:
+                        description: Port is the port number.
+                        format: int32
+                        type: integer
+                      scheme:
+                        description: Scheme is the URL scheme (e.g., http, https,
+                          tcp, udp, ws, wss, grpc, grpcs, tls).
+                        type: string
+                      security:
+                        description: |-
+                          Security is what the gateway enforces at this URL, as declared by the
+                          EndpointType. Absent when the type declares none.
+                        properties:
+                          apiKey:
+                            description: APIKey describes how to send the key when
+                              scheme is apiKey.
+                            properties:
+                              in:
+                                description: In is where the key is sent.
+                                enum:
+                                - header
+                                - query
+                                type: string
+                              name:
+                                description: Name is the header or query parameter
+                                  name carrying the key.
+                                type: string
+                            required:
+                            - in
+                            - name
+                            type: object
+                          scheme:
+                            description: Scheme is the authentication scheme clients
+                              must use.
+                            enum:
+                            - none
+                            - apiKey
+                            - oauth2
+                            - basicAuth
+                            type: string
+                        required:
+                        - scheme
+                        type: object
+                    required:
+                    - host
+                    type: object
+                  project:
+                    description: |-
+                      ResolvedEndpointURL is one URL resolved for an environment, with the security
+                      clients must satisfy to call it.
+                    properties:
+                      host:
+                        description: Host is the hostname or IP address.
+                        minLength: 1
+                        type: string
+                      path:
+                        description: Path is the URL path.
+                        type: string
+                      port:
+                        description: Port is the port number.
+                        format: int32
+                        type: integer
+                      scheme:
+                        description: Scheme is the URL scheme (e.g., http, https,
+                          tcp, udp, ws, wss, grpc, grpcs, tls).
+                        type: string
+                      security:
+                        description: |-
+                          Security is what the gateway enforces at this URL, as declared by the
+                          EndpointType. Absent when the type declares none.
+                        properties:
+                          apiKey:
+                            description: APIKey describes how to send the key when
+                              scheme is apiKey.
+                            properties:
+                              in:
+                                description: In is where the key is sent.
+                                enum:
+                                - header
+                                - query
+                                type: string
+                              name:
+                                description: Name is the header or query parameter
+                                  name carrying the key.
+                                type: string
+                            required:
+                            - in
+                            - name
+                            type: object
+                          scheme:
+                            description: Scheme is the authentication scheme clients
+                              must use.
+                            enum:
+                            - none
+                            - apiKey
+                            - oauth2
+                            - basicAuth
+                            type: string
+                        required:
+                        - scheme
+                        type: object
+                    required:
+                    - host
+                    type: object
+                type: object
             type: object
         type: object
     served: true

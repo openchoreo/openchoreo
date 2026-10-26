@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
+	"github.com/openchoreo/openchoreo/internal/template"
 	endpointvalidation "github.com/openchoreo/openchoreo/internal/validation/endpoint"
 )
 
@@ -141,11 +142,15 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,
 		fmt.Sprintf("%d backend(s) resolved", len(resolved.backends)))
 
-	rr, err := r.renderAndEmit(ctx, binding, in, md, resolved.backends)
+	// One CEL cost budget per reconcile, shared by rendering and URLs.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+	input := buildRenderInput(binding, in, md, resolved.backends)
+	rr, err := r.renderAndEmit(ctx, binding, input)
 	if err != nil || rr == nil {
 		return ctrl.Result{}, err
 	}
 
+	r.resolveURLs(ctx, binding, input)
 	evaluateResourcesReady(binding, rr)
 	return ctrl.Result{}, nil
 }

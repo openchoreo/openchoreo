@@ -32,6 +32,7 @@ var _ = Describe("Status evaluation", func() {
 			withCondition(b, ConditionBackendsResolved, metav1.ConditionTrue, "Resolved", 2)
 			withCondition(b, ConditionSynced, metav1.ConditionTrue, "Synced", 2)
 			withCondition(b, ConditionResourcesReady, metav1.ConditionTrue, "Ready", 2)
+			withCondition(b, ConditionURLsResolved, metav1.ConditionTrue, "URLsResolved", 2)
 
 			setReadyCondition(b)
 

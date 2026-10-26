@@ -213,6 +213,20 @@ const (
 	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
 )
 
+// Defines values for EndpointSecurityApiKeyIn.
+const (
+	EndpointApiKeyInHeader EndpointSecurityApiKeyIn = "header"
+	EndpointApiKeyInQuery  EndpointSecurityApiKeyIn = "query"
+)
+
+// Defines values for EndpointSecurityScheme.
+const (
+	EndpointSecuritySchemeApiKey    EndpointSecurityScheme = "apiKey"
+	EndpointSecuritySchemeBasicAuth EndpointSecurityScheme = "basicAuth"
+	EndpointSecuritySchemeNone      EndpointSecurityScheme = "none"
+	EndpointSecuritySchemeOauth2    EndpointSecurityScheme = "oauth2"
+)
+
 // Defines values for EndpointSpecVisibility.
 const (
 	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
@@ -2228,8 +2242,26 @@ type EndpointReleaseBindingStatus struct {
 	// Backends Resolution of each backendRef in this binding's environment.
 	Backends *[]ResolvedEndpointBackend `json:"backends,omitempty"`
 
-	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
 	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Urls The URL resolved for each visibility in the binding's environment.
+	Urls *EndpointReleaseBindingURLs `json:"urls,omitempty"`
+}
+
+// EndpointReleaseBindingURLs The URL resolved for each visibility in the binding's environment.
+type EndpointReleaseBindingURLs struct {
+	// External One resolved URL with the security clients must satisfy to call it.
+	External *ResolvedEndpointURL `json:"external,omitempty"`
+
+	// Internal One resolved URL with the security clients must satisfy to call it.
+	Internal *ResolvedEndpointURL `json:"internal,omitempty"`
+
+	// Namespace One resolved URL with the security clients must satisfy to call it.
+	Namespace *ResolvedEndpointURL `json:"namespace,omitempty"`
+
+	// Project One resolved URL with the security clients must satisfy to call it.
+	Project *ResolvedEndpointURL `json:"project,omitempty"`
 }
 
 // EndpointReleaseList Paginated list of endpoint releases
@@ -2285,6 +2317,36 @@ type EndpointReleaseSpecEndpointTypeKind string
 
 // EndpointReleaseSpecVisibility defines model for EndpointReleaseSpec.Visibility.
 type EndpointReleaseSpecVisibility string
+
+// EndpointSecurity Security enforced at a URL, as declared by the EndpointType.
+type EndpointSecurity struct {
+	ApiKey *struct {
+		In   EndpointSecurityApiKeyIn `json:"in"`
+		Name string                   `json:"name"`
+	} `json:"apiKey,omitempty"`
+	Scheme EndpointSecurityScheme `json:"scheme"`
+}
+
+// EndpointSecurityApiKeyIn defines model for EndpointSecurity.ApiKey.In.
+type EndpointSecurityApiKeyIn string
+
+// EndpointSecurityScheme defines model for EndpointSecurity.Scheme.
+type EndpointSecurityScheme string
+
+// EndpointSecurityTemplate Template for the security enforced at a URL, as declared by the EndpointType.
+type EndpointSecurityTemplate struct {
+	// ApiKey Where to send the key. Required when scheme resolves to apiKey; ignored when a templated scheme resolves to anything else.
+	ApiKey *struct {
+		// In Must resolve to header or query.
+		In string `json:"in"`
+
+		// Name Header or query parameter name carrying the key.
+		Name string `json:"name"`
+	} `json:"apiKey,omitempty"`
+
+	// Scheme Must resolve to one of none, apiKey, oauth2, basicAuth.
+	Scheme string `json:"scheme"`
+}
 
 // EndpointSpec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
 type EndpointSpec struct {
@@ -2410,12 +2472,38 @@ type EndpointTypeSpec struct {
 		Var *string `json:"var,omitempty"`
 	} `json:"resources"`
 
+	// Urls Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+	// serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+	// context as resources; nothing is read back from the data plane.
+	Urls *EndpointTypeURLs `json:"urls,omitempty"`
+
 	// Validations CEL-based validation rules evaluated before rendering.
 	Validations *[]ValidationRule `json:"validations,omitempty"`
 }
 
 // EndpointTypeSpecResourcesTargetPlane Target plane for deployment. Endpoint types may only target the data plane.
 type EndpointTypeSpecResourcesTargetPlane string
+
+// EndpointTypeURLs Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+// serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+// context as resources; nothing is read back from the data plane.
+type EndpointTypeURLs struct {
+	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	External *EndpointURLTemplate `json:"external,omitempty"`
+
+	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Internal *EndpointURLTemplate `json:"internal,omitempty"`
+
+	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
+
+	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Project *EndpointURLTemplate `json:"project,omitempty"`
+}
 
 // EndpointURL Structured URL with its components
 type EndpointURL struct {
@@ -2455,6 +2543,28 @@ type EndpointURLStatus struct {
 
 // EndpointURLStatusType Endpoint type (HTTP, gRPC, GraphQL, Websocket, TCP, UDP)
 type EndpointURLStatusType string
+
+// EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
+// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+type EndpointURLTemplate struct {
+	// Host Hostname or IP address clients connect to.
+	Host string `json:"host"`
+
+	// IncludeWhen Optional CEL expression, ANDed with the visibility gate, deciding whether the URL is resolved.
+	IncludeWhen *string `json:"includeWhen,omitempty"`
+
+	// Path URL path the endpoint is served under.
+	Path *string `json:"path,omitempty"`
+
+	// Port Literal or CEL template resolving to an integer between 1 and 65535. Omit for the scheme default.
+	Port *string `json:"port,omitempty"`
+
+	// Scheme URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+	Scheme string `json:"scheme"`
+
+	// Security Template for the security enforced at a URL, as declared by the EndpointType.
+	Security *EndpointSecurityTemplate `json:"security,omitempty"`
+}
 
 // Entitlement Entitlement with claim and value
 type Entitlement struct {
@@ -3864,6 +3974,17 @@ type ResolvedEndpointBackend struct {
 
 // ResolvedEndpointBackendKind Kind of the resolved backend.
 type ResolvedEndpointBackendKind string
+
+// ResolvedEndpointURL One resolved URL with the security clients must satisfy to call it.
+type ResolvedEndpointURL struct {
+	Host   string  `json:"host"`
+	Path   *string `json:"path,omitempty"`
+	Port   *int32  `json:"port,omitempty"`
+	Scheme *string `json:"scheme,omitempty"`
+
+	// Security Security enforced at a URL, as declared by the EndpointType.
+	Security *EndpointSecurity `json:"security,omitempty"`
+}
 
 // ResolvedResourceOutput Resolved output value populated by the binding controller after evaluating
 // the ResourceType output CEL against the applied DP-side objects. Exactly one

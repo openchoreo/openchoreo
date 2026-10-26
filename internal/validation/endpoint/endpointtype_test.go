@@ -133,6 +133,135 @@ func TestValidateEndpointTypeSpec(t *testing.T) {
 			},
 			wantErr: "spec.parameters",
 		},
+		{
+			name: "urls template every field from the render context",
+			spec: withParams(v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					IncludeWhen: "${gateway.?ingress.?external.?http.hasValue()}",
+					Scheme:      `${"external" in visibility ? "https" : "http"}`,
+					Host:        "${metadata.endpointName}.${gateway.ingress.external.http.host}",
+					Port:        "${gateway.ingress.external.http.port}",
+					Path:        "${parameters.pathPrefix}/${backends[0].endpoint}",
+					Security: &v1alpha1.EndpointSecurityTemplate{
+						Scheme: "apiKey",
+						APIKey: &v1alpha1.EndpointAPIKeyTemplate{In: "header", Name: "x-api-key"},
+					},
+				}},
+			}),
+		},
+		{
+			name: "every visibility may be declared",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{
+					Project:   &v1alpha1.EndpointURLTemplate{Scheme: "http", Host: "p", Port: "8080"},
+					Namespace: &v1alpha1.EndpointURLTemplate{Scheme: "grpc", Host: "n"},
+					Internal:  &v1alpha1.EndpointURLTemplate{Scheme: "https", Host: "i"},
+					External:  &v1alpha1.EndpointURLTemplate{Scheme: "wss", Host: "e"},
+				},
+			},
+		},
+		{
+			name: "unknown literal scheme",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs:      &v1alpha1.EndpointTypeURLs{Internal: &v1alpha1.EndpointURLTemplate{Scheme: "ftp", Host: "h"}},
+			},
+			wantErr: "spec.urls.internal.scheme",
+		},
+		{
+			name: "literal port out of range",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Port: "70000"}},
+			},
+			wantErr: "spec.urls.external.port",
+		},
+		{
+			name: "standalone host expression must return a string",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "${size(backends)}"}},
+			},
+			wantErr: "spec.urls.external.host",
+		},
+		{
+			name: "standalone port expression must return a number or string",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Port: "${visibility}"}},
+			},
+			wantErr: "spec.urls.external.port",
+		},
+		{
+			name: "url field with undeclared parameter",
+			spec: withParams(v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Path: "${parameters.basePath}"}},
+			}),
+			wantErr: "spec.urls.external.path",
+		},
+		{
+			name: "url field cannot use component-only helpers",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "${workload.name}"}},
+			},
+			wantErr: "workload",
+		},
+		{
+			name: "url includeWhen must be boolean",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					IncludeWhen: "${metadata.name}", Scheme: "https", Host: "h"}},
+			},
+			wantErr: "spec.urls.external.includeWhen",
+		},
+		{
+			name: "unknown literal security scheme",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Security: &v1alpha1.EndpointSecurityTemplate{Scheme: "jwt"}}},
+			},
+			wantErr: "spec.urls.external.security.scheme",
+		},
+		{
+			name: "apiKey scheme requires apiKey",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Security: &v1alpha1.EndpointSecurityTemplate{Scheme: "apiKey"}}},
+			},
+			wantErr: "spec.urls.external.security.apiKey",
+		},
+		{
+			name: "apiKey only with apiKey scheme",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Security: &v1alpha1.EndpointSecurityTemplate{
+						Scheme: "none", APIKey: &v1alpha1.EndpointAPIKeyTemplate{In: "header", Name: "k"}}}},
+			},
+			wantErr: "spec.urls.external.security.apiKey",
+		},
+		{
+			name: "unknown literal apiKey location",
+			spec: v1alpha1.EndpointTypeSpec{
+				Resources: []v1alpha1.ResourceTemplate{tmpl("route", route("x"))},
+				URLs: &v1alpha1.EndpointTypeURLs{External: &v1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "h", Security: &v1alpha1.EndpointSecurityTemplate{
+						Scheme: "apiKey", APIKey: &v1alpha1.EndpointAPIKeyTemplate{In: "cookie", Name: "k"}}}},
+			},
+			wantErr: "spec.urls.external.security.apiKey.in",
+		},
 	}
 
 	for _, tt := range tests {

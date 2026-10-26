@@ -25,7 +25,13 @@ const (
 	// RenderedRelease's status.resources passes its per-Kind health check.
 	ConditionResourcesReady controller.ConditionType = "ResourcesReady"
 
-	// ConditionReady aggregates BackendsResolved, Synced, and ResourcesReady.
+	// ConditionURLsResolved indicates every URL the EndpointType declares for a
+	// visibility the Endpoint requests resolved for the binding's environment.
+	// The values live in status.urls.
+	ConditionURLsResolved controller.ConditionType = "URLsResolved"
+
+	// ConditionReady aggregates BackendsResolved, Synced, ResourcesReady, and
+	// URLsResolved.
 	ConditionReady controller.ConditionType = "Ready"
 
 	// ConditionFinalizing indicates the binding is being finalized (deleted).
@@ -107,6 +113,14 @@ const (
 	// ReasonResourceApplyFailed indicates the RenderedRelease reported
 	// ResourcesApplied=False for its current generation.
 	ReasonResourceApplyFailed controller.ConditionReason = "ResourceApplyFailed"
+
+	// ReasonURLsResolved indicates every applicable URL resolved.
+	ReasonURLsResolved controller.ConditionReason = "URLsResolved"
+
+	// ReasonURLResolutionFailed indicates at least one URL failed to resolve
+	// (CEL error, or a value outside its allowed range). The URLs that did
+	// resolve are still reported, and the RenderedRelease is unaffected.
+	ReasonURLResolutionFailed controller.ConditionReason = "URLResolutionFailed"
 
 	// ReasonReady indicates the aggregate Ready condition is True.
 	ReasonReady controller.ConditionReason = "Ready"

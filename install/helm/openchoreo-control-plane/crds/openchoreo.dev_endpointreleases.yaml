@@ -243,6 +243,318 @@ spec:
                         x-kubernetes-list-map-keys:
                         - id
                         x-kubernetes-list-type: map
+                      urls:
+                        description: |-
+                          URLs declares, per visibility, where clients reach the endpoint and how
+                          to call it. Each entry is optional: a type declares only the visibilities
+                          it serves. Every field is a ${...} CEL template evaluated at render time
+                          against the same context as resources (metadata.*, parameters.*,
+                          environmentConfigs.*, visibility, backends[], dataplane.*, environment.*
+                          and gateway.*); nothing is read back from the data plane. Resolved values
+                          are reported on EndpointReleaseBinding.status.urls.
+                        properties:
+                          external:
+                            description: |-
+                              External is the URL for callers on the public internet. Resolved only
+                              when the Endpoint requests external visibility.
+                            properties:
+                              host:
+                                description: Host is the hostname or IP address clients
+                                  connect to.
+                                minLength: 1
+                                type: string
+                              includeWhen:
+                                description: |-
+                                  IncludeWhen is an optional ${...}-wrapped CEL expression, ANDed with the
+                                  visibility gate, that decides whether this URL is resolved. Use it for
+                                  conditions of the type itself, such as the environment having a gateway
+                                  for this visibility. Must evaluate to a boolean.
+                                  Example: "${gateway.?ingress.?external.?https.hasValue()}".
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              path:
+                                description: Path is the URL path the endpoint is
+                                  served under.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the port clients connect to, as a literal or a ${...} expression
+                                  resolving to an integer between 1 and 65535. Omit it for the scheme's
+                                  default port.
+                                type: string
+                              scheme:
+                                description: |-
+                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
+                                  grpc, grpcs, tcp, tls.
+                                minLength: 1
+                                type: string
+                              security:
+                                description: |-
+                                  Security declares what the gateway enforces at this URL, so clients know
+                                  which credential to present. It is a declaration by the type's author;
+                                  the platform does not verify it against the data plane.
+                                properties:
+                                  apiKey:
+                                    description: |-
+                                      APIKey describes how to send the key. Required when scheme resolves to
+                                      apiKey and ignored when a templated scheme resolves to anything else, so
+                                      a parameter can switch API-key auth on and off. Rejected alongside a
+                                      literal scheme other than apiKey.
+                                    properties:
+                                      in:
+                                        description: In is where the key is sent.
+                                          Must resolve to header or query.
+                                        minLength: 1
+                                        type: string
+                                      name:
+                                        description: Name is the header or query parameter
+                                          name carrying the key.
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - in
+                                    - name
+                                    type: object
+                                  scheme:
+                                    description: |-
+                                      Scheme is the authentication scheme clients must use. Must resolve to one
+                                      of none, apiKey, oauth2, basicAuth.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - scheme
+                                type: object
+                            required:
+                            - host
+                            - scheme
+                            type: object
+                          internal:
+                            description: |-
+                              Internal is the URL for callers inside the organization's network.
+                              Resolved only when the Endpoint requests internal visibility.
+                            properties:
+                              host:
+                                description: Host is the hostname or IP address clients
+                                  connect to.
+                                minLength: 1
+                                type: string
+                              includeWhen:
+                                description: |-
+                                  IncludeWhen is an optional ${...}-wrapped CEL expression, ANDed with the
+                                  visibility gate, that decides whether this URL is resolved. Use it for
+                                  conditions of the type itself, such as the environment having a gateway
+                                  for this visibility. Must evaluate to a boolean.
+                                  Example: "${gateway.?ingress.?external.?https.hasValue()}".
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              path:
+                                description: Path is the URL path the endpoint is
+                                  served under.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the port clients connect to, as a literal or a ${...} expression
+                                  resolving to an integer between 1 and 65535. Omit it for the scheme's
+                                  default port.
+                                type: string
+                              scheme:
+                                description: |-
+                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
+                                  grpc, grpcs, tcp, tls.
+                                minLength: 1
+                                type: string
+                              security:
+                                description: |-
+                                  Security declares what the gateway enforces at this URL, so clients know
+                                  which credential to present. It is a declaration by the type's author;
+                                  the platform does not verify it against the data plane.
+                                properties:
+                                  apiKey:
+                                    description: |-
+                                      APIKey describes how to send the key. Required when scheme resolves to
+                                      apiKey and ignored when a templated scheme resolves to anything else, so
+                                      a parameter can switch API-key auth on and off. Rejected alongside a
+                                      literal scheme other than apiKey.
+                                    properties:
+                                      in:
+                                        description: In is where the key is sent.
+                                          Must resolve to header or query.
+                                        minLength: 1
+                                        type: string
+                                      name:
+                                        description: Name is the header or query parameter
+                                          name carrying the key.
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - in
+                                    - name
+                                    type: object
+                                  scheme:
+                                    description: |-
+                                      Scheme is the authentication scheme clients must use. Must resolve to one
+                                      of none, apiKey, oauth2, basicAuth.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - scheme
+                                type: object
+                            required:
+                            - host
+                            - scheme
+                            type: object
+                          namespace:
+                            description: |-
+                              Namespace is the URL for callers within the namespace. Resolved only when
+                              the Endpoint requests namespace visibility.
+                            properties:
+                              host:
+                                description: Host is the hostname or IP address clients
+                                  connect to.
+                                minLength: 1
+                                type: string
+                              includeWhen:
+                                description: |-
+                                  IncludeWhen is an optional ${...}-wrapped CEL expression, ANDed with the
+                                  visibility gate, that decides whether this URL is resolved. Use it for
+                                  conditions of the type itself, such as the environment having a gateway
+                                  for this visibility. Must evaluate to a boolean.
+                                  Example: "${gateway.?ingress.?external.?https.hasValue()}".
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              path:
+                                description: Path is the URL path the endpoint is
+                                  served under.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the port clients connect to, as a literal or a ${...} expression
+                                  resolving to an integer between 1 and 65535. Omit it for the scheme's
+                                  default port.
+                                type: string
+                              scheme:
+                                description: |-
+                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
+                                  grpc, grpcs, tcp, tls.
+                                minLength: 1
+                                type: string
+                              security:
+                                description: |-
+                                  Security declares what the gateway enforces at this URL, so clients know
+                                  which credential to present. It is a declaration by the type's author;
+                                  the platform does not verify it against the data plane.
+                                properties:
+                                  apiKey:
+                                    description: |-
+                                      APIKey describes how to send the key. Required when scheme resolves to
+                                      apiKey and ignored when a templated scheme resolves to anything else, so
+                                      a parameter can switch API-key auth on and off. Rejected alongside a
+                                      literal scheme other than apiKey.
+                                    properties:
+                                      in:
+                                        description: In is where the key is sent.
+                                          Must resolve to header or query.
+                                        minLength: 1
+                                        type: string
+                                      name:
+                                        description: Name is the header or query parameter
+                                          name carrying the key.
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - in
+                                    - name
+                                    type: object
+                                  scheme:
+                                    description: |-
+                                      Scheme is the authentication scheme clients must use. Must resolve to one
+                                      of none, apiKey, oauth2, basicAuth.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - scheme
+                                type: object
+                            required:
+                            - host
+                            - scheme
+                            type: object
+                          project:
+                            description: |-
+                              Project is the URL for callers within the Endpoint's project. Project
+                              visibility is implicit for every Endpoint, so it is resolved whenever it
+                              is declared; includeWhen is its only gate.
+                            properties:
+                              host:
+                                description: Host is the hostname or IP address clients
+                                  connect to.
+                                minLength: 1
+                                type: string
+                              includeWhen:
+                                description: |-
+                                  IncludeWhen is an optional ${...}-wrapped CEL expression, ANDed with the
+                                  visibility gate, that decides whether this URL is resolved. Use it for
+                                  conditions of the type itself, such as the environment having a gateway
+                                  for this visibility. Must evaluate to a boolean.
+                                  Example: "${gateway.?ingress.?external.?https.hasValue()}".
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              path:
+                                description: Path is the URL path the endpoint is
+                                  served under.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the port clients connect to, as a literal or a ${...} expression
+                                  resolving to an integer between 1 and 65535. Omit it for the scheme's
+                                  default port.
+                                type: string
+                              scheme:
+                                description: |-
+                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
+                                  grpc, grpcs, tcp, tls.
+                                minLength: 1
+                                type: string
+                              security:
+                                description: |-
+                                  Security declares what the gateway enforces at this URL, so clients know
+                                  which credential to present. It is a declaration by the type's author;
+                                  the platform does not verify it against the data plane.
+                                properties:
+                                  apiKey:
+                                    description: |-
+                                      APIKey describes how to send the key. Required when scheme resolves to
+                                      apiKey and ignored when a templated scheme resolves to anything else, so
+                                      a parameter can switch API-key auth on and off. Rejected alongside a
+                                      literal scheme other than apiKey.
+                                    properties:
+                                      in:
+                                        description: In is where the key is sent.
+                                          Must resolve to header or query.
+                                        minLength: 1
+                                        type: string
+                                      name:
+                                        description: Name is the header or query parameter
+                                          name carrying the key.
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - in
+                                    - name
+                                    type: object
+                                  scheme:
+                                    description: |-
+                                      Scheme is the authentication scheme clients must use. Must resolve to one
+                                      of none, apiKey, oauth2, basicAuth.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - scheme
+                                type: object
+                            required:
+                            - host
+                            - scheme
+                            type: object
+                        type: object
                       validations:
                         description: |-
                           Validations are CEL-based rules evaluated before rendering. All rules must

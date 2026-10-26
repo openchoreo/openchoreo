@@ -66,13 +66,14 @@ func markSyncedFalse(binding *openchoreov1alpha1.EndpointReleaseBinding,
 		"ResourcesReady cannot be evaluated until Synced=True")
 }
 
-// setReadyCondition aggregates BackendsResolved, Synced, and ResourcesReady
-// into Ready. Ready=True only when all three are True for the binding's current
-// generation; otherwise Ready=False inherits the first failing sub-condition's
-// reason and message, with BackendsResolved first because an unresolved backend
-// is the most actionable explanation. A sub-condition left over from an earlier
-// generation, such as when a reconcile of a repinned binding fails before
-// reaching it, describes the previous spec and counts as not yet evaluated.
+// setReadyCondition aggregates BackendsResolved, Synced, ResourcesReady, and
+// URLsResolved into Ready. Ready=True only when all four are True for the
+// binding's current generation; otherwise Ready=False inherits the first failing
+// sub-condition's reason and message, with BackendsResolved first because an
+// unresolved backend is the most actionable explanation. A sub-condition left
+// over from an earlier generation, such as when a reconcile of a repinned
+// binding fails before reaching it, describes the previous spec and counts as
+// not yet evaluated.
 func setReadyCondition(binding *openchoreov1alpha1.EndpointReleaseBinding) {
 	current := func(ct controller.ConditionType) *metav1.Condition {
 		c := meta.FindStatusCondition(binding.Status.Conditions, string(ct))
@@ -84,13 +85,14 @@ func setReadyCondition(binding *openchoreov1alpha1.EndpointReleaseBinding) {
 	backends := current(ConditionBackendsResolved)
 	synced := current(ConditionSynced)
 	resources := current(ConditionResourcesReady)
+	urls := current(ConditionURLsResolved)
 
-	if isTrue(backends) && isTrue(synced) && isTrue(resources) {
+	if isTrue(backends) && isTrue(synced) && isTrue(resources) && isTrue(urls) {
 		controller.MarkTrueCondition(binding, ConditionReady, ReasonReady, "EndpointReleaseBinding is ready")
 		return
 	}
 
-	for _, c := range []*metav1.Condition{backends, synced, resources} {
+	for _, c := range []*metav1.Condition{backends, synced, resources, urls} {
 		if c == nil || c.Status == metav1.ConditionTrue {
 			continue
 		}

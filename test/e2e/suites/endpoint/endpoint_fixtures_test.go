@@ -202,6 +202,15 @@ func clusterEndpointTypeYAML() string {
 				IncludeWhen: `${"external" in visibility}`,
 				Template:    &runtime.RawExtension{Raw: []byte(weightedRouteTemplate)},
 			}},
+			// Built from the same gateway data as the route's hostname, so the
+			// test can call the endpoint on the URL the binding reports.
+			URLs: &openchoreov1alpha1.EndpointTypeURLs{External: &openchoreov1alpha1.EndpointURLTemplate{
+				Scheme:   "http",
+				Host:     "${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.external.http.host}",
+				Port:     "${gateway.ingress.external.http.port}",
+				Path:     "/",
+				Security: &openchoreov1alpha1.EndpointSecurityTemplate{Scheme: "none"},
+			}},
 		},
 	})
 }

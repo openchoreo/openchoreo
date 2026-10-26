@@ -272,6 +272,98 @@ var _ = Describe("Backend resolution and rendering", func() {
 		Expect(synced.Message).To(ContainSubstring("this type only routes gRPC backends"))
 	})
 
+	withURLs := func(release *openchoreov1alpha1.EndpointRelease, urls *openchoreov1alpha1.EndpointTypeURLs) *openchoreov1alpha1.EndpointRelease {
+		release.Spec.EndpointType.Spec.URLs = urls
+		return release
+	}
+	hostFromBackends := `${backends.map(b, b.name).join("-")}.example.com`
+
+	It("resolves the type's URLs into status.urls for the requested visibilities", func() {
+		release := withURLs(newRelease(testRelease, componentBackend("stable", "greeter", 90), componentBackend("canary", "greeter-v2", 10)),
+			&openchoreov1alpha1.EndpointTypeURLs{
+				External: &openchoreov1alpha1.EndpointURLTemplate{
+					Scheme: "https", Host: "${metadata.endpointName}.${metadata.environmentName}.example.com", Port: "8443", Path: "/api",
+					Security: &openchoreov1alpha1.EndpointSecurityTemplate{
+						Scheme: "apiKey", APIKey: &openchoreov1alpha1.EndpointAPIKeyTemplate{In: "header", Name: "api-key"},
+					},
+				},
+				Internal: &openchoreov1alpha1.EndpointURLTemplate{Scheme: "http", Host: hostFromBackends},
+			})
+		b := newBinding("urls", testRelease)
+		r, cli := build(release, b, deployedComponent("greeter", dpNS), deployedComponent("greeter-v2", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+
+		Expect(condition(updated, ConditionURLsResolved).Status).To(Equal(metav1.ConditionTrue))
+		Expect(updated.Status.URLs).To(Equal(&openchoreov1alpha1.EndpointReleaseBindingURLs{
+			External: &openchoreov1alpha1.ResolvedEndpointURL{
+				EndpointURL: openchoreov1alpha1.EndpointURL{
+					Scheme: "https", Host: testEndpoint + "." + testEnvName + ".example.com", Port: 8443, Path: "/api",
+				},
+				Security: &openchoreov1alpha1.EndpointSecurity{
+					Scheme: openchoreov1alpha1.EndpointSecuritySchemeAPIKey,
+					APIKey: &openchoreov1alpha1.EndpointAPIKey{In: openchoreov1alpha1.EndpointAPIKeyInHeader, Name: "api-key"},
+				},
+			},
+		}), "the release's Endpoint requests external only, so the internal URL is not resolved")
+	})
+
+	It("keeps the previous URLs while rendering is blocked", func() {
+		release := withURLs(newRelease(testRelease, componentBackend("stable", "greeter", 90), componentBackend("canary", "greeter-v2", 10)),
+			&openchoreov1alpha1.EndpointTypeURLs{External: &openchoreov1alpha1.EndpointURLTemplate{Scheme: "http", Host: hostFromBackends}})
+		b := newBinding("urls-blocked", testRelease)
+		canary := deployedComponent("greeter-v2", dpNS)
+		r, cli := build(release, b, deployedComponent("greeter", dpNS), canary)
+		before := reconcileBinding(r, cli, b)
+		Expect(before.Status.URLs).NotTo(BeNil())
+		Expect(before.Status.URLs.External.Host).To(Equal("stable-canary.example.com"))
+
+		Expect(cli.Delete(fctx, canary)).To(Succeed())
+		updated := reconcileBinding(r, cli, b)
+
+		Expect(condition(updated, ConditionBackendsResolved).Status).To(Equal(metav1.ConditionFalse))
+		Expect(updated.Status.URLs).To(Equal(before.Status.URLs), "URLs describe the RenderedRelease that is still deployed")
+	})
+
+	It("reports a failing URL without blocking the RenderedRelease", func() {
+		release := withURLs(newRelease(testRelease, componentBackend("stable", "greeter", 1)),
+			&openchoreov1alpha1.EndpointTypeURLs{
+				Project:  &openchoreov1alpha1.EndpointURLTemplate{Scheme: "http", Host: "${metadata.endpointName}"},
+				External: &openchoreov1alpha1.EndpointURLTemplate{Scheme: "https", Host: "${parameters.missing}"},
+			})
+		b := newBinding("urls-failing", testRelease)
+		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+
+		urls := condition(updated, ConditionURLsResolved)
+		Expect(urls.Status).To(Equal(metav1.ConditionFalse))
+		Expect(urls.Reason).To(Equal(string(ReasonURLResolutionFailed)))
+		Expect(urls.Message).To(ContainSubstring(`url "external"`))
+		Expect(updated.Status.URLs).NotTo(BeNil())
+		Expect(updated.Status.URLs.Project.Host).To(Equal(testEndpoint), "the project URL is implicit and still resolves")
+		Expect(updated.Status.URLs.External).To(BeNil())
+		Expect(condition(updated, ConditionSynced).Status).To(Equal(metav1.ConditionTrue))
+
+		// Once the data plane has applied the route and reports it healthy, the
+		// broken URL is what keeps the binding from being Ready.
+		rr, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred(), "routing is unaffected by a broken URL")
+		rr.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
+			ID: "route", Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute",
+			Name: rr.Name, HealthStatus: openchoreov1alpha1.HealthStatusHealthy,
+		}}
+		meta.SetStatusCondition(&rr.Status.Conditions, metav1.Condition{
+			Type: renderedrelease.ConditionResourcesApplied, Status: metav1.ConditionTrue,
+			Reason: "Applied", ObservedGeneration: rr.Generation,
+		})
+		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
+		updated = reconcileBinding(r, cli, b)
+		ready := condition(updated, ConditionReady)
+		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+		Expect(ready.Reason).To(Equal(string(ReasonURLResolutionFailed)))
+	})
+
 	It("deletes the RenderedRelease before releasing the finalizer", func() {
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
 		b := newBinding("finalize", testRelease)
