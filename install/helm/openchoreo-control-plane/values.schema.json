@@ -4981,6 +4981,16 @@
         "llm": {
           "additionalProperties": false,
           "properties": {
+            "auth": {
+              "default": "api_key",
+              "description": "How the Portal Assistant authenticates to the LLM endpoint. api_key sends PORTAL_ASSISTANT_LLM_API_KEY from secretName. azure sends a Microsoft Entra ID token from DefaultAzureCredential instead, for an Azure OpenAI or Azure AI Foundry endpoint set in baseUrl (e.g., https://\u003cresource\u003e.openai.azure.com/openai/v1/), and secretName is optional. On AKS, use workload identity - the azure.workload.identity/client-id annotation in serviceAccount.annotations and the azure.workload.identity/use label in podLabels. Set modelName to the deployment name, and name the deployment after its model (e.g., gpt-5-mini). The Portal Assistant needs a model name LangChain recognizes, so other deployment names fail, even when prefixed as openai:\u003cdeployment\u003e.",
+              "enum": [
+                "api_key",
+                "azure"
+              ],
+              "required": [],
+              "title": "auth"
+            },
             "baseUrl": {
               "default": "",
               "description": "Optional OpenAI-compatible base URL. Set to route LLM calls through the\nai-gateway-agentgateway module (e.g. http://agentgateway-proxy.openchoreo-data-plane)\ninstead of the provider directly; the provider key is then managed at the\ngateway and the secret's PORTAL_ASSISTANT_LLM_API_KEY may be a placeholder.",
@@ -4994,7 +5004,14 @@
             },
             "secretName": {
               "default": "",
+              "description": "Secret holding PORTAL_ASSISTANT_LLM_API_KEY. Not needed when auth is azure.",
               "title": "secretName",
+              "type": "string"
+            },
+            "tokenScope": {
+              "default": "",
+              "description": "Microsoft Entra ID scope of the LLM token when auth is azure. Empty uses https://cognitiveservices.azure.com/.default, the scope of Azure OpenAI and Azure AI Foundry.",
+              "title": "tokenScope",
               "type": "string"
             }
           },
@@ -5019,6 +5036,16 @@
           "description": "Node selector for pod scheduling",
           "required": [],
           "title": "nodeSelector",
+          "type": "object"
+        },
+        "podLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels to add to Portal Assistant pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection",
+          "required": [],
+          "title": "podLabels",
           "type": "object"
         },
         "replicas": {
@@ -5103,6 +5130,25 @@
             "port"
           ],
           "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the Portal Assistant",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the Portal Assistant service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
           "type": "object"
         },
         "tolerations": {
