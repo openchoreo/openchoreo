@@ -434,7 +434,7 @@ components:
           type: boolean
           description: >
             True when the adapter scoped the rule to metadata.releaseLineUid. False or
-            absent means the rule evaluates every release line of the component.
+            absent means the rule evaluates the component's default line.
 
     # Request schema for alert webhook
     AlertWebhookRequest:

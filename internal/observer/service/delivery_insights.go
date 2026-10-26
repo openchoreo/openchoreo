@@ -89,7 +89,7 @@ type resolvedDeliveryInsightsScope struct {
 	componentUID    string
 	environmentUID  string
 	releaseLineUID  string
-	defaultLineOnly bool
+	allReleaseLines bool
 }
 
 func (s *DoraMetricsService) resolveScope(
@@ -141,26 +141,29 @@ func (s *DoraMetricsService) resolveScope(
 		}
 		rs.environmentUID = uid
 	}
-	if defaultLineOnly(&scope) && rs.componentUID != "" {
-		// A component without release lines keeps its component rollups, which equal its default
-		// line's and also hold the history recorded before release lines.
+	lines, err := resolveScopeReleaseLines(ctx, s.resolver, &scope)
+	if err != nil {
+		return rs, wrapDeliveryInsightsScopeError(err, "release line", releaseLine)
+	}
+	rs.allReleaseLines = lines.All
+	switch {
+	case lines.UID != "":
+		rs.releaseLineUID = lines.UID
+		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
+		rs.scopeUID = lines.UID
+	case rs.componentUID != "" && !lines.All:
+		// A component without release lines keeps its component rollups and every fact, which equal
+		// its default line's and also hold the history recorded before release lines.
 		hasLines, err := s.resolver.HasReleaseLines(ctx, namespace, component)
 		if err != nil {
 			return rs, wrapDeliveryInsightsScopeError(err, "component", component)
 		}
 		if hasLines {
-			rs.defaultLineOnly = true
 			rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
 			rs.scopeUID = rs.componentUID
+		} else {
+			rs.allReleaseLines = true
 		}
-	} else if releaseLine != "" {
-		uid, err := s.resolver.GetReleaseLineUID(ctx, namespace, component, releaseLine)
-		if err != nil {
-			return rs, wrapDeliveryInsightsScopeError(err, "release line", releaseLine)
-		}
-		rs.releaseLineUID = uid
-		rs.scopeType = deliveryinsights.ScopeTypeReleaseLine
-		rs.scopeUID = uid
 	}
 	return rs, nil
 }
@@ -178,7 +181,7 @@ func (rs resolvedDeliveryInsightsScope) factQuery(startMs, endMs int64) delivery
 		ComponentUID:    rs.componentUID,
 		EnvironmentUID:  rs.environmentUID,
 		ReleaseLineUID:  rs.releaseLineUID,
-		DefaultLineOnly: rs.defaultLineOnly,
+		AllReleaseLines: rs.allReleaseLines,
 		StartMs:         startMs,
 		EndMs:           endMs,
 		// The metrics are statistics over the window, so every matching row has to be

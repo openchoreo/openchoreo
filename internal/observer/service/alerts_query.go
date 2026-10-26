@@ -17,7 +17,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
-	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -35,8 +34,8 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 
 	scope := &req.SearchScope
 
-	var projectUID, componentUID, environmentUID, releaseLineUID string
-	defaultLineOnly := defaultLineOnly(scope)
+	var projectUID, componentUID, environmentUID string
+	var lines ReleaseLineScope
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -63,12 +62,10 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 				return nil, wrapScopeError(err, "environment", environmentName)
 			}
 		}
-		if releaseLineName := stringPtrValue(scope.ReleaseLine); releaseLineName != "" {
-			var err error
-			releaseLineUID, err = s.resolver.GetReleaseLineUID(ctx, scope.Namespace, componentName, releaseLineName)
-			if err != nil {
-				return nil, wrapScopeError(err, "release line", releaseLineName)
-			}
+		var err error
+		lines, err = resolveScopeReleaseLines(ctx, s.resolver, scope)
+		if err != nil {
+			return nil, wrapScopeError(err, "release line", stringPtrValue(scope.ReleaseLine))
 		}
 	}
 
@@ -80,8 +77,8 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 		ProjectID:       projectUID,
 		ComponentID:     componentUID,
 		EnvironmentID:   environmentUID,
-		ReleaseLineID:   releaseLineUID,
-		DefaultLineOnly: defaultLineOnly,
+		ReleaseLineID:   lines.UID,
+		AllReleaseLines: lines.All,
 		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
 		SortOrder:       string(alertSortOrderOrDefault(req.SortOrder)),
 	}
@@ -110,8 +107,8 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 
 	scope := &req.SearchScope
 
-	var projectUID, componentUID, environmentUID, releaseLineUID string
-	defaultLineOnly := defaultLineOnly(scope)
+	var projectUID, componentUID, environmentUID string
+	var lines ReleaseLineScope
 	if s.resolver != nil {
 		projectName := stringPtrValue(scope.Project)
 		componentName := stringPtrValue(scope.Component)
@@ -138,12 +135,10 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 				return nil, wrapScopeError(err, "environment", environmentName)
 			}
 		}
-		if releaseLineName := stringPtrValue(scope.ReleaseLine); releaseLineName != "" {
-			var err error
-			releaseLineUID, err = s.resolver.GetReleaseLineUID(ctx, scope.Namespace, componentName, releaseLineName)
-			if err != nil {
-				return nil, wrapScopeError(err, "release line", releaseLineName)
-			}
+		var err error
+		lines, err = resolveScopeReleaseLines(ctx, s.resolver, scope)
+		if err != nil {
+			return nil, wrapScopeError(err, "release line", stringPtrValue(scope.ReleaseLine))
 		}
 	}
 
@@ -155,8 +150,8 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 		ProjectID:       projectUID,
 		ComponentID:     componentUID,
 		EnvironmentID:   environmentUID,
-		ReleaseLineID:   releaseLineUID,
-		DefaultLineOnly: defaultLineOnly,
+		ReleaseLineID:   lines.UID,
+		AllReleaseLines: lines.All,
 		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
 		SortOrder:       string(incidentSortOrderOrDefault(req.SortOrder)),
 	}
@@ -394,19 +389,12 @@ func incidentSortOrderOrDefault(order *gen.IncidentsQueryRequestSortOrder) gen.I
 	return *order
 }
 
-// defaultLineOnly reports whether a component search scope covers only the component's default
-// line: it names the default line, or names no line without asking for every line.
-func defaultLineOnly(scope *gen.ComponentSearchScope) bool {
-	if strings.TrimSpace(stringPtrValue(scope.Component)) == "" {
-		return false
-	}
-	switch strings.TrimSpace(stringPtrValue(scope.ReleaseLine)) {
-	case releaseline.DefaultLine:
-		return true
-	case "":
-		return scope.AllReleaseLines == nil || !*scope.AllReleaseLines
-	}
-	return false
+// resolveScopeReleaseLines resolves the release line part of a component search scope.
+func resolveScopeReleaseLines(
+	ctx context.Context, resolver releaseLineUIDResolver, scope *gen.ComponentSearchScope,
+) (ReleaseLineScope, error) {
+	return resolveReleaseLineScope(ctx, resolver, scope.Namespace, stringPtrValue(scope.Component),
+		stringPtrValue(scope.ReleaseLine), scope.AllReleaseLines != nil && *scope.AllReleaseLines)
 }
 
 func stringPtrValue(v *string) string {

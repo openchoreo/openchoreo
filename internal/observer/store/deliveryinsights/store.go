@@ -165,8 +165,9 @@ type FactQuery struct {
 	ComponentUID   string
 	EnvironmentUID string
 	ReleaseLineUID string
-	// DefaultLineOnly restricts the query to facts of components' default lines.
-	DefaultLineOnly bool
+	// AllReleaseLines covers every line of the component. Without it, a component covers its
+	// default line.
+	AllReleaseLines bool
 	StartMs         int64
 	EndMs           int64
 	// Limit caps a paged fact read (normalized through normalizeLimit) and is what

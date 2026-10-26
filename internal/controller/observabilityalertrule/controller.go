@@ -163,9 +163,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	switch {
 	case syncResp.Status == "synced" && latest.Labels[labels.LabelKeyReleaseLineUID] != "" && !syncResp.ReleaseLineApplied:
 		latest.Status.Phase = openchoreov1alpha1.ObservabilityAlertRulePhaseReady
-		setStatusCondition(latest, metav1.ConditionTrue, "SyncSucceededForAllReleaseLines",
+		setStatusCondition(latest, metav1.ConditionTrue, "SyncSucceededForDefaultLine",
 			fmt.Sprintf("Alert rule %s %s in backend; the adapter cannot scope rules to a release line, "+
-				"so the rule evaluates every release line of component %s",
+				"so the rule evaluates the default line of component %s",
 				syncResp.RuleLogicalID, syncResp.Action, latest.Labels[labels.LabelKeyComponentName]))
 	case syncResp.Status == "synced":
 		latest.Status.Phase = openchoreov1alpha1.ObservabilityAlertRulePhaseReady

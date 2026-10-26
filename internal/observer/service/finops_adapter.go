@@ -86,7 +86,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
+	lines, releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 		ProjectUid:      projectUID,
 		ComponentUid:    componentUID,
 		ReleaseLineUid:  releaseLineUID,
-		DefaultLineOnly: defaultLineOnly,
+		AllReleaseLines: truePtr(lines.All),
 	}
 	if req.Granularity != "" {
 		granularity := req.Granularity
@@ -117,7 +117,7 @@ func (a *FinOpsAdapter) GetComponentCosts(ctx context.Context, req *types.CostQu
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFinOpsRetrieval, err)
 	}
-	if err := checkReleaseLineApplied(releaseLineUID, resp.StatusCode(), resp.HTTPResponse); err != nil {
+	if err := a.checkReleaseLineApplied(ctx, req.Namespace, req.Component, lines, resp.StatusCode(), resp.HTTPResponse); err != nil {
 		return nil, err
 	}
 	return rawFinOpsResponse(resp.StatusCode(), resp.Body)
@@ -145,7 +145,7 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, err
 	}
-	releaseLineUID, defaultLineOnly, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
+	lines, releaseLineUID, err := a.resolveReleaseLine(ctx, req.Namespace, req.Component, req.ReleaseLine, req.AllReleaseLines)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (a *FinOpsAdapter) GetRecommendations(
 		ProjectUid:      projectUID,
 		ComponentUid:    componentUID,
 		ReleaseLineUid:  releaseLineUID,
-		DefaultLineOnly: defaultLineOnly,
+		AllReleaseLines: truePtr(lines.All),
 		Environment:     req.Environment,
 	}
 	if releaseLineUID != nil {
@@ -184,7 +184,7 @@ func (a *FinOpsAdapter) GetRecommendations(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFinOpsRetrieval, err)
 	}
-	if err := checkReleaseLineApplied(releaseLineUID, resp.StatusCode(), resp.HTTPResponse); err != nil {
+	if err := a.checkReleaseLineApplied(ctx, req.Namespace, req.Component, lines, resp.StatusCode(), resp.HTTPResponse); err != nil {
 		return nil, err
 	}
 	return rawFinOpsResponse(resp.StatusCode(), resp.Body)
@@ -247,43 +247,39 @@ func (a *FinOpsAdapter) resolveScope(
 	return environmentUID, projectUID, componentUID, nil
 }
 
-// resolveReleaseLine resolves an optional release line name to its UID, or to the default line only
-// for the default line keyword and for a component without a line. allLines covers every line.
+// resolveReleaseLine resolves the release line part of the scope, and the line's UID when it names
+// one.
 func (a *FinOpsAdapter) resolveReleaseLine(
 	ctx context.Context, namespace, component, releaseLine string, allLines bool,
-) (*openapi_types.UUID, *bool, error) {
+) (ReleaseLineScope, *openapi_types.UUID, error) {
 	if releaseLine != "" && component == "" {
-		return nil, nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
+		return ReleaseLineScope{}, nil, fmt.Errorf("%w: release line requires component", ErrFinOpsResolveScope)
 	}
 	lines, err := a.resolver.ResolveReleaseLineScope(ctx, namespace, component, releaseLine, allLines)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrFinOpsResolveScope, err)
-	}
-	if lines.DefaultOnly {
-		defaultOnly := true
-		return nil, &defaultOnly, nil
+		return ReleaseLineScope{}, nil, fmt.Errorf("%w: failed to resolve release line: %w", ErrFinOpsResolveScope, err)
 	}
 	if lines.UID == "" {
-		return nil, nil, nil
+		return lines, nil, nil
 	}
 	uid, err := uuid.Parse(lines.UID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: invalid release line UID %q: %w", ErrFinOpsResolveScope, lines.UID, err)
+		return ReleaseLineScope{}, nil, fmt.Errorf("%w: invalid release line UID %q: %w", ErrFinOpsResolveScope, lines.UID, err)
 	}
-	return &uid, nil, nil
+	return lines, &uid, nil
 }
 
-// checkReleaseLineApplied rejects a successful response to a release-line query that the
-// adapter did not restrict to the line, so costs of every line are never passed off as one
+// checkReleaseLineApplied rejects a successful response that the adapter did not scope to the
+// requested lines, so the default line's costs are never passed off as another line's or every
 // line's.
-func checkReleaseLineApplied(releaseLineUID *openapi_types.UUID, statusCode int, resp *http.Response) error {
-	if releaseLineUID == nil || statusCode < 200 || statusCode >= 300 {
+func (a *FinOpsAdapter) checkReleaseLineApplied(
+	ctx context.Context, namespace, component string, lines ReleaseLineScope, statusCode int, resp *http.Response,
+) error {
+	if statusCode < 200 || statusCode >= 300 {
 		return nil
 	}
-	if resp == nil || !observability.ReleaseLineApplied(resp.Header) {
-		return fmt.Errorf("%w: finops adapter", ErrReleaseLineNotSupported)
-	}
-	return nil
+	applied := resp != nil && observability.ReleaseLineApplied(resp.Header)
+	return a.resolver.CheckReleaseLineApplied(ctx, namespace, component, lines, applied, "finops adapter")
 }
 
 // parseFinOpsWindow validates and parses the RFC 3339 start/end times.

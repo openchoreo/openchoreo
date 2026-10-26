@@ -362,8 +362,8 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	if value := strings.TrimSpace(params.ReleaseLineID); value != "" {
 		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
 		args = append(args, value)
-	} else if params.DefaultLineOnly {
-		// Entries stored before release lines have no release_line_id.
+	} else if strings.TrimSpace(params.ComponentID) != "" && !params.AllReleaseLines {
+		// The default line. Entries stored before release lines have no release_line_id.
 		conditions = append(conditions, "COALESCE(release_line_id, '') = ''")
 	}
 

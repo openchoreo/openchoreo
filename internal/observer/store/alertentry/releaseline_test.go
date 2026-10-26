@@ -35,16 +35,20 @@ func TestQueryAlertEntries_ReleaseLine(t *testing.T) {
 	}
 
 	params := QueryParams{StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1"}
-	_, total, err := store.QueryAlertEntries(ctx, params)
-	require.NoError(t, err)
-	assert.Equal(t, 3, total, "a component-scoped query returns every line")
-
-	params.DefaultLineOnly = true
 	entries, total, err := store.QueryAlertEntries(ctx, params)
 	require.NoError(t, err)
-	require.Equal(t, 1, total)
+	require.Equal(t, 1, total, "a component-scoped query returns its default line")
 	assert.Empty(t, entries[0].ReleaseLineID, "the default line has no line UID")
-	params.DefaultLineOnly = false
+
+	params.AllReleaseLines = true
+	_, total, err = store.QueryAlertEntries(ctx, params)
+	require.NoError(t, err)
+	assert.Equal(t, 3, total, "every line")
+	params.AllReleaseLines = false
+
+	_, total, err = store.QueryAlertEntries(ctx, QueryParams{StartTime: params.StartTime, EndTime: params.EndTime})
+	require.NoError(t, err)
+	assert.Equal(t, 3, total, "a query without a component covers every line")
 
 	params.ReleaseLineID = "line-next"
 	entries, total, err = store.QueryAlertEntries(ctx, params)
@@ -71,7 +75,7 @@ func TestInitialize_AddsReleaseLineColumnsToExistingTable(t *testing.T) {
 		condition_operator TEXT, condition_threshold REAL, condition_window TEXT, condition_interval TEXT);`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO alert_entries VALUES ('old', 1772878830000000000, 'old-rule',
-		'', '', '', '', '', '', '', '', '', '', false, '', '', '', '', '', '', '', 0, '', '');`)
+		'', '', '', '', '', '', '', 'component-1', '', '', false, '', '', '', '', '', '', '', 0, '', '');`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
@@ -88,7 +92,7 @@ func TestInitialize_AddsReleaseLineColumnsToExistingTable(t *testing.T) {
 	assert.Empty(t, entries[0].ReleaseLineName, "rows written before release lines have no line")
 
 	_, total, err = store.QueryAlertEntries(ctx, QueryParams{
-		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", DefaultLineOnly: true,
+		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total, "rows written before release lines belong to the default line")

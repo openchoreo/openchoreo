@@ -39,6 +39,8 @@ func newReleaseLineResolver(t *testing.T) *ResourceUIDResolver {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/components/comp/releaselines/next"):
 			_, _ = w.Write([]byte(uidResponse(sampleReleaseLineUID)))
+		case strings.HasSuffix(r.URL.Path, "/components/comp/releaselines"):
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
 		case strings.Contains(r.URL.Path, "/releaselines/"):
 			w.WriteHeader(http.StatusNotFound)
 		case strings.Contains(r.URL.Path, "/projects/"):
@@ -64,66 +66,88 @@ func lineScope() types.ComponentSearchScope {
 func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
 func TestLogsService_ReleaseLine(t *testing.T) {
-	nextPod := releaseline.ObjectBaseName("comp", "next", "dev") + "-7d9c8b6f5-abcde"
-	defaultPod := "comp-dev-1a2b3c4d-6c8d7b5f4-fghij"
-	query := func(t *testing.T, applied bool) (*types.LogsQueryResponse, *fakeLogsAdapter) {
+	query := func(t *testing.T, scope types.ComponentSearchScope, applied bool) (*types.LogsQueryResponse, *fakeLogsAdapter, error) {
 		t.Helper()
 		adapter := &fakeLogsAdapter{componentResult: &observability.ComponentApplicationLogsResult{
-			Logs: []observability.LogEntry{
-				{Log: "from next", PodName: nextPod},
-				{Log: "from default", PodName: defaultPod},
-			},
+			Logs:               []observability.LogEntry{{Log: "from next"}, {Log: "from default"}},
 			TotalCount:         2,
 			ReleaseLineApplied: applied,
 		}}
 		svc, err := NewLogsService(adapter, newReleaseLineResolver(t), &config.Config{}, discardLogger())
 		require.NoError(t, err)
-		scope := lineScope()
 		resp, err := svc.QueryLogs(context.Background(), &types.LogsQueryRequest{
 			SearchScope: &types.SearchScope{Component: &scope},
 			StartTime:   "2026-03-07T10:00:00Z",
 			EndTime:     "2026-03-07T11:00:00Z",
 			Limit:       25,
 		})
-		require.NoError(t, err)
-		return resp, adapter
+		return resp, adapter, err
 	}
+	everyLine := lineScope()
+	everyLine.ReleaseLine = ""
+	everyLine.AllReleaseLines = true
 
 	t.Run("adapter filters by line", func(t *testing.T) {
-		resp, adapter := query(t, true)
+		resp, adapter, err := query(t, lineScope(), true)
+		require.NoError(t, err)
 		assert.Equal(t, sampleReleaseLineUID, adapter.lastComponent.ReleaseLineID)
 		assert.Len(t, resp.Logs, 2, "entries an adapter returned for the line are trusted as is")
 	})
 
 	t.Run("adapter without line support", func(t *testing.T) {
-		resp, _ := query(t, false)
-		require.Len(t, resp.Logs, 1)
-		assert.Equal(t, "from next", resp.Logs[0].Log)
-		assert.Equal(t, 1, resp.Total)
+		_, _, err := query(t, lineScope(), false)
+		assert.ErrorIs(t, err, ErrReleaseLineNotSupported)
+	})
+
+	t.Run("every line", func(t *testing.T) {
+		_, adapter, err := query(t, everyLine, true)
+		require.NoError(t, err)
+		assert.True(t, adapter.lastComponent.AllReleaseLines)
+		assert.Empty(t, adapter.lastComponent.ReleaseLineID)
+	})
+
+	t.Run("every line without line support", func(t *testing.T) {
+		_, _, err := query(t, everyLine, false)
+		assert.ErrorIs(t, err, ErrReleaseLineNotSupported, "the adapter returned only the default line of a component with lines")
+	})
+
+	t.Run("default line needs no line support", func(t *testing.T) {
+		scope := lineScope()
+		scope.ReleaseLine = ""
+		resp, adapter, err := query(t, scope, false)
+		require.NoError(t, err)
+		assert.False(t, adapter.lastComponent.AllReleaseLines)
+		assert.Empty(t, adapter.lastComponent.ReleaseLineID)
+		assert.Len(t, resp.Logs, 2)
 	})
 }
 
-func TestEventsService_ReleaseLineFallback(t *testing.T) {
-	adapter := &fakeEventsAdapter{componentResult: &observability.ComponentEventsResult{
-		Events: []observability.EventEntry{
-			{Message: "next deployment scaled", ObjectName: releaseline.ObjectBaseName("comp", "next", "dev")},
-			{Message: "default line pod started", ObjectName: "comp-dev-1a2b3c4d-6c8d7b5f4-fghij"},
-		},
-		TotalCount: 2,
-	}}
-	svc, err := NewEventsService(adapter, newReleaseLineResolver(t), &config.Config{}, discardLogger())
-	require.NoError(t, err)
-	scope := lineScope()
-	resp, err := svc.QueryEvents(context.Background(), &types.EventsQueryRequest{
-		SearchScope: &types.SearchScope{Component: &scope},
-		StartTime:   "2026-03-07T10:00:00Z",
-		EndTime:     "2026-03-07T11:00:00Z",
-		Limit:       25,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, sampleReleaseLineUID, adapter.lastComponent.ReleaseLineID)
-	require.Len(t, resp.Events, 1)
-	assert.Equal(t, "next deployment scaled", resp.Events[0].Message)
+func TestEventsService_ReleaseLine(t *testing.T) {
+	for name, applied := range map[string]bool{"applied": true, "not supported": false} {
+		t.Run(name, func(t *testing.T) {
+			adapter := &fakeEventsAdapter{componentResult: &observability.ComponentEventsResult{
+				Events:             []observability.EventEntry{{Message: "next deployment scaled"}},
+				TotalCount:         1,
+				ReleaseLineApplied: applied,
+			}}
+			svc, err := NewEventsService(adapter, newReleaseLineResolver(t), &config.Config{}, discardLogger())
+			require.NoError(t, err)
+			scope := lineScope()
+			resp, err := svc.QueryEvents(context.Background(), &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{Component: &scope},
+				StartTime:   "2026-03-07T10:00:00Z",
+				EndTime:     "2026-03-07T11:00:00Z",
+				Limit:       25,
+			})
+			assert.Equal(t, sampleReleaseLineUID, adapter.lastComponent.ReleaseLineID)
+			if !applied {
+				assert.ErrorIs(t, err, ErrReleaseLineNotSupported)
+				return
+			}
+			require.NoError(t, err)
+			assert.Len(t, resp.Events, 1)
+		})
+	}
 }
 
 func TestLogsAdapter_ReleaseLineHeader(t *testing.T) {
@@ -337,60 +361,72 @@ func TestFinOpsAdapter_ReleaseLine(t *testing.T) {
 		require.ErrorIs(t, err, ErrReleaseLineNotSupported)
 	})
 
-	t.Run("a query without a line covers the default line and needs no confirmation", func(t *testing.T) {
+	t.Run("a query without a line sends the component alone and needs no confirmation", func(t *testing.T) {
 		var query url.Values
 		req := costs()
 		req.ReleaseLine = ""
 		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), req)
 		require.NoError(t, err)
 		assert.Empty(t, query.Get("releaseLineUid"))
-		assert.Equal(t, "true", query.Get("defaultLineOnly"))
+		assert.Empty(t, query.Get("allReleaseLines"))
 	})
 
-	t.Run("a query for every line sends the component alone", func(t *testing.T) {
+	t.Run("a query for every line asks for every line", func(t *testing.T) {
+		var query url.Values
+		req := costs()
+		req.ReleaseLine = ""
+		req.AllReleaseLines = true
+		_, err := serve(t, true, &query).GetComponentCosts(context.Background(), req)
+		require.NoError(t, err)
+		assert.Empty(t, query.Get("releaseLineUid"))
+		assert.Equal(t, "true", query.Get("allReleaseLines"))
+	})
+
+	t.Run("an adapter that ignores every line is not supported", func(t *testing.T) {
 		var query url.Values
 		req := costs()
 		req.ReleaseLine = ""
 		req.AllReleaseLines = true
 		_, err := serve(t, false, &query).GetComponentCosts(context.Background(), req)
-		require.NoError(t, err)
-		assert.Empty(t, query.Get("releaseLineUid"))
-		assert.Empty(t, query.Get("defaultLineOnly"))
+		require.ErrorIs(t, err, ErrReleaseLineNotSupported)
 	})
 }
 
-func TestDefaultLineOnly(t *testing.T) {
+func TestResolveScopeReleaseLines(t *testing.T) {
 	all := true
 	for name, tc := range map[string]struct {
 		scope gen.ComponentSearchScope
-		want  bool
+		want  ReleaseLineScope
 	}{
-		"no component":       {scope: gen.ComponentSearchScope{Namespace: "ns"}},
-		"component, no line": {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp")}, want: true},
-		"every line":         {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), AllReleaseLines: &all}},
-		"default keyword":    {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("default")}, want: true},
-		"one line":           {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("next")}},
+		"no component":       {scope: gen.ComponentSearchScope{Namespace: "ns", AllReleaseLines: &all}},
+		"component, no line": {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp")}},
+		"every line":         {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), AllReleaseLines: &all}, want: ReleaseLineScope{All: true}},
+		"default keyword":    {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("default")}},
+		"one line":           {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("next")}, want: ReleaseLineScope{UID: sampleReleaseLineUID}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, tc.want, defaultLineOnly(&tc.scope))
+			got, err := resolveScopeReleaseLines(context.Background(), newReleaseLineResolver(t), &tc.scope)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
 
 func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
 	for name, tc := range map[string]struct {
-		line            string
-		all             bool
-		wantDefaultOnly bool
+		line    string
+		all     bool
+		wantAll bool
 	}{
-		"default line keyword": {line: releaseline.DefaultLine, wantDefaultOnly: true},
-		"no line":              {line: "", wantDefaultOnly: true},
-		"every line":           {line: "", all: true},
+		"default line keyword": {line: releaseline.DefaultLine},
+		"no line":              {line: ""},
+		"every line":           {line: "", all: true, wantAll: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var captured metricsAdapterRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
+				w.Header().Set(observability.ReleaseLineAppliedHeader, "true")
 				_, _ = w.Write([]byte(`{}`))
 			}))
 			defer server.Close()
@@ -405,26 +441,36 @@ func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Nil(t, captured.SearchScope.ReleaseLineUID)
-			assert.Equal(t, tc.wantDefaultOnly, captured.SearchScope.DefaultLineOnly)
+			assert.Equal(t, tc.wantAll, captured.SearchScope.AllReleaseLines)
 			require.NotNil(t, captured.SearchScope.ComponentUID)
 			assert.Equal(t, sampleComponentUID, *captured.SearchScope.ComponentUID)
 		})
 	}
 }
 
-func TestTracesAdapterBody_DefaultLineOnly(t *testing.T) {
-	body := gen.ComponentSearchScope{Namespace: "ns"}
-	r, err := tracesAdapterBody(map[string]any{"searchScope": body}, true)
-	require.NoError(t, err)
-	raw, err := io.ReadAll(r)
-	require.NoError(t, err)
-	assert.Contains(t, string(raw), `"defaultLineOnly":true`)
-
-	r, err = tracesAdapterBody(map[string]any{"searchScope": body}, false)
-	require.NoError(t, err)
-	raw, err = io.ReadAll(r)
-	require.NoError(t, err)
-	assert.NotContains(t, string(raw), "defaultLineOnly")
+func TestTracingAdapter_AllReleaseLines(t *testing.T) {
+	for _, all := range []bool{true, false} {
+		var captured struct {
+			SearchScope map[string]any `json:"searchScope"`
+		}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"traces":[],"total":0,"tookMs":1}`))
+		}))
+		adapter, err := NewTracingAdapter(TracingAdapterConfig{BaseURL: server.URL, Timeout: 5 * time.Second})
+		require.NoError(t, err)
+		_, err = adapter.GetTraces(context.Background(), observability.TracesQueryParams{
+			Namespace: "ns", ComponentID: sampleComponentUID, AllReleaseLines: all,
+		})
+		server.Close()
+		require.NoError(t, err)
+		if all {
+			assert.Equal(t, true, captured.SearchScope["allReleaseLines"])
+		} else {
+			assert.NotContains(t, captured.SearchScope, "allReleaseLines")
+		}
+	}
 }
 
 func TestAlertService_NotificationDetailsDefaultLine(t *testing.T) {

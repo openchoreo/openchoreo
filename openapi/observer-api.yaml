@@ -151,6 +151,16 @@ paths:
                 title: "internalServerError"
                 errorCode: "OBS-V1-L-29"
                 message: ""
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: "OBS-V1-L-06"
+                message: "the adapter does not support filtering by release line: logs adapter"
 
   # Events query endpoint
   /api/v1/events/query:

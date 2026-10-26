@@ -30,7 +30,7 @@ func (p *LogsAdapter) GetComponentEvents(
 		ComponentUid:    nonEmptyStrPtr(params.ComponentID),
 		EnvironmentUid:  nonEmptyStrPtr(params.EnvironmentID),
 		ReleaseLineUid:  nonEmptyStrPtr(params.ReleaseLineID),
-		DefaultLineOnly: truePtr(params.DefaultLineOnly),
+		AllReleaseLines: truePtr(params.AllReleaseLines),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to build component events search scope: %w", err)
 	}

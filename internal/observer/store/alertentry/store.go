@@ -55,8 +55,9 @@ type QueryParams struct {
 	ComponentID   string
 	EnvironmentID string
 	ReleaseLineID string
-	// DefaultLineOnly restricts the query to entries of components' default lines.
-	DefaultLineOnly bool
+	// AllReleaseLines covers every line of the component. Without it, a component covers its
+	// default line.
+	AllReleaseLines bool
 	Limit           int
 	SortOrder       string
 }

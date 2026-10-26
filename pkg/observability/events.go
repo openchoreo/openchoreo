@@ -20,8 +20,8 @@ type ComponentEventsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 	// ReleaseLineID restricts the events to one release line of the component.
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
-	// DefaultLineOnly restricts the query to the component's default line.
-	DefaultLineOnly bool `json:"defaultLineOnly,omitempty"`
+	// AllReleaseLines covers every line of the component instead of its default line.
+	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 
 // WorkflowEventsParams holds parameters for workflow run Kubernetes event queries
@@ -62,7 +62,7 @@ type ComponentEventsResult struct {
 	Events     []EventEntry `json:"events"`
 	TotalCount int          `json:"totalCount"`
 	Took       int          `json:"took"`
-	// ReleaseLineApplied is true when the adapter restricted the events to the requested release line.
+	// ReleaseLineApplied is true when the adapter applied the release line part of the scope.
 	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 

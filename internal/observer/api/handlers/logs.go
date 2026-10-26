@@ -56,6 +56,10 @@ func (h *Handler) QueryLogs(
 		if resp, ok := scopeNotFoundResponse(err); ok {
 			return resp, nil
 		}
+		if errors.Is(err, service.ErrReleaseLineNotSupported) {
+			return errorResponse(http.StatusNotImplemented, gen.NotImplemented,
+				types.ErrorCodeV1LogsReleaseLineNotSupported, err.Error()), nil
+		}
 		h.logger.Error("Failed to query logs", "error", err)
 		errorCode := types.ErrorCodeV1LogsInternalGeneric
 		switch {

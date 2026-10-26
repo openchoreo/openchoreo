@@ -198,23 +198,23 @@ func TestDeliveryInsightsReleaseLineScope(t *testing.T) {
 }
 
 // A component scope without a line covers the default line. A component without release lines keeps
-// its component rollups, which hold its history from before release lines.
+// its component rollups and every fact, which hold its history from before release lines.
 func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
 	ctx := context.Background()
 	all := true
 	tests := []struct {
-		name        string
-		withLines   bool
-		line        string
-		all         *bool
-		wantType    string
-		wantDefault bool
+		name      string
+		withLines bool
+		line      string
+		all       *bool
+		wantType  string
+		wantAll   bool
 	}{
-		{"no line, component without lines", false, "", nil, deliveryinsights.ScopeTypeComponent, false},
-		{"no line, component with lines", true, "", nil, deliveryinsights.ScopeTypeReleaseLine, true},
-		{"every line", true, "", &all, deliveryinsights.ScopeTypeComponent, false},
-		{"default keyword, component with lines", true, "default", nil, deliveryinsights.ScopeTypeReleaseLine, true},
-		{"default keyword, component without lines", false, "default", nil, deliveryinsights.ScopeTypeComponent, false},
+		{"no line, component without lines", false, "", nil, deliveryinsights.ScopeTypeComponent, true},
+		{"no line, component with lines", true, "", nil, deliveryinsights.ScopeTypeReleaseLine, false},
+		{"every line", true, "", &all, deliveryinsights.ScopeTypeComponent, true},
+		{"default keyword, component with lines", true, "default", nil, deliveryinsights.ScopeTypeReleaseLine, false},
+		{"default keyword, component without lines", false, "default", nil, deliveryinsights.ScopeTypeComponent, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantType, rs.scopeType)
 			assert.Equal(t, "checkout", rs.scopeUID)
-			assert.Equal(t, tt.wantDefault, rs.defaultLineOnly)
+			assert.Equal(t, tt.wantAll, rs.allReleaseLines)
 		})
 	}
 }

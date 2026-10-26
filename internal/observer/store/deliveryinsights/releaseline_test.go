@@ -33,7 +33,13 @@ func TestDeploymentFacts_ReleaseLine(t *testing.T) {
 	window := FactQuery{ComponentUID: "comp-1", StartMs: deployed - 1000, EndMs: deployed + time.Hour.Milliseconds()}
 	counts, err := store.CountDeployments(ctx, window)
 	require.NoError(t, err)
-	assert.Equal(t, 3, counts.Total, "the component counts every line")
+	assert.Equal(t, 0, counts.Total, "the component alone counts its default line, which has no facts here")
+
+	window.AllReleaseLines = true
+	counts, err = store.CountDeployments(ctx, window)
+	require.NoError(t, err)
+	assert.Equal(t, 3, counts.Total, "every line")
+	window.AllReleaseLines = false
 
 	window.ReleaseLineUID = "line-next"
 	counts, err = store.CountDeployments(ctx, window)

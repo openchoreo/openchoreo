@@ -8,14 +8,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -144,25 +142,8 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 	return filtered
 }
 
-// filterLogsByReleaseLine keeps only entries from pods of the line's workload, for observers that
-// do not filter by release line themselves.
-func filterLogsByReleaseLine(logs []client.LogEntry, component, line, env string) []client.LogEntry {
-	prefix := releaseline.ObjectNamePrefix(component, line, env)
-	filtered := make([]client.LogEntry, 0, len(logs))
-	for _, log := range logs {
-		if log.Metadata != nil && strings.HasPrefix(log.Metadata.PodName, prefix) {
-			filtered = append(filtered, log)
-		}
-	}
-	return filtered
-}
-
-// printLogs prints the entries, restricting to a release line and a single container when requested.
-// The observer restricts logs to the default line itself; its pods share no name prefix with the lines'.
+// printLogs prints the entries, restricting to a single container when requested.
 func printLogs(logs []client.LogEntry, params LogsParams) {
-	if line := releaseline.Normalize(params.ReleaseLine); line != "" {
-		logs = filterLogsByReleaseLine(logs, params.Component, line, params.Environment)
-	}
 	if params.Container != "" {
 		logs = filterLogsByContainer(logs, params.Container)
 	}

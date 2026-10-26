@@ -11,6 +11,8 @@ const (
 	ErrorCodeV1LogsServiceNotReady = "OBS-V1-L-03"
 	ErrorCodeV1LogsResolverFailed  = "OBS-V1-L-04"
 	ErrorCodeV1LogsRetrievalFailed = "OBS-V1-L-05"
+	// Not internal errors: the logs adapter cannot filter by release line.
+	ErrorCodeV1LogsReleaseLineNotSupported = "OBS-V1-L-06"
 
 	// Events API (v1) internal server error codes.
 	ErrorCodeV1EventsInternalGeneric = "OBS-V1-E-01"
@@ -19,6 +21,8 @@ const (
 	ErrorCodeV1EventsResolverFailed  = "OBS-V1-E-04"
 	ErrorCodeV1EventsRetrievalFailed = "OBS-V1-E-05"
 	ErrorCodeV1EventsNotImplemented  = "OBS-V1-E-06"
+	// Not internal errors: the logs adapter cannot filter events by release line.
+	ErrorCodeV1EventsReleaseLineNotSupported = "OBS-V1-E-07"
 
 	// Metrics API (v1) internal server error codes.
 	ErrorCodeV1MetricsInternalGeneric = "OBS-V1-M-01"

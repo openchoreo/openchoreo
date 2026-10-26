@@ -71,7 +71,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		ComponentID:     componentUID,
 		EnvironmentID:   environmentUID,
 		ReleaseLineID:   lines.UID,
-		DefaultLineOnly: lines.DefaultOnly,
+		AllReleaseLines: lines.All,
 		Limit:           req.Limit,
 		SortOrder:       req.SortOrder,
 	}
@@ -81,8 +81,9 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		s.logger.Error("Failed to retrieve traces", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
-	if lines.UID != "" && !result.ReleaseLineApplied {
-		return nil, fmt.Errorf("%w: tracing adapter", ErrReleaseLineNotSupported)
+	if err := s.resolver.CheckReleaseLineApplied(ctx, req.SearchScope.Namespace, req.SearchScope.Component, lines,
+		result.ReleaseLineApplied, "tracing adapter"); err != nil {
+		return nil, err
 	}
 
 	return s.convertToResponse(result), nil
@@ -157,7 +158,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		ComponentID:       componentUID,
 		EnvironmentID:     environmentUID,
 		ReleaseLineID:     lines.UID,
-		DefaultLineOnly:   lines.DefaultOnly,
+		AllReleaseLines:   lines.All,
 		TraceID:           traceID,
 		Limit:             req.Limit,
 		SortOrder:         req.SortOrder,
@@ -169,8 +170,9 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		s.logger.Error("Failed to retrieve spans", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
-	if lines.UID != "" && !spansResult.ReleaseLineApplied {
-		return nil, fmt.Errorf("%w: tracing adapter", ErrReleaseLineNotSupported)
+	if err := s.resolver.CheckReleaseLineApplied(ctx, req.SearchScope.Namespace, req.SearchScope.Component, lines,
+		spansResult.ReleaseLineApplied, "tracing adapter"); err != nil {
+		return nil, err
 	}
 	return s.convertAdapterSpansToResponse(spansResult), nil
 }

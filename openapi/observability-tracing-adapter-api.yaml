@@ -214,10 +214,11 @@ components:
   headers:
     ReleaseLineApplied:
       description: >
-        "true" only when the adapter restricted the result to the release line the request
-        named. Any other value, an empty one included, or no header means the result covers
-        every release line of the component; this is how callers tell apart adapters without
-        release line support, which ignore the request field.
+        "true" when the adapter applied the release line part of a component scope,
+        releaseLine or allReleaseLines. Adapters with release line support set it for every
+        component scope. An adapter without it ignores both fields and matches
+        openchoreo.dev/component-uid, which only the default line's spans carry, so any other
+        value or no header means the result covers the component's default line only.
       schema:
         type: string
   schemas:
@@ -256,18 +257,20 @@ components:
         releaseLine:
           type: string
           description: >
-            The UID of the component's release line to restrict the result to, like the
+            The UID of one of the component's release lines to restrict the result to, like the
             other fields here. Adapters that support it filter on the
             openchoreo.dev/release-line-uid label alone, since release line pods don't carry the
             openchoreo.dev/component-uid label, and set the OpenChoreo-Release-Line-Applied
-            response header to "true". Without it, component covers every line of the component:
-            release line spans carry the component UID as openchoreo.dev/release-line-component-uid.
-        defaultLineOnly:
+            response header to "true". Without it, component covers the component's default line:
+            spans with the component UID and without a release line UID.
+        allReleaseLines:
           type: boolean
           description: >
-            Restricts the result to the component's default line: spans with the component UID and
-            without a release line UID. Adapters that support it set the
-            OpenChoreo-Release-Line-Applied response header to "true".
+            Covers every line of the component, its default line and its release lines: spans
+            with the component UID as openchoreo.dev/component-uid, or as
+            openchoreo.dev/release-line-component-uid, which release line spans carry instead.
+            Has no effect without component, and releaseLine takes precedence. Adapters that
+            support it set the OpenChoreo-Release-Line-Applied response header to "true".
       required: [namespace]
 
 

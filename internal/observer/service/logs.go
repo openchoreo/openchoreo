@@ -8,13 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
-	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -59,14 +56,9 @@ type internalSearchScope struct {
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
-	ReleaseLineUID string
-	// DefaultLineOnly restricts the scope to the component's default line
-	DefaultLineOnly bool
-
-	// Names kept to filter by release line when the adapter cannot
-	ComponentName   string
-	EnvironmentName string
-	ReleaseLine     string
+	ReleaseLines   ReleaseLineScope
+	// ComponentName is kept to tell whether the component has release lines
+	ComponentName string
 
 	// For workflow scope
 	WorkflowRunName string
@@ -137,8 +129,8 @@ func (s *LogsService) queryComponentLogs(
 		LogLevels:       req.LogLevels,
 		Limit:           req.Limit,
 		SortOrder:       req.SortOrder,
-		ReleaseLineID:   scope.ReleaseLineUID,
-		DefaultLineOnly: scope.DefaultLineOnly,
+		ReleaseLineID:   scope.ReleaseLines.UID,
+		AllReleaseLines: scope.ReleaseLines.All,
 	}
 
 	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
@@ -150,12 +142,9 @@ func (s *LogsService) queryComponentLogs(
 		return nil, fmt.Errorf("%w: component logs adapter returned nil result", ErrLogsRetrieval)
 	}
 
-	if scope.ReleaseLineUID != "" && !result.ReleaseLineApplied {
-		prefix := releaseline.ObjectNamePrefix(scope.ComponentName, scope.ReleaseLine, scope.EnvironmentName)
-		result.Logs = slices.DeleteFunc(result.Logs, func(l observability.LogEntry) bool {
-			return !strings.HasPrefix(l.PodName, prefix)
-		})
-		result.TotalCount = len(result.Logs)
+	if err := s.resolver.CheckReleaseLineApplied(ctx, scope.NamespaceName, scope.ComponentName,
+		scope.ReleaseLines, result.ReleaseLineApplied, "logs adapter"); err != nil {
+		return nil, err
 	}
 
 	s.logger.Debug("Component logs retrieved from adapter",
@@ -302,11 +291,8 @@ func resolveSearchScope(
 			ProjectUID:      projectUID,
 			ComponentUID:    componentUID,
 			EnvironmentUID:  environmentUID,
-			ReleaseLineUID:  lines.UID,
-			DefaultLineOnly: lines.DefaultOnly,
+			ReleaseLines:    lines,
 			ComponentName:   scope.Component,
-			EnvironmentName: scope.Environment,
-			ReleaseLine:     scope.ReleaseLine,
 			IsWorkflowScope: false,
 		}, nil
 	}

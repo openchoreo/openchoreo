@@ -35,7 +35,7 @@ type componentSearchScope struct {
 	ComponentUID    string `json:"componentUid,omitempty"`
 	EnvironmentUID  string `json:"environmentUid,omitempty"`
 	ReleaseLineUID  string `json:"releaseLineUid,omitempty"`
-	DefaultLineOnly bool   `json:"defaultLineOnly,omitempty"`
+	AllReleaseLines bool   `json:"allReleaseLines,omitempty"`
 }
 
 // workflowSearchScope represents the search scope for workflow log queries
@@ -129,7 +129,7 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 			ComponentUID:    params.ComponentID,
 			EnvironmentUID:  params.EnvironmentID,
 			ReleaseLineUID:  params.ReleaseLineID,
-			DefaultLineOnly: params.DefaultLineOnly,
+			AllReleaseLines: params.AllReleaseLines,
 		},
 		StartTime:    params.StartTime,
 		EndTime:      params.EndTime,

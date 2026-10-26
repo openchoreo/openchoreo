@@ -113,8 +113,8 @@ type metricsAdapterSearchScope struct {
 	ProjectUID     *string `json:"projectUid,omitempty"`
 	EnvironmentUID *string `json:"environmentUid,omitempty"`
 	ReleaseLineUID *string `json:"releaseLineUid,omitempty"`
-	// DefaultLineOnly restricts the query to the component's default line.
-	DefaultLineOnly bool `json:"defaultLineOnly,omitempty"`
+	// AllReleaseLines covers every line of the component instead of its default line.
+	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 
 // MetricsAdapter forwards metrics queries to an external metrics adapter service.
@@ -219,7 +219,7 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 	if releaseLineUID != "" {
 		adapterReq.SearchScope.ReleaseLineUID = &releaseLineUID
 	}
-	adapterReq.SearchScope.DefaultLineOnly = lines.DefaultOnly
+	adapterReq.SearchScope.AllReleaseLines = lines.All
 
 	a.logger.Debug("Forwarding metrics query to adapter",
 		"metric", req.Metric,
@@ -255,8 +255,9 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("%w: metrics adapter returned HTTP %d: %s", ErrMetricsRetrieval, resp.StatusCode, string(respBody))
 	}
-	if releaseLineUID != "" && !observability.ReleaseLineApplied(resp.Header) {
-		return nil, fmt.Errorf("%w: metrics adapter", ErrReleaseLineNotSupported)
+	if err := a.resolver.CheckReleaseLineApplied(ctx, scope.Namespace, scope.Component, lines,
+		observability.ReleaseLineApplied(resp.Header), "metrics adapter"); err != nil {
+		return nil, err
 	}
 
 	var result json.RawMessage

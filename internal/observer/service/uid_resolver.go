@@ -209,28 +209,58 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 }
 
 // ReleaseLineScope is the release line part of a component search scope, resolved to UIDs.
-// The zero value covers every line of the component.
+// The zero value covers the component's default line, and a scope without a component covers
+// every line.
 type ReleaseLineScope struct {
 	// UID restricts the scope to one release line.
 	UID string
-	// DefaultOnly restricts the scope to the component's default line.
-	DefaultOnly bool
+	// All covers every line of the component.
+	All bool
 }
 
 // ResolveReleaseLineScope resolves the release line of a component search scope. Without a line, a
 // component scope covers its default line, as it did before release lines, and allLines covers every
-// line. A scope without a component already covers every line.
+// line.
 func (r *ResourceUIDResolver) ResolveReleaseLineScope(
 	ctx context.Context, namespaceName, componentName, releaseLineName string, allLines bool,
 ) (ReleaseLineScope, error) {
-	switch {
-	case releaseLineName == "" && allLines:
-		return ReleaseLineScope{}, nil
-	case releaseLineName == "" || releaseLineName == releaseline.DefaultLine:
-		return ReleaseLineScope{DefaultOnly: componentName != ""}, nil
+	return resolveReleaseLineScope(ctx, r, namespaceName, componentName, releaseLineName, allLines)
+}
+
+// releaseLineUIDResolver resolves a component's release line name to its UID.
+type releaseLineUIDResolver interface {
+	GetReleaseLineUID(ctx context.Context, namespaceName, componentName, releaseLineName string) (string, error)
+}
+
+func resolveReleaseLineScope(
+	ctx context.Context, r releaseLineUIDResolver, namespaceName, componentName, releaseLineName string, allLines bool,
+) (ReleaseLineScope, error) {
+	if releaseLineName == "" || releaseLineName == releaseline.DefaultLine {
+		return ReleaseLineScope{All: allLines && componentName != ""}, nil
 	}
 	uid, err := r.GetReleaseLineUID(ctx, namespaceName, componentName, releaseLineName)
 	return ReleaseLineScope{UID: uid}, err
+}
+
+// CheckReleaseLineApplied returns ErrReleaseLineNotSupported, naming the adapter, when the scope
+// needs release line support that the adapter did not confirm. An adapter without it matches the
+// default line only, which is still every line of a component without release lines.
+func (r *ResourceUIDResolver) CheckReleaseLineApplied(
+	ctx context.Context, namespaceName, componentName string, lines ReleaseLineScope, applied bool, adapter string,
+) error {
+	if applied || (lines.UID == "" && !lines.All) {
+		return nil
+	}
+	if lines.UID == "" {
+		hasLines, err := r.HasReleaseLines(ctx, namespaceName, componentName)
+		if err != nil {
+			return err
+		}
+		if !hasLines {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s", ErrReleaseLineNotSupported, adapter)
 }
 
 // GetReleaseLineUID resolves a component's release line name to its UID. A line of another

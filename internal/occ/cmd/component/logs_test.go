@@ -21,7 +21,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const observerTestURL = "http://observer.test"
@@ -106,27 +105,13 @@ func TestFilterLogsByContainer(t *testing.T) {
 	assert.Equal(t, "m2", got[1].Log)
 }
 
-func TestFilterLogsByReleaseLine(t *testing.T) {
-	nextPod := releaseline.ObjectBaseName("hello", "next", "development") + "-7d9c8b6f5-abcde"
-	defaultPod := "hello-development-1a2b3c4d-6c8d7b5f4-fghij"
-	logs := []client.LogEntry{
-		{Log: "n1", Metadata: &client.LogMetadata{PodName: nextPod}},
-		{Log: "m1", Metadata: &client.LogMetadata{PodName: defaultPod}},
-		{Log: "no-meta"},
-	}
-
-	got := filterLogsByReleaseLine(logs, "hello", "next", "development")
-	require.Len(t, got, 1)
-	assert.Equal(t, "n1", got[0].Log)
-
-	// Kubernetes keeps only the first 58 characters of a pod's generateName.
-	component, line := "payments-reconciliation-service", "experimental"
-	deployment := releaseline.ObjectBaseName(component, line, "development")
-	longPod := (deployment + "-7d9c8b6f5-")[:58] + "abcde"
-	require.Greater(t, len(deployment+"-"), 58)
-	got = filterLogsByReleaseLine([]client.LogEntry{{Log: "l1", Metadata: &client.LogMetadata{PodName: longPod}}},
-		component, line, "development")
-	assert.Len(t, got, 1)
+func TestPrintLogs_ReleaseLine(t *testing.T) {
+	// A component type may name a line's pods any way it likes.
+	logs := []client.LogEntry{{Log: "from next", Metadata: &client.LogMetadata{PodName: "hello-canary-7d9c8b6f5-abcde"}}}
+	out := testutil.CaptureStdout(t, func() {
+		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "next"})
+	})
+	assert.Contains(t, out, "from next", "the observer already restricted the logs to the line")
 }
 
 func TestPrintLogs_DefaultLineKeyword(t *testing.T) {

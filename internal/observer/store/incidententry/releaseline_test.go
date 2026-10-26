@@ -38,11 +38,12 @@ func TestIncidentEntries_ReleaseLine(t *testing.T) {
 		}
 	}
 
-	params := QueryParams{StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1"}
+	params := QueryParams{StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1", AllReleaseLines: true}
 	_, total, err := store.QueryIncidentEntries(ctx, params)
 	require.NoError(t, err)
-	assert.Equal(t, 2, total)
+	assert.Equal(t, 2, total, "every line")
 
+	params.AllReleaseLines = false
 	params.ReleaseLineID = "line-next"
 	entries, total, err := store.QueryIncidentEntries(ctx, params)
 	require.NoError(t, err)
@@ -82,7 +83,7 @@ func TestIncidentEntries_DefaultLineIncludesRowsFromBeforeReleaseLines(t *testin
 	require.NoError(t, db.Close())
 
 	_, total, err := store.QueryIncidentEntries(ctx, QueryParams{
-		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1", DefaultLineOnly: true,
+		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, total, "the default line covers rows with an empty or missing release line")

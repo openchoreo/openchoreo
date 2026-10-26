@@ -646,19 +646,19 @@ func TestResolveReleaseLineScope(t *testing.T) {
 
 	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "", false)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope, "no line covers the default line, as before release lines")
+	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers the default line, as before release lines")
 
 	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "", true)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{}, scope, "allLines covers every line of the component")
+	assert.Equal(t, ReleaseLineScope{All: true}, scope, "allLines covers every line of the component")
 
-	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "", "", false)
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "", "", true)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component covers every line")
+	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component already covers every line")
 
 	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default", false)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{DefaultOnly: true}, scope)
+	assert.Equal(t, ReleaseLineScope{}, scope)
 
 	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next", false)
 	require.NoError(t, err)
@@ -669,4 +669,45 @@ func TestResolveReleaseLineScope(t *testing.T) {
 	var notFound *NotFoundError
 	require.ErrorAs(t, err, &notFound)
 	assert.Equal(t, `release line "ghost" not found`, notFound.Error())
+}
+
+func TestCheckReleaseLineApplied(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/namespaces/ns/components/lined/releaselines":
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
+		case "/api/v1/namespaces/ns/components/plain/releaselines":
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer apiServer.Close()
+	r := newTestResolver(t, apiServer, nil, nil)
+	ctx := context.Background()
+
+	for name, tc := range map[string]struct {
+		component string
+		lines     ReleaseLineScope
+		applied   bool
+		wantErr   bool
+	}{
+		"default line":                         {component: "lined"},
+		"one line, applied":                    {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, applied: true},
+		"one line, not applied":                {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, wantErr: true},
+		"every line, applied":                  {component: "lined", lines: ReleaseLineScope{All: true}, applied: true},
+		"every line of a component with lines": {component: "lined", lines: ReleaseLineScope{All: true}, wantErr: true},
+		"every line of a component without":    {component: "plain", lines: ReleaseLineScope{All: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := r.CheckReleaseLineApplied(ctx, "ns", tc.component, tc.lines, tc.applied, "logs adapter")
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorIs(t, err, ErrReleaseLineNotSupported)
+			assert.ErrorContains(t, err, "logs adapter")
+		})
+	}
 }
