@@ -51,7 +51,9 @@ erDiagram
 
 ### Project
 
-A **Project** is a logical grouping of related Components and Resources that collectively form an application or bounded context. It serves as the top-level organizational boundary.
+A **Project** is a logical grouping of related Components and Resources that
+collectively form an application or bounded context. It serves as the
+top-level application boundary within a Kubernetes namespace.
 
 **Why it exists:** Projects let you group related services together and define how they are promoted through environments. A Project references a DeploymentPipeline, which controls the promotion path (e.g., dev → staging → prod).
 
@@ -61,7 +63,10 @@ kind: Project
 metadata:
   name: online-store
 spec:
-  deploymentPipelineRef: default
+  type: deployment
+  deploymentPipelineRef:
+    kind: ClusterDeploymentPipeline
+    name: default
 ```
 
 **Key points:**
@@ -84,7 +89,9 @@ metadata:
 spec:
   owner:
     projectName: online-store
-  componentType: deployment/web-service
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
   autoDeploy: true
   parameters:
     replicas: 2
