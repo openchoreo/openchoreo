@@ -12992,6 +12992,7 @@ components:
           enum:
             - basic-auth
             - ssh-auth
+            - github-app
           example: basic-auth
         workflowPlaneKind:
           type: string
@@ -13016,6 +13017,15 @@ components:
         sshKeyId:
           type: string
           description: SSH key ID for AWS CodeCommit (optional for ssh-auth)
+        appId:
+          type: string
+          description: GitHub App ID (required for github-app)
+        installationId:
+          type: string
+          description: GitHub App installation ID (required for github-app)
+        privateKey:
+          type: string
+          description: GitHub App private key in PEM format (required for github-app)
 
     GitSecretResponse:
       type: object

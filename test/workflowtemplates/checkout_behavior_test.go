@@ -51,6 +51,17 @@ exit 0
 
 const sshKeygenStub = "#!/bin/sh\nexit 0\n"
 
+// curlStub stands in for the real GitHub API call that exchanges a signed
+// JWT for an installation access token, returning a canned token so the
+// github-app branch can be exercised without network access.
+const curlStub = `#!/bin/sh
+echo '{"token":"ghs_stubbed_installation_token"}'
+`
+
+// apkStub stands in for the real package manager, since the host running
+// this test is not alpine/git and has no apk binary.
+const apkStub = "#!/bin/sh\nexit 0\n"
+
 // echoShim normalizes `echo -n` to the busybox/alpine semantics the script
 // actually runs under (the checkout container is alpine/git). Without this,
 // dash/macOS `sh` print a literal "-n", corrupting the credential-encoding and
@@ -116,6 +127,8 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	// Stub external binaries.
 	writeExec(t, filepath.Join(stubDir, "git"), gitStub)
 	writeExec(t, filepath.Join(stubDir, "ssh-keygen"), sshKeygenStub)
+	writeExec(t, filepath.Join(stubDir, "curl"), curlStub)
+	writeExec(t, filepath.Join(stubDir, "apk"), apkStub)
 
 	// Materialize the git-secret volume.
 	if len(in.secretFiles) > 0 {
@@ -198,6 +211,16 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 
 func sshSecret(extra map[string]string) map[string]string {
 	m := map[string]string{"ssh-privatekey": fakeSSHKey}
+	maps.Copy(m, extra)
+	return m
+}
+
+func githubAppSecret(extra map[string]string) map[string]string {
+	m := map[string]string{
+		"app-id":          "123456",
+		"installation-id": "987654",
+		"private-key":     "-----BEGIN RSA PRIVATE KEY-----\nfakekeyfakekeyfakekey\n-----END RSA PRIVATE KEY-----\n",
+	}
 	maps.Copy(m, extra)
 	return m
 }
@@ -426,6 +449,54 @@ func TestCheckout_BasicAuth_DefaultsUsernameToGit(t *testing.T) {
 		"askpass helper should default the username to git when the secret has no username key")
 	require.Equal(t, "token123", runAskpass(t, res, "Password for 'https://git@github.com': "),
 		"askpass helper should still return the password when the username is defaulted")
+}
+
+// --- GitHub App: installation token exchange ---
+
+func TestCheckout_GithubApp_MintsInstallationTokenAndClones(t *testing.T) {
+	res := runCheckout(t, checkoutInput{
+		repo:        "https://github.com/org/repo.git",
+		branch:      "main",
+		secretFiles: githubAppSecret(nil),
+	})
+	requireCheckoutSuccess(t, res, "GitHub App auth should mint a token and clone without rewriting the repo URL")
+	requireCloneRepo(t, res, "https://github.com/org/repo.git",
+		"github app auth should leave the clone URL unmodified")
+	requireCheckoutOutputContains(t, res, "GitHub App Installation Token",
+		"checkout output should report the github app authentication path")
+
+	require.Equal(t, "x-access-token", runAskpass(t, res, "Username for 'https://github.com': "),
+		"askpass helper should report the fixed x-access-token username for github app auth")
+	require.Equal(t, "ghs_stubbed_installation_token", runAskpass(t, res, "Password for 'https://x-access-token@github.com': "),
+		"askpass helper should return the minted installation token as the password")
+}
+
+func TestCheckout_GithubApp_RejectsNonGithubRepoURL(t *testing.T) {
+	// If REPO pointed at an attacker-controlled host, that host could
+	// otherwise phish the installation token via a Basic auth prompt.
+	res := runCheckout(t, checkoutInput{
+		repo:        "https://evil.example.com/org/repo.git",
+		branch:      "main",
+		secretFiles: githubAppSecret(nil),
+	})
+	require.NotEqual(t, 0, res.exitCode, "github app auth should refuse a non-github.com repository URL")
+	requireCheckoutOutputContains(t, res, "only supports https://github.com repository URLs",
+		"checkout output should explain why the non-github.com URL was rejected")
+}
+
+func TestCheckout_BasicAuthTakesPrecedenceOverGithubApp(t *testing.T) {
+	// Both password and app-id are present: basic-auth wins since it is
+	// checked before the github-app branch in the script. The two secret
+	// types are mutually exclusive in practice (the backend never writes
+	// both), but the script's own precedence should stay pinned down.
+	res := runCheckout(t, checkoutInput{
+		repo:        "https://github.com/org/repo.git",
+		branch:      "main",
+		secretFiles: githubAppSecret(map[string]string{"password": "ignored"}),
+	})
+	requireCheckoutSuccess(t, res, "basic-auth should win over a stray app-id file")
+	requireCheckoutOutputContains(t, res, "Basic Authentication",
+		"basic-auth detection should take priority over github-app when both are present")
 }
 
 // --- Auth-type precedence and edge cases (scenario 5) ---

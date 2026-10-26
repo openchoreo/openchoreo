@@ -135,9 +135,62 @@ spec:
                     chmod 700 /tmp/git-askpass.sh
                     export GIT_ASKPASS=/tmp/git-askpass.sh
                     export GIT_TERMINAL_PROMPT=0
+
+                # GitHub App auth (opaque secret with app-id/installation-id/private-key)
+                elif [ -f "$GIT_SECRET_PATH/app-id" ]; then
+                    echo ">> Authentication: GitHub App Installation Token"
+
+                    if ! echo "$REPO" | grep -qE "^https://github\.com/"; then
+                        echo ">> Error: GitHub App authentication only supports https://github.com repository URLs."
+                        exit 1
+                    fi
+
+                    apk add --no-cache curl jq openssl >/dev/null 2>&1 || true
+
+                    APP_ID=$(cat "$GIT_SECRET_PATH/app-id")
+                    INSTALLATION_ID=$(cat "$GIT_SECRET_PATH/installation-id")
+                    tr -d '\r' < "$GIT_SECRET_PATH/private-key" > /tmp/github-app-key.pem
+                    chmod 600 /tmp/github-app-key.pem
+
+                    NOW=$(date +%s)
+                    JWT_HEADER=$(printf '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+                    JWT_PAYLOAD=$(printf '{"iat":%s,"exp":%s,"iss":"%s"}' "$((NOW - 60))" "$((NOW + 540))" "$APP_ID" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+                    JWT_SIGNATURE=$(printf '%s.%s' "$JWT_HEADER" "$JWT_PAYLOAD" | openssl dgst -sha256 -sign /tmp/github-app-key.pem | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
+                    APP_JWT="${JWT_HEADER}.${JWT_PAYLOAD}.${JWT_SIGNATURE}"
+
+                    INSTALLATION_TOKEN=$(curl -sf -X POST \
+                        -H "Authorization: Bearer ${APP_JWT}" \
+                        -H "Accept: application/vnd.github+json" \
+                        "https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens" | jq -r '.token')
+
+                    if [ -z "$INSTALLATION_TOKEN" ] || [ "$INSTALLATION_TOKEN" = "null" ]; then
+                        echo ">> Error: Failed to obtain a GitHub App installation token."
+                        exit 1
+                    fi
+
+                    cat > /tmp/git-askpass.sh <<'EOF'
+            #!/bin/sh
+            case "$1" in
+                *github.com*)
+                    case "$1" in
+                        Username*) echo x-access-token ;;
+                        Password*) cat /tmp/github-app-token ;;
+                    esac
+                    ;;
+                *)
+                    echo ">> Error: refusing to send GitHub App credentials to a non-github.com host" >&2
+                    exit 1
+                    ;;
+            esac
+            EOF
+                    chmod 700 /tmp/git-askpass.sh
+                    printf '%s' "$INSTALLATION_TOKEN" > /tmp/github-app-token
+                    chmod 600 /tmp/github-app-token
+                    export GIT_ASKPASS=/tmp/git-askpass.sh
+                    export GIT_TERMINAL_PROMPT=0
                 else
                     echo ">> Error: Git credentials secret was provided but does not contain recognized authentication data."
-                    echo ">> Hint: The secret should contain either an SSH private key (ssh-privatekey) or username/password."
+                    echo ">> Hint: The secret should contain either an SSH private key (ssh-privatekey), username/password, or a GitHub App (app-id/installation-id/private-key)."
                     exit 1
                 fi
             else
