@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from common.auth.bearer import BearerTokenAuth
+from common.llm_auth import LLM_AUTH_AZURE
 from src.agent.tool_registry import log_classification_summary
 from src.api import agent_router
 from src.auth import auth as _auth
@@ -41,10 +42,12 @@ if settings.jwt_insecure_allow_unverified:
 async def lifespan(_app: FastAPI):
     # Fail-fast config validation: a runtime LLM 401 is a confusing user
     # experience; surface a clear startup error when the API key isn't set.
-    if not settings.portal_assistant_llm_api_key:
+    # With LLM_AUTH=azure the agent authenticates with an Entra ID token instead.
+    if settings.llm_auth != LLM_AUTH_AZURE and not settings.portal_assistant_llm_api_key:
         raise RuntimeError(
             "PORTAL_ASSISTANT_LLM_API_KEY is not set — refusing to start. "
-            "Set the env var (or values.yaml llm.apiKeySecret) and redeploy."
+            "Set the env var (or values.yaml llm.secretName), or set LLM_AUTH=azure "
+            "to authenticate with workload identity, and redeploy."
         )
     if not settings.portal_assistant_model_name:
         raise RuntimeError(

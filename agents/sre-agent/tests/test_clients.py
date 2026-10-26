@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
+import common.llm_auth as llm_auth
 import src.clients.llm as llm
 from common.auth.bearer import BearerTokenAuth
 from src.clients import openchoreo_api
@@ -32,6 +33,22 @@ def test_get_model_caches_by_args(monkeypatch):
     assert a is b
     assert a is not c
     assert calls == [("openai:gpt-4o-mini", "k1"), ("openai:gpt-4o-mini", "k2")]
+
+
+def test_get_model_passes_a_token_provider_with_azure_auth(monkeypatch):
+    calls = []
+
+    def fake_init(model, api_key, **kwargs):
+        calls.append(api_key)
+        return object()
+
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+    monkeypatch.setattr(llm.settings, "llm_auth", "azure")
+    monkeypatch.setattr(llm_auth, "_azure_token_provider", lambda scope: f"provider:{scope}")
+
+    llm.get_model("openai:gpt-4o-mini", "unused-key")
+
+    assert calls == ["provider:https://cognitiveservices.azure.com/.default"]
 
 
 def test_sync_auth_flow_sets_bearer_header():
