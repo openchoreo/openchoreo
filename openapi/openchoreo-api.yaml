@@ -12836,6 +12836,20 @@ components:
     ObservabilityAlertsNotificationChannelStatus:
       type: object
       description: Observed state of an ObservabilityAlertsNotificationChannel
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed ObservabilityAlertsNotificationChannel
+        conditions:
+          type: array
+          description: |
+            Current state conditions of the ObservabilityAlertsNotificationChannel.
+            Ready reports whether the channel is applied to the observability plane, and SecretsReady
+            whether its secret values are available there. A SecretsReady reason of
+            DeprecatedKubernetesSecret means the channel still references Kubernetes Secrets.
+          items:
+            $ref: '#/components/schemas/Condition'
 
     NotificationEmailConfig:
       type: object
@@ -12963,15 +12977,19 @@ components:
 
     NotificationSecretKeyRef:
       type: object
-      description: Reference to a specific key in a Kubernetes secret
+      description: |
+        Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+        such as one created with the secrets API targeting the channel's observability plane, and the key
+        to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+        name and key is used instead; referencing Kubernetes Secrets is deprecated.
       properties:
         name:
           type: string
-          description: Name of the Kubernetes secret
+          description: Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
           example: smtp-credentials
         key:
           type: string
-          description: Key within the secret
+          description: Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
           example: password
 
     # -------------------------------------------------------------------------

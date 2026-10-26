@@ -2392,18 +2392,24 @@ type NotificationSMTPTLSConfig struct {
 	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
 
-// NotificationSecretKeyRef Reference to a specific key in a Kubernetes secret
+// NotificationSecretKeyRef Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+// such as one created with the secrets API targeting the channel's observability plane, and the key
+// to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+// name and key is used instead; referencing Kubernetes Secrets is deprecated.
 type NotificationSecretKeyRef struct {
-	// Key Key within the secret
+	// Key Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
 	Key *string `json:"key,omitempty"`
 
-	// Name Name of the Kubernetes secret
+	// Name Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
 	Name *string `json:"name,omitempty"`
 }
 
 // NotificationSecretValueFrom How to obtain a secret value
 type NotificationSecretValueFrom struct {
-	// SecretKeyRef Reference to a specific key in a Kubernetes secret
+	// SecretKeyRef Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+	// such as one created with the secrets API targeting the channel's observability plane, and the key
+	// to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+	// name and key is used instead; referencing Kubernetes Secrets is deprecated.
 	SecretKeyRef *NotificationSecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
@@ -2544,7 +2550,16 @@ type ObservabilityAlertsNotificationChannelSpec1 struct {
 }
 
 // ObservabilityAlertsNotificationChannelStatus Observed state of an ObservabilityAlertsNotificationChannel
-type ObservabilityAlertsNotificationChannelStatus = map[string]interface{}
+type ObservabilityAlertsNotificationChannelStatus struct {
+	// Conditions Current state conditions of the ObservabilityAlertsNotificationChannel.
+	// Ready reports whether the channel is applied to the observability plane, and SecretsReady
+	// whether its secret values are available there. A SecretsReady reason of
+	// DeprecatedKubernetesSecret means the channel still references Kubernetes Secrets.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ObservabilityAlertsNotificationChannel
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
 
 // ObservabilityPlane ObservabilityPlane resource.
 // Represents monitoring and logging infrastructure within a namespace.

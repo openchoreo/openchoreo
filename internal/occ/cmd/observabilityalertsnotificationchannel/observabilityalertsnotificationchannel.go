@@ -100,17 +100,42 @@ func printList(items []gen.ObservabilityAlertsNotificationChannel) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAGE")
+	fmt.Fprintln(w, "NAME\tTYPE\tENVIRONMENT\tSTATUS\tSECRETS\tAGE")
 
 	for _, ch := range items {
+		channelType := ""
+		env := ""
+		if ch.Spec != nil {
+			channelType = string(ch.Spec.Type)
+			env = ch.Spec.Environment
+		}
 		age := ""
 		if ch.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*ch.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			ch.Metadata.Name,
+			channelType,
+			env,
+			conditionReason(ch.Status, "Ready"),
+			conditionReason(ch.Status, "SecretsReady"),
 			age)
 	}
 
 	return w.Flush()
+}
+
+// conditionReason returns the reason of the channel's condition of the given type, or "" if it is not set.
+// The SecretsReady reason shows where the channel's secret values come from, including the deprecated
+// DeprecatedKubernetesSecret.
+func conditionReason(status *gen.ObservabilityAlertsNotificationChannelStatus, conditionType string) string {
+	if status == nil || status.Conditions == nil {
+		return ""
+	}
+	for _, c := range *status.Conditions {
+		if c.Type == conditionType {
+			return c.Reason
+		}
+	}
+	return ""
 }

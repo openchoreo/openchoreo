@@ -17,7 +17,14 @@ func NewObservabilityAlertsNotificationChannelCmd(f client.NewClientFunc) *cobra
 		Use:     "observabilityalertsnotificationchannel",
 		Aliases: []string{"oanc", "obsnotificationchannel", "observabilityalertsnotificationchannels"},
 		Short:   "Manage observability alerts notification channels",
-		Long:    `Manage observability alerts notification channels for OpenChoreo.`,
+		Long: `Manage observability alerts notification channels for OpenChoreo.
+
+A channel references its secret values, such as SMTP credentials and webhook header
+values, by the name of a SecretReference and one of its keys. Create them in the
+secret store of the channel's observability plane with
+'occ secret create --target-plane ObservabilityPlane/<name>'. Referencing a
+Kubernetes Secret by name still works but is deprecated; such channels show
+DeprecatedKubernetesSecret in the SECRETS column of 'list'.`,
 	}
 	cmd.AddCommand(
 		newListCmd(f),
