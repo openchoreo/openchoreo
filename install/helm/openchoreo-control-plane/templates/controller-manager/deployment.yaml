@@ -85,6 +85,10 @@ spec:
         {{- if and .Values.controllerManager.manager.renderTimeout (ne .Values.controllerManager.manager.renderTimeout "0") }}
         - --render-timeout={{ .Values.controllerManager.manager.renderTimeout }}
         {{- end }}
+        {{- /* Notification channels may only read secret store keys of their own namespace,
+               so the controller needs the same key layout as the secret API. */}}
+        - --secret-remote-key-prefix={{ .Values.features.secretManagement.remoteKeyPrefix }}
+        - --secret-remote-key-separator={{ .Values.features.secretManagement.remoteKeySeparator }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}

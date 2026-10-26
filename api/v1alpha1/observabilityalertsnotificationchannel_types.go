@@ -24,7 +24,12 @@ const (
 
 // SecretValueFrom defines how to obtain a secret value
 type SecretValueFrom struct {
-	// SecretKeyRef references a specific key in a Kubernetes secret
+	// SecretKeyRef references a secret value by name and key.
+	// The name refers to a SecretReference in the channel's namespace, and the key to one of
+	// its spec.data[].secretKey entries. The value is synced to the observability plane from
+	// the plane's secret store.
+	// If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+	// channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
 	// +optional
 	SecretKeyRef *SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
@@ -196,11 +201,22 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 type ObservabilityAlertsNotificationChannelStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// ObservedGeneration is the generation observed by the controller
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of the notification channel's state
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Notifications",type=integer,JSONPath=`.status.notificationCount`
 
@@ -225,4 +241,14 @@ type ObservabilityAlertsNotificationChannelList struct {
 
 func init() {
 	SchemeBuilder.Register(&ObservabilityAlertsNotificationChannel{}, &ObservabilityAlertsNotificationChannelList{})
+}
+
+// GetConditions returns the conditions of the ObservabilityAlertsNotificationChannel.
+func (c *ObservabilityAlertsNotificationChannel) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+// SetConditions sets the conditions of the ObservabilityAlertsNotificationChannel.
+func (c *ObservabilityAlertsNotificationChannel) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
 }

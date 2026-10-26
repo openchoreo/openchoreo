@@ -1,0 +1,523 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package observabilityalertsnotificationchannel
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
+	"github.com/openchoreo/openchoreo/internal/labels"
+)
+
+const (
+	// fieldOwner is the field manager used for server-side apply on the observability plane.
+	fieldOwner = "observabilityalertsnotificationchannel-controller"
+
+	// managedByLabelValue marks the ConfigMap and the copied Secret applied by this controller.
+	// The Secret that the ExternalSecret produces does not carry it, which tells the two apart.
+	managedByLabelValue = "observabilityalertsnotificationchannel-controller"
+
+	// Keys of the secret values in the Secret the observer reads.
+	smtpAuthUsernameKey = "smtp.auth.username"
+	smtpAuthPasswordKey = "smtp.auth.password"
+	webhookHeaderKeyFmt = "webhook.header.%s"
+)
+
+// secretSource is where a channel's referenced secret values come from.
+type secretSource string
+
+const (
+	// secretSourceNone means the channel references no secret values.
+	secretSourceNone secretSource = ""
+	// secretSourceSecretReference means the values are synced from the observability plane's
+	// secret store by an ExternalSecret built from SecretReferences.
+	secretSourceSecretReference secretSource = "SecretReference"
+	// secretSourceKubernetesSecret means the values are copied from Kubernetes Secrets on the
+	// control plane. This is deprecated.
+	secretSourceKubernetesSecret secretSource = "Secret"
+)
+
+// channelSecretRef is a secret value a channel references, with the key it gets in the
+// Secret the observer reads.
+type channelSecretRef struct {
+	secretKey string
+	ref       *openchoreodevv1alpha1.SecretKeyRef
+}
+
+// resolvedSecretRef is a channelSecretRef resolved to an entry of a SecretReference.
+type resolvedSecretRef struct {
+	channelSecretRef
+	secretReference *openchoreodevv1alpha1.SecretReference
+	remoteRef       openchoreodevv1alpha1.RemoteReference
+}
+
+// resolvedSecrets describes where every secret value a channel references comes from.
+type resolvedSecrets struct {
+	source secretSource
+	// refs holds the resolved references when source is secretSourceSecretReference.
+	refs []resolvedSecretRef
+	// secretNames holds the referenced Kubernetes Secrets when source is secretSourceKubernetesSecret.
+	secretNames []string
+}
+
+// invalidSecretsError is a problem with the channel's secret references that only a change to
+// the channel or to what it references can fix, so it is reported on the channel instead of retried.
+type invalidSecretsError struct {
+	reason  controller.ConditionReason
+	message string
+}
+
+func (e *invalidSecretsError) Error() string {
+	return e.message
+}
+
+func newInvalidSecretsError(reason controller.ConditionReason, format string, args ...any) error {
+	return &invalidSecretsError{reason: reason, message: fmt.Sprintf(format, args...)}
+}
+
+// channelSecretRefs returns the secret values the channel references, sorted by the key they
+// get in the Secret the observer reads.
+func channelSecretRefs(channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) []channelSecretRef {
+	var refs []channelSecretRef
+	add := func(secretKey string, from *openchoreodevv1alpha1.SecretValueFrom) {
+		if from != nil && from.SecretKeyRef != nil {
+			refs = append(refs, channelSecretRef{secretKey: secretKey, ref: from.SecretKeyRef})
+		}
+	}
+
+	switch channel.Spec.Type {
+	case openchoreodevv1alpha1.NotificationChannelTypeEmail:
+		if channel.Spec.EmailConfig != nil && channel.Spec.EmailConfig.SMTP.Auth != nil {
+			add(smtpAuthUsernameKey, channel.Spec.EmailConfig.SMTP.Auth.Username)
+			add(smtpAuthPasswordKey, channel.Spec.EmailConfig.SMTP.Auth.Password)
+		}
+	case openchoreodevv1alpha1.NotificationChannelTypeWebhook:
+		if channel.Spec.WebhookConfig != nil {
+			for name, header := range channel.Spec.WebhookConfig.Headers {
+				add(fmt.Sprintf(webhookHeaderKeyFmt, name), header.ValueFrom)
+			}
+		}
+	}
+
+	sort.Slice(refs, func(i, j int) bool { return refs[i].secretKey < refs[j].secretKey })
+	return refs
+}
+
+// resolveSecrets works out where each referenced secret value comes from. A name resolves to the
+// SecretReference with that name in the channel's namespace, or, if there is none, to the
+// Kubernetes Secret with that name. All references of a channel must resolve the same way, since
+// both ways produce the one Secret the observer reads for the channel.
+func (r *Reconciler) resolveSecrets(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (*resolvedSecrets, error) {
+	resolved := &resolvedSecrets{source: secretSourceNone}
+	secretNames := map[string]struct{}{}
+
+	for _, ref := range channelSecretRefs(channel) {
+		secretRef := &openchoreodevv1alpha1.SecretReference{}
+		err := r.Get(ctx, client.ObjectKey{Name: ref.ref.Name, Namespace: channel.Namespace}, secretRef)
+		switch {
+		case err == nil:
+			remoteRef, ok := findRemoteRef(secretRef, ref.ref.Key)
+			if !ok {
+				return nil, newInvalidSecretsError(ReasonSecretKeyNotFound,
+					"SecretReference %q has no data entry with secretKey %q", ref.ref.Name, ref.ref.Key)
+			}
+			resolved.refs = append(resolved.refs, resolvedSecretRef{
+				channelSecretRef: ref,
+				secretReference:  secretRef,
+				remoteRef:        remoteRef,
+			})
+		case apierrors.IsNotFound(err):
+			secret := &corev1.Secret{}
+			if err := r.Get(ctx, client.ObjectKey{Name: ref.ref.Name, Namespace: channel.Namespace}, secret); err != nil {
+				if apierrors.IsNotFound(err) {
+					return nil, newInvalidSecretsError(ReasonSecretNotFound,
+						"neither a SecretReference nor a Secret named %q exists in namespace %q", ref.ref.Name, channel.Namespace)
+				}
+				return nil, fmt.Errorf("failed to get secret %s/%s: %w", channel.Namespace, ref.ref.Name, err)
+			}
+			if _, ok := secret.Data[ref.ref.Key]; !ok {
+				return nil, newInvalidSecretsError(ReasonSecretKeyNotFound,
+					"Secret %q has no key %q", ref.ref.Name, ref.ref.Key)
+			}
+			secretNames[ref.ref.Name] = struct{}{}
+		default:
+			return nil, fmt.Errorf("failed to get secret reference %s/%s: %w", channel.Namespace, ref.ref.Name, err)
+		}
+	}
+
+	for name := range secretNames {
+		resolved.secretNames = append(resolved.secretNames, name)
+	}
+	sort.Strings(resolved.secretNames)
+
+	switch {
+	case len(resolved.refs) > 0 && len(resolved.secretNames) > 0:
+		return nil, newInvalidSecretsError(ReasonMixedSecretSources,
+			"secret references must either all name SecretReferences or all name Kubernetes Secrets, "+
+				"but these resolve to Kubernetes Secrets while the others resolve to SecretReferences: %s",
+			strings.Join(resolved.secretNames, ", "))
+	case len(resolved.refs) > 0:
+		resolved.source = secretSourceSecretReference
+	case len(resolved.secretNames) > 0:
+		resolved.source = secretSourceKubernetesSecret
+	}
+	return resolved, nil
+}
+
+// findRemoteRef returns the remote reference of the SecretReference entry with the given secretKey.
+func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string) (openchoreodevv1alpha1.RemoteReference, bool) {
+	for _, data := range secretRef.Spec.Data {
+		if data.SecretKey == key {
+			return data.RemoteRef, true
+		}
+	}
+	return openchoreodevv1alpha1.RemoteReference{}, false
+}
+
+// validateSecretReferences checks that every SecretReference can be synced into the observability
+// plane for the channel: the plane has a secret store, the value was pushed to that plane's store,
+// and the remote key belongs to the channel's namespace.
+func (r *Reconciler) validateSecretReferences(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+	obsPlane *controller.ObservabilityPlaneResult,
+	resolved *resolvedSecrets,
+) error {
+	if obsPlane.GetSecretStoreName() == "" {
+		return newInvalidSecretsError(ReasonSecretStoreNotConfigured,
+			"observability plane %q has no secretStoreRef, so SecretReferences cannot be synced to it", obsPlane.GetName())
+	}
+
+	planeKind := observabilityPlaneKind(obsPlane)
+	var namespaces []string
+	if r.RemoteKeys.separatorInNamespaceNames() {
+		var err error
+		if namespaces, err = r.listNamespaceNames(ctx); err != nil {
+			return err
+		}
+	}
+	for _, ref := range resolved.refs {
+		if target := ref.secretReference.Spec.TargetPlane; target != nil &&
+			(target.Kind != planeKind || target.Name != obsPlane.GetName()) {
+			return newInvalidSecretsError(ReasonSecretStoreUnreachable,
+				"SecretReference %q targets %s %q, not the channel's observability plane %s %q",
+				ref.ref.Name, target.Kind, target.Name, planeKind, obsPlane.GetName())
+		}
+		if !r.RemoteKeys.ownsKey(channel.Namespace, ref.remoteRef.Key, namespaces) {
+			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
+				"SecretReference %q points at remote key %q, which is not a key of namespace %q in the secret store key layout (keys starting with %q)",
+				ref.ref.Name, ref.remoteRef.Key, channel.Namespace, r.RemoteKeys.namespacePrefix(channel.Namespace))
+		}
+	}
+	return nil
+}
+
+func observabilityPlaneKind(obsPlane *controller.ObservabilityPlaneResult) string {
+	if obsPlane.ClusterObservabilityPlane != nil {
+		return "ClusterObservabilityPlane"
+	}
+	return "ObservabilityPlane"
+}
+
+// RemoteKeyFormat describes how the secret API lays out keys in the external secret store, as
+// "<prefix><sep><namespace><sep><type><sep><name>". It must match the secret API's
+// remote_key_prefix and remote_key_separator settings.
+type RemoteKeyFormat struct {
+	// Prefix is the "/"-separated first segment of every key. Empty means no prefix segment.
+	Prefix string
+	// Separator joins the key segments, including those of a nested prefix.
+	Separator string
+}
+
+// remoteKeyTypeSegments are the segments the secret API puts after the namespace in every remote
+// key, one per secret type. They must match remoteKeySegment in internal/openchoreo-api/services/secret.
+var remoteKeyTypeSegments = []string{"generic", "basic-auth", "ssh-auth", "registry", "tls"}
+
+// namespacePrefix returns the start that every remote key of the given namespace has.
+func (f RemoteKeyFormat) namespacePrefix(namespace string) string {
+	var segments []string
+	for _, segment := range strings.Split(f.Prefix, "/") {
+		if segment != "" {
+			segments = append(segments, segment)
+		}
+	}
+	segments = append(segments, namespace)
+	return strings.Join(segments, f.Separator) + f.Separator
+}
+
+// separatorInNamespaceNames reports whether the separator can occur in a namespace name. Then a
+// namespace's key prefix also matches keys of namespaces whose names extend it: with "-", the prefix
+// of namespace "team" matches the keys of namespace "team-a".
+func (f RemoteKeyFormat) separatorInNamespaceNames() bool {
+	return strings.ContainsAny(f.Separator, "abcdefghijklmnopqrstuvwxyz0123456789-")
+}
+
+// laysOutKey reports whether key is laid out as a key of the namespace: its prefix, then a type
+// segment.
+func (f RemoteKeyFormat) laysOutKey(namespace, key string) bool {
+	rest, ok := strings.CutPrefix(key, f.namespacePrefix(namespace))
+	if !ok {
+		return false
+	}
+	for _, segment := range remoteKeyTypeSegments {
+		if strings.HasPrefix(rest, segment+f.Separator) {
+			return true
+		}
+	}
+	return false
+}
+
+// ownsKey reports whether a remote key belongs to the namespace in the secret API's key layout: it
+// starts with the namespace's prefix. When the separator can occur in namespace names, that prefix
+// also matches keys of longer namespaces, so the key must also have a type segment after the prefix,
+// and must not be laid out as a key of a longer namespace in namespaces, the existing namespaces. A
+// key that is ambiguous between two namespaces belongs to neither.
+func (f RemoteKeyFormat) ownsKey(namespace, key string, namespaces []string) bool {
+	if !f.separatorInNamespaceNames() {
+		return strings.HasPrefix(key, f.namespacePrefix(namespace))
+	}
+	if !f.laysOutKey(namespace, key) {
+		return false
+	}
+	for _, other := range namespaces {
+		if len(other) > len(namespace) && f.laysOutKey(other, key) {
+			return false
+		}
+	}
+	return true
+}
+
+// listNamespaceNames returns the names of the namespaces on the control plane.
+func (r *Reconciler) listNamespaceNames(ctx context.Context) ([]string, error) {
+	var list corev1.NamespaceList
+	if err := r.List(ctx, &list); err != nil {
+		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+	}
+	names := make([]string, 0, len(list.Items))
+	for _, ns := range list.Items {
+		names = append(names, ns.Name)
+	}
+	return names, nil
+}
+
+// buildExternalSecret builds the ExternalSecret that syncs the channel's referenced values from the
+// observability plane's secret store into the Secret the observer reads.
+func buildExternalSecret(
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+	secretStoreName string,
+	resolved *resolvedSecrets,
+) (*unstructured.Unstructured, error) {
+	data := make([]esv1.ExternalSecretData, 0, len(resolved.refs))
+	var refreshInterval *metav1.Duration
+	for _, ref := range resolved.refs {
+		data = append(data, esv1.ExternalSecretData{
+			SecretKey: ref.secretKey,
+			RemoteRef: esv1.ExternalSecretDataRemoteRef{
+				Key:      ref.remoteRef.Key,
+				Property: ref.remoteRef.Property,
+				Version:  ref.remoteRef.Version,
+			},
+		})
+		// Refresh as often as the most frequently refreshed SecretReference asks for.
+		if interval := ref.secretReference.Spec.RefreshInterval; interval != nil &&
+			(refreshInterval == nil || interval.Duration < refreshInterval.Duration) {
+			refreshInterval = interval
+		}
+	}
+
+	es := &esv1.ExternalSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      channel.Name,
+			Namespace: channel.Namespace,
+			Labels:    channelResourceLabels(channel),
+		},
+		Spec: esv1.ExternalSecretSpec{
+			SecretStoreRef: esv1.SecretStoreRef{
+				Kind: "ClusterSecretStore",
+				Name: secretStoreName,
+			},
+			Target: esv1.ExternalSecretTarget{
+				Name:           channel.Name,
+				CreationPolicy: esv1.CreatePolicyOwner,
+				Template: &esv1.ExternalSecretTemplate{
+					Type: corev1.SecretTypeOpaque,
+					Metadata: esv1.ExternalSecretTemplateMetadata{
+						Labels: map[string]string{
+							"app.kubernetes.io/name":               channel.Name,
+							labels.LabelKeyNotificationChannelName: channel.Name,
+						},
+					},
+				},
+			},
+			RefreshInterval: refreshInterval,
+			Data:            data,
+		},
+	}
+
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(es)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert ExternalSecret: %w", err)
+	}
+	u := &unstructured.Unstructured{Object: obj}
+	u.SetGroupVersionKind(esv1.ExtSecretGroupVersionKind)
+	// Leave out what the zero-valued typed fields put there; the controller owns neither.
+	unstructured.RemoveNestedField(u.Object, "status")
+	unstructured.RemoveNestedField(u.Object, "metadata", "creationTimestamp")
+	return u, nil
+}
+
+// reconcileExternalSecret applies the ExternalSecret for a channel whose secret values come from
+// SecretReferences, and reports its sync state on the channel.
+func (r *Reconciler) reconcileExternalSecret(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+	obsPlane *controller.ObservabilityPlaneResult,
+	opClient client.Client,
+	resolved *resolvedSecrets,
+) error {
+	if err := r.validateSecretReferences(ctx, channel, obsPlane, resolved); err != nil {
+		return err
+	}
+
+	// A Secret this controller copied while the channel referenced Kubernetes Secrets would stop
+	// the ExternalSecret from taking over the name, so remove it first.
+	if err := r.deleteCopiedSecret(ctx, opClient, channel); err != nil {
+		return err
+	}
+
+	es, err := buildExternalSecret(channel, obsPlane.GetSecretStoreName(), resolved)
+	if err != nil {
+		return err
+	}
+	if err := opClient.Patch(ctx, es, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
+		return fmt.Errorf("failed to apply ExternalSecret %s: %w", es.GetName(), err)
+	}
+
+	current := newExternalSecretObject()
+	if err := opClient.Get(ctx, client.ObjectKey{Name: channel.Name, Namespace: channel.Namespace}, current); err != nil {
+		return fmt.Errorf("failed to get ExternalSecret %s: %w", channel.Name, err)
+	}
+	status, reason, message, err := externalSecretReadiness(current)
+	if err != nil {
+		return err
+	}
+	switch status {
+	case metav1.ConditionTrue:
+		controller.MarkTrueCondition(channel, ConditionSecretsReady, reason, message)
+	case metav1.ConditionFalse:
+		controller.MarkFalseCondition(channel, ConditionSecretsReady, reason, message)
+	default:
+		controller.MarkUnknownCondition(channel, ConditionSecretsReady, reason, message)
+	}
+	return nil
+}
+
+// externalSecretReadiness maps the ExternalSecret's Ready condition to the channel's SecretsReady condition.
+func externalSecretReadiness(u *unstructured.Unstructured) (metav1.ConditionStatus, controller.ConditionReason, string, error) {
+	es := &esv1.ExternalSecret{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, es); err != nil {
+		return "", "", "", fmt.Errorf("failed to convert ExternalSecret %s: %w", u.GetName(), err)
+	}
+	for _, cond := range es.Status.Conditions {
+		if cond.Type != esv1.ExternalSecretReady {
+			continue
+		}
+		switch cond.Status {
+		case corev1.ConditionTrue:
+			return metav1.ConditionTrue, ReasonExternalSecretSynced, "secret values are synced from the secret store", nil
+		case corev1.ConditionFalse:
+			return metav1.ConditionFalse, ReasonExternalSecretNotSynced,
+				fmt.Sprintf("ExternalSecret %s/%s is not synced: %s", es.Namespace, es.Name, cond.Message), nil
+		}
+	}
+	return metav1.ConditionUnknown, ReasonExternalSecretPending,
+		fmt.Sprintf("waiting for ExternalSecret %s/%s to sync", es.Namespace, es.Name), nil
+}
+
+// deleteCopiedSecret deletes the channel's Secret on the observability plane if this controller
+// copied it, leaving a Secret produced by the ExternalSecret alone.
+func (r *Reconciler) deleteCopiedSecret(ctx context.Context, opClient client.Client, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) error {
+	secret := &corev1.Secret{}
+	if err := opClient.Get(ctx, client.ObjectKey{Name: channel.Name, Namespace: channel.Namespace}, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get Secret %s/%s: %w", channel.Namespace, channel.Name, err)
+	}
+	if secret.Labels["app.kubernetes.io/managed-by"] != managedByLabelValue {
+		return nil
+	}
+	if err := opClient.Delete(ctx, secret); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete copied Secret %s/%s: %w", channel.Namespace, channel.Name, err)
+	}
+	return nil
+}
+
+// deleteExternalSecret deletes the channel's ExternalSecret from the observability plane. It
+// reports whether one existed. An observability plane without the ExternalSecret API has none.
+func (r *Reconciler) deleteExternalSecret(ctx context.Context, opClient client.Client, name, namespace string) (bool, error) {
+	// Look the ExternalSecret up first: the cluster gateway proxy client reports deleting an object
+	// that does not exist as a success, so the delete alone can't tell whether there was one.
+	es := newExternalSecretObject()
+	if err := opClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, es); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get ExternalSecret %s/%s: %w", namespace, name, err)
+	}
+	if err := opClient.Delete(ctx, es); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to delete ExternalSecret %s/%s: %w", namespace, name, err)
+	}
+	return true, nil
+}
+
+// isOwnedByExternalSecret reports whether the channel's Secret on the observability plane still
+// belongs to an ExternalSecret, which deletes it once the ExternalSecret is gone.
+func isOwnedByExternalSecret(ctx context.Context, opClient client.Client, name, namespace string) (bool, error) {
+	secret := &corev1.Secret{}
+	if err := opClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get Secret %s/%s: %w", namespace, name, err)
+	}
+	for _, owner := range secret.OwnerReferences {
+		if owner.Kind == esv1.ExtSecretKind {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func newExternalSecretObject() *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(esv1.ExtSecretGroupVersionKind)
+	return u
+}
+
+// isInvalidSecretsError reports whether err is a problem with the channel's secret references.
+func isInvalidSecretsError(err error) (*invalidSecretsError, bool) {
+	var invalid *invalidSecretsError
+	if errors.As(err, &invalid) {
+		return invalid, true
+	}
+	return nil, false
+}

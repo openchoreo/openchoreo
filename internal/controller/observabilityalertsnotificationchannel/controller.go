@@ -7,16 +7,22 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -27,6 +33,24 @@ import (
 const (
 	// NotificationChannelCleanupFinalizer is the finalizer that is used to clean up notification channel resources.
 	NotificationChannelCleanupFinalizer = "openchoreo.dev/notification-channel-cleanup"
+
+	// externalSecretPendingPollInterval is how often a channel is reconciled while its ExternalSecret
+	// has not reported a sync result yet, which it usually does within seconds. The ExternalSecret
+	// lives on the observability plane, so its status can't be watched.
+	externalSecretPendingPollInterval = 5 * time.Second
+
+	// externalSecretPollInterval is how often a channel is reconciled while its ExternalSecret fails
+	// to sync.
+	externalSecretPollInterval = 30 * time.Second
+
+	// planeConfigPollInterval is how often a channel is reconciled while its secret references fail
+	// on the observability plane's configuration (no secretStoreRef, or a SecretReference that targets
+	// another plane). Planes are not watched, so a fix to the plane is only noticed by polling.
+	planeConfigPollInterval = 2 * time.Minute
+
+	// secretReplacementPollInterval is how often a channel is reconciled while the Secret its
+	// ExternalSecret produced is being deleted, so a copied Secret can take its name.
+	secretReplacementPollInterval = 5 * time.Second
 )
 
 // Reconciler reconciles a ObservabilityAlertsNotificationChannel object
@@ -34,6 +58,11 @@ type Reconciler struct {
 	client.Client
 	PlaneClientProvider kubernetesClient.ObservabilityPlaneClientProvider
 	Scheme              *runtime.Scheme
+	Recorder            record.EventRecorder
+
+	// RemoteKeys is how the secret API lays out keys in the external secret store. A channel can
+	// only read SecretReferences whose remote keys belong to the channel's namespace in this layout.
+	RemoteKeys RemoteKeyFormat
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertsnotificationchannels,verbs=get;list;watch;create;update;patch;delete
@@ -44,12 +73,18 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // It creates a ConfigMap and Secret with the same name as ObservabilityAlertsNotificationChannel
 // and applies them to the observability plane cluster using cluster-gateway and cluster-agent architecture.
+// When the channel's secret references name SecretReferences, the Secret is produced by an ExternalSecret
+// that syncs the values from the observability plane's secret store. When they name Kubernetes Secrets
+// (deprecated), the values are copied into the Secret.
 // Owner references are not set on the ConfigMap and Secret as they are applied to a separate cluster.
 //
 // For more details, check Reconcile and its Result here:
@@ -99,10 +134,28 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	old := channel.DeepCopy()
+	result, err := r.reconcileChannel(ctx, channel)
+	channel.Status.ObservedGeneration = channel.Generation
+	if statusErr := r.updateStatus(ctx, old, channel); statusErr != nil {
+		logger.Error(statusErr, "Failed to update notification channel status")
+		if err == nil {
+			return ctrl.Result{}, statusErr
+		}
+	}
+	return result, err
+}
+
+// reconcileChannel applies the channel's ConfigMap and Secret (or the ExternalSecret that produces
+// the Secret) to the observability plane, and records the outcome in the channel's conditions.
+func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
 	// Get ObservabilityPlane client
-	opClient, err := r.getObservabilityPlaneClient(ctx, channel)
+	obsPlane, opClient, err := r.getObservabilityPlaneClient(ctx, channel)
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client")
+		controller.MarkFalseCondition(channel, ConditionReady, ReasonObservabilityPlaneUnavailable, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -110,50 +163,154 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	configMap := r.createConfigMap(channel)
 	if err := r.applyConfigMap(ctx, opClient, configMap); err != nil {
 		logger.Error(err, "Failed to apply ConfigMap to observability plane")
+		controller.MarkFalseCondition(channel, ConditionReady, ReasonApplyFailed, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	// Create Secret with the same name as the channel
-	secret, err := r.createSecret(ctx, channel)
+	// Provide the referenced secret values in a Secret with the same name as the channel
+	var requeueAfter time.Duration
+	resolved, err := r.resolveSecrets(ctx, channel)
+	if err == nil {
+		if resolved.source == secretSourceSecretReference {
+			err = r.reconcileExternalSecret(ctx, channel, obsPlane, opClient, resolved)
+		} else {
+			requeueAfter, err = r.reconcileCopiedSecret(ctx, channel, opClient, resolved)
+		}
+	}
+	if invalid, ok := isInvalidSecretsError(err); ok {
+		logger.Info("Notification channel secret references cannot be resolved", "reason", invalid.reason, "message", invalid.message)
+		controller.MarkFalseCondition(channel, ConditionSecretsReady, invalid.reason, invalid.message)
+		controller.MarkFalseCondition(channel, ConditionReady, invalid.reason, invalid.message)
+		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable {
+			// These depend on the observability plane, which is not watched, so poll for a fix.
+			return ctrl.Result{RequeueAfter: planeConfigPollInterval}, nil
+		}
+		// Retrying won't help until the channel or what it references changes, and both are watched.
+		return ctrl.Result{}, nil
+	}
 	if err != nil {
-		logger.Error(err, "Failed to create Secret for notification channel")
-		return ctrl.Result{}, err
-	}
-	if err := r.applySecret(ctx, opClient, secret); err != nil {
-		logger.Error(err, "Failed to apply Secret to observability plane")
+		logger.Error(err, "Failed to provide secret values to observability plane")
+		controller.MarkFalseCondition(channel, ConditionReady, ReasonApplyFailed, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully applied ConfigMap and Secret to observability plane",
-		"name", channel.Name, "namespace", channel.Namespace)
+	secretsReady := meta.FindStatusCondition(channel.Status.Conditions, string(ConditionSecretsReady))
+	if secretsReady == nil || secretsReady.Status != metav1.ConditionTrue {
+		reason, message := ReasonExternalSecretPending, "waiting for the secret values to reach the observability plane"
+		if secretsReady != nil {
+			reason, message = controller.ConditionReason(secretsReady.Reason), secretsReady.Message
+		}
+		controller.MarkFalseCondition(channel, ConditionReady, reason, message)
+		if requeueAfter == 0 {
+			requeueAfter = externalSecretPollInterval
+			if reason == ReasonExternalSecretPending {
+				requeueAfter = externalSecretPendingPollInterval
+			}
+		}
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	controller.MarkTrueCondition(channel, ConditionReady, ReasonReconciled,
+		"ConfigMap and Secret are applied to the observability plane")
+	logger.Info("Successfully applied notification channel to observability plane",
+		"name", channel.Name, "namespace", channel.Namespace, "secretSource", resolved.source)
 	return ctrl.Result{}, nil
 }
 
-// getObservabilityPlaneClient gets the observability plane client by deriving it from the environment.
+// reconcileCopiedSecret copies the referenced values from Kubernetes Secrets into the channel's Secret on
+// the observability plane. It also handles channels that reference no secret values, which still need an
+// (empty) Secret for the observer to read. It returns how long to wait before reconciling again, if needed.
+func (r *Reconciler) reconcileCopiedSecret(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+	opClient client.Client,
+	resolved *resolvedSecrets,
+) (time.Duration, error) {
+	// If the channel used SecretReferences before, the Secret belongs to its ExternalSecret. Remove the
+	// ExternalSecret and wait for the Secret to go before applying the copied one under the same name.
+	deleted, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
+	if err != nil {
+		return 0, err
+	}
+	owned, err := isOwnedByExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
+	if err != nil {
+		return 0, err
+	}
+	if deleted || owned {
+		controller.MarkUnknownCondition(channel, ConditionSecretsReady, ReasonReplacingSecret,
+			"waiting for the Secret synced by the previous ExternalSecret to be deleted")
+		return secretReplacementPollInterval, nil
+	}
+
+	secret, err := r.createSecret(ctx, channel)
+	if err != nil {
+		return 0, err
+	}
+	if err := r.applySecret(ctx, opClient, secret); err != nil {
+		return 0, err
+	}
+
+	if resolved.source != secretSourceKubernetesSecret {
+		controller.MarkTrueCondition(channel, ConditionSecretsReady, ReasonNoSecretsReferenced,
+			"the channel references no secret values")
+		return 0, nil
+	}
+
+	message := fmt.Sprintf("secret values are copied from Kubernetes Secrets %s. Referencing Kubernetes Secrets is deprecated; "+
+		"create SecretReferences with the same names instead", strings.Join(resolved.secretNames, ", "))
+	controller.MarkTrueCondition(channel, ConditionSecretsReady, ReasonDeprecatedKubernetesSecret, message)
+	if r.Recorder != nil {
+		r.Recorder.Event(channel, corev1.EventTypeWarning, string(ReasonDeprecatedKubernetesSecret), message)
+	}
+	return 0, nil
+}
+
+// updateStatus patches the channel's status if it changed during reconciliation.
+func (r *Reconciler) updateStatus(ctx context.Context, old, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) error {
+	if equality.Semantic.DeepEqual(old.Status, channel.Status) {
+		return nil
+	}
+	return r.Status().Patch(ctx, channel, client.MergeFrom(old))
+}
+
+// getObservabilityPlaneClient gets the observability plane and a client for it by deriving it from the environment.
 // It follows the chain: Channel.Environment -> Environment.DataPlaneRef -> DataPlane.ObservabilityPlaneRef -> ObservabilityPlane
-func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (client.Client, error) {
+func (r *Reconciler) getObservabilityPlaneClient(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+) (*controller.ObservabilityPlaneResult, client.Client, error) {
 	// Get the Environment
 	env := &openchoreodevv1alpha1.Environment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
-		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
+		return nil, nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
 	}
 
 	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
+		return nil, nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
 	}
 
 	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
+		return nil, nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
 	}
 
 	opClient, err := obsResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
+		return nil, nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
 	}
 
-	return opClient, nil
+	return obsResult, opClient, nil
+}
+
+// channelResourceLabels returns the labels of the resources applied to the observability plane for the channel.
+// The observer finds the channel's ConfigMap and Secret by the notification channel name label.
+func channelResourceLabels(channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/managed-by":         managedByLabelValue,
+		"app.kubernetes.io/name":               channel.Name,
+		labels.LabelKeyNotificationChannelName: channel.Name,
+	}
 }
 
 // createConfigMap creates a ConfigMap with the same name as the channel
@@ -162,11 +319,7 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      channel.Name,
 			Namespace: channel.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by":         "observabilityalertsnotificationchannel-controller",
-				"app.kubernetes.io/name":               channel.Name,
-				labels.LabelKeyNotificationChannelName: channel.Name,
-			},
+			Labels:    channelResourceLabels(channel),
 		},
 		Data: map[string]string{
 			"type":         string(channel.Spec.Type),
@@ -226,11 +379,7 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      channel.Name,
 			Namespace: channel.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by":         "observabilityalertsnotificationchannel-controller",
-				"app.kubernetes.io/name":               channel.Name,
-				labels.LabelKeyNotificationChannelName: channel.Name,
-			},
+			Labels:    channelResourceLabels(channel),
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: make(map[string][]byte),
@@ -329,7 +478,7 @@ func (r *Reconciler) applyConfigMap(ctx context.Context, opClient client.Client,
 	})
 
 	// Use server-side apply to create or update the ConfigMap
-	if err := opClient.Patch(ctx, configMap, client.Apply, client.ForceOwnership, client.FieldOwner("observabilityalertsnotificationchannel-controller")); err != nil {
+	if err := opClient.Patch(ctx, configMap, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return fmt.Errorf("failed to apply ConfigMap %s: %w", configMap.Name, err)
 	}
 	return nil
@@ -345,7 +494,7 @@ func (r *Reconciler) applySecret(ctx context.Context, opClient client.Client, se
 	})
 
 	// Use server-side apply to create or update the Secret
-	if err := opClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("observabilityalertsnotificationchannel-controller")); err != nil {
+	if err := opClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
 		return fmt.Errorf("failed to apply Secret %s: %w", secret.Name, err)
 	}
 	return nil
@@ -376,7 +525,7 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 	}
 
 	// Get ObservabilityPlane client
-	opClient, err := r.getObservabilityPlaneClient(ctx, channel)
+	_, opClient, err := r.getObservabilityPlaneClient(ctx, channel)
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client during finalization")
 		return ctrl.Result{}, err
@@ -385,6 +534,12 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 	// Delete ConfigMap from observability plane
 	if err := r.deleteConfigMap(ctx, opClient, channel.Name, channel.Namespace); err != nil {
 		logger.Error(err, "Failed to delete ConfigMap from observability plane")
+		return ctrl.Result{}, err
+	}
+
+	// Delete ExternalSecret from observability plane, if the channel used SecretReferences
+	if _, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace); err != nil {
+		logger.Error(err, "Failed to delete ExternalSecret from observability plane")
 		return ctrl.Result{}, err
 	}
 
@@ -505,8 +660,41 @@ func (r *Reconciler) ensureDefaultChannel(ctx context.Context, channel *openchor
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("observabilityalertsnotificationchannel-controller")
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}).
+		// A change to a referenced SecretReference or Secret changes what the channel's Secret holds,
+		// and creating or deleting one can change whether a reference resolves to a SecretReference.
+		Watches(&openchoreodevv1alpha1.SecretReference{}, handler.EnqueueRequestsFromMapFunc(r.findChannelsReferencing)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.findChannelsReferencing)).
 		Named("observabilityalertsnotificationchannel").
 		Complete(r)
+}
+
+// findChannelsReferencing returns reconcile requests for the notification channels in the object's
+// namespace whose secret references name the object.
+func (r *Reconciler) findChannelsReferencing(ctx context.Context, obj client.Object) []reconcile.Request {
+	var channels openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelList
+	if err := r.List(ctx, &channels, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list notification channels for secret reference change",
+			"namespace", obj.GetNamespace(), "name", obj.GetName())
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for i := range channels.Items {
+		channel := &channels.Items[i]
+		for _, ref := range channelSecretRefs(channel) {
+			if ref.ref.Name == obj.GetName() {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: client.ObjectKeyFromObject(channel),
+				})
+				break
+			}
+		}
+	}
+	return requests
 }
