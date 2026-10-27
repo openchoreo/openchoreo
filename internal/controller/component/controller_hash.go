@@ -5,6 +5,9 @@ package component
 
 import (
 	"sort"
+	"strings"
+
+	"k8s.io/utils/dump"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/hash"
@@ -34,8 +37,15 @@ type ReleaseSpec struct {
 // This is a type-safe wrapper around hash.ComputeHash for ReleaseSpec.
 // This follows the same pattern as Kubernetes controller.ComputeHash.
 func ComputeReleaseHash(template *ReleaseSpec, collisionCount *int32) string {
-	return hash.ComputeHash(*template, collisionCount)
+	// An endpoint dependency without a release line is hashed as it was before dependencies could
+	// name one, so upgrading doesn't change the release hash of a component that has dependencies.
+	hashable := strings.ReplaceAll(dump.ForHash(*template), emptyDependencyReleaseLine, "Name:(string)")
+	return hash.ComputeHashOfString(hashable, collisionCount)
 }
+
+// emptyDependencyReleaseLine is an empty WorkloadConnection.ReleaseLine in dump.ForHash output,
+// followed by the field after it.
+const emptyDependencyReleaseLine = "ReleaseLine:(string) Name:(string)"
 
 // EqualReleaseTemplate returns true if lhs and rhs have the same hash.
 // This is used to determine if two release specs are semantically equivalent.

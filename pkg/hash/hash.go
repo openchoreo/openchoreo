@@ -27,11 +27,15 @@ import (
 //	hashableString := dump.ForHash(myObject)
 //	// Then pass to a hash function
 func ComputeHash(obj interface{}, collisionCount *int32) string {
-	hasher := fnv.New32a()
-
 	// Get deterministic string representation using dump.ForHash
 	// This is the Kubernetes standard way to get hashable representations
-	hashableStr := dump.ForHash(obj)
+	return ComputeHashOfString(dump.ForHash(obj), collisionCount)
+}
+
+// ComputeHashOfString hashes a representation such as dump.ForHash returns, for callers
+// that adjust it first. ComputeHash(obj, n) equals ComputeHashOfString(dump.ForHash(obj), n).
+func ComputeHashOfString(hashableStr string, collisionCount *int32) string {
+	hasher := fnv.New32a()
 	hasher.Write([]byte(hashableStr))
 
 	// Add collisionCount in the hash if it exists and is non-negative.
