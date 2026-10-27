@@ -15,6 +15,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // ReleaseLineFinalizer makes deleting a ReleaseLine remove the line's ReleaseBindings,
@@ -46,7 +47,8 @@ func (r *Reconciler) finalize(ctx context.Context, line *openchoreov1alpha1.Rele
 	return ctrl.Result{}, nil
 }
 
-// deleteOwned deletes the line's ReleaseBindings, ComponentReleases and Workloads, and returns how many still exist.
+// deleteOwned deletes the line's ReleaseBindings, ComponentReleases, Workloads and WorkflowRuns, and returns how
+// many still exist.
 func (r *Reconciler) deleteOwned(ctx context.Context, line *openchoreov1alpha1.ReleaseLine) (int, error) {
 	owner := line.Spec.Owner
 	owned := func(project, comp, rl string) bool {
@@ -87,6 +89,19 @@ func (r *Reconciler) deleteOwned(ctx context.Context, line *openchoreov1alpha1.R
 		if owned(o.ProjectName, o.ComponentName, o.ReleaseLine) {
 			objs = append(objs, &workloads.Items[i])
 		}
+	}
+
+	// A line's builds would otherwise keep running, and be listed under a line recreated with its name.
+	var runs openchoreov1alpha1.WorkflowRunList
+	if err := r.List(ctx, &runs, client.InNamespace(line.Namespace), client.MatchingLabels{
+		ocLabels.LabelKeyProjectName:   owner.ProjectName,
+		ocLabels.LabelKeyComponentName: owner.ComponentName,
+		ocLabels.LabelKeyReleaseLine:   line.Name,
+	}); err != nil {
+		return 0, fmt.Errorf("failed to list WorkflowRuns: %w", err)
+	}
+	for i := range runs.Items {
+		objs = append(objs, &runs.Items[i])
 	}
 
 	for _, obj := range objs {

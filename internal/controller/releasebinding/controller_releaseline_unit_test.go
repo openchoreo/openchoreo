@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -259,6 +260,18 @@ func TestResolveConnection_SelectsTargetReleaseLine(t *testing.T) {
 			assert.Contains(t, pending.Reason, tc.want)
 		})
 	}
+}
+
+func TestBlockReleaseLine(t *testing.T) {
+	rb := makeValidReleaseBinding(testProjectName, testComponentName)
+	result := blockReleaseLine(rb, ReasonReleaseLineNameCollision, "Service hello is rendered by hello-development")
+
+	// The binding doesn't watch the other RenderedReleases, so it checks again rather than waiting for an event.
+	assert.Positive(t, result.RequeueAfter)
+	cond := apimeta.FindStatusCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	require.NotNil(t, cond)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(ReasonReleaseLineNameCollision), cond.Reason)
 }
 
 func TestFindReleaseLineCollision(t *testing.T) {

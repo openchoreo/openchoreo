@@ -23,6 +23,8 @@ spec:
         parameters:
           - name: image
           - name: run-name
+          - name: release-line
+            default: ""
           # --- IDP / OAuth Configuration ---
           - name: oauth-token-url
             default: "http://host.k3d.internal:28080/oauth2/token"
@@ -46,6 +48,8 @@ spec:
             value: '{{inputs.parameters.image}}'
           - name: RUN_NAME
             value: '{{inputs.parameters.run-name}}'
+          - name: RELEASE_LINE
+            value: '{{inputs.parameters.release-line}}'
           - name: PROJECT_NAME
             value: '{{workflow.parameters.project-name}}'
           - name: COMPONENT_NAME
@@ -79,6 +83,7 @@ spec:
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
             echo ">> Image: ${IMAGE}"
+            echo ">> Release line: ${RELEASE_LINE:-default}"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
@@ -118,6 +123,7 @@ spec:
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 --descriptor "workload.yaml" \
                 -o "workload-cr.yaml"
             else
@@ -130,6 +136,7 @@ spec:
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 -o "workload-cr.yaml"
             fi
 

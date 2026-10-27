@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	rlconfig "github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
@@ -148,6 +149,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 		for _, list := range []client.ObjectList{
 			&openchoreov1alpha1.ReleaseLineList{}, &openchoreov1alpha1.ComponentReleaseList{},
 			&openchoreov1alpha1.ReleaseBindingList{}, &openchoreov1alpha1.WorkloadList{},
+			&openchoreov1alpha1.WorkflowRunList{},
 		} {
 			Expect(k8sClient.List(ctx, list, client.InNamespace(ns))).To(Succeed())
 			Expect(meta.EachListItem(list, func(o runtime.Object) error {
@@ -231,9 +233,19 @@ var _ = Describe("ReleaseLine Controller", func() {
 			reconcileUntil("v3", ReasonWorkloadNotFound)
 		})
 
-		It("removes the line's release, binding and workload when the line is deleted", func() {
+		It("removes the line's release, binding, workload and builds when the line is deleted", func() {
 			reconcileUntil(stableLine, ReasonComponentReleaseReady)
 			reconcileUntil(v2Line, ReasonComponentReleaseReady)
+			build := func(line string) *openchoreov1alpha1.WorkflowRun {
+				return &openchoreov1alpha1.WorkflowRun{
+					ObjectMeta: metav1.ObjectMeta{Name: "rl-build-" + line, Namespace: ns, Labels: map[string]string{
+						labels.LabelKeyProjectName: project, labels.LabelKeyComponentName: compName, labels.LabelKeyReleaseLine: line,
+					}},
+					Spec: openchoreov1alpha1.WorkflowRunSpec{Workflow: openchoreov1alpha1.WorkflowRunConfig{
+						Kind: openchoreov1alpha1.WorkflowRefKindClusterWorkflow, Name: "builder"}},
+				}
+			}
+			create(build(v2Line), build(stableLine))
 
 			Expect(k8sClient.Delete(ctx, newLine(v2Line))).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -254,6 +266,11 @@ var _ = Describe("ReleaseLine Controller", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: "rl-wl-v2", Namespace: ns}, wl)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "rl-wl-stable", Namespace: ns}, wl)).To(Succeed())
+
+				run := &openchoreov1alpha1.WorkflowRun{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Name: "rl-build-" + v2Line, Namespace: ns}, run)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "rl-build-" + stableLine, Namespace: ns}, run)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 		})
 	})

@@ -67,6 +67,13 @@ def test_analyze_request_accepts_release_line():
     assert req.search_scope.release_binding == "c-canary-1a2b3c4d-dev"
 
 
+def test_agent_prompt_describes_release_line_scopes():
+    rendered = render("prompts/finops_agent_prompt.j2", {"tools": []})
+    # Omitting release_line covers the default line only; every line needs all_release_lines.
+    assert "Leaving `release_line` out covers the default line only" in rendered
+    assert "`all_release_lines` sums every line together" in rendered
+
+
 def test_request_template_renders_scope_and_costs():
     rendered = render("api/finops_request.j2", make_request_context())
     assert "my-service" in rendered

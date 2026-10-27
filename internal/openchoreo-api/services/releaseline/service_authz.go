@@ -52,7 +52,7 @@ func (s *releaseLineServiceWithAuthz) checkAction(ctx context.Context, action, n
 			Project:   comp.Spec.Owner.ProjectName,
 			Component: componentName,
 		},
-		// The line is its own release line, so line-scoped conditions and audit filters match it.
+		// The line is its own release line, so audit records of it carry the line.
 		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: releaseLineName}},
 	})
 }

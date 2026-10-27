@@ -88,7 +88,7 @@ These are additional instructions for this deployment. They are important, so fo
 {% if 'query_component_events' in obs_tool_names -%}
 - `query_component_events` returns Kubernetes events for a component — restarts, `OOMKilled`, `CrashLoopBackOff`, `FailedScheduling`, probe failures. A component that never started emits events but no logs, so check events whenever logs are empty or uninformative.
 {% endif -%}
-- Every component has an implicit `default` line, plus any release lines it adds. Set `release_line` on a component's queries to scope them to one line, `default` for the default line; leaving it out returns every line of the component together.
+- Every component has an implicit `default` line, plus any release lines it adds. A component's queries cover its default line unless you set `release_line` to another line, or set `all_release_lines` to cover every line of the component together.
 - Start log queries with blank log levels for comprehensive results, narrow down later
 - Omit optional filters unless you have specific values for them, as they may unintentionally exclude useful logs
 - Empty results when using `search_phrase` or `log_levels` filters does not mean there are no logs — it means nothing matched that filter. Retry with broader or blank filters before concluding data is unavailable

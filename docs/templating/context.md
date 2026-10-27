@@ -351,7 +351,9 @@ spec:
 **Iterating over endpoints by visibility (recommended pattern for HTTPRoute generation):**
 
 ```yaml
-# Create HTTPRoutes only for endpoints with external visibility
+# Create HTTPRoutes only for endpoints with external visibility.
+# A release line's routes, paths and backends use metadata.componentLineName, so they never take
+# the names of the default line or of another component.
 - id: httproute-external
   forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
   var: endpoint
@@ -359,7 +361,7 @@ spec:
     apiVersion: gateway.networking.k8s.io/v1
     kind: HTTPRoute
     metadata:
-      name: ${oc_generate_name(metadata.componentName, endpoint.key)}
+      name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key)}'
       namespace: ${metadata.namespace}
       labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
     spec:
@@ -374,7 +376,7 @@ spec:
         - matches:
             - path:
                 type: PathPrefix
-                value: /${metadata.componentName}-${endpoint.key}
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}-${endpoint.key}'
           filters:
             - type: URLRewrite
               urlRewrite:
@@ -382,7 +384,7 @@ spec:
                   type: ReplacePrefixMatch
                   replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
           backendRefs:
-            - name: ${metadata.componentName}
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
               port: ${endpoint.value.port}
 
 # Create HTTPRoutes only for endpoints with internal visibility
@@ -393,7 +395,7 @@ spec:
     apiVersion: gateway.networking.k8s.io/v1
     kind: HTTPRoute
     metadata:
-      name: '${oc_generate_name(metadata.componentName, endpoint.key, "internal")}'
+      name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key, "internal")}'
       namespace: ${metadata.namespace}
       labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
     spec:
@@ -408,7 +410,7 @@ spec:
         - matches:
             - path:
                 type: PathPrefix
-                value: /${metadata.componentName}-${endpoint.key}
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}-${endpoint.key}'
           filters:
             - type: URLRewrite
               urlRewrite:
@@ -416,7 +418,7 @@ spec:
                   type: ReplacePrefixMatch
                   replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
           backendRefs:
-            - name: ${metadata.componentName}
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
               port: ${endpoint.value.port}
 ```
 

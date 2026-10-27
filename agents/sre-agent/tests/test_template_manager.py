@@ -58,6 +58,21 @@ def _make_tool(name: str):
     return SimpleNamespace(name=name)
 
 
+def test_rca_prompt_describes_release_line_scopes():
+    rendered = tm.render(
+        "prompts/rca_agent_prompt.j2",
+        {
+            "openchoreo_tools": [],
+            "observability_tools": [_make_tool("query_component_logs")],
+            "scope": _make_scope("staging"),
+        },
+    )
+    # Omitting release_line covers the default line only; every line needs all_release_lines.
+    assert "queries cover its default line unless you set `release_line`" in rendered
+    assert "`all_release_lines`" in rendered
+    assert "leaving it out returns every line" not in rendered
+
+
 def test_rca_prompt_scopes_resource_binding_selection():
     rendered = tm.render(
         "prompts/rca_agent_prompt.j2",

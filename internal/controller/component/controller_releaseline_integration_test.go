@@ -117,6 +117,13 @@ var _ = Describe("Component Controller — Release lines", func() {
 		})
 	})
 
+	It("rejects a ReleaseLine whose name is not a DNS label", func() {
+		// Owner fields that name a line accept only DNS labels, so such a line could never get a Workload.
+		err := k8sClient.Create(ctx, newLine("v1.2"))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("must consist of lowercase letters, digits and '-'"))
+	})
+
 	It("rejects a ReleaseLine named default", func() {
 		err := k8sClient.Create(ctx, newLine("default"))
 		Expect(err).To(HaveOccurred())

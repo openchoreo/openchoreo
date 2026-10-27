@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Column, Index, MetaData, String, Table, Text, func, select, text
+from sqlalchemy import Column, Index, MetaData, String, Table, Text, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -214,7 +214,15 @@ class SQLReportBackend(ReportBackend):
         ]
         if component is not None:
             conditions.append(finops_reports.c.component == component)
-        if release_line is not None:
+        if release_line == "default":
+            # Reports from before release lines have no line, and they are the default line's.
+            conditions.append(
+                or_(
+                    finops_reports.c.release_line == release_line,
+                    finops_reports.c.release_line.is_(None),
+                )
+            )
+        elif release_line is not None:
             conditions.append(finops_reports.c.release_line == release_line)
         if start_time is not None:
             conditions.append(finops_reports.c.timestamp >= start_time)

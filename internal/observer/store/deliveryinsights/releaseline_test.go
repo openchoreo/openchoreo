@@ -79,6 +79,26 @@ func TestAttributeIncident_ReleaseLine(t *testing.T) {
 	assert.Equal(t, "rel-next", result.ReleaseUID, "an incident of a line is attributed to that line")
 }
 
+func TestAttributeIncident_DefaultLine(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	deployed := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC).UnixMilli()
+	window := 24 * time.Hour.Milliseconds()
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{
+		testFact("rel-default", deployed),
+		// A line deployed later must not take the default line's incident.
+		lineFact("rel-next", "line-next", deployed+10*time.Minute.Milliseconds()),
+	}))
+
+	result, err := store.AttributeIncident(ctx, "comp-1", "env-prod", "", "inc-default",
+		deployed+30*time.Minute.Milliseconds(), window)
+	require.NoError(t, err)
+	assert.True(t, result.Attributed)
+	assert.Equal(t, "rel-default", result.ReleaseUID, "an incident of the default line is attributed to the default line")
+}
+
 func TestBuildRollups_ReleaseLine(t *testing.T) {
 	t.Parallel()
 

@@ -672,9 +672,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 				return ctrl.Result{}, err
 			}
 			if collision != "" {
-				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLineNameCollision, collision)
 				logger.Info(collision)
-				return ctrl.Result{}, nil
+				return blockReleaseLine(releaseBinding, ReasonReleaseLineNameCollision, collision), nil
 			}
 		}
 		overlap, err := findDefaultLinePodLabel(releaseBinding.Spec.Owner.ReleaseLine, dataPlaneReleaseResources)
@@ -682,9 +681,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			return ctrl.Result{}, err
 		}
 		if overlap != "" {
-			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseLinePodLabelOverlap, overlap)
 			logger.Info(overlap)
-			return ctrl.Result{}, nil
+			return blockReleaseLine(releaseBinding, ReasonReleaseLinePodLabelOverlap, overlap), nil
 		}
 	}
 	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{
@@ -1157,7 +1155,7 @@ func (r *Reconciler) setReleaseSyncedCondition(
 // Release naming helper functions
 
 // makeDataPlaneReleaseName returns the name for a dataplane Release.
-// Format: {componentName}-{environment}, or releaseline.RenderedReleaseName for a release line
+// Format: releaseline.RenderedReleaseName
 func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
 	return releaseName(componentRelease, releaseBinding.Spec.Environment)
 }
@@ -1170,10 +1168,7 @@ func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.Component
 
 func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environment string) string {
 	owner := componentRelease.Spec.Owner
-	if owner.ReleaseLine != "" {
-		return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
-	}
-	return fmt.Sprintf("%s-%s", owner.ComponentName, environment)
+	return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
 }
 
 // Helper functions to build snapshot structures from ComponentRelease

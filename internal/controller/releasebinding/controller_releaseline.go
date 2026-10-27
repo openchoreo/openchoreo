@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -72,6 +73,16 @@ func (r *Reconciler) findReleaseBindingsForReleaseLine(ctx context.Context, obj 
 		requests = append(requests, ctrl.Request{NamespacedName: types.NamespacedName{Name: b.Name, Namespace: b.Namespace}})
 	}
 	return requests
+}
+
+// releaseLineBlockedRequeue is how soon a line's binding blocked by a collision checks again. It doesn't watch
+// the other RenderedReleases, so it would otherwise stay blocked after they go away.
+const releaseLineBlockedRequeue = 30 * time.Second
+
+// blockReleaseLine reports why a line's binding is not deployed, and checks it again later.
+func blockReleaseLine(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason controller.ConditionReason, message string) ctrl.Result {
+	controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, reason, message)
+	return ctrl.Result{RequeueAfter: releaseLineBlockedRequeue}
 }
 
 // findReleaseLineCollision reports objects the binding would render on the target plane that another

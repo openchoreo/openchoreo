@@ -216,6 +216,16 @@ func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
 		{"default keyword, component with lines", true, "default", nil, deliveryinsights.ScopeTypeReleaseLine, false},
 		{"default keyword, component without lines", false, "default", nil, deliveryinsights.ScopeTypeComponent, true},
 	}
+	t.Run("failed release line check keeps the component scope", func(t *testing.T) {
+		svc := &DoraMetricsService{logger: slog.Default(), resolver: scopeResolverStub{withLines: true,
+			failLevel: "release lines", failWith: errors.New("unexpected status 403")}}
+		rs, err := svc.resolveScope(ctx, gen.ComponentSearchScope{
+			Namespace: "acme", Project: strPtr("shop"), Component: strPtr("checkout")})
+		require.NoError(t, err)
+		assert.Equal(t, deliveryinsights.ScopeTypeComponent, rs.scopeType)
+		assert.True(t, rs.allReleaseLines)
+	})
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &DoraMetricsService{resolver: scopeResolverStub{withLines: tt.withLines}, logger: slog.Default()}

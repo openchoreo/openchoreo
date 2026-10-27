@@ -450,3 +450,23 @@ func TestGetSpanDetailsForTrace_GenericError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)
 }
+
+func TestQuerySpansForTrace_ScopeNotFound(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, &service.NotFoundError{Kind: "release line", Name: "gone"})
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
+	req.SetPathValue("traceId", "trace-1")
+	rr := serve(t, h, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "SCOPE_NOT_FOUND")
+}

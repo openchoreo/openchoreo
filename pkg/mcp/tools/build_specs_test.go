@@ -3,7 +3,12 @@
 
 package tools
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
 
 // buildToolSpecs returns test specs for build toolset
 func buildToolSpecs() []toolTestSpec {
@@ -183,5 +188,34 @@ func buildWorkflowSpecs() []toolTestSpec {
 				}
 			},
 		},
+	}
+}
+
+func TestTriggerWorkflowRunDefaultLine(t *testing.T) {
+	clientSession, mockHandler := setupTestServer(t)
+	defer clientSession.Close()
+
+	// "default" names the implicit line, which builds without a release line.
+	result, err := clientSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "trigger_workflow_run",
+		Arguments: map[string]any{
+			"namespace_name": testNamespaceName,
+			"project_name":   testProjectName,
+			"component_name": testComponentName,
+			"release_line":   "default",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected protocol error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	calls := mockHandler.calls["TriggerWorkflowRun"]
+	if len(calls) != 1 {
+		t.Fatalf("expected one TriggerWorkflowRun call, got %d", len(calls))
+	}
+	if args := calls[0].([]interface{}); args[4] != "" {
+		t.Errorf("expected release line \"\" for default, got %q", args[4])
 	}
 }

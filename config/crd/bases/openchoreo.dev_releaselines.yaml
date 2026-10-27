@@ -258,6 +258,9 @@ spec:
         x-kubernetes-validations:
         - message: metadata.name must be at most 63 characters
           rule: size(self.metadata.name) <= 63
+        - message: metadata.name must consist of lowercase letters, digits and '-',
+            and start and end with a letter or digit
+          rule: self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
         - message: default is the component's implicit line and cannot be a ReleaseLine
           rule: self.metadata.name != 'default'
     selectableFields:

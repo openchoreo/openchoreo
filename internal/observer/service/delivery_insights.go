@@ -156,7 +156,11 @@ func (s *DoraMetricsService) resolveScope(
 		// its default line's and also hold the history recorded before release lines.
 		hasLines, err := s.resolver.HasReleaseLines(ctx, namespace, component)
 		if err != nil {
-			return rs, wrapDeliveryInsightsScopeError(err, "component", component)
+			// An API without release lines, or a reader without releaseline:view, must not break the queries
+			// of components that never use lines, so they get the scope they had before release lines.
+			s.logger.Warn("Failed to check a component for release lines, scoping it as a component without lines",
+				"namespace", namespace, "component", component, "error", err)
+			hasLines = false
 		}
 		if hasLines {
 			rs.scopeType = deliveryinsights.ScopeTypeReleaseLine

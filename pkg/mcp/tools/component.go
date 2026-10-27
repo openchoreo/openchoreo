@@ -651,7 +651,7 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server, perms map[string]To
 		Commit        string `json:"commit"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.BuildToolset.TriggerWorkflowRun(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit, args.ReleaseLine)
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit, releaseline.Normalize(args.ReleaseLine))
 		return handleToolResult(result, err)
 	})
 }

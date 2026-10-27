@@ -110,6 +110,7 @@ type ReleaseLineEnvironment struct {
 // +kubebuilder:printcolumn:name="Environments",type=string,JSONPath=`.status.environments[*].environment`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be at most 63 characters"
+// +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must consist of lowercase letters, digits and '-', and start and end with a letter or digit"
 // +kubebuilder:validation:XValidation:rule="self.metadata.name != 'default'",message="default is the component's implicit line and cannot be a ReleaseLine"
 
 // ReleaseLine is a named series of releases of one Component that evolves independently of the

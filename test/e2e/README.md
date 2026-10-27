@@ -145,8 +145,9 @@ Runs on the default `deployment/service` type. Line names are unique within a na
 4. Each line answers on its own service URL and on its own public route through the gateway
 5. Overrides apply per line: only canary has the liveness probe and the autoscaler, and a line that lists only its own trait still keeps the component's readiness probe
 6. Bind canary's latest release to staging: canary reports staging, and only canary runs in the staging namespace
-7. Validation: a second component can't create a line named `stable` (`already exists`), and a Workload without a line marks the component `InvalidConfiguration` until it's removed
-8. Delete the canary line: its bindings, releases, Workload and Deployments in both environments are removed, while stable stays Ready and keeps serving
+7. Validation: a second component can't create a line named `stable` (`already exists`), and no line can be named `default`
+8. The default line deploys next to the lines from a Workload without a line, and no Service, the default line's or a line's, selects another line's pods
+9. Delete the canary line: its bindings, releases, Workload and Deployments in both environments are removed, while stable stays Ready and keeps serving
 
 When running against a cluster other than the e2e one, set `E2E_CLUSTER_DATAPLANE` to its ClusterDataPlane (for example `default` on a local k3d install).
 

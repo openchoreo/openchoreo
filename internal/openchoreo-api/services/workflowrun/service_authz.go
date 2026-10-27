@@ -251,13 +251,20 @@ func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, names
 		workflowAttr = formatWorkflowAttr(namespaceName, comp.Spec.Workflow.Kind, comp.Spec.Workflow.Name)
 	}
 
+	// Authorize against the component's own project, so project-scoped bindings apply even to callers that
+	// address the component without its project.
+	authzProject := comp.Spec.Owner.ProjectName
+	if authzProject == "" {
+		authzProject = projectName
+	}
+
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionCreateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
-			Project:   projectName,
+			Project:   authzProject,
 			Component: componentName,
 		},
 		Context: authz.Context{

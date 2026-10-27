@@ -21,6 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -185,46 +186,58 @@ func TestUpdateReleaseBindingRenderedPromotion(t *testing.T) {
 		{name: "rendered release label differs", rendered: true, ownerUID: "stored-uid", renderedRelease: "release-b", release: testPromotionRelease, wantError: true},
 		{name: "reactivation needs source", release: testPromotionRelease, state: openchoreov1alpha1.ReleaseStateActive, wantError: true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			existing := testutil.NewReleaseBinding(testNamespace, testProjectName, testComponentName, "production", testRBName)
-			existing.UID = "stored-uid"
-			existing.Spec.ReleaseName = testPromotionRelease
-			if tt.state != "" {
-				existing.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
-			}
-			objects := []client.Object{existing, promotionPipeline(), testutil.NewProject(testNamespace, testProjectName)}
-			if tt.rendered {
-				owner := existing.DeepCopy()
-				owner.UID = tt.ownerUID
-				objects = append(objects, &openchoreov1alpha1.RenderedRelease{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: testComponentName + "-production", Namespace: testNamespace,
-						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(owner, openchoreov1alpha1.GroupVersion.WithKind("ReleaseBinding"))},
-						Labels:          map[string]string{labels.LabelKeyComponentReleaseName: tt.renderedRelease},
-					},
-				})
-			}
-			k8sClient := testutil.NewFakeClient(objects...)
-			svc := NewService(k8sClient, testutil.TestLogger())
-			rb := existing.DeepCopy()
-			rb.UID = "other-uid"
-			rb.Spec.ReleaseName = tt.release
-			rb.Spec.State = tt.state
-			rb.Annotations = map[string]string{"edited": "true"}
-			_, err := svc.UpdateReleaseBinding(ctx, testNamespace, rb)
-			if tt.wantError {
-				var validationErr *services.ValidationError
-				require.ErrorAs(t, err, &validationErr)
-				stored, getErr := svc.GetReleaseBinding(ctx, testNamespace, testRBName)
-				require.NoError(t, getErr)
-				assert.Equal(t, existing.Spec, stored.Spec)
-				assert.Empty(t, stored.Annotations)
-			} else {
-				require.NoError(t, err)
-			}
-		})
+	// A release line's RenderedRelease is named differently from the default line's, so every case runs on both.
+	for _, line := range []string{"", "next"} {
+		for _, tt := range tests {
+			t.Run(tt.name+"/line="+line, func(t *testing.T) {
+				ctx := context.Background()
+				existing := testutil.NewReleaseBinding(testNamespace, testProjectName, testComponentName, "production", testRBName)
+				existing.UID = "stored-uid"
+				existing.Spec.ReleaseName = testPromotionRelease
+				existing.Spec.Owner.ReleaseLine = line
+				if tt.state != "" {
+					existing.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+				}
+				objects := []client.Object{existing, promotionPipeline(), testutil.NewProject(testNamespace, testProjectName)}
+				if line != "" {
+					objects = append(objects, &openchoreov1alpha1.ReleaseLine{
+						ObjectMeta: metav1.ObjectMeta{Name: line, Namespace: testNamespace},
+						Spec: openchoreov1alpha1.ReleaseLineSpec{Owner: openchoreov1alpha1.ReleaseLineOwner{
+							ProjectName: testProjectName, ComponentName: testComponentName}},
+					})
+				}
+				if tt.rendered {
+					owner := existing.DeepCopy()
+					owner.UID = tt.ownerUID
+					objects = append(objects, &openchoreov1alpha1.RenderedRelease{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            releaseline.RenderedReleaseName(testComponentName, line, "production"),
+							Namespace:       testNamespace,
+							OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(owner, openchoreov1alpha1.GroupVersion.WithKind("ReleaseBinding"))},
+							Labels:          map[string]string{labels.LabelKeyComponentReleaseName: tt.renderedRelease},
+						},
+					})
+				}
+				k8sClient := testutil.NewFakeClient(objects...)
+				svc := NewService(k8sClient, testutil.TestLogger())
+				rb := existing.DeepCopy()
+				rb.UID = "other-uid"
+				rb.Spec.ReleaseName = tt.release
+				rb.Spec.State = tt.state
+				rb.Annotations = map[string]string{"edited": "true"}
+				_, err := svc.UpdateReleaseBinding(ctx, testNamespace, rb)
+				if tt.wantError {
+					var validationErr *services.ValidationError
+					require.ErrorAs(t, err, &validationErr)
+					stored, getErr := svc.GetReleaseBinding(ctx, testNamespace, testRBName)
+					require.NoError(t, getErr)
+					assert.Equal(t, existing.Spec, stored.Spec)
+					assert.Empty(t, stored.Annotations)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
 	}
 }
 

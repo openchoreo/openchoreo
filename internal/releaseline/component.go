@@ -66,9 +66,13 @@ func ObjectBaseName(componentName, line, environment string) string {
 // RenderedRelease name fits the label that names it on every object it applies.
 const renderedReleaseNameLimit = dpkubernetes.MaxServiceNameLength - len("-observability")
 
-// RenderedReleaseName names a release line's RenderedRelease in an environment: its ObjectBaseName, shortened
-// when needed so that the name, also with an "-observability" suffix, fits a label value.
+// RenderedReleaseName names the data plane RenderedRelease of a component's line in an environment:
+// "{component}-{environment}" for the default line, and for a release line its ObjectBaseName, shortened when
+// needed so that the name, also with an "-observability" suffix, fits a label value.
 func RenderedReleaseName(componentName, line, environment string) string {
+	if line == "" {
+		return componentName + "-" + environment
+	}
 	if name := ObjectBaseName(componentName, line, environment); len(name) <= renderedReleaseNameLimit {
 		return name
 	}

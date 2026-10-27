@@ -772,12 +772,9 @@ func (s *sqlStore) AttributeIncident(
 
 	// The deployment "live" at the trigger is the latest one that occurred at or
 	// before it, within the attribution window.
-	// An incident of a release line is matched to that line's deployments only.
-	lineCondition, lineArgs := "", []any{}
-	if strings.TrimSpace(releaseLineUID) != "" {
-		lineCondition = " AND release_line_uid = ?"
-		lineArgs = append(lineArgs, releaseLineUID)
-	}
+	// An incident is matched to deployments of its own line only: a release line's, or the default line's,
+	// whose facts carry no line UID.
+	lineCondition, lineArgs := " AND release_line_uid = ?", []any{strings.TrimSpace(releaseLineUID)}
 	// #nosec G202 -- lineCondition is a constant fragment with a placeholder
 	query := s.rebind(`SELECT release_uid, ` + occurredMsExpr + ` AS occurred_ms
 FROM deployment_fact

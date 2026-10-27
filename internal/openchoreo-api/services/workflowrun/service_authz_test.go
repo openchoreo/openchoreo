@@ -688,6 +688,23 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
 	})
 
+	t.Run("authorizes against the component's project when the caller doesn't name it", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		comp := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: testComponentName, Namespace: testNamespace},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName}},
+		}
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Resource.Hierarchy.Project == testProjectName && req.Resource.Hierarchy.Component == testComponentName
+		})).Return(denyDecision(), nil)
+
+		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(comp), mockPDP, testutil.TestLogger())
+		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "", testComponentName, "abc1234f", testReleaseLine)
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
 	t.Run("missing component returns ErrComponentNotFound without calling PDP", func(t *testing.T) {
 		mockSvc := wfrmocks.NewMockService(t)
 		mockPDP := authzmocks.NewMockPDP(t)

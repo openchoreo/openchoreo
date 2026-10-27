@@ -133,6 +133,8 @@ func TestObjectBaseName(t *testing.T) {
 }
 
 func TestRenderedReleaseName(t *testing.T) {
+	assert.Equal(t, "hello-development", RenderedReleaseName("hello", "", "development"))
+
 	// A RenderedRelease name of a line is its ObjectBaseName when it fits.
 	assert.Equal(t, ObjectBaseName("hello", "next", "development"), RenderedReleaseName("hello", "next", "development"))
 
