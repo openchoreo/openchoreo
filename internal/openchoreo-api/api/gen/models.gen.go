@@ -24,13 +24,6 @@ const (
 	ActionInfoLowestScopeResource  ActionInfoLowestScope = "resource"
 )
 
-// Defines values for AllowedEndpointTypeVisibilities.
-const (
-	AllowedEndpointTypeVisibilitiesExternal  AllowedEndpointTypeVisibilities = "external"
-	AllowedEndpointTypeVisibilitiesInternal  AllowedEndpointTypeVisibilities = "internal"
-	AllowedEndpointTypeVisibilitiesNamespace AllowedEndpointTypeVisibilities = "namespace"
-)
-
 // Defines values for AuthzRoleBindingSpecEffect.
 const (
 	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
@@ -247,12 +240,12 @@ const (
 
 // Defines values for EndpointURLStatusType.
 const (
-	EndpointURLStatusTypeGRPC      EndpointURLStatusType = "gRPC"
-	EndpointURLStatusTypeGraphQL   EndpointURLStatusType = "GraphQL"
-	EndpointURLStatusTypeHTTP      EndpointURLStatusType = "HTTP"
-	EndpointURLStatusTypeTCP       EndpointURLStatusType = "TCP"
-	EndpointURLStatusTypeUDP       EndpointURLStatusType = "UDP"
-	EndpointURLStatusTypeWebsocket EndpointURLStatusType = "Websocket"
+	GRPC      EndpointURLStatusType = "gRPC"
+	GraphQL   EndpointURLStatusType = "GraphQL"
+	HTTP      EndpointURLStatusType = "HTTP"
+	TCP       EndpointURLStatusType = "TCP"
+	UDP       EndpointURLStatusType = "UDP"
+	Websocket EndpointURLStatusType = "Websocket"
 )
 
 // Defines values for EnvironmentSpecDataPlaneRefKind.
@@ -504,6 +497,16 @@ const (
 	WorkloadConnectionVisibilityProject   WorkloadConnectionVisibility = "project"
 )
 
+// Defines values for WorkloadEndpointProtocol.
+const (
+	WorkloadEndpointProtocolGRPC      WorkloadEndpointProtocol = "gRPC"
+	WorkloadEndpointProtocolGraphQL   WorkloadEndpointProtocol = "GraphQL"
+	WorkloadEndpointProtocolHTTP      WorkloadEndpointProtocol = "HTTP"
+	WorkloadEndpointProtocolTCP       WorkloadEndpointProtocol = "TCP"
+	WorkloadEndpointProtocolUDP       WorkloadEndpointProtocol = "UDP"
+	WorkloadEndpointProtocolWebsocket WorkloadEndpointProtocol = "Websocket"
+)
+
 // Defines values for WorkloadEndpointType.
 const (
 	WorkloadEndpointTypeGRPC      WorkloadEndpointType = "gRPC"
@@ -567,12 +570,12 @@ type AgentConnectionStatus struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// AllowedEndpointType Maps workload endpoints of a given protocol and visibility to the EndpointType that exposes them.
+// AllowedEndpointType Maps workload endpoints of a given protocol to the EndpointType that may expose them. The developer chooses the visibility on the Endpoint.
 type AllowedEndpointType struct {
-	// Default Marks this entry as the automatic choice for its protocols and visibilities.
+	// Default Marks this entry as the automatic choice for its protocols. At most one default entry may match a protocol.
 	Default *bool `json:"default,omitempty"`
 
-	// Name Optional alias a workload endpoint can name to pick this entry when several match.
+	// Name Optional alias a workload endpoint can name to pick this entry when several match its protocol.
 	Name *string `json:"name,omitempty"`
 
 	// Protocols Workload endpoint protocols this entry applies to (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
@@ -580,13 +583,7 @@ type AllowedEndpointType struct {
 
 	// Ref Reference to an EndpointType or ClusterEndpointType template.
 	Ref EndpointTypeRef `json:"ref"`
-
-	// Visibilities Requested visibilities this entry applies to. Project visibility is implicit and not accepted.
-	Visibilities []AllowedEndpointTypeVisibilities `json:"visibilities"`
 }
-
-// AllowedEndpointTypeVisibilities defines model for AllowedEndpointType.Visibilities.
-type AllowedEndpointTypeVisibilities string
 
 // AuditLogsFeature Audit trail read path
 type AuditLogsFeature struct {
@@ -5214,7 +5211,7 @@ type WorkloadContainer struct {
 	Image string `json:"image"`
 }
 
-// WorkloadEndpoint Network endpoint specification
+// WorkloadEndpoint Network endpoint specification. One of protocol or the deprecated type must be set; the API keeps the two equal.
 type WorkloadEndpoint struct {
 	// BasePath Base path of the API exposed via the endpoint
 	BasePath *string `json:"basePath,omitempty"`
@@ -5225,6 +5222,9 @@ type WorkloadEndpoint struct {
 	// Port Port exposed by the endpoint
 	Port int `json:"port"`
 
+	// Protocol Protocol the endpoint serves. Replaces type.
+	Protocol *WorkloadEndpointProtocol `json:"protocol,omitempty"`
+
 	// Schema API definition schema
 	Schema *struct {
 		Content *string `json:"content,omitempty"`
@@ -5234,14 +5234,19 @@ type WorkloadEndpoint struct {
 	// TargetPort Container listening port (defaults to port)
 	TargetPort *int `json:"targetPort,omitempty"`
 
-	// Type Protocol/technology of the endpoint
-	Type WorkloadEndpointType `json:"type"`
+	// Type Deprecated: use protocol. Protocol/technology of the endpoint.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Type *WorkloadEndpointType `json:"type,omitempty"`
 
-	// Visibility Additional endpoint visibilities beyond implicit project visibility
+	// Visibility Deprecated: expose the endpoint through an Endpoint, whose visibility carries the requested scopes. Additional endpoint visibilities beyond implicit project visibility; still honored by component types that read it.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Visibility *[]WorkloadEndpointVisibility `json:"visibility,omitempty"`
 }
 
-// WorkloadEndpointType Protocol/technology of the endpoint
+// WorkloadEndpointProtocol Protocol the endpoint serves. Replaces type.
+type WorkloadEndpointProtocol string
+
+// WorkloadEndpointType Deprecated: use protocol. Protocol/technology of the endpoint.
 type WorkloadEndpointType string
 
 // WorkloadEndpointVisibility defines model for WorkloadEndpoint.Visibility.

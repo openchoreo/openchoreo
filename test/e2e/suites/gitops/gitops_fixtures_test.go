@@ -179,7 +179,10 @@ func componentWithImageYAML(name, image, echoText string) string {
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointProtocol("HTTP"),
+						// Deliberately the deprecated field: GitOps repos carry
+						// workloads written before protocol existed, and they must
+						// keep working.
+						Type:       openchoreov1alpha1.EndpointProtocol("HTTP"), //nolint:staticcheck // deprecated field still supported for backward compatibility
 						Port:       8080,
 						Visibility: []openchoreov1alpha1.EndpointVisibility{"project"},
 					},

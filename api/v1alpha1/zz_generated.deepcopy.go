@@ -47,11 +47,6 @@ func (in *AllowedEndpointType) DeepCopyInto(out *AllowedEndpointType) {
 		*out = make([]EndpointProtocol, len(*in))
 		copy(*out, *in)
 	}
-	if in.Visibilities != nil {
-		in, out := &in.Visibilities, &out.Visibilities
-		*out = make([]EndpointVisibility, len(*in))
-		copy(*out, *in)
-	}
 	out.Ref = in.Ref
 }
 

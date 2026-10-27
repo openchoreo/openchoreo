@@ -169,7 +169,7 @@ func backendComponentYAML(name string) string {
 				},
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointProtocolHTTP,
+						Protocol:   openchoreov1alpha1.EndpointProtocolHTTP,
 						Port:       8080,
 						Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
 					},

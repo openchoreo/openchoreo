@@ -39,12 +39,6 @@ const (
 	// Workload, or a workload endpoint the component's Workload does not declare.
 	ReasonBackendNotFound controller.ConditionReason = "BackendNotFound"
 
-	// ReasonBackendNotExposed indicates a backendRef names a workload endpoint
-	// that is not reachable through the gateway: its visibility is neither
-	// internal nor external, so the component's network policy would drop the
-	// Endpoint's traffic.
-	ReasonBackendNotExposed controller.ConditionReason = "BackendNotExposed"
-
 	// ReasonAutoDeployFailed indicates spec.autoDeploy is set but the first
 	// environment could not be resolved from the project's deployment pipeline.
 	// The EndpointRelease is still cut; only the automatic deployment is blocked.

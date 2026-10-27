@@ -149,11 +149,11 @@ endpoints:
 	// Verify endpoint was populated from the descriptor
 	require.Contains(t, workloadCR.Spec.Endpoints, "http-ep")
 	ep := workloadCR.Spec.Endpoints["http-ep"]
-	assert.Equal(t, openchoreov1alpha1.EndpointProtocolHTTP, ep.Type)
+	assert.Equal(t, openchoreov1alpha1.EndpointProtocolHTTP, ep.EffectiveProtocol())
 	assert.Equal(t, int32(8080), ep.Port)
 	assert.Equal(t, "/api", ep.BasePath)
-	require.Len(t, ep.Visibility, 1)
-	assert.Equal(t, openchoreov1alpha1.EndpointVisibilityProject, ep.Visibility[0])
+	require.Len(t, ep.Visibility, 1)                                                //nolint:staticcheck // deprecated field still supported for backward compatibility
+	assert.Equal(t, openchoreov1alpha1.EndpointVisibilityProject, ep.Visibility[0]) //nolint:staticcheck // deprecated field still supported for backward compatibility
 }
 func TestGenerateWorkloadCR_WithResourceDependencies(t *testing.T) {
 	wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")

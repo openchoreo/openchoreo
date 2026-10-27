@@ -231,22 +231,13 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 				ref.Name, ref.Component.Name, ep.Spec.Owner.ProjectName)})
 			continue
 		}
-		workloadEndpoint, ok := workload.Spec.Endpoints[ref.Component.Endpoint]
-		if !ok {
+		// The workload endpoint only has to exist: what it is exposed to comes
+		// from this Endpoint's visibility, which the component's network policy
+		// follows, not from the workload.
+		if _, ok := workload.Spec.Endpoints[ref.Component.Endpoint]; !ok {
 			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
 				"backend %q: component %q has no workload endpoint %q (available: %s)",
 				ref.Name, ref.Component.Name, ref.Component.Endpoint, endpointNames(workload))})
-			continue
-		}
-		// An Endpoint routes through the gateway, and a component admits
-		// gateway traffic only on endpoints its developer made internal or
-		// external. Anything narrower would render an accepted route whose
-		// traffic the component's network policy then drops.
-		if !gatewayExposed(workloadEndpoint) {
-			problems = append(problems, backendProblem{ReasonBackendNotExposed, fmt.Sprintf(
-				"backend %q: workload endpoint %q of component %q is not exposed through the gateway "+
-					"(visibility: %s); set internal or external visibility on it",
-				ref.Name, ref.Component.Endpoint, ref.Component.Name, visibilityList(workloadEndpoint))})
 		}
 	}
 	return problems, nil
@@ -256,29 +247,6 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 type backendProblem struct {
 	reason  controller.ConditionReason
 	message string
-}
-
-// gatewayExposed reports whether a workload endpoint is reachable through the
-// gateway, which is what internal and external visibility grant.
-func gatewayExposed(ep openchoreov1alpha1.WorkloadEndpoint) bool {
-	for _, v := range ep.Visibility {
-		if v == openchoreov1alpha1.EndpointVisibilityInternal || v == openchoreov1alpha1.EndpointVisibilityExternal {
-			return true
-		}
-	}
-	return false
-}
-
-// visibilityList renders a workload endpoint's visibilities for messages. The
-// project scope is implicit for every endpoint.
-func visibilityList(ep openchoreov1alpha1.WorkloadEndpoint) string {
-	names := []string{string(openchoreov1alpha1.EndpointVisibilityProject)}
-	for _, v := range ep.Visibility {
-		if v != openchoreov1alpha1.EndpointVisibilityProject {
-			names = append(names, string(v))
-		}
-	}
-	return strings.Join(names, ", ")
 }
 
 // findWorkload returns the Workload owned by the given component, or nil.

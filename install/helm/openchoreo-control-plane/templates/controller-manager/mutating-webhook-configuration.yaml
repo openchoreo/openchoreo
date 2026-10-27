@@ -107,3 +107,23 @@ webhooks:
     resources:
     - clusterworkflows
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-openchoreo-dev-v1alpha1-workload
+  failurePolicy: Fail
+  name: mworkload-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - workloads
+  sideEffects: None

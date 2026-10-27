@@ -54,27 +54,28 @@ spec:
             properties:
               allowedEndpoints:
                 description: |-
-                  AllowedEndpoints declares which ClusterEndpointType exposes a workload
-                  endpoint of a Component of this type, keyed on the endpoint's protocol and
-                  requested visibility. Only ClusterEndpointType references are allowed since
-                  ClusterComponentType is cluster-scoped. If empty or omitted, no Endpoints
-                  are generated and the ClusterComponentType keeps rendering its own routes.
-                  At most one default entry may match any (protocol, visibility) pair.
+                  AllowedEndpoints declares which ClusterEndpointType may expose a workload
+                  endpoint of a Component of this type, keyed on the endpoint's protocol.
+                  Only ClusterEndpointType references are allowed since ClusterComponentType
+                  is cluster-scoped. If empty or omitted, no Endpoints are created for
+                  Components of this type. At most one default entry may match a protocol.
                 items:
                   description: |-
-                    AllowedEndpointType maps workload endpoints of a given protocol and
-                    visibility to the EndpointType that exposes them.
+                    AllowedEndpointType maps workload endpoints of a given protocol to the
+                    EndpointType that may expose them. The developer chooses the visibility on the
+                    Endpoint; the EndpointType renders what each requested visibility needs (and
+                    rejects, through its validations, any it does not support).
                   properties:
                     default:
                       description: |-
-                        Default marks this entry as the automatic choice for its protocols and
-                        visibilities. Matching entries without it are still allowed, but only
-                        when chosen explicitly.
+                        Default marks this entry as the automatic choice for its protocols. At
+                        most one default entry may match a protocol. Matching entries without it
+                        are still allowed, but only when chosen explicitly.
                       type: boolean
                     name:
                       description: |-
                         Name is an optional alias for this entry. A workload endpoint may name it
-                        to pick this entry when several match the same protocol and visibility.
+                        to pick this entry when several match the same protocol.
                       maxLength: 63
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
@@ -112,31 +113,9 @@ spec:
                       required:
                       - name
                       type: object
-                    visibilities:
-                      description: |-
-                        Visibilities are the requested visibilities this entry applies to. The
-                        project scope is implicit for every workload endpoint and is never
-                        exposed through an Endpoint, so the admission webhook rejects it here.
-                        (Not a CEL rule: this type is embedded in ComponentRelease, whose schema
-                        is already close to the CRD's CEL cost budget.)
-                      items:
-                        description: |-
-                          EndpointVisibility defines the visibility scope for an endpoint.
-                          It determines which components can access the endpoint and how that access is enforced at runtime.
-                        enum:
-                        - project
-                        - namespace
-                        - internal
-                        - external
-                        type: string
-                      maxItems: 3
-                      minItems: 1
-                      type: array
-                      x-kubernetes-list-type: set
                   required:
                   - protocols
                   - ref
-                  - visibilities
                   type: object
                 maxItems: 32
                 type: array

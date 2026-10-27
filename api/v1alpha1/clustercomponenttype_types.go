@@ -47,12 +47,11 @@ type ClusterComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []ClusterTraitRef `json:"allowedTraits,omitempty"`
 
-	// AllowedEndpoints declares which ClusterEndpointType exposes a workload
-	// endpoint of a Component of this type, keyed on the endpoint's protocol and
-	// requested visibility. Only ClusterEndpointType references are allowed since
-	// ClusterComponentType is cluster-scoped. If empty or omitted, no Endpoints
-	// are generated and the ClusterComponentType keeps rendering its own routes.
-	// At most one default entry may match any (protocol, visibility) pair.
+	// AllowedEndpoints declares which ClusterEndpointType may expose a workload
+	// endpoint of a Component of this type, keyed on the endpoint's protocol.
+	// Only ClusterEndpointType references are allowed since ClusterComponentType
+	// is cluster-scoped. If empty or omitted, no Endpoints are created for
+	// Components of this type. At most one default entry may match a protocol.
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=32

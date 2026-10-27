@@ -93,13 +93,13 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
-	// AllowedEndpoints declares which EndpointType or ClusterEndpointType
-	// exposes a workload endpoint of a Component of this type, keyed on the
-	// endpoint's protocol and requested visibility. Clients creating a Component
-	// (portal, occ, GitOps tooling) generate one Endpoint per workload endpoint
-	// from the default entry matching it. If empty or omitted, no Endpoints are
-	// generated and the ComponentType keeps rendering its own routes.
-	// At most one default entry may match any (protocol, visibility) pair.
+	// AllowedEndpoints declares which EndpointType or ClusterEndpointType may
+	// expose a workload endpoint of a Component of this type, keyed on the
+	// endpoint's protocol. Clients creating a Component (portal, occ, GitOps
+	// tooling) create one Endpoint per workload endpoint the developer exposes,
+	// from the entry they choose or the default entry for its protocol. If empty
+	// or omitted, no Endpoints are created for Components of this type.
+	// At most one default entry may match a protocol.
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=32
@@ -131,11 +131,13 @@ type ComponentTypeSpec struct {
 	Resources []ResourceTemplate `json:"resources"`
 }
 
-// AllowedEndpointType maps workload endpoints of a given protocol and
-// visibility to the EndpointType that exposes them.
+// AllowedEndpointType maps workload endpoints of a given protocol to the
+// EndpointType that may expose them. The developer chooses the visibility on the
+// Endpoint; the EndpointType renders what each requested visibility needs (and
+// rejects, through its validations, any it does not support).
 type AllowedEndpointType struct {
 	// Name is an optional alias for this entry. A workload endpoint may name it
-	// to pick this entry when several match the same protocol and visibility.
+	// to pick this entry when several match the same protocol.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
@@ -147,24 +149,14 @@ type AllowedEndpointType struct {
 	// +listType=set
 	Protocols []EndpointProtocol `json:"protocols"`
 
-	// Visibilities are the requested visibilities this entry applies to. The
-	// project scope is implicit for every workload endpoint and is never
-	// exposed through an Endpoint, so the admission webhook rejects it here.
-	// (Not a CEL rule: this type is embedded in ComponentRelease, whose schema
-	// is already close to the CRD's CEL cost budget.)
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=3
-	// +listType=set
-	Visibilities []EndpointVisibility `json:"visibilities"`
-
 	// Ref is the EndpointType or ClusterEndpointType that exposes matching
 	// workload endpoints.
 	// +kubebuilder:validation:Required
 	Ref EndpointTypeRef `json:"ref"`
 
-	// Default marks this entry as the automatic choice for its protocols and
-	// visibilities. Matching entries without it are still allowed, but only
-	// when chosen explicitly.
+	// Default marks this entry as the automatic choice for its protocols. At
+	// most one default entry may match a protocol. Matching entries without it
+	// are still allowed, but only when chosen explicitly.
 	// +optional
 	Default bool `json:"default,omitempty"`
 }

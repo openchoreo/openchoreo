@@ -12,15 +12,14 @@ import (
 )
 
 // ValidateAllowedEndpoints validates the allowedEndpoints list shared by
-// ComponentType and ClusterComponentType: project visibility is rejected (it is
-// implicit and never exposed through an Endpoint), aliases are unique, and at most one
-// default entry matches any (protocol, visibility) pair, so the automatic
-// EndpointType choice for a workload endpoint is never ambiguous.
+// ComponentType and ClusterComponentType: aliases are unique, and at most one
+// default entry matches any protocol, so the automatic EndpointType choice for a
+// workload endpoint is never ambiguous.
 func ValidateAllowedEndpoints(entries []v1alpha1.AllowedEndpointType, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	aliases := make(map[string]int)
-	defaults := make(map[string]int)
+	defaults := make(map[v1alpha1.EndpointProtocol]int)
 	for i, entry := range entries {
 		entryPath := path.Index(i)
 
@@ -33,28 +32,16 @@ func ValidateAllowedEndpoints(entries []v1alpha1.AllowedEndpointType, path *fiel
 			}
 		}
 
-		for j, visibility := range entry.Visibilities {
-			if visibility == v1alpha1.EndpointVisibilityProject {
-				allErrs = append(allErrs, field.NotSupported(entryPath.Child("visibilities").Index(j), visibility,
-					[]string{string(v1alpha1.EndpointVisibilityNamespace), string(v1alpha1.EndpointVisibilityInternal),
-						string(v1alpha1.EndpointVisibilityExternal)}))
-			}
-		}
-
 		if !entry.Default {
 			continue
 		}
 		for _, protocol := range entry.Protocols {
-			for _, visibility := range entry.Visibilities {
-				key := string(protocol) + "/" + string(visibility)
-				if prev, ok := defaults[key]; ok {
-					allErrs = append(allErrs, field.Invalid(entryPath.Child("default"), entry.Default,
-						fmt.Sprintf("entry %d is already the default for protocol %s with visibility %s",
-							prev, protocol, visibility)))
-					continue
-				}
-				defaults[key] = i
+			if prev, ok := defaults[protocol]; ok {
+				allErrs = append(allErrs, field.Invalid(entryPath.Child("default"), entry.Default,
+					fmt.Sprintf("entry %d is already the default for protocol %s", prev, protocol)))
+				continue
 			}
+			defaults[protocol] = i
 		}
 	}
 

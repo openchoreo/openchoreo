@@ -14,16 +14,14 @@ import (
 func TestValidateAllowedEndpoints(t *testing.T) {
 	http := v1alpha1.EndpointProtocolHTTP
 	grpc := v1alpha1.EndpointProtocolGRPC
-	external := v1alpha1.EndpointVisibilityExternal
-	internal := v1alpha1.EndpointVisibilityInternal
+	graphql := v1alpha1.EndpointProtocolGraphQL
 
-	entry := func(name string, protocols []v1alpha1.EndpointProtocol, visibilities []v1alpha1.EndpointVisibility, def bool) v1alpha1.AllowedEndpointType {
+	entry := func(name string, protocols []v1alpha1.EndpointProtocol, def bool) v1alpha1.AllowedEndpointType {
 		return v1alpha1.AllowedEndpointType{
-			Name:         name,
-			Protocols:    protocols,
-			Visibilities: visibilities,
-			Ref:          v1alpha1.EndpointTypeRef{Kind: v1alpha1.EndpointTypeRefKindClusterEndpointType, Name: "http-route"},
-			Default:      def,
+			Name:      name,
+			Protocols: protocols,
+			Ref:       v1alpha1.EndpointTypeRef{Kind: v1alpha1.EndpointTypeRefKindClusterEndpointType, Name: "http-route"},
+			Default:   def,
 		}
 	}
 
@@ -34,40 +32,32 @@ func TestValidateAllowedEndpoints(t *testing.T) {
 	}{
 		{name: "empty", entries: nil},
 		{
-			name: "one default per pair",
+			name: "one default per protocol",
 			entries: []v1alpha1.AllowedEndpointType{
-				entry("", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{external}, true),
-				entry("", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{internal}, true),
-				entry("", []v1alpha1.EndpointProtocol{grpc}, []v1alpha1.EndpointVisibility{external, internal}, true),
+				entry("", []v1alpha1.EndpointProtocol{http, graphql}, true),
+				entry("", []v1alpha1.EndpointProtocol{grpc}, true),
 			},
 		},
 		{
 			name: "non-default entries may overlap a default",
 			entries: []v1alpha1.AllowedEndpointType{
-				entry("web", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{external}, true),
-				entry("managed-api", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{external}, false),
+				entry("web", []v1alpha1.EndpointProtocol{http}, true),
+				entry("managed-api", []v1alpha1.EndpointProtocol{http}, false),
 			},
 		},
 		{
-			name: "two defaults for the same pair",
+			name: "two defaults for the same protocol",
 			entries: []v1alpha1.AllowedEndpointType{
-				entry("", []v1alpha1.EndpointProtocol{http, grpc}, []v1alpha1.EndpointVisibility{external}, true),
-				entry("", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{external, internal}, true),
-			},
-			errs: 1,
-		},
-		{
-			name: "project visibility",
-			entries: []v1alpha1.AllowedEndpointType{
-				entry("", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{v1alpha1.EndpointVisibilityProject, external}, false),
+				entry("", []v1alpha1.EndpointProtocol{http, grpc}, true),
+				entry("", []v1alpha1.EndpointProtocol{http}, true),
 			},
 			errs: 1,
 		},
 		{
 			name: "duplicate alias",
 			entries: []v1alpha1.AllowedEndpointType{
-				entry("web", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{external}, false),
-				entry("web", []v1alpha1.EndpointProtocol{http}, []v1alpha1.EndpointVisibility{internal}, false),
+				entry("web", []v1alpha1.EndpointProtocol{http}, false),
+				entry("web", []v1alpha1.EndpointProtocol{grpc}, false),
 			},
 			errs: 1,
 		},

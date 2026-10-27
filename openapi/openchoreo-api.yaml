@@ -12345,15 +12345,14 @@ components:
 
     AllowedEndpointType:
       type: object
-      description: Maps workload endpoints of a given protocol and visibility to the EndpointType that exposes them.
+      description: Maps workload endpoints of a given protocol to the EndpointType that may expose them. The developer chooses the visibility on the Endpoint.
       required:
         - protocols
-        - visibilities
         - ref
       properties:
         name:
           type: string
-          description: Optional alias a workload endpoint can name to pick this entry when several match.
+          description: Optional alias a workload endpoint can name to pick this entry when several match its protocol.
           maxLength: 63
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
         protocols:
@@ -12362,18 +12361,11 @@ components:
           minItems: 1
           items:
             type: string
-        visibilities:
-          type: array
-          description: Requested visibilities this entry applies to. Project visibility is implicit and not accepted.
-          minItems: 1
-          items:
-            type: string
-            enum: [namespace, internal, external]
         ref:
           $ref: '#/components/schemas/EndpointTypeRef'
         default:
           type: boolean
-          description: Marks this entry as the automatic choice for its protocols and visibilities.
+          description: Marks this entry as the automatic choice for its protocols. At most one default entry may match a protocol.
 
     # -------------------------------------------------------------------------
     # Endpoints
@@ -14411,21 +14403,43 @@ components:
 
     WorkloadEndpoint:
       type: object
-      description: Network endpoint specification
+      description: Network endpoint specification. One of protocol or the deprecated type must be set; the API keeps the two equal.
       required:
-        - type
         - port
       properties:
         visibility:
           type: array
-          description: Additional endpoint visibilities beyond implicit project visibility
+          deprecated: true
+          description: >-
+            Deprecated: expose the endpoint through an Endpoint, whose visibility carries the requested
+            scopes. Additional endpoint visibilities beyond implicit project visibility; still honored by
+            component types that read it.
           items:
             type: string
             enum: [project, namespace, internal, external]
+        protocol:
+          type: string
+          description: Protocol the endpoint serves. Replaces type.
+          enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
+          x-enum-varnames:
+            - WorkloadEndpointProtocolHTTP
+            - WorkloadEndpointProtocolGRPC
+            - WorkloadEndpointProtocolGraphQL
+            - WorkloadEndpointProtocolWebsocket
+            - WorkloadEndpointProtocolTCP
+            - WorkloadEndpointProtocolUDP
         type:
           type: string
-          description: Protocol/technology of the endpoint
+          deprecated: true
+          description: 'Deprecated: use protocol. Protocol/technology of the endpoint.'
           enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
+          x-enum-varnames:
+            - WorkloadEndpointTypeHTTP
+            - WorkloadEndpointTypeGRPC
+            - WorkloadEndpointTypeGraphQL
+            - WorkloadEndpointTypeWebsocket
+            - WorkloadEndpointTypeTCP
+            - WorkloadEndpointTypeUDP
         port:
           type: integer
           description: Port exposed by the endpoint
