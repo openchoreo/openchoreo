@@ -157,4 +157,10 @@ Roles before bindings. Consumed by the bootstrap ConfigMap.
 ---
 {{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" $m "root" $root) }}
 {{- end }}
+{{- if $root.Values.backstage.enabled }}
+---
+{{ include "openchoreo-control-plane.authz.roleManifest" (dict "role" (include "openchoreo-control-plane.backstage.authzRole" $root | fromYaml) "root" $root) }}
+---
+{{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" (include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml) "root" $root) }}
+{{- end }}
 {{- end }}

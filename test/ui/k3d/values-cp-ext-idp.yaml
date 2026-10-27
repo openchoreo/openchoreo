@@ -3,8 +3,8 @@
 #   the OIDC endpoints point to the in-cluster Dex instance instead of Thunder.
 #
 # Also overrides openchoreoApi.config.security.authorization.bootstrap.mappings to
-# include only the bindings needed for this scenario and to use the Dex-specific
-# base64-encoded sub value for the Backstage service client.
+# include only the bindings needed for this scenario, and points the chart's
+# backstage-catalog-reader binding at the Dex-specific base64-encoded sub value.
 
 security:
   oidc:
@@ -26,13 +26,20 @@ backstage:
     # scope for the background service client (Catalog Provider) using client_credentials.
     # Dex returns a token with sub=<clientId> which matches the backstage-catalog-reader-binding.
     scope: "openid"
+    # The chart seeds backstage-catalog-reader-binding on client_id, which ThunderID
+    # presents. Dex instead identifies the client_credentials caller through sub, and
+    # encodes it as base64(protobuf(clientId)) — the value below is the encoding of
+    # "openchoreo-backstage-client".
+    authzEntitlement:
+      claim: sub
+      value: ChtvcGVuY2hvcmVvLWJhY2tzdGFnZS1jbGllbnQ
 
-# Override the authorization mappings list to use the Dex-specific sub value for the
-# Backstage service client. Dex encodes client_credentials sub as base64(protobuf(clientId))
-# rather than the raw client ID. Only the bindings required by this e2e scenario are listed:
+# Override the authorization mappings list. Only the bindings required by this e2e
+# scenario are listed:
 # - admin-binding: grants the Dex static admin user (groups: admins) full access
-# - backstage-catalog-reader-binding: grants the Backstage CC client catalog read access
 # Helm replaces the entire list, so other default bindings are intentionally omitted.
+# backstage-catalog-reader-binding is seeded by the chart; its Dex-specific entitlement
+# is set through backstage.auth.authzEntitlement above.
 openchoreoApi:
   config:
     security:
@@ -57,18 +64,4 @@ openchoreoApi:
               entitlement:
                 claim: groups
                 value: admins
-              effect: allow
-
-            # Dex encodes client_credentials sub as base64(protobuf(clientId)).
-            # The value below is the encoding of "openchoreo-backstage-client".
-            - name: backstage-catalog-reader-binding
-              kind: ClusterAuthzRoleBinding
-              system: true
-              roleMappings:
-                - roleRef:
-                    name: backstage-catalog-reader
-                    kind: ClusterAuthzRole
-              entitlement:
-                claim: sub
-                value: ChtvcGVuY2hvcmVvLWJhY2tzdGFnZS1jbGllbnQ
               effect: allow
