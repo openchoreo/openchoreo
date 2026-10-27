@@ -44,9 +44,15 @@ const (
 	externalSecretPollInterval = 30 * time.Second
 
 	// planeConfigPollInterval is how often a channel is reconciled while its secret references fail
-	// on the observability plane's configuration (no secretStoreRef, or a SecretReference that targets
-	// another plane). Planes are not watched, so a fix to the plane is only noticed by polling.
+	// on the observability plane's configuration or contents (no secretStoreRef, a SecretReference that
+	// targets another plane, or an ExternalSecret this controller didn't create in the way). Neither
+	// planes nor the resources on them are watched, so a fix is only noticed by polling.
 	planeConfigPollInterval = 2 * time.Minute
+
+	// externalSecretRecheckInterval is how often a channel whose ExternalSecret has synced is reconciled
+	// again, so a later sync failure (a store outage, a deleted key) shows on the channel. ExternalSecrets
+	// live on the observability plane and are not watched.
+	externalSecretRecheckInterval = 10 * time.Minute
 
 	// secretReplacementPollInterval is how often a channel is reconciled while the Secret its
 	// ExternalSecret produced is being deleted, so a copied Secret can take its name.
@@ -181,7 +187,8 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 		logger.Info("Notification channel secret references cannot be resolved", "reason", invalid.reason, "message", invalid.message)
 		controller.MarkFalseCondition(channel, ConditionSecretsReady, invalid.reason, invalid.message)
 		controller.MarkFalseCondition(channel, ConditionReady, invalid.reason, invalid.message)
-		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable {
+		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable ||
+			invalid.reason == ReasonExternalSecretConflict {
 			// These depend on the observability plane, which is not watched, so poll for a fix.
 			return ctrl.Result{RequeueAfter: planeConfigPollInterval}, nil
 		}
@@ -214,6 +221,9 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 		"ConfigMap and Secret are applied to the observability plane")
 	logger.Info("Successfully applied notification channel to observability plane",
 		"name", channel.Name, "namespace", channel.Namespace, "secretSource", resolved.source)
+	if resolved.source == secretSourceSecretReference {
+		return ctrl.Result{RequeueAfter: externalSecretRecheckInterval}, nil
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -228,9 +238,12 @@ func (r *Reconciler) reconcileCopiedSecret(
 ) (time.Duration, error) {
 	// If the channel used SecretReferences before, the Secret belongs to its ExternalSecret. Remove the
 	// ExternalSecret and wait for the Secret to go before applying the copied one under the same name.
-	deleted, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
+	deleted, foreign, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
 	if err != nil {
 		return 0, err
+	}
+	if foreign {
+		return 0, externalSecretConflictError(channel)
 	}
 	owned, err := isOwnedByExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
 	if err != nil {
@@ -538,7 +551,7 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 	}
 
 	// Delete ExternalSecret from observability plane, if the channel used SecretReferences
-	if _, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace); err != nil {
+	if _, _, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace); err != nil {
 		logger.Error(err, "Failed to delete ExternalSecret from observability plane")
 		return ctrl.Result{}, err
 	}

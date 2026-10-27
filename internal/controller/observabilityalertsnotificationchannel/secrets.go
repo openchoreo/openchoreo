@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -400,6 +401,15 @@ func (r *Reconciler) reconcileExternalSecret(
 		return err
 	}
 
+	// Don't take over an ExternalSecret with the channel's name that this controller didn't create.
+	existing, err := getExternalSecret(ctx, opClient, channel.Name, channel.Namespace)
+	if err != nil {
+		return err
+	}
+	if existing != nil && !isManagedByController(existing) {
+		return externalSecretConflictError(channel)
+	}
+
 	es, err := buildExternalSecret(channel, obsPlane.GetSecretStoreName(), resolved)
 	if err != nil {
 		return err
@@ -428,6 +438,9 @@ func (r *Reconciler) reconcileExternalSecret(
 }
 
 // externalSecretReadiness maps the ExternalSecret's Ready condition to the channel's SecretsReady condition.
+// ESO updates the status asynchronously, so right after a spec change the status can still describe the
+// previous spec. A Ready condition counts only once ESO has synced the current generation; a failure is
+// reported as is.
 func externalSecretReadiness(u *unstructured.Unstructured) (metav1.ConditionStatus, controller.ConditionReason, string, error) {
 	es := &esv1.ExternalSecret{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, es); err != nil {
@@ -439,6 +452,9 @@ func externalSecretReadiness(u *unstructured.Unstructured) (metav1.ConditionStat
 		}
 		switch cond.Status {
 		case corev1.ConditionTrue:
+			if !syncedGeneration(es) {
+				break
+			}
 			return metav1.ConditionTrue, ReasonExternalSecretSynced, "secret values are synced from the secret store", nil
 		case corev1.ConditionFalse:
 			return metav1.ConditionFalse, ReasonExternalSecretNotSynced,
@@ -447,6 +463,13 @@ func externalSecretReadiness(u *unstructured.Unstructured) (metav1.ConditionStat
 	}
 	return metav1.ConditionUnknown, ReasonExternalSecretPending,
 		fmt.Sprintf("waiting for ExternalSecret %s/%s to sync", es.Namespace, es.Name), nil
+}
+
+// syncedGeneration reports whether ESO's last successful sync was of the ExternalSecret's current
+// generation. ESO records the synced version as "<generation>-<hash of labels and annotations>".
+func syncedGeneration(es *esv1.ExternalSecret) bool {
+	generation, _, ok := strings.Cut(es.Status.SyncedResourceVersion, "-")
+	return ok && generation == strconv.FormatInt(es.Generation, 10)
 }
 
 // deleteCopiedSecret deletes the channel's Secret on the observability plane if this controller
@@ -459,7 +482,7 @@ func (r *Reconciler) deleteCopiedSecret(ctx context.Context, opClient client.Cli
 		}
 		return fmt.Errorf("failed to get Secret %s/%s: %w", channel.Namespace, channel.Name, err)
 	}
-	if secret.Labels["app.kubernetes.io/managed-by"] != managedByLabelValue {
+	if !isManagedByController(secret) {
 		return nil
 	}
 	if err := opClient.Delete(ctx, secret); err != nil && !apierrors.IsNotFound(err) {
@@ -468,25 +491,50 @@ func (r *Reconciler) deleteCopiedSecret(ctx context.Context, opClient client.Cli
 	return nil
 }
 
-// deleteExternalSecret deletes the channel's ExternalSecret from the observability plane. It
-// reports whether one existed. An observability plane without the ExternalSecret API has none.
-func (r *Reconciler) deleteExternalSecret(ctx context.Context, opClient client.Client, name, namespace string) (bool, error) {
+// deleteExternalSecret deletes the channel's ExternalSecret from the observability plane. It reports
+// whether this controller's ExternalSecret existed and was deleted, and whether an ExternalSecret with
+// that name that this controller didn't create is there instead, which it leaves alone.
+func (r *Reconciler) deleteExternalSecret(ctx context.Context, opClient client.Client, name, namespace string) (deleted, foreign bool, err error) {
 	// Look the ExternalSecret up first: the cluster gateway proxy client reports deleting an object
 	// that does not exist as a success, so the delete alone can't tell whether there was one.
-	es := newExternalSecretObject()
-	if err := opClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, es); err != nil {
-		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to get ExternalSecret %s/%s: %w", namespace, name, err)
+	es, err := getExternalSecret(ctx, opClient, name, namespace)
+	if err != nil || es == nil {
+		return false, false, err
+	}
+	if !isManagedByController(es) {
+		return false, true, nil
 	}
 	if err := opClient.Delete(ctx, es); err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-			return false, nil
+			return false, false, nil
 		}
-		return false, fmt.Errorf("failed to delete ExternalSecret %s/%s: %w", namespace, name, err)
+		return false, false, fmt.Errorf("failed to delete ExternalSecret %s/%s: %w", namespace, name, err)
 	}
-	return true, nil
+	return true, false, nil
+}
+
+// getExternalSecret returns the ExternalSecret with the given name on the observability plane, or nil
+// if there is none. An observability plane without the ExternalSecret API has none.
+func getExternalSecret(ctx context.Context, opClient client.Client, name, namespace string) (*unstructured.Unstructured, error) {
+	es := newExternalSecretObject()
+	if err := opClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, es); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get ExternalSecret %s/%s: %w", namespace, name, err)
+	}
+	return es, nil
+}
+
+// isManagedByController reports whether this controller created the object.
+func isManagedByController(obj client.Object) bool {
+	return obj.GetLabels()["app.kubernetes.io/managed-by"] == managedByLabelValue
+}
+
+func externalSecretConflictError(channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) error {
+	return newInvalidSecretsError(ReasonExternalSecretConflict,
+		"an ExternalSecret %s/%s that this controller didn't create already exists on the observability plane",
+		channel.Namespace, channel.Name)
 }
 
 // isOwnedByExternalSecret reports whether the channel's Secret on the observability plane still

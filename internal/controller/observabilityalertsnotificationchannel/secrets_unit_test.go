@@ -5,6 +5,7 @@ package observabilityalertsnotificationchannel
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -483,12 +484,42 @@ func TestBuildExternalSecret(t *testing.T) {
 }
 
 func externalSecretWithReady(status corev1.ConditionStatus, message string) *unstructured.Unstructured {
-	es := &esv1.ExternalSecret{ObjectMeta: metav1.ObjectMeta{Name: "ch", Namespace: testNamespace}}
+	es := &esv1.ExternalSecret{ObjectMeta: metav1.ObjectMeta{Name: "ch", Namespace: testNamespace, Generation: 2}}
 	if status != "" {
 		es.Status.Conditions = []esv1.ExternalSecretStatusCondition{{Type: esv1.ExternalSecretReady, Status: status, Message: message}}
 	}
+	if status == corev1.ConditionTrue {
+		es.Status.SyncedResourceVersion = "2-0123abcd"
+	}
 	obj, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(es)
 	return &unstructured.Unstructured{Object: obj}
+}
+
+func TestExternalSecretReadiness_IgnoresReadyOfAnEarlierGeneration(t *testing.T) {
+	// Right after a spec change, the status can still hold the previous generation's successful sync.
+	u := externalSecretWithReady(corev1.ConditionTrue, "")
+	if err := unstructured.SetNestedField(u.Object, "1-0123abcd", "status", "syncedResourceVersion"); err != nil {
+		t.Fatalf("set syncedResourceVersion: %v", err)
+	}
+	status, reason, _, err := externalSecretReadiness(u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != metav1.ConditionUnknown || reason != ReasonExternalSecretPending {
+		t.Errorf("got %s/%s, want Unknown/%s", status, reason, ReasonExternalSecretPending)
+	}
+}
+
+func TestExternalSecretReadiness_ReportsAFailureOfAnyGeneration(t *testing.T) {
+	// ESO only records the synced version on success, so a failure is reported without that check.
+	u := externalSecretWithReady(corev1.ConditionFalse, "could not get secret data from provider")
+	status, reason, _, err := externalSecretReadiness(u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != metav1.ConditionFalse || reason != ReasonExternalSecretNotSynced {
+		t.Errorf("got %s/%s, want False/%s", status, reason, ReasonExternalSecretNotSynced)
+	}
 }
 
 func TestExternalSecretReadiness(t *testing.T) {
@@ -638,6 +669,13 @@ func setExternalSecretReady(t *testing.T, opClient client.Client, status corev1.
 	if err := unstructured.SetNestedSlice(es.Object, conditions, "status", "conditions"); err != nil {
 		t.Fatalf("set status: %v", err)
 	}
+	if status == corev1.ConditionTrue {
+		// Like ESO, record the synced version as "<generation>-<hash>".
+		synced := fmt.Sprintf("%d-0123abcd", es.GetGeneration())
+		if err := unstructured.SetNestedField(es.Object, synced, "status", "syncedResourceVersion"); err != nil {
+			t.Fatalf("set syncedResourceVersion: %v", err)
+		}
+	}
 	if err := opClient.Update(context.Background(), es); err != nil {
 		t.Fatalf("update ExternalSecret: %v", err)
 	}
@@ -676,8 +714,9 @@ func TestReconcile_SecretReferenceAppliesExternalSecret(t *testing.T) {
 	requireCondition(t, got, ConditionReady, metav1.ConditionFalse, ReasonExternalSecretPending)
 
 	setExternalSecretReady(t, f.op, corev1.ConditionTrue)
-	if result := f.reconcile(t); result != (ctrl.Result{}) {
-		t.Errorf("result = %+v, want no requeue once synced", result)
+	// ExternalSecrets aren't watched, so a synced channel is rechecked now and then.
+	if result := f.reconcile(t); result.RequeueAfter != externalSecretRecheckInterval {
+		t.Errorf("RequeueAfter = %v, want %v once synced", result.RequeueAfter, externalSecretRecheckInterval)
 	}
 	got = f.channel(t)
 	requireCondition(t, got, ConditionSecretsReady, metav1.ConditionTrue, ReasonExternalSecretSynced)
@@ -759,6 +798,7 @@ func TestReconcile_SwitchBackToKubernetesSecretWaitsForSyncedSecret(t *testing.T
 	es := newExternalSecretObject()
 	es.SetName("ch")
 	es.SetNamespace(testNamespace)
+	es.SetLabels(map[string]string{"app.kubernetes.io/managed-by": managedByLabelValue})
 	synced := newKubernetesSecret("ch", map[string]string{"webhook.header.X-API-Key": "old"})
 	synced.OwnerReferences = []metav1.OwnerReference{{APIVersion: "external-secrets.io/v1", Kind: "ExternalSecret", Name: "ch", UID: "uid"}}
 	f := newReconcileFixture(t, []client.Object{channel, secret}, es, synced)
@@ -818,6 +858,57 @@ func TestReconcile_RemoteKeyOutsideNamespaceIsRejected(t *testing.T) {
 	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonRemoteKeyNotAllowed)
 }
 
+func newForeignExternalSecret() *unstructured.Unstructured {
+	es := newExternalSecretObject()
+	es.SetName(testChannel)
+	es.SetNamespace(testNamespace)
+	es.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "someone-else"})
+	return es
+}
+
+func TestReconcile_DoesNotTakeOverAForeignExternalSecret(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+	sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
+	f := newReconcileFixture(t, []client.Object{channel, sr}, newForeignExternalSecret())
+
+	if result := f.reconcile(t); result.RequeueAfter != planeConfigPollInterval {
+		t.Errorf("RequeueAfter = %v, want %v", result.RequeueAfter, planeConfigPollInterval)
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonExternalSecretConflict)
+	es, ok := f.externalSecret(t)
+	if !ok || es.GetLabels()["app.kubernetes.io/managed-by"] != "someone-else" {
+		t.Error("the foreign ExternalSecret must be left as it is")
+	}
+	if _, found, _ := unstructured.NestedSlice(es.Object, "spec", "data"); found {
+		t.Error("the foreign ExternalSecret's spec must not be overwritten")
+	}
+}
+
+func TestReconcile_KubernetesSecretFallbackLeavesAForeignExternalSecret(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+	secret := newKubernetesSecret("webhook-auth", map[string]string{testHeaderKey: "v"})
+	f := newReconcileFixture(t, []client.Object{channel, secret}, newForeignExternalSecret())
+
+	f.reconcile(t)
+	if _, ok := f.externalSecret(t); !ok {
+		t.Error("the foreign ExternalSecret must not be deleted")
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonExternalSecretConflict)
+}
+
+func TestFinalize_LeavesAForeignExternalSecret(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+	channel.Finalizers = []string{NotificationChannelCleanupFinalizer}
+	now := metav1.Now()
+	channel.DeletionTimestamp = &now
+	f := newReconcileFixture(t, []client.Object{channel}, newForeignExternalSecret())
+
+	f.reconcile(t)
+	if _, ok := f.externalSecret(t); !ok {
+		t.Error("the foreign ExternalSecret must not be deleted on finalization")
+	}
+}
+
 func TestFinalize_DeletesExternalSecret(t *testing.T) {
 	channel := newWebhookChannelWithHeaderRef("ch", "webhook-auth")
 	channel.Finalizers = []string{NotificationChannelCleanupFinalizer}
@@ -826,6 +917,7 @@ func TestFinalize_DeletesExternalSecret(t *testing.T) {
 	es := newExternalSecretObject()
 	es.SetName("ch")
 	es.SetNamespace(testNamespace)
+	es.SetLabels(map[string]string{"app.kubernetes.io/managed-by": managedByLabelValue})
 	f := newReconcileFixture(t, []client.Object{channel}, es)
 
 	f.reconcile(t)

@@ -49,6 +49,9 @@ const (
 	ReasonMixedSecretSources controller.ConditionReason = "MixedSecretSources"
 	// ReasonSecretStoreNotConfigured means the observability plane has no secretStoreRef.
 	ReasonSecretStoreNotConfigured controller.ConditionReason = "SecretStoreNotConfigured"
+	// ReasonExternalSecretConflict means an ExternalSecret with the channel's name that this controller
+	// didn't create already exists on the observability plane, so the controller leaves it alone.
+	ReasonExternalSecretConflict controller.ConditionReason = "ExternalSecretConflict"
 	// ReasonSecretStoreUnreachable means a SecretReference targets a plane other than the channel's
 	// observability plane, so its value is not in the store the observability plane reads.
 	ReasonSecretStoreUnreachable controller.ConditionReason = "SecretStoreUnreachable"
