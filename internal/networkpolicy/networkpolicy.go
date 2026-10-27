@@ -289,6 +289,13 @@ func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any 
 		})
 	}
 
+	// No endpoints: emit a single empty ingress rule. Cilium rejects a rule with
+	// no ingress/egress sections, while an empty rule enables ingress default-deny
+	// without allowing anything, matching the Kubernetes provider's deny-all.
+	if len(ingressRules) == 0 {
+		ingressRules = append(ingressRules, map[string]any{})
+	}
+
 	policyName := fmt.Sprintf("openchoreo-%s", params.ComponentName)
 	if len(policyName) > dpkubernetes.MaxResourceNameLength {
 		policyName = dpkubernetes.GenerateK8sNameWithLengthLimit(
