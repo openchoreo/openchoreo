@@ -64,7 +64,7 @@ Platform Engineers configure notification channels once per environment (email/w
      --namespace default --target-plane ClusterObservabilityPlane/default \
      --from-literal=api-key=<webhook-api-key>
    ```
-   A channel can only read secret store keys of its own namespace, so `SecretReference`s you write by hand must point at keys in the layout the secret API uses (`<remoteKeyPrefix>/<namespace>/...` by default).
+   A channel can only read the secret store key that the secret API writes for the `SecretReference` (`<remoteKeyPrefix>/<namespace>/<type>/<name>` by default, where `<type>` is `generic`, `basic-auth`, `ssh-auth`, `registry` or `tls`), so a `SecretReference` you write by hand must have the same name and `spec.template.type` as the secret it points at.
 
    > Referencing a plain Kubernetes `Secret` by name still works when no `SecretReference` has that name, but it is deprecated. Such channels report `DeprecatedKubernetesSecret` in their `SecretsReady` condition.
 

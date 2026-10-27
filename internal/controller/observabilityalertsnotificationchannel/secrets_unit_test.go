@@ -164,52 +164,54 @@ func TestRemoteKeyFormat_NamespacePrefix(t *testing.T) {
 	}
 }
 
-func TestRemoteKeyFormat_OwnsKeyWithSlashSeparator(t *testing.T) {
-	f := RemoteKeyFormat{Prefix: "secret", Separator: "/"}
-	// "/" can't occur in namespace names, so the prefix alone decides.
-	for key, want := range map[string]bool{
-		"secret/team/generic/creds":   true,
-		"secret/team/my-app/creds":    true,
-		"secret/team-a/generic/creds": false,
-		"secret/teamx/generic/creds":  false,
-		"opensearch-password":         false,
-	} {
-		if got := f.ownsKey("team", key); got != want {
-			t.Errorf("ownsKey(team, %q) = %v, want %v", key, got, want)
+func TestRemoteKeyFormat_SecretKey(t *testing.T) {
+	// The same keys as the secret API's remoteKeyFor writes.
+	tests := []struct {
+		format     RemoteKeyFormat
+		secretType corev1.SecretType
+		want       string
+	}{
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, corev1.SecretTypeOpaque, "secret/team/generic/creds"},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, "", "secret/team/generic/creds"},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, corev1.SecretTypeBasicAuth, "secret/team/basic-auth/creds"},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, corev1.SecretTypeSSHAuth, "secret/team/ssh-auth/creds"},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, corev1.SecretTypeDockerConfigJson, "secret/team/registry/creds"},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, corev1.SecretTypeTLS, "secret/team/tls/creds"},
+		{RemoteKeyFormat{Prefix: "", Separator: "/"}, corev1.SecretTypeOpaque, "team/generic/creds"},
+		{RemoteKeyFormat{Prefix: "oc/secrets", Separator: "-"}, corev1.SecretTypeOpaque, "oc-secrets-team-generic-creds"},
+	}
+	for _, tt := range tests {
+		if got := tt.format.secretKey("team", tt.secretType, "creds"); got != tt.want {
+			t.Errorf("%+v.secretKey(team, %q, creds) = %q, want %q", tt.format, tt.secretType, got, tt.want)
 		}
 	}
 }
 
-func TestRemoteKeyFormat_OwnsKeyWithDashSeparator(t *testing.T) {
-	f := RemoteKeyFormat{Prefix: "secret", Separator: "-"}
+func TestRemoteKeyFormat_SharedWith(t *testing.T) {
+	dash := RemoteKeyFormat{Prefix: "secret", Separator: "-"}
 	tests := []struct {
+		format    RemoteKeyFormat
 		namespace string
 		key       string
-		want      bool
+		want      string
 	}{
-		{"team", "secret-team-generic-creds", true},
-		{"team", "secret-team-basic-auth-db", true},
-		{"team-a", "secret-team-a-generic-creds", true},
-		// The prefix "secret-team-" matches team-a's keys; they belong to team-a only.
-		{"team", "secret-team-a-generic-creds", false},
-		{"team", "secret-team-my-app-creds", false},
+		{dash, "team", "secret-team-generic-creds", ""},
+		{dash, "team-a", "secret-team-a-generic-creds", ""},
 		// Laid out as a key of both "team" (secret "generic-x") and "team-generic" (secret "x"):
-		// ambiguous, so it belongs to neither, whichever of the two namespaces asks, and whether or
-		// not the other one exists.
-		{"team", "secret-team-generic-generic-x", false},
-		{"team-generic", "secret-team-generic-generic-x", false},
-		{"team", "secret-team-generic-registry-creds", false},
-		// Every key of "team-generic" is also laid out as one of "team" ("secret-team-" + "generic-..."),
-		// so "team-generic" can't own any key.
-		{"team-generic", "secret-team-generic-tls-cert", false},
-		{"team-generic", "secret-team-generic-registry-mirror", false},
-		// Nor can a namespace with a type segment in its name: its keys are also laid out for "my".
-		{"my-tls-team", "secret-my-tls-team-generic-creds", false},
-		{"team", "opensearch-password", false},
+		// ambiguous, whichever of the two namespaces asks, and whether or not the other one exists.
+		{dash, "team", "secret-team-generic-generic-x", "team-generic"},
+		{dash, "team-generic", "secret-team-generic-generic-x", "team"},
+		{dash, "team", "secret-team-generic-registry-creds", "team-generic"},
+		// Every key of "team-generic" is also laid out as one of "team" ("secret-team-" + "generic-...").
+		{dash, "team-generic", "secret-team-generic-tls-cert", "team"},
+		// So is every key of a namespace with a type segment in its name.
+		{dash, "my-tls-team", "secret-my-tls-team-generic-creds", "my"},
+		// "/" can't occur in namespace names, so a key belongs to one namespace only.
+		{RemoteKeyFormat{Prefix: "secret", Separator: "/"}, "team", "secret/team/generic/generic/x", ""},
 	}
 	for _, tt := range tests {
-		if got := f.ownsKey(tt.namespace, tt.key); got != tt.want {
-			t.Errorf("ownsKey(%s, %q) = %v, want %v", tt.namespace, tt.key, got, tt.want)
+		if got := tt.format.sharedWith(tt.namespace, tt.key); got != tt.want {
+			t.Errorf("%+v.sharedWith(%s, %q) = %q, want %q", tt.format, tt.namespace, tt.key, got, tt.want)
 		}
 	}
 }
@@ -434,7 +436,8 @@ func TestValidateSecretReferences(t *testing.T) {
 		longChannel := channel.DeepCopy()
 		longChannel.Namespace = "ncsr-generic"
 
-		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+		sr := newSecretReference("x", map[string]string{"api-key": "api-key"})
+		sr.Namespace = longChannel.Namespace
 		sr.Spec.Data[0].RemoteRef.Key = "secret-ncsr-generic-generic-x"
 		err := dashed.validateSecretReferences(longChannel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
@@ -445,7 +448,7 @@ func TestValidateSecretReferences(t *testing.T) {
 
 	t.Run("dash separator rejects a key a namespace created later could own", func(t *testing.T) {
 		// No namespace "default-generic" exists, but one created later could write this key.
-		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+		sr := newSecretReference("generic-x", map[string]string{"api-key": "api-key"})
 		sr.Spec.Data[0].RemoteRef.Key = "secret-default-generic-generic-x"
 		err := dashed.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
@@ -454,8 +457,30 @@ func TestValidateSecretReferences(t *testing.T) {
 		}
 	})
 
-	t.Run("remote key outside the channel's namespace", func(t *testing.T) {
-		for _, key := range []string{"opensearch-password", "secret/other/generic/creds", "secret/defaultx/generic/creds"} {
+	t.Run("valid with the key of a typed secret", func(t *testing.T) {
+		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+		sr.Spec.Template.Type = corev1.SecretTypeBasicAuth
+		sr.Spec.Data[0].RemoteRef.Key = "secret/default/basic-auth/webhook-auth"
+		if err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("remote key other than the SecretReference's own", func(t *testing.T) {
+		for _, key := range []string{
+			"opensearch-password",
+			"secret/other/generic/webhook-auth",
+			"secret/defaultx/generic/webhook-auth",
+			// Path segments that a store might resolve to another namespace's key.
+			"secret/default/../other/generic/webhook-auth",
+			"secret/default/generic/../../other/generic/webhook-auth",
+			"secret/default/./generic/webhook-auth",
+			// The channel's namespace, but not this SecretReference's key.
+			"secret/default/generic/other-secret",
+			"secret/default/generic/webhook-auth/extra",
+			"secret/default/tls/webhook-auth",
+			"secret/default/my-app/webhook-auth",
+		} {
 			sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 			sr.Spec.Data[0].RemoteRef.Key = key
 			err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))

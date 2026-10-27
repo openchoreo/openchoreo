@@ -193,7 +193,11 @@ func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string)
 
 // validateSecretReferences checks that every SecretReference can be synced into the observability
 // plane for the channel: the plane has a secret store, the value was pushed to that plane's store,
-// and the remote key belongs to the channel's namespace.
+// and the remote key is the channel's namespace's own. Webhook channels send header values to a
+// URL of the user's choosing, so a channel may only read the one key that the secret API writes for
+// the SecretReference: "<prefix><sep><namespace><sep><type><sep><name>", built from the channel's
+// namespace and the SecretReference's type and name. Both names are validated Kubernetes names, so
+// this rules out keys of other namespaces or of the platform, and path segments such as "..".
 func (r *Reconciler) validateSecretReferences(
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 	obsPlane *controller.ObservabilityPlaneResult,
@@ -212,17 +216,18 @@ func (r *Reconciler) validateSecretReferences(
 				"SecretReference %q targets %s %q, not the channel's observability plane %s %q",
 				ref.ref.Name, target.Kind, target.Name, planeKind, obsPlane.GetName())
 		}
-		if !r.RemoteKeys.ownsKey(channel.Namespace, ref.remoteRef.Key) {
-			if other := r.RemoteKeys.sharedWith(channel.Namespace, ref.remoteRef.Key); other != "" &&
-				r.RemoteKeys.laysOutKey(channel.Namespace, ref.remoteRef.Key) {
-				return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
-					"SecretReference %q points at remote key %q, which could be a key of namespace %q as well as of namespace %q, "+
-						"whether or not that namespace exists, so it belongs to neither",
-					ref.ref.Name, ref.remoteRef.Key, channel.Namespace, other)
-			}
+		want := r.RemoteKeys.secretKey(channel.Namespace, ref.secretReference.Spec.Template.Type, ref.secretReference.Name)
+		if ref.remoteRef.Key != want {
 			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
-				"SecretReference %q points at remote key %q, which is not a key of namespace %q in the secret store key layout (keys starting with %q)",
-				ref.ref.Name, ref.remoteRef.Key, channel.Namespace, r.RemoteKeys.namespacePrefix(channel.Namespace))
+				"SecretReference %q points at remote key %q, but a notification channel may only read %q, "+
+					"the key that the secret API writes for this SecretReference",
+				ref.ref.Name, ref.remoteRef.Key, want)
+		}
+		if other := r.RemoteKeys.sharedWith(channel.Namespace, want); other != "" {
+			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
+				"SecretReference %q points at remote key %q, which could be a key of namespace %q as well as of namespace %q, "+
+					"whether or not that namespace exists, so it belongs to neither",
+				ref.ref.Name, ref.remoteRef.Key, channel.Namespace, other)
 		}
 	}
 	return nil
@@ -249,6 +254,23 @@ type RemoteKeyFormat struct {
 // key, one per secret type. They must match remoteKeySegment in internal/openchoreo-api/services/secret.
 var remoteKeyTypeSegments = []string{"generic", "basic-auth", "ssh-auth", "registry", "tls"}
 
+// remoteKeyTypeSegment returns the segment the secret API puts after the namespace in the remote key
+// of a secret of the given type. It must match remoteKeySegment in internal/openchoreo-api/services/secret.
+func remoteKeyTypeSegment(secretType corev1.SecretType) string {
+	switch secretType {
+	case corev1.SecretTypeBasicAuth:
+		return "basic-auth"
+	case corev1.SecretTypeSSHAuth:
+		return "ssh-auth"
+	case corev1.SecretTypeDockerConfigJson:
+		return "registry"
+	case corev1.SecretTypeTLS:
+		return "tls"
+	default:
+		return "generic"
+	}
+}
+
 // keyPrefix returns the start that every remote key has, before the namespace.
 func (f RemoteKeyFormat) keyPrefix() string {
 	var segments []string
@@ -266,6 +288,12 @@ func (f RemoteKeyFormat) keyPrefix() string {
 // namespacePrefix returns the start that every remote key of the given namespace has.
 func (f RemoteKeyFormat) namespacePrefix(namespace string) string {
 	return f.keyPrefix() + namespace + f.Separator
+}
+
+// secretKey returns the remote key that the secret API writes for a secret of the namespace with
+// the given type and name.
+func (f RemoteKeyFormat) secretKey(namespace string, secretType corev1.SecretType, name string) string {
+	return f.namespacePrefix(namespace) + remoteKeyTypeSegment(secretType) + f.Separator + name
 }
 
 // separatorInNamespaceNames reports whether the separator can occur in a namespace name. Then a
@@ -290,24 +318,16 @@ func (f RemoteKeyFormat) laysOutKey(namespace, key string) bool {
 	return false
 }
 
-// ownsKey reports whether a remote key belongs to the namespace in the secret API's key layout: it
-// starts with the namespace's prefix. When the separator can occur in namespace names, a key can be
-// laid out as a key of more than one namespace: with "-", "secret-team-generic-generic-x" is both
-// namespace "team"'s generic secret "generic-x" and namespace "team-generic"'s generic secret "x". So
-// the key must also have a type segment after the prefix, and must not be laid out as a key of any
-// other namespace name, whether or not that namespace exists: one created later could otherwise
-// write the key and have its value synced to this namespace's channel. A key that is ambiguous
-// between two namespaces belongs to neither.
-func (f RemoteKeyFormat) ownsKey(namespace, key string) bool {
-	if !f.separatorInNamespaceNames() {
-		return strings.HasPrefix(key, f.namespacePrefix(namespace))
-	}
-	return f.laysOutKey(namespace, key) && f.sharedWith(namespace, key) == ""
-}
-
 // sharedWith returns another namespace name that a key of the namespace is also laid out for, or ""
-// if there is none.
+// if there is none. That can only happen when the separator can occur in namespace names: with "-",
+// "secret-team-generic-generic-x" is both namespace "team"'s generic secret "generic-x" and namespace
+// "team-generic"'s generic secret "x". Such a key belongs to neither, whether or not the other
+// namespace exists: one created later could otherwise write the key and have its value synced to
+// this namespace's channel.
 func (f RemoteKeyFormat) sharedWith(namespace, key string) string {
+	if !f.separatorInNamespaceNames() {
+		return ""
+	}
 	for _, other := range f.keyNamespaces(key) {
 		if other != namespace {
 			return other
