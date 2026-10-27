@@ -69,6 +69,11 @@ spec:
             - Always
             - IfNotPresent
             - Never
+        imagePullSecrets:
+          type: array
+          items:
+            type: string
+          default: []
 
   resources:
     - id: serviceaccount
@@ -80,6 +85,8 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         automountServiceAccountToken: false
+        imagePullSecrets: |
+          ${size(environmentConfigs.imagePullSecrets) > 0 ? environmentConfigs.imagePullSecrets.map(n, {"name": n}) : oc_omit()}
 
     - id: deployment
       template:
