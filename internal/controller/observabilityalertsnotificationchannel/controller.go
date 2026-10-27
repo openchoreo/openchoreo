@@ -186,6 +186,12 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 		logger.Info("Notification channel secret references cannot be resolved", "reason", invalid.reason, "message", invalid.message)
 		controller.MarkFalseCondition(channel, ConditionSecretsReady, invalid.reason, invalid.message)
 		controller.MarkFalseCondition(channel, ConditionReady, invalid.reason, invalid.message)
+		// Stop syncing values that the channel no longer validly references. An ExternalSecret this
+		// controller didn't create is left alone.
+		if _, _, err := r.deleteExternalSecret(ctx, opClient, channel.Name, channel.Namespace); err != nil {
+			logger.Error(err, "Failed to delete the ExternalSecret of a channel with invalid secret references")
+			return ctrl.Result{}, err
+		}
 		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable ||
 			invalid.reason == ReasonExternalSecretConflict {
 			// These depend on the observability plane, which is not watched, so poll for a fix.

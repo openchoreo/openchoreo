@@ -906,6 +906,57 @@ func TestReconcile_RemoteKeyOutsideNamespaceIsRejected(t *testing.T) {
 	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonRemoteKeyNotAllowed)
 }
 
+func TestReconcile_InvalidReferenceRemovesTheExternalSecret(t *testing.T) {
+	tests := []struct {
+		name       string
+		invalidate func(t *testing.T, cp client.Client, sr *openchoreov1alpha1.SecretReference)
+		reason     controller.ConditionReason
+	}{
+		{
+			name: "remote key no longer allowed",
+			invalidate: func(t *testing.T, cp client.Client, sr *openchoreov1alpha1.SecretReference) {
+				sr.Spec.Data[0].RemoteRef.Key = "observer-oauth-client-secret"
+				if err := cp.Update(context.Background(), sr); err != nil {
+					t.Fatalf("update SecretReference: %v", err)
+				}
+			},
+			reason: ReasonRemoteKeyNotAllowed,
+		},
+		{
+			name: "SecretReference deleted",
+			invalidate: func(t *testing.T, cp client.Client, sr *openchoreov1alpha1.SecretReference) {
+				if err := cp.Delete(context.Background(), sr); err != nil {
+					t.Fatalf("delete SecretReference: %v", err)
+				}
+			},
+			reason: ReasonSecretNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+			sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
+			f := newReconcileFixture(t, []client.Object{channel, sr})
+
+			f.reconcile(t)
+			if _, ok := f.externalSecret(t); !ok {
+				t.Fatal("ExternalSecret was not applied to the observability plane")
+			}
+
+			current := &openchoreov1alpha1.SecretReference{}
+			if err := f.cp.Get(context.Background(), client.ObjectKeyFromObject(sr), current); err != nil {
+				t.Fatalf("get SecretReference: %v", err)
+			}
+			tt.invalidate(t, f.cp, current)
+			f.reconcile(t)
+			if _, ok := f.externalSecret(t); ok {
+				t.Error("the ExternalSecret should be deleted once the channel's references are invalid")
+			}
+			requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, tt.reason)
+		})
+	}
+}
+
 func newForeignExternalSecret() *unstructured.Unstructured {
 	es := newExternalSecretObject()
 	es.SetName(testChannel)
