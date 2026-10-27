@@ -168,10 +168,12 @@ func backendComponentYAML(name string) string {
 					Args:  []string{"-text=" + name, "-listen=:8080"},
 				},
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+					// No visibility on the workload: the Endpoint carries it, and
+					// the component's network policy admits the gateway because of
+					// it. The ComponentType renders no route of its own.
 					"http": {
-						Protocol:   openchoreov1alpha1.EndpointProtocolHTTP,
-						Port:       8080,
-						Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+						Protocol: openchoreov1alpha1.EndpointProtocolHTTP,
+						Port:     8080,
 					},
 				},
 			},
