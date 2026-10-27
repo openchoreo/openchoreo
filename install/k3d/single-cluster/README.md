@@ -87,8 +87,15 @@ helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
   --namespace thunder \
   --create-namespace \
   --version 1.0.1 \
-  --values install/k3d/common/values-thunder.yaml
+  --values install/k3d/common/values-thunder.yaml \
+  --values install/k3d/common/values-thunder-portal.yaml
 ```
+
+The second values file registers the bundled portal's OAuth application. Drop it to
+install without the portal — the base file still seeds the users, groups and the
+CLI/MCP clients. Note that ThunderID applies its bootstrap on **first install only**,
+so adding the portal later needs the application created through the ThunderID
+management API rather than a `helm upgrade`.
 
 ### CoreDNS Rewrite
 
@@ -97,6 +104,8 @@ kubectl apply -f install/k3d/common/coredns-custom.yaml
 ```
 
 ### Backstage Secrets
+
+Skip this section if you are installing without the portal.
 
 ```bash
 kubectl create namespace openchoreo-control-plane --dry-run=client -o yaml | kubectl apply -f -
@@ -470,7 +479,7 @@ All ports are mapped 1:1 (host:container) unless noted.
 
 | Service              | URL                                           |
 |----------------------|-----------------------------------------------|
-| OpenChoreo Console   | http://openchoreo.localhost:8080               |
+| OpenChoreo Console   | http://openchoreo.localhost:8080 (portal only) |
 | OpenChoreo API       | http://api.openchoreo.localhost:8080           |
 | Thunder Admin        | http://thunder.openchoreo.localhost:8080       |
 | Argo Workflows UI    | http://localhost:10081                         |

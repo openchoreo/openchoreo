@@ -528,10 +528,16 @@ _e2e.install-thunder:
 	docker exec k3d-$(E2E_CLUSTER_NAME)-server-0 sh -c \
 		"cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 	@$(call log_info, Installing ThunderID $(THUNDER_VERSION))
+	@# values-thunder-portal.yaml is layered in unconditionally: e2e installs the
+	@# control plane with backstage.enabled=false, but e2e.setup-ui switches the
+	@# portal on later against an already-bootstrapped ThunderID, whose bootstrap
+	@# hook runs on first install only. The e2e values file follows it so this
+	@# cluster's own origins still win.
 	$(E2E_HELM) upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
 		--namespace thunder --create-namespace \
 		--version $(THUNDER_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-thunder.yaml \
+		--values $(PROJECT_DIR)/install/k3d/common/values-thunder-portal.yaml \
 		--values $(E2E_K3D_DIR)/values-thunder.yaml \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 
@@ -968,10 +974,16 @@ _e2e.mc.install-thunder:
 	docker exec k3d-$(E2E_MC_CP_CLUSTER_NAME)-server-0 sh -c \
 		"cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 	@$(call log_info, Installing ThunderID $(THUNDER_VERSION))
+	@# values-thunder-portal.yaml is layered in unconditionally: e2e installs the
+	@# control plane with backstage.enabled=false, but e2e.setup-ui switches the
+	@# portal on later against an already-bootstrapped ThunderID, whose bootstrap
+	@# hook runs on first install only. The e2e values file follows it so this
+	@# cluster's own origins still win.
 	$(E2E_MC_CP_HELM) upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
 		--namespace thunder --create-namespace \
 		--version $(THUNDER_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-thunder.yaml \
+		--values $(PROJECT_DIR)/install/k3d/common/values-thunder-portal.yaml \
 		--values $(E2E_MC_K3D_DIR)/values-thunder.yaml \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 

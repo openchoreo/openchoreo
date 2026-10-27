@@ -20,8 +20,8 @@ curl -fsSL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/
 ```
 
 This creates a kiac cluster and installs the OpenChoreo control plane and data
-plane. When it finishes it prints the portal URL, an `/etc/hosts` line, and a
-sample deploy command.
+plane. When it finishes it prints the portal URL (unless installed with
+`--without-portal`), an `/etc/hosts` line, and a sample deploy command.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -30,6 +30,7 @@ sample deploy command.
 | `--workers` | `2` | worker node VMs |
 | `--cni` | `kindnet` | `kindnet` or `cilium` (cilium enforces NetworkPolicies) |
 | `--use-existing` | off | install into the current kiac cluster instead of creating one |
+| `--without-portal` | off | exclude the bundled Backstage portal (drive the platform through `occ`, the API, or your own portal) |
 
 ## Deploy a sample
 

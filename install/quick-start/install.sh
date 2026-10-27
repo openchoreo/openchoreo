@@ -13,6 +13,7 @@ trap 'exit_code=$?; if [[ $exit_code -ne 0 ]]; then echo ""; log_error "Installa
 # Parse command line arguments
 ENABLE_WORKFLOW_PLANE=false
 ENABLE_OBSERVABILITY=false
+ENABLE_PORTAL=true
 SKIP_PRELOAD=false
 SKIP_RESOURCE_CHECK=false
 DEBUG=false
@@ -25,6 +26,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --with-observability)
             ENABLE_OBSERVABILITY=true
+            shift
+            ;;
+        --with-portal)
+            ENABLE_PORTAL=true
+            shift
+            ;;
+        --without-portal)
+            ENABLE_PORTAL=false
             shift
             ;;
         --skip-preload)
@@ -52,6 +61,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --version VER             Specify version to install (default: latest)"
             echo "  --with-build              Install with Workflow Plane (Argo Workflows + Registry)"
             echo "  --with-observability      Install with Observability Plane (enables audit logs)"
+            echo "  --without-portal          Exclude the bundled Backstage developer portal"
+            echo "  --with-portal             Include the bundled Backstage portal (default)"
             echo "  --skip-preload            Skip image preloading from host Docker"
             echo "  --skip-resource-check     Skip system resource validation"
             echo "  --debug                   Enable debug mode"
@@ -63,6 +74,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 --with-build                        # Install with build capabilities"
             echo "  $0 --with-observability                # Install with observability"
             echo "  $0 --with-build --with-observability   # Full platform"
+            echo "  $0 --without-portal                    # Install without the Backstage portal"
             echo "  $0 --skip-preload                      # Skip image preloading"
             echo "  $0 --debug --version latest-dev        # Debug with dev version"
             exit 0
@@ -112,7 +124,9 @@ install_thunder
 apply_coredns_config
 
 # Step 6: Create backstage ExternalSecret and install Control Plane
-create_backstage_external_secret "$CONTROL_PLANE_NS"
+if [[ "$ENABLE_PORTAL" == "true" ]]; then
+    create_backstage_external_secret "$CONTROL_PLANE_NS"
+fi
 install_control_plane
 
 # Step 6b: Extract cluster-gateway CA into ConfigMap
@@ -166,8 +180,21 @@ THUNDER_ADMIN_PASSWORD=$(kubectl get secret -n "$THUNDER_NS" thunder-admin-crede
 
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
-log_info "  Backstage UI: http://openchoreo.localhost:8080/"
-log_info "    Login credentials:"
+if [[ "$ENABLE_PORTAL" == "true" ]]; then
+    log_info "  Backstage UI: http://openchoreo.localhost:8080/"
+else
+    log_info "  Backstage UI: not installed (re-run with --with-portal, or bring your own:"
+    log_info "    https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/)"
+fi
+log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
+log_info "  ThunderID Identity Provider: http://thunder.openchoreo.localhost:8080/"
+log_info "  ThunderID Identity Provider UI: http://thunder.openchoreo.localhost:8080/console"
+log_info "    Logins:"
+log_info "      Username: admin"
+log_info "      Password: ${THUNDER_ADMIN_PASSWORD:-<not found; check the thunder-admin-credentials Secret in the $THUNDER_NS namespace>}"
+echo ""
+log_info "Platform users (ThunderID):"
+log_info "  These back the portal, the occ CLI and the MCP clients alike."
 log_info "      Admin:"
 log_info "        Username: admin@openchoreo.dev"
 log_info "        Password: Admin@123"
@@ -180,12 +207,6 @@ log_info "        Password: PE@123"
 log_info "      SRE:"
 log_info "        Username: sre@openchoreo.dev"
 log_info "        Password: SRE@123"
-log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
-log_info "  ThunderID Identity Provider: http://thunder.openchoreo.localhost:8080/"
-log_info "  ThunderID Identity Provider UI: http://thunder.openchoreo.localhost:8080/console"
-log_info "    Logins:"
-log_info "      Username: admin"
-log_info "      Password: ${THUNDER_ADMIN_PASSWORD:-<not found; check the thunder-admin-credentials Secret in the $THUNDER_NS namespace>}"
 echo ""
 log_info "OCC CLI Login:"
 log_info "  Run the following commands to login:"
