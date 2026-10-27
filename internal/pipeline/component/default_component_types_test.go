@@ -184,6 +184,34 @@ spec:
 			if got, ok := podSpec["automountServiceAccountToken"].(bool); !ok || got {
 				t.Errorf("pod automountServiceAccountToken = %v, want false", podSpec["automountServiceAccountToken"])
 			}
+			if _, found := serviceAccount["imagePullSecrets"]; found {
+				t.Errorf("ServiceAccount imagePullSecrets = %v, want omitted by default", serviceAccount["imagePullSecrets"])
+			}
+
+			// Image pull secrets configured for the environment go on the ServiceAccount, so the
+			// pods get them like they would from the namespace's default ServiceAccount.
+			releaseBinding := &v1alpha1.ReleaseBinding{}
+			if err := yaml.Unmarshal([]byte(`spec: {componentTypeEnvironmentConfigs: {imagePullSecrets: [regcred]}}`), releaseBinding); err != nil {
+				t.Fatalf("failed to parse release binding: %v", err)
+			}
+			input.ReleaseBinding = releaseBinding
+			output, err = NewPipeline().Render(t.Context(), input)
+			if err != nil {
+				t.Fatalf("Render() with imagePullSecrets error = %v", err)
+			}
+			serviceAccount = nil
+			for _, r := range output.Resources {
+				if r.Resource["kind"] == "ServiceAccount" {
+					serviceAccount = r.Resource
+				}
+			}
+			if serviceAccount == nil {
+				t.Fatalf("expected a ServiceAccount to be rendered with imagePullSecrets")
+			}
+			pullSecrets, _, _ := unstructured.NestedSlice(serviceAccount, "imagePullSecrets")
+			if len(pullSecrets) != 1 || pullSecrets[0].(map[string]any)["name"] != "regcred" {
+				t.Errorf("ServiceAccount imagePullSecrets = %v, want [{name: regcred}]", pullSecrets)
+			}
 		})
 	}
 }
