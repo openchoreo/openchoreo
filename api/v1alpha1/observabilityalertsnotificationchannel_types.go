@@ -113,6 +113,13 @@ type EmailTemplate struct {
 	// Example: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
 	// +kubebuilder:validation:Required
 	Body string `json:"body"`
+
+	// ContentType specifies the MIME type of the rendered email body.
+	// Supported values are "text/plain" and "text/html".
+	// +kubebuilder:validation:Enum=text/plain;text/html
+	// +kubebuilder:default=text/plain
+	// +optional
+	ContentType string `json:"contentType,omitempty"`
 }
 
 // WebhookHeaderValue defines a header value that can be provided inline or via secret reference

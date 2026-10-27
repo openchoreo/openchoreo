@@ -165,6 +165,15 @@ spec:
                           Body is the email body template using CEL expressions
                           Example: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
                         type: string
+                      contentType:
+                        default: text/plain
+                        description: |-
+                          ContentType specifies the MIME type of the rendered email body.
+                          Supported values are "text/plain" and "text/html".
+                        enum:
+                        - text/plain
+                        - text/html
+                        type: string
                       subject:
                         description: |-
                           Subject is the email subject line template using CEL expressions

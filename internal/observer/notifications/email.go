@@ -29,6 +29,7 @@ type EmailConfig struct {
 	To              []string
 	SubjectTemplate string
 	BodyTemplate    string
+	ContentType     string // text/plain or text/html
 }
 
 // NotificationChannelConfig combines email and webhook configuration
@@ -58,10 +59,24 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 		auth = smtp.PlainAuth("", config.Email.SMTP.Username, config.Email.SMTP.Password, config.Email.SMTP.Host)
 	}
 
-	message := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
+	contentType := config.Email.ContentType
+	if contentType != "text/html" {
+		contentType = "text/plain" // default to text/plain if not specified
+	}
+
+	message := fmt.Sprintf(
+		"From: %s\r\n"+
+			"To: %s\r\n"+
+			"Subject: %s\r\n"+
+			"MIME-Version: 1.0\r\n"+
+			"Content-Type: %s; charset=\"UTF-8\"\r\n"+
+			"Content-Transfer-Encoding: 8bit\r\n"+
+			"\r\n"+
+			"%s",
 		config.Email.SMTP.From,
 		strings.Join(to, ","),
 		subject,
+		contentType,
 		body,
 	)
 
@@ -86,6 +101,11 @@ func PrepareEmailNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.
 		recipients = parseRecipientsList(toStr)
 	}
 
+	contentType := configMap.Data["template.contentType"]
+	if contentType == "" {
+		contentType = "text/plain" // default to text/plain if not specified
+	}
+
 	emailConfig := EmailConfig{
 		SMTP: SMTPConfig{
 			Host: configMap.Data["smtp.host"],
@@ -95,6 +115,7 @@ func PrepareEmailNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.
 		To:              recipients,
 		SubjectTemplate: configMap.Data["template.subject"],
 		BodyTemplate:    configMap.Data["template.body"],
+		ContentType:     contentType,
 	}
 
 	// Read SMTP credentials directly from the secret

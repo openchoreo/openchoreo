@@ -356,6 +356,7 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 		if channel.Spec.EmailConfig.Template != nil {
 			configMap.Data["template.subject"] = channel.Spec.EmailConfig.Template.Subject
 			configMap.Data["template.body"] = channel.Spec.EmailConfig.Template.Body
+			configMap.Data["template.contentType"] = channel.Spec.EmailConfig.Template.ContentType
 		}
 
 		// Add TLS config if present

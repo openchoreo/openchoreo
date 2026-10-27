@@ -157,6 +157,20 @@ func TestPrepareEmailNotificationConfig(t *testing.T) {
 				assert.Equal(t, "body", cfg.BodyTemplate)
 			},
 		},
+		{
+			name:          "html content type populated",
+			configMapData: map[string]string{"template.contentType": "text/html"},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Equal(t, "text/html", cfg.ContentType)
+			},
+		},
+		{
+			name:          "plain text content type populated",
+			configMapData: map[string]string{"template.contentType": "text/plain"},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Equal(t, "text/plain", cfg.ContentType)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -353,4 +367,64 @@ func TestSendEmailWithConfig_MessageFormat(t *testing.T) {
 	assert.True(t, strings.Contains(msg, "To: alice@example.com\r\n"))
 	assert.True(t, strings.Contains(msg, "Subject: My Subject\r\n"))
 	assert.True(t, strings.Contains(msg, "My Body"))
+}
+
+func TestSendEmailWithConfig_ContentType(t *testing.T) {
+	tests := []struct {
+		name            string
+		contentType     string
+		wantContentType string
+	}{
+		{
+			name:            "defaults to plain text when unset",
+			contentType:     "",
+			wantContentType: "text/plain",
+		},
+		{
+			name:            "explicit plain text",
+			contentType:     "text/plain",
+			wantContentType: "text/plain",
+		},
+		{
+			name:            "html",
+			contentType:     "text/html",
+			wantContentType: "text/html",
+		},
+		{
+			name:            "unsupported value falls back to plain text",
+			contentType:     "application/json",
+			wantContentType: "text/plain",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var capturedMsg []byte
+
+			orig := smtpSendMail
+			t.Cleanup(func() { smtpSendMail = orig })
+			smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+				capturedMsg = msg
+				return nil
+			}
+
+			body := `<html><body><h1 style="color:#ff6700">Alert</h1></body></html>`
+			config := &NotificationChannelConfig{
+				Email: EmailConfig{
+					To:          []string{"alice@example.com"},
+					SMTP:        SMTPConfig{Host: "mail.example.com", Port: 587, From: "sender@example.com"},
+					ContentType: tc.contentType,
+				},
+			}
+
+			err := SendEmailWithConfig(context.Background(), config, "HTML Subject", body)
+			require.NoError(t, err)
+
+			msg := string(capturedMsg)
+			assert.Contains(t, msg, "MIME-Version: 1.0\r\n")
+			assert.Contains(t, msg, "Content-Type: "+tc.wantContentType+"; charset=\"UTF-8\"\r\n")
+			assert.Contains(t, msg, "Content-Transfer-Encoding: 8bit\r\n")
+			assert.Contains(t, msg, "\r\n\r\n"+body)
+		})
+	}
 }

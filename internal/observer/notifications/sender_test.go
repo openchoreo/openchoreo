@@ -277,6 +277,18 @@ func TestPrepareEmailContent(t *testing.T) {
 				assert.Equal(t, "production", body)
 			},
 		},
+		{
+			name: "html body with CEL expressions and CSS is rendered without escaping",
+			emailConfig: EmailConfig{
+				ContentType:     "text/html",
+				SubjectTemplate: "[HTML test] ${alertName} in ${environment}",
+				BodyTemplate:    `<html><body><h1 style="color:#ff6700">Alert: ${alertName}</h1><p>${component}</p></body></html>`,
+			},
+			check: func(t *testing.T, subject, body string) {
+				assert.Equal(t, "[HTML test] HighCPU in production", subject)
+				assert.Equal(t, `<html><body><h1 style="color:#ff6700">Alert: HighCPU</h1><p>checkout</p></body></html>`, body)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -442,6 +454,35 @@ func TestSendAlertNotification_EmailRoute(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Alert: HighCPU", capturedSubject)
 		assert.Equal(t, "Severity: critical", capturedBody)
+	})
+
+	t.Run("sends html email with rendered body", func(t *testing.T) {
+		var capturedMsg string
+
+		orig := smtpSendMail
+		t.Cleanup(func() { smtpSendMail = orig })
+		smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+			capturedMsg = string(msg)
+			return nil
+		}
+
+		config := &NotificationChannelConfig{
+			Type: "email",
+			Email: EmailConfig{
+				To:              []string{"alice@example.com"},
+				SMTP:            SMTPConfig{Host: "mail.example.com", Port: 587},
+				SubjectTemplate: "[HTML test] ${alertName} in ${environment}",
+				BodyTemplate:    `<html><body><h1 style="color:#ff6700">Alert: ${alertName}</h1></body></html>`,
+				ContentType:     "text/html",
+			},
+		}
+		alert := newTestAlertDetails()
+		err := SendAlertNotification(context.Background(), config, alert, discardLogger())
+		require.NoError(t, err)
+
+		assert.Contains(t, capturedMsg, "Content-Type: text/html; charset=\"UTF-8\"\r\n")
+		assert.Contains(t, capturedMsg, "Subject: [HTML test] HighCPU in production\r\n")
+		assert.Contains(t, capturedMsg, `<h1 style="color:#ff6700">Alert: HighCPU</h1>`)
 	})
 
 	t.Run("propagates email error", func(t *testing.T) {

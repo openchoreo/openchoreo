@@ -12937,6 +12937,13 @@ components:
           type: string
           description: Email body template using CEL expressions
           example: "Alert: ${alert.name} triggered at ${alert.startsAt}."
+        contentType:
+          type: string
+          description: Content type of the email body
+          enum:
+            - text/plain
+            - text/html
+          default: text/plain
 
     NotificationWebhookConfig:
       type: object
