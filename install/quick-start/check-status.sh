@@ -5,12 +5,48 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.config.sh"
 
+# The bundled Backstage portal is optional (install.sh --without-portal), so a
+# missing Backstage deployment is a valid install rather than a core failure.
+# This script is a standalone diagnostic run long after the install flags are
+# gone, so detect the portal instead of asking the caller to repeat them.
+PORTAL_INSTALLED=true
+
+detect_portal() {
+    local context="$1"
+    if [[ -n "$(kubectl --context="$context" get deployment -n "$CONTROL_PLANE_NS" \
+        -l app.kubernetes.io/component=backstage \
+        -o name 2>/dev/null)" ]]; then
+        PORTAL_INSTALLED=true
+        return
+    fi
+    PORTAL_INSTALLED=false
+    # Drop it from the multi-cluster list and the core classification too, so
+    # neither reports a component the operator deliberately left out.
+    local filtered=()
+    local component
+    for component in "${components_cp[@]}"; do
+        [[ "$component" == "backstage" ]] || filtered+=("$component")
+    done
+    components_cp=("${filtered[@]}")
+    filtered=()
+    for component in "${core_components[@]}"; do
+        [[ "$component" == "backstage" ]] || filtered+=("$component")
+    done
+    core_components=("${filtered[@]}")
+}
+
 # Component groups organized by architectural layers
 get_component_group() {
     local group="$1"
     case "$group" in
         "Infrastructure") echo "cert_manager kgateway external_secrets openbao thunder" ;;
-        "Control_Plane") echo "controller_manager api_server backstage cluster_gateway" ;;
+        "Control_Plane")
+            if [[ "$PORTAL_INSTALLED" == "true" ]]; then
+                echo "controller_manager api_server backstage cluster_gateway"
+            else
+                echo "controller_manager api_server cluster_gateway"
+            fi
+            ;;
         "Data_Plane") echo "cluster_agent_dp gateway_proxy" ;;
         "Workflow_Plane") echo "cluster_agent_wp argo_workflow_controller registry" ;;
         "Observability_Plane") echo "obs_controller_manager cluster_agent_op opensearch observer" ;;
@@ -295,6 +331,7 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
     cluster_context=$(kubectl config current-context)
     echo "OpenChoreo Installation Status: Single-Cluster Mode"
     echo "Using current context: $cluster_context"
+    detect_portal "$cluster_context"
     print_grouped_components "$cluster_context"
 else
     echo "OpenChoreo Installation Status: Multi-Cluster Mode"
@@ -304,6 +341,8 @@ else
 
     read -r -p "Enter Control Plane Kubernetes context (default: k3d-openchoreo-cp): " control_plane_context
     control_plane_context=${control_plane_context:-"k3d-openchoreo-cp"}
+
+    detect_portal "$control_plane_context"
 
     print_component_status components_cp "Control Plane Components" "$control_plane_context"
     print_component_status components_dp "Data Plane Components" "$dataplane_context"

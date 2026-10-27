@@ -95,8 +95,12 @@ helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
   --namespace thunder \
   --create-namespace \
   --version "$THUNDER_VERSION" \
-  --values install/k3d/common/values-thunder.yaml
+  --values install/k3d/common/values-thunder.yaml \
+  --values install/k3d/common/values-thunder-portal.yaml
 ```
+
+The second values file registers the bundled portal's OAuth application; drop it, and
+the Backstage secret below, to install without the portal.
 
 ### CoreDNS Rewrite
 

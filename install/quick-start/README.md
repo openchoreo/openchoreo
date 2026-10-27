@@ -56,6 +56,8 @@ Installation typically takes 5-10 minutes depending on your network speed.
 - `./install.sh --with-build` - Install with Workflow Plane (Argo Workflows + Container Registry)
 - `./install.sh --with-observability` - Install with OpenSearch and observability components
 - `./install.sh --with-build --with-observability` - Install full platform with all optional components
+- `./install.sh --without-portal` - Install without the bundled Backstage portal; drive the
+  platform through the `occ` CLI, the API, or your own Backstage instance
 - `./install.sh --version v0.4.0` - Install a specific OpenChoreo version
 - `./install.sh --version latest-dev --debug` - Install latest development build with verbose logging
 - `./install.sh --skip-preload` - Skip image preloading from local Docker to k3d
