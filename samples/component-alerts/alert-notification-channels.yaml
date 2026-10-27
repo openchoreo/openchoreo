@@ -18,7 +18,7 @@ spec:
       # SMTP credentials come from a SecretReference in the channel's namespace. Create it in the
       # observability plane's secret store before applying this file, for example:
       #   occ secret create generic email-notification-channel-development-smtp-auth \
-      #     --namespace default --target-plane ObservabilityPlane/default \
+      #     --namespace default --target-plane ClusterObservabilityPlane/default \
       #     --from-literal=username=<smtp-username> --from-literal=password=<smtp-password>
       auth:
         username:
@@ -66,7 +66,7 @@ spec:
       # in the channel's namespace. Create it in the observability plane's secret store before applying
       # this file, for example:
       #   occ secret create generic webhook-notification-channel-development-webhook-auth \
-      #     --namespace default --target-plane ObservabilityPlane/default \
+      #     --namespace default --target-plane ClusterObservabilityPlane/default \
       #     --from-literal=api-key=<webhook-api-key>
       X-API-Key:
         valueFrom:

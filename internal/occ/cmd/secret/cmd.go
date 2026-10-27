@@ -229,7 +229,7 @@ kubernetes.io/ssh-auth) while still sourcing data the same way.`,
 
   # Create SMTP credentials in the observability plane's secret store
   occ secret create generic smtp-auth \
-    --namespace acme-corp --target-plane ObservabilityPlane/default \
+    --namespace acme-corp --target-plane ClusterObservabilityPlane/default \
     --from-literal=username=alerts --from-literal=password=s3cret`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),

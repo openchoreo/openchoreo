@@ -22,7 +22,8 @@ func NewObservabilityAlertsNotificationChannelCmd(f client.NewClientFunc) *cobra
 A channel references its secret values, such as SMTP credentials and webhook header
 values, by the name of a SecretReference and one of its keys. Create them in the
 secret store of the channel's observability plane with
-'occ secret create --target-plane ObservabilityPlane/<name>'. Referencing a
+'occ secret create --target-plane ClusterObservabilityPlane/<name>' (or
+'ObservabilityPlane/<name>' for a namespaced plane). Referencing a
 Kubernetes Secret by name still works but is deprecated; such channels show
 DeprecatedKubernetesSecret in the SECRETS column of 'list'.`,
 	}

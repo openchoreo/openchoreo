@@ -57,11 +57,11 @@ Platform Engineers configure notification channels once per environment (email/w
 1. Create the secrets the notification channels reference. A channel's `secretKeyRef` names a `SecretReference` in the channel's namespace and one of its keys, and the value is synced from the secret store of the environment's observability plane. Create them with `occ` (this needs the secret management API enabled, `features.secretManagement.enabled` in the control plane chart, and a `secretStoreRef` on the observability plane):
    ```bash
    occ secret create generic email-notification-channel-development-smtp-auth \
-     --namespace default --target-plane ObservabilityPlane/default \
+     --namespace default --target-plane ClusterObservabilityPlane/default \
      --from-literal=username=<smtp-username> --from-literal=password=<smtp-password>
 
    occ secret create generic webhook-notification-channel-development-webhook-auth \
-     --namespace default --target-plane ObservabilityPlane/default \
+     --namespace default --target-plane ClusterObservabilityPlane/default \
      --from-literal=api-key=<webhook-api-key>
    ```
    A channel can only read secret store keys of its own namespace, so `SecretReference`s you write by hand must point at keys in the layout the secret API uses (`<remoteKeyPrefix>/<namespace>/...` by default).
