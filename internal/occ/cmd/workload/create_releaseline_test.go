@@ -21,7 +21,7 @@ const expectedLineWorkloadYAML = `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: my-svc-next-workload
+  name: my-svc-next-1ddb7a65-workload
   namespace: test-ns
 spec:
   owner:
@@ -53,7 +53,7 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: my-svc-next-workload
+  name: my-svc-next-1ddb7a65-workload
   namespace: test-ns
 spec:
   owner:

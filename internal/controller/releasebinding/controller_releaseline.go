@@ -119,7 +119,7 @@ func (r *Reconciler) findReleaseLineCollision(
 		if len(clashes) > 0 {
 			sort.Strings(clashes)
 			return fmt.Sprintf("Release line %q renders %s, which RenderedRelease %q also renders; "+
-				"name these objects from metadata.name, or from metadata.componentName and metadata.releaseLineName, in the ComponentType and Traits",
+				"name these objects from metadata.name or metadata.componentLineName in the ComponentType and Traits",
 				releaseBinding.Spec.Owner.ReleaseLine, strings.Join(clashes, ", "), other.Name), nil
 		}
 	}

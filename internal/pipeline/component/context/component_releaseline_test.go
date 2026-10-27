@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 func TestBuildComponentContext_DerivedNamesFollowReleaseLine(t *testing.T) {
@@ -50,10 +51,12 @@ func TestBuildComponentContext_DerivedNamesFollowReleaseLine(t *testing.T) {
 
 	unlined := build("")
 	assert.Empty(t, unlined.Metadata.ReleaseLineName)
+	assert.Equal(t, "myapp", unlined.Metadata.ComponentLineName)
 	require.Len(t, unlined.Derived.ContainerEnvFrom, 1)
 	assert.Equal(t, generateEnvResourceName("myapp-dev"), unlined.Derived.ContainerEnvFrom[0].ConfigMapRef.Name)
 
 	line := build("v2")
+	assert.Equal(t, releaseline.ComponentLineName("myapp", "v2"), line.Metadata.ComponentLineName)
 	require.Len(t, line.Derived.ContainerEnvFrom, 1)
-	assert.Equal(t, generateEnvResourceName("myapp-v2-dev"), line.Derived.ContainerEnvFrom[0].ConfigMapRef.Name)
+	assert.Equal(t, generateEnvResourceName(releaseline.ComponentLineName("myapp", "v2")+"-dev"), line.Derived.ContainerEnvFrom[0].ConfigMapRef.Name)
 }

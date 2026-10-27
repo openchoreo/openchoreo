@@ -64,7 +64,7 @@ func newLineIndex(t *testing.T, withDefault bool) *index.Index {
 			"parameters": map[string]any{"logLevel": "debug"},
 		},
 	}, "/repo/projects/my-proj/components/my-comp/release-line-next.yaml")
-	addWorkload(t, idx, lineNamespace, lineComponent+"-next-workload", lineProject, lineComponent, map[string]any{
+	addWorkload(t, idx, lineNamespace, lineComponent+"-next-5e612006-workload", lineProject, lineComponent, map[string]any{
 		"owner":     map[string]any{"projectName": lineProject, "componentName": lineComponent, "releaseLine": lineName},
 		"container": map[string]any{"image": "img:v2"},
 	}, "/repo/projects/my-proj/components/my-comp/workload-next.yaml")
@@ -123,7 +123,7 @@ func TestGenerateRelease_ReleaseLine(t *testing.T) {
 	}{
 		{name: "default line", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
 		{name: "default line keyword", line: "default", wantName: "my-comp-20261021-1", wantImage: "img:v1", wantLogLevel: "info"},
-		{name: "release line", line: lineName, wantName: "my-comp-next-20261021-1", wantImage: "img:v2", wantLine: lineName, wantLogLevel: "debug"},
+		{name: "release line", line: lineName, wantName: "my-comp-next-5e612006-20261021-1", wantImage: "img:v2", wantLine: lineName, wantLogLevel: "debug"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -156,8 +156,8 @@ func TestGenerateBulkReleases_ReleaseLines(t *testing.T) {
 		withDefault bool
 		want        map[string]string
 	}{
-		{name: "default and release line", withDefault: true, want: map[string]string{"": "my-comp-" + today + "-1", lineName: "my-comp-next-" + today + "-1"}},
-		{name: "component without a default line workload", want: map[string]string{lineName: "my-comp-next-" + today + "-1"}},
+		{name: "default and release line", withDefault: true, want: map[string]string{"": "my-comp-" + today + "-1", lineName: "my-comp-next-5e612006-" + today + "-1"}},
+		{name: "component without a default line workload", want: map[string]string{lineName: "my-comp-next-5e612006-" + today + "-1"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -186,12 +186,12 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 
 	// Each line has a release matching its current state, and a binding in dev.
 	idx := newLineIndex(t, true)
-	for _, r := range []struct{ line, name string }{{"", "my-comp-20261021-1"}, {lineName, "my-comp-next-20261021-1"}} {
+	for _, r := range []struct{ line, name string }{{"", "my-comp-20261021-1"}, {lineName, "my-comp-next-5e612006-20261021-1"}} {
 		addEntry(t, idx, generateLineRelease(t, idx, r.line, r.name).Object, "/repo/projects/my-proj/components/my-comp/releases/"+r.name+".yaml")
 	}
 	dir := t.TempDir()
 	addLineReleaseBinding(t, idx, dir, "my-comp-dev", "", "dev", "my-comp-20261021-1")
-	addLineReleaseBinding(t, idx, dir, "my-comp-next-dev", lineName, "dev", "my-comp-next-20261021-1")
+	addLineReleaseBinding(t, idx, dir, "my-comp-next-5e612006-dev", lineName, "dev", "my-comp-next-5e612006-20261021-1")
 	gen := NewBindingGenerator(fsmode.WrapIndex(idx))
 
 	t.Run("root environment of the release line", func(t *testing.T) {
@@ -200,10 +200,10 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 			TargetEnv: "dev", PipelineInfo: pipelineInfo, Namespace: lineNamespace,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "my-comp-next-20261021-1", info.ReleaseName)
+		assert.Equal(t, "my-comp-next-5e612006-20261021-1", info.ReleaseName)
 		assert.Equal(t, lineName, info.ReleaseLine)
 		assert.True(t, info.IsUpdate)
-		assert.Equal(t, filepath.Join(dir, "my-comp-next-dev.yaml"), info.ExistingFilePath)
+		assert.Equal(t, filepath.Join(dir, "my-comp-next-5e612006-dev.yaml"), info.ExistingFilePath)
 	})
 
 	for _, tt := range []struct {
@@ -211,7 +211,7 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 		wantLine                          any
 	}{
 		{name: "promote the default line", wantName: "my-comp-staging", wantRelease: "my-comp-20261021-1"},
-		{name: "promote the release line", line: lineName, wantName: "my-comp-next-staging", wantRelease: "my-comp-next-20261021-1", wantLine: lineName},
+		{name: "promote the release line", line: lineName, wantName: "my-comp-next-5e612006-staging", wantRelease: "my-comp-next-5e612006-20261021-1", wantLine: lineName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			binding, err := gen.GenerateBinding(BindingOptions{
@@ -256,8 +256,8 @@ func TestGenerateBinding_ReleaseLine(t *testing.T) {
 			got[info.BindingName] = info.ReleaseName
 		}
 		assert.Equal(t, map[string]string{
-			"my-comp-staging":      "my-comp-20261021-1",
-			"my-comp-next-staging": "my-comp-next-20261021-1",
+			"my-comp-staging":               "my-comp-20261021-1",
+			"my-comp-next-5e612006-staging": "my-comp-next-5e612006-20261021-1",
 		}, got)
 	})
 }

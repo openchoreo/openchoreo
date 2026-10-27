@@ -23,6 +23,7 @@ class SearchScope(BaseModel):
     project: str
     environment: str
     release_line: str | None = Field(default=None, alias="releaseLine")
+    release_binding: str | None = Field(default=None, alias="releaseBinding")
 
 
 class BudgetedCost(BaseModel):

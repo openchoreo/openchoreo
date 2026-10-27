@@ -15,7 +15,7 @@ The sample builds the [greeter service](https://github.com/openchoreo/sample-wor
 
 - `release-lines.yaml`: the `hello` component, whose own configuration is its `default` line, and the `next` release line. The `next` line overrides the branch to build and adds health probes.
 
-The component uses the default `deployment/service` type and `dockerfile-builder` workflow, so the sample needs nothing else. The default component types name component-scoped objects (Service, HTTPRoutes, backends, gateway paths) from `metadata.componentName` and `metadata.releaseLineName`, so the lines of a component never collide. The default build workflows publish each line's build to that line's own Workload, `<component>-<line>-workload`.
+The component uses the default `deployment/service` type and `dockerfile-builder` workflow, so the sample needs nothing else. The default component types name a line's Service, HTTPRoutes, backends and gateway paths from `metadata.componentLineName`, so the lines of a component never collide. The default build workflows publish each line's build to that line's own Workload, such as `hello-next-4833a175-workload`. A line's Workload, releases and bindings all start with `hello-next-4833a175`, so they never take the names of another component, such as one called `hello-next`.
 
 ## Deploy
 
@@ -41,7 +41,7 @@ The first run builds the default line, the same as for any component, and `--rel
 kubectl get releaselines,workloads,releasebindings -n default
 ```
 
-Each line keeps its own Workload. A line inherits the component's spec, meaning its parameters, traits and workflow parameters with the line's overrides applied, but not the default line's Workload. An environment variable added to `hello-workload` reaches the default line only, and one added to `hello-next-workload` reaches `next` only. A build replaces its line's Workload from the branch's `workload.yaml`, so keep a line's environment variables in that file, or set them per environment under `workloadOverrides.container` in the line's ReleaseBinding.
+Each line keeps its own Workload. A line inherits the component's spec, meaning its parameters, traits and workflow parameters with the line's overrides applied, but not the default line's Workload. An environment variable added to `hello-workload` reaches the default line only, and one added to `hello-next-4833a175-workload` reaches `next` only. A build replaces its line's Workload from the branch's `workload.yaml`, so keep a line's environment variables in that file, or set them per environment under `workloadOverrides.container` in the line's ReleaseBinding.
 
 ## List the lines of a component
 
@@ -80,12 +80,12 @@ curl http://development-default.openchoreoapis.localhost:19080/hello-greeter-api
 ```
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/hello-next-greeter-api/greeter/version
+curl http://development-default.openchoreoapis.localhost:19080/hello-next-4833a175-greeter-api/greeter/version
 ```
 
 The default line answers `v1.0` and `next` answers `v1.1`.
 
-All lines render into the project's namespace. The default line's objects keep the names a component without lines gets. A release line's objects are named from `metadata.name`, or from `metadata.componentName` and `metadata.releaseLineName`, so they never take the default line's names. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
+All lines render into the project's namespace. The default line's objects keep the names a component without lines gets. A release line's objects are named from `metadata.name` or `metadata.componentLineName`, so they never take the names of the default line or of another component. If two lines would render the same object, the binding reports `ReleaseLineNameCollision` and is not deployed.
 
 A release line's pods carry the `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid` labels, and their component's UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, which the default line's selectors require. So the default line's Service and Deployment never select a release line's pods, and its selectors never change when lines are added. A component type must label pods with `metadata.podSelectors` for this to hold. A release line whose pods carry `openchoreo.dev/component-uid` reports `ReleaseLinePodLabelOverlap` and is not deployed.
 
@@ -112,7 +112,7 @@ dependencies:
 occ component deploy hello --release-line next --to staging --namespace default --project default
 ```
 
-This binds the release that `next` runs in the previous environment to staging, as `hello-next-staging`. The other lines are not touched.
+This binds the release that `next` runs in the previous environment to staging, as `hello-next-4833a175-staging`. The other lines are not touched.
 
 ## Roll a line back
 

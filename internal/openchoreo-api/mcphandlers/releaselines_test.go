@@ -26,6 +26,7 @@ import (
 	releaselinemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline/mocks"
 	workflowrunmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun/mocks"
 	workloadmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload/mocks"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -109,11 +110,11 @@ func TestCreateReleaseBinding_ReleaseLine(t *testing.T) {
 	rbSvc := releasebindingmocks.NewMockService(t)
 	rbSvc.EXPECT().
 		CreateReleaseBinding(mock.Anything, testNS, mock.MatchedBy(func(rb *openchoreov1alpha1.ReleaseBinding) bool {
-			return rb.Name == testComponent+"-"+testLine+"-"+testEnvironmentName &&
+			return rb.Name == releaseline.ScopedName(testComponent, testLine, testEnvironmentName) &&
 				rb.Spec.Owner.ReleaseLine == testLine &&
 				rb.Spec.Owner.ComponentName == testComponent
 		})).
-		Return(&openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Name: testComponent + "-" + testLine + "-dev"}}, nil)
+		Return(&openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Name: releaseline.ScopedName(testComponent, testLine, "dev")}}, nil)
 
 	req := &gen.ReleaseBindingSpec{Environment: testEnvironmentName}
 	req.Owner.ComponentName = testComponent
@@ -135,9 +136,9 @@ func TestCreateWorkload_ReleaseLine(t *testing.T) {
 	}, nil)
 	wlSvc.EXPECT().
 		CreateWorkload(mock.Anything, testNS, mock.MatchedBy(func(w *openchoreov1alpha1.Workload) bool {
-			return w.Name == testComponent+"-"+testLine+"-workload" && w.Spec.Owner.ReleaseLine == testLine
+			return w.Name == releaseline.ScopedName(testComponent, testLine, "workload") && w.Spec.Owner.ReleaseLine == testLine
 		})).
-		Return(&openchoreov1alpha1.Workload{ObjectMeta: metav1.ObjectMeta{Name: testComponent + "-" + testLine + "-workload"}}, nil)
+		Return(&openchoreov1alpha1.Workload{ObjectMeta: metav1.ObjectMeta{Name: releaseline.ScopedName(testComponent, testLine, "workload")}}, nil)
 
 	h := newTestHandler(withComponentService(compSvc), withWorkloadService(wlSvc))
 	_, err := h.CreateWorkload(ctx, testNS, testComponent, testLine,

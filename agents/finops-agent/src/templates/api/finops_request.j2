@@ -8,6 +8,9 @@ Analyze the following component that has exceeded its budget:
 {% if search_scope.release_line -%}
 - **Release Line**: {{ search_scope.release_line }}
 {% endif -%}
+{% if search_scope.release_binding -%}
+- **ReleaseBinding**: {{ search_scope.release_binding }}
+{% endif -%}
 
 ## Budget Alert
 - **Triggered at**: {{ budget_alert_triggered_at }}

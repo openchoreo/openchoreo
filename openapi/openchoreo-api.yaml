@@ -10110,7 +10110,7 @@ components:
         releaseBinding:
           type: string
           description: Name of the line's ReleaseBinding in the environment
-          example: hello-next-development
+          example: hello-next-4833a175-development
         release:
           type: string
           description: Name of the ComponentRelease bound in the environment

@@ -86,15 +86,65 @@ func TestEffectiveComponent_NoOverrides(t *testing.T) {
 
 func TestScopedName(t *testing.T) {
 	assert.Equal(t, "orders-dev", ScopedName("orders", "", "dev"))
-	assert.Equal(t, "orders-v2-dev", ScopedName("orders", "v2", "dev"))
+	assert.Regexp(t, `^orders-v2-[0-9a-f]{8}-dev$`, ScopedName("orders", "v2", "dev"))
+	assert.Equal(t, ComponentLineName("orders", "v2")+"-workload", ScopedName("orders", "v2", "workload"))
+
+	// A line's names never equal those of a component named "{component}-{line}", or of the same
+	// component's default line in an environment that starts with the line name.
+	assert.NotEqual(t, ScopedName("orders-v2", "", "workload"), ScopedName("orders", "v2", "workload"))
+	assert.NotEqual(t, ScopedName("api", "", "pre-prod"), ScopedName("api", "pre", "prod"))
+}
+
+func TestReleaseName(t *testing.T) {
+	long := strings.Repeat("c", 60)
+	assert.Equal(t, "orders-544774ffc5", ReleaseName("orders", "", "544774ffc5"))
+	assert.Equal(t, long+"-544774ffc5", ReleaseName(long, "", "544774ffc5"), "the default line's names never change")
+
+	// A release name of a line starts like the line's other names when it fits.
+	assert.Equal(t, ScopedName("orders", "v2", "544774ffc5"), ReleaseName("orders", "v2", "544774ffc5"))
+
+	for _, c := range []struct{ component, line string }{
+		{"customer-notification-service", "feature-checkout"},
+		{long, strings.Repeat("l", 60)},
+	} {
+		for _, suffix := range []string{"544774ffc5", "20261027-1", "20261027-999"} {
+			name := ReleaseName(c.component, c.line, suffix)
+			assert.LessOrEqual(t, len(name), 63, name)
+			assert.Equal(t, ReleaseNameBase(c.component, c.line)+"-"+suffix, name)
+		}
+	}
+	assert.NotEqual(t, ReleaseNameBase(long, "a"), ReleaseNameBase(long, "b"))
 }
 
 func TestComponentLineName(t *testing.T) {
 	assert.Equal(t, "hello", ComponentLineName("hello", ""))
-	assert.Equal(t, "hello-next", ComponentLineName("hello", "next"))
+	assert.Regexp(t, `^hello-next-[0-9a-f]{8}$`, ComponentLineName("hello", "next"))
+	assert.NotEqual(t, ComponentLineName("a-b", "c"), ComponentLineName("a", "b-c"))
 
 	component, line := strings.Repeat("c", 40), strings.Repeat("l", 40)
 	a, b := ComponentLineName(component, line), ComponentLineName(component, line+"x")
 	assert.LessOrEqual(t, len(a), dpkubernetes.MaxServiceNameLength)
 	assert.NotEqual(t, a, b)
+}
+
+func TestObjectBaseName(t *testing.T) {
+	assert.Regexp(t, `^hello-next-dev-[0-9a-f]{8}$`, ObjectBaseName("hello", "next", "dev"))
+	assert.NotEqual(t, ObjectBaseName("a-b", "c", "dev"), ObjectBaseName("a", "b-c", "dev"))
+}
+
+func TestRenderedReleaseName(t *testing.T) {
+	// A RenderedRelease name of a line is its ObjectBaseName when it fits.
+	assert.Equal(t, ObjectBaseName("hello", "next", "development"), RenderedReleaseName("hello", "next", "development"))
+
+	for _, c := range [][3]string{
+		{"customer-notification-service", "next", "development"},
+		{"customer-notification-service", "feature-checkout", "development"},
+		{strings.Repeat("c", 60), strings.Repeat("l", 60), strings.Repeat("e", 60)},
+	} {
+		name := RenderedReleaseName(c[0], c[1], c[2])
+		assert.LessOrEqual(t, len(name+"-observability"), 63, name)
+	}
+	assert.NotEqual(t,
+		RenderedReleaseName("customer-notification-service", "feature-checkout", "development"),
+		RenderedReleaseName("customer-notification-service", "feature-checkout", "staging"))
 }

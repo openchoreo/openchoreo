@@ -377,7 +377,7 @@ func (s *componentService) generateReleaseName(ctx context.Context, namespaceNam
 
 	now := metav1.Now()
 	dateStr := now.Format("20060102")
-	base := releaseline.ScopedName(componentName, line, dateStr)
+	base := releaseline.ReleaseName(componentName, line, dateStr)
 	todayPrefix := base + "-"
 	todayCount := 0
 	for _, release := range releaseList.Items {

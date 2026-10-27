@@ -15,6 +15,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // TestPipeline_Render_DefaultServiceTypeLinesDoNotCollide renders the default service
@@ -143,7 +144,7 @@ spec:
 		assert.False(t, v1Paths[path], "both release lines route %s", path)
 	}
 
-	assert.Equal(t, "orders-v1", v1Svc["metadata"].(map[string]any)["name"])
+	assert.Equal(t, releaseline.ComponentLineName("orders", "v1"), v1Svc["metadata"].(map[string]any)["name"])
 	unlined := find(render(""), "Service")[0]
 	assert.Equal(t, "orders", unlined["metadata"].(map[string]any)["name"],
 		"a component without lines keeps its component-named Service")

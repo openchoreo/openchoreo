@@ -58,7 +58,7 @@ Given a component that has triggered a budget alert, you must:
 - Set recommended memory request to P95 actual usage + 25% headroom
 - Set recommended memory limit to 1.5x the recommended request (or based on peak usage + headroom)
 - Calculate estimated savings based on the difference between current and recommended resource costs
-- Set `release_binding` to the name of the component's ReleaseBinding for the target environment. The ReleaseBinding name follows the convention `<component>-<environment>` (e.g. `my-service-development`) for the default line, or `<component>-<release line>-<environment>` (e.g. `my-service-canary-development`) when the request names another release line. A request whose release line is `default`, or that names none, uses the default line's name. Use the component name, release line and environment from the request to construct it.
+- Set `release_binding` to the ReleaseBinding the request names. If the request names none, use `<component>-<environment>` (e.g. `my-service-development`), built from the component name and environment in the request.
 
 ## Output Format Requirements
 

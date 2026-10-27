@@ -492,7 +492,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+          name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -506,7 +506,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key)}'
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key)}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
         spec:
@@ -521,7 +521,7 @@ spec:
           - matches:
             - path:
                 type: PathPrefix
-                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}-${endpoint.key}'
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}-${endpoint.key}'
             filters:
               - type: URLRewrite
                 urlRewrite:
@@ -541,7 +541,7 @@ spec:
                   exposeHeaders: ["*"]
                   allowCredentials: false
             backendRefs:
-            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
               port: ${endpoint.value.port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
@@ -550,7 +550,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key, "internal")}'
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key, "internal")}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
         spec:
@@ -565,7 +565,7 @@ spec:
           - matches:
             - path:
                 type: PathPrefix
-                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}-${endpoint.key}'
+                value: '/${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}-${endpoint.key}'
             filters:
               - type: URLRewrite
                 urlRewrite:
@@ -573,7 +573,7 @@ spec:
                     type: ReplacePrefixMatch
                     replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
             backendRefs:
-            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+            - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
               port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
@@ -761,7 +761,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+          name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -776,7 +776,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key)}'
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key)}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
         spec:
@@ -786,10 +786,10 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint.key, metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             - backendRefs:
-                - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+                - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
                   port: ${endpoint.value.port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
@@ -798,7 +798,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, endpoint.key, "internal")}'
+          name: '${oc_generate_name(metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, endpoint.key, "internal")}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
         spec:
@@ -808,10 +808,10 @@ spec:
           hostnames: |
             ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint.key, metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             - backendRefs:
-                - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentName + "-" + metadata.releaseLineName}'
+                - name: '${metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName}'
                   port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
@@ -2057,7 +2057,7 @@ spec:
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
-            value: v1
+            value: "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
           - name: git-secret
             value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret
@@ -2277,7 +2277,7 @@ spec:
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
-            value: v1
+            value: "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
           - name: git-secret
             value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret
@@ -2497,7 +2497,7 @@ spec:
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
-            value: v1
+            value: "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
           - name: git-secret
             value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret
@@ -2752,7 +2752,7 @@ spec:
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
-            value: v1
+            value: "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
           - name: git-secret
             value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret

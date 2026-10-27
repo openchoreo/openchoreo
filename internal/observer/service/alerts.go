@@ -648,6 +648,9 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 	}
 	// An alert without a release line comes from the component's default line.
 	searchScope["releaseLine"] = cmp.Or(alertDetails.ReleaseLine, releaseline.DefaultLine)
+	// The agent names the ReleaseBinding to right-size, and can't derive a line's binding name itself.
+	searchScope["releaseBinding"] = releaseline.ScopedName(alertDetails.Component,
+		releaseline.Normalize(alertDetails.ReleaseLine), alertDetails.Environment)
 
 	// Build the FinOps analysis payload
 	finOpsPayload := map[string]interface{}{

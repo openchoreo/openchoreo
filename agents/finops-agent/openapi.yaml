@@ -315,6 +315,10 @@ components:
           type: string
           nullable: true
           description: Release line the budget alert belongs to, for components with release lines.
+        releaseBinding:
+          type: string
+          nullable: true
+          description: ReleaseBinding of the component's line in the environment, which a recommendation right-sizes.
 
     BudgetedCost:
       type: object

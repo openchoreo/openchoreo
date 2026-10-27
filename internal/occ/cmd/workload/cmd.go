@@ -46,7 +46,7 @@ Examples:
   occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest --output-path workload-cr.yaml
 
-  # Create the workload of a release line, named product-catalog-next-workload
+  # Create the workload of a release line, named product-catalog-next-3644afd1-workload
   occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --release-line next --image myimage:next
 

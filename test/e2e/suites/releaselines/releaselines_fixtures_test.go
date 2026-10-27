@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -92,9 +93,9 @@ func objectMeta(name string) metav1.ObjectMeta {
 	}
 }
 
-// scopedName mirrors how the controllers name the objects of a release line.
+// scopedName names the objects of a release line as the controllers do.
 func scopedName(component, line, suffix string) string {
-	return fmt.Sprintf("%s-%s-%s", component, line, suffix)
+	return releaseline.ScopedName(component, line, suffix)
 }
 
 func cpNamespaceYAML() string {

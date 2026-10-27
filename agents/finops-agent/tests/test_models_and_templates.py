@@ -55,6 +55,7 @@ def test_analyze_request_accepts_release_line():
                 "project": "p",
                 "environment": "dev",
                 "releaseLine": "canary",
+                "releaseBinding": "c-canary-1a2b3c4d-dev",
             },
             "budgetedCost": {"amount": 10.0, "period": "5d", "currency": "USD"},
             "actualCost": {"amount": 25.0, "currency": "USD"},
@@ -63,6 +64,7 @@ def test_analyze_request_accepts_release_line():
     )
     assert req.search_scope.release_line == "canary"
     assert req.search_scope.model_dump()["release_line"] == "canary"
+    assert req.search_scope.release_binding == "c-canary-1a2b3c4d-dev"
 
 
 def test_request_template_renders_scope_and_costs():
@@ -82,3 +84,11 @@ def test_request_template_names_the_release_line():
     plain = render("api/finops_request.j2", make_request_context())
     assert "Release Line" not in plain
     assert "release line" not in plain
+
+
+def test_request_template_names_the_release_binding():
+    ctx = make_request_context()
+    binding = "my-service-canary-1a2b3c4d-development"
+    ctx["search_scope"] = {**ctx["search_scope"], "release_binding": binding}
+    assert f"- **ReleaseBinding**: {binding}" in render("api/finops_request.j2", ctx)
+    assert "ReleaseBinding" not in render("api/finops_request.j2", make_request_context())

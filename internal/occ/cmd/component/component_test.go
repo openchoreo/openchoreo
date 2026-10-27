@@ -18,6 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 func TestFindLowestEnvironment(t *testing.T) {
@@ -1578,6 +1579,12 @@ func TestStartWorkflow_ReleaseLineRejectsSet(t *testing.T) {
 
 const lineNext = "next"
 
+// The binding names of line next, as occ and the controllers name them.
+var (
+	nextDev     = releaseline.ScopedName("hello", lineNext, "dev")
+	nextStaging = releaseline.ScopedName("hello", lineNext, "staging")
+)
+
 type bindingOwner = struct {
 	ComponentName string  `json:"componentName"`
 	ProjectName   string  `json:"projectName"`
@@ -1609,20 +1616,20 @@ func TestDeploy_ReleaseLine_DeployToLowestEnv(t *testing.T) {
 		return req.ReleaseLine != nil && *req.ReleaseLine == lineNext
 	})).Return(&gen.ComponentRelease{Metadata: gen.ObjectMeta{Name: "hello-next-20260101-1"}}, nil)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
-	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "hello-next-dev").Return(nil, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextDev).Return(nil, nil)
 	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
-		return rb.Metadata.Name == "hello-next-dev" && rb.Spec.Environment == "dev" &&
+		return rb.Metadata.Name == nextDev && rb.Spec.Environment == "dev" &&
 			rb.Spec.Owner.ReleaseLine != nil && *rb.Spec.Owner.ReleaseLine == lineNext &&
 			*rb.Spec.ReleaseName == "hello-next-20260101-1"
 	})).Return(&gen.ReleaseBinding{
-		Metadata: gen.ObjectMeta{Name: "hello-next-dev"},
+		Metadata: gen.ObjectMeta{Name: nextDev},
 		Spec:     &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: makeReleaseName("hello-next-20260101-1")},
 	}, nil)
 
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next"}))
 	})
-	assert.Contains(t, out, "hello-next-dev")
+	assert.Contains(t, out, nextDev)
 }
 
 func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
@@ -1634,17 +1641,17 @@ func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
 			{Metadata: gen.ObjectMeta{Name: "hello-main-dev"}, Spec: &gen.ReleaseBindingSpec{
 				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &main}, ReleaseName: makeReleaseName("hello-main-r1"),
 			}},
-			{Metadata: gen.ObjectMeta{Name: "hello-next-dev"}, Spec: &gen.ReleaseBindingSpec{
+			{Metadata: gen.ObjectMeta{Name: nextDev}, Spec: &gen.ReleaseBindingSpec{
 				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &next}, ReleaseName: makeReleaseName("hello-next-r2"),
 			}},
 		},
 	}, nil)
-	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "hello-next-staging").Return(nil, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextStaging).Return(nil, nil)
 	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
-		return rb.Metadata.Name == "hello-next-staging" && *rb.Spec.ReleaseName == "hello-next-r2" &&
+		return rb.Metadata.Name == nextStaging && *rb.Spec.ReleaseName == "hello-next-r2" &&
 			rb.Spec.Owner.ReleaseLine != nil && *rb.Spec.Owner.ReleaseLine == lineNext
 	})).Return(&gen.ReleaseBinding{
-		Metadata: gen.ObjectMeta{Name: "hello-next-staging"},
+		Metadata: gen.ObjectMeta{Name: nextStaging},
 		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r2")},
 	}, nil)
 
@@ -1656,14 +1663,14 @@ func TestDeploy_ReleaseLine_RollbackPinsRelease(t *testing.T) {
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 	existing := &gen.ReleaseBinding{
-		Metadata: gen.ObjectMeta{Name: "hello-next-staging"},
+		Metadata: gen.ObjectMeta{Name: nextStaging},
 		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r2")},
 	}
-	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "hello-next-staging").Return(existing, nil)
-	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "hello-next-staging", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextStaging).Return(existing, nil)
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", nextStaging, mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
 		return *rb.Spec.ReleaseName == "hello-next-r1"
 	})).Return(&gen.ReleaseBinding{
-		Metadata: gen.ObjectMeta{Name: "hello-next-staging"},
+		Metadata: gen.ObjectMeta{Name: nextStaging},
 		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r1")},
 	}, nil)
 

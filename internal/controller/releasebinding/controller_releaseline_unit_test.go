@@ -98,9 +98,14 @@ func TestMakeReleaseNames_ReleaseLine(t *testing.T) {
 	rb := makeValidReleaseBinding(testProjectName, testComponentName)
 	rb.Spec.Environment = testEnvStaging
 
-	base := releaseline.ObjectBaseName(testComponentName, testReleaseLine, testEnvStaging)
+	base := releaseline.RenderedReleaseName(testComponentName, testReleaseLine, testEnvStaging)
 	assert.Equal(t, base, makeDataPlaneReleaseName(cr, rb))
 	assert.Equal(t, base+"-observability", makeObservabilityReleaseName(cr, rb))
+
+	// The names label every object the releases apply, so they fit a label value however long the names are.
+	long := makeValidComponentRelease(testProjectName, "customer-notification-service")
+	long.Spec.Owner.ReleaseLine = "feature-checkout"
+	assert.LessOrEqual(t, len(makeObservabilityReleaseName(long, rb)), 63)
 
 	// Component "a-b" on line "c" must not share release names with component "a" on line "b-c",
 	// or with component "a-b-c" without lines.

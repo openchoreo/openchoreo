@@ -59,7 +59,22 @@ func MinK8sNameLength(numberOfNames int) int {
 	return hashLength + numberOfNames*(1+len(separator))
 }
 
+// GenerateK8sNameWithHashInput generates a Kubernetes-compliant name like
+// GenerateK8sNameWithLengthLimit, but hashes hashInput instead of the names.
+func GenerateK8sNameWithHashInput(limit int, hashInput string, names ...string) string {
+	return buildK8sName(limit, hashInput, names)
+}
+
 func generateK8sName(limit int, extraHashInput string, names []string) string {
+	// Generate a hash from the full original concatenated names for uniqueness
+	hashInput := strings.Join(names, separator)
+	if extraHashInput != "" {
+		hashInput += separator + extraHashInput
+	}
+	return buildK8sName(limit, hashInput, names)
+}
+
+func buildK8sName(limit int, hashInput string, names []string) string {
 	// Clean and sanitize each name part
 	cleanedNames := make([]string, 0, len(names))
 	for _, name := range names {
@@ -67,11 +82,6 @@ func generateK8sName(limit int, extraHashInput string, names []string) string {
 		cleanedNames = append(cleanedNames, cleanedName)
 	}
 
-	// Generate a hash from the full original concatenated names for uniqueness
-	hashInput := strings.Join(names, separator)
-	if extraHashInput != "" {
-		hashInput += separator + extraHashInput
-	}
 	hashBytes := sha256.Sum256([]byte(hashInput))
 	hashString := hex.EncodeToString(hashBytes[:])[:hashLength]
 

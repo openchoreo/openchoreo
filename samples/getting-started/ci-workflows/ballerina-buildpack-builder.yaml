@@ -97,7 +97,7 @@ spec:
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
-            value: v1
+            value: "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
           - name: git-secret
             value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret

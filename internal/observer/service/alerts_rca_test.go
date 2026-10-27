@@ -16,6 +16,7 @@ import (
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	legacytypes "github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 func TestTriggerRCAAnalysis_ReleaseLine(t *testing.T) {
@@ -66,9 +67,11 @@ func TestTriggerFinOpsAnalysis_ReleaseLine(t *testing.T) {
 		name        string
 		releaseLine string
 		wantLine    any
+		wantBinding any
 	}{
-		{name: "line alert carries the line", releaseLine: "canary", wantLine: "canary"},
-		{name: "default line alert names default", releaseLine: "", wantLine: "default"},
+		{name: "line alert carries the line", releaseLine: "canary", wantLine: "canary",
+			wantBinding: releaseline.ScopedName("greeter", "canary", "development")},
+		{name: "default line alert names default", releaseLine: "", wantLine: "default", wantBinding: "greeter-development"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,6 +105,7 @@ func TestTriggerFinOpsAnalysis_ReleaseLine(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, "greeter", scope["component"])
 			assert.Equal(t, tt.wantLine, scope["releaseLine"])
+			assert.Equal(t, tt.wantBinding, scope["releaseBinding"])
 		})
 	}
 }

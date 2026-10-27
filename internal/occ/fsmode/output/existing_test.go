@@ -119,7 +119,7 @@ metadata:
 
 func TestReleaseNameBase(t *testing.T) {
 	assert.Equal(t, "my-comp", ReleaseNameBase("my-comp", ""))
-	assert.Equal(t, "my-comp-next", ReleaseNameBase("my-comp", "next"))
+	assert.Regexp(t, `^my-comp-next-[0-9a-f]{8}$`, ReleaseNameBase("my-comp", "next"))
 }
 
 func TestGetNextVersionNumber(t *testing.T) {

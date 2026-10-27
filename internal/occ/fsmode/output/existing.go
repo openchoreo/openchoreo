@@ -13,15 +13,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
-// ReleaseNameBase is the part of a generated release name before its date: the component name,
-// followed by the release line for a line's release.
+// ReleaseNameBase is the part of a generated release name before its date, as releaseline.ReleaseNameBase
+// names it.
 func ReleaseNameBase(componentName, releaseLine string) string {
-	if releaseLine == "" {
-		return componentName
-	}
-	return componentName + "-" + releaseLine
+	return releaseline.ReleaseNameBase(componentName, releaseLine)
 }
 
 // releaseNameBaseOf returns the ReleaseNameBase of a release's owner.

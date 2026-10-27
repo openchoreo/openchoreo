@@ -102,11 +102,9 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 
 			for _, line := range []string{lineStable, lineCanary} {
 				By("checking the " + line + " Service selects only its own line's pods")
-				service := componentGreeter + "-" + line
-				selector, err := framework.KubectlGetJsonpath(kubeContext, dpDevNs, "service", service,
-					`{.spec.selector.openchoreo\.dev/release-line}`)
-				Expect(err).NotTo(HaveOccurred(), "Service %s not found", service)
-				Expect(selector).To(Equal(line))
+				service := lineService(line)
+				Expect(service.Name).To(HavePrefix(componentGreeter + "-" + line + "-"))
+				Expect(service.Spec.Selector).To(HaveKeyWithValue(labelReleaseLine, line))
 
 				By("checking the " + line + " pods are Running")
 				Eventually(func(g Gomega) {
@@ -131,7 +129,7 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			for _, line := range []string{lineStable, lineCanary} {
 				By("calling the " + line + " public URL through the gateway")
 				url := externalURL(scopedName(componentGreeter, line, envDev)) + greeterPath
-				Expect(url).To(ContainSubstring("/" + componentGreeter + "-" + line + "-http"))
+				Expect(url).To(MatchRegexp("/" + componentGreeter + "-" + line + "-[0-9a-f]{8}-http"))
 				Eventually(func() error {
 					_, err := framework.InvokeFromPodByLabel(kubeContext, dpDevNs, testerLabel, testerContain, url, 10)
 					return err
@@ -338,6 +336,18 @@ func lineDeployment(line string) appsv1.Deployment {
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(json.Unmarshal([]byte(out), &list)).To(Succeed())
 		g.Expect(list.Items).To(HaveLen(1), "expected one Deployment for line %s", line)
+	}, 2*time.Minute, 2*time.Second).Should(Succeed())
+	return list.Items[0]
+}
+
+func lineService(line string) corev1.Service {
+	var list corev1.ServiceList
+	Eventually(func(g Gomega) {
+		out, err := framework.Kubectl(kubeContext, "get", "service", "-n", dpDevNs,
+			"-l", labelComponent+"="+componentGreeter+","+labelReleaseLine+"="+line, "-o", "json")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(json.Unmarshal([]byte(out), &list)).To(Succeed())
+		g.Expect(list.Items).To(HaveLen(1), "expected one Service for line %s", line)
 	}, 2*time.Minute, 2*time.Second).Should(Succeed())
 	return list.Items[0]
 }

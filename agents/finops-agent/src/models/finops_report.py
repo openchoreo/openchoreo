@@ -76,8 +76,8 @@ class ResourceRecommendation(BaseModel):
     release_binding: str | None = Field(
         default=None,
         description=(
-            "Name of the ReleaseBinding to patch (e.g. 'my-service-development', or "
-            "'my-service-canary-development' for a release line). Required for remediation."
+            "Name of the ReleaseBinding to patch, as named in the request "
+            "(e.g. 'my-service-development'). Required for remediation."
         ),
     )
 

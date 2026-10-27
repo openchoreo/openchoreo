@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	rlconfig "github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -178,7 +179,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 				line := reconcileUntil(name, ReasonComponentReleaseReady)
 				Expect(line.Finalizers).To(ContainElement(ReleaseLineFinalizer))
 				Expect(line.Status.LatestRelease).NotTo(BeNil())
-				Expect(line.Status.LatestRelease.Name).To(HavePrefix(compName + "-" + name + "-"))
+				Expect(line.Status.LatestRelease.Name).To(HavePrefix(rlconfig.ComponentLineName(compName, name) + "-"))
 				releases[name] = line.Status.LatestRelease.Name
 			}
 
@@ -208,7 +209,7 @@ var _ = Describe("ReleaseLine Controller", func() {
 				envs := fetchLine(g, v2Line).Status.Environments
 				g.Expect(envs).To(HaveLen(1))
 				g.Expect(envs[0].Environment).To(Equal("dev"))
-				g.Expect(envs[0].ReleaseBinding).To(Equal(compName + "-" + v2Line + "-dev"))
+				g.Expect(envs[0].ReleaseBinding).To(Equal(rlconfig.ScopedName(compName, v2Line, "dev")))
 				g.Expect(envs[0].Release).To(Equal(releases[v2Line]))
 			}, timeout, interval).Should(Succeed())
 		})

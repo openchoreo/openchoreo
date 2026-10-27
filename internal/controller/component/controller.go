@@ -676,13 +676,13 @@ func (r *Reconciler) handleAutoDeploy(
 			}(),
 			"newHash", currentHash)
 
-		releaseName := releaseline.ScopedName(comp.Name, line, currentHash)
+		releaseName := releaseline.ReleaseName(comp.Name, line, currentHash)
 		if _, err := r.ensureComponentRelease(ctx, comp, crSpec, releaseName, currentHash); err != nil {
 			return latest, err
 		}
 	}
 
-	releaseName := releaseline.ScopedName(comp.Name, line, currentHash)
+	releaseName := releaseline.ReleaseName(comp.Name, line, currentHash)
 	latest = &openchoreov1alpha1.LatestRelease{
 		Name:        releaseName,
 		ReleaseHash: currentHash,

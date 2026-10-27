@@ -1157,7 +1157,7 @@ func (r *Reconciler) setReleaseSyncedCondition(
 // Release naming helper functions
 
 // makeDataPlaneReleaseName returns the name for a dataplane Release.
-// Format: {componentName}-{environment}, or releaseline.ObjectBaseName for a release line
+// Format: {componentName}-{environment}, or releaseline.RenderedReleaseName for a release line
 func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
 	return releaseName(componentRelease, releaseBinding.Spec.Environment)
 }
@@ -1171,7 +1171,7 @@ func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.Component
 func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environment string) string {
 	owner := componentRelease.Spec.Owner
 	if owner.ReleaseLine != "" {
-		return releaseline.ObjectBaseName(owner.ComponentName, owner.ReleaseLine, environment)
+		return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
 	}
 	return fmt.Sprintf("%s-%s", owner.ComponentName, environment)
 }
