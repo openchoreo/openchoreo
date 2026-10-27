@@ -1,5 +1,6 @@
 OpenChoreo Control Plane installed in namespace "{{ .Release.Namespace }}".
 
+{{- if .Values.backstage.enabled }}
 {{- if .Values.backstage.http.enabled }}
 
 URLs:
@@ -8,8 +9,20 @@ URLs:
 
 {{- else }}
 
+URLs:
+  API:     {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
+
 Port-forward to access the console:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.backstage.name" . }} 7007:7007
+{{- end }}
+{{- else }}
+
+URLs:
+  API:     {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
+
+The Backstage portal is not installed. Drive the platform with the occ CLI or the
+API above, or run your own portal:
+  https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/
 {{- end }}
 
 Gateway:
@@ -21,6 +34,15 @@ Gateway:
 Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
+
+{{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
+
+The event forwarder is enabled but the Backstage portal is not. Its default
+webhook endpoint is the portal's in-cluster Service, so every resource change
+will be dispatched at an address that does not exist. Either disable it:
+  --set eventForwarder.enabled=false
+or point eventForwarder.config.webhooks.endpoints at your own subscriber.
+{{- end }}
 
 {{- if .Values.clusterGateway.tls.existingSecret }}
 

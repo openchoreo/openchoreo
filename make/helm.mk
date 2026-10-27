@@ -30,13 +30,6 @@ helm-generate.%: yq helm-schema ## Generate helm chart for the specified chart n
 	$(eval CHART_NAME := $(word 1,$(subst ., ,$*)))
 	$(eval CHART_PATH := $(HELM_CHARTS_DIR)/$(CHART_NAME))
 	@$(call log_info, Generating helm chart '$(CHART_NAME)')
-	@# Update backstage image tag for openchoreo-backstage chart
-	@if [ ${CHART_NAME} == "openchoreo-backstage" ]; then \
-		VALUES_FILE=$(CHART_PATH)/values.yaml; \
-		if [ -f "$$VALUES_FILE" ]; then \
-		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
-		fi \
-	fi
 	@case ${CHART_NAME} in \
 	"openchoreo-control-plane") \
 		$(call log_info, Generating resources for control-plane chart); \

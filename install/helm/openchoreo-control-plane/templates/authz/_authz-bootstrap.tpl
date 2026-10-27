@@ -150,11 +150,22 @@ Roles before bindings. Consumed by the bootstrap ConfigMap.
 {{- $root := . -}}
 {{- $bootstrap := .Values.openchoreoApi.config.security.authorization.bootstrap -}}
 {{- range $r := $bootstrap.roles }}
+{{- if or (not $r.requiresPortal) $root.Values.backstage.enabled }}
 ---
 {{ include "openchoreo-control-plane.authz.roleManifest" (dict "role" $r "root" $root) }}
+{{- end }}
 {{- end }}
 {{- range $m := $bootstrap.mappings }}
 ---
 {{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" $m "root" $root) }}
+{{- end }}
+{{/*
+The portal's role is a `requiresPortal` entry in bootstrap.roles above. Its
+binding is appended here instead, because the overlays that replace
+bootstrap.mappings would otherwise each need their own copy.
+*/}}
+{{- if $root.Values.backstage.enabled }}
+---
+{{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" (include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml) "root" $root) }}
 {{- end }}
 {{- end }}
