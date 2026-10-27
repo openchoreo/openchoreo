@@ -32,7 +32,7 @@ func NewBindingGenerator(index *fsmode.Index) *BindingGenerator {
 type BindingOptions struct {
 	ProjectName      string
 	ComponentName    string
-	ReleaseLine      string // The component's release line; empty or default for its default line
+	ReleaseLine      string // The component's release line; empty or main for its main line
 	ComponentRelease string // If empty, auto-select based on environment position
 	TargetEnv        string
 	PipelineInfo     *pipeline.PipelineInfo
@@ -59,7 +59,7 @@ type BindingInfo struct {
 	BindingName      string
 	ProjectName      string
 	ComponentName    string
-	ReleaseLine      string // Empty for the component's default line
+	ReleaseLine      string // Empty for the component's main line
 	ReleaseName      string
 	Environment      string
 	Binding          *unstructured.Unstructured
@@ -71,7 +71,7 @@ type BindingInfo struct {
 type BindingError struct {
 	ProjectName   string
 	ComponentName string
-	ReleaseLine   string // Empty for the component's default line
+	ReleaseLine   string // Empty for the component's main line
 	Error         error
 }
 

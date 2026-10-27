@@ -30,7 +30,7 @@ type BulkReleaseResult struct {
 type ReleaseInfo struct {
 	ComponentName string
 	ProjectName   string
-	ReleaseLine   string // Empty for the component's default line
+	ReleaseLine   string // Empty for the component's main line
 	ReleaseName   string
 	Release       *unstructured.Unstructured
 }
@@ -39,7 +39,7 @@ type ReleaseInfo struct {
 type ReleaseError struct {
 	ComponentName string
 	ProjectName   string
-	ReleaseLine   string // Empty for the component's default line
+	ReleaseLine   string // Empty for the component's main line
 	Error         error
 }
 

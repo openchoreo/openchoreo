@@ -81,13 +81,15 @@ spec:
                   releaseLine:
                     description: |-
                       ReleaseLine names the ReleaseLine this resource belongs to.
-                      Empty for the component's default line, which is implicit and has no ReleaseLine.
+                      Empty for the component's main line, which is implicit and has no ReleaseLine.
                     maxLength: 63
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                     x-kubernetes-validations:
-                    - message: default is the implicit line; omit releaseLine for
-                        it
+                    - message: main is the implicit line; omit releaseLine for it
+                      rule: self != 'main'
+                    - message: default is a reserved name; omit releaseLine for the
+                        main line
                       rule: self != 'default'
                 required:
                 - componentName
@@ -314,7 +316,7 @@ spec:
                       type: string
                     releaseLine:
                       description: ReleaseLine is the target component's release line.
-                        Empty for its default line.
+                        Empty for its main line.
                       type: string
                     visibility:
                       description: Visibility is the desired visibility level for
@@ -622,7 +624,7 @@ spec:
                       type: string
                     releaseLine:
                       description: ReleaseLine is the target component's release line.
-                        Empty for its default line.
+                        Empty for its main line.
                       type: string
                   required:
                   - component
@@ -695,7 +697,7 @@ spec:
                       type: string
                     releaseLine:
                       description: ReleaseLine is the target component's release line.
-                        Empty for its default line.
+                        Empty for its main line.
                       type: string
                     url:
                       description: URL is the resolved endpoint URL.

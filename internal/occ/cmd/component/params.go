@@ -35,7 +35,7 @@ type DeployParams struct {
 	Release       string   // --release flag (optional release name)
 	To            string   // --to flag (target env for promotion)
 	Set           []string // --set values (type.path=value)
-	ReleaseLine   string   // --release-line flag; empty or "default" is the default line
+	ReleaseLine   string   // --release-line flag; empty or "main" is the main line
 }
 
 func (p DeployParams) GetNamespace() string     { return p.Namespace }
@@ -121,8 +121,8 @@ type LogsParams struct {
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)
-	ReleaseLine string // optional — empty means logs from the component's default line
-	// AllReleaseLines covers every line of the component instead of its default line.
+	ReleaseLine string // optional — empty means logs from the component's main line
+	// AllReleaseLines covers every line of the component instead of its main line.
 	AllReleaseLines bool
 }
 
@@ -137,7 +137,7 @@ type ExecParams struct {
 	Command     []string // command to run; defaults to ["/bin/sh"] when empty
 	TTY         bool
 	Stdin       bool
-	ReleaseLine string // empty or "default" is the default line
+	ReleaseLine string // empty or "main" is the main line
 }
 
 func (p ExecParams) GetNamespace() string     { return p.Namespace }

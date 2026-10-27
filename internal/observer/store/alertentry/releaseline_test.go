@@ -23,7 +23,7 @@ func TestQueryAlertEntries_ReleaseLine(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, store.Initialize(ctx))
 
-	for _, line := range []struct{ name, id string }{{"main", "line-main"}, {"next", "line-next"}, {"", ""}} {
+	for _, line := range []struct{ name, id string }{{"stable", "line-stable"}, {"next", "line-next"}, {"", ""}} {
 		_, err := store.WriteAlertEntry(ctx, &AlertEntry{
 			Timestamp:       "2026-03-07T10:20:30Z",
 			AlertRuleName:   "high-error-rate-" + line.name,
@@ -37,8 +37,8 @@ func TestQueryAlertEntries_ReleaseLine(t *testing.T) {
 	params := QueryParams{StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1"}
 	entries, total, err := store.QueryAlertEntries(ctx, params)
 	require.NoError(t, err)
-	require.Equal(t, 1, total, "a component-scoped query returns its default line")
-	assert.Empty(t, entries[0].ReleaseLineID, "the default line has no line UID")
+	require.Equal(t, 1, total, "a component-scoped query returns its main line")
+	assert.Empty(t, entries[0].ReleaseLineID, "the main line has no line UID")
 
 	params.AllReleaseLines = true
 	_, total, err = store.QueryAlertEntries(ctx, params)
@@ -95,5 +95,5 @@ func TestInitialize_AddsReleaseLineColumnsToExistingTable(t *testing.T) {
 		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 1, total, "rows written before release lines belong to the default line")
+	assert.Equal(t, 1, total, "rows written before release lines belong to the main line")
 }

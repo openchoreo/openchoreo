@@ -113,7 +113,7 @@ type metricsAdapterSearchScope struct {
 	ProjectUID     *string `json:"projectUid,omitempty"`
 	EnvironmentUID *string `json:"environmentUid,omitempty"`
 	ReleaseLineUID *string `json:"releaseLineUid,omitempty"`
-	// AllReleaseLines covers every line of the component instead of its default line.
+	// AllReleaseLines covers every line of the component instead of its main line.
 	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 

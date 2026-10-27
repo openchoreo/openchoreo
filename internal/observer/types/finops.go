@@ -19,7 +19,7 @@ type CostQueryRequest struct {
 	// ReleaseLine name. Optional; when set, narrows the response to this release line
 	// of the component. Requires Component.
 	ReleaseLine string
-	// AllReleaseLines covers every line of the component. Without it, a component covers its default line.
+	// AllReleaseLines covers every line of the component. Without it, a component covers its main line.
 	AllReleaseLines bool
 	// StartTime is the inclusive lower bound of the cost window (RFC 3339).
 	StartTime string

@@ -646,7 +646,7 @@ func TestResolveReleaseLineScope(t *testing.T) {
 
 	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "", false)
 	require.NoError(t, err)
-	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers the default line, as before release lines")
+	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers the main line, as before release lines")
 
 	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "", true)
 	require.NoError(t, err)
@@ -656,7 +656,7 @@ func TestResolveReleaseLineScope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component already covers every line")
 
-	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "default", false)
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "main", false)
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseLineScope{}, scope)
 
@@ -676,9 +676,9 @@ func TestCheckReleaseLineApplied(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v1/namespaces/ns/components/lined/releaselines":
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
 		case "/api/v1/namespaces/ns/components/plain/releaselines":
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -693,7 +693,7 @@ func TestCheckReleaseLineApplied(t *testing.T) {
 		applied   bool
 		wantErr   bool
 	}{
-		"default line":                         {component: "lined"},
+		"main line":                            {component: "lined"},
 		"one line, applied":                    {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, applied: true},
 		"one line, not applied":                {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, wantErr: true},
 		"every line, applied":                  {component: "lined", lines: ReleaseLineScope{All: true}, applied: true},

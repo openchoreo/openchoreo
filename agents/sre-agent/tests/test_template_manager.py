@@ -67,8 +67,8 @@ def test_rca_prompt_describes_release_line_scopes():
             "scope": _make_scope("staging"),
         },
     )
-    # Omitting release_line covers the default line only; every line needs all_release_lines.
-    assert "queries cover its default line unless you set `release_line`" in rendered
+    # Omitting release_line covers the main line only; every line needs all_release_lines.
+    assert "queries cover its main line unless you set `release_line`" in rendered
     assert "`all_release_lines`" in rendered
     assert "leaving it out returns every line" not in rendered
 

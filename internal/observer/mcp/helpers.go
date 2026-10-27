@@ -101,15 +101,15 @@ func validateComponentLineAnyEnvScope(namespace, project, component, releaseLine
 
 // releaseLineProperty is the release_line argument of component-scoped query tools.
 func releaseLineProperty() map[string]any {
-	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
-		"the component's default line. Omitted, the result covers the default line unless all_release_lines is set. " +
+	return stringProperty("Release line of the component. Restricts the result to that line, and main to " +
+		"the component's main line. Omitted, the result covers the main line unless all_release_lines is set. " +
 		"Requires component and environment")
 }
 
 // releaseLineAnyEnvProperty is the release_line argument of query tools that span environments.
 func releaseLineAnyEnvProperty() map[string]any {
-	return stringProperty("Release line of the component. Restricts the result to that line, and default to " +
-		"the component's default line. Omitted, the result covers the default line unless all_release_lines is set. " +
+	return stringProperty("Release line of the component. Restricts the result to that line, and main to " +
+		"the component's main line. Omitted, the result covers the main line unless all_release_lines is set. " +
 		"Requires component")
 }
 
@@ -117,7 +117,7 @@ func releaseLineAnyEnvProperty() map[string]any {
 func allReleaseLinesProperty() map[string]any {
 	return map[string]any{
 		"type": "boolean",
-		"description": "Cover every line of the component, its default line and its release lines. " +
+		"description": "Cover every line of the component, its main line and its release lines. " +
 			"Can't be combined with release_line",
 	}
 }

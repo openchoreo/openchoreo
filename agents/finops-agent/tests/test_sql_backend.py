@@ -254,8 +254,8 @@ async def test_release_line_is_stored_returned_and_filterable(backend):
 
 
 @pytest.mark.asyncio
-async def test_default_line_filter_includes_reports_without_a_line(backend):
-    for report_id, line in (("old", None), ("default", "default"), ("canary", "canary")):
+async def test_main_line_filter_includes_reports_without_a_line(backend):
+    for report_id, line in (("old", None), ("main", "main"), ("canary", "canary")):
         await backend.upsert_report(
             report_id=report_id,
             status="completed",
@@ -267,7 +267,7 @@ async def test_default_line_filter_includes_reports_without_a_line(backend):
             release_line=line,
         )
 
-    # Reports written before release lines carry no line and belong to the default line.
-    result = await backend.list_reports(namespace="ns", project="proj", release_line="default")
-    assert sorted(r["reportId"] for r in result["reports"]) == ["default", "old"]
+    # Reports written before release lines carry no line and belong to the main line.
+    result = await backend.list_reports(namespace="ns", project="proj", release_line="main")
+    assert sorted(r["reportId"] for r in result["reports"]) == ["main", "old"]
     assert result["totalCount"] == 2

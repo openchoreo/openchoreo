@@ -153,7 +153,7 @@ func (s *DoraMetricsService) resolveScope(
 		rs.scopeUID = lines.UID
 	case rs.componentUID != "" && !lines.All:
 		// A component without release lines keeps its component rollups and every fact, which equal
-		// its default line's and also hold the history recorded before release lines.
+		// its main line's and also hold the history recorded before release lines.
 		hasLines, err := s.resolver.HasReleaseLines(ctx, namespace, component)
 		if err != nil {
 			// An API without release lines, or a reader without releaseline:view, must not break the queries

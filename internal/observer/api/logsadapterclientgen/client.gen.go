@@ -203,7 +203,7 @@ type AlertRuleRequest struct {
 		// ProjectUid The OpenChoreo project UID to query
 		ProjectUid openapi_types.UUID `json:"projectUid"`
 
-		// ReleaseLineUid The UID of the component's release line the rule evaluates, filtered on the openchoreo.dev/release-line-uid label alone. Absent for the component's default line, which componentUid covers. Adapters that scope the rule to it set the OpenChoreo-Release-Line-Applied response header to "true".
+		// ReleaseLineUid The UID of the component's release line the rule evaluates, filtered on the openchoreo.dev/release-line-uid label alone. Absent for the component's main line, which componentUid covers. Adapters that scope the rule to it set the OpenChoreo-Release-Line-Applied response header to "true".
 		ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 	} `json:"metadata"`
 	Source struct {
@@ -527,7 +527,7 @@ type AuditLogResource struct {
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
 
-	// ReleaseLine The component's release line. Absent for its default line
+	// ReleaseLine The component's release line. Absent for its main line
 	ReleaseLine *string `json:"release_line,omitempty"`
 	Resource    *string `json:"resource,omitempty"`
 	Type        *string `json:"type,omitempty"`
@@ -828,10 +828,10 @@ type ComponentLogEntry struct {
 
 // ComponentSearchScope defines model for ComponentSearchScope.
 type ComponentSearchScope struct {
-	// AllReleaseLines Covers every line of the component, its default line and its release lines: openchoreo.dev/component-uid, or openchoreo.dev/release-line-component-uid, which release line pods carry instead. Has no effect without componentUid, and releaseLineUid takes precedence. Adapters that support it set the OpenChoreo-Release-Line-Applied response header to "true".
+	// AllReleaseLines Covers every line of the component, its main line and its release lines: openchoreo.dev/component-uid, or openchoreo.dev/release-line-component-uid, which release line pods carry instead. Has no effect without componentUid, and releaseLineUid takes precedence. Adapters that support it set the OpenChoreo-Release-Line-Applied response header to "true".
 	AllReleaseLines *bool `json:"allReleaseLines,omitempty"`
 
-	// ComponentUid The UID of the component. On its own it covers the component's default line: openchoreo.dev/component-uid without an openchoreo.dev/release-line-uid label.
+	// ComponentUid The UID of the component. On its own it covers the component's main line: openchoreo.dev/component-uid without an openchoreo.dev/release-line-uid label.
 	ComponentUid   *string `json:"componentUid,omitempty"`
 	EnvironmentUid *string `json:"environmentUid,omitempty"`
 	Namespace      string  `json:"namespace"`

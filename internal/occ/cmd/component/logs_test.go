@@ -114,12 +114,12 @@ func TestPrintLogs_ReleaseLine(t *testing.T) {
 	assert.Contains(t, out, "from next", "the observer already restricted the logs to the line")
 }
 
-func TestPrintLogs_DefaultLineKeyword(t *testing.T) {
-	logs := []client.LogEntry{{Log: "from default", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
+func TestPrintLogs_MainLineKeyword(t *testing.T) {
+	logs := []client.LogEntry{{Log: "from main", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
 	out := testutil.CaptureStdout(t, func() {
-		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "default"})
+		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "main"})
 	})
-	assert.Contains(t, out, "from default", "the observer already restricted the logs to the default line")
+	assert.Contains(t, out, "from main", "the observer already restricted the logs to the main line")
 }
 
 // --- printLogEntry ---

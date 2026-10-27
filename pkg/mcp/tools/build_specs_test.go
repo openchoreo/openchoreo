@@ -191,18 +191,18 @@ func buildWorkflowSpecs() []toolTestSpec {
 	}
 }
 
-func TestTriggerWorkflowRunDefaultLine(t *testing.T) {
+func TestTriggerWorkflowRunMainLine(t *testing.T) {
 	clientSession, mockHandler := setupTestServer(t)
 	defer clientSession.Close()
 
-	// "default" names the implicit line, which builds without a release line.
+	// "main" names the implicit line, which builds without a release line.
 	result, err := clientSession.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "trigger_workflow_run",
 		Arguments: map[string]any{
 			"namespace_name": testNamespaceName,
 			"project_name":   testProjectName,
 			"component_name": testComponentName,
-			"release_line":   "default",
+			"release_line":   "main",
 		},
 	})
 	if err != nil {
@@ -216,6 +216,6 @@ func TestTriggerWorkflowRunDefaultLine(t *testing.T) {
 		t.Fatalf("expected one TriggerWorkflowRun call, got %d", len(calls))
 	}
 	if args := calls[0].([]interface{}); args[4] != "" {
-		t.Errorf("expected release line \"\" for default, got %q", args[4])
+		t.Errorf("expected release line \"\" for main, got %q", args[4])
 	}
 }

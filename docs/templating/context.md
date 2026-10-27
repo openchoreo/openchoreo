@@ -56,8 +56,8 @@ metadata:
   namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
 
   # Release line identity (see ReleaseLine)
-  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty for the component's default line
-  componentLineName: "my-service"       # ${metadata.componentLineName} - the component name on the default line, and a name unique to the release line otherwise (e.g. "my-service-next-a1b2c3d4"); use it for object names (Service, HTTPRoute), gateway hostnames and paths so release lines do not collide with each other or with other components
+  releaseLineName: ""                   # ${metadata.releaseLineName} - the release line being rendered, empty for the component's main line
+  componentLineName: "my-service"       # ${metadata.componentLineName} - the component name on the main line, and a name unique to the release line otherwise (e.g. "my-service-next-a1b2c3d4"); use it for object names (Service, HTTPRoute), gateway hostnames and paths so release lines do not collide with each other or with other components
 
   # Common labels for all resources
   labels: # ${metadata.labels}
@@ -75,7 +75,7 @@ metadata:
     openchoreo.dev/project-uid: "xyz789"
 ```
 
-For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the default line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line. To find every pod of a component, match `openchoreo.dev/component-uid` or `openchoreo.dev/release-line-component-uid`.
+For a release line, `podSelectors` adds `openchoreo.dev/release-line` and `openchoreo.dev/release-line-uid`, and carries the component UID as `openchoreo.dev/release-line-component-uid` instead of `openchoreo.dev/component-uid`, so the main line's selectors never match the line's pods. Label pods with `podSelectors` only, not with `labels`, which keep `openchoreo.dev/component-uid` on every line. To find every pod of a component, match `openchoreo.dev/component-uid` or `openchoreo.dev/release-line-component-uid`.
 
 **Example usage:**
 
@@ -353,7 +353,7 @@ spec:
 ```yaml
 # Create HTTPRoutes only for endpoints with external visibility.
 # A release line's routes, paths and backends use metadata.componentLineName, so they never take
-# the names of the default line or of another component.
+# the names of the main line or of another component.
 - id: httproute-external
   forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
   var: endpoint

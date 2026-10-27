@@ -63,7 +63,7 @@ type QueryParams struct {
 	EnvironmentID string
 	ReleaseLineID string
 	// AllReleaseLines covers every line of the component. Without it, a component covers its
-	// default line.
+	// main line.
 	AllReleaseLines bool
 	Limit           int
 	SortOrder       string

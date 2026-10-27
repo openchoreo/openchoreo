@@ -83,7 +83,7 @@ spec:
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
             echo ">> Image: ${IMAGE}"
-            echo ">> Release line: ${RELEASE_LINE:-default}"
+            echo ">> Release line: ${RELEASE_LINE:-main}"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then

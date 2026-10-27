@@ -257,7 +257,7 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"pipeline promotes into that environment, the release must already be bound in a source " +
 			"environment for the same component and project, otherwise the request is rejected. Each " +
 			"release line of a component has its own binding per environment: set release_line for a line " +
-			"other than default, and bind a release of that line.",
+			"other than main, and bind a release of that line.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
@@ -536,7 +536,7 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPe
 			"build images from source). For components that use workflows to build from source, the workload " +
 			"is generated automatically; use update_workload to modify it if the source repository does not " +
 			"contain a workload descriptor (workload.yaml). Each release line has its own workload: set " +
-			"release_line for a line other than default. " +
+			"release_line for a line other than main. " +
 			"Use get_workload_schema to see the full workload_spec structure before calling this tool.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -634,7 +634,7 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server, perms map[string]To
 		Name: name,
 		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
 			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping. " +
-			"Set release_line to build a line other than default: the line's workflow " +
+			"Set release_line to build a line other than main: the line's workflow " +
 			"parameters are merged onto the component's, and the build updates the line's workload.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),

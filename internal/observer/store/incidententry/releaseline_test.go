@@ -24,7 +24,7 @@ func TestIncidentEntries_ReleaseLine(t *testing.T) {
 	require.NoError(t, store.Initialize(ctx))
 
 	var nextID string
-	for _, line := range []struct{ name, id string }{{"main", "line-main"}, {"next", "line-next"}} {
+	for _, line := range []struct{ name, id string }{{"stable", "line-stable"}, {"next", "line-next"}} {
 		id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
 			AlertID:         "alert-" + line.name,
 			Timestamp:       "2026-03-07T10:20:30Z",
@@ -55,7 +55,7 @@ func TestIncidentEntries_ReleaseLine(t *testing.T) {
 	assert.Equal(t, "line-next", got.ReleaseLineID)
 }
 
-func TestIncidentEntries_DefaultLineIncludesRowsFromBeforeReleaseLines(t *testing.T) {
+func TestIncidentEntries_MainLineIncludesRowsFromBeforeReleaseLines(t *testing.T) {
 	t.Parallel()
 
 	dsn := "file:" + filepath.Join(t.TempDir(), "incidents.db")
@@ -86,5 +86,5 @@ func TestIncidentEntries_DefaultLineIncludesRowsFromBeforeReleaseLines(t *testin
 		StartTime: "2026-03-07T00:00:00Z", EndTime: "2026-03-08T00:00:00Z", ComponentID: "component-1",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 2, total, "the default line covers rows with an empty or missing release line")
+	assert.Equal(t, 2, total, "the main line covers rows with an empty or missing release line")
 }

@@ -380,7 +380,7 @@ func (r *Reconciler) buildMetadataContext(
 		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
 		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
 		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
-		// The default line selects on the component UID, so a line's pods carry it under another key.
+		// The main line selects on the component UID, so a line's pods carry it under another key.
 		delete(podSelectors, labels.LabelKeyComponentUID)
 		podSelectors[labels.LabelKeyReleaseLineComponentUID] = componentUID
 	}
@@ -676,7 +676,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 				return blockReleaseLine(releaseBinding, ReasonReleaseLineNameCollision, collision), nil
 			}
 		}
-		overlap, err := findDefaultLinePodLabel(releaseBinding.Spec.Owner.ReleaseLine, dataPlaneReleaseResources)
+		overlap, err := findMainLinePodLabel(releaseBinding.Spec.Owner.ReleaseLine, dataPlaneReleaseResources)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

@@ -90,7 +90,7 @@ func TestScopedName(t *testing.T) {
 	assert.Equal(t, ComponentLineName("orders", "v2")+"-workload", ScopedName("orders", "v2", "workload"))
 
 	// A line's names never equal those of a component named "{component}-{line}", or of the same
-	// component's default line in an environment that starts with the line name.
+	// component's main line in an environment that starts with the line name.
 	assert.NotEqual(t, ScopedName("orders-v2", "", "workload"), ScopedName("orders", "v2", "workload"))
 	assert.NotEqual(t, ScopedName("api", "", "pre-prod"), ScopedName("api", "pre", "prod"))
 }
@@ -98,7 +98,7 @@ func TestScopedName(t *testing.T) {
 func TestReleaseName(t *testing.T) {
 	long := strings.Repeat("c", 60)
 	assert.Equal(t, "orders-544774ffc5", ReleaseName("orders", "", "544774ffc5"))
-	assert.Equal(t, long+"-544774ffc5", ReleaseName(long, "", "544774ffc5"), "the default line's names never change")
+	assert.Equal(t, long+"-544774ffc5", ReleaseName(long, "", "544774ffc5"), "the main line's names never change")
 
 	// A release name of a line starts like the line's other names when it fits.
 	assert.Equal(t, ScopedName("orders", "v2", "544774ffc5"), ReleaseName("orders", "v2", "544774ffc5"))

@@ -676,7 +676,7 @@ func TestListReleaseLines_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.Anything).Return(&gen.ReleaseLineList{
 		Items: []gen.ReleaseLine{
-			{Metadata: gen.ObjectMeta{Name: "default"}},
+			{Metadata: gen.ObjectMeta{Name: "main"}},
 			{Metadata: gen.ObjectMeta{Name: "next"}, Status: &gen.ReleaseLineStatus{Environments: &[]gen.ReleaseLineEnvironment{
 				{Environment: "development", ReleaseBinding: "hello-next-development", Release: &release, Ready: &ready},
 				{Environment: "staging", ReleaseBinding: "hello-next-staging"},
@@ -689,7 +689,7 @@ func TestListReleaseLines_Success(t *testing.T) {
 		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
 	})
 
-	assert.Regexp(t, `default\s+-\s+-\s+-`, out)
+	assert.Regexp(t, `main\s+-\s+-\s+-`, out)
 	assert.Regexp(t, `next\s+development\s+hello-next-fc84488f9\s+True`, out)
 	assert.Regexp(t, `next\s+staging\s+False`, out)
 }
@@ -700,7 +700,7 @@ func TestListReleaseLines_FollowsCursor(t *testing.T) {
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
 		return p.Cursor == nil
 	})).Return(&gen.ReleaseLineList{
-		Items:      []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "default"}}},
+		Items:      []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "main"}}},
 		Pagination: gen.Pagination{NextCursor: &next},
 	}, nil)
 	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
@@ -714,7 +714,7 @@ func TestListReleaseLines_FollowsCursor(t *testing.T) {
 		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
 	})
 
-	assert.Contains(t, out, "default")
+	assert.Contains(t, out, "main")
 	assert.Contains(t, out, "next")
 }
 
@@ -1591,7 +1591,7 @@ type bindingOwner = struct {
 	ReleaseLine   *string `json:"releaseLine,omitempty"`
 }
 
-func TestDeploy_DefaultLineKeyword(t *testing.T) {
+func TestDeploy_MainLineKeyword(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
 		return req.ReleaseLine == nil
@@ -1606,7 +1606,7 @@ func TestDeploy_DefaultLineKeyword(t *testing.T) {
 	}, nil)
 
 	testutil.CaptureStdout(t, func() {
-		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "default"}))
+		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "main"}))
 	})
 }
 
@@ -1633,13 +1633,13 @@ func TestDeploy_ReleaseLine_DeployToLowestEnv(t *testing.T) {
 }
 
 func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
-	main, next := "main", "next"
+	stable, next := "stable", "next"
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
-			{Metadata: gen.ObjectMeta{Name: "hello-main-dev"}, Spec: &gen.ReleaseBindingSpec{
-				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &main}, ReleaseName: makeReleaseName("hello-main-r1"),
+			{Metadata: gen.ObjectMeta{Name: "hello-stable-dev"}, Spec: &gen.ReleaseBindingSpec{
+				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &stable}, ReleaseName: makeReleaseName("hello-stable-r1"),
 			}},
 			{Metadata: gen.ObjectMeta{Name: nextDev}, Spec: &gen.ReleaseBindingSpec{
 				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &next}, ReleaseName: makeReleaseName("hello-next-r2"),
@@ -1680,12 +1680,12 @@ func TestDeploy_ReleaseLine_RollbackPinsRelease(t *testing.T) {
 }
 
 func TestDeploy_ReleaseLine_NoSourceBindingOnLine(t *testing.T) {
-	main := "main"
+	stable := "stable"
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
-		Items: []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "hello-main-dev"}, Spec: &gen.ReleaseBindingSpec{
-			Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &main}, ReleaseName: makeReleaseName("hello-main-r1"),
+		Items: []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "hello-stable-dev"}, Spec: &gen.ReleaseBindingSpec{
+			Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &stable}, ReleaseName: makeReleaseName("hello-stable-r1"),
 		}}},
 	}, nil)
 

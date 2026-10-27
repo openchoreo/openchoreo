@@ -44,7 +44,7 @@ const (
 	ScopeTypeNamespace = "namespace"
 	ScopeTypeProject   = "project"
 	ScopeTypeComponent = "component"
-	// ScopeTypeReleaseLine is one release line of a component, keyed by the line's UID. The default
+	// ScopeTypeReleaseLine is one release line of a component, keyed by the line's UID. The main
 	// line, which has no UID, is keyed by its component's UID.
 	ScopeTypeReleaseLine = "releaseline"
 )
@@ -166,7 +166,7 @@ type FactQuery struct {
 	EnvironmentUID string
 	ReleaseLineUID string
 	// AllReleaseLines covers every line of the component. Without it, a component covers its
-	// default line.
+	// main line.
 	AllReleaseLines bool
 	StartMs         int64
 	EndMs           int64

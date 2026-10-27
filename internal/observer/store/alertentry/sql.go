@@ -260,7 +260,7 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 		conditions = append(conditions, "release_line_id = "+nextPlaceholder())
 		args = append(args, value)
 	} else if strings.TrimSpace(params.ComponentID) != "" && !params.AllReleaseLines {
-		// The default line. Entries stored before release lines have no release_line_id.
+		// The main line. Entries stored before release lines have no release_line_id.
 		conditions = append(conditions, "COALESCE(release_line_id, '') = ''")
 	}
 

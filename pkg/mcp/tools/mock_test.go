@@ -257,7 +257,7 @@ func (m *MockCoreToolsetHandler) ListReleaseLines(
 	ctx context.Context, namespaceName, componentName string, opts ListOpts,
 ) (any, error) {
 	m.recordCall("ListReleaseLines", namespaceName, componentName, opts)
-	return `{"releaseLines":[{"name":"default"},{"name":"next"}]}`, nil
+	return `{"releaseLines":[{"name":"main"},{"name":"next"}]}`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetReleaseLine(

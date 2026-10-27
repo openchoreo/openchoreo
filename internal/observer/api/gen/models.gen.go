@@ -678,7 +678,7 @@ type AuditLogResource struct {
 	Namespace   *string                 `json:"namespace,omitempty"`
 	Project     *string                 `json:"project,omitempty"`
 
-	// ReleaseLine The component's release line. Absent for its default line.
+	// ReleaseLine The component's release line. Absent for its main line.
 	ReleaseLine *string `json:"release_line,omitempty"`
 
 	// Resource The Resource level of the hierarchy, a sibling of `component`.
@@ -1081,14 +1081,14 @@ type ComponentRecommendation struct {
 
 // ComponentSearchScope defines model for ComponentSearchScope.
 type ComponentSearchScope struct {
-	// AllReleaseLines Covers every line of the component, its default line and its release lines. Can't be combined with releaseLine. Has no effect without component, since a project or environment scope already covers every line.
+	// AllReleaseLines Covers every line of the component, its main line and its release lines. Can't be combined with releaseLine. Has no effect without component, since a project or environment scope already covers every line.
 	AllReleaseLines *bool   `json:"allReleaseLines,omitempty"`
 	Component       *string `json:"component,omitempty"`
 	Environment     *string `json:"environment,omitempty"`
 	Namespace       string  `json:"namespace"`
 	Project         *string `json:"project,omitempty"`
 
-	// ReleaseLine Restricts the result to one release line of the component, and default to its default line. Omitted covers the component's default line, unless allReleaseLines is set. Requires component. Logs, events, metrics and traces also require environment.
+	// ReleaseLine Restricts the result to one release line of the component, and main to its main line. Omitted covers the component's main line, unless allReleaseLines is set. Requires component. Logs, events, metrics and traces also require environment.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
@@ -1767,10 +1767,10 @@ type ResourceLabels struct {
 	// ProjectUid The UID of the project
 	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
 
-	// ReleaseLineName The name of the component's release line. Absent for its default line.
+	// ReleaseLineName The name of the component's release line. Absent for its main line.
 	ReleaseLineName *string `json:"releaseLineName,omitempty"`
 
-	// ReleaseLineUid The UID of the component's release line. Absent for its default line.
+	// ReleaseLineUid The UID of the component's release line. Absent for its main line.
 	ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 }
 
@@ -2170,10 +2170,10 @@ type GetComponentCostsParams struct {
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
 
-	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers the component's default line, unless `allReleaseLines` is set. Requires `component`.
+	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers the component's main line, unless `allReleaseLines` is set. Requires `component`.
 	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 
-	// AllReleaseLines Covers every line of the component, its default line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
+	// AllReleaseLines Covers every line of the component, its main line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
 	AllReleaseLines *FinOpsAllReleaseLines `form:"allReleaseLines,omitempty" json:"allReleaseLines,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
@@ -2196,10 +2196,10 @@ type GetRecommendationsParams struct {
 	// Component Component name. When set, narrows the response to this single component. Requires `project`.
 	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
 
-	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers the component's default line, unless `allReleaseLines` is set. Requires `component`.
+	// ReleaseLine Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers the component's main line, unless `allReleaseLines` is set. Requires `component`.
 	ReleaseLine *FinOpsReleaseLine `form:"releaseLine,omitempty" json:"releaseLine,omitempty"`
 
-	// AllReleaseLines Covers every line of the component, its default line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
+	// AllReleaseLines Covers every line of the component, its main line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
 	AllReleaseLines *FinOpsAllReleaseLines `form:"allReleaseLines,omitempty" json:"allReleaseLines,omitempty"`
 
 	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).

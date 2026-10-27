@@ -96,17 +96,17 @@ func readRepoFile(t *testing.T, repoDir, path string) string {
 
 // Each line's build updates its own Workload file and leaves the other line's alone.
 func TestCreate_FileSystem_ReleaseLineUpdatesItsWorkload(t *testing.T) {
-	const defaultPath = "projects/myproj/components/my-svc/workload.yaml"
+	const mainPath = "projects/myproj/components/my-svc/workload.yaml"
 	const linePath = "projects/myproj/components/my-svc/next/workload.yaml"
 
 	repoDir := setupRepoWithReleaseLine(t, true)
 	createInRepo(t, repoDir, "next", "registry/my-svc:next-new")
 	assert.Contains(t, readRepoFile(t, repoDir, linePath), "registry/my-svc:next-new")
-	assert.Contains(t, readRepoFile(t, repoDir, defaultPath), "registry/my-svc:v1")
+	assert.Contains(t, readRepoFile(t, repoDir, mainPath), "registry/my-svc:v1")
 
 	repoDir = setupRepoWithReleaseLine(t, true)
-	createInRepo(t, repoDir, "default", "registry/my-svc:v2")
-	assert.Contains(t, readRepoFile(t, repoDir, defaultPath), "registry/my-svc:v2")
+	createInRepo(t, repoDir, "main", "registry/my-svc:v2")
+	assert.Contains(t, readRepoFile(t, repoDir, mainPath), "registry/my-svc:v2")
 	assert.Contains(t, readRepoFile(t, repoDir, linePath), "registry/my-svc:next-old")
 }
 
@@ -135,7 +135,7 @@ func TestCreate_FileSystem_UnknownReleaseLine(t *testing.T) {
 }
 
 func TestCreate_APIServer_ReleaseLine(t *testing.T) {
-	for line, want := range map[string]string{"next": expectedLineWorkloadYAML, "default": expectedBasicWorkloadYAML} {
+	for line, want := range map[string]string{"next": expectedLineWorkloadYAML, "main": expectedBasicWorkloadYAML} {
 		t.Run(line, func(t *testing.T) {
 			image := "registry/my-svc:v1"
 			if line == "next" {

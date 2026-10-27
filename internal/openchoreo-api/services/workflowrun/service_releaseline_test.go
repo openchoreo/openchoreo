@@ -99,8 +99,8 @@ func TestTriggerWorkflow_ReleaseLine(t *testing.T) {
 			string(run.Spec.Workflow.Parameters.Raw))
 	})
 
-	for _, line := range []string{"", "default"} {
-		t.Run("the default line builds the component's parameters: "+line, func(t *testing.T) {
+	for _, line := range []string{"", "main"} {
+		t.Run("the main line builds the component's parameters: "+line, func(t *testing.T) {
 			result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "lines", "", line)
 			require.NoError(t, err)
 

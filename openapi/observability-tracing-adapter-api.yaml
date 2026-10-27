@@ -217,8 +217,8 @@ components:
         "true" when the adapter applied the release line part of a component scope,
         releaseLine or allReleaseLines. Adapters with release line support set it for every
         component scope. An adapter without it ignores both fields and matches
-        openchoreo.dev/component-uid, which only the default line's spans carry, so any other
-        value or no header means the result covers the component's default line only.
+        openchoreo.dev/component-uid, which only the main line's spans carry, so any other
+        value or no header means the result covers the component's main line only.
       schema:
         type: string
   schemas:
@@ -261,12 +261,12 @@ components:
             other fields here. Adapters that support it filter on the
             openchoreo.dev/release-line-uid label alone, since release line pods don't carry the
             openchoreo.dev/component-uid label, and set the OpenChoreo-Release-Line-Applied
-            response header to "true". Without it, component covers the component's default line:
+            response header to "true". Without it, component covers the component's main line:
             spans with the component UID and without a release line UID.
         allReleaseLines:
           type: boolean
           description: >
-            Covers every line of the component, its default line and its release lines: spans
+            Covers every line of the component, its main line and its release lines: spans
             with the component UID as openchoreo.dev/component-uid, or as
             openchoreo.dev/release-line-component-uid, which release line spans carry instead.
             Has no effect without component, and releaseLine takes precedence. Adapters that

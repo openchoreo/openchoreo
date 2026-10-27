@@ -380,7 +380,7 @@ func (cr *ComponentRelease) writeResults(result *generator.BulkReleaseResult, ba
 	return nil
 }
 
-// releaseLineNote names a release line in a dry-run header, and is empty for the default line.
+// releaseLineNote names a release line in a dry-run header, and is empty for the main line.
 func releaseLineNote(line string) string {
 	if line == "" {
 		return ""

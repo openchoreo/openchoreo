@@ -196,7 +196,7 @@ func releaseLine(name, component string) *openchoreov1alpha1.ReleaseLine {
 }
 
 // lineWorkload is the greeter Workload of one release line. An empty line gives the Workload of the
-// component's default line.
+// component's main line.
 func lineWorkload(component, line string) *openchoreov1alpha1.Workload {
 	name := component + "-workload"
 	if line != "" {
@@ -229,7 +229,7 @@ func lineWorkload(component, line string) *openchoreov1alpha1.Workload {
 }
 
 // greeterYAML is a component with a readiness probe trait and two release lines, and no Workload
-// for its default line yet. stable inherits everything. canary adds a liveness probe to the component's
+// for its main line yet. stable inherits everything. canary adds a liveness probe to the component's
 // health trait, and adds an autoscaler trait of its own.
 func greeterYAML() string {
 	health := openchoreov1alpha1.ComponentTrait{

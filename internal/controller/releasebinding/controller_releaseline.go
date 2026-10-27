@@ -23,8 +23,8 @@ import (
 )
 
 // validateReleaseLine checks the binding's release line. A binding without a line belongs to its
-// component's implicit default line; one with a line requires an existing ReleaseLine of the component.
-// Returns the binding's ReleaseLine, nil for the default line, and false with a condition set when the
+// component's implicit main line; one with a line requires an existing ReleaseLine of the component.
+// Returns the binding's ReleaseLine, nil for the main line, and false with a condition set when the
 // binding must not be rendered.
 func (r *Reconciler) validateReleaseLine(
 	ctx context.Context,
@@ -86,7 +86,7 @@ func blockReleaseLine(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 }
 
 // findReleaseLineCollision reports objects the binding would render on the target plane that another
-// RenderedRelease of the same component and environment, including the default line's, already renders
+// RenderedRelease of the same component and environment, including the main line's, already renders
 // there. Returns an empty string when there is no collision.
 func (r *Reconciler) findReleaseLineCollision(
 	ctx context.Context,
@@ -159,11 +159,11 @@ func manifestKeys(resources []openchoreov1alpha1.RenderedManifest) (map[string]b
 
 const kindPod = "Pod"
 
-// findDefaultLinePodLabel reports a release line object that would share pods with the default line:
-// a pod template carrying the component UID label, which the default line's selectors match, or a
-// selector matching on that label, which the default line's pods carry. Returns an empty string when
+// findMainLinePodLabel reports a release line object that would share pods with the main line:
+// a pod template carrying the component UID label, which the main line's selectors match, or a
+// selector matching on that label, which the main line's pods carry. Returns an empty string when
 // there is none.
-func findDefaultLinePodLabel(line string, resources []openchoreov1alpha1.RenderedManifest) (string, error) {
+func findMainLinePodLabel(line string, resources []openchoreov1alpha1.RenderedManifest) (string, error) {
 	for _, res := range resources {
 		if res.Object == nil {
 			continue
@@ -182,12 +182,12 @@ func findDefaultLinePodLabel(line string, resources []openchoreov1alpha1.Rendere
 			podLabels, _, _ = unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "labels")
 		}
 		if _, ok := podLabels[labels.LabelKeyComponentUID]; ok {
-			return fmt.Sprintf("Release line %q renders %s %q with pod label %s, which the default line's selectors also match; "+
+			return fmt.Sprintf("Release line %q renders %s %q with pod label %s, which the main line's selectors also match; "+
 				"label pods with metadata.podSelectors in the ComponentType and Traits",
 				line, obj.GetKind(), obj.GetName(), labels.LabelKeyComponentUID), nil
 		}
 		if selectsComponentUID(obj) {
-			return fmt.Sprintf("Release line %q renders %s %q selecting on %s, which the default line's pods carry; "+
+			return fmt.Sprintf("Release line %q renders %s %q selecting on %s, which the main line's pods carry; "+
 				"select pods with metadata.podSelectors in the ComponentType and Traits",
 				line, obj.GetKind(), obj.GetName(), labels.LabelKeyComponentUID), nil
 		}

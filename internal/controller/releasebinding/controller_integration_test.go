@@ -937,7 +937,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 		It("deletes only the Releases of its own line", func() {
 			r := testReconciler()
 
-			By("deleting the default line's binding, whose Releases carry no release line label")
+			By("deleting the main line's binding, whose Releases carry no release line label")
 			rb := rbFixture(rbName, project, compName, envName, "rel", true)
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 

@@ -20,7 +20,7 @@ type ComponentEventsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 	// ReleaseLineID restricts the events to one release line of the component.
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
-	// AllReleaseLines covers every line of the component instead of its default line.
+	// AllReleaseLines covers every line of the component instead of its main line.
 	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 

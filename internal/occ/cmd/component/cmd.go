@@ -238,7 +238,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Follow logs in real-time
   occ component logs my-component --env dev -f
 
-  # Get logs of one release line of a component; without it, logs cover the component's default line
+  # Get logs of one release line of a component; without it, logs cover the component's main line
   occ component logs my-component --release-line next
 
   # Get logs of every line of the component
@@ -276,7 +276,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
 	flags.AddReleaseLine(cmd)
-	cmd.Flags().Bool("all-release-lines", false, "Get logs of every line of the component instead of its default line")
+	cmd.Flags().Bool("all-release-lines", false, "Get logs of every line of the component instead of its main line")
 	cmd.MarkFlagsMutuallyExclusive("release-line", "all-release-lines")
 	return cmd
 }

@@ -17,7 +17,7 @@ import (
 type OwnerRef struct {
 	ProjectName   string
 	ComponentName string
-	// ReleaseLine is the owner's release line, empty for the component's default line.
+	// ReleaseLine is the owner's release line, empty for the component's main line.
 	ReleaseLine string
 }
 
@@ -65,7 +65,7 @@ func componentKey(projectName, componentName string) string {
 	return projectName + "/" + componentName
 }
 
-// lineKey keys an index by a component's release line, empty for its default line.
+// lineKey keys an index by a component's release line, empty for its main line.
 func lineKey(projectName, componentName, releaseLine string) string {
 	return projectName + "/" + componentName + "/" + releaseLine
 }
@@ -273,7 +273,7 @@ func (idx *Index) GetTypedClusterTrait(name string) (*typed.ClusterTrait, error)
 	return typed.NewClusterTrait(entry)
 }
 
-// GetWorkloadForComponent retrieves the workload of a component's release line, or of its default
+// GetWorkloadForComponent retrieves the workload of a component's release line, or of its main
 // line when releaseLine is empty
 func (idx *Index) GetWorkloadForComponent(projectName, componentName, releaseLine string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()
@@ -319,8 +319,8 @@ func (idx *Index) ListReleaseLinesForComponent(projectName, componentName string
 	return names
 }
 
-// ComponentLines returns the lines of a component to release: its default line, shown as "", then
-// each release line. The default line is left out when it has no workload and the component has
+// ComponentLines returns the lines of a component to release: its main line, shown as "", then
+// each release line. The main line is left out when it has no workload and the component has
 // release lines, since the component then deploys only through them.
 func (idx *Index) ComponentLines(projectName, componentName string) []string {
 	lines := idx.ListReleaseLinesForComponent(projectName, componentName)
@@ -375,7 +375,7 @@ func (idx *Index) GetTypedTrait(name string) (*typed.Trait, error) {
 	return typed.NewTrait(entry)
 }
 
-// GetTypedWorkloadForComponent retrieves the workload of a component's release line, or of its default
+// GetTypedWorkloadForComponent retrieves the workload of a component's release line, or of its main
 // line when releaseLine is empty, and returns a typed wrapper
 func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName, releaseLine string) (*typed.Workload, error) {
 	entry, ok := idx.GetWorkloadForComponent(projectName, componentName, releaseLine)
@@ -389,7 +389,7 @@ func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName, relea
 }
 
 // ListReleasesForComponent returns the component releases of a component's release line, or of its
-// default line when releaseLine is empty
+// main line when releaseLine is empty
 func (idx *Index) ListReleasesForComponent(projectName, componentName, releaseLine string) []*index.ResourceEntry {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -416,7 +416,7 @@ func (idx *Index) ListReleaseBindings() []*index.ResourceEntry {
 	return idx.Index.List(ReleaseBindingGVK)
 }
 
-// GetReleaseBindingForEnv retrieves a release binding of a component's release line, or of its default
+// GetReleaseBindingForEnv retrieves a release binding of a component's release line, or of its main
 // line when releaseLine is empty, in an environment
 // Returns the first binding found for the given line and environment
 func (idx *Index) GetReleaseBindingForEnv(projectName, componentName, releaseLine, envName string) (*index.ResourceEntry, bool) {

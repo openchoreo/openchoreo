@@ -20,7 +20,7 @@ const LogTimestampFormat = time.RFC3339Nano
 
 // ReleaseLineAppliedHeader is the response header with which an adapter confirms that it applied
 // the release line part of a component scope. Adapters without release line support omit it, and
-// the result then covers the component's default line only.
+// the result then covers the component's main line only.
 const ReleaseLineAppliedHeader = "OpenChoreo-Release-Line-Applied"
 
 // ReleaseLineApplied reports whether an adapter response confirms it filtered by release line.
@@ -44,7 +44,7 @@ type ComponentApplicationLogsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 	// ReleaseLineID restricts the logs to one release line of the component.
 	ReleaseLineID string `json:"releaseLineId,omitempty"`
-	// AllReleaseLines covers every line of the component instead of its default line.
+	// AllReleaseLines covers every line of the component instead of its main line.
 	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 

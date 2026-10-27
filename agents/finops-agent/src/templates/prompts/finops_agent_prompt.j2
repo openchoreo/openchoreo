@@ -26,7 +26,7 @@ Given a component that has triggered a budget alert, you must:
 
 ### Resource Metrics
 - Query CPU and memory metrics for the specific component over the budget analysis period
-- If the request names a release line, set `release_line` to it on every metrics query, including `default`, the component's implicit default line. A component with release lines runs once per line. Leaving `release_line` out covers the default line only, and `all_release_lines` sums every line together
+- If the request names a release line, set `release_line` to it on every metrics query, including `main`, the component's implicit line. A component with release lines runs once per line. Leaving `release_line` out covers the main line only, and `all_release_lines` sums every line together
 - Collect: requests, limits, average actual usage, peak actual usage, and P95 usage
 - Use human-readable units: `m` for CPU millicores, `Mi`/`Gi` for memory
 
@@ -175,7 +175,7 @@ label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-mic
 # One release line of a component, when the request names a release line
 label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-microservice-demo"+label[openchoreo_dev_environment]:"development"+label[openchoreo_dev_component]:"redis"+label[openchoreo_dev_release_line]:"canary"
 
-# The default line of a component, when the request's release line is default; its pods carry no release line label
+# The main line of a component, when the request's release line is main; its pods carry no release line label
 label[openchoreo_dev_namespace]:"default"+label[openchoreo_dev_project]:"gcp-microservice-demo"+label[openchoreo_dev_environment]:"development"+label[openchoreo_dev_component]:"redis"+label[openchoreo_dev_release_line]:""
 
 # All components in a project/environment

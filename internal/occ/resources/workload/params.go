@@ -9,7 +9,7 @@ type CreateWorkloadParams struct {
 	NamespaceName string
 	ProjectName   string
 	ComponentName string
-	ReleaseLine   string // Empty or default for the component's default line
+	ReleaseLine   string // Empty or main for the component's main line
 	ImageURL      string
 	OutputPath    string
 	DryRun        bool

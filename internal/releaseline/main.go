@@ -13,22 +13,25 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// DefaultLine is the keyword for a component's implicit default line. It has no ReleaseLine, and resources
-// of the default line leave spec.owner.releaseLine empty.
-const DefaultLine = "default"
+// MainLine is the keyword for a component's implicit main line. It has no ReleaseLine, and resources
+// of the main line leave spec.owner.releaseLine empty.
+const MainLine = "main"
 
-// Normalize maps a release line given by a user to its stored form: the default line keyword and an
+// ReservedName can't name a release line.
+const ReservedName = "default"
+
+// Normalize maps a release line given by a user to its stored form: the main line keyword and an
 // empty name both become "".
 func Normalize(line string) string {
 	line = strings.TrimSpace(line)
-	if line == DefaultLine {
+	if line == MainLine {
 		return ""
 	}
 	return line
 }
 
 // Environments summarizes a line's ReleaseBindings, one entry per environment, sorted by environment.
-// An empty line selects the default line's bindings.
+// An empty line selects the main line's bindings.
 func Environments(bindings []openchoreov1alpha1.ReleaseBinding, projectName, componentName, line string) []openchoreov1alpha1.ReleaseLineEnvironment {
 	var envs []openchoreov1alpha1.ReleaseLineEnvironment
 	seen := map[string]bool{}
@@ -50,12 +53,12 @@ func Environments(bindings []openchoreov1alpha1.ReleaseBinding, projectName, com
 	return envs
 }
 
-// Default describes a component's implicit default line as a ReleaseLine, built from the component and its
+// Main describes a component's implicit main line as a ReleaseLine, built from the component and its
 // bindings without a line. It is never stored.
-func Default(comp *openchoreov1alpha1.Component, bindings []openchoreov1alpha1.ReleaseBinding) *openchoreov1alpha1.ReleaseLine {
+func Main(comp *openchoreov1alpha1.Component, bindings []openchoreov1alpha1.ReleaseBinding) *openchoreov1alpha1.ReleaseLine {
 	return &openchoreov1alpha1.ReleaseLine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              DefaultLine,
+			Name:              MainLine,
 			Namespace:         comp.Namespace,
 			CreationTimestamp: comp.CreationTimestamp,
 		},

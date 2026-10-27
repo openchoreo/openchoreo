@@ -69,8 +69,8 @@ def test_analyze_request_accepts_release_line():
 
 def test_agent_prompt_describes_release_line_scopes():
     rendered = render("prompts/finops_agent_prompt.j2", {"tools": []})
-    # Omitting release_line covers the default line only; every line needs all_release_lines.
-    assert "Leaving `release_line` out covers the default line only" in rendered
+    # Omitting release_line covers the main line only; every line needs all_release_lines.
+    assert "Leaving `release_line` out covers the main line only" in rendered
     assert "`all_release_lines` sums every line together" in rendered
 
 

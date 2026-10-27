@@ -1302,7 +1302,7 @@ components:
       name: releaseLine
       in: query
       required: false
-      description: Release line of the component. When set, narrows the response to that line, and `default` narrows it to the default line. Omitted covers the component's default line, unless `allReleaseLines` is set. Requires `component`.
+      description: Release line of the component. When set, narrows the response to that line, and `main` narrows it to the main line. Omitted covers the component's main line, unless `allReleaseLines` is set. Requires `component`.
       schema:
         type: string
         example: next
@@ -1310,7 +1310,7 @@ components:
       name: allReleaseLines
       in: query
       required: false
-      description: Covers every line of the component, its default line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
+      description: Covers every line of the component, its main line and its release lines. Can't be combined with `releaseLine`. Has no effect without `component`, since an environment scope already covers every line.
       schema:
         type: boolean
     FinOpsStartTime:
@@ -1547,10 +1547,10 @@ components:
           type: string
         releaseLine:
           type: string
-          description: Restricts the result to one release line of the component, and default to its default line. Omitted covers the component's default line, unless allReleaseLines is set. Requires component. Logs, events, metrics and traces also require environment.
+          description: Restricts the result to one release line of the component, and main to its main line. Omitted covers the component's main line, unless allReleaseLines is set. Requires component. Logs, events, metrics and traces also require environment.
         allReleaseLines:
           type: boolean
-          description: Covers every line of the component, its default line and its release lines. Can't be combined with releaseLine. Has no effect without component, since a project or environment scope already covers every line.
+          description: Covers every line of the component, its main line and its release lines. Can't be combined with releaseLine. Has no effect without component, since a project or environment scope already covers every line.
       required: [namespace]
 
     WorkflowSearchScope:
@@ -2569,7 +2569,7 @@ components:
           type: string
         release_line:
           type: string
-          description: The component's release line. Absent for its default line.
+          description: The component's release line. Absent for its main line.
         resource:
           type: string
           description: The Resource level of the hierarchy, a sibling of `component`.
@@ -3355,10 +3355,10 @@ components:
           format: uuid
         releaseLineName:
           type: string
-          description: The name of the component's release line. Absent for its default line.
+          description: The name of the component's release line. Absent for its main line.
         releaseLineUid:
           type: string
-          description: The UID of the component's release line. Absent for its default line.
+          description: The UID of the component's release line. Absent for its main line.
           format: uuid
 
     AlertRuleSource:

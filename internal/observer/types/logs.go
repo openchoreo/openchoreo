@@ -16,7 +16,7 @@ type ComponentSearchScope struct {
 	Component   string `json:"component,omitempty"`
 	Environment string `json:"environment,omitempty"`
 	ReleaseLine string `json:"releaseLine,omitempty"`
-	// AllReleaseLines covers every line of the component. Without it, a component scope covers its default line.
+	// AllReleaseLines covers every line of the component. Without it, a component scope covers its main line.
 	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 }
 

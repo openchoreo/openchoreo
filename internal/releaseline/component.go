@@ -12,7 +12,7 @@ import (
 )
 
 // ScopedName names a control plane object of a component's line, such as its Workload, ComponentReleases
-// and ReleaseBindings: "{component}-{suffix}" for the default line, and "{componentLineName}-{suffix}" for a
+// and ReleaseBindings: "{component}-{suffix}" for the main line, and "{componentLineName}-{suffix}" for a
 // release line, so a line's objects never take the names of another component's.
 func ScopedName(componentName, line, suffix string) string {
 	return ComponentLineName(componentName, line) + "-" + suffix
@@ -39,13 +39,13 @@ func ComponentLineName(componentName, line string) string {
 // or "{date}-{counter}", so the name fits a label value.
 const releaseNameBaseLimit = dpkubernetes.MaxServiceNameLength - 13
 
-// ReleaseName names a ComponentRelease of a component's line: "{component}-{suffix}" for the default line,
+// ReleaseName names a ComponentRelease of a component's line: "{component}-{suffix}" for the main line,
 // and "{ReleaseNameBase}-{suffix}" for a release line. The suffix is the release hash or its date and counter.
 func ReleaseName(componentName, line, suffix string) string {
 	return ReleaseNameBase(componentName, line) + "-" + suffix
 }
 
-// ReleaseNameBase is the part of a release name before its suffix: the component name for the default line,
+// ReleaseNameBase is the part of a release name before its suffix: the component name for the main line,
 // and the line's ComponentLineName for a release line, shortened when needed so the release name fits a label value.
 func ReleaseNameBase(componentName, line string) string {
 	if line == "" {
@@ -67,7 +67,7 @@ func ObjectBaseName(componentName, line, environment string) string {
 const renderedReleaseNameLimit = dpkubernetes.MaxServiceNameLength - len("-observability")
 
 // RenderedReleaseName names the data plane RenderedRelease of a component's line in an environment:
-// "{component}-{environment}" for the default line, and for a release line its ObjectBaseName, shortened when
+// "{component}-{environment}" for the main line, and for a release line its ObjectBaseName, shortened when
 // needed so that the name, also with an "-observability" suffix, fits a label value.
 func RenderedReleaseName(componentName, line, environment string) string {
 	if line == "" {

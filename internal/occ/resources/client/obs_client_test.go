@@ -19,7 +19,7 @@ func TestFetchComponentLogs_ReleaseLineScope(t *testing.T) {
 		req       ComponentLogsRequest
 		wantScope map[string]any
 	}{
-		"default line": {
+		"main line": {
 			req:       ComponentLogsRequest{NamespaceName: "ns", ComponentName: "comp"},
 			wantScope: map[string]any{"namespace": "ns", "component": "comp"},
 		},

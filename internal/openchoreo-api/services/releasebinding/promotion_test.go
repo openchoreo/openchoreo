@@ -186,7 +186,7 @@ func TestUpdateReleaseBindingRenderedPromotion(t *testing.T) {
 		{name: "rendered release label differs", rendered: true, ownerUID: "stored-uid", renderedRelease: "release-b", release: testPromotionRelease, wantError: true},
 		{name: "reactivation needs source", release: testPromotionRelease, state: openchoreov1alpha1.ReleaseStateActive, wantError: true},
 	}
-	// A release line's RenderedRelease is named differently from the default line's, so every case runs on both.
+	// A release line's RenderedRelease is named differently from the main line's, so every case runs on both.
 	for _, line := range []string{"", "next"} {
 		for _, tt := range tests {
 			t.Run(tt.name+"/line="+line, func(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 )
 
 // ReleaseLineDependencyProblem explains why a dependency on a component's release line matches
-// no ReleaseBinding in the environment. A dependency without a line targets the default line. It returns
+// no ReleaseBinding in the environment. A dependency without a line targets the main line. It returns
 // "" when the cause is not about release lines, such as an unknown component or a component without
 // lines that is not deployed.
 func ReleaseLineDependencyProblem(ctx context.Context, c client.Reader,
@@ -37,7 +37,7 @@ func ReleaseLineDependencyProblem(ctx context.Context, c client.Reader,
 		}
 		for i := range lines.Items {
 			if lines.Items[i].Spec.Owner.ComponentName == component && lines.Items[i].Spec.Owner.ProjectName == project {
-				return fmt.Sprintf("the default line of component %s/%s is not deployed in environment %s; "+
+				return fmt.Sprintf("the main line of component %s/%s is not deployed in environment %s; "+
 					"set releaseLine to depend on one of its release lines", project, component, environment), nil
 			}
 		}

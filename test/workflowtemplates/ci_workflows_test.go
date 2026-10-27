@@ -25,7 +25,7 @@ type ciWorkflowContract struct {
 }
 
 // lineImageTag tags a release line's images with the line, so lines that build the same commit don't
-// overwrite each other's images. The default line keeps v1.
+// overwrite each other's images. The main line keeps v1.
 const lineImageTag = "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
 
 var ciWorkflowContracts = []ciWorkflowContract{

@@ -40,7 +40,7 @@ func newReleaseLineResolver(t *testing.T) *ResourceUIDResolver {
 		case strings.HasSuffix(r.URL.Path, "/components/comp/releaselines/next"):
 			_, _ = w.Write([]byte(uidResponse(sampleReleaseLineUID)))
 		case strings.HasSuffix(r.URL.Path, "/components/comp/releaselines"):
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
 		case strings.Contains(r.URL.Path, "/releaselines/"):
 			w.WriteHeader(http.StatusNotFound)
 		case strings.Contains(r.URL.Path, "/projects/"):
@@ -69,7 +69,7 @@ func TestLogsService_ReleaseLine(t *testing.T) {
 	query := func(t *testing.T, scope types.ComponentSearchScope, applied bool) (*types.LogsQueryResponse, *fakeLogsAdapter, error) {
 		t.Helper()
 		adapter := &fakeLogsAdapter{componentResult: &observability.ComponentApplicationLogsResult{
-			Logs:               []observability.LogEntry{{Log: "from next"}, {Log: "from default"}},
+			Logs:               []observability.LogEntry{{Log: "from next"}, {Log: "from main"}},
 			TotalCount:         2,
 			ReleaseLineApplied: applied,
 		}}
@@ -108,10 +108,10 @@ func TestLogsService_ReleaseLine(t *testing.T) {
 
 	t.Run("every line without line support", func(t *testing.T) {
 		_, _, err := query(t, everyLine, false)
-		assert.ErrorIs(t, err, ErrReleaseLineNotSupported, "the adapter returned only the default line of a component with lines")
+		assert.ErrorIs(t, err, ErrReleaseLineNotSupported, "the adapter returned only the main line of a component with lines")
 	})
 
-	t.Run("default line needs no line support", func(t *testing.T) {
+	t.Run("main line needs no line support", func(t *testing.T) {
 		scope := lineScope()
 		scope.ReleaseLine = ""
 		resp, adapter, err := query(t, scope, false)
@@ -401,7 +401,7 @@ func TestResolveScopeReleaseLines(t *testing.T) {
 		"no component":       {scope: gen.ComponentSearchScope{Namespace: "ns", AllReleaseLines: &all}},
 		"component, no line": {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp")}},
 		"every line":         {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), AllReleaseLines: &all}, want: ReleaseLineScope{All: true}},
-		"default keyword":    {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("default")}},
+		"main keyword":       {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("main")}},
 		"one line":           {scope: gen.ComponentSearchScope{Namespace: "ns", Component: strPtr("comp"), ReleaseLine: strPtr("next")}, want: ReleaseLineScope{UID: sampleReleaseLineUID}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -412,15 +412,15 @@ func TestResolveScopeReleaseLines(t *testing.T) {
 	}
 }
 
-func TestMetricsAdapter_DefaultLineAndEveryLine(t *testing.T) {
+func TestMetricsAdapter_MainLineAndEveryLine(t *testing.T) {
 	for name, tc := range map[string]struct {
 		line    string
 		all     bool
 		wantAll bool
 	}{
-		"default line keyword": {line: releaseline.DefaultLine},
-		"no line":              {line: ""},
-		"every line":           {line: "", all: true, wantAll: true},
+		"main line keyword": {line: releaseline.MainLine},
+		"no line":           {line: ""},
+		"every line":        {line: "", all: true, wantAll: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var captured metricsAdapterRequest
@@ -473,7 +473,7 @@ func TestTracingAdapter_AllReleaseLines(t *testing.T) {
 	}
 }
 
-func TestAlertService_NotificationDetailsDefaultLine(t *testing.T) {
+func TestAlertService_NotificationDetailsMainLine(t *testing.T) {
 	t.Parallel()
 
 	tokenSrv := newAlwaysOKTokenServer(t)
@@ -483,9 +483,9 @@ func TestAlertService_NotificationDetailsDefaultLine(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/namespaces/ns/components/lined/releaselines":
 			assert.Equal(t, "1", r.URL.Query().Get("limit"))
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}},{"metadata":{"name":"next"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
 		case "/api/v1/namespaces/ns/components/plain/releaselines":
-			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"default"}}]}`))
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -501,7 +501,7 @@ func TestAlertService_NotificationDetailsDefaultLine(t *testing.T) {
 		releaseLine string
 		want        string
 	}{
-		{name: "default line of a component with lines", component: "lined", want: releaseline.DefaultLine},
+		{name: "main line of a component with lines", component: "lined", want: releaseline.MainLine},
 		{name: "component without lines", component: "plain", want: ""},
 		{name: "release line", component: "lined", releaseLine: "next", want: "next"},
 		{name: "lookup failure", component: "missing", want: ""},

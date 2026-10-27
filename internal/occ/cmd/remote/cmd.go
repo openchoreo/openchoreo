@@ -119,7 +119,7 @@ func NewRemoteCmd() *cobra.Command {
 }
 
 // parseLocalOverrides parses --local component=host:port values into a lookup keyed
-// by componentRef. component@line names a release line, and component@default its default line.
+// by componentRef. component@line names a release line, and component@main its main line.
 func parseLocalOverrides(raw []string) (map[string]LocalTarget, error) {
 	if len(raw) == 0 {
 		return nil, nil

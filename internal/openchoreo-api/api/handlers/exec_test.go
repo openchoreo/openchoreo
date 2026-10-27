@@ -155,13 +155,13 @@ func TestExecHandler_AuthzReleaseLineContext(t *testing.T) {
 	require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
 }
 
-// The default line keyword reaches the ABAC context as the default line, which has no release line.
-func TestExecHandler_DefaultLineKeyword(t *testing.T) {
+// The main line keyword reaches the ABAC context as the main line, which has no release line.
+func TestExecHandler_MainLineKeyword(t *testing.T) {
 	pdp := testutil.AllowPDP()
 	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
-		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=default",
+		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=main",
 		nil).WithContext(testutil.AuthzContext())
 	h.ServeHTTP(httptest.NewRecorder(), req)
 

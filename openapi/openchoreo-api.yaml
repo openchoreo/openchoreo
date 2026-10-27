@@ -2971,7 +2971,7 @@ paths:
       description: >-
         Starts a run of the component's configured workflow with the component's workflow parameters.
         With releaseLine set to one of the component's release lines, that line's workflow parameter
-        overrides are applied. Omitted or default builds the default line.
+        overrides are applied. Omitted or main builds the main line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3004,7 +3004,7 @@ paths:
     get:
       operationId: listComponentReleaseLines
       summary: List component release lines
-      description: Returns a paginated list of the release lines of a component. The first page of an unfiltered list starts with default, the implicit line every component has, described from its bindings without a release line.
+      description: Returns a paginated list of the release lines of a component. The first page of an unfiltered list starts with main, the implicit line every component has, described from its bindings without a release line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3033,7 +3033,7 @@ paths:
     post:
       operationId: createComponentReleaseLine
       summary: Create component release line
-      description: Creates a release line for a component. The owner is taken from the path. The name default is reserved for the implicit default line.
+      description: Creates a release line for a component. The owner is taken from the path. The name main is the implicit line, and default is reserved.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3070,7 +3070,7 @@ paths:
     get:
       operationId: getComponentReleaseLine
       summary: Get component release line
-      description: Returns a release line of a component, including its status per environment. The name default returns the implicit default line.
+      description: Returns a release line of a component, including its status per environment. The name main returns the implicit line.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3095,7 +3095,7 @@ paths:
     put:
       operationId: updateComponentReleaseLine
       summary: Update component release line
-      description: Replaces the spec of a release line (full update). The owner cannot change. The implicit default line cannot be updated.
+      description: Replaces the spec of a release line (full update). The owner cannot change. The implicit main line cannot be updated.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3130,7 +3130,7 @@ paths:
     delete:
       operationId: deleteComponentReleaseLine
       summary: Delete component release line
-      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed. The implicit default line cannot be deleted.
+      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed. The implicit main line cannot be deleted.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -10187,7 +10187,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line this release belongs to. Omitted for the default line.
+              description: Release line this release belongs to. Omitted for the main line.
               example: next
         componentType:
           type: object
@@ -10285,7 +10285,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line this binding belongs to. Omitted for the default line.
+              description: Release line this binding belongs to. Omitted for the main line.
               example: next
         environment:
           type: string
@@ -11864,7 +11864,7 @@ components:
           example: v1.0.0
         releaseLine:
           type: string
-          description: Release line to release from, built from the line's Workload and overrides. Omitted or default releases the default line.
+          description: Release line to release from, built from the line's Workload and overrides. Omitted or main releases the main line.
           example: next
 
     CreateComponentWorkflowRunRequest:
@@ -11873,7 +11873,7 @@ components:
       properties:
         releaseLine:
           type: string
-          description: Release line to build. Omitted or default builds the default line.
+          description: Release line to build. Omitted or main builds the main line.
           example: api-service-v2
         commit:
           type: string
@@ -12781,7 +12781,7 @@ components:
               example: api-service
             releaseLine:
               type: string
-              description: Release line of the owning component. Omitted for the default line.
+              description: Release line of the owning component. Omitted for the main line.
               example: api-service-v2
         container:
           $ref: '#/components/schemas/WorkloadContainer'
@@ -12934,7 +12934,7 @@ components:
           minLength: 1
         releaseLine:
           type: string
-          description: Target component's release line. Omitted targets its default line.
+          description: Target component's release line. Omitted targets its main line.
         name:
           type: string
           description: Target endpoint name on the target component

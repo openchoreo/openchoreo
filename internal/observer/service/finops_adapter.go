@@ -270,7 +270,7 @@ func (a *FinOpsAdapter) resolveReleaseLine(
 }
 
 // checkReleaseLineApplied rejects a successful response that the adapter did not scope to the
-// requested lines, so the default line's costs are never passed off as another line's or every
+// requested lines, so the main line's costs are never passed off as another line's or every
 // line's.
 func (a *FinOpsAdapter) checkReleaseLineApplied(
 	ctx context.Context, namespace, component string, lines ReleaseLineScope, statusCode int, resp *http.Response,

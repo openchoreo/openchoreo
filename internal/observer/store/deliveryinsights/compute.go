@@ -92,7 +92,7 @@ type rollupScope struct {
 // release line scope, each both unsliced (environmentUID "") and sliced by the fact's environment.
 func scopesForFact(namespace, projectUID, componentUID, environmentUID, releaseLineUID string) []rollupScope {
 	if releaseLineUID == "" {
-		// The default line's rollups are keyed by its component's UID.
+		// The main line's rollups are keyed by its component's UID.
 		releaseLineUID = componentUID
 	}
 	scopes := make([]rollupScope, 0, 8)

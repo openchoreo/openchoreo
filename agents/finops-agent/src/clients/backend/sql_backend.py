@@ -214,8 +214,8 @@ class SQLReportBackend(ReportBackend):
         ]
         if component is not None:
             conditions.append(finops_reports.c.component == component)
-        if release_line == "default":
-            # Reports from before release lines have no line, and they are the default line's.
+        if release_line == "main":
+            # Reports from before release lines have no line, and they are the main line's.
             conditions.append(
                 or_(
                     finops_reports.c.release_line == release_line,

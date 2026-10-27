@@ -131,7 +131,7 @@ func (t buildTarget) String() string {
 	return name
 }
 
-// findBuildTargets finds the default lines and release lines of components that should be built for
+// findBuildTargets finds the main lines and release lines of components that should be built for
 // the webhook event.
 func (s *webhookProcessor) findBuildTargets(ctx context.Context, event *git.WebhookEvent) ([]buildTarget, error) {
 	componentList := &v1alpha1.ComponentList{}

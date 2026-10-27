@@ -39,7 +39,7 @@ type ReleaseOptions struct {
 	ComponentName string
 	ProjectName   string
 	Namespace     string
-	ReleaseLine   string    // Optional: the component's release line; empty or default for its default line
+	ReleaseLine   string    // Optional: the component's release line; empty or main for its main line
 	ReleaseName   string    // Optional: custom release name (if empty, auto-generated from component, line, date, version)
 	Version       string    // Optional: auto-generated if empty
 	Date          time.Time // Optional: uses current date if zero

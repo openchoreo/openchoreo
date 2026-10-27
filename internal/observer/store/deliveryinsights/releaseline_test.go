@@ -33,7 +33,7 @@ func TestDeploymentFacts_ReleaseLine(t *testing.T) {
 	window := FactQuery{ComponentUID: "comp-1", StartMs: deployed - 1000, EndMs: deployed + time.Hour.Milliseconds()}
 	counts, err := store.CountDeployments(ctx, window)
 	require.NoError(t, err)
-	assert.Equal(t, 0, counts.Total, "the component alone counts its default line, which has no facts here")
+	assert.Equal(t, 0, counts.Total, "the component alone counts its main line, which has no facts here")
 
 	window.AllReleaseLines = true
 	counts, err = store.CountDeployments(ctx, window)
@@ -79,7 +79,7 @@ func TestAttributeIncident_ReleaseLine(t *testing.T) {
 	assert.Equal(t, "rel-next", result.ReleaseUID, "an incident of a line is attributed to that line")
 }
 
-func TestAttributeIncident_DefaultLine(t *testing.T) {
+func TestAttributeIncident_MainLine(t *testing.T) {
 	t.Parallel()
 
 	store := newTestStore(t)
@@ -87,16 +87,16 @@ func TestAttributeIncident_DefaultLine(t *testing.T) {
 	deployed := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC).UnixMilli()
 	window := 24 * time.Hour.Milliseconds()
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{
-		testFact("rel-default", deployed),
-		// A line deployed later must not take the default line's incident.
+		testFact("rel-main", deployed),
+		// A line deployed later must not take the main line's incident.
 		lineFact("rel-next", "line-next", deployed+10*time.Minute.Milliseconds()),
 	}))
 
-	result, err := store.AttributeIncident(ctx, "comp-1", "env-prod", "", "inc-default",
+	result, err := store.AttributeIncident(ctx, "comp-1", "env-prod", "", "inc-main",
 		deployed+30*time.Minute.Milliseconds(), window)
 	require.NoError(t, err)
 	assert.True(t, result.Attributed)
-	assert.Equal(t, "rel-default", result.ReleaseUID, "an incident of the default line is attributed to the default line")
+	assert.Equal(t, "rel-main", result.ReleaseUID, "an incident of the main line is attributed to the main line")
 }
 
 func TestBuildRollups_ReleaseLine(t *testing.T) {

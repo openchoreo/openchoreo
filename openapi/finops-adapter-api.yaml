@@ -58,7 +58,7 @@ paths:
           description: A list of component cost records.
           headers:
             OpenChoreo-Release-Line-Applied:
-              description: Set to "true" when the adapter applied `releaseLineUid` or `allReleaseLines`. Without it, a component's result covers its default line only.
+              description: Set to "true" when the adapter applied `releaseLineUid` or `allReleaseLines`. Without it, a component's result covers its main line only.
               schema:
                 type: string
           content:
@@ -169,7 +169,7 @@ paths:
           description: A list of right-sizing recommendations.
           headers:
             OpenChoreo-Release-Line-Applied:
-              description: Set to "true" when the adapter applied `releaseLineUid` or `allReleaseLines`. Without it, a component's result covers its default line only.
+              description: Set to "true" when the adapter applied `releaseLineUid` or `allReleaseLines`. Without it, a component's result covers its main line only.
               schema:
                 type: string
           content:
@@ -238,7 +238,7 @@ components:
       required: false
       description: |
         Component UID. When set, narrows the response to this single component's
-        default line: openchoreo.dev/component-uid without an
+        main line: openchoreo.dev/component-uid without an
         openchoreo.dev/release-line-uid label. Requires `projectUid` to also be set.
       schema:
         type: string
@@ -265,7 +265,7 @@ components:
       in: query
       required: false
       description: |
-        Covers every line of the component, its default line and its release lines:
+        Covers every line of the component, its main line and its release lines:
         openchoreo.dev/component-uid, or openchoreo.dev/release-line-component-uid,
         which release line pods carry instead. Requires `componentUid`, and
         `releaseLineUid` takes precedence. Adapters that support it set the

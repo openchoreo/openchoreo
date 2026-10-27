@@ -449,7 +449,7 @@ func TestGenerateWorkload_K3d(t *testing.T) {
 }
 
 // The e2e copies of generate-workload must forward a build's release line to occ, so a line's build
-// publishes the line's Workload rather than the default line's.
+// publishes the line's Workload rather than the main line's.
 func TestE2EGenerateWorkload_ForwardsReleaseLine(t *testing.T) {
 	for _, path := range []string{
 		"../e2e/k3d/workflow-templates/generate-workload-e2e.yaml",

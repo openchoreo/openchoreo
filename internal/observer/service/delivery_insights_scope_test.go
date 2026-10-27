@@ -159,7 +159,7 @@ func TestDeliveryInsightsReleaseLineScope(t *testing.T) {
 		}
 	}
 	facts := []deliveryinsights.DeploymentFact{
-		fact("rel-main", "main", 0), fact("rel-next-1", "next", 1000), fact("rel-next-2", "next", 2000),
+		fact("rel-stable", "stable", 0), fact("rel-next-1", "next", 1000), fact("rel-next-2", "next", 2000),
 	}
 	store := newDeliveryInsightsTestStore(t)
 	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
@@ -197,9 +197,9 @@ func TestDeliveryInsightsReleaseLineScope(t *testing.T) {
 	assert.Equal(t, 2, *deployments.TotalCount)
 }
 
-// A component scope without a line covers the default line. A component without release lines keeps
+// A component scope without a line covers the main line. A component without release lines keeps
 // its component rollups and every fact, which hold its history from before release lines.
-func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
+func TestDeliveryInsightsMainLineScope(t *testing.T) {
 	ctx := context.Background()
 	all := true
 	tests := []struct {
@@ -213,8 +213,8 @@ func TestDeliveryInsightsDefaultLineScope(t *testing.T) {
 		{"no line, component without lines", false, "", nil, deliveryinsights.ScopeTypeComponent, true},
 		{"no line, component with lines", true, "", nil, deliveryinsights.ScopeTypeReleaseLine, false},
 		{"every line", true, "", &all, deliveryinsights.ScopeTypeComponent, true},
-		{"default keyword, component with lines", true, "default", nil, deliveryinsights.ScopeTypeReleaseLine, false},
-		{"default keyword, component without lines", false, "default", nil, deliveryinsights.ScopeTypeComponent, true},
+		{"main keyword, component with lines", true, "main", nil, deliveryinsights.ScopeTypeReleaseLine, false},
+		{"main keyword, component without lines", false, "main", nil, deliveryinsights.ScopeTypeComponent, true},
 	}
 	t.Run("failed release line check keeps the component scope", func(t *testing.T) {
 		svc := &DoraMetricsService{logger: slog.Default(), resolver: scopeResolverStub{withLines: true,

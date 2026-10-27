@@ -30,7 +30,7 @@ func releaseNameBaseOf(release *unstructured.Unstructured) string {
 }
 
 // FindLatestRelease finds the most recent release file named <base>-<YYYYMMDD>-<version>.yaml,
-// where base is a ReleaseNameBase. A component's default line and each of its release lines have their own base.
+// where base is a ReleaseNameBase. A component's main line and each of its release lines have their own base.
 // Returns the release object and the file path, or nil if no existing release found
 func FindLatestRelease(outputDir, base string) (*unstructured.Unstructured, string, error) {
 	// Check if directory exists

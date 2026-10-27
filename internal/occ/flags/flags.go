@@ -192,7 +192,7 @@ func GetTo(cmd *cobra.Command) string {
 // --- WorkflowRun ---
 
 func AddReleaseLine(cmd *cobra.Command) {
-	cmd.Flags().String("release-line", "", "Release line of the component; default is its default line")
+	cmd.Flags().String("release-line", "", "Release line of the component; omit it or use main for its main line")
 }
 
 func GetReleaseLine(cmd *cobra.Command) string {

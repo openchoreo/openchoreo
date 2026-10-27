@@ -198,7 +198,7 @@ func TestCreateComponentRelease(t *testing.T) {
 		requireValidationError(t, err, `release line "v9" not found for component "test-comp"`)
 	})
 
-	t.Run("default line release of a component with release lines", func(t *testing.T) {
+	t.Run("main line release of a component with release lines", func(t *testing.T) {
 		svc := newService(t, lineObjects()...)
 		cr := lineRelease()
 		cr.Spec.Owner.ReleaseLine = ""

@@ -34,7 +34,7 @@ const (
 	// Used when autoDeploy is enabled
 	ReasonComponentReleaseReady controller.ConditionReason = "ComponentReleaseReady"
 
-	// ReasonReleaseLinesReconciled indicates a component whose default line has no Workload was reconciled;
+	// ReasonReleaseLinesReconciled indicates a component whose main line has no Workload was reconciled;
 	// per-line outcomes are reported on each ReleaseLine
 	ReasonReleaseLinesReconciled controller.ConditionReason = "ReleaseLinesReconciled"
 

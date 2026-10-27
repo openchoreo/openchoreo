@@ -670,22 +670,22 @@ func TestReleaseLines(t *testing.T) {
 			FilePath: "/repo/" + name + ".yaml",
 		}
 	}
-	defaultOwner := map[string]any{"projectName": "proj", "componentName": "web"}
+	mainOwner := map[string]any{"projectName": "proj", "componentName": "web"}
 	lineOwner := map[string]any{"projectName": "proj", "componentName": "web", "releaseLine": "next"}
 
-	build := func(t *testing.T, withDefault bool) *Index {
+	build := func(t *testing.T, withMain bool) *Index {
 		t.Helper()
 		idx := index.New("/repo")
 		entries := []*index.ResourceEntry{
-			entry("ReleaseLine", "next", defaultOwner),
+			entry("ReleaseLine", "next", mainOwner),
 			entry("Workload", "web-next-workload", lineOwner),
 			entry("ComponentRelease", "web-next-20261021-1", lineOwner),
 			entry("ReleaseBinding", "web-next-dev", lineOwner),
-			entry("ComponentRelease", "web-20261021-1", defaultOwner),
-			entry("ReleaseBinding", "web-dev", defaultOwner),
+			entry("ComponentRelease", "web-20261021-1", mainOwner),
+			entry("ReleaseBinding", "web-dev", mainOwner),
 		}
-		if withDefault {
-			entries = append(entries, entry("Workload", "web-workload", defaultOwner))
+		if withMain {
+			entries = append(entries, entry("Workload", "web-workload", mainOwner))
 		}
 		for _, e := range entries {
 			require.NoError(t, idx.Add(e))
@@ -694,7 +694,7 @@ func TestReleaseLines(t *testing.T) {
 	}
 
 	t.Run("owner of a release line", func(t *testing.T) {
-		owner := ExtractOwnerRef(entry("ReleaseLine", "next", defaultOwner))
+		owner := ExtractOwnerRef(entry("ReleaseLine", "next", mainOwner))
 		require.NotNil(t, owner)
 		assert.Equal(t, OwnerRef{ProjectName: "proj", ComponentName: "web", ReleaseLine: "next"}, *owner)
 		owner = ExtractOwnerRef(entry("Workload", "web-next-workload", lineOwner))

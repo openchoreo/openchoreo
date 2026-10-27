@@ -217,7 +217,7 @@ func validateConversionParams(params CreateWorkloadParams) error {
 }
 
 // WorkloadName names the Workload of a component's release line: "{component}-workload" for its
-// default line and "{componentLineName}-workload" for a release line.
+// main line and "{componentLineName}-workload" for a release line.
 func WorkloadName(componentName, releaseLine string) string {
 	return releaseline.ScopedName(componentName, releaseline.Normalize(releaseLine), "workload")
 }

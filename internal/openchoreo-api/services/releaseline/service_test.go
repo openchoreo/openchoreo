@@ -60,24 +60,24 @@ func rawParams(raw string) *runtime.RawExtension {
 func TestListReleaseLines(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("starts with the default line and returns only the component's lines", func(t *testing.T) {
+	t.Run("starts with the main line and returns only the component's lines", func(t *testing.T) {
 		svc := newService(t,
 			testComponent(),
 			testReleaseLine("next", testProjectName, testComponentName),
 			testReleaseLine("v2", testProjectName, testComponentName),
 			testReleaseLine("other-comp", testProjectName, "other"),
 			testReleaseLine("other-proj", "other", testComponentName),
-			testBinding("default-dev", testComponentName, "", "development"),
+			testBinding("main-dev", testComponentName, "", "development"),
 			testBinding("next-dev", testComponentName, "next", "development"),
 			testBinding("other-dev", "other", "", "development"),
 		)
 		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, result.Items, 3)
-		assert.Equal(t, "default", result.Items[0].Name)
+		assert.Equal(t, "main", result.Items[0].Name)
 		assert.Empty(t, result.Items[0].UID)
 		assert.Equal(t, []openchoreov1alpha1.ReleaseLineEnvironment{
-			{Environment: "development", ReleaseBinding: "default-dev", Release: "default-dev-release"},
+			{Environment: "development", ReleaseBinding: "main-dev", Release: "main-dev-release"},
 		}, result.Items[0].Status.Environments)
 		assert.ElementsMatch(t, []string{"next", "v2"}, []string{result.Items[1].Name, result.Items[2].Name})
 		for _, item := range result.Items {
@@ -85,16 +85,16 @@ func TestListReleaseLines(t *testing.T) {
 		}
 	})
 
-	t.Run("component without lines has only its default line", func(t *testing.T) {
+	t.Run("component without lines has only its main line", func(t *testing.T) {
 		svc := newService(t, testComponent())
 		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, result.Items, 1)
-		assert.Equal(t, "default", result.Items[0].Name)
+		assert.Equal(t, "main", result.Items[0].Name)
 		assert.Equal(t, testComponentName, result.Items[0].Spec.Owner.ComponentName)
 	})
 
-	t.Run("a filtered list leaves out the default line", func(t *testing.T) {
+	t.Run("a filtered list leaves out the main line", func(t *testing.T) {
 		svc := newService(t, testComponent())
 		result, err := svc.ListReleaseLines(ctx, testNamespace, testComponentName, services.ListOptions{Limit: 10, LabelSelector: "team=a"})
 		require.NoError(t, err)
@@ -123,10 +123,10 @@ func TestGetReleaseLine(t *testing.T) {
 		assert.Equal(t, releaseLineTypeMeta, rl.TypeMeta)
 	})
 
-	t.Run("returns the implicit default line", func(t *testing.T) {
-		rl, err := svc.GetReleaseLine(ctx, testNamespace, testComponentName, "default")
+	t.Run("returns the implicit main line", func(t *testing.T) {
+		rl, err := svc.GetReleaseLine(ctx, testNamespace, testComponentName, "main")
 		require.NoError(t, err)
-		assert.Equal(t, "default", rl.Name)
+		assert.Equal(t, "main", rl.Name)
 		assert.Equal(t, testComponentName, rl.Spec.Owner.ComponentName)
 		assert.Equal(t, releaseLineTypeMeta, rl.TypeMeta)
 	})
@@ -180,10 +180,16 @@ func TestCreateReleaseLine(t *testing.T) {
 		assert.Contains(t, vErr.Msg, "spec.owner.projectName")
 	})
 
+	t.Run("main is the implicit line", func(t *testing.T) {
+		svc := newService(t, testComponent())
+		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("main", "", ""))
+		require.ErrorIs(t, err, ErrMainLine)
+	})
+
 	t.Run("default is reserved", func(t *testing.T) {
 		svc := newService(t, testComponent())
 		_, err := svc.CreateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("default", "", ""))
-		require.ErrorIs(t, err, ErrDefaultLine)
+		require.ErrorIs(t, err, ErrReservedName)
 	})
 
 	t.Run("name taken by another component's line", func(t *testing.T) {
@@ -229,10 +235,10 @@ func TestUpdateReleaseLine(t *testing.T) {
 		require.ErrorIs(t, err, ErrReleaseLineNotFound)
 	})
 
-	t.Run("the default line", func(t *testing.T) {
+	t.Run("the main line", func(t *testing.T) {
 		svc := newService(t, testComponent())
-		_, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("default", "", ""))
-		require.ErrorIs(t, err, ErrDefaultLine)
+		_, err := svc.UpdateReleaseLine(ctx, testNamespace, testComponentName, testReleaseLine("main", "", ""))
+		require.ErrorIs(t, err, ErrMainLine)
 	})
 }
 
@@ -256,8 +262,8 @@ func TestDeleteReleaseLine(t *testing.T) {
 		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "missing"), ErrReleaseLineNotFound)
 	})
 
-	t.Run("the default line", func(t *testing.T) {
+	t.Run("the main line", func(t *testing.T) {
 		svc := newService(t, testComponent())
-		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "default"), ErrDefaultLine)
+		require.ErrorIs(t, svc.DeleteReleaseLine(ctx, testNamespace, testComponentName, "main"), ErrMainLine)
 	})
 }
