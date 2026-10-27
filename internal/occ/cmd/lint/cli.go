@@ -396,7 +396,7 @@ func runValidate(f validateFlags, path string) error {
 		// A single file cannot be rendered on its own: the bundle needs the
 		// ComponentType, Component and Workload, so the whole folder that
 		// holds the file is rendered instead.
-		siblings, serr := collectYAMLFiles(filepath.Dir(path), false)
+		siblings, serr := parser.CollectYAMLFiles(filepath.Dir(path), false)
 		if serr == nil {
 			for _, d := range runPostRenderValidation(siblings) {
 				printDiagnostic(d)
@@ -439,59 +439,19 @@ func RunValidate(path string) error {
 // about. It returns the diagnostics with the file they belong to; a diagnostic
 // that cannot be attributed to one document is attached to the first file.
 func runPostRenderValidation(files []string) []diagnosticJSON {
-	if len(files) == 0 {
+	findings := postrendervalidator.ValidateFiles(context.Background(), files)
+	if len(findings) == 0 {
 		return nil
 	}
-	var docs []*parser.DocumentNode
-	var sources []postRenderSource
-	for _, p := range files {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		parsed, err := parser.ParseYAML(data)
-		if err != nil {
-			continue
-		}
-		for _, d := range parsed {
-			docs = append(docs, d)
-			sources = append(sources, postRenderSource{doc: d, file: p})
-		}
-	}
-	if len(docs) == 0 {
-		return nil
-	}
-
-	bundle, err := postrendervalidator.BundleFromDocuments(docs)
-	if err != nil {
-		return []diagnosticJSON{{
-			File:     files[0],
-			Severity: "error",
-			Code:     "post-render-error",
-			Message:  err.Error(),
-		}}
-	}
-
-	diags, err := postrendervalidator.ValidateBundle(context.Background(), bundle)
-	if err != nil {
-		return []diagnosticJSON{{
-			File:     files[0],
-			Severity: "error",
-			Code:     "post-render-error",
-			Message:  err.Error(),
-		}}
-	}
-
-	out := make([]diagnosticJSON, 0, len(diags))
-	for _, d := range diags {
-		file, pos := resolvePostRenderDiagnostic(d, sources, files[0])
+	out := make([]diagnosticJSON, 0, len(findings))
+	for _, f := range findings {
 		out = append(out, diagnosticJSON{
-			File:     file,
-			Severity: severityName(d.Severity),
-			Code:     d.Code,
-			Line:     pos.Line,
-			Column:   pos.Column,
-			Message:  d.Message,
+			File:     f.Path,
+			Severity: f.Severity,
+			Code:     f.Code,
+			Line:     f.Line,
+			Column:   f.Column,
+			Message:  f.Message,
 		})
 	}
 	return out
@@ -777,7 +737,7 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 		return 1
 	}
 
-	files, err := collectYAMLFiles(folder, recursive)
+	files, err := parser.CollectYAMLFiles(folder, recursive)
 	if err != nil {
 		printJSON([]diagnosticJSON{{File: folder, Severity: "error", Message: err.Error()}}, nil)
 		return 1
@@ -1203,7 +1163,7 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		return 0
 	}
 
-	files, err := collectYAMLFiles(folder, recursive)
+	files, err := parser.CollectYAMLFiles(folder, recursive)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error walking %s: %v\n", folder, err)
 		return 1
@@ -1286,64 +1246,6 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 	fmt.Fprintf(os.Stderr, "Total validation time: %s (%d workers)\n", time.Since(start).Round(time.Millisecond), workers)
 	fmt.Fprintf(os.Stderr, "%s\n", phases.breakdown())
 	return 0
-}
-
-// collectYAMLFiles returns the .yaml/.yml files under the given folder. When
-// recursive is true it scans every subfolder using path/filepath; otherwise it
-// only looks at the files directly inside the folder. Files that do not declare
-// an OpenChoreo apiVersion are ignored.
-func collectYAMLFiles(folder string, recursive bool) ([]string, error) {
-	var files []string
-	if recursive {
-		err := filepath.WalkDir(folder, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				return nil
-			}
-			ext := strings.ToLower(filepath.Ext(path))
-			if ext == ".yaml" || ext == ".yml" {
-				files = append(files, path)
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		return filterOpenChoreoFiles(files), nil
-	}
-
-	entries, err := os.ReadDir(folder)
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range entries {
-		if d.IsDir() {
-			continue
-		}
-		ext := strings.ToLower(filepath.Ext(d.Name()))
-		if ext == ".yaml" || ext == ".yml" {
-			files = append(files, filepath.Join(folder, d.Name()))
-		}
-	}
-	return filterOpenChoreoFiles(files), nil
-}
-
-// filterOpenChoreoFiles keeps only the YAML files whose content declares an
-// OpenChoreo apiVersion. Unreadable files are also dropped.
-func filterOpenChoreoFiles(files []string) []string {
-	kept := files[:0]
-	for _, f := range files {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			continue
-		}
-		if parser.HasOpenChoreoAPIVersion(data) {
-			kept = append(kept, f)
-		}
-	}
-	return kept
 }
 
 func iconFor(s ruleengine.Severity) string {

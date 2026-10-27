@@ -4,8 +4,6 @@
 package lsp
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
@@ -119,6 +117,7 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 		return
 	}
 
+	diags = s.mergePostRenderDiagnostics(uri, diags)
 	if diags == nil {
 		diags = []protocol.Diagnostic{}
 	}
@@ -135,6 +134,7 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 // Unlike glsp.Context.Notify, that is valid after a handler has returned,
 // which is what debounced publishes rely on.
 func (s *Server) publishDiagnosticsAsync(uri string, version int, diags []protocol.Diagnostic) {
+	diags = s.mergePostRenderDiagnostics(uri, diags)
 	if diags == nil {
 		diags = []protocol.Diagnostic{}
 	}
@@ -260,8 +260,6 @@ func (s *Server) scheduleOtherDocRevalidation(editedURI string) {
 		s.revalTimer = nil
 		s.diagMu.Unlock()
 
-		fmt.Fprintf(os.Stderr, "DBG reval timer fired for %s (gen %d/%d)\n", edited, gen, s.revalGen)
-
 		s.revalidateOpenDocumentsExcept(edited)
 	})
 }
@@ -270,7 +268,6 @@ func (s *Server) scheduleOtherDocRevalidation(editedURI string) {
 // open document except exceptURI. Metrics and cached parses are reused, so
 // only the reference checks re-run when the index moved on.
 func (s *Server) revalidateOpenDocumentsExcept(exceptURI string) {
-	fmt.Fprintf(os.Stderr, "DBG revalidateOpenDocumentsExcept except=%s\n", exceptURI)
 	for _, doc := range s.snapshotOpenDocuments() {
 		if doc.URI == exceptURI {
 			continue

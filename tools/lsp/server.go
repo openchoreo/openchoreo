@@ -6,7 +6,6 @@ package lsp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -24,6 +23,12 @@ import (
 	"github.com/tliron/glsp/server"
 )
 
+type outboundNotification struct {
+	conn   *jsonrpc2.Conn
+	method string
+	params any
+}
+
 type Server struct {
 	server    *server.Server
 	documents map[string]*Document
@@ -37,6 +42,11 @@ type Server struct {
 
 	connMu sync.RWMutex
 	conn   *jsonrpc2.Conn
+
+	// Outgoing notifications are queued to a single writer so handlers never
+	// block on an unbuffered client connection and diagnostics stay ordered.
+	outboxOnce sync.Once
+	outbox     chan outboundNotification
 
 	// Workspace scanning runs once per session in a background goroutine so
 	// initialize returns promptly on large workspaces.
@@ -82,6 +92,16 @@ type Server struct {
 	cache       map[string]*validationEntry
 	cacheHits   uint64
 	cacheMisses uint64
+
+	// Post-render diagnostics are kept separately from structural diagnostics
+	// so a late structural publish cannot erase them. postRenderFiles records
+	// every file used by the last run, letting edits/closes invalidate the
+	// whole result even when a file had no finding of its own.
+	postRenderMu      sync.Mutex
+	postRenderByURI   map[string][]protocol.Diagnostic
+	postRenderFiles   map[string]struct{}
+	postRenderRunning bool
+	postRenderEpoch   uint64
 }
 
 // New creates a new OpenChoreo language server.
@@ -89,12 +109,15 @@ func NewServer() *Server {
 	handler := protocol.Handler{}
 
 	s := &Server{
-		server:    server.NewServer(&handler, "OpenChoreo Language Server", false),
-		documents: make(map[string]*Document),
-		indexer:   indexer.NewIndexer(),
-		indexDone: make(chan struct{}),
-		cache:     make(map[string]*validationEntry),
-		logger:    slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		server:          server.NewServer(&handler, "OpenChoreo Language Server", false),
+		documents:       make(map[string]*Document),
+		indexer:         indexer.NewIndexer(),
+		indexDone:       make(chan struct{}),
+		cache:           make(map[string]*validationEntry),
+		postRenderByURI: make(map[string][]protocol.Diagnostic),
+		postRenderFiles: make(map[string]struct{}),
+		outbox:          make(chan outboundNotification, 256),
+		logger:          slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 	handler.Initialize = WithRequestRecovery(s, "initialize", s.Initialize)
 	handler.Initialized = WithHandlerRecovery(s, "initialized", s.Initialized)
@@ -112,6 +135,8 @@ func NewServer() *Server {
 	handler.TextDocumentHover = WithRequestRecovery(s, "hover", s.Hover)
 	handler.TextDocumentDefinition = WithRequestRecovery(s, "definition", s.Definition)
 	handler.TextDocumentCodeAction = WithRequestRecovery(s, "codeAction", s.CodeAction)
+	handler.TextDocumentCodeLens = WithRequestRecovery(s, "codeLens", s.CodeLens)
+	handler.WorkspaceExecuteCommand = WithRequestRecovery(s, "executeCommand", s.ExecuteCommand)
 
 	return s
 }
@@ -158,8 +183,11 @@ func (s *Server) Start() error {
 // serve over other transports.
 func (s *Server) SetConnection(conn *jsonrpc2.Conn) {
 	s.connMu.Lock()
-	defer s.connMu.Unlock()
 	s.conn = conn
+	s.connMu.Unlock()
+	if conn != nil {
+		s.outboxOnce.Do(func() { go s.pumpOutbox() })
+	}
 }
 
 // Connection returns the currently attached connection, or nil before Start.
@@ -173,14 +201,18 @@ func (s *Server) Connection() *jsonrpc2.Conn {
 // safe to call after a request handler has returned, unlike glsp.Context.Notify.
 func (s *Server) SendAsync(method string, params any) {
 	conn := s.Connection()
-	if conn == nil {
+	if conn == nil || s.outbox == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "DBG SendAsync enter %s\n", method)
-	if err := conn.Notify(context.Background(), method, params); err != nil && s.logger != nil {
-		s.logger.Error("async notification failed", "method", method, "error", err.Error())
+	s.outbox <- outboundNotification{conn: conn, method: method, params: params}
+}
+
+func (s *Server) pumpOutbox() {
+	for item := range s.outbox {
+		if err := item.conn.Notify(context.Background(), item.method, item.params); err != nil && s.logger != nil {
+			s.logger.Error("async notification failed", "method", item.method, "error", err.Error())
+		}
 	}
-	fmt.Fprintf(os.Stderr, "DBG SendAsync exit %s\n", method)
 }
 
 // CallRequest sends a request to the client and waits for its reply, since

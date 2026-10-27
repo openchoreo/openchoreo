@@ -35,15 +35,17 @@ func decodeTyped[T any](doc *parser.DocumentNode) (T, error) {
 		return zero, fmt.Errorf("document is nil")
 	}
 	var data []byte
-	if len(doc.Source) > 0 {
-		data = doc.Source
-	} else if doc.Root != nil {
-		// Fallback
+	if doc.Root != nil {
+		// Decode the individual document, not doc.Source: Source is the whole
+		// file and would make every document in a multi-document YAML file
+		// decode as the first one.
 		b, err := yamlv3.Marshal(doc.Root)
 		if err != nil {
 			return zero, fmt.Errorf("marshal doc root: %w", err)
 		}
 		data = b
+	} else if len(doc.Source) > 0 {
+		data = doc.Source
 	} else {
 		return zero, fmt.Errorf("no source data")
 	}
@@ -144,28 +146,62 @@ func BundleFromDocuments(docs []*parser.DocumentNode) (*Bundle, error) {
 }
 
 // synthesizeMetadata creates a minimal required MetadataContext for linting.
-func synthesizeMetadata() pipelinecontext.MetadataContext {
+// Resource names and namespaces are taken from the Component when available so
+// rule messages refer to the real objects rather than lint placeholders.
+func synthesizeMetadata(b *Bundle) pipelinecontext.MetadataContext {
+	componentName := "lint-component"
+	namespace := "lint-ns"
+	projectName := "lint-project"
+	dataPlaneName := "lint-dp"
+	environmentName := "lint-env"
+	labels := map[string]string{}
+	annotations := map[string]string{}
+
+	if b != nil && b.Component != nil {
+		if b.Component.Name != "" {
+			componentName = b.Component.Name
+		}
+		if b.Component.Namespace != "" {
+			namespace = b.Component.Namespace
+		}
+		if b.Component.Spec.Owner.ProjectName != "" {
+			projectName = b.Component.Spec.Owner.ProjectName
+		}
+		for k, v := range b.Component.Labels {
+			labels[k] = v
+		}
+		for k, v := range b.Component.Annotations {
+			annotations[k] = v
+		}
+	}
+	if b != nil && b.DataPlane != nil && b.DataPlane.Name != "" {
+		dataPlaneName = b.DataPlane.Name
+	}
+	if b != nil && b.Environment != nil && b.Environment.Name != "" {
+		environmentName = b.Environment.Name
+	}
+
 	return pipelinecontext.MetadataContext{
-		Name:               "lint",
-		Namespace:          "lint-ns",
-		ComponentName:      "lint-component",
+		Name:               componentName,
+		Namespace:          namespace,
+		ComponentName:      componentName,
 		ComponentUID:       "lint-uid-1",
-		ComponentNamespace: "lint-ns",
-		ProjectName:        "lint-project",
+		ComponentNamespace: namespace,
+		ProjectName:        projectName,
 		ProjectUID:         "lint-uid-2",
-		DataPlaneName:      "lint-dp",
+		DataPlaneName:      dataPlaneName,
 		DataPlaneUID:       "lint-uid-3",
-		EnvironmentName:    "lint-env",
+		EnvironmentName:    environmentName,
 		EnvironmentUID:     "lint-uid-4",
-		Labels:             map[string]string{},
-		Annotations:        map[string]string{},
-		PodSelectors:       map[string]string{"openchoreo.dev/component": "lint-component"},
+		Labels:             labels,
+		Annotations:        annotations,
+		PodSelectors:       map[string]string{"openchoreo.dev/component": componentName},
 	}
 }
 
 // RenderInput converts the Bundle into a componentpipeline.RenderInput.
 func (b *Bundle) RenderInput() (*componentpipeline.RenderInput, error) {
-	meta := synthesizeMetadata()
+	meta := synthesizeMetadata(b)
 	// Ensure required pointers exist for pipeline validation
 	if b.Environment == nil {
 		b.Environment = &v1alpha1.Environment{}
@@ -173,6 +209,16 @@ func (b *Bundle) RenderInput() (*componentpipeline.RenderInput, error) {
 	if b.DataPlane == nil {
 		b.DataPlane = &v1alpha1.DataPlane{}
 	}
+	// Without a ReleaseBinding there is no Environment or DataPlane to provide
+	// gateway configuration. ComponentType templates commonly read
+	// gateway.ingress.external.name and gateway.ingress.internal.name, so fill
+	// in placeholders for any endpoint the DataPlane does not define. Real
+	// Environment gateway values still take precedence when merging.
+	namespace := "default"
+	if b.Component != nil && b.Component.Namespace != "" {
+		namespace = b.Component.Namespace
+	}
+	ensureGatewayEndpoints(&b.DataPlane.Spec.Gateway, namespace)
 	ri := &componentpipeline.RenderInput{
 		ComponentType:  b.ComponentType,
 		Component:      b.Component,
@@ -184,6 +230,18 @@ func (b *Bundle) RenderInput() (*componentpipeline.RenderInput, error) {
 		Metadata:       meta,
 	}
 	return ri, nil
+}
+
+func ensureGatewayEndpoints(gw *v1alpha1.GatewaySpec, namespace string) {
+	if gw.Ingress == nil {
+		gw.Ingress = &v1alpha1.GatewayNetworkSpec{}
+	}
+	if gw.Ingress.External == nil {
+		gw.Ingress.External = &v1alpha1.GatewayEndpointSpec{Name: "lint-gateway", Namespace: namespace}
+	}
+	if gw.Ingress.Internal == nil {
+		gw.Ingress.Internal = &v1alpha1.GatewayEndpointSpec{Name: "lint-gateway", Namespace: namespace}
+	}
 }
 
 // Render renders the bundle using the real pipeline in lint mode.
