@@ -23,6 +23,9 @@ data:
   JWT_INSECURE_ALLOW_UNVERIFIED: {{ .Values.security.oidc.insecureAllowUnverified | default "false" | quote }}
   LOG_LEVEL: {{ .Values.finOpsAgent.logLevel | quote }}
   MAX_CONCURRENT_ANALYSES: {{ .Values.finOpsAgent.maxConcurrentAnalyses | quote }}
+  {{- if .Values.finOpsAgent.oauth.clientAssertionFile }}
+  OAUTH_CLIENT_ASSERTION_FILE: {{ .Values.finOpsAgent.oauth.clientAssertionFile | quote }}
+  {{- end }}
   OAUTH_CLIENT_ID: {{ .Values.finOpsAgent.oauth.clientId | quote }}
   {{- if .Values.finOpsAgent.oauth.scope }}
   OAUTH_SCOPE: {{ .Values.finOpsAgent.oauth.scope | quote }}
