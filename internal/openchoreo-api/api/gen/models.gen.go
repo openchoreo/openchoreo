@@ -228,6 +228,12 @@ const (
 	NamespaceStatusPhaseTerminating NamespaceStatusPhase = "Terminating"
 )
 
+// Defines values for NotificationEmailTemplateContentType.
+const (
+	Texthtml  NotificationEmailTemplateContentType = "text/html"
+	Textplain NotificationEmailTemplateContentType = "text/plain"
+)
+
 // Defines values for ObservabilityAlertsNotificationChannelSpecType.
 const (
 	Email   ObservabilityAlertsNotificationChannelSpecType = "email"
@@ -2358,9 +2364,15 @@ type NotificationEmailTemplate struct {
 	// Body Email body template using CEL expressions
 	Body string `json:"body"`
 
+	// ContentType Content type of the email body
+	ContentType *NotificationEmailTemplateContentType `json:"contentType,omitempty"`
+
 	// Subject Email subject line template using CEL expressions
 	Subject string `json:"subject"`
 }
+
+// NotificationEmailTemplateContentType Content type of the email body
+type NotificationEmailTemplateContentType string
 
 // NotificationSMTPAuth SMTP authentication configuration
 type NotificationSMTPAuth struct {
