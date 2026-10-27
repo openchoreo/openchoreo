@@ -453,7 +453,8 @@ EOF
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
         --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
         --set adapter.openSearchSecretName="opensearch-admin-credentials" \
-        --set auditLogs.enabled=true
+        --set auditLogs.enabled=true \
+        --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
     $HELM upgrade --install observability-traces-opensearch \
         oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
         --namespace "$OBSERVABILITY_NS" --version "$TRACES_OPENSEARCH_VERSION" \
@@ -479,12 +480,6 @@ EOF
         done
         $KUBECTL rollout status "statefulset/$sts" -n "$OBSERVABILITY_NS" --timeout=5m
     done
-
-    $HELM upgrade observability-logs-opensearch \
-        oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-        --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
-        --reuse-values --set fluent-bit.enabled=true \
-        --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
 
     # Collect Kubernetes events into the k8s-events OpenSearch index.
     $HELM upgrade --install observability-events-otel-collector \
