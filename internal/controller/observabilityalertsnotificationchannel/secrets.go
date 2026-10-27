@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -194,7 +195,6 @@ func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string)
 // plane for the channel: the plane has a secret store, the value was pushed to that plane's store,
 // and the remote key belongs to the channel's namespace.
 func (r *Reconciler) validateSecretReferences(
-	ctx context.Context,
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 	obsPlane *controller.ObservabilityPlaneResult,
 	resolved *resolvedSecrets,
@@ -205,13 +205,6 @@ func (r *Reconciler) validateSecretReferences(
 	}
 
 	planeKind := observabilityPlaneKind(obsPlane)
-	var namespaces []string
-	if r.RemoteKeys.separatorInNamespaceNames() {
-		var err error
-		if namespaces, err = r.listNamespaceNames(ctx); err != nil {
-			return err
-		}
-	}
 	for _, ref := range resolved.refs {
 		if target := ref.secretReference.Spec.TargetPlane; target != nil &&
 			(target.Kind != planeKind || target.Name != obsPlane.GetName()) {
@@ -219,11 +212,12 @@ func (r *Reconciler) validateSecretReferences(
 				"SecretReference %q targets %s %q, not the channel's observability plane %s %q",
 				ref.ref.Name, target.Kind, target.Name, planeKind, obsPlane.GetName())
 		}
-		if !r.RemoteKeys.ownsKey(channel.Namespace, ref.remoteRef.Key, namespaces) {
-			if other := r.RemoteKeys.sharedWith(channel.Namespace, ref.remoteRef.Key, namespaces); other != "" &&
+		if !r.RemoteKeys.ownsKey(channel.Namespace, ref.remoteRef.Key) {
+			if other := r.RemoteKeys.sharedWith(channel.Namespace, ref.remoteRef.Key); other != "" &&
 				r.RemoteKeys.laysOutKey(channel.Namespace, ref.remoteRef.Key) {
 				return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
-					"SecretReference %q points at remote key %q, which could be a key of namespace %q as well as of namespace %q, so it belongs to neither",
+					"SecretReference %q points at remote key %q, which could be a key of namespace %q as well as of namespace %q, "+
+						"whether or not that namespace exists, so it belongs to neither",
 					ref.ref.Name, ref.remoteRef.Key, channel.Namespace, other)
 			}
 			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
@@ -255,16 +249,23 @@ type RemoteKeyFormat struct {
 // key, one per secret type. They must match remoteKeySegment in internal/openchoreo-api/services/secret.
 var remoteKeyTypeSegments = []string{"generic", "basic-auth", "ssh-auth", "registry", "tls"}
 
-// namespacePrefix returns the start that every remote key of the given namespace has.
-func (f RemoteKeyFormat) namespacePrefix(namespace string) string {
+// keyPrefix returns the start that every remote key has, before the namespace.
+func (f RemoteKeyFormat) keyPrefix() string {
 	var segments []string
 	for _, segment := range strings.Split(f.Prefix, "/") {
 		if segment != "" {
 			segments = append(segments, segment)
 		}
 	}
-	segments = append(segments, namespace)
+	if len(segments) == 0 {
+		return ""
+	}
 	return strings.Join(segments, f.Separator) + f.Separator
+}
+
+// namespacePrefix returns the start that every remote key of the given namespace has.
+func (f RemoteKeyFormat) namespacePrefix(namespace string) string {
+	return f.keyPrefix() + namespace + f.Separator
 }
 
 // separatorInNamespaceNames reports whether the separator can occur in a namespace name. Then a
@@ -294,37 +295,40 @@ func (f RemoteKeyFormat) laysOutKey(namespace, key string) bool {
 // laid out as a key of more than one namespace: with "-", "secret-team-generic-generic-x" is both
 // namespace "team"'s generic secret "generic-x" and namespace "team-generic"'s generic secret "x". So
 // the key must also have a type segment after the prefix, and must not be laid out as a key of any
-// other of namespaces, the existing namespaces, whether its name is longer or shorter. A key that is
-// ambiguous between two namespaces belongs to neither.
-func (f RemoteKeyFormat) ownsKey(namespace, key string, namespaces []string) bool {
+// other namespace name, whether or not that namespace exists: one created later could otherwise
+// write the key and have its value synced to this namespace's channel. A key that is ambiguous
+// between two namespaces belongs to neither.
+func (f RemoteKeyFormat) ownsKey(namespace, key string) bool {
 	if !f.separatorInNamespaceNames() {
 		return strings.HasPrefix(key, f.namespacePrefix(namespace))
 	}
-	return f.laysOutKey(namespace, key) && f.sharedWith(namespace, key, namespaces) == ""
+	return f.laysOutKey(namespace, key) && f.sharedWith(namespace, key) == ""
 }
 
-// sharedWith returns another of namespaces that a key of the namespace is also laid out for, or ""
+// sharedWith returns another namespace name that a key of the namespace is also laid out for, or ""
 // if there is none.
-func (f RemoteKeyFormat) sharedWith(namespace, key string, namespaces []string) string {
-	for _, other := range namespaces {
-		if other != namespace && f.laysOutKey(other, key) {
+func (f RemoteKeyFormat) sharedWith(namespace, key string) string {
+	for _, other := range f.keyNamespaces(key) {
+		if other != namespace {
 			return other
 		}
 	}
 	return ""
 }
 
-// listNamespaceNames returns the names of the namespaces on the control plane.
-func (r *Reconciler) listNamespaceNames(ctx context.Context) ([]string, error) {
-	var list corev1.NamespaceList
-	if err := r.List(ctx, &list); err != nil {
-		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+// keyNamespaces returns every valid namespace name that the key is laid out for.
+func (f RemoteKeyFormat) keyNamespaces(key string) []string {
+	rest, ok := strings.CutPrefix(key, f.keyPrefix())
+	if !ok {
+		return nil
 	}
-	names := make([]string, 0, len(list.Items))
-	for _, ns := range list.Items {
-		names = append(names, ns.Name)
+	var namespaces []string
+	for i := 1; i < len(rest); i++ {
+		if namespace := rest[:i]; len(validation.IsDNS1123Label(namespace)) == 0 && f.laysOutKey(namespace, key) {
+			namespaces = append(namespaces, namespace)
+		}
 	}
-	return names, nil
+	return namespaces
 }
 
 // buildExternalSecret builds the ExternalSecret that syncs the channel's referenced values from the
@@ -402,7 +406,7 @@ func (r *Reconciler) reconcileExternalSecret(
 	opClient client.Client,
 	resolved *resolvedSecrets,
 ) error {
-	if err := r.validateSecretReferences(ctx, channel, obsPlane, resolved); err != nil {
+	if err := r.validateSecretReferences(channel, obsPlane, resolved); err != nil {
 		return err
 	}
 

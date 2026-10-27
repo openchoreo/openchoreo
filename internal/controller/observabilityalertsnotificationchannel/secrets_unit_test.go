@@ -166,7 +166,7 @@ func TestRemoteKeyFormat_NamespacePrefix(t *testing.T) {
 
 func TestRemoteKeyFormat_OwnsKeyWithSlashSeparator(t *testing.T) {
 	f := RemoteKeyFormat{Prefix: "secret", Separator: "/"}
-	// "/" can't occur in namespace names, so the prefix alone decides, without the namespace list.
+	// "/" can't occur in namespace names, so the prefix alone decides.
 	for key, want := range map[string]bool{
 		"secret/team/generic/creds":   true,
 		"secret/team/my-app/creds":    true,
@@ -174,7 +174,7 @@ func TestRemoteKeyFormat_OwnsKeyWithSlashSeparator(t *testing.T) {
 		"secret/teamx/generic/creds":  false,
 		"opensearch-password":         false,
 	} {
-		if got := f.ownsKey("team", key, nil); got != want {
+		if got := f.ownsKey("team", key); got != want {
 			t.Errorf("ownsKey(team, %q) = %v, want %v", key, got, want)
 		}
 	}
@@ -182,7 +182,6 @@ func TestRemoteKeyFormat_OwnsKeyWithSlashSeparator(t *testing.T) {
 
 func TestRemoteKeyFormat_OwnsKeyWithDashSeparator(t *testing.T) {
 	f := RemoteKeyFormat{Prefix: "secret", Separator: "-"}
-	namespaces := []string{"team", "team-a", "team-generic", "default"}
 	tests := []struct {
 		namespace string
 		key       string
@@ -193,23 +192,46 @@ func TestRemoteKeyFormat_OwnsKeyWithDashSeparator(t *testing.T) {
 		{"team-a", "secret-team-a-generic-creds", true},
 		// The prefix "secret-team-" matches team-a's keys; they belong to team-a only.
 		{"team", "secret-team-a-generic-creds", false},
-		// A key of a namespace that doesn't exist (any more) still needs a type segment after the prefix.
-		{"team", "secret-team-b-generic-creds", false},
 		{"team", "secret-team-my-app-creds", false},
 		// Laid out as a key of both "team" (secret "generic-x") and "team-generic" (secret "x"):
-		// ambiguous, so it belongs to neither, whichever of the two namespaces asks.
+		// ambiguous, so it belongs to neither, whichever of the two namespaces asks, and whether or
+		// not the other one exists.
 		{"team", "secret-team-generic-generic-x", false},
 		{"team-generic", "secret-team-generic-generic-x", false},
+		{"team", "secret-team-generic-registry-creds", false},
 		// Every key of "team-generic" is also laid out as one of "team" ("secret-team-" + "generic-..."),
-		// so while "team" exists, "team-generic" can't own any key.
-		{"team-generic", "secret-team-generic-generic-creds", false},
+		// so "team-generic" can't own any key.
 		{"team-generic", "secret-team-generic-tls-cert", false},
 		{"team-generic", "secret-team-generic-registry-mirror", false},
+		// Nor can a namespace with a type segment in its name: its keys are also laid out for "my".
+		{"my-tls-team", "secret-my-tls-team-generic-creds", false},
 		{"team", "opensearch-password", false},
 	}
 	for _, tt := range tests {
-		if got := f.ownsKey(tt.namespace, tt.key, namespaces); got != tt.want {
+		if got := f.ownsKey(tt.namespace, tt.key); got != tt.want {
 			t.Errorf("ownsKey(%s, %q) = %v, want %v", tt.namespace, tt.key, got, tt.want)
+		}
+	}
+}
+
+func TestRemoteKeyFormat_KeyNamespaces(t *testing.T) {
+	tests := []struct {
+		format RemoteKeyFormat
+		key    string
+		want   []string
+	}{
+		{RemoteKeyFormat{Prefix: "secret", Separator: "-"}, "secret-team-generic-creds", []string{"team"}},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "-"}, "secret-team-generic-tls-cert", []string{"team", "team-generic"}},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "-"}, "secret-a-b-c-ssh-auth-k", []string{"a-b-c"}},
+		// Only valid namespace names count.
+		{RemoteKeyFormat{Prefix: "secret", Separator: "-"}, "secret-Team-generic-creds", nil},
+		{RemoteKeyFormat{Prefix: "", Separator: "-"}, "team-generic-creds", []string{"team"}},
+		{RemoteKeyFormat{Prefix: "secret", Separator: "-"}, "other-team-generic-creds", nil},
+	}
+	for _, tt := range tests {
+		got := tt.format.keyNamespaces(tt.key)
+		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+			t.Errorf("%+v.keyNamespaces(%q) = %v, want %v", tt.format, tt.key, got, tt.want)
 		}
 	}
 }
@@ -354,7 +376,7 @@ func TestValidateSecretReferences(t *testing.T) {
 
 	t.Run("valid without targetPlane", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
-		if err := r.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+		if err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -362,7 +384,7 @@ func TestValidateSecretReferences(t *testing.T) {
 	t.Run("valid with the channel's observability plane as targetPlane", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "ObservabilityPlane", Name: "default"}
-		if err := r.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+		if err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -376,54 +398,58 @@ func TestValidateSecretReferences(t *testing.T) {
 				SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: testStore},
 			},
 		}}
-		if err := r.validateSecretReferences(context.Background(), channel, obsPlane, resolvedFor(sr)); err != nil {
+		if err := r.validateSecretReferences(channel, obsPlane, resolvedFor(sr)); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("observability plane without a secret store", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
-		err := r.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(""), resolvedFor(sr))
+		err := r.validateSecretReferences(channel, newObservabilityPlaneResult(""), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonSecretStoreNotConfigured)
 	})
 
 	t.Run("SecretReference pushed to another plane", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
-		err := r.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+		err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonSecretStoreUnreachable)
 	})
 
-	t.Run("dash separator rejects a longer namespace's keys", func(t *testing.T) {
-		longer := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace + "-a"}}
-		own := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}
-		dashed := newReconcilerWithObjects(t, own, longer)
-		dashed.RemoteKeys = RemoteKeyFormat{Prefix: "secret", Separator: "-"}
+	dashed := &Reconciler{RemoteKeys: RemoteKeyFormat{Prefix: "secret", Separator: "-"}}
 
+	t.Run("dash separator rejects a longer namespace's keys", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.Data[0].RemoteRef.Key = "secret-default-generic-webhook-auth"
-		if err := dashed.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+		if err := dashed.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
 			t.Errorf("own key: unexpected error: %v", err)
 		}
 
 		sr.Spec.Data[0].RemoteRef.Key = "secret-default-a-generic-webhook-auth"
-		err := dashed.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+		err := dashed.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
 	})
 
 	t.Run("dash separator rejects a key a shorter namespace could also own", func(t *testing.T) {
-		shorter := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ncsr"}}
-		own := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ncsr-generic"}}
-		dashed := newReconcilerWithObjects(t, shorter, own)
-		dashed.RemoteKeys = RemoteKeyFormat{Prefix: "secret", Separator: "-"}
 		longChannel := channel.DeepCopy()
 		longChannel.Namespace = "ncsr-generic"
 
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.Data[0].RemoteRef.Key = "secret-ncsr-generic-generic-x"
-		err := dashed.validateSecretReferences(context.Background(), longChannel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+		err := dashed.validateSecretReferences(longChannel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
 		if !strings.Contains(err.Error(), `as well as of namespace "ncsr"`) {
+			t.Errorf("message %q should name the other namespace", err.Error())
+		}
+	})
+
+	t.Run("dash separator rejects a key a namespace created later could own", func(t *testing.T) {
+		// No namespace "default-generic" exists, but one created later could write this key.
+		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+		sr.Spec.Data[0].RemoteRef.Key = "secret-default-generic-generic-x"
+		err := dashed.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
+		if !strings.Contains(err.Error(), `as well as of namespace "default-generic"`) {
 			t.Errorf("message %q should name the other namespace", err.Error())
 		}
 	})
@@ -432,7 +458,7 @@ func TestValidateSecretReferences(t *testing.T) {
 		for _, key := range []string{"opensearch-password", "secret/other/generic/creds", "secret/defaultx/generic/creds"} {
 			sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 			sr.Spec.Data[0].RemoteRef.Key = key
-			err := r.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+			err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 			requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
 		}
 	})
