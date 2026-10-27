@@ -453,7 +453,8 @@ EOF
         --namespace "$OBSERVABILITY_NS" --version "$LOGS_OPENSEARCH_VERSION" \
         --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
         --set adapter.openSearchSecretName="opensearch-admin-credentials" \
-        --set auditLogs.enabled=true
+        --set auditLogs.enabled=true \
+        --set fluentBitCustomizations.clusterInstance="$CLUSTER_NAME"
     $HELM upgrade --install observability-traces-opensearch \
         oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
         --namespace "$OBSERVABILITY_NS" --version "$TRACES_OPENSEARCH_VERSION" \
