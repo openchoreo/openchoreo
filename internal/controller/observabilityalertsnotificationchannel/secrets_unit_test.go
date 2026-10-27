@@ -197,9 +197,14 @@ func TestRemoteKeyFormat_OwnsKeyWithDashSeparator(t *testing.T) {
 		{"team", "secret-team-b-generic-creds", false},
 		{"team", "secret-team-my-app-creds", false},
 		// Laid out as a key of both "team" (secret "generic-x") and "team-generic" (secret "x"):
-		// ambiguous, so it belongs to neither.
+		// ambiguous, so it belongs to neither, whichever of the two namespaces asks.
 		{"team", "secret-team-generic-generic-x", false},
-		{"team-generic", "secret-team-generic-generic-x", true},
+		{"team-generic", "secret-team-generic-generic-x", false},
+		// Every key of "team-generic" is also laid out as one of "team" ("secret-team-" + "generic-..."),
+		// so while "team" exists, "team-generic" can't own any key.
+		{"team-generic", "secret-team-generic-generic-creds", false},
+		{"team-generic", "secret-team-generic-tls-cert", false},
+		{"team-generic", "secret-team-generic-registry-mirror", false},
 		{"team", "opensearch-password", false},
 	}
 	for _, tt := range tests {
@@ -404,6 +409,23 @@ func TestValidateSecretReferences(t *testing.T) {
 		sr.Spec.Data[0].RemoteRef.Key = "secret-default-a-generic-webhook-auth"
 		err := dashed.validateSecretReferences(context.Background(), channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
 		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
+	})
+
+	t.Run("dash separator rejects a key a shorter namespace could also own", func(t *testing.T) {
+		shorter := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ncsr"}}
+		own := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ncsr-generic"}}
+		dashed := newReconcilerWithObjects(t, shorter, own)
+		dashed.RemoteKeys = RemoteKeyFormat{Prefix: "secret", Separator: "-"}
+		longChannel := channel.DeepCopy()
+		longChannel.Namespace = "ncsr-generic"
+
+		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+		sr.Spec.Data[0].RemoteRef.Key = "secret-ncsr-generic-generic-x"
+		err := dashed.validateSecretReferences(context.Background(), longChannel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
+		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
+		if !strings.Contains(err.Error(), `as well as of namespace "ncsr"`) {
+			t.Errorf("message %q should name the other namespace", err.Error())
+		}
 	})
 
 	t.Run("remote key outside the channel's namespace", func(t *testing.T) {

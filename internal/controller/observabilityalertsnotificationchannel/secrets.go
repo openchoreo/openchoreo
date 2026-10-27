@@ -220,6 +220,12 @@ func (r *Reconciler) validateSecretReferences(
 				ref.ref.Name, target.Kind, target.Name, planeKind, obsPlane.GetName())
 		}
 		if !r.RemoteKeys.ownsKey(channel.Namespace, ref.remoteRef.Key, namespaces) {
+			if other := r.RemoteKeys.sharedWith(channel.Namespace, ref.remoteRef.Key, namespaces); other != "" &&
+				r.RemoteKeys.laysOutKey(channel.Namespace, ref.remoteRef.Key) {
+				return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
+					"SecretReference %q points at remote key %q, which could be a key of namespace %q as well as of namespace %q, so it belongs to neither",
+					ref.ref.Name, ref.remoteRef.Key, channel.Namespace, other)
+			}
 			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
 				"SecretReference %q points at remote key %q, which is not a key of namespace %q in the secret store key layout (keys starting with %q)",
 				ref.ref.Name, ref.remoteRef.Key, channel.Namespace, r.RemoteKeys.namespacePrefix(channel.Namespace))
@@ -284,23 +290,28 @@ func (f RemoteKeyFormat) laysOutKey(namespace, key string) bool {
 }
 
 // ownsKey reports whether a remote key belongs to the namespace in the secret API's key layout: it
-// starts with the namespace's prefix. When the separator can occur in namespace names, that prefix
-// also matches keys of longer namespaces, so the key must also have a type segment after the prefix,
-// and must not be laid out as a key of a longer namespace in namespaces, the existing namespaces. A
-// key that is ambiguous between two namespaces belongs to neither.
+// starts with the namespace's prefix. When the separator can occur in namespace names, a key can be
+// laid out as a key of more than one namespace: with "-", "secret-team-generic-generic-x" is both
+// namespace "team"'s generic secret "generic-x" and namespace "team-generic"'s generic secret "x". So
+// the key must also have a type segment after the prefix, and must not be laid out as a key of any
+// other of namespaces, the existing namespaces, whether its name is longer or shorter. A key that is
+// ambiguous between two namespaces belongs to neither.
 func (f RemoteKeyFormat) ownsKey(namespace, key string, namespaces []string) bool {
 	if !f.separatorInNamespaceNames() {
 		return strings.HasPrefix(key, f.namespacePrefix(namespace))
 	}
-	if !f.laysOutKey(namespace, key) {
-		return false
-	}
+	return f.laysOutKey(namespace, key) && f.sharedWith(namespace, key, namespaces) == ""
+}
+
+// sharedWith returns another of namespaces that a key of the namespace is also laid out for, or ""
+// if there is none.
+func (f RemoteKeyFormat) sharedWith(namespace, key string, namespaces []string) string {
 	for _, other := range namespaces {
-		if len(other) > len(namespace) && f.laysOutKey(other, key) {
-			return false
+		if other != namespace && f.laysOutKey(other, key) {
+			return other
 		}
 	}
-	return true
+	return ""
 }
 
 // listNamespaceNames returns the names of the namespaces on the control plane.
