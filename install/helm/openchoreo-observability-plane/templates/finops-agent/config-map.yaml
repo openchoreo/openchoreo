@@ -13,7 +13,13 @@ data:
   {{- if .Values.finOpsAgent.cors.allowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.finOpsAgent.cors.allowedOrigins | quote }}
   {{- end }}
+  {{- if ne (.Values.finOpsAgent.llmAuth | default "api_key") "api_key" }}
+  LLM_AUTH: {{ .Values.finOpsAgent.llmAuth | quote }}
+  {{- end }}
   LLM_NAME: {{ .Values.finOpsAgent.llmName | quote }}
+  {{- if .Values.finOpsAgent.llmTokenScope }}
+  LLM_TOKEN_SCOPE: {{ .Values.finOpsAgent.llmTokenScope | quote }}
+  {{- end }}
   {{- if .Values.finOpsAgent.llmBaseUrl }}
   FINOPS_AGENT_LLM_BASE_URL: {{ .Values.finOpsAgent.llmBaseUrl | quote }}
   {{- end }}
