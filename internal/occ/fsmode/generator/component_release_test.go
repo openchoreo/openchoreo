@@ -44,7 +44,7 @@ func addComponent(t *testing.T, idx *index.Index, name, project, componentTypeNa
 }
 
 // addComponentType adds a ComponentType resource entry to the index.
-func addComponentType(t *testing.T, idx *index.Index, name, workloadType string, filePath string) {
+func addComponentType(t *testing.T, idx *index.Index, namespace, name, workloadType string, filePath string) {
 	t.Helper()
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
@@ -53,7 +53,7 @@ func addComponentType(t *testing.T, idx *index.Index, name, workloadType string,
 				"kind":       "ComponentType",
 				"metadata": map[string]any{
 					"name":      name,
-					"namespace": "default",
+					"namespace": namespace,
 				},
 				"spec": map[string]any{
 					"workloadType": workloadType,
@@ -97,7 +97,7 @@ func addWorkload(t *testing.T, idx *index.Index, namespace, name, project, compo
 }
 
 // addTrait adds a Trait resource entry to the index.
-func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+func addTrait(t *testing.T, idx *index.Index, namespace, name string, spec map[string]any, filePath string) {
 	t.Helper()
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
@@ -106,7 +106,7 @@ func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, 
 				"kind":       "Trait",
 				"metadata": map[string]any{
 					"name":      name,
-					"namespace": "default",
+					"namespace": namespace,
 				},
 				"spec": spec,
 			},
@@ -116,9 +116,12 @@ func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, 
 	require.NoError(t, idx.Add(entry))
 }
 
-// addComponentWithTraits adds a Component with trait references to the index.
-func addComponentWithTraits(t *testing.T, idx *index.Index, namespace string, traits []map[string]any, filePath string) {
+// addComponentWithTraits adds a Component with trait references to the index. The component is
+// always seeded into the "default" namespace to match addComponentTypeWithSpec, since
+// namespace-scoped ComponentType lookup requires the component to share the ComponentType's namespace.
+func addComponentWithTraits(t *testing.T, idx *index.Index, traits []map[string]any, filePath string) {
 	t.Helper()
+	const namespace = "default"
 	const name = "my-svc"
 	const project = "myproj"
 	const componentTypeName = "deployment/service"
@@ -161,7 +164,7 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
 			{"name": "logging", "instanceName": "logging-1"},
@@ -187,11 +190,11 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/workload.yaml")
 
-	addTrait(t, idx, "ingress",
+	addTrait(t, idx, "default", "ingress",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}}},
 		"/repo/platform/traits/ingress.yaml")
 
-	addTrait(t, idx, "logging",
+	addTrait(t, idx, "default", "logging",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/platform/traits/logging.yaml")
 
@@ -281,7 +284,7 @@ func TestGenerateRelease_AllowedTraitKindDefaulted(t *testing.T) {
 	idx := index.New("/repo")
 
 	// Component spells the trait kind out explicitly; the ComponentType's allowedTraits omits it.
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "Trait", "name": "logging", "instanceName": "logging-1"},
 		},
@@ -302,7 +305,7 @@ func TestGenerateRelease_AllowedTraitKindDefaulted(t *testing.T) {
 		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
 		"/repo/projects/myproj/components/my-svc/workload.yaml")
 
-	addTrait(t, idx, "logging",
+	addTrait(t, idx, "default", "logging",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/platform/traits/logging.yaml")
 
@@ -340,7 +343,7 @@ func TestGenerateRelease_DeterministicTraitOrder(t *testing.T) {
 	newGen := func() *ReleaseGenerator {
 		idx := index.New("/repo")
 
-		addComponentWithTraits(t, idx, namespace,
+		addComponentWithTraits(t, idx,
 			[]map[string]any{
 				{"kind": "Trait", "name": "zebra", "instanceName": "zebra-1"},
 				{"kind": "Trait", "name": "alpha", "instanceName": "alpha-1"},
@@ -363,8 +366,8 @@ func TestGenerateRelease_DeterministicTraitOrder(t *testing.T) {
 			},
 			"/repo/platform/component-types/service.yaml")
 
-		addTrait(t, idx, "zebra", map[string]any{}, "/repo/platform/traits/zebra.yaml")
-		addTrait(t, idx, "alpha", map[string]any{}, "/repo/platform/traits/alpha.yaml")
+		addTrait(t, idx, "default", "zebra", map[string]any{}, "/repo/platform/traits/zebra.yaml")
+		addTrait(t, idx, "default", "alpha", map[string]any{}, "/repo/platform/traits/alpha.yaml")
 		addClusterTrait(t, idx, "yak", map[string]any{}, "/repo/platform/cluster-traits/yak.yaml")
 		addClusterTrait(t, idx, "beta", map[string]any{}, "/repo/platform/cluster-traits/beta.yaml")
 
@@ -479,7 +482,7 @@ func TestGenerateRelease_ComponentTypeEmbeddedTraitOmittedKind(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, nil,
+	addComponentWithTraits(t, idx, nil,
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	// Embedded trait entry omits "kind"; the file is a ComponentType, so it must default to Trait.
@@ -493,7 +496,7 @@ func TestGenerateRelease_ComponentTypeEmbeddedTraitOmittedKind(t *testing.T) {
 		},
 		"/repo/platform/component-types/service.yaml")
 
-	addTrait(t, idx, "sidecar",
+	addTrait(t, idx, "default", "sidecar",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/platform/traits/sidecar.yaml")
 
@@ -725,7 +728,7 @@ func TestGenerateRelease_ClusterTrait(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
 		},
@@ -788,14 +791,16 @@ func TestGenerateRelease_ClusterTrait(t *testing.T) {
 
 func TestGenerateRelease_MissingClusterTraitErrors(t *testing.T) {
 	const (
-		namespace     = "staging"
+		// The ComponentType helper (addComponentTypeWithSpec) seeds into the "default" namespace,
+		// and namespace-scoped ComponentType lookup now requires the component to share it.
+		namespace     = "default"
 		projectName   = "myproj"
 		componentName = "my-svc"
 	)
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
 		},
@@ -914,7 +919,7 @@ func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
 	addComponent(t, idx, componentName, projectName, "deployment/service",
 		"/repo/projects/doclet/components/document-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentType(t, idx, "default", "service", "deployment",
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, namespace, "document-svc-workload", projectName, componentName,
@@ -981,7 +986,7 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 	addComponent(t, idx, componentName, projectName, "deployment/service",
 		"/repo/projects/doclet/components/document-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentType(t, idx, "default", "service", "deployment",
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, namespace, "document-svc-workload", projectName, componentName,
@@ -1056,7 +1061,7 @@ func TestGenerateRelease_ProjectNameMismatch(t *testing.T) {
 
 	addComponent(t, idx, "my-svc", "actual-project", "deployment/service",
 		"/repo/projects/actual-project/components/my-svc/component.yaml")
-	addComponentType(t, idx, "service", "deployment",
+	addComponentType(t, idx, "default", "service", "deployment",
 		"/repo/platform/component-types/service.yaml")
 	addWorkload(t, idx, "default", "my-svc-workload", "actual-project", "my-svc",
 		map[string]any{"container": map[string]any{"image": "img:v1"}},
@@ -1078,7 +1083,7 @@ func TestGenerateRelease_ProjectNameMismatch(t *testing.T) {
 func TestGenerateRelease_UnsupportedTraitKindErrors(t *testing.T) {
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, "default",
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "UnknownTraitKind", "name": "my-trait", "instanceName": "t-1"},
 		},
@@ -1134,7 +1139,7 @@ func TestGenerateRelease_WithComponentParameters(t *testing.T) {
 	}
 	require.NoError(t, idx.Add(entry))
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentType(t, idx, "default", "service", "deployment",
 		"/repo/platform/component-types/service.yaml")
 	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
 		map[string]any{"container": map[string]any{"image": "img:v1"}},
@@ -1164,7 +1169,7 @@ func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
 	idx := index.New("/repo")
 
 	// Component references the same trait twice with different instance names
-	addComponentWithTraits(t, idx, "default",
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-a"},
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-b"},
@@ -1181,7 +1186,7 @@ func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
 			},
 		},
 		"/repo/ct.yaml")
-	addTrait(t, idx, "ingress", map[string]any{}, "/repo/traits/ingress.yaml")
+	addTrait(t, idx, "default", "ingress", map[string]any{}, "/repo/traits/ingress.yaml")
 	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
 		map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
 
@@ -1220,7 +1225,7 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 	addComponent(t, idx, componentName, projectName, "deployment/worker",
 		"/repo/projects/doclet/components/worker-svc/component.yaml")
 
-	addComponentType(t, idx, "worker", "statefulset",
+	addComponentType(t, idx, "default", "worker", "statefulset",
 		"/repo/platform/component-types/worker.yaml")
 
 	addWorkload(t, idx, namespace, "worker-svc-workload", projectName, componentName,
@@ -1281,7 +1286,7 @@ func TestGenerateRelease_FullComponentTypeSpecPreserved(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, nil,
+	addComponentWithTraits(t, idx, nil,
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	addComponentTypeWithSpec(t, idx,
@@ -1308,7 +1313,7 @@ func TestGenerateRelease_FullComponentTypeSpecPreserved(t *testing.T) {
 		},
 		"/repo/platform/component-types/service.yaml")
 
-	addTrait(t, idx, "sidecar",
+	addTrait(t, idx, "default", "sidecar",
 		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/platform/traits/sidecar.yaml")
 
@@ -1365,7 +1370,7 @@ func TestGenerateRelease_TraitNotInAllowedTraitsErrors(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
 		},
@@ -1383,7 +1388,7 @@ func TestGenerateRelease_TraitNotInAllowedTraitsErrors(t *testing.T) {
 		"/repo/platform/component-types/service.yaml")
 
 	// The trait exists in the index so that, absent validation, the release would build cleanly.
-	addTrait(t, idx, "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
+	addTrait(t, idx, "default", "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
 		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
@@ -1414,7 +1419,7 @@ func TestGenerateRelease_DuplicateTraitInstanceNameErrors(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace,
+	addComponentWithTraits(t, idx,
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "shared-1"},
 		},
@@ -1435,8 +1440,8 @@ func TestGenerateRelease_DuplicateTraitInstanceNameErrors(t *testing.T) {
 		"/repo/platform/component-types/service.yaml")
 
 	// Both traits exist so that, absent validation, the release would build cleanly.
-	addTrait(t, idx, "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
-	addTrait(t, idx, "sidecar", map[string]any{}, "/repo/platform/traits/sidecar.yaml")
+	addTrait(t, idx, "default", "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
+	addTrait(t, idx, "default", "sidecar", map[string]any{}, "/repo/platform/traits/sidecar.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
 		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
@@ -1467,7 +1472,7 @@ func TestGenerateRelease_MissingEmbeddedTraitErrors(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, nil,
+	addComponentWithTraits(t, idx, nil,
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	addComponentTypeWithSpec(t, idx,
@@ -1516,7 +1521,7 @@ func TestGenerateRelease_WorkloadDependencyResourcesPreserved(t *testing.T) {
 	addComponent(t, idx, componentName, projectName, "deployment/service",
 		"/repo/projects/doclet/components/document-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentType(t, idx, "default", "service", "deployment",
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, namespace, "document-svc-workload", projectName, componentName,
@@ -1682,4 +1687,135 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 	equal, err := output.CompareReleaseSpecs(release, oldFormat)
 	require.NoError(t, err)
 	assert.True(t, equal, "new BuildSpec output must spec-match the old-format release for the common case")
+}
+
+// seedNamespaceComponentGraph adds a full component graph (Component + ComponentType + Trait +
+// Workload) into a single namespace. The same-named ComponentType and Trait are given
+// namespace-distinct specs — the ComponentType via its workloadType and the Trait via the kind of
+// the resource it creates — so a release can be asserted to embed its own namespace's specs.
+func seedNamespaceComponentGraph(t *testing.T, idx *index.Index, namespace, ctWorkloadType, traitTemplateKind string) {
+	t.Helper()
+
+	const (
+		componentName     = "web-app"
+		projectName       = "proj"
+		componentTypeName = "svc"
+		traitName         = "logging"
+	)
+
+	comp := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata":   map[string]any{"name": componentName, "namespace": namespace},
+				"spec": map[string]any{
+					"owner":         map[string]any{"projectName": projectName},
+					"componentType": map[string]any{"name": componentTypeName, "kind": "ComponentType"},
+					"traits": []any{
+						map[string]any{"kind": "Trait", "name": traitName, "instanceName": "logging-1"},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/components/web-app/component.yaml",
+	}
+	require.NoError(t, idx.Add(comp))
+
+	ct := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentType",
+				"metadata":   map[string]any{"name": componentTypeName, "namespace": namespace},
+				"spec": map[string]any{
+					"workloadType": ctWorkloadType,
+					"resources":    []any{},
+					"schema":       map[string]any{},
+					"allowedTraits": []any{
+						map[string]any{"kind": "Trait", "name": traitName},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/component-types/svc.yaml",
+	}
+	require.NoError(t, idx.Add(ct))
+
+	trait := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Trait",
+				"metadata":   map[string]any{"name": traitName, "namespace": namespace},
+				"spec": map[string]any{
+					"creates": []any{
+						map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": traitTemplateKind}},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/traits/logging.yaml",
+	}
+	require.NoError(t, idx.Add(trait))
+
+	addWorkload(t, idx, namespace, "web-app-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/web-app:v1"}},
+		"/repo/"+namespace+"/components/web-app/workload.yaml")
+}
+
+// TestGenerateRelease_NamespaceCollisionIsolation is a generator-level regression test for
+// issue #4148: two namespaces each hold a full component graph whose ComponentType and Trait
+// share names across namespaces but carry distinct specs. Generating a release for both
+// components in the same test asserts each release embeds ITS OWN namespace's ComponentType and
+// Trait specs, never the other namespace's. Both namespaces are generated together because a
+// single-namespace assertion could pass or fail on Go map-iteration order — resolving both is the
+// deterministic oracle.
+func TestGenerateRelease_NamespaceCollisionIsolation(t *testing.T) {
+	idx := index.New("/repo")
+
+	// team-a: ComponentType workloadType "deployment", logging Trait creates a ConfigMap.
+	seedNamespaceComponentGraph(t, idx, "team-a", "deployment", "ConfigMap")
+	// team-b: same-named ComponentType/Trait, distinct specs (statefulset / Secret).
+	seedNamespaceComponentGraph(t, idx, "team-b", "statefulset", "Secret")
+
+	gen := NewReleaseGenerator(fsmode.WrapIndex(idx))
+
+	generate := func(namespace string) *unstructured.Unstructured {
+		release, err := gen.GenerateRelease(ReleaseOptions{
+			ComponentName: "web-app",
+			ProjectName:   "proj",
+			Namespace:     namespace,
+			ReleaseName:   "web-app-release-1",
+		})
+		require.NoError(t, err)
+		return release
+	}
+
+	// loggingTraitTemplateKind returns the kind of the resource the frozen "logging" trait creates.
+	loggingTraitTemplateKind := func(release *unstructured.Unstructured) string {
+		traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+		require.True(t, ok, "expected spec.traits")
+		require.Len(t, traitsSlice, 1)
+		trait := traitsSlice[0].(map[string]interface{})
+		assert.Equal(t, "logging", trait["name"])
+		creates, ok, _ := unstructured.NestedSlice(trait, "spec", "creates")
+		require.True(t, ok, "expected trait spec.creates")
+		require.Len(t, creates, 1)
+		kind, ok, _ := unstructured.NestedString(creates[0].(map[string]interface{}), "template", "kind")
+		require.True(t, ok, "expected trait creates[0].template.kind")
+		return kind
+	}
+
+	releaseA := generate("team-a")
+	releaseB := generate("team-b")
+
+	ctWorkloadTypeA, _, _ := unstructured.NestedString(releaseA.Object, "spec", "componentType", "spec", "workloadType")
+	ctWorkloadTypeB, _, _ := unstructured.NestedString(releaseB.Object, "spec", "componentType", "spec", "workloadType")
+
+	assert.Equal(t, "deployment", ctWorkloadTypeA, "team-a release must embed team-a's ComponentType spec")
+	assert.Equal(t, "statefulset", ctWorkloadTypeB, "team-b release must embed team-b's ComponentType spec")
+
+	assert.Equal(t, "ConfigMap", loggingTraitTemplateKind(releaseA), "team-a release must embed team-a's Trait spec")
+	assert.Equal(t, "Secret", loggingTraitTemplateKind(releaseB), "team-b release must embed team-b's Trait spec")
 }

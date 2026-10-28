@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
@@ -23,20 +24,20 @@ func TestDiscoverComponents(t *testing.T) {
 	ocIndex := fsmode.WrapIndex(idx)
 	gen := NewReleaseGenerator(ocIndex)
 
-	t.Run("all flag returns all components", func(t *testing.T) {
-		components, err := gen.discoverComponents(BulkReleaseOptions{All: true})
+	t.Run("all flag returns all components in namespace", func(t *testing.T) {
+		components, err := gen.discoverComponents(BulkReleaseOptions{All: true, Namespace: "default"})
 		require.NoError(t, err)
 		assert.Len(t, components, 3)
 	})
 
 	t.Run("project filter returns matching components", func(t *testing.T) {
-		components, err := gen.discoverComponents(BulkReleaseOptions{ProjectName: "proj-1"})
+		components, err := gen.discoverComponents(BulkReleaseOptions{ProjectName: "proj-1", Namespace: "default"})
 		require.NoError(t, err)
 		assert.Len(t, components, 2)
 	})
 
 	t.Run("project with no components returns error", func(t *testing.T) {
-		_, err := gen.discoverComponents(BulkReleaseOptions{ProjectName: "nonexistent"})
+		_, err := gen.discoverComponents(BulkReleaseOptions{ProjectName: "nonexistent", Namespace: "default"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no components found")
 	})
@@ -48,6 +49,49 @@ func TestDiscoverComponents(t *testing.T) {
 	})
 }
 
+// TestDiscoverComponents_NamespaceFilter verifies that the --all discovery path only
+// returns components in the active namespace (issue #4148).
+func TestDiscoverComponents_NamespaceFilter(t *testing.T) {
+	idx := index.New("/repo")
+
+	addComponentNS(t, idx, "team-a", "web-app", "proj", "deployment/service", "/repo/team-a/web-app.yaml")
+	addComponentNS(t, idx, "team-a", "api", "proj", "deployment/service", "/repo/team-a/api.yaml")
+	addComponentNS(t, idx, "team-b", "web-app", "proj", "deployment/service", "/repo/team-b/web-app.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	components, err := gen.discoverComponents(BulkReleaseOptions{All: true, Namespace: "team-a"})
+	require.NoError(t, err)
+	require.Len(t, components, 2)
+	for _, comp := range components {
+		assert.Equal(t, "team-a", comp.Namespace())
+	}
+}
+
+// addComponentNS adds a Component resource entry to the index in a specific namespace.
+func addComponentNS(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"owner":         map[string]any{"projectName": project},
+					"componentType": map[string]any{"name": componentTypeName, "kind": "ComponentType"},
+				},
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
 func TestGenerateBulkReleases(t *testing.T) {
 	t.Run("generates releases for all components in a project", func(t *testing.T) {
 		idx := index.New("/repo")
@@ -55,7 +99,7 @@ func TestGenerateBulkReleases(t *testing.T) {
 		addComponent(t, idx, "svc-a", "myproj", "deployment/service", "/repo/svc-a.yaml")
 		addComponent(t, idx, "svc-b", "myproj", "deployment/service", "/repo/svc-b.yaml")
 
-		addComponentType(t, idx, "service", "deployment", "/repo/ct-service.yaml")
+		addComponentType(t, idx, "default", "service", "deployment", "/repo/ct-service.yaml")
 
 		addWorkload(t, idx, "default", "svc-a-workload", "myproj", "svc-a",
 			map[string]any{"container": map[string]any{"image": "img-a:v1"}},
@@ -94,7 +138,7 @@ func TestGenerateBulkReleases(t *testing.T) {
 		addComponent(t, idx, "svc-good", "myproj", "deployment/service", "/repo/svc-good.yaml")
 		addComponent(t, idx, "svc-bad", "myproj", "deployment/service", "/repo/svc-bad.yaml")
 
-		addComponentType(t, idx, "service", "deployment", "/repo/ct-service.yaml")
+		addComponentType(t, idx, "default", "service", "deployment", "/repo/ct-service.yaml")
 
 		addWorkload(t, idx, "default", "svc-good-workload", "myproj", "svc-good",
 			map[string]any{"container": map[string]any{"image": "img:v1"}},
