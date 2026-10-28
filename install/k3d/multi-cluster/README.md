@@ -133,6 +133,11 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
   --values install/k3d/multi-cluster/values-cp.yaml
 ```
 
+Installing without the portal? `values-cp.yaml` enables it, so add
+`--set backstage.enabled=false --set eventForwarder.enabled=false` to the command above.
+Without them you get a Backstage deployment that waits forever for the secret the earlier
+step told you to skip, and an event forwarder whose only default subscriber is gone.
+
 ```bash
 kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all

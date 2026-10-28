@@ -133,6 +133,18 @@ asset() {
     fi
 }
 
+# values-thunder-portal.yaml was split out of values-thunder.yaml. Older refs still
+# carry the portal's ThunderID application inside the base file, and a pinned
+# --version resolves assets at that ref, so the overlay must only be layered when
+# the selected ref actually ships it.
+asset_available() {
+    if [[ "$SOURCE_MODE" == "remote" ]]; then
+        curl -fsI --max-time 15 "$1" >/dev/null 2>&1
+    else
+        [[ -f "$1" ]]
+    fi
+}
+
 chart_version_args() {
     if [[ -n "$OPENCHOREO_CHART_VERSION" ]]; then
         echo "--version $OPENCHOREO_CHART_VERSION"
@@ -239,8 +251,15 @@ EOF
 install_control_plane() {
     step "Installing ThunderID (identity provider)"
     local thunder_values=(--values "$(asset install/k3d/common/values-thunder.yaml)")
-    if [[ "$WITH_PORTAL" == "true" ]]; then
-        thunder_values+=(--values "$(asset install/k3d/common/values-thunder-portal.yaml)")
+    local portal_values; portal_values="$(asset install/k3d/common/values-thunder-portal.yaml)"
+    if asset_available "$portal_values"; then
+        if [[ "$WITH_PORTAL" == "true" ]]; then
+            thunder_values+=(--values "$portal_values")
+        fi
+    elif [[ "$WITH_PORTAL" != "true" ]]; then
+        echo "WARNING: this OpenChoreo version seeds the portal's ThunderID application from" >&2
+        echo "         the base values file, so --without-portal cannot exclude it. The portal" >&2
+        echo "         itself is not installed; its OAuth client is still registered." >&2
     fi
     $HELM upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
         --namespace "$THUNDER_NS" --create-namespace \
@@ -606,8 +625,12 @@ print_summary() {
     if [[ "$WITH_PORTAL" == "true" ]]; then
         info "Console:  http://openchoreo.localhost:8080"
     else
-        info "Console:  not installed (re-run with --with-portal, or bring your own:"
-        info "          https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/)"
+        info "Console:  not installed"
+        info "          Re-running with --with-portal deploys the portal but not its"
+        info "          ThunderID application: that bootstrap runs on first install only,"
+        info "          so sign-in needs the application created through the ThunderID"
+        info "          management API. A fresh cluster is the simpler route."
+        info "          Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
     fi
     info "API:      http://api.openchoreo.localhost:8080"
     info "Login:    admin@openchoreo.dev / Admin@123"

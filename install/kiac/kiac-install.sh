@@ -204,9 +204,19 @@ seed_optional_secrets() {
 
 install_control_plane() {
   step "ThunderID (identity provider) ${THUNDER_VERSION}"
+  # values-thunder-portal.yaml was split out of values-thunder.yaml. RAW pins assets
+  # to the selected release tag, and older releases still carry the portal's ThunderID
+  # application inside the base file, so only layer the overlay when that tag ships it.
   local thunder_values=(--values "${RAW}/install/k3d/common/values-thunder.yaml")
-  if [[ "$WITH_PORTAL" == "true" ]]; then
-    thunder_values+=(--values "${RAW}/install/k3d/common/values-thunder-portal.yaml")
+  local portal_values="${RAW}/install/k3d/common/values-thunder-portal.yaml"
+  if curl -fsI --max-time 15 "$portal_values" >/dev/null 2>&1; then
+    if [[ "$WITH_PORTAL" == "true" ]]; then
+      thunder_values+=(--values "$portal_values")
+    fi
+  elif [[ "$WITH_PORTAL" != "true" ]]; then
+    echo "WARNING: OpenChoreo ${OPENCHOREO_VERSION} seeds the portal's ThunderID application" >&2
+    echo "         from the base values file, so --without-portal cannot exclude it. The" >&2
+    echo "         portal itself is not installed; its OAuth client is still registered." >&2
   fi
   H upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
     -n "$THUNDER_NS" --create-namespace --version "$THUNDER_VERSION" \
@@ -340,8 +350,11 @@ print_summary() {
     info "    Note: portal login relies on in-cluster resolution of *.openchoreo.localhost;"
     info "    on the kubeadm distro add a CoreDNS entry mapping those hosts to ${ip}."
   else
-    info "Portal: not installed (re-run with --with-portal, or bring your own:"
-    info "    https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/)"
+    info "Portal: not installed"
+    info "    Re-running with --with-portal deploys the portal but not its ThunderID"
+    info "    application: that bootstrap runs on first install only, so sign-in needs"
+    info "    the application created through the ThunderID management API."
+    info "    Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
     info "Add the line below to /etc/hosts to reach the API and ThunderID:"
     echo  "    ${ip} api.openchoreo.localhost thunder.openchoreo.localhost"
   fi
