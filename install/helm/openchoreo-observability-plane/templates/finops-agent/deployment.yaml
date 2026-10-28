@@ -41,8 +41,8 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/finops-agent/config-map.yaml") . | sha256sum }}
         checksum/observer-auth-config: {{ include (print $.Template.BasePath "/observer/observer-auth-configmap.yaml") . | sha256sum }}
       labels:
-        {{- with .Values.finOpsAgent.podLabels }}
-        {{- toYaml . | nindent 8 }}
+        {{- with include "openchoreo-observability-plane.filteredPodLabels" (.Values.finOpsAgent.podLabels | default dict) }}
+        {{- . | nindent 8 }}
         {{- end }}
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "finops-agent") | nindent 8 }}
         {{- include "openchoreo-observability-plane.platformIdentityLabels" . | nindent 8 }}

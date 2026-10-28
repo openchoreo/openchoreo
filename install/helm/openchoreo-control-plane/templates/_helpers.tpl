@@ -362,3 +362,16 @@ Parameters:
 {{- end -}}
 {{- printf "%s:%s" $repo (.image.tag | default .context.Chart.AppVersion) -}}
 {{- end }}
+
+{{/*
+Filtered pod labels
+Drops user-supplied keys that the chart also sets on the pod template.
+Rendering both would produce duplicate YAML keys, which strict consumers reject.
+Chart-owned labels are rendered after the filtered map and stay authoritative.
+*/}}
+{{- define "openchoreo-control-plane.filteredPodLabels" -}}
+{{- $labels := omit . "app.kubernetes.io/name" "app.kubernetes.io/instance" "app.kubernetes.io/component" "openchoreo.dev/plane" -}}
+{{- if $labels -}}
+{{- toYaml $labels -}}
+{{- end -}}
+{{- end }}
