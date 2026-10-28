@@ -116,11 +116,19 @@ This binds the release that `next` runs in the previous environment to staging, 
 
 ## Roll a line back
 
+`--release` binds an earlier release of the line instead of promoting. A release reaches an environment only while the line runs it in the previous environment, so roll a line back in pipeline order, starting with the first environment:
+
+```bash
+occ component deploy hello --release-line next --release <earlier release of the line> --namespace default --project default
+```
+
 ```bash
 occ component deploy hello --release-line next --to staging --release <earlier release of the line> --namespace default --project default
 ```
 
-`--release` pins the binding to that release instead of promoting. To find an earlier release of the line, list the component's releases with their line, newest last:
+With `autoDeploy`, the line soon binds its latest release to the first environment again. To keep the rollback, set `autoDeploy: false` on the line and apply it before rolling back, and remove it once a fixed build is ready.
+
+To find an earlier release of the line, list the component's releases with their line, newest last:
 
 ```bash
 kubectl get componentreleases -n default --sort-by=.metadata.creationTimestamp -o custom-columns=NAME:.metadata.name,LINE:.spec.owner.releaseLine,CREATED:.metadata.creationTimestamp
@@ -156,4 +164,4 @@ occ releasebinding generate --mode file-system --all --use-pipeline default --ta
 occ releasebinding generate --mode file-system --project default --component hello --release-line next --use-pipeline default --target-env staging
 ```
 
-A line's releases are named `hello-next-<date>-<n>`. Its bindings are named `hello-next-<environment>`, as the control plane names them. A component whose main line has no Workload is released through its lines only.
+A line's releases are named `hello-next-4833a175-<date>-<n>`. Its bindings are named `hello-next-4833a175-<environment>`, as the control plane names them. A component whose main line has no Workload is released through its lines only.

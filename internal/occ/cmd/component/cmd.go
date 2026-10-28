@@ -192,7 +192,7 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
   occ component deploy api-service --release-line next --to staging
 
   # Roll a release line back to an earlier release in an environment
-  occ component deploy api-service --release-line next --to staging --release api-service-next-20260101-1`,
+  occ component deploy api-service --release-line next --to staging --release api-service-next-89391e40-20260101-1`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
