@@ -202,6 +202,106 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 
+  /api/v1alpha1/traces/raw-query:
+    post:
+      tags:
+        - Traces
+      summary: Run a raw trace query
+      description: |
+        Runs a read-only request, written for the tracing backend's own API, against
+        the trace data and returns the backend's response unchanged. The Observer
+        forwards raw queries from callers that hold the cluster-scoped
+        `traces:rawquery` permission, with the body and its media type as sent.
+
+        The request body is the backend's native request: `application/json` for
+        backends whose requests are JSON (for example an OpenSearch or OpenObserve
+        search body), `text/plain` where the query text is the whole request (for
+        example KQL). It carries its own time range and row limit.
+
+        An adapter that implements this operation must:
+        - call only the backend's read-only search or query API, never a write or
+          administration API, whatever the request says;
+        - confine the request to the trace data the adapter serves (its trace
+          indices, stream type or tables), using credentials that can only read it
+          where the backend supports that;
+        - override the request fields it owns, such as the query timeout, so a
+          request can't widen them;
+        - stop the query at its configured query timeout and answer 504;
+        - reject a result larger than its configured maximum response size with
+          400, never returning a partial result;
+        - answer 415 for a media type its backend doesn't take, and 400 for a
+          request the backend rejects, with the backend's reason.
+
+        An adapter that does not support raw queries answers 501.
+      operationId: queryRawTraces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RawTracesQueryRequest"
+          text/plain:
+            schema:
+              $ref: "#/components/schemas/RawTracesQueryText"
+      responses:
+        "200":
+          description: The backend's response, unchanged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RawTracesQueryResponse"
+        "400":
+          description: |
+            Invalid request, a request the backend rejects (the detail gives the
+            backend's reason), or a result larger than the maximum response size.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: The request body is larger than the adapter accepts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: The request body's media type is not one the backend takes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: The adapter does not support raw queries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "504":
+          description: The query ran past the adapter's query timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
 components:
 
 
@@ -217,6 +317,10 @@ components:
             - unauthorized
             - forbidden
             - internalServerError
+            - notImplemented
+            - gatewayTimeout
+            - payloadTooLarge
+            - unsupportedMediaType
         errorCode:
           type: string
           description: The error code from observer service
@@ -433,3 +537,18 @@ components:
           description: >-
             Developer-facing human-readable status description. Typically set
             only when code is "error".
+
+
+    RawTracesQueryRequest:
+      x-go-type: json.RawMessage
+      description: The backend's native request, as JSON.
+
+
+    RawTracesQueryText:
+      type: string
+      description: The backend's native request, as text.
+
+
+    RawTracesQueryResponse:
+      x-go-type: json.RawMessage
+      description: The backend's response, unchanged.

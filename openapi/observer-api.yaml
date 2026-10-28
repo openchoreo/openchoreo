@@ -30,6 +30,8 @@ tags:
     description: Cost insights and right-sizing recommendation endpoints
   - name: Health
     description: Health check endpoints
+  - name: Traces
+    description: Trace and span retrieval endpoints
 
 security:
   - BearerAuth: []
@@ -932,6 +934,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/traces/raw-query:
+    post:
+      tags:
+        - Traces
+      summary: Run a raw trace query
+      description: |
+        Runs a read-only request, written for the tracing backend's own API (for
+        example an OpenSearch search body or an OpenObserve search body), against
+        the trace data of this observability plane, and returns the backend's own
+        response unchanged.
+
+        The request body is the backend's native request: `application/json` for
+        backends whose requests are JSON, `text/plain` where the query text is the
+        whole request. There is no separate time window, scope or row limit; the
+        request carries its own, in the backend's syntax.
+
+        The request is not scoped to a namespace, project or component, so the
+        caller needs the cluster-scoped `traces:rawquery` permission. A result
+        larger than the configured maximum response size is rejected rather than
+        returned partially.
+      operationId: queryRawTraces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RawTracesQueryRequest"
+          text/plain:
+            schema:
+              $ref: "#/components/schemas/RawTracesQueryText"
+      responses:
+        "200":
+          description: The tracing backend's response, unchanged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RawTracesQueryResponse"
+        "400":
+          description: |
+            Invalid request: a malformed request, a request the tracing backend
+            rejects, or a result larger than the configured maximum response size.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: The request body is larger than the configured maximum request size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: |
+            The request body's media type is not one the tracing backend accepts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many raw queries; retry later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: |
+            Not Implemented. Surfaced when the tracing adapter backing this
+            observer does not support raw queries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: "OBS-V1-T-08"
+                message: "The tracing backend does not support raw queries"
+        "504":
+          description: The query ran past the configured query timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "gatewayTimeout"
+                errorCode: "OBS-V1-T-09"
+                message: "The raw query ran past the query timeout"
 
   # Incidents query endpoint
   /api/v1alpha1/incidents/query:
@@ -3042,6 +3149,23 @@ components:
           $ref: "#/components/schemas/RuntimeTopologySummary"
       required: [summary]
 
+    RawTracesQueryRequest:
+      x-go-type: json.RawMessage
+      description: |
+        The tracing backend's native request, as JSON: for example an OpenSearch
+        search body (`query`, `size`, `aggs`, `sort`, ...) or an OpenObserve search
+        body (`query.sql`, `query.start_time`, `query.end_time`, ...).
+
+    RawTracesQueryText:
+      type: string
+      description: |
+        The tracing backend's native request, as text, for backends where the
+        query text is the whole request (for example KQL).
+
+    RawTracesQueryResponse:
+      x-go-type: json.RawMessage
+      description: The tracing backend's response, unchanged.
+
     # Request schemas for traces
     TracesQueryRequest:
       type: object
@@ -4081,6 +4205,10 @@ components:
             - conflict
             - internalServerError
             - notImplemented
+            - gatewayTimeout
+            - payloadTooLarge
+            - unsupportedMediaType
+            - tooManyRequests
         errorCode:
           type: string
           description: The error code from observer service

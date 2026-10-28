@@ -141,13 +141,17 @@ const (
 
 // Defines values for ErrorResponseTitle.
 const (
-	BadRequest          ErrorResponseTitle = "badRequest"
-	Conflict            ErrorResponseTitle = "conflict"
-	Forbidden           ErrorResponseTitle = "forbidden"
-	InternalServerError ErrorResponseTitle = "internalServerError"
-	NotFound            ErrorResponseTitle = "notFound"
-	NotImplemented      ErrorResponseTitle = "notImplemented"
-	Unauthorized        ErrorResponseTitle = "unauthorized"
+	BadRequest           ErrorResponseTitle = "badRequest"
+	Conflict             ErrorResponseTitle = "conflict"
+	Forbidden            ErrorResponseTitle = "forbidden"
+	GatewayTimeout       ErrorResponseTitle = "gatewayTimeout"
+	InternalServerError  ErrorResponseTitle = "internalServerError"
+	NotFound             ErrorResponseTitle = "notFound"
+	NotImplemented       ErrorResponseTitle = "notImplemented"
+	PayloadTooLarge      ErrorResponseTitle = "payloadTooLarge"
+	TooManyRequests      ErrorResponseTitle = "tooManyRequests"
+	Unauthorized         ErrorResponseTitle = "unauthorized"
+	UnsupportedMediaType ErrorResponseTitle = "unsupportedMediaType"
 )
 
 // Defines values for EventsQueryRequestSortOrder.
@@ -1725,6 +1729,18 @@ type PlatformLogsResponse struct {
 	Total int64 `json:"total"`
 }
 
+// RawTracesQueryRequest The tracing backend's native request, as JSON: for example an OpenSearch
+// search body (`query`, `size`, `aggs`, `sort`, ...) or an OpenObserve search
+// body (`query.sql`, `query.start_time`, `query.end_time`, ...).
+type RawTracesQueryRequest = json.RawMessage
+
+// RawTracesQueryResponse The tracing backend's response, unchanged.
+type RawTracesQueryResponse = json.RawMessage
+
+// RawTracesQueryText The tracing backend's native request, as text, for backends where the
+// query text is the whole request (for example KQL).
+type RawTracesQueryText = string
+
 // RecommendationResponse defines model for RecommendationResponse.
 type RecommendationResponse struct {
 	// Items One recommendation per component in scope. A single element when
@@ -2322,6 +2338,12 @@ type QueryRuntimeTopologyJSONRequestBody = RuntimeTopologyRequest
 
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest
+
+// QueryRawTracesJSONRequestBody defines body for QueryRawTraces for application/json ContentType.
+type QueryRawTracesJSONRequestBody = RawTracesQueryRequest
+
+// QueryRawTracesTextRequestBody defines body for QueryRawTraces for text/plain ContentType.
+type QueryRawTracesTextRequestBody = RawTracesQueryText
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
