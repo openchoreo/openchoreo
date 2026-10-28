@@ -148,23 +148,29 @@ check_component_status() {
     fi
 
     if [[ -z "$pod_status" ]]; then
-        # No pods yet. For an optional component that is a legitimate end state
-        # ("never installed"), so distinguish it from a workload that exists but
-        # has not come up. A failed query above already reported "unknown", so
-        # reaching here means the API answered.
-        local workload rc_w
-        set +e
-        workload=$(kubectl --context="$context" get deployment,statefulset,daemonset \
-            -n "$namespace" -l "$label" -o name 2>/dev/null)
-        rc_w=$?
-        set -e
-        if (( rc_w != 0 )); then
-            echo "unknown"
-        elif [[ -z "$workload" ]]; then
-            echo "not installed"
-        else
-            echo "not started"
+        # No pods. For the portal that is a legitimate end state (installed with
+        # --without-portal), so tell "never installed" apart from "installed but
+        # not up". Deliberately scoped to the portal: $label is a *pod* selector,
+        # and a workload's own metadata labels need not carry it — OpenBao's
+        # StatefulSet, for one, has component=server only on its pod template, so
+        # generalizing this would misreport a down component as absent.
+        if [[ "$component" == "backstage" ]]; then
+            local workload rc_w
+            set +e
+            workload=$(kubectl --context="$context" get deployment \
+                -n "$namespace" -l "$label" -o name 2>/dev/null)
+            rc_w=$?
+            set -e
+            if (( rc_w != 0 )); then
+                echo "unknown"
+            elif [[ -z "$workload" ]]; then
+                echo "not installed"
+            else
+                echo "not started"
+            fi
+            return
         fi
+        echo "not started"
         return
     fi
 

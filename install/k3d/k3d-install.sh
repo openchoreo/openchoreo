@@ -137,12 +137,27 @@ asset() {
 # carry the portal's ThunderID application inside the base file, and a pinned
 # --version resolves assets at that ref, so the overlay must only be layered when
 # the selected ref actually ships it.
-asset_available() {
-    if [[ "$SOURCE_MODE" == "remote" ]]; then
-        curl -fsI --max-time 15 "$1" >/dev/null 2>&1
-    else
-        [[ -f "$1" ]]
+#
+# Echoes "present", "absent", or exits non-zero. A transient probe failure must
+# not read as "absent": that would silently install the portal without its OAuth
+# application, so anything other than a clear 2xx/3xx or 404 is fatal and the
+# caller should be re-run.
+asset_state() {
+    local url="$1" code
+    if [[ "$SOURCE_MODE" != "remote" ]]; then
+        [[ -f "$url" ]] && echo present || echo absent
+        return 0
     fi
+    code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$url" 2>/dev/null) || code=""
+    case "$code" in
+        2??|3??) echo present ;;
+        404)     echo absent ;;
+        *)
+            echo "ERROR: could not determine whether $url exists (HTTP '${code:-no response}')." >&2
+            echo "       Re-run once the network or registry is reachable." >&2
+            return 1
+            ;;
+    esac
 }
 
 chart_version_args() {
@@ -251,8 +266,10 @@ EOF
 install_control_plane() {
     step "Installing ThunderID (identity provider)"
     local thunder_values=(--values "$(asset install/k3d/common/values-thunder.yaml)")
-    local portal_values; portal_values="$(asset install/k3d/common/values-thunder-portal.yaml)"
-    if asset_available "$portal_values"; then
+    local portal_values portal_state
+    portal_values="$(asset install/k3d/common/values-thunder-portal.yaml)"
+    portal_state="$(asset_state "$portal_values")"
+    if [[ "$portal_state" == "present" ]]; then
         if [[ "$WITH_PORTAL" == "true" ]]; then
             thunder_values+=(--values "$portal_values")
         fi

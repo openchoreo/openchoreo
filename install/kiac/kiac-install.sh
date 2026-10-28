@@ -208,8 +208,23 @@ install_control_plane() {
   # to the selected release tag, and older releases still carry the portal's ThunderID
   # application inside the base file, so only layer the overlay when that tag ships it.
   local thunder_values=(--values "${RAW}/install/k3d/common/values-thunder.yaml")
+  local portal_present
+  # A transient probe failure must not read as "absent": that would silently
+  # install the portal without its OAuth application. Only a 404 counts as an
+  # older release; anything else is fatal so the install can be re-run.
   local portal_values="${RAW}/install/k3d/common/values-thunder-portal.yaml"
-  if curl -fsI --max-time 15 "$portal_values" >/dev/null 2>&1; then
+  local portal_code
+  portal_code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$portal_values" 2>/dev/null) || portal_code=""
+  case "$portal_code" in
+    2??|3??) portal_present=true ;;
+    404)     portal_present=false ;;
+    *)
+      echo "ERROR: could not determine whether $portal_values exists (HTTP '${portal_code:-no response}')." >&2
+      echo "       Re-run once the network is reachable." >&2
+      exit 1
+      ;;
+  esac
+  if [[ "$portal_present" == "true" ]]; then
     if [[ "$WITH_PORTAL" == "true" ]]; then
       thunder_values+=(--values "$portal_values")
     fi
