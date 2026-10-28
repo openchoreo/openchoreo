@@ -12,12 +12,17 @@ from common.config import CommonSettings
 
 LLM_AUTH_AZURE = "azure"
 
+# Bounds on each token request to Entra ID. With azure-core's defaults (300 s
+# connect and read timeouts, three retries) a stalled token endpoint holds an
+# LLM call for about 20 minutes; these fail it in about 30 seconds.
+_CREDENTIAL_OPTIONS = {"connection_timeout": 10, "read_timeout": 10, "retry_total": 2}
+
 
 @lru_cache
 def _azure_token_provider(scope: str) -> Callable[[], str]:
     # One provider per scope, shared by every model the process builds, so the
     # token is cached and refreshed in one place.
-    return get_bearer_token_provider(DefaultAzureCredential(), scope)
+    return get_bearer_token_provider(DefaultAzureCredential(**_CREDENTIAL_OPTIONS), scope)
 
 
 def get_llm_api_key(settings: CommonSettings, api_key: str) -> str | Callable[[], str]:

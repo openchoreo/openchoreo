@@ -25,6 +25,7 @@ class FakeCredential:
     def __init__(self):
         self.lifetime_seconds = 3600
         self.scopes = []
+        self.options = None
 
     def get_token(self, *scopes, **kwargs):
         self.scopes.append(scopes)
@@ -34,7 +35,12 @@ class FakeCredential:
 @pytest.fixture
 def credential(monkeypatch):
     cred = FakeCredential()
-    monkeypatch.setattr(llm_auth, "DefaultAzureCredential", lambda: cred)
+
+    def build(**kwargs):
+        cred.options = kwargs
+        return cred
+
+    monkeypatch.setattr(llm_auth, "DefaultAzureCredential", build)
     llm_auth._azure_token_provider.cache_clear()
     yield cred
     llm_auth._azure_token_provider.cache_clear()
@@ -120,6 +126,11 @@ def test_azure_auth_shares_one_provider_that_caches_the_token(credential):
     assert first is second
     assert [first(), second(), first()] == ["tok-1", "tok-1", "tok-1"]
     assert len(credential.scopes) == 1
+
+
+def test_azure_auth_bounds_token_requests(credential):
+    llm_auth.get_llm_api_key(CommonSettings(llm_auth="azure"), "")
+    assert credential.options == {"connection_timeout": 10, "read_timeout": 10, "retry_total": 2}
 
 
 def test_azure_auth_refreshes_a_token_close_to_expiry(credential):
