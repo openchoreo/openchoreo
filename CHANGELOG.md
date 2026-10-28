@@ -2,6 +2,21 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.3.3
+
+Changes since [v1.3.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.2).
+
+### Enhancements
+
+- **(AI Agents)** The finops-agent, sre-agent, and portal-assistant can call Azure OpenAI and Azure AI Foundry with a Microsoft Entra ID token instead of an API key. Set `rca.llm.auth`, `finOpsAgent.llmAuth`, or `portalAssistant.llm.auth` to `azure` and the agent gets tokens from `DefaultAzureCredential`, such as AKS workload identity, so no LLM API key is stored. The token scope can be overridden with `rca.llm.tokenScope`, `finOpsAgent.llmTokenScope`, or `portalAssistant.llm.tokenScope`, and the portal-assistant chart adds service account annotations and pod labels for workload identity. ([#5213](https://github.com/openchoreo/openchoreo/pull/5213))
+- **(Authentication)** The Observer, RCA agent, and FinOps agent can authenticate to the OpenChoreo API with an RFC 7523 client assertion instead of a stored OAuth2 client secret. Point `observer.oauthClientAssertionFile`, `rca.oauth.clientAssertionFile`, or `finOpsAgent.oauth.clientAssertionFile` at a projected workload identity token (Azure Workload Identity, EKS IRSA); the file is re-read on every token request, and environment variable references such as `${AZURE_FEDERATED_TOKEN_FILE}` are expanded. The charts add service account annotations and pod labels for workload identity. With Entra ID LLM auth, a client assertion, and the default SQLite report backend, the RCA and FinOps agents need no Secret. ([#5211](https://github.com/openchoreo/openchoreo/pull/5211))
+- **(Install)** The quick-start and k3d installs default to observability modules `observability-logs-opensearch` 0.7.0, `observability-tracing-opensearch` 0.8.0, and `observability-metrics-prometheus` 0.8.0. `observability-logs-opensearch` 0.7.0 enables Fluent Bit by default, so the k3d install sets `fluentBitCustomizations.clusterInstance` when it installs the chart. ([#5163](https://github.com/openchoreo/openchoreo/pull/5163), [#5199](https://github.com/openchoreo/openchoreo/pull/5199))
+
+### Bug Fixes
+
+- **(Controller)** With the `cilium` network policy provider, components without endpoints, such as workers, get an ingress default-deny policy. Their CiliumNetworkPolicy had `ingress: []`, which Cilium rejects as invalid, so these components ran with no ingress enforcement. ([#5193](https://github.com/openchoreo/openchoreo/pull/5193))
+- **(Observer)** The `query_dora_metrics` MCP tool description explains lead time `coverage`, the share of successful deployments with a recorded commit-to-ready time, so assistants report lead time together with its coverage. ([#5210](https://github.com/openchoreo/openchoreo/pull/5210))
+
 ## v1.3.2
 
 Changes since [v1.3.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.1).
