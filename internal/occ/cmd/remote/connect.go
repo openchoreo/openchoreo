@@ -159,12 +159,14 @@ func (d *Remote) Connect(ctx context.Context, p ConnectParams, out io.Writer) er
 		if dupErr == nil {
 			printPlannedLinks(out, found, byIdentity, p.LocalOverrides)
 			printBindingCollisions(out, found)
+			printUnmatchedOverrides(out, found, p.LocalOverrides)
 		}
 		return dupErr
 	}
 	if dupErr != nil {
 		return dupErr
 	}
+	printUnmatchedOverrides(out, found, p.LocalOverrides)
 	// Announce a set a directory chose; the whole set is treated as running locally.
 	if disc.fromDir {
 		fmt.Fprintf(out, "%s from %s, all treated as running locally\n",
