@@ -183,8 +183,11 @@ log_info "Access URLs:"
 if [[ "$ENABLE_PORTAL" == "true" ]]; then
     log_info "  Backstage UI: http://openchoreo.localhost:8080/"
 else
-    log_info "  Backstage UI: not installed (re-run with --with-portal, or bring your own:"
-    log_info "    https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/)"
+    log_info "  Backstage UI: not installed"
+    log_info "    Re-running with --with-portal deploys the portal but not its ThunderID"
+    log_info "    application: that bootstrap runs on first install only, so sign-in needs"
+    log_info "    the application created through the ThunderID management API."
+    log_info "    Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
 fi
 log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
 log_info "  ThunderID Identity Provider: http://thunder.openchoreo.localhost:8080/"
