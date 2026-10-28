@@ -8,6 +8,7 @@ from typing import Any
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
+from common.llm_auth import get_llm_api_key
 from src.config import settings
 
 
@@ -45,4 +46,4 @@ def get_model(
         and "use_responses_api" not in kwargs
     ):
         kwargs["use_responses_api"] = True
-    return init_chat_model(model=model_name, api_key=api_key, **kwargs)
+    return init_chat_model(model=model_name, api_key=get_llm_api_key(settings, api_key), **kwargs)

@@ -1622,7 +1622,7 @@ rca:
 
   # @schema
   # type: string
-  # description: Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
+  # description: Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY unless llm.auth is azure, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql). Set to an empty string to mount no Secret when none of these keys is needed (llm.auth is azure, oauth.clientAssertionFile is set and reportBackend is sqlite).
   # default: rca-agent-secret
   # @schema
   secretName: "rca-agent-secret"
@@ -1645,6 +1645,20 @@ rca:
     # default: ""
     # @schema
     baseUrl: ""
+
+    # @schema
+    # description: How the RCA agent authenticates to the LLM endpoint. api_key sends RCA_LLM_API_KEY from secretName. azure sends a Microsoft Entra ID token from DefaultAzureCredential instead, for an Azure OpenAI or Azure AI Foundry endpoint set in baseUrl (e.g., https://<resource>.openai.azure.com/openai/v1/), and RCA_LLM_API_KEY is not needed. On AKS, use workload identity - serviceAccount.create, the azure.workload.identity/client-id service account annotation and the azure.workload.identity/use pod label. Set modelName to the deployment name, and name the deployment after its model (e.g., gpt-5-mini). The RCA agent needs a model name LangChain recognizes, so other deployment names fail, even when prefixed as openai:<deployment>.
+    # enum: [api_key, azure]
+    # default: api_key
+    # @schema
+    auth: api_key
+
+    # @schema
+    # type: string
+    # description: Microsoft Entra ID scope of the LLM token when auth is azure. Empty uses https://cognitiveservices.azure.com/.default, the scope of Azure OpenAI and Azure AI Foundry.
+    # default: ""
+    # @schema
+    tokenScope: ""
 
   # @schema
   # description: Report storage backend type
@@ -1944,7 +1958,7 @@ finOpsAgent:
 
   # @schema
   # type: string
-  # description: Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
+  # description: Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY unless llmAuth is azure, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql). Set to an empty string to mount no Secret when none of these keys is needed (llmAuth is azure, oauth.clientAssertionFile is set and reportBackend is sqlite).
   # default: finops-agent
   # @schema
   secretName: "finops-agent"
@@ -1962,6 +1976,20 @@ finOpsAgent:
   # default: ""
   # @schema
   llmBaseUrl: ""
+
+  # @schema
+  # description: How the FinOps agent authenticates to the LLM endpoint. api_key sends LLM_API_KEY from secretName. azure sends a Microsoft Entra ID token from DefaultAzureCredential instead, for an Azure OpenAI or Azure AI Foundry endpoint set in llmBaseUrl (e.g., https://<resource>.openai.azure.com/openai/v1/), and LLM_API_KEY is not needed. On AKS, use workload identity - serviceAccount.create, the azure.workload.identity/client-id service account annotation and the azure.workload.identity/use pod label. Set llmName to the deployment name, prefixed as openai:<deployment> when the deployment is not named after its model.
+  # enum: [api_key, azure]
+  # default: api_key
+  # @schema
+  llmAuth: api_key
+
+  # @schema
+  # type: string
+  # description: Microsoft Entra ID scope of the LLM token when llmAuth is azure. Empty uses https://cognitiveservices.azure.com/.default, the scope of Azure OpenAI and Azure AI Foundry.
+  # default: ""
+  # @schema
+  llmTokenScope: ""
 
   # @schema
   # description: Report storage backend type
