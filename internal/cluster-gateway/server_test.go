@@ -862,6 +862,7 @@ type mockGatewayConn struct {
 	readIndex    int
 	writtenMsgs  [][]byte
 	closed       bool
+	writeErr     error
 }
 
 func (m *mockGatewayConn) ReadMessage() (int, []byte, error) {
@@ -878,6 +879,9 @@ func (m *mockGatewayConn) ReadMessage() (int, []byte, error) {
 func (m *mockGatewayConn) WriteMessage(_ int, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.writeErr != nil {
+		return m.writeErr
+	}
 	m.writtenMsgs = append(m.writtenMsgs, data)
 	return nil
 }
@@ -2407,6 +2411,73 @@ func TestServer_RebalanceSkippedWithoutMesh(t *testing.T) {
 	s.rebalanceOnce()
 
 	assert.Zero(t, countGoAways(conns), "a meshless gateway has no fleet to balance against")
+}
+
+func TestServer_Rebalance_MarksConnectionsDraining(t *testing.T) {
+	peers := map[string]int{"gw-b": 1, "gw-c": 1}
+	s, conns := rebalanceSetup(t, 10, peers)
+
+	// Simulate send failure on one candidate to test that failed-write candidates remain non-draining and selectable
+	conns[0].writeErr = fmt.Errorf("simulated send error")
+
+	s.rebalanceOnce()
+
+	allConns := s.connMgr.GetAll()
+	require.Len(t, allConns, 10)
+
+	var drainingCount, liveCount int
+	for _, ac := range allConns {
+		if ac.IsDraining() {
+			drainingCount++
+		} else {
+			liveCount++
+		}
+	}
+
+	// Out of rebalanceMaxShedPerCycle shedding attempts, 1 failed write remains live
+	assert.Equal(t, rebalanceMaxShedPerCycle-1, drainingCount, "successfully shed connections must be marked draining")
+	assert.Equal(t, 10-(rebalanceMaxShedPerCycle-1), liveCount, "unshed and failed-shed connections must remain live")
+
+	// Get and GetForCR must exclusively select from live connections (including the failed-write candidate)
+	selectedIDs := make(map[string]bool)
+	for range 20 {
+		got, err := s.connMgr.Get("dataplane/prod")
+		require.NoError(t, err)
+		assert.False(t, got.IsDraining(), "selected connection must not be draining")
+		selectedIDs[got.ID] = true
+
+		gotCR, err := s.connMgr.GetForCR("dataplane/prod", "ns/dp1")
+		require.NoError(t, err)
+		assert.False(t, gotCR.IsDraining(), "selected connection for CR must not be draining")
+	}
+
+	// Verify that the candidate whose write failed remained selectable
+	assert.True(t, selectedIDs[allConns[0].ID], "failed-write candidate must remain selectable")
+}
+
+func TestServer_DrainAgentConnections_MarksDraining(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	m1 := &mockGatewayConn{}
+	m2 := &mockGatewayConn{writeErr: fmt.Errorf("simulated send failure")}
+	id1, err := s.connMgr.Register("dataplane", "prod", m1, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+	id2, err := s.connMgr.Register("dataplane", "prod", m2, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	s.drainAgentConnections(ctx, 10*time.Millisecond)
+
+	for _, ac := range s.connMgr.GetAll() {
+		if ac.ID == id1 {
+			assert.True(t, ac.IsDraining(), "successfully notified connection must be marked draining after GOAWAY")
+		} else if ac.ID == id2 {
+			assert.False(t, ac.IsDraining(), "connection with failed GOAWAY write must remain non-draining")
+		}
+	}
 }
 
 // A stale registry entry must not fail the request. The owner answers NoAgent
