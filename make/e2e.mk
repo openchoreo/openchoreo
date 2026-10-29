@@ -1193,6 +1193,7 @@ _e2e.mc.install-fluent-bit:
 		--set prometheusCustomizations.http.observabilityPlaneUrl="http://host.k3d.internal:31080/api/v1/write" \
 		--set kube-prometheus-stack.prometheus.enabled=false \
 		--set kube-prometheus-stack.alertmanager.enabled=false \
+		--set-json 'kube-prometheus-stack.kubelet.serviceMonitor.authorization=null' \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_wait_metrics_prometheus,$(E2E_MC_DP_KUBECTL),$(E2E_OP_NS),prom-agent-openchoreo-prometheus-agent)
 	@$(call log_info, Installing metrics exporter in WP cluster)
@@ -1204,6 +1205,7 @@ _e2e.mc.install-fluent-bit:
 		--set prometheusCustomizations.http.observabilityPlaneUrl="http://host.k3d.internal:31080/api/v1/write" \
 		--set kube-prometheus-stack.prometheus.enabled=false \
 		--set kube-prometheus-stack.alertmanager.enabled=false \
+		--set-json 'kube-prometheus-stack.kubelet.serviceMonitor.authorization=null' \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_wait_metrics_prometheus,$(E2E_MC_WP_KUBECTL),$(E2E_OP_NS),prom-agent-openchoreo-prometheus-agent)
 	@# Install tracing exporter in DP and WP clusters — per observability-tracing-opensearch README.
