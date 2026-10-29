@@ -29,8 +29,8 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/portal-assistant/configmap.yaml") . | sha256sum }}
         checksum/auth-config: {{ include (print $.Template.BasePath "/portal-assistant/auth-configmap.yaml") . | sha256sum }}
       labels:
-        {{- with .Values.portalAssistant.podLabels }}
-        {{- toYaml . | nindent 8 }}
+        {{- with include "openchoreo-control-plane.filteredPodLabels" (.Values.portalAssistant.podLabels | default dict) }}
+        {{- . | nindent 8 }}
         {{- end }}
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: portal-assistant
