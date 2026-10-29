@@ -46,11 +46,11 @@ export OPENSEARCH_OPERATOR_VERSION=2.8.0
 
 # Observability community modules: 0.0.0-latest-dev (the latest build of
 # community-modules main) on main, pinned to released versions on release branches.
-export LOGS_OPENSEARCH_VERSION=0.0.0-latest-dev
-export TRACES_OPENSEARCH_VERSION=0.0.0-latest-dev
-export METRICS_PROMETHEUS_VERSION=0.0.0-latest-dev
-export EVENTS_OTEL_COLLECTOR_VERSION=0.0.0-latest-dev
-export FINOPS_OPENCOST_VERSION=0.0.0-latest-dev
+export LOGS_OPENSEARCH_VERSION=0.8.1
+export TRACES_OPENSEARCH_VERSION=0.9.0
+export METRICS_PROMETHEUS_VERSION=0.9.0
+export EVENTS_OTEL_COLLECTOR_VERSION=0.2.1
+export FINOPS_OPENCOST_VERSION=0.3.0
 ```
 
 ## 1. Control Plane
