@@ -42,6 +42,7 @@ THUNDER_NS="thunder"
 OPENBAO_NS="openbao"
 HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 LB_IP=""
+WITH_PORTAL=true
 
 usage() {
   cat <<EOF
@@ -51,6 +52,8 @@ Usage: kiac-install.sh [OPTIONS]
   --workers N            worker node VMs (default: ${WORKERS})
   --cni kindnet|cilium   pod network (cilium => NetworkPolicy enforcement; default: ${CNI})
   --use-existing         don't create a cluster; install into current kiac context
+  --without-portal       exclude the bundled Backstage developer portal
+  --with-portal          include the bundled Backstage portal (default)
   -h, --help
 
 Installs the OpenChoreo control plane and data plane (single-cluster). The
@@ -63,6 +66,8 @@ while [[ $# -gt 0 ]]; do case $1 in
   --workers) WORKERS="$2"; shift 2;;
   --cni) CNI="$2"; shift 2;;
   --use-existing) USE_EXISTING=true; shift;;
+  --with-portal) WITH_PORTAL=true; shift;;
+  --without-portal) WITH_PORTAL=false; shift;;
   -h|--help) usage; exit 0;;
   *) echo "unknown option: $1" >&2; usage >&2; exit 1;;
 esac; done
@@ -199,13 +204,43 @@ seed_optional_secrets() {
 
 install_control_plane() {
   step "ThunderID (identity provider) ${THUNDER_VERSION}"
+  # values-thunder-portal.yaml was split out of values-thunder.yaml. RAW pins assets
+  # to the selected release tag, and older releases still carry the portal's ThunderID
+  # application inside the base file, so only layer the overlay when that tag ships it.
+  local thunder_values=(--values "${RAW}/install/k3d/common/values-thunder.yaml")
+  local portal_present
+  # A transient probe failure must not read as "absent": that would silently
+  # install the portal without its OAuth application. Only a 404 counts as an
+  # older release; anything else is fatal so the install can be re-run.
+  local portal_values="${RAW}/install/k3d/common/values-thunder-portal.yaml"
+  local portal_code
+  portal_code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$portal_values" 2>/dev/null) || portal_code=""
+  case "$portal_code" in
+    2??|3??) portal_present=true ;;
+    404)     portal_present=false ;;
+    *)
+      echo "ERROR: could not determine whether $portal_values exists (HTTP '${portal_code:-no response}')." >&2
+      echo "       Re-run once the network is reachable." >&2
+      exit 1
+      ;;
+  esac
+  if [[ "$portal_present" == "true" ]]; then
+    if [[ "$WITH_PORTAL" == "true" ]]; then
+      thunder_values+=(--values "$portal_values")
+    fi
+  elif [[ "$WITH_PORTAL" != "true" ]]; then
+    echo "WARNING: OpenChoreo ${OPENCHOREO_VERSION} seeds the portal's ThunderID application" >&2
+    echo "         from the base values file, so --without-portal cannot exclude it. The" >&2
+    echo "         portal itself is not installed; its OAuth client is still registered." >&2
+  fi
   H upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
     -n "$THUNDER_NS" --create-namespace --version "$THUNDER_VERSION" \
-    --values "${RAW}/install/k3d/common/values-thunder.yaml"
+    "${thunder_values[@]}"
   $K wait -n "$THUNDER_NS" --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunderid || true
 
-  step "backstage ExternalSecret"
-  $K apply -f - <<EOF
+  if [[ "$WITH_PORTAL" == "true" ]]; then
+    step "backstage ExternalSecret"
+    $K apply -f - <<EOF
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata: { name: backstage-secrets, namespace: ${CONTROL_PLANE_NS} }
@@ -220,12 +255,19 @@ spec:
     - { secretKey: github-actions-token,       remoteRef: { key: backstage-github-actions-token,       property: value } }
     - { secretKey: github-oauth-client-secret, remoteRef: { key: backstage-github-oauth-client-secret, property: value } }
 EOF
-  $K wait -n "$CONTROL_PLANE_NS" --for=condition=Ready externalsecret/backstage-secrets --timeout=120s || true
+    $K wait -n "$CONTROL_PLANE_NS" --for=condition=Ready externalsecret/backstage-secrets --timeout=120s || true
+  fi
 
   step "Control plane chart ${CV}"
+  # The event forwarder's only default subscriber is the portal Service.
+  local portal_args=()
+  if [[ "$WITH_PORTAL" != "true" ]]; then
+    portal_args=(--set backstage.enabled=false --set eventForwarder.enabled=false)
+  fi
   H upgrade --install openchoreo-control-plane "${HELM_REPO}/openchoreo-control-plane" \
     --version "$CV" -n "$CONTROL_PLANE_NS" --create-namespace \
-    --values "${RAW}/install/k3d/single-cluster/values-cp.yaml" --timeout 600s
+    --values "${RAW}/install/k3d/single-cluster/values-cp.yaml" --timeout 600s \
+    ${portal_args[@]+"${portal_args[@]}"}
   $K wait -n "$CONTROL_PLANE_NS" --for=condition=available --timeout=420s deployment --all || true
 
   step "cluster-gateway CA -> ConfigMap"
@@ -316,11 +358,21 @@ print_summary() {
   info "Reach its endpoint directly through kiac-lb (no /etc/hosts needed):"
   echo  "    curl -H 'Host: development-default.openchoreoapis.localhost' http://${ip}:19080/greeter-service-http/greeter/greet?name=you"
   info ""
-  info "Portal (add the line below to /etc/hosts first):"
-  echo  "    ${ip} openchoreo.localhost api.openchoreo.localhost thunder.openchoreo.localhost"
-  info "    then open http://openchoreo.localhost:8080  (admin@openchoreo.dev / Admin@123)"
-  info "    Note: portal login relies on in-cluster resolution of *.openchoreo.localhost;"
-  info "    on the kubeadm distro add a CoreDNS entry mapping those hosts to ${ip}."
+  if [[ "$WITH_PORTAL" == "true" ]]; then
+    info "Portal (add the line below to /etc/hosts first):"
+    echo  "    ${ip} openchoreo.localhost api.openchoreo.localhost thunder.openchoreo.localhost"
+    info "    then open http://openchoreo.localhost:8080  (admin@openchoreo.dev / Admin@123)"
+    info "    Note: portal login relies on in-cluster resolution of *.openchoreo.localhost;"
+    info "    on the kubeadm distro add a CoreDNS entry mapping those hosts to ${ip}."
+  else
+    info "Portal: not installed"
+    info "    Re-running with --with-portal deploys the portal but not its ThunderID"
+    info "    application: that bootstrap runs on first install only, so sign-in needs"
+    info "    the application created through the ThunderID management API."
+    info "    Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
+    info "Add the line below to /etc/hosts to reach the API and ThunderID:"
+    echo  "    ${ip} api.openchoreo.localhost thunder.openchoreo.localhost"
+  fi
   info ""
   info "Delete everything: kiac delete cluster --name ${CLUSTER_NAME}"
 }
@@ -330,7 +382,9 @@ main() {
   create_cluster
   install_gateway_api
   install_prerequisites
-  seed_optional_secrets
+  if [[ "$WITH_PORTAL" == "true" ]]; then
+    seed_optional_secrets
+  fi
   install_control_plane
   wait_for_webhook
   install_default_resources

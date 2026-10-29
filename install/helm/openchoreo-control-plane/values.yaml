@@ -1270,40 +1270,6 @@ openchoreoApi:
           # default: []
           # @schema
           roles:
-            # Backstage catalog provider role for reading catalog data from the control plane
-            - name: backstage-catalog-reader
-              system: true
-              actions:
-                - "component:view"
-                - "releaseline:view"
-                - "componenttype:view"
-                - "resource:view"
-                - "resourcerelease:view"
-                - "projectrelease:view"
-                - "resourcereleasebinding:view"
-                - "projectreleasebinding:view"
-                - "resourcetype:view"
-                - "projecttype:view"
-                - "namespace:view"
-                - "project:view"
-                - "dataplane:view"
-                - "environment:view"
-                - "trait:view"
-                - "workload:view"
-                - "workflowplane:view"
-                - "clusterworkflowplane:view"
-                - "workflow:view"
-                - "deploymentpipeline:view"
-                - "observabilityplane:view"
-                - "clusterobservabilityplane:view"
-                - "clusterdataplane:view"
-                - "clustercomponenttype:view"
-                - "clusterresourcetype:view"
-                - "clusterprojecttype:view"
-                - "clustertrait:view"
-                - "clusterworkflow:view"
-                - "observabilityalertsnotificationchannel:view"
-
             # FinOps agent role for cost analysis and resource overprovisioning assessment
             - name: finops-agent
               system: true
@@ -1815,19 +1781,6 @@ openchoreoApi:
               entitlement:
                 claim: client_id
                 value: service_mcp_client
-              effect: allow
-
-            # Backstage catalog reader mapping - grants the Backstage catalog provider's service identity read access
-            - name: backstage-catalog-reader-binding
-              kind: ClusterAuthzRoleBinding
-              system: true
-              roleMappings:
-                - roleRef:
-                    name: backstage-catalog-reader
-                    kind: ClusterAuthzRole
-              entitlement:
-                claim: client_id
-                value: openchoreo-backstage-client
               effect: allow
 
             # FinOps agent mapping - grants FinOps service account cost analysis access
@@ -3296,6 +3249,24 @@ backstage:
     # default: []
     # @schema
     redirectUrls: []
+
+    # @schema
+    # type: object
+    # description: "Entitlement matched by the backstage-catalog-reader ClusterAuthzRoleBinding, which grants the portal's catalog provider read access. Only seeded when backstage.enabled is true."
+    # @schema
+    authzEntitlement:
+      # @schema
+      # type: string
+      # description: "Token claim that identifies the catalog provider's service client. ThunderID presents client_id; some external IdPs (e.g. Dex) identify a client_credentials caller through sub instead."
+      # default: "client_id"
+      # @schema
+      claim: "client_id"
+      # @schema
+      # type: string
+      # description: "Expected value of the claim above. Defaults to auth.serviceClientId, falling back to auth.clientId. Set it explicitly when the IdP encodes the client identity (e.g. Dex base64-encodes the client ID into sub)."
+      # default: ""
+      # @schema
+      value: ""
 
   # @schema
   # type: object

@@ -1,0 +1,91 @@
+# ThunderID identity for the bundled Backstage portal.
+#
+# Layered AFTER install/k3d/common/values-thunder.yaml, and only when the portal
+# is installed. The installers skip it for --without-portal, so a cluster with no
+# portal carries no OAuth client for one — which matters, because this client's
+# secret is a published default.
+#
+# The split is additive on purpose: ThunderID seeds bootstrap.scripts from a
+# static map applied by a pre-install hook, and Helm cannot remove a key that a
+# base values file already set. (A null value does not delete it either; the
+# chart renders `$content | indent 4` and fails on a nil.) So the portal's
+# identity lives here rather than being subtracted from the base.
+#
+# Adding the portal to a cluster installed without it therefore needs more than
+# a helm upgrade: ThunderID's bootstrap hook runs on first install only. See
+# install/k3d/common/README-thunder.md.
+
+configuration:
+  passkey:
+    allowedOrigins:
+      - "http://openchoreo.localhost:8080"
+
+bootstrap:
+  scripts:
+    # Replaces the base document of the same key, adding the portal dev-server
+    # origin alongside the gateway host.
+    49-cors.yaml: |
+      resource_type: server_config
+      name: cors
+      value:
+        allowedOrigins:
+          - "http://openchoreo.localhost:8080"
+          - "http://localhost:7007"
+
+    51-backstage-app.yaml: |
+      resource_type: application
+      id: 01900000-0000-7000-8001-000000000060
+      ouId: 01900000-0000-7000-8000-000000000001
+      name: Backstage
+      type: fullstack
+      authFlowId: 01900000-0000-7000-8000-000000000061
+      description: OpenChoreo Backstage Portal
+      logoUrl: "https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png"
+      allowedUserTypes:
+        - openchoreo-user
+      assertion:
+        validityPeriod: 3600
+      inboundAuthConfig:
+        - type: oauth2
+          config:
+            clientId: openchoreo-backstage-client
+            clientSecret: backstage-portal-secret
+            redirectUris:
+              - "http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame"
+            grantTypes:
+              - authorization_code
+              - client_credentials
+              - refresh_token
+            responseTypes:
+              - code
+            tokenEndpointAuthMethod: client_secret_post
+            pkceRequired: false
+            publicClient: false
+            token:
+              accessToken:
+                userConfig:
+                  validityPeriod: 86400
+                  attributes:
+                    - given_name
+                    - family_name
+                    - username
+                    - groups
+                clientConfig:
+                  validityPeriod: 86400
+              idToken:
+                validityPeriod: 86400
+                userAttributes:
+                  - given_name
+                  - family_name
+                  - username
+                  - groups
+            scopeClaims:
+              email:
+                - email
+              groups:
+                - groups
+              profile:
+                - username
+                - given_name
+                - family_name
+                - picture

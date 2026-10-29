@@ -71,7 +71,7 @@ OpenChoreo is built around a multi-plane architecture, where each plane handles 
 </div>
 </br>
 
-- The **Experience Plane** is where developers, platform engineers, and SREs interact with the platform via a Backstage-powered OpenChoreo Portal, CLI, GitOps, or AI agents.
+- The **Experience Plane** is where developers, platform engineers, and SREs interact with the platform: the Backstage-powered OpenChoreo Portal (installed by default, and optional), the CLI, GitOps, or AI agents.
 
 - The **Control Plane** sits at the center of OpenChoreo. It takes developer intent and platform intent expressed through high-level abstractions like components, endpoints, dependencies, environments, pipelines, and namespaces and translates them into the underlying Kubernetes resources. It also reflects runtime reality back up, so what developers see always matches what's actually running.
 

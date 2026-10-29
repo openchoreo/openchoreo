@@ -26,6 +26,27 @@
           "additionalProperties": false,
           "description": "OAuth/OIDC authentication configuration",
           "properties": {
+            "authzEntitlement": {
+              "additionalProperties": false,
+              "description": "Entitlement matched by the backstage-catalog-reader ClusterAuthzRoleBinding, which grants the portal's catalog provider read access. Only seeded when backstage.enabled is true.",
+              "properties": {
+                "claim": {
+                  "default": "client_id",
+                  "description": "Token claim that identifies the catalog provider's service client. ThunderID presents client_id; some external IdPs (e.g. Dex) identify a client_credentials caller through sub instead.",
+                  "title": "claim",
+                  "type": "string"
+                },
+                "value": {
+                  "default": "",
+                  "description": "Expected value of the claim above. Defaults to auth.serviceClientId, falling back to auth.clientId. Set it explicitly when the IdP encodes the client identity (e.g. Dex base64-encodes the client ID into sub).",
+                  "title": "value",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "authzEntitlement",
+              "type": "object"
+            },
             "clientId": {
               "default": "openchoreo-backstage-client",
               "description": "OAuth client ID",
