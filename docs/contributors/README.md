@@ -11,6 +11,7 @@ Before you start contributing, check out our guidelines:
 - **[AI Policy](./AI-POLICY.md)** – Expectations for using AI tools (Copilot, Claude, ChatGPT, and similar) when contributing.
 - **[Release Guide](./release.md)** – Guide to releasing a new version of OpenChoreo.
 - **[Resource Kind Reference Guide](./../resource-kind-reference-guide.md)** – Get details about resource kinds in OpenChoreo.
+- **[Concepts](./../concepts.md)** – Understand the core OpenChoreo concepts (Component, Workload, ReleaseBinding, etc.).
 
 ## Need Help?
 

@@ -2,6 +2,8 @@
 
 This document describes the resource kinds used in OpenChoreo CRDs, the relationships between them, and detailed information about each kind.
 
+> **Tip:** For a high-level introduction to what each concept is and why it exists, see the [Concepts](concepts.md) page first.
+
 ## Overview
 
 - [Design Considerations](#design-considerations)
