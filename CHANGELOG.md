@@ -2,6 +2,46 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.4.0-m.1
+
+Changes since [v1.3.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.0).
+
+### Features
+
+- **(Release Lines)** Components can run several versions side by side: every component gets an implicit `main` line plus any number of `ReleaseLine` resources (e.g. `next`, `canary`) built, released, promoted, and observed independently in the same environments. The portal lists a component's lines, gives each its own page scoped to the component's tabs, and adds a Release line filter to logs, metrics, traces, alerts, incidents, and cost views, plus the project cell diagram. ([#5162](https://github.com/openchoreo/openchoreo/pull/5162), [#866](https://github.com/openchoreo/backstage-plugins/pull/866))
+- **(Secret Management)** Observability planes gain a `secretStoreRef`, and notification channels now resolve their `secretKeyRef` as a SecretReference synced to the observability plane's secret store instead of a plain Kubernetes Secret, with the portal able to create and browse those secrets directly. ([#5188](https://github.com/openchoreo/openchoreo/pull/5188), [#5196](https://github.com/openchoreo/openchoreo/pull/5196), [#867](https://github.com/openchoreo/backstage-plugins/pull/867))
+- **(Identity)** The observer, RCA agent, and FinOps agent can authenticate to the OpenChoreo API with an RFC 7523 JWT client assertion instead of a stored OAuth2 client secret, for platforms that project a workload identity token (Azure Workload Identity, EKS IRSA). ([#4568](https://github.com/openchoreo/openchoreo/pull/4568))
+- **(Audit Logs)** Audited reads now record what was asked for and what was returned (never the content), surfaced as Parameters and Returned rows in the portal's audit event drawer and filterable by `returned.items.name` via `occ auditlogs --returned-item` and the `query_audit_logs` MCP tool. ([#4986](https://github.com/openchoreo/openchoreo/pull/4986), [#857](https://github.com/openchoreo/backstage-plugins/pull/857))
+- **(CLI)** `occ releasebinding tree` shows the resources a release binding's releases rendered, with `--kind` filtering and `--watch`. ([#4747](https://github.com/openchoreo/openchoreo/pull/4747))
+- **(CRD)** `oc_generate_name_limit(maxLength, ...parts)` CEL function to generate names truncated to a chosen length, for kinds with tighter limits than the default 63/253 characters (e.g. CronJob's 52). ([#5183](https://github.com/openchoreo/openchoreo/pull/5183))
+- **(Backstage UI)** The portal shell, Portal Assistant, and Settings sub pages (Access Control, Secrets) move onto Backstage's frontend feature discovery, and the OpenChoreo light/dark themes are published for any host to pick up — continuing the New Frontend System migration from v1.3.0, so an adopter installing the plugins into their own Backstage app gets these surfaces automatically. ([#855](https://github.com/openchoreo/backstage-plugins/pull/855), [#856](https://github.com/openchoreo/backstage-plugins/pull/856), [#838](https://github.com/openchoreo/backstage-plugins/pull/838), [#840](https://github.com/openchoreo/backstage-plugins/pull/840), [#842](https://github.com/openchoreo/backstage-plugins/pull/842), [#831](https://github.com/openchoreo/backstage-plugins/pull/831), [#832](https://github.com/openchoreo/backstage-plugins/pull/832))
+- **(Observability)** Project-level runtime metrics in the portal's Metrics tab: with no component selected, the page shows a project-wide aggregate in the same schema as the component view. ([#766](https://github.com/openchoreo/backstage-plugins/pull/766))
+
+### Enhancements
+
+- **(Controller)** Healthy `RenderedRelease`s re-check their target plane every minute instead of every five, so drift is detected and corrected sooner. ([#5234](https://github.com/openchoreo/openchoreo/pull/5234))
+- **(FinOps)** Cost Insights can be toggled with a `costInsights` feature flag (off by default, since it needs a FinOps adapter), and the `finops-opencost` module plus the flag are enabled by default in the quickstart and k3d installs. ([#4883](https://github.com/openchoreo/openchoreo/pull/4883), [#841](https://github.com/openchoreo/backstage-plugins/pull/841))
+- **(AI Agents)** Newer OpenAI models work with the built-in agents: reasoning models (gpt-5.6 series onward) are routed through the Responses API, and sre-agent's summarization middleware has model-profile data for gpt-6 models. ([#5054](https://github.com/openchoreo/openchoreo/pull/5054))
+- **(Notifications)** Email notifications can be sent as HTML in addition to plain text. ([#5202](https://github.com/openchoreo/openchoreo/pull/5202))
+- **(Install)** Helm charts and container images now publish to `cr.openchoreo.dev` in addition to `ghcr.io`. ([#4898](https://github.com/openchoreo/openchoreo/pull/4898))
+
+### Bug Fixes
+
+- **(Security)** Go upgraded to 1.26.10, which rejects certificate chains containing the compromised eMudhra intermediate certificates ([GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) / CVE-2026-111943). ([#5090](https://github.com/openchoreo/openchoreo/pull/5090))
+- **(Security)** A component with no endpoints now gets an explicit deny-all `CiliumNetworkPolicy` ingress rule instead of an empty, Cilium-rejected one, matching the Kubernetes network policy provider's enforcement. ([#5191](https://github.com/openchoreo/openchoreo/pull/5191))
+- **(API)** Secrets are pushed to external stores as one entry with flat remote keys, fixing Azure Key Vault (which can't use path-style names) and AWS Secrets Manager (whose key deletion dropped the whole secret). ([#5058](https://github.com/openchoreo/openchoreo/pull/5058))
+- **(API)** ReleaseBinding create/update now validates the project's DeploymentPipeline, so a promotion target can no longer be deployed to without a source binding referencing it. ([#4885](https://github.com/openchoreo/openchoreo/pull/4885))
+- **(Install)** kgateway bumped to v2.3.11, fixing CRDs rejected by Kubernetes 1.37's CEL rule cost budget. ([#5226](https://github.com/openchoreo/openchoreo/pull/5226))
+- **(Install)** Quick-start passes image tags to Helm as strings, fixing an all-digit short SHA being coerced to an integer and failing chart validation. ([#5123](https://github.com/openchoreo/openchoreo/pull/5123))
+- **(Install)** Kubelet `ServiceMonitor` auth cleared for exporter-mode metrics installs, fixing a template failure when Prometheus is disabled — applied to e2e and the multi-cluster install guide. ([#5136](https://github.com/openchoreo/openchoreo/pull/5136), [#5224](https://github.com/openchoreo/openchoreo/pull/5224))
+- **(Install)** `observability-logs-opensearch` installs in one step instead of a two-step workaround, in the k3d scripts and quick-start. ([#4874](https://github.com/openchoreo/openchoreo/pull/4874), [#4917](https://github.com/openchoreo/openchoreo/pull/4917))
+- **(Helm)** `readable_id_claim` made optional in the control plane schema, fixing `helm upgrade --reuse-values` on any install predating it. ([#4837](https://github.com/openchoreo/openchoreo/pull/4837))
+- **(Delivery Insights)** A misspelled or non-existent namespace in a DORA query is now a real error instead of a silent empty result, and components with resource dependencies now emit the deployment events Delivery Insights needs. ([#4855](https://github.com/openchoreo/openchoreo/pull/4855), [#4849](https://github.com/openchoreo/openchoreo/pull/4849))
+- **(Observability)** The DORA metrics tool's description now mentions its commit-coverage caveat, observer MCP tools no longer leak raw internal errors to callers, and MCP `subscriptions/listen` streams flush correctly through the auth wrapper. ([#5168](https://github.com/openchoreo/openchoreo/pull/5168), [#4847](https://github.com/openchoreo/openchoreo/pull/4847), [#4921](https://github.com/openchoreo/openchoreo/pull/4921))
+- **(Audit Logs)** Service accounts now get a real `actor.id` instead of `"unknown"`, `occ auditlogs` no longer silently scopes to the current context's namespace/project, ascending pagination no longer skips records, and the portal describes `actor.id` as the per-type identity claim it actually is. ([#4814](https://github.com/openchoreo/openchoreo/pull/4814), [#4831](https://github.com/openchoreo/openchoreo/pull/4831), [#816](https://github.com/openchoreo/backstage-plugins/pull/816))
+- **(CLI)** `occ component logs --follow` keeps sub-second precision, fixing duplicate log entries on resume. ([#4840](https://github.com/openchoreo/openchoreo/pull/4840))
+- **(Controller)** Component names are validated against DNS-1035 at admission time instead of failing later as a Kubernetes Service name, and a Kubernetes event is now emitted when `autoDeploy`'s admission webhook rejects a release. ([#3640](https://github.com/openchoreo/openchoreo/pull/3640), [#3924](https://github.com/openchoreo/openchoreo/pull/3924))
+
 ## v1.3.0
 
 Changes since [v1.2.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.0).
