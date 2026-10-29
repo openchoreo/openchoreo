@@ -12,7 +12,7 @@ dependencies = [
     "pydantic>=2.14.0",
     "pydantic-settings>=2.14.2",
     "pyjwt[crypto]>=2.14.0",
-    "pyyaml>=6.0.0",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.ruff]
