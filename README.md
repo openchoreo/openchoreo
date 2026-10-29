@@ -121,6 +121,8 @@ Whether you’re fixing a bug, improving documentation, or suggesting new featur
 - **[Report an Issue](https://github.com/openchoreo/openchoreo/issues)** – Help us improve OpenChoreo.
 - **[Join our Slack](https://cloud-native.slack.com/archives/C0ABYRG1MND)** – Be part of the community.
 
+The OpenChoreo community meeting takes place every 4 weeks on [Thursday at 9:00am Pacific Time](https://zoom-lfx.platform.linuxfoundation.org/meetings/openchoreo?view=list).
+
 We’re excited to have you onboard!
 
 ## Roadmap
