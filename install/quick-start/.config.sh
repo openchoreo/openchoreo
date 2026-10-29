@@ -27,7 +27,7 @@ ESO_VERSION="v2.0.1"
 ESO_REPO="oci://ghcr.io/external-secrets/charts"
 
 # kgateway configuration
-KGATEWAY_VERSION="v2.3.1"
+KGATEWAY_VERSION="v2.3.11"
 
 # ThunderID configuration
 THUNDER_VERSION="1.0.1"

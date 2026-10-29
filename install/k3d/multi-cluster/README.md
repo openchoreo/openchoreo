@@ -40,7 +40,7 @@ Export the versions used by the commands in this guide. Run this in every shell 
 export GATEWAY_API_VERSION=v1.5.1
 export CERT_MANAGER_VERSION=v1.19.4
 export ESO_VERSION=2.0.1
-export KGATEWAY_VERSION=v2.3.1
+export KGATEWAY_VERSION=v2.3.11
 export THUNDER_VERSION=1.0.1
 export OPENSEARCH_OPERATOR_VERSION=2.8.0
 
