@@ -30,7 +30,9 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 2)
+	// Secrets and service accounts are matched as core /api/v1 segments,
+	// not as entries in this extra substring list.
+	assert.Empty(t, v.blockedPaths)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -61,26 +63,65 @@ func TestValidateRequest_AllowedMethods(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_BlockedPaths(t *testing.T) {
+func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 	v := NewRequestValidator()
 
-	tests := []struct {
-		name string
-		path string
+	blocked := []struct {
+		name   string
+		method string
+		path   string
 	}{
-		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
-		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"namespaced secrets list", http.MethodGet, "/api/v1/namespaces/default/secrets"},
+		{"control plane secret get", http.MethodGet, "/api/v1/namespaces/openchoreo-control-plane/secrets/my-secret"},
+		{"kube-system secrets", http.MethodGet, "/api/v1/namespaces/kube-system/secrets"},
+		{"kube-system secret get", http.MethodGet, "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"post secret", http.MethodPost, "/api/v1/namespaces/default/secrets"},
+		{"delete secret", http.MethodDelete, "/api/v1/namespaces/default/secrets/my-secret"},
+		{"cluster serviceaccounts list", http.MethodGet, "/api/v1/serviceaccounts"},
+		{"namespaced serviceaccounts list", http.MethodGet, "/api/v1/namespaces/default/serviceaccounts"},
+		{"serviceaccount get", http.MethodGet, "/api/v1/namespaces/default/serviceaccounts/default"},
+		{"serviceaccount token", http.MethodPost, "/api/v1/namespaces/default/serviceaccounts/default/token"},
+		{"watch namespaced secrets", http.MethodGet, "/api/v1/watch/namespaces/default/secrets"},
+		{"watch cluster secrets", http.MethodGet, "/api/v1/watch/secrets"},
+		{"watch serviceaccounts", http.MethodGet, "/api/v1/watch/namespaces/default/serviceaccounts"},
+		{"double slash", http.MethodGet, "/api//v1/namespaces/default/secrets"},
+		{"dot segment", http.MethodGet, "/api/./v1/namespaces/default/secrets"},
+		{"trailing slash", http.MethodGet, "/api/v1/namespaces/default/secrets/"},
+		{"leading double slash", http.MethodGet, "//api/v1/namespaces/default/secrets"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	for _, tt := range blocked {
+		t.Run("blocked_"+tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/test", nil)
 			err := v.ValidateRequest(req, "k8s", tt.path)
 			require.Error(t, err)
 			var valErr *ValidationError
 			require.ErrorAs(t, err, &valErr)
 			assert.Equal(t, http.StatusForbidden, valErr.Code)
+		})
+	}
+
+	// These look related if you match on the word "secret" or the old
+	// /apis/v1 string. They are not core secret or ServiceAccount calls.
+	allowed := []struct {
+		name string
+		path string
+	}{
+		{"pods", "/api/v1/namespaces/default/pods"},
+		{"pod named secrets", "/api/v1/namespaces/default/pods/secrets"},
+		{"namespace named secrets", "/api/v1/namespaces/secrets/pods"},
+		{"events", "/api/v1/namespaces/default/events"},
+		{"watch pods", "/api/v1/watch/namespaces/default/pods"},
+		{"external secret crd", "/apis/external-secrets.io/v1beta1/namespaces/default/externalsecrets"},
+		{"external secret crd get", "/apis/external-secrets.io/v1beta1/namespaces/default/externalsecrets/db"},
+		{"legacy wrong sa string", "/apis/v1/serviceaccounts"},
+	}
+
+	for _, tt := range allowed {
+		t.Run("allowed_"+tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			err := v.ValidateRequest(req, "k8s", tt.path)
+			assert.NoError(t, err)
 		})
 	}
 }
