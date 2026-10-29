@@ -10,6 +10,23 @@ caller passes --wait to helm.
 */}}
 
 {{/*
+Whether the authz bootstrap hook renders: authorization on, and its own toggle
+not explicitly off. The three bootstrap-*.yaml templates gate on this.
+
+The toggle is `ne ... false` rather than `| default true` on purpose. Helm's
+`default` treats an explicit `false` as empty, so a default would make the key
+impossible to turn off. An absent key means on, which is what an older
+release's coalesced values carry through `helm upgrade --reuse-values`, so the
+hook must not silently disappear there.
+
+Usage:
+  {{ include "openchoreo-control-plane.authz.bootstrapEnabled" . }}
+*/}}
+{{- define "openchoreo-control-plane.authz.bootstrapEnabled" -}}
+{{- and .Values.security.authz.enabled (ne .Values.openchoreoApi.config.security.authorization.bootstrap.enabled false) -}}
+{{- end }}
+
+{{/*
 Bootstrap resource name prefix (cluster-scoped and namespaced hook resources).
 */}}
 {{- define "openchoreo-control-plane.authz.bootstrapName" -}}

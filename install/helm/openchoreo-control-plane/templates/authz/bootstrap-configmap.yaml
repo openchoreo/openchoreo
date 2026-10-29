@@ -1,4 +1,4 @@
-{{- if .Values.security.authz.enabled }}
+{{- if eq (include "openchoreo-control-plane.authz.bootstrapEnabled" .) "true" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
