@@ -416,6 +416,35 @@ func (r *Reconciler) findReleaseBindingsForClusterDataPlane(ctx context.Context,
 	return r.releaseBindingsForDataPlaneRef(ctx, "", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, cdp.Name)
 }
 
+// findReleaseBindingsForEnvironment enqueues the bindings in an Environment's namespace
+// that render into that Environment. Environment gateway settings are render inputs and
+// take precedence over the DataPlane defaults, so an override change must not wait for an
+// unrelated ReleaseBinding update to be observed.
+func (r *Reconciler) findReleaseBindingsForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
+	env, ok := obj.(*openchoreov1alpha1.Environment)
+	if !ok {
+		return nil
+	}
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(env.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for Environment change", "environment", env.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0)
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Environment != env.Name {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+		})
+	}
+	return requests
+}
+
 // releaseBindingsForDataPlaneRef returns reconcile requests for the ReleaseBindings whose target
 // Environment references the given data plane (kind+name). When namespace is empty the
 // Environment scan is cluster-wide (used for ClusterDataPlane). Environments that resolve to a
