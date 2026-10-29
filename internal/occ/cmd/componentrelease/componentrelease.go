@@ -23,6 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/specdiff"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -175,6 +176,35 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	}
 
 	return nil
+}
+
+// Diff compares the specs of two component releases and prints the differences
+func (cr *ComponentRelease) Diff(params DiffParams) error {
+	if err := cmdutil.RequireFields("diff", "componentrelease", map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+	if params.From == "" || params.To == "" {
+		return fmt.Errorf("both component release names must be non-empty")
+	}
+
+	ctx := context.Background()
+
+	from, err := cr.client.GetComponentRelease(ctx, params.Namespace, params.From)
+	if err != nil {
+		return fmt.Errorf("failed to get component release %q: %w", params.From, err)
+	}
+	to, err := cr.client.GetComponentRelease(ctx, params.Namespace, params.To)
+	if err != nil {
+		return fmt.Errorf("failed to get component release %q: %w", params.To, err)
+	}
+
+	return specdiff.Run(os.Stdout, specdiff.Options{
+		Kind:  "componentrelease",
+		From:  params.From,
+		To:    params.To,
+		Root:  "spec",
+		Color: params.Color,
+	}, from.Spec, to.Spec)
 }
 
 // Delete deletes a single component release

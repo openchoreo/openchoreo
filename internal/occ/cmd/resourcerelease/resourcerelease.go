@@ -15,6 +15,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/specdiff"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -82,6 +83,35 @@ func (rr *ResourceRelease) Get(params GetParams) error {
 
 	fmt.Print(string(data))
 	return nil
+}
+
+// Diff compares the specs of two resource releases and prints the differences
+func (rr *ResourceRelease) Diff(params DiffParams) error {
+	if err := cmdutil.RequireFields("diff", "resourcerelease", map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+	if params.From == "" || params.To == "" {
+		return fmt.Errorf("both resource release names must be non-empty")
+	}
+
+	ctx := context.Background()
+
+	from, err := rr.client.GetResourceRelease(ctx, params.Namespace, params.From)
+	if err != nil {
+		return fmt.Errorf("failed to get resource release %q: %w", params.From, err)
+	}
+	to, err := rr.client.GetResourceRelease(ctx, params.Namespace, params.To)
+	if err != nil {
+		return fmt.Errorf("failed to get resource release %q: %w", params.To, err)
+	}
+
+	return specdiff.Run(os.Stdout, specdiff.Options{
+		Kind:  "resourcerelease",
+		From:  params.From,
+		To:    params.To,
+		Root:  "spec",
+		Color: params.Color,
+	}, from.Spec, to.Spec)
 }
 
 // Delete deletes a single resource release
