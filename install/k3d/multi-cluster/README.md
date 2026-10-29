@@ -839,7 +839,8 @@ helm upgrade --install observability-metrics-prometheus \
   --set global.installationMode="multiClusterExporter" \
   --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
   --set kube-prometheus-stack.prometheus.enabled=false \
-  --set kube-prometheus-stack.alertmanager.enabled=false
+  --set kube-prometheus-stack.alertmanager.enabled=false \
+  --set-json 'kube-prometheus-stack.kubelet.serviceMonitor.authorization=null'
 ```
 
 ### Register Observability Plane
