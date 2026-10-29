@@ -233,8 +233,9 @@ async def stream_chat(
                 {"messages": agent_messages},
                 stream_mode="messages",
             ):
-                # Skip non-AI message chunks (e.g., ToolMessage has content as list)
-                if not isinstance(chunk.content, str):
+                # Skip ToolMessage chunks. AI chunks can't be told apart by content
+                # type, since the OpenAI Responses API streams their content as a list.
+                if getattr(chunk, "type", None) == "tool":
                     continue
 
                 for block in chunk.content_blocks:
