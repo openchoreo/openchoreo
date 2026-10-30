@@ -37,15 +37,22 @@ type ReleaseSpec struct {
 // This is a type-safe wrapper around hash.ComputeHash for ReleaseSpec.
 // This follows the same pattern as Kubernetes controller.ComputeHash.
 func ComputeReleaseHash(template *ReleaseSpec, collisionCount *int32) string {
-	// An endpoint dependency without a release line is hashed as it was before dependencies could
-	// name one, so upgrading doesn't change the release hash of a component that has dependencies.
-	hashable := strings.ReplaceAll(dump.ForHash(*template), emptyDependencyReleaseLine, "Name:(string)")
-	return hash.ComputeHashOfString(hashable, collisionCount)
+	// Fields added since a release could first be cut are hashed as they were before they existed
+	// while they are unset, so upgrading doesn't change the release hash of an unchanged component.
+	return hash.ComputeHashOfString(hashCompatible.Replace(dump.ForHash(*template)), collisionCount)
 }
 
-// emptyDependencyReleaseLine is an empty WorkloadConnection.ReleaseLine in dump.ForHash output,
-// followed by the field after it.
-const emptyDependencyReleaseLine = "ReleaseLine:(string) Name:(string)"
+// hashCompatible rewrites dump.ForHash output to what it was before these fields existed. Each
+// pattern is anchored on the field after it, so it can't match anywhere else.
+var hashCompatible = strings.NewReplacer(
+	// An endpoint dependency without a release line.
+	"ReleaseLine:(string) Name:(string)", "Name:(string)",
+	// A ComponentType without allowedEndpoints.
+	"AllowedEndpoints:([]v1alpha1.AllowedEndpointType)<nil> Validations:", "Validations:",
+	// A workload endpoint without protocol, whose type was named EndpointType before the
+	// protocol enum was renamed to EndpointProtocol.
+	"Protocol:(v1alpha1.EndpointProtocol) Type:(v1alpha1.EndpointProtocol)", "Type:(v1alpha1.EndpointType)",
+)
 
 // EqualReleaseTemplate returns true if lhs and rhs have the same hash.
 // This is used to determine if two release specs are semantically equivalent.
