@@ -23,6 +23,10 @@ const (
 	// HTTP-proxied endpoints, enabling Hubble flow metrics via Envoy.
 	ProviderCilium Provider = "cilium"
 
+	// ProviderAnnotation on a DataPlane or ClusterDataPlane selects the
+	// network policy provider for everything rendered onto it.
+	ProviderAnnotation = "openchoreo.dev/networkpolicyprovider"
+
 	// KubernetesNamespaceKey is the key for Kubernetes namespace
 	// used in CiliumNetworkPolicy to allow rules based on namespace.
 	KubernetesNamespaceKey = "k8s:io.kubernetes.pod.namespace"
@@ -38,22 +42,23 @@ type ComponentPolicyParams struct {
 	PodSelectors  map[string]string                              // platform pod selectors
 	Endpoints     map[string]openchoreov1alpha1.WorkloadEndpoint // from workload spec
 	Provider      Provider                                       // network policy provider
-
-	// Visibility is each endpoint's effective visibility: what the deprecated
-	// workload field requests together with what the Endpoints routing to it
-	// expose. When nil, the workload field alone is used.
-	Visibility map[string][]openchoreov1alpha1.EndpointVisibility
 }
 
-// endpointVisibility returns the visibilities ingress is opened for on one
-// endpoint.
-func (p ComponentPolicyParams) endpointVisibility(
-	name string, ep openchoreov1alpha1.WorkloadEndpoint,
-) []openchoreov1alpha1.EndpointVisibility {
-	if p.Visibility != nil {
-		return p.Visibility[name]
-	}
-	return ep.Visibility //nolint:staticcheck // deprecated field still supported for backward compatibility
+// EndpointPolicyParams holds parameters for the policy an Endpoint renders for
+// one of its backends. It admits the Endpoint's visibility to the backend's
+// pods on the backend's port, alongside the backend component's own policy:
+// policies are additive, so the component's policy keeps its project scope and
+// whatever its deprecated workload visibility requests.
+type EndpointPolicyParams struct {
+	Name         string                                  // policy name
+	Namespace    string                                  // data plane namespace name
+	CPNamespace  string                                  // control plane namespace name
+	Environment  string                                  // environment name (e.g., "development")
+	PodSelectors map[string]string                       // the backend's pod selectors
+	Port         int32                                   // the backend's container port
+	Protocol     openchoreov1alpha1.EndpointProtocol     // the backend's protocol
+	Visibility   []openchoreov1alpha1.EndpointVisibility // the Endpoint's visibility
+	Provider     Provider                                // network policy provider
 }
 
 // MakeComponentPolicies returns a policy for a component with ingress rules based on
@@ -117,17 +122,13 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 	}
 	entries := make([]epEntry, 0, len(params.Endpoints))
 	for name, ep := range params.Endpoints {
-		protocol := "TCP"
-		if ep.EffectiveProtocol() == openchoreov1alpha1.EndpointProtocolUDP {
-			protocol = "UDP"
-		}
 		entries = append(entries, epEntry{
 			name: name,
 			port: map[string]any{
-				"protocol": protocol,
+				"protocol": l4Protocol(ep.EffectiveProtocol()),
 				"port":     int64(ep.Port),
 			},
-			visibility: params.endpointVisibility(name, ep),
+			visibility: ep.Visibility, //nolint:staticcheck // deprecated field still supported for backward compatibility
 		})
 	}
 	sort.Slice(entries, func(i, j int) bool {
@@ -170,42 +171,54 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 
 	// Rule 2: cross-project, same CP namespace and same environment (namespace visibility)
 	if len(namespacePorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"from": []any{
-				map[string]any{
-					"namespaceSelector": map[string]any{
-						"matchLabels": map[string]any{
-							labels.LabelKeyNamespaceName:   params.CPNamespace,
-							labels.LabelKeyEnvironmentName: params.Environment,
-						},
-					},
-				},
-			},
-			"ports": namespacePorts,
-		})
+		ingressRules = append(ingressRules, namespaceIngressRule(params.CPNamespace, params.Environment, namespacePorts))
 	}
 
 	// Rule 3: system components (e.g., gateway) from any namespace (internal or external visibility)
 	if len(broadAccessPorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"from": []any{
-				map[string]any{
-					"namespaceSelector": map[string]any{},
-					"podSelector": map[string]any{
-						"matchExpressions": []any{
-							map[string]any{
-								"key":      labels.LabelKeySystemComponent,
-								"operator": "Exists",
-							},
+		ingressRules = append(ingressRules, systemComponentIngressRule(broadAccessPorts))
+	}
+
+	return ingressRules
+}
+
+// namespaceIngressRule admits pods of other projects in the same control plane
+// namespace and environment (namespace visibility).
+func namespaceIngressRule(cpNamespace, environment string, ports []any) map[string]any {
+	return map[string]any{
+		"from": []any{
+			map[string]any{
+				"namespaceSelector": map[string]any{
+					"matchLabels": map[string]any{
+						labels.LabelKeyNamespaceName:   cpNamespace,
+						labels.LabelKeyEnvironmentName: environment,
+					},
+				},
+			},
+		},
+		"ports": ports,
+	}
+}
+
+// systemComponentIngressRule admits system components such as the gateways,
+// from any namespace (internal or external visibility).
+func systemComponentIngressRule(ports []any) map[string]any {
+	return map[string]any{
+		"from": []any{
+			map[string]any{
+				"namespaceSelector": map[string]any{},
+				"podSelector": map[string]any{
+					"matchExpressions": []any{
+						map[string]any{
+							"key":      labels.LabelKeySystemComponent,
+							"operator": "Exists",
 						},
 					},
 				},
 			},
-			"ports": broadAccessPorts,
-		})
+		},
+		"ports": ports,
 	}
-
-	return ingressRules
 }
 
 // ciliumPortEntry holds per-endpoint data for Cilium CNP generation.
@@ -222,16 +235,12 @@ type ciliumPortEntry struct {
 // Non-proxied types (TCP, UDP) get L4-only rules.
 func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any {
 	entries := make([]ciliumPortEntry, 0, len(params.Endpoints))
-	for name, ep := range params.Endpoints {
-		proto := "TCP"
-		if ep.EffectiveProtocol() == openchoreov1alpha1.EndpointProtocolUDP {
-			proto = "UDP"
-		}
+	for _, ep := range params.Endpoints {
 		entries = append(entries, ciliumPortEntry{
 			port:       strconv.Itoa(int(ep.Port)),
-			proto:      proto,
+			proto:      l4Protocol(ep.EffectiveProtocol()),
 			isL7:       isL7Proxied(ep.EffectiveProtocol()),
-			visibility: params.endpointVisibility(name, ep),
+			visibility: ep.Visibility, //nolint:staticcheck // deprecated field still supported for backward compatibility
 		})
 	}
 	// Sort by port for deterministic output.
@@ -267,42 +276,12 @@ func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any 
 
 	// Rule 2: cross-project, same CP namespace and environment (namespace visibility)
 	if len(namespacePorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"fromEndpoints": []any{
-				map[string]any{
-					"matchLabels": map[string]any{
-						labels.LabelKeyNamespaceName:   params.CPNamespace,
-						labels.LabelKeyEnvironmentName: params.Environment,
-					},
-					"matchExpressions": []any{
-						map[string]any{ // Explicitly allow from any namespace
-							"key":      KubernetesNamespaceKey,
-							"operator": "Exists",
-						},
-					},
-				},
-			},
-			"toPorts": ciliumToPorts(namespacePorts),
-		})
+		ingressRules = append(ingressRules, ciliumNamespaceIngressRule(params.CPNamespace, params.Environment, namespacePorts))
 	}
 
 	// Rule 3: system components (e.g., gateway) from any namespace (internal or external visibility)
 	if len(broadPorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"fromEndpoints": []any{
-				map[string]any{"matchExpressions": []any{
-					map[string]any{
-						"key":      labels.LabelKeySystemComponent,
-						"operator": "Exists",
-					},
-					map[string]any{ // Explicitly allow from any namespace
-						"key":      KubernetesNamespaceKey,
-						"operator": "Exists",
-					},
-				}},
-			},
-			"toPorts": ciliumToPorts(broadPorts),
-		})
+		ingressRules = append(ingressRules, ciliumSystemComponentIngressRule(broadPorts))
 	}
 
 	// No endpoints: emit a single empty ingress rule. Cilium rejects a rule with
@@ -338,6 +317,127 @@ func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any 
 	}}
 }
 
+// ciliumNamespaceIngressRule is namespaceIngressRule for Cilium.
+func ciliumNamespaceIngressRule(cpNamespace, environment string, entries []ciliumPortEntry) map[string]any {
+	return map[string]any{
+		"fromEndpoints": []any{
+			map[string]any{
+				"matchLabels": map[string]any{
+					labels.LabelKeyNamespaceName:   cpNamespace,
+					labels.LabelKeyEnvironmentName: environment,
+				},
+				"matchExpressions": []any{
+					map[string]any{ // Explicitly allow from any namespace
+						"key":      KubernetesNamespaceKey,
+						"operator": "Exists",
+					},
+				},
+			},
+		},
+		"toPorts": ciliumToPorts(entries),
+	}
+}
+
+// ciliumSystemComponentIngressRule is systemComponentIngressRule for Cilium.
+func ciliumSystemComponentIngressRule(entries []ciliumPortEntry) map[string]any {
+	return map[string]any{
+		"fromEndpoints": []any{
+			map[string]any{"matchExpressions": []any{
+				map[string]any{
+					"key":      labels.LabelKeySystemComponent,
+					"operator": "Exists",
+				},
+				map[string]any{ // Explicitly allow from any namespace
+					"key":      KubernetesNamespaceKey,
+					"operator": "Exists",
+				},
+			}},
+		},
+		"toPorts": ciliumToPorts(entries),
+	}
+}
+
+// MakeEndpointPolicy returns the policy admitting an Endpoint's visibility to
+// one backend's pods on the backend's port: namespace visibility admits the
+// other projects of the namespace and environment, internal and external admit
+// the gateways. It returns nil when the visibility admits nothing beyond the
+// project scope the backend component's own policy already admits.
+func MakeEndpointPolicy(params EndpointPolicyParams) map[string]any {
+	var namespaceScope, broadScope bool
+	for _, vis := range params.Visibility {
+		switch vis {
+		case openchoreov1alpha1.EndpointVisibilityNamespace:
+			namespaceScope = true
+		case openchoreov1alpha1.EndpointVisibilityInternal, openchoreov1alpha1.EndpointVisibilityExternal:
+			broadScope = true
+		}
+	}
+	if !namespaceScope && !broadScope {
+		return nil
+	}
+
+	proto := l4Protocol(params.Protocol)
+
+	if params.Provider == ProviderCilium {
+		entries := []ciliumPortEntry{{port: strconv.Itoa(int(params.Port)), proto: proto, isL7: isL7Proxied(params.Protocol)}}
+		var ingressRules []any
+		if namespaceScope {
+			ingressRules = append(ingressRules, ciliumNamespaceIngressRule(params.CPNamespace, params.Environment, entries))
+		}
+		if broadScope {
+			ingressRules = append(ingressRules, ciliumSystemComponentIngressRule(entries))
+		}
+		return map[string]any{
+			"apiVersion": "cilium.io/v2",
+			"kind":       "CiliumNetworkPolicy",
+			"metadata": map[string]any{
+				"name":      params.Name,
+				"namespace": params.Namespace,
+			},
+			"spec": map[string]any{
+				"endpointSelector": map[string]any{
+					"matchLabels": toAnyMap(params.PodSelectors),
+				},
+				"ingress": ingressRules,
+			},
+		}
+	}
+
+	ports := []any{map[string]any{"protocol": proto, "port": int64(params.Port)}}
+	var ingressRules []any
+	if namespaceScope {
+		ingressRules = append(ingressRules, namespaceIngressRule(params.CPNamespace, params.Environment, ports))
+	}
+	if broadScope {
+		ingressRules = append(ingressRules, systemComponentIngressRule(ports))
+	}
+	return map[string]any{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind":       "NetworkPolicy",
+		"metadata": map[string]any{
+			"name":      params.Name,
+			"namespace": params.Namespace,
+		},
+		"spec": map[string]any{
+			"podSelector": map[string]any{
+				"matchLabels": toAnyMap(params.PodSelectors),
+			},
+			"policyTypes": []any{"Ingress"},
+			"ingress":     ingressRules,
+		},
+	}
+}
+
+// ProviderFromAnnotations returns the provider a data plane's
+// "openchoreo.dev/networkpolicyprovider" annotation selects, defaulting to
+// ProviderKubernetes.
+func ProviderFromAnnotations(annotations map[string]string) Provider {
+	if annotations[ProviderAnnotation] == string(ProviderCilium) {
+		return ProviderCilium
+	}
+	return ProviderKubernetes
+}
+
 // ciliumToPorts builds the toPorts slice for a CNP ingress rule, grouping L7-proxied
 // ports (with rules.http) separately from L4-only ports.
 func ciliumToPorts(entries []ciliumPortEntry) []any {
@@ -363,6 +463,15 @@ func ciliumToPorts(entries []ciliumPortEntry) []any {
 		toPorts = append(toPorts, map[string]any{"ports": l4Ports})
 	}
 	return toPorts
+}
+
+// l4Protocol returns the transport protocol a policy port uses for an
+// endpoint protocol: UDP for UDP endpoints, TCP for everything else.
+func l4Protocol(p openchoreov1alpha1.EndpointProtocol) string {
+	if p == openchoreov1alpha1.EndpointProtocolUDP {
+		return "UDP"
+	}
+	return "TCP"
 }
 
 // isL7Proxied reports whether the endpoint type is proxied through Envoy for L7 inspection.

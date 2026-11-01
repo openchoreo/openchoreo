@@ -237,8 +237,8 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 			continue
 		}
 		// The workload endpoint only has to exist: what it is exposed to comes
-		// from this Endpoint's visibility, which the component's network policy
-		// follows, not from the workload.
+		// from this Endpoint's visibility, which the network policy rendered
+		// with its routes admits, not from the workload.
 		if _, ok := workload.Spec.Endpoints[ref.Component.Endpoint]; !ok {
 			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
 				"backend %q: %s has no workload endpoint %q (available: %s)",

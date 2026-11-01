@@ -34,6 +34,20 @@ type resolvedBackends struct {
 	// blocking describes each backend that should receive traffic but could not
 	// be resolved. Non-empty blocks rendering.
 	blocking []string
+
+	// policyTargets are the pods each resolved backend runs on, in spec order,
+	// for the network policies that admit the Endpoint's visibility to them.
+	policyTargets []policyTarget
+}
+
+// policyTarget is what a backend's network policy selects and opens: the pods
+// of the backend's component line in the environment, on the workload
+// endpoint's container port.
+type policyTarget struct {
+	backendName  string
+	podSelectors map[string]string
+	port         int32
+	protocol     openchoreov1alpha1.EndpointProtocol
 }
 
 // backendResolution is the outcome of resolving one backendRef. Exactly one of
@@ -42,6 +56,7 @@ type resolvedBackends struct {
 type backendResolution struct {
 	backend    *endpointpipeline.Backend
 	serviceURL *openchoreov1alpha1.EndpointURL
+	target     policyTarget
 	reason     string
 	message    string
 }
@@ -57,7 +72,7 @@ func (r *Reconciler) resolveBackends(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
 	release *openchoreov1alpha1.EndpointRelease,
-	dpNamespace string,
+	md endpointpipeline.MetadataContext,
 ) (*resolvedBackends, error) {
 	out := &resolvedBackends{}
 
@@ -67,7 +82,7 @@ func (r *Reconciler) resolveBackends(
 			weight = *ref.Weight
 		}
 
-		res, err := r.resolveBackend(ctx, binding, ref, dpNamespace)
+		res, err := r.resolveBackend(ctx, binding, ref, md)
 		if err != nil {
 			return nil, err
 		}
@@ -92,6 +107,7 @@ func (r *Reconciler) resolveBackends(
 		status.ServiceURL = res.serviceURL
 		out.statuses = append(out.statuses, status)
 		out.backends = append(out.backends, *res.backend)
+		out.policyTargets = append(out.policyTargets, res.target)
 	}
 
 	return out, nil
@@ -107,11 +123,11 @@ func (r *Reconciler) resolveBackend(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
 	ref openchoreov1alpha1.EndpointBackendRef,
-	dpNamespace string,
+	md endpointpipeline.MetadataContext,
 ) (backendResolution, error) {
 	switch {
 	case ref.Kind == openchoreov1alpha1.EndpointBackendKindComponent && ref.Component != nil:
-		return r.resolveComponentBackend(ctx, binding, ref, dpNamespace)
+		return r.resolveComponentBackend(ctx, binding, ref, md)
 	default:
 		// The CRD admits only Component today; reported rather than returned as
 		// an error so a kind this controller predates cannot wedge the binding.
@@ -133,12 +149,17 @@ func (r *Reconciler) resolveBackend(
 // for (component, line, environment) independently and match them against the
 // Services on its RenderedRelease. That does not depend on how a ComponentType
 // names or shapes its Service.
+//
+// It also resolves what the backend's network policy selects: the pods of the
+// component's line, which carry the component's and the line's UIDs, and the
+// workload endpoint's container port from the release the line runs.
 func (r *Reconciler) resolveComponentBackend(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
 	ref openchoreov1alpha1.EndpointBackendRef,
-	dpNamespace string,
+	md endpointpipeline.MetadataContext,
 ) (backendResolution, error) {
+	dpNamespace := md.Namespace
 	env := binding.Spec.Environment
 	component := ref.Component.Name
 	line := ref.Component.ReleaseLine
@@ -166,17 +187,19 @@ func (r *Reconciler) resolveComponentBackend(
 		return rb.Spec.Owner.ReleaseLine != line
 	})
 
+	var releaseLine *openchoreov1alpha1.ReleaseLine
+	if line != "" {
+		var err error
+		if releaseLine, err = r.getReleaseLine(ctx, binding.Namespace, binding.Spec.Owner.ProjectName, component, line); err != nil {
+			return backendResolution{}, err
+		}
+		if releaseLine == nil {
+			return unresolved(BackendReasonReleaseLineNotFound, "component %q has no release line %q", component, line)
+		}
+	}
+
 	switch len(bindings) {
 	case 0:
-		if line != "" {
-			exists, err := r.releaseLineExists(ctx, binding.Namespace, binding.Spec.Owner.ProjectName, component, line)
-			if err != nil {
-				return backendResolution{}, err
-			}
-			if !exists {
-				return unresolved(BackendReasonReleaseLineNotFound, "component %q has no release line %q", component, line)
-			}
-		}
 		return unresolved(BackendReasonNotDeployed, "%s is not deployed in environment %q", subject, env)
 	case 1:
 	default:
@@ -219,6 +242,35 @@ func (r *Reconciler) resolveComponentBackend(
 			endpoint, subject, serviceNamespace, dpNamespace)
 	}
 
+	comp := &openchoreov1alpha1.Component{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: binding.Namespace, Name: component}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return unresolved(BackendReasonNotDeployed, "component %q not found", component)
+		}
+		return backendResolution{}, fmt.Errorf("get Component %q: %w", component, err)
+	}
+	port, err := r.releasedPort(ctx, rb, endpoint)
+	if err != nil {
+		return backendResolution{}, err
+	}
+	if port == 0 {
+		return unresolved(BackendReasonEndpointNotAvailable,
+			"endpoint %q of %s is not in the release deployed in environment %q", endpoint, subject, env)
+	}
+	selectorInput := controller.PodSelectorInput{
+		NamespaceName:   binding.Namespace,
+		ProjectName:     binding.Spec.Owner.ProjectName,
+		ComponentName:   component,
+		EnvironmentName: env,
+		ComponentUID:    string(comp.UID),
+		EnvironmentUID:  md.EnvironmentUID,
+		ProjectUID:      md.ProjectUID,
+	}
+	if releaseLine != nil {
+		selectorInput.ReleaseLine = line
+		selectorInput.ReleaseLineUID = string(releaseLine.UID)
+	}
+
 	url := epStatus.ServiceURL.DeepCopy()
 	return backendResolution{
 		backend: &endpointpipeline.Backend{
@@ -234,21 +286,50 @@ func (r *Reconciler) resolveComponentBackend(
 			BasePath:      basePathOf(url),
 		},
 		serviceURL: url,
+		target: policyTarget{
+			backendName:  ref.Name,
+			podSelectors: controller.ComponentPodSelectors(selectorInput),
+			port:         port,
+			protocol:     epStatus.Type,
+		},
 	}, nil
 }
 
-// releaseLineExists reports whether the component has the named release line.
-// A ReleaseLine is named after its line and belongs to one component, so a
-// line of another component by that name does not count.
-func (r *Reconciler) releaseLineExists(ctx context.Context, namespace, project, component, line string) (bool, error) {
+// getReleaseLine returns the component's release line, or nil when it has
+// none by that name. A ReleaseLine is named after its line and belongs to one
+// component, so a line of another component by that name does not count.
+func (r *Reconciler) getReleaseLine(
+	ctx context.Context, namespace, project, component, line string,
+) (*openchoreov1alpha1.ReleaseLine, error) {
 	rl := &openchoreov1alpha1.ReleaseLine{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: line}, rl); err != nil {
 		if apierrors.IsNotFound(err) {
-			return false, nil
+			return nil, nil
 		}
-		return false, fmt.Errorf("get ReleaseLine %q: %w", line, err)
+		return nil, fmt.Errorf("get ReleaseLine %q: %w", line, err)
 	}
-	return rl.Spec.Owner.ProjectName == project && rl.Spec.Owner.ComponentName == component, nil
+	if rl.Spec.Owner.ProjectName != project || rl.Spec.Owner.ComponentName != component {
+		return nil, nil
+	}
+	return rl, nil
+}
+
+// releasedPort returns the container port of the workload endpoint in the
+// release the ReleaseBinding deploys, or 0 when the release or the endpoint is
+// missing. A network policy opens the pod's port, which the Service maps to
+// but need not equal.
+func (r *Reconciler) releasedPort(ctx context.Context, rb *openchoreov1alpha1.ReleaseBinding, endpoint string) (int32, error) {
+	if rb.Spec.ReleaseName == "" {
+		return 0, nil
+	}
+	cr := &openchoreov1alpha1.ComponentRelease{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: rb.Namespace, Name: rb.Spec.ReleaseName}, cr); err != nil {
+		if apierrors.IsNotFound(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("get ComponentRelease %q: %w", rb.Spec.ReleaseName, err)
+	}
+	return cr.Spec.Workload.Endpoints[endpoint].Port, nil
 }
 
 // isRoutableProtocol reports whether any route kind can carry the protocol.

@@ -18,13 +18,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 )
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
 
 // renderAndEmit drives the endpoint pipeline against the release snapshot and
-// writes the resulting RenderedRelease. Returns the live RenderedRelease on
+// writes the resulting RenderedRelease, together with the network policies
+// that let the Endpoint's routes reach its backends. Returns the live RenderedRelease on
 // success (created, updated, or already in sync) or nil when no further
 // evaluation should run (render error, ownership conflict). Transient API
 // errors are returned to the caller for requeue.
@@ -32,6 +34,7 @@ func (r *Reconciler) renderAndEmit(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
 	input *endpointpipeline.RenderInput,
+	policies []openchoreov1alpha1.RenderedManifest,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	logger := log.FromContext(ctx)
 
@@ -47,6 +50,7 @@ func (r *Reconciler) renderAndEmit(
 		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to encode rendered manifests: %v", err))
 		return nil, err
 	}
+	manifests = append(manifests, policies...)
 
 	rrName := makeRenderedReleaseName(binding)
 	rr := &openchoreov1alpha1.RenderedRelease{
@@ -143,6 +147,53 @@ func (r *Reconciler) resolveURLs(
 		return
 	}
 	controller.MarkTrueCondition(binding, ConditionURLsResolved, ReasonURLsResolved, "URLs resolved")
+}
+
+// networkPolicyIDPrefix prefixes the RenderedRelease ID of each backend's
+// network policy. EndpointType authors choose their own resource IDs, so the
+// platform's are namespaced to stay out of their way.
+const networkPolicyIDPrefix = "openchoreo-networkpolicy-"
+
+// networkPolicyManifests renders, for each resolved backend, the policy that
+// admits the Endpoint's visibility to the backend's pods. It ships in the
+// Endpoint's RenderedRelease with the routes, so a route and the policy that
+// lets its traffic through are deployed, promoted and removed together, while
+// the backend component's own policy keeps its project scope and whatever its
+// deprecated workload visibility requests.
+func networkPolicyManifests(
+	binding *openchoreov1alpha1.EndpointReleaseBinding,
+	in *reconcileInputs,
+	md endpointpipeline.MetadataContext,
+	targets []policyTarget,
+) ([]openchoreov1alpha1.RenderedManifest, error) {
+	provider := networkpolicy.ProviderFromAnnotations(in.dataPlane.Annotations)
+	manifests := make([]openchoreov1alpha1.RenderedManifest, 0, len(targets))
+	for _, t := range targets {
+		policy := networkpolicy.MakeEndpointPolicy(networkpolicy.EndpointPolicyParams{
+			Name: dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxResourceNameLength,
+				"openchoreo", "e_"+binding.Spec.Owner.EndpointName, t.backendName),
+			Namespace:    md.Namespace,
+			CPNamespace:  binding.Namespace,
+			Environment:  binding.Spec.Environment,
+			PodSelectors: t.podSelectors,
+			Port:         t.port,
+			Protocol:     t.protocol,
+			Visibility:   in.release.Spec.Visibility,
+			Provider:     provider,
+		})
+		if policy == nil {
+			continue
+		}
+		raw, err := json.Marshal(policy)
+		if err != nil {
+			return nil, fmt.Errorf("marshal network policy for backend %q: %w", t.backendName, err)
+		}
+		manifests = append(manifests, openchoreov1alpha1.RenderedManifest{
+			ID:     networkPolicyIDPrefix + t.backendName,
+			Object: &runtime.RawExtension{Raw: raw},
+		})
+	}
+	return manifests, nil
 }
 
 // makeRenderedReleaseName returns the RenderedRelease name for a binding. The
