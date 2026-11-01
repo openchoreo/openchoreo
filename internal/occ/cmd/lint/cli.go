@@ -26,6 +26,7 @@ import (
 	"github.com/openchoreo/openchoreo/tools/lint/parallel"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	postrendervalidator "github.com/openchoreo/openchoreo/tools/lint/post-render-validator"
+	schemavalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/openchoreo/openchoreo/tools/lint/suppress"
@@ -392,13 +393,15 @@ func runValidate(f validateFlags, path string) error {
 	}
 
 	errs, warns, wrote := validateFile(path, false, buildNamesForFile(path), cfg)
+	var rendered []diagnosticJSON
 	if f.render {
 		// A single file cannot be rendered on its own: the bundle needs the
 		// ComponentType, Component and Workload, so the whole folder that
 		// holds the file is rendered instead.
 		siblings, serr := parser.CollectYAMLFiles(filepath.Dir(path), false)
 		if serr == nil {
-			for _, d := range runPostRenderValidation(siblings) {
+			rendered = runPostRenderValidation(siblings)
+			for _, d := range rendered {
 				printDiagnostic(d)
 				switch d.Severity {
 				case "error":
@@ -406,6 +409,18 @@ func runValidate(f validateFlags, path string) error {
 				case "warning":
 					warns++
 				}
+			}
+		}
+	}
+	siblings2, serr2 := parser.CollectYAMLFiles(filepath.Dir(path), false)
+	if serr2 == nil {
+		for _, d := range distinctRuntimeFindings(runPreRenderValidation(siblings2), rendered) {
+			printDiagnostic(d)
+			switch d.Severity {
+			case "error":
+				errs++
+			case "warning":
+				warns++
 			}
 		}
 	}
@@ -448,6 +463,25 @@ func runPostRenderValidation(files []string) []diagnosticJSON {
 		out = append(out, diagnosticJSON{
 			File:     f.Path,
 			Severity: f.Severity,
+			Code:     f.Code,
+			Line:     f.Line,
+			Column:   f.Column,
+			Message:  f.Message,
+		})
+	}
+	return out
+}
+
+func runPreRenderValidation(files []string) []diagnosticJSON {
+	findings := schemavalidator.ValidateFiles(context.Background(), files)
+	if len(findings) == 0 {
+		return nil
+	}
+	out := make([]diagnosticJSON, 0, len(findings))
+	for _, f := range findings {
+		out = append(out, diagnosticJSON{
+			File:     f.Path,
+			Severity: string(f.Severity),
 			Code:     f.Code,
 			Line:     f.Line,
 			Column:   f.Column,
@@ -764,13 +798,21 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 		allFixes = append(allFixes, fixReports(out.path, out.fixes, out.dryRun)...)
 	}
 
+	var renderDiags []diagnosticJSON
 	if cfg.render {
-		renderDiags := runPostRenderValidation(files)
+		renderDiags = runPostRenderValidation(files)
 		all = append(all, renderDiags...)
 		for _, d := range renderDiags {
 			if d.Severity == "error" {
 				failed = true
 			}
+		}
+	}
+	preRenderDiags := distinctRuntimeFindings(runPreRenderValidation(files), renderDiags)
+	all = append(all, preRenderDiags...)
+	for _, d := range preRenderDiags {
+		if d.Severity == "error" {
+			failed = true
 		}
 	}
 
@@ -1195,6 +1237,7 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		return safeAnalyze(path, func() fileOutcome { return analyzeFile(path, names, cfg) })
 	}
 	outcomes := parallel.Run(files, workers, analyze)
+	preRenderDiags := runPreRenderValidation(files)
 	validate := time.Since(t)
 
 	var renderDiags []diagnosticJSON
@@ -1205,16 +1248,36 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		renderDiags = runPostRenderValidation(files)
 	}
 
+	preRenderDiags = distinctRuntimeFindings(preRenderDiags, renderDiags)
 	t = time.Now()
 	var totalErrors, totalWarnings, failed, rewritten int
+	failedFiles := make(map[string]bool)
 	for _, out := range outcomes {
 		errs, warns, wrote := printFileOutcome(out, true)
 		totalErrors += errs
 		totalWarnings += warns
 		rewritten += countRewritten(wrote)
 		if errs > 0 {
+			failedFiles[out.path] = true
 			failed++
 		}
+	}
+	if len(preRenderDiags) > 0 {
+		fmt.Printf("Pre-render validation:\n\n")
+		for _, d := range preRenderDiags {
+			printDiagnostic(d)
+			switch d.Severity {
+			case "error":
+				totalErrors++
+				if !failedFiles[d.File] {
+					failedFiles[d.File] = true
+					failed++
+				}
+			case "warning":
+				totalWarnings++
+			}
+		}
+		fmt.Println()
 	}
 	if len(renderDiags) > 0 {
 		fmt.Printf("Post-render validation:\n\n")
@@ -1283,4 +1346,25 @@ func okMarker() string {
 		return "OK"
 	}
 	return "✓"
+}
+
+// Preserve pipeline errors and omit only new runtime findings already represented
+// by that same resource's rendering failure.
+func distinctRuntimeFindings(findings, rendered []diagnosticJSON) []diagnosticJSON {
+	out := make([]diagnosticJSON, 0, len(findings))
+	for _, f := range findings {
+		duplicate := false
+		if f.Code == "pre-render-validation-failed" {
+			for _, prior := range rendered {
+				if prior.File == f.File && prior.Code == "post-render-error" && strings.Contains(prior.Message, f.Message) {
+					duplicate = true
+					break
+				}
+			}
+		}
+		if !duplicate {
+			out = append(out, f)
+		}
+	}
+	return out
 }

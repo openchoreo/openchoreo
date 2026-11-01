@@ -1,0 +1,215 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package schemavalidator
+
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	sigsyaml "sigs.k8s.io/yaml"
+)
+
+type index struct {
+	componentTypes        []componentTypeEntry
+	clusterComponentTypes []clusterComponentTypeEntry
+	traits                []traitEntry
+	clusterTraits         []clusterTraitEntry
+	components            []componentEntry
+}
+
+type componentTypeEntry struct {
+	doc  v1alpha1.ComponentType
+	file string
+	pdoc *parser.DocumentNode
+}
+type clusterComponentTypeEntry struct {
+	doc  v1alpha1.ClusterComponentType
+	file string
+	pdoc *parser.DocumentNode
+}
+type traitEntry struct {
+	doc  v1alpha1.Trait
+	file string
+	pdoc *parser.DocumentNode
+}
+type clusterTraitEntry struct {
+	doc  v1alpha1.ClusterTrait
+	file string
+	pdoc *parser.DocumentNode
+}
+
+type componentEntry struct {
+	doc        *parser.DocumentNode
+	file       string
+	obj        v1alpha1.Component
+	parameters *runtime.RawExtension
+	traits     []componentTraitEntry
+}
+
+type componentTraitEntry struct {
+	kind       string
+	name       string
+	parameters *runtime.RawExtension
+}
+
+func buildIndex(sources []sourceDoc) *index {
+	idx := &index{}
+	for _, s := range sources {
+		doc := s.doc
+		if doc == nil || !strings.HasPrefix(doc.APIVersion, "openchoreo.dev/") {
+			continue
+		}
+		switch doc.Kind {
+		case "ComponentType":
+			var obj v1alpha1.ComponentType
+			if err := decodeTyped(doc, &obj); err == nil {
+				if obj.Name == "" && doc.Metadata.Name != "" {
+					obj.Name = doc.Metadata.Name
+				}
+				if obj.Namespace == "" && doc.Metadata.Namespace != "" {
+					obj.Namespace = doc.Metadata.Namespace
+				}
+				idx.componentTypes = append(idx.componentTypes, componentTypeEntry{doc: obj, file: s.file, pdoc: doc})
+			} else {
+			}
+		case "ClusterComponentType":
+			var obj v1alpha1.ClusterComponentType
+			if err := decodeTyped(doc, &obj); err == nil {
+				idx.clusterComponentTypes = append(idx.clusterComponentTypes, clusterComponentTypeEntry{doc: obj, file: s.file, pdoc: doc})
+			}
+		case "Trait":
+			var obj v1alpha1.Trait
+			if err := decodeTyped(doc, &obj); err == nil {
+				idx.traits = append(idx.traits, traitEntry{doc: obj, file: s.file, pdoc: doc})
+			}
+		case "ClusterTrait":
+			var obj v1alpha1.ClusterTrait
+			if err := decodeTyped(doc, &obj); err == nil {
+				idx.clusterTraits = append(idx.clusterTraits, clusterTraitEntry{doc: obj, file: s.file, pdoc: doc})
+			}
+		case "Component":
+			var obj v1alpha1.Component
+			if err := decodeTyped(doc, &obj); err == nil {
+				entry := componentEntry{
+					doc:        doc,
+					file:       s.file,
+					obj:        obj,
+					parameters: obj.Spec.Parameters,
+				}
+				for _, t := range obj.Spec.Traits {
+					kind := string(t.Kind)
+					if kind == "" {
+						kind = "Trait"
+					}
+					entry.traits = append(entry.traits, componentTraitEntry{
+						kind:       kind,
+						name:       t.Name,
+						parameters: t.Parameters,
+					})
+				}
+				idx.components = append(idx.components, entry)
+			}
+		}
+	}
+	return idx
+}
+
+func yamlMarshalNode(n *yaml.Node) ([]byte, error) {
+	return yaml.Marshal(n)
+}
+
+func decodeTyped(doc *parser.DocumentNode, out interface{}) error {
+	raw, err := yamlMarshalNode(doc.Root)
+	if err != nil {
+		return err
+	}
+	data, err := sigsyaml.YAMLToJSON(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, out)
+}
+
+func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.ComponentType, *v1alpha1.ClusterComponentType) {
+	ref := comp.obj.Spec.ComponentType
+	kind := string(ref.Kind)
+	if kind == "" {
+		kind = "ComponentType"
+	}
+	name := (&typed.Component{Component: &comp.obj}).ComponentTypeName()
+	if kind == "ClusterComponentType" {
+		var match *v1alpha1.ClusterComponentType
+		for i := range idx.clusterComponentTypes {
+			candidate := &idx.clusterComponentTypes[i].doc
+			if candidate.Name == name {
+				if match != nil {
+					return nil, nil
+				}
+				match = candidate
+			}
+		}
+		return nil, match
+	}
+	if kind != "ComponentType" {
+		return nil, nil
+	}
+	ns := comp.obj.Namespace
+	var match *v1alpha1.ComponentType
+	for i := range idx.componentTypes {
+		candidate := &idx.componentTypes[i].doc
+		if candidate.Name == name && candidate.Namespace == ns {
+			if match != nil {
+				return nil, nil
+			}
+			match = candidate
+		}
+	}
+	return match, nil
+}
+
+func (idx *index) resolveTrait(file string, doc *parser.DocumentNode, trait componentTraitEntry) (*v1alpha1.Trait, *v1alpha1.ClusterTrait) {
+	kind := trait.kind
+	if kind == "" {
+		kind = "Trait"
+	}
+	name := trait.name
+	if kind == "ClusterTrait" {
+		var match *v1alpha1.ClusterTrait
+		for i := range idx.clusterTraits {
+			candidate := &idx.clusterTraits[i].doc
+			if candidate.Name == name {
+				if match != nil {
+					return nil, nil
+				}
+				match = candidate
+			}
+		}
+		return nil, match
+	}
+	if kind != "Trait" {
+		return nil, nil
+	}
+	ns := ""
+	if doc != nil {
+		ns = doc.Metadata.Namespace
+	}
+	var match *v1alpha1.Trait
+	for i := range idx.traits {
+		candidate := &idx.traits[i].doc
+		if candidate.Name == name && candidate.Namespace == ns {
+			if match != nil {
+				return nil, nil
+			}
+			match = candidate
+		}
+	}
+	return match, nil
+}
+
+var _ runtime.RawExtension

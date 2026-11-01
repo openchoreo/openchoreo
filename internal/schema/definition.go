@@ -189,8 +189,18 @@ func ValidateWithJSONSchema(values map[string]any, jsonSchema *extv1.JSONSchemaP
 			msg := strings.ReplaceAll(err.Error(), " in body", "")
 			errMsgs = append(errMsgs, msg)
 		}
-		return fmt.Errorf("%s", strings.Join(errMsgs, "; "))
+		return &ValueValidationError{Message: strings.Join(errMsgs, "; "), Errors: result.Errors}
 	}
 
 	return nil
 }
+
+// ValueValidationError retains Kubernetes validation details for source mapping
+// while preserving the established human-readable error message.
+type ValueValidationError struct {
+	Message string
+	Errors  []error
+}
+
+func (e *ValueValidationError) Error() string   { return e.Message }
+func (e *ValueValidationError) Unwrap() []error { return e.Errors }

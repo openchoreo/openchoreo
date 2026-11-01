@@ -7,6 +7,8 @@ package celvalidator
 // truth for which documents the validator runs over; ruleengine/template
 // references them when registering the CEL rule per kind.
 const (
+	KindProjectType          = "ProjectType"
+	KindClusterProjectType   = "ClusterProjectType"
 	KindComponentType        = "ComponentType"
 	KindClusterComponentType = "ClusterComponentType"
 	KindTrait                = "Trait"

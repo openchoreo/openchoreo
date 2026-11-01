@@ -22,6 +22,7 @@ import (
 	apiservercel "k8s.io/apiserver/pkg/cel"
 
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	projectpipeline "github.com/openchoreo/openchoreo/internal/pipeline/project"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 	"github.com/openchoreo/openchoreo/internal/template"
 	"github.com/openchoreo/openchoreo/internal/validation/component/decltype"
@@ -201,6 +202,20 @@ func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.E
 		return nil, nil, err
 	}
 
+	return buildSchemaEnvironment(baseEnv, contextFields, opts)
+}
+
+// NewProjectEnv reflects the production project context, without component-only macros.
+func NewProjectEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
+	base, err := cel.NewEnv(template.BaseCELExtensions()...)
+	if err != nil {
+		return nil, nil, err
+	}
+	fields := decltype.ExtractFields(reflect.TypeFor[projectpipeline.BaseContext](), schemaBasedFields)
+	return buildSchemaEnvironment(base, fields, opts)
+}
+
+func buildSchemaEnvironment(baseEnv *cel.Env, contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
 	numFields := len(contextFields) + len(schemaBasedFields)
 	declTypes := make([]*apiservercel.DeclType, 0, numFields)
 	varOpts := make([]cel.EnvOption, 0, numFields)

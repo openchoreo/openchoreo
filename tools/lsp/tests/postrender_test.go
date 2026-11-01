@@ -27,8 +27,14 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      replicas: "integer | default=1"
-      port: "integer | default=8080"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+        port:
+          type: integer
+          default: 8080
   resources:
     - id: deployment
       template:
@@ -71,7 +77,7 @@ spec:
     projectName: default
   componentType:
     kind: ComponentType
-    name: frontend-ct
+    name: deployment/frontend-ct
   parameters:
     replicas: 1
     port: 8080
@@ -262,9 +268,16 @@ func TestPostRenderClearsStaleFindingsOnEdit(t *testing.T) {
 	openDoc(t, s, workloadURI, postRenderWorkload, 1)
 
 	done := startPostRender(t, s, componentURI)
-	if params := readPublish(t, client, 2*time.Second); !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
-		t.Fatalf("expected initial image-latest, got %+v", params.Diagnostics)
+	// Debounced structural publishes may arrive before the explicit render.
+	// Wait for the command's diagnostic rather than assuming frame ordering.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		params := readPublish(t, client, time.Until(deadline))
+		if hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+			break
+		}
 	}
+
 	waitPostRender(t, done)
 
 	changeDoc(t, s, workloadURI, 2, protocol.TextDocumentContentChangeEventWhole{Text: postRenderWorkload})
@@ -320,7 +333,7 @@ func TestPostRenderCodeLens(t *testing.T) {
 	if lenses[0].Command.Command != postRenderTestCommand {
 		t.Fatalf("command = %q, want %q", lenses[0].Command.Command, postRenderTestCommand)
 	}
-	if lenses[0].Command.Title != "Run Post-Render Validation" {
+	if lenses[0].Command.Title != "Validate Project" {
 		t.Fatalf("title = %q", lenses[0].Command.Title)
 	}
 	if len(lenses[0].Command.Arguments) != 1 || lenses[0].Command.Arguments[0] != componentURI {
@@ -358,6 +371,9 @@ func TestPostRenderDiscoversGitOpsProjectResources(t *testing.T) {
 	workloadPath := write("projects/default/components/frontend/workload.yaml", postRenderWorkload)
 
 	s, client := newDebouncedServer(t)
+	if _, err := s.Initialize(nil, &protocol.InitializeParams{WorkspaceFolders: []protocol.WorkspaceFolder{{URI: fileURI(root), Name: "project"}}}); err != nil {
+		t.Fatal(err)
+	}
 	componentURI := fileURI(componentPath)
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 

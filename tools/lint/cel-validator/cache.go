@@ -129,6 +129,12 @@ func envFor(kind string, pair SchemaPair) (cachedEnv, error) {
 
 	var build func() (cachedEnv, error)
 	switch kind {
+	case KindProjectType, KindClusterProjectType:
+		build = func() (cachedEnv, error) {
+			env, provider, err := NewProjectEnv(SchemaOptions{ParametersSchema: pair.Parameters, EnvironmentConfigsSchema: pair.EnvironmentConfigs})
+			return cachedEnv{env: env, provider: provider}, err
+		}
+
 	case KindComponentType, KindClusterComponentType:
 		build = func() (cachedEnv, error) {
 			var env *cel.Env

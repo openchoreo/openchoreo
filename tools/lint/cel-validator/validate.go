@@ -55,7 +55,7 @@ type Finding struct {
 // args: | header.
 func ValidateDocument(doc *parser.DocumentNode, pair SchemaPair) ([]Finding, error) {
 	switch doc.Kind {
-	case KindComponentType, KindClusterComponentType:
+	case KindComponentType, KindClusterComponentType, KindProjectType, KindClusterProjectType:
 		return validateComponent(doc, pair)
 	case KindTrait, KindClusterTrait:
 		return validateTrait(doc, pair)

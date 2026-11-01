@@ -155,6 +155,7 @@ func (s *Server) debounceWatch(path string) {
 // Documents that are themselves open are skipped: the editor's in-memory
 // buffer is the authoritative version, and it already revalidates via didChange.
 func (s *Server) processWatchChange(path string) {
+	s.invalidatePostRenderForEdit(fileToURI(path))
 	if s.updateIndexedFile(path) {
 		s.revalidateOpenDocumentsAfterWatch()
 	}

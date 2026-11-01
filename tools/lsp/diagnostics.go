@@ -4,6 +4,7 @@
 package lsp
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
@@ -118,10 +119,12 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 	}
 
 	diags = s.mergePostRenderDiagnostics(uri, diags)
+	diags = s.mergePreRenderSchemaDiagnostics(uri, diags)
 	if diags == nil {
 		diags = []protocol.Diagnostic{}
 	}
 
+	diags = uniqueProjectDiagnostics(diags)
 	versionUInt := protocol.UInteger(version)
 	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(uri),
@@ -135,10 +138,12 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 // which is what debounced publishes rely on.
 func (s *Server) publishDiagnosticsAsync(uri string, version int, diags []protocol.Diagnostic) {
 	diags = s.mergePostRenderDiagnostics(uri, diags)
+	diags = s.mergePreRenderSchemaDiagnostics(uri, diags)
 	if diags == nil {
 		diags = []protocol.Diagnostic{}
 	}
 
+	diags = uniqueProjectDiagnostics(diags)
 	versionUInt := protocol.UInteger(version)
 	s.SendAsync(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(uri),
@@ -181,6 +186,9 @@ func (s *Server) scheduleDiagnostics(uri string, version int, text string) {
 		s.diagMu.Unlock()
 
 		s.publishDiagnosticsAsync(uri, version, s.diagnosticsForCached(uri, text))
+		if path := fileURIToPath(uri); path != "" {
+			s.triggerPreRenderSchemaValidationForPath(path)
+		}
 	})
 }
 
@@ -274,4 +282,21 @@ func (s *Server) revalidateOpenDocumentsExcept(exceptURI string) {
 		}
 		s.publishDiagnosticsAsync(doc.URI, doc.Version, s.diagnosticsForCached(doc.URI, doc.Text))
 	}
+}
+
+func uniqueProjectDiagnostics(diags []protocol.Diagnostic) []protocol.Diagnostic {
+	seen := map[string]bool{}
+	out := make([]protocol.Diagnostic, 0, len(diags))
+	for _, d := range diags {
+		code := ""
+		if d.Code != nil {
+			code = fmt.Sprint(d.Code.Value)
+		}
+		key := fmt.Sprintf("%s:%d:%d:%s", code, d.Range.Start.Line, d.Range.Start.Character, d.Message)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, d)
+		}
+	}
+	return out
 }

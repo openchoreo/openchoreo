@@ -211,6 +211,9 @@ func (s *Server) DidOpen(
 	// The opened document's resources now exist under its declared names;
 	// other open documents may reference them.
 	s.scheduleOtherDocRevalidation(uri)
+	if path := fileURIToPath(uri); path != "" {
+		go s.triggerPreRenderSchemaValidationForPath(path)
+	}
 
 	s.publishDiagnostics(
 		context,
@@ -274,6 +277,9 @@ func (s *Server) DidClose(
 	s.scheduleOtherDocRevalidation(uri)
 
 	s.publishDiagnostics(context, uri, 0, nil)
+	if path := fileURIToPath(uri); path != "" {
+		go s.triggerPreRenderSchemaValidationForPath(path)
+	}
 
 	return nil
 }
@@ -291,4 +297,15 @@ func fileURIToPath(uri string) string {
 		return path
 	}
 	return uri
+}
+
+func (s *Server) DidSave(
+	context *glsp.Context,
+	params *protocol.DidSaveTextDocumentParams,
+) error {
+	uri := string(params.TextDocument.URI)
+	if path := fileURIToPath(uri); path != "" {
+		go s.triggerPreRenderSchemaValidationForPath(path)
+	}
+	return nil
 }

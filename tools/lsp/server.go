@@ -38,6 +38,7 @@ type Server struct {
 	// this server indexes and watches (from initialize workspaceFolders or,
 	// for legacy single-folder clients, rootUri).
 	workspaceRoots []string
+	preRenderRunMu sync.Mutex
 	logger         *slog.Logger
 
 	connMu sync.RWMutex
@@ -100,8 +101,13 @@ type Server struct {
 	postRenderMu      sync.Mutex
 	postRenderByURI   map[string][]protocol.Diagnostic
 	postRenderFiles   map[string]struct{}
+	postRenderScope   string
 	postRenderRunning bool
 	postRenderEpoch   uint64
+
+	preRenderSchemaMu    sync.Mutex
+	preRenderSchemaByURI map[string][]protocol.Diagnostic
+	preRenderSchemaFiles map[string]struct{}
 }
 
 // New creates a new OpenChoreo language server.
@@ -109,15 +115,17 @@ func NewServer() *Server {
 	handler := protocol.Handler{}
 
 	s := &Server{
-		server:          server.NewServer(&handler, "OpenChoreo Language Server", false),
-		documents:       make(map[string]*Document),
-		indexer:         indexer.NewIndexer(),
-		indexDone:       make(chan struct{}),
-		cache:           make(map[string]*validationEntry),
-		postRenderByURI: make(map[string][]protocol.Diagnostic),
-		postRenderFiles: make(map[string]struct{}),
-		outbox:          make(chan outboundNotification, 256),
-		logger:          slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		server:               server.NewServer(&handler, "OpenChoreo Language Server", false),
+		documents:            make(map[string]*Document),
+		indexer:              indexer.NewIndexer(),
+		indexDone:            make(chan struct{}),
+		cache:                make(map[string]*validationEntry),
+		postRenderByURI:      make(map[string][]protocol.Diagnostic),
+		postRenderFiles:      make(map[string]struct{}),
+		preRenderSchemaByURI: make(map[string][]protocol.Diagnostic),
+		preRenderSchemaFiles: make(map[string]struct{}),
+		outbox:               make(chan outboundNotification, 256),
+		logger:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 	handler.Initialize = WithRequestRecovery(s, "initialize", s.Initialize)
 	handler.Initialized = WithHandlerRecovery(s, "initialized", s.Initialized)

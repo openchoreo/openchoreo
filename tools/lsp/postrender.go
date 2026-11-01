@@ -6,6 +6,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ type postRenderResult struct {
 	Warnings int      `json:"warnings"`
 	Message  string   `json:"message,omitempty"`
 	Details  []string `json:"details,omitempty"`
+	Root     string   `json:"root,omitempty"`
 }
 
 // CodeLens offers the post-render action at the top of OpenChoreo YAML files.
@@ -58,7 +60,7 @@ func (s *Server) CodeLens(
 			End:   protocol.Position{Line: 0, Character: 0},
 		},
 		Command: &protocol.Command{
-			Title:     "Run Post-Render Validation",
+			Title:     "Validate Project",
 			Command:   postRenderCommand,
 			Arguments: []any{uri},
 		},
@@ -66,8 +68,7 @@ func (s *Server) CodeLens(
 }
 
 // ExecuteCommand handles openchoreo.runPostRenderValidation. The command takes
-// the document URI as its only argument and validates the resources in that
-// file's directory.
+// the document URI as its only argument and validates its whole workspace.
 func (s *Server) ExecuteCommand(
 	context *glsp.Context,
 	params *protocol.ExecuteCommandParams,
@@ -121,6 +122,9 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 	}
 
 	root := s.postRenderRoot(activePath)
+	s.postRenderMu.Lock()
+	s.postRenderScope = root
+	s.postRenderMu.Unlock()
 	files, err := parser.CollectYAMLFiles(root, true)
 	if err != nil {
 		return s.publishPostRenderFailure(uri, activePath, err)
@@ -129,17 +133,72 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 
 	ctx, cancel := context.WithTimeout(context.Background(), postRenderTimeout)
 	defer cancel()
-	findings := postrendervalidator.ValidateProject(ctx, files, activePath)
+	overlays := map[string]string{}
+	for _, doc := range s.snapshotOpenDocuments() {
+		path := fileURIToPath(doc.URI)
+		rel, e := filepath.Rel(root, path)
+		if e == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			overlays[filepath.Clean(path)] = doc.Text
+			files = ensureActiveFile(files, path)
+		}
+	}
+	var parsed []postrendervalidator.SourceDocument
+	var pre []prerendervalidator.Resource
+	var findings []postrendervalidator.Finding
+	for _, path := range files {
+		text, ok := overlays[filepath.Clean(path)]
+		if !ok {
+			data, e := os.ReadFile(path)
+			if e != nil {
+				continue
+			}
+			text = string(data)
+		}
+		if !parser.HasOpenChoreoAPIVersion([]byte(text)) {
+			continue
+		}
+		docs, e := parser.ParseYAML([]byte(text))
+		var diagnostics []protocol.Diagnostic
+		if e != nil {
+			diagnostics = []protocol.Diagnostic{parseErrorDiagnostic(e)}
+		} else {
+			diagnostics = validateDocs(docs)
+		}
+		for _, d := range diagnostics {
+			code := ""
+			if d.Code != nil {
+				code = fmt.Sprint(d.Code.Value)
+			}
+			severity := "error"
+			if d.Severity != nil {
+				switch *d.Severity {
+				case protocol.DiagnosticSeverityWarning:
+					severity = "warning"
+				case protocol.DiagnosticSeverityInformation:
+					severity = "info"
+				case protocol.DiagnosticSeverityHint:
+					severity = "hint"
+				}
+			}
+			findings = append(findings, postrendervalidator.Finding{Path: path, Code: code, Severity: severity, Message: d.Message, Line: int(d.Range.Start.Line) + 1, Column: int(d.Range.Start.Character) + 1})
+		}
+		for _, doc := range docs {
+			parsed = append(parsed, postrendervalidator.SourceDocument{Path: path, Document: doc})
+			pre = append(pre, prerendervalidator.Resource{Path: path, Document: doc})
+		}
+	}
+	for _, f := range prerendervalidator.ValidateDocuments(ctx, pre) {
+		findings = append(findings, postrendervalidator.Finding{Path: f.Path, Code: f.Code, Severity: string(f.Severity), Message: f.Message, Line: f.Line, Column: f.Column})
+	}
+	findings = append(findings, postrendervalidator.ValidateWorkspace(ctx, parsed)...)
 
-	return s.publishPostRenderFindings(uri, activePath, files, findings, &epoch)
+	result := s.publishPostRenderFindings(uri, activePath, files, uniqueManualFindings(findings), &epoch)
+	result.Root = root
+	return result
 }
 
-// postRenderRoot picks the directory to scan for a post-render run. A
-// Component usually lives under projects/<project>/components/<name>, while the
-// ComponentTypes and Environments it needs live under a sibling platform
-// directory. Scanning only the active file's directory would miss them, so use
-// the nearest ancestor that has both platform and projects directories. Flat
-// projects without that layout keep the previous active-directory scope.
+// postRenderRoot uses the containing VS Code workspace folder. Standalone
+// documents fall back to their directory; unrelated workspace folders are excluded.
 func (s *Server) postRenderRoot(activePath string) string {
 	activeDir := filepath.Dir(activePath)
 	workspaceRoot := ""
@@ -153,20 +212,10 @@ func (s *Server) postRenderRoot(activePath string) string {
 		}
 	}
 
-	dir := activeDir
-	for {
-		if isDirectory(filepath.Join(dir, "platform")) && isDirectory(filepath.Join(dir, "projects")) {
-			return dir
-		}
-		if workspaceRoot != "" && filepath.Clean(dir) == filepath.Clean(workspaceRoot) {
-			return activeDir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return activeDir
-		}
-		dir = parent
+	if workspaceRoot != "" {
+		return workspaceRoot
 	}
+	return activeDir
 }
 
 func isDirectory(path string) bool {
@@ -406,7 +455,7 @@ func samePath(a, b string) bool {
 func (s *Server) invalidatePostRenderForEdit(uri string) {
 	path := filepath.Clean(fileURIToPath(uri))
 	s.postRenderMu.Lock()
-	if _, ok := s.postRenderFiles[path]; !ok {
+	if _, ok := s.postRenderFiles[path]; !ok && !projectContains(s.postRenderScope, path) {
 		s.postRenderMu.Unlock()
 		return
 	}
@@ -425,7 +474,7 @@ func (s *Server) invalidatePostRenderForEdit(uri string) {
 func (s *Server) invalidatePostRenderForClose(uri string) {
 	path := filepath.Clean(fileURIToPath(uri))
 	s.postRenderMu.Lock()
-	if _, ok := s.postRenderFiles[path]; !ok {
+	if _, ok := s.postRenderFiles[path]; !ok && !projectContains(s.postRenderScope, path) {
 		s.postRenderMu.Unlock()
 		return
 	}
@@ -475,6 +524,38 @@ func keysOfDiagnosticMap(m map[string][]protocol.Diagnostic) []string {
 	out := make([]string, 0, len(m))
 	for key := range m {
 		out = append(out, key)
+	}
+	return out
+}
+
+func projectContains(root, path string) bool {
+	if root == "" {
+		return false
+	}
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+func uniqueManualFindings(findings []postrendervalidator.Finding) []postrendervalidator.Finding {
+	var out []postrendervalidator.Finding
+	seen := map[string]bool{}
+	for _, f := range findings {
+		if f.Code == "pre-render-validation-failed" {
+			duplicate := false
+			for _, other := range findings {
+				if other.Path == f.Path && other.Code == "post-render-error" && strings.Contains(other.Message, f.Message) {
+					duplicate = true
+					break
+				}
+			}
+			if duplicate {
+				continue
+			}
+		}
+		key := fmt.Sprintf("%s:%s:%d:%d:%s", f.Path, f.Code, f.Line, f.Column, f.Message)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, f)
+		}
 	}
 	return out
 }
