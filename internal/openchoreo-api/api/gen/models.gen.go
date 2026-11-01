@@ -2139,6 +2139,9 @@ type EndpointComponentBackend struct {
 
 	// Name Component name.
 	Name string `json:"name"`
+
+	// ReleaseLine Release line of the component to route to. Omitted for the main line.
+	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
 // EndpointGatewayURLs Resolved gateway URLs for an endpoint

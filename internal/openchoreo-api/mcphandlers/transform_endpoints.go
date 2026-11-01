@@ -126,6 +126,7 @@ func endpointBackends(refs []openchoreov1alpha1.EndpointBackendRef) []map[string
 		if ref.Component != nil {
 			b["component"] = ref.Component.Name
 			b["endpoint"] = ref.Component.Endpoint
+			setIfNotEmpty(b, "releaseLine", ref.Component.ReleaseLine)
 		}
 		if ref.Weight != nil {
 			b["weight"] = *ref.Weight

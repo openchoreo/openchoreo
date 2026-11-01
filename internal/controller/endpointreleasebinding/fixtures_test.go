@@ -19,6 +19,7 @@ const (
 	testEnvName   = "dev"
 	testEndpoint  = "greeter-api"
 	testRelease   = "greeter-api-abc123"
+	testLine      = "next"
 )
 
 // weightedRouteTemplate renders one HTTPRoute whose backendRefs carry every
@@ -133,4 +134,32 @@ func deployedComponent(component, serviceNamespace string) *openchoreov1alpha1.R
 			}},
 		},
 	}
+}
+
+// lineBackend returns a Component backend routing to the component's release
+// line.
+func lineBackend(name, component, line string, weight int32) openchoreov1alpha1.EndpointBackendRef {
+	ref := componentBackend(name, component, weight)
+	ref.Component.ReleaseLine = line
+	return ref
+}
+
+// newReleaseLine returns the component's ReleaseLine named testLine.
+func newReleaseLine(component string) *openchoreov1alpha1.ReleaseLine {
+	return &openchoreov1alpha1.ReleaseLine{
+		ObjectMeta: metav1.ObjectMeta{Name: testLine, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseLineSpec{
+			Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: testProject, ComponentName: component},
+		},
+	}
+}
+
+// deployedLine returns the ReleaseBinding of the component's testLine,
+// reporting its own Service for the "http" endpoint in serviceNamespace.
+func deployedLine(component, serviceNamespace string) *openchoreov1alpha1.ReleaseBinding {
+	rb := deployedComponent(component, serviceNamespace)
+	rb.Name = component + "-" + testLine + "-" + testEnvName
+	rb.Spec.Owner.ReleaseLine = testLine
+	rb.Status.Endpoints[0].ServiceURL.Host = fmt.Sprintf("%s-%s-svc.%s.svc.cluster.local", component, testLine, serviceNamespace)
+	return rb
 }

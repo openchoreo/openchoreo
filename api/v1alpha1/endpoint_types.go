@@ -147,6 +147,16 @@ type EndpointComponentBackend struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Endpoint string `json:"endpoint"`
+
+	// ReleaseLine is the component's release line to route to. Empty routes to
+	// its main line. Backends of one Endpoint may name different lines of the
+	// same component, to split traffic between them.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
+	// +kubebuilder:validation:XValidation:rule="self != 'default'",message="default is a reserved name; omit releaseLine for the main line"
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint.

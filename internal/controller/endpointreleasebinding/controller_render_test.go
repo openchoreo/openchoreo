@@ -430,4 +430,77 @@ var _ = Describe("Backend resolution and rendering", func() {
 		requests := r.listBindingsForReleaseBinding(fctx, deployedComponent("greeter", dpNS))
 		Expect(requests).To(ConsistOf(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routes)}))
 	})
+
+	Context("release lines", func() {
+		It("routes a backend without a line to the main line while a release line is deployed beside it", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("main-line", testRelease)
+			r, cli := build(release, b, newReleaseLine("greeter"),
+				deployedComponent("greeter", dpNS), deployedLine("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+
+			Expect(condition(updated, ConditionBackendsResolved).Status).To(Equal(metav1.ConditionTrue))
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(routeBackendRefs(rr)).To(Equal([]any{
+				map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(1)},
+			}))
+		})
+
+		It("splits traffic between a component's main line and one of its release lines", func() {
+			release := newRelease(testRelease,
+				componentBackend("stable", "greeter", 90), lineBackend("next", "greeter", testLine, 10))
+			b := newBinding("canary-line", testRelease)
+			r, cli := build(release, b, newReleaseLine("greeter"),
+				deployedComponent("greeter", dpNS), deployedLine("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+
+			Expect(condition(updated, ConditionBackendsResolved).Status).To(Equal(metav1.ConditionTrue))
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(routeBackendRefs(rr)).To(Equal([]any{
+				map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(90)},
+				map[string]any{"name": "greeter-next-svc", "port": float64(8080), "weight": float64(10)},
+			}))
+		})
+
+		DescribeTable("reports why a backend on a release line does not resolve",
+			func(objs []client.Object, reason, message string) {
+				release := newRelease(testRelease, lineBackend("next", "greeter", testLine, 1))
+				b := newBinding("line-unresolved", testRelease)
+				r, cli := build(append([]client.Object{release, b, deployedComponent("greeter", dpNS)}, objs...)...)
+
+				updated := reconcileBinding(r, cli, b)
+				Expect(updated.Status.Backends).To(HaveLen(1))
+				st := updated.Status.Backends[0]
+				Expect(st.Resolved).To(BeFalse())
+				Expect(st.Reason).To(Equal(reason))
+				Expect(st.Message).To(ContainSubstring(message))
+			},
+			Entry("line does not exist", []client.Object{},
+				BackendReasonReleaseLineNotFound, `component "greeter" has no release line "next"`),
+			Entry("line belongs to another component", []client.Object{newReleaseLine("billing")},
+				BackendReasonReleaseLineNotFound, `component "greeter" has no release line "next"`),
+			Entry("line exists but is not deployed", []client.Object{newReleaseLine("greeter")},
+				BackendReasonNotDeployed, `release line "next" of component "greeter" is not deployed`),
+		)
+
+		It("maps a ReleaseLine only to bindings routing to that line", func() {
+			toLine := newRelease(testRelease, lineBackend("next", "greeter", testLine, 1))
+			toMain := newRelease("main-release", componentBackend("stable", "greeter", 1))
+			routes := newBinding("routes-to-line", toLine.Name)
+			routesProd := newBinding("routes-to-line-prod", toLine.Name)
+			routesProd.Spec.Environment = "prod"
+			mainOnly := newBinding("routes-to-main", toMain.Name)
+			r, _ := build(toLine, toMain, routes, routesProd, mainOnly)
+
+			requests := r.listBindingsForReleaseLine(fctx, newReleaseLine("greeter"))
+			Expect(requests).To(ConsistOf(
+				reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routes)},
+				reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routesProd)},
+			))
+		})
+	})
 })

@@ -6,8 +6,11 @@ package endpointreleasebinding
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -119,16 +122,17 @@ func (r *Reconciler) resolveBackend(
 	}
 }
 
-// resolveComponentBackend resolves a Component backend through the component's
-// ReleaseBinding for the environment, reading the in-cluster address its
-// status reports for the workload endpoint. This reuses the lookup the
-// connection/dependency path already relies on.
+// resolveComponentBackend resolves a Component backend through the
+// ReleaseBinding of the backend's release line in the environment, reading the
+// in-cluster address its status reports for the workload endpoint. This reuses
+// the lookup the connection/dependency path already relies on. A backend
+// without a release line routes to the component's main line, as a component
+// reference does everywhere else.
 //
-// TODO: resolve by selector equality instead: compute the component's
-// podSelectors for (component, environment) independently and match them
-// against the Services on its RenderedRelease. That does not depend on how a
-// ComponentType names or shapes its Service, and it is the approach that
-// extends to release lines once podSelectors carries one.
+// TODO: resolve by selector equality instead: compute the line's podSelectors
+// for (component, line, environment) independently and match them against the
+// Services on its RenderedRelease. That does not depend on how a ComponentType
+// names or shapes its Service.
 func (r *Reconciler) resolveComponentBackend(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
@@ -137,9 +141,16 @@ func (r *Reconciler) resolveComponentBackend(
 ) (backendResolution, error) {
 	env := binding.Spec.Environment
 	component := ref.Component.Name
+	line := ref.Component.ReleaseLine
 	endpoint := ref.Component.Endpoint
 	unresolved := func(reason, format string, args ...any) (backendResolution, error) {
 		return backendResolution{reason: reason, message: fmt.Sprintf(format, args...)}, nil
+	}
+	// subject names the backend's line in messages: the component for its
+	// main line, "release line L of component C" otherwise.
+	subject := fmt.Sprintf("component %q", component)
+	if line != "" {
+		subject = fmt.Sprintf("release line %q of component %q", line, component)
 	}
 
 	var rbList openchoreov1alpha1.ReleaseBindingList
@@ -150,19 +161,32 @@ func (r *Reconciler) resolveComponentBackend(
 	); err != nil {
 		return backendResolution{}, fmt.Errorf("list ReleaseBindings for component %q: %w", component, err)
 	}
+	// The index covers every line of the component; keep the backend's own.
+	bindings := slices.DeleteFunc(rbList.Items, func(rb openchoreov1alpha1.ReleaseBinding) bool {
+		return rb.Spec.Owner.ReleaseLine != line
+	})
 
-	switch len(rbList.Items) {
+	switch len(bindings) {
 	case 0:
-		return unresolved(BackendReasonNotDeployed, "component %q is not deployed in environment %q", component, env)
+		if line != "" {
+			exists, err := r.releaseLineExists(ctx, binding.Namespace, binding.Spec.Owner.ProjectName, component, line)
+			if err != nil {
+				return backendResolution{}, err
+			}
+			if !exists {
+				return unresolved(BackendReasonReleaseLineNotFound, "component %q has no release line %q", component, line)
+			}
+		}
+		return unresolved(BackendReasonNotDeployed, "%s is not deployed in environment %q", subject, env)
 	case 1:
 	default:
-		return unresolved(BackendReasonAmbiguous, "component %q has %d ReleaseBindings in environment %q",
-			component, len(rbList.Items), env)
+		return unresolved(BackendReasonAmbiguous, "%s has %d ReleaseBindings in environment %q",
+			subject, len(bindings), env)
 	}
 
-	rb := &rbList.Items[0]
+	rb := &bindings[0]
 	if rb.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
-		return unresolved(BackendReasonNotDeployed, "component %q is undeployed in environment %q", component, env)
+		return unresolved(BackendReasonNotDeployed, "%s is undeployed in environment %q", subject, env)
 	}
 
 	var epStatus *openchoreov1alpha1.EndpointURLStatus
@@ -174,25 +198,25 @@ func (r *Reconciler) resolveComponentBackend(
 	}
 	if epStatus == nil || epStatus.ServiceURL == nil {
 		return unresolved(BackendReasonEndpointNotAvailable,
-			"endpoint %q of component %q has no in-cluster address in environment %q yet", endpoint, component, env)
+			"endpoint %q of %s has no in-cluster address in environment %q yet", endpoint, subject, env)
 	}
 	if !isRoutableProtocol(epStatus.Type) {
 		return unresolved(BackendReasonUnsupportedProtocol,
-			"endpoint %q of component %q uses protocol %s, which no route can carry", endpoint, component, epStatus.Type)
+			"endpoint %q of %s uses protocol %s, which no route can carry", endpoint, subject, epStatus.Type)
 	}
 
 	serviceName, serviceNamespace, ok := splitServiceHost(epStatus.ServiceURL.Host)
 	if !ok {
 		return unresolved(BackendReasonEndpointNotAvailable,
-			"endpoint %q of component %q has an unrecognized service host %q", endpoint, component, epStatus.ServiceURL.Host)
+			"endpoint %q of %s has an unrecognized service host %q", endpoint, subject, epStatus.ServiceURL.Host)
 	}
 	// Routes render into the project's shared data-plane namespace and
 	// reference backend Services without a ReferenceGrant, so the backend must
 	// live in that namespace too.
 	if serviceNamespace != dpNamespace {
 		return unresolved(BackendReasonNamespaceMismatch,
-			"endpoint %q of component %q is served from namespace %q, but routes render into %q",
-			endpoint, component, serviceNamespace, dpNamespace)
+			"endpoint %q of %s is served from namespace %q, but routes render into %q",
+			endpoint, subject, serviceNamespace, dpNamespace)
 	}
 
 	url := epStatus.ServiceURL.DeepCopy()
@@ -211,6 +235,20 @@ func (r *Reconciler) resolveComponentBackend(
 		},
 		serviceURL: url,
 	}, nil
+}
+
+// releaseLineExists reports whether the component has the named release line.
+// A ReleaseLine is named after its line and belongs to one component, so a
+// line of another component by that name does not count.
+func (r *Reconciler) releaseLineExists(ctx context.Context, namespace, project, component, line string) (bool, error) {
+	rl := &openchoreov1alpha1.ReleaseLine{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: line}, rl); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("get ReleaseLine %q: %w", line, err)
+	}
+	return rl.Spec.Owner.ProjectName == project && rl.Spec.Owner.ComponentName == component, nil
 }
 
 // isRoutableProtocol reports whether any route kind can carry the protocol.

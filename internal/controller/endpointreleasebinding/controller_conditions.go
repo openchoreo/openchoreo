@@ -142,6 +142,10 @@ const (
 	// ReleaseBinding in the binding's environment.
 	BackendReasonNotDeployed = "NotDeployed"
 
+	// BackendReasonReleaseLineNotFound indicates the backend names a release
+	// line the component does not have.
+	BackendReasonReleaseLineNotFound = "ReleaseLineNotFound"
+
 	// BackendReasonAmbiguous indicates more than one ReleaseBinding matches the
 	// backend component in the environment.
 	BackendReasonAmbiguous = "AmbiguousBackend"

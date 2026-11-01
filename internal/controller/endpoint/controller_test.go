@@ -343,4 +343,27 @@ var _ = Describe("Endpoint Controller", func() {
 			`backend "stable": component "greeter" has no workload endpoint "grpc" (available: admin, http)`))
 		Expect(updated.Status.LatestRelease).To(BeNil())
 	})
+
+	It("checks a backend on a release line against that line's Workload, not the main line's", func() {
+		cet := newClusterEndpointType("cet-line", "")
+		mainLine := newWorkload("p-line", "greeter", "http")
+		nextLine := newWorkload("p-line", "greeter", "grpc")
+		nextLine.Name = "p-line-greeter-next"
+		nextLine.Spec.Owner.ReleaseLine = "next"
+		lineRef := componentBackend("next", "greeter", "http", 1)
+		lineRef.Component.ReleaseLine = "next"
+		otherLineRef := componentBackend("other", "greeter", "http", 1)
+		otherLineRef.Component.ReleaseLine = "other"
+		ep := newEndpoint("ep-line", "p-line", clusterTypeRef(cet.Name),
+			componentBackend("stable", "greeter", "http", 1), lineRef, otherLineRef)
+		create(cet, mainLine, nextLine, ep)
+
+		updated := reconcileAndGet(ep)
+		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotFound))
+		Expect(cond.Message).NotTo(ContainSubstring(`backend "stable"`))
+		Expect(cond.Message).To(ContainSubstring(
+			`backend "next": release line "next" of component "greeter" has no workload endpoint "http" (available: grpc)`))
+		Expect(cond.Message).To(ContainSubstring(
+			`backend "other": release line "other" of component "greeter" in project "p-line" has no Workload`))
+	})
 })

@@ -12530,6 +12530,12 @@ components:
           description: Name of the endpoint in the component's Workload.spec.endpoints.
           minLength: 1
           example: http
+        releaseLine:
+          type: string
+          description: Release line of the component to route to. Omitted for the main line.
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: next
 
     EndpointStatus:
       type: object

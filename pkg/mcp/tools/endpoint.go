@@ -17,10 +17,11 @@ import (
 // flattened relative to the API shape: the only backend kind today is
 // Component, so the component fields sit at the top level.
 type endpointBackendArg struct {
-	Name      string `json:"name"`
-	Component string `json:"component"`
-	Endpoint  string `json:"endpoint"`
-	Weight    *int32 `json:"weight,omitempty"`
+	Name        string `json:"name"`
+	Component   string `json:"component"`
+	Endpoint    string `json:"endpoint"`
+	ReleaseLine string `json:"release_line,omitempty"`
+	Weight      *int32 `json:"weight,omitempty"`
 }
 
 func endpointVisibilityProperty(description string) map[string]any {
@@ -46,6 +47,8 @@ func endpointBackendRefsProperty(description string) map[string]any {
 					"Name of the Component that serves this backend, in the Endpoint's project"),
 				"endpoint": stringProperty(
 					"Name of the workload endpoint on that component. It must have internal or external visibility."),
+				"release_line": stringProperty(
+					"Optional: the component's release line to route to. Omit for its main line."),
 				"weight": map[string]any{
 					"type":        "integer",
 					"description": "Optional: relative share of traffic (default 1; 0 sends none)",
@@ -76,10 +79,14 @@ func toEndpointBackendRefs(raw []endpointBackendArg) []gen.EndpointBackendRef {
 	kind := gen.EndpointBackendRefKind("Component")
 	out := make([]gen.EndpointBackendRef, 0, len(raw))
 	for _, b := range raw {
+		component := &gen.EndpointComponentBackend{Name: b.Component, Endpoint: b.Endpoint}
+		if b.ReleaseLine != "" {
+			component.ReleaseLine = &b.ReleaseLine
+		}
 		out = append(out, gen.EndpointBackendRef{
 			Name:      b.Name,
 			Kind:      &kind,
-			Component: &gen.EndpointComponentBackend{Name: b.Component, Endpoint: b.Endpoint},
+			Component: component,
 			Weight:    b.Weight,
 		})
 	}
