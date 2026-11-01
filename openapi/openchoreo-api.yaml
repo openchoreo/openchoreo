@@ -12926,6 +12926,10 @@ components:
       type: object
       description: Observed state of an EndpointReleaseBinding.
       properties:
+        lastSpecUpdateTime:
+          type: string
+          format: date-time
+          description: When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
         conditions:
           type: array
           description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.

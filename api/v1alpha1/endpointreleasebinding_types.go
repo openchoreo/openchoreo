@@ -59,6 +59,13 @@ type EndpointReleaseBindingOwner struct {
 
 // EndpointReleaseBindingStatus defines the observed state of EndpointReleaseBinding.
 type EndpointReleaseBindingStatus struct {
+	// LastSpecUpdateTime is when the controller first observed the current
+	// spec generation, such as a new endpointRelease being pinned. It moves on
+	// every deploy, which the Ready condition's transition time does not while
+	// the binding stays Ready.
+	// +optional
+	LastSpecUpdateTime *metav1.Time `json:"lastSpecUpdateTime,omitempty"`
+
 	// Conditions represent the latest available observations of the binding's state.
 	// Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, and
 	// Ready (aggregate). observedGeneration is set per-condition (project

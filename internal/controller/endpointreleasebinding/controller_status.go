@@ -103,6 +103,21 @@ func setReadyCondition(binding *openchoreov1alpha1.EndpointReleaseBinding) {
 	controller.MarkFalseCondition(binding, ConditionReady, ReasonSyncedNotReady, "Awaiting sub-condition evaluation")
 }
 
+// trackSpecUpdate stamps status.lastSpecUpdateTime when this reconcile is the
+// first to see the binding's current generation. Ready is rewritten with the
+// current generation on every reconcile, so its observedGeneration lagging
+// behind means the spec changed since. A binding that already has Ready for
+// its generation (one reconciled before this field existed) is left alone
+// rather than stamped with the time of a controller upgrade.
+func trackSpecUpdate(binding *openchoreov1alpha1.EndpointReleaseBinding) {
+	ready := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionReady))
+	if ready != nil && ready.ObservedGeneration == binding.Generation {
+		return
+	}
+	now := metav1.Now()
+	binding.Status.LastSpecUpdateTime = &now
+}
+
 func isTrue(c *metav1.Condition) bool {
 	return c != nil && c.Status == metav1.ConditionTrue
 }

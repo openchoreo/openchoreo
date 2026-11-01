@@ -111,6 +111,8 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		}
 	}()
 
+	trackSpecUpdate(binding)
+
 	in, err := r.loadInputs(ctx, binding)
 	if err != nil || in == nil {
 		// in == nil: a Synced=False condition explains what is missing.

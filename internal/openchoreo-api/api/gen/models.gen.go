@@ -2242,6 +2242,9 @@ type EndpointReleaseBindingStatus struct {
 	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
+	// LastSpecUpdateTime When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
+	LastSpecUpdateTime *time.Time `json:"lastSpecUpdateTime,omitempty"`
+
 	// Urls The URL resolved for each visibility in the binding's environment.
 	Urls *EndpointReleaseBindingURLs `json:"urls,omitempty"`
 }
