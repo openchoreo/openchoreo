@@ -114,11 +114,11 @@ const (
 	// AnnotationKeyRestartOnChange lets ComponentType and Trait authors decide whether a rendered
 	// dataplane resource restarts the component's pods when it changes. "true" includes it in
 	// AnnotationKeyDPResourceHash even when the pod template does not reference it, e.g. a
-	// cert-manager Certificate whose Secret the pods mount. "false" leaves it out even when the
-	// pod template references it, e.g. a config file the application reloads by itself. Without
-	// the annotation, only the ConfigMaps, Secrets and ExternalSecrets the pod template references
-	// are included. It applies to deployment and statefulset ComponentTypes, and not on the
-	// workload itself. It is only used when referenced-config rollout is enabled.
+	// ConfigMap the application reads through the Kubernetes API. "false" leaves it out even
+	// when the pod template references it, e.g. a config file the application reloads by itself.
+	// Without the annotation, only the ConfigMaps, Secrets and ExternalSecrets the pod template
+	// references are included. It applies to deployment and statefulset ComponentTypes, and not
+	// on the workload itself. It is only used when referenced-config rollout is enabled.
 	AnnotationKeyRestartOnChange = "openchoreo.dev/restart-on-change"
 
 	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
