@@ -62,6 +62,9 @@ func newAuditMiddleware(
 			ctx, auditData := audit.NewAuditContext(
 				ctx, &audit.Resource{Namespace: namespaceName, Name: resourceName}, audit.NewRequestInfo(nil),
 			)
+			if client := clientInfo(req); client != nil {
+				audit.SetMCPClient(ctx, client.Name, client.Version)
+			}
 
 			// Seed the hierarchy from the same namespace_name/project_name/
 			// component_name/resource_name convention callToolScope uses
@@ -242,6 +245,17 @@ func extractResourceArg(req mcp.Request, argName string) string {
 		return ""
 	}
 	return argFromParsed(parseCallArguments(req), argName)
+}
+
+// clientInfo returns the calling client's self-reported identity: the
+// per-request io.modelcontextprotocol/clientInfo under 2026-07-28, else the
+// initialize handshake's clientInfo. Returns nil when the client sent none.
+func clientInfo(req mcp.Request) *mcp.Implementation {
+	r, ok := req.(interface{ ClientInfo() *mcp.Implementation })
+	if !ok {
+		return nil
+	}
+	return r.ClientInfo()
 }
 
 // requestHeader returns the HTTP header carrying this specific tools/call —

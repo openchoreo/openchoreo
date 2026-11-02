@@ -221,6 +221,45 @@ func auditRecordsFromLog(t *testing.T, buf *bytes.Buffer) []map[string]any {
 	return records
 }
 
+// TestNewHTTPServer_AuditRecordsMCPClient verifies the clientInfo a real
+// 2026-07-28 client sends reaches the audit record as metadata.mcp_client.
+func TestNewHTTPServer_AuditRecordsMCPClient(t *testing.T) {
+	var buf bytes.Buffer
+	toolsets := &tools.Toolsets{ProjectToolset: &fakeCreateProjectWithUID{}}
+	pdp := &fakeAuditPDP{profile: allowAllAuditProfile(authzcore.ActionCreateProject)}
+	handler := newTestMCPHandler(t, toolsets, pdp, mcpaudit.MiddlewareOptions{
+		Emitter: newAuditTestEmitter(t, &buf), Bindings: auditBindingsForTest(),
+		Config: audit.MiddlewareConfig{Enabled: true},
+	})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	ctx := context.Background()
+	client := mcp.NewClient(&mcp.Implementation{Name: "claude-code", Version: "2.1.0"}, nil)
+	session, err := client.Connect(ctx,
+		&mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: server.Client()}, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer session.Close()
+	if _, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "create_project",
+		Arguments: map[string]any{"namespace_name": "test-ns", "name": "wired-project"},
+	}); err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+
+	records := auditRecordsFromLog(t, &buf)
+	if len(records) != 1 {
+		t.Fatalf("expected exactly one AUDIT-LOG record, got %d:\n%s", len(records), buf.String())
+	}
+	metadata, _ := records[0]["metadata"].(map[string]any)
+	mcpClient, _ := metadata["mcp_client"].(map[string]any)
+	if mcpClient["name"] != "claude-code" || mcpClient["version"] != "2.1.0" {
+		t.Errorf("metadata.mcp_client = %v, want claude-code 2.1.0", metadata["mcp_client"])
+	}
+}
+
 // TestNewHTTPServer_AuditWired guards against a repeat of #2588 on the MCP
 // surface: it drives real requests, through a real mcp.Client, against the
 // exact production constructor (NewHTTPServer) and asserts an AUDIT-LOG

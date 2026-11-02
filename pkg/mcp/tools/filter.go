@@ -121,8 +121,7 @@ func filterListTools(
 		subjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
 		if subjectCtx == nil {
 			// No authenticated user in context — return no tools.
-			listResult.Tools = []*mcp.Tool{}
-			return listResult, nil
+			return failClosedListTools(listResult), nil
 		}
 		profile, err = pdp.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
 			SubjectContext: authzcore.GetAuthzSubjectContext(subjectCtx),
@@ -130,8 +129,7 @@ func filterListTools(
 		if err != nil {
 			// On PDP error, be safe: return no tools. The service layer will
 			// independently deny any calls the user makes.
-			listResult.Tools = []*mcp.Tool{}
-			return listResult, nil
+			return failClosedListTools(listResult), nil
 		}
 	}
 
@@ -147,6 +145,14 @@ func filterListTools(
 	}
 	listResult.Tools = filtered
 	return listResult, nil
+}
+
+// failClosedListTools empties a tools/list result and marks it immediately
+// stale, so a client does not cache a list emptied by a transient failure.
+func failClosedListTools(listResult *mcp.ListToolsResult) *mcp.ListToolsResult {
+	listResult.Tools = []*mcp.Tool{}
+	listResult.TTLMs = 0
+	return listResult
 }
 
 // filterCallTool checks whether the user is permitted to call the requested tool

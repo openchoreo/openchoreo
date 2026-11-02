@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
@@ -262,6 +263,56 @@ func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
 	}
 	if sink.events[0].Resource == nil || sink.events[0].Resource.Name != "proj-1" {
 		t.Errorf("Resource = %+v, want Name proj-1 (seeded from the resource arg)", sink.events[0].Resource)
+	}
+}
+
+// TestNewMiddleware_RecordsMCPClient guards that the per-request clientInfo a
+// 2026-07-28 client sends is recorded as metadata.mcp_client.
+func TestNewMiddleware_RecordsMCPClient(t *testing.T) {
+	tests := []struct {
+		name string
+		meta mcp.Meta
+		want map[string]any
+	}{
+		{
+			name: "name and version",
+			meta: mcp.Meta{mcp.MetaKeyClientInfo: map[string]any{"name": "claude-code", "version": "2.1.0"}},
+			want: map[string]any{
+				audit.MetadataKeyMCPClient: map[string]any{"name": "claude-code", "version": "2.1.0"},
+			},
+		},
+		{
+			name: "name only",
+			meta: mcp.Meta{mcp.MetaKeyClientInfo: map[string]any{"name": "occ"}},
+			want: map[string]any{audit.MetadataKeyMCPClient: map[string]any{"name": "occ"}},
+		},
+		{name: "no clientInfo", meta: nil, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sink := &recordingSink{}
+			mw := testMiddleware(t, MiddlewareOptions{
+				Emitter: testEmitter(t, sink), Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+			})
+			next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+				return &mcp.CallToolResult{}, nil
+			}
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{
+					Meta: tt.meta, Name: "create_project", Arguments: json.RawMessage(`{"name":"proj-1"}`),
+				},
+			}
+
+			if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(sink.events) != 1 {
+				t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+			}
+			if diff := cmp.Diff(tt.want, sink.events[0].Metadata); diff != "" {
+				t.Errorf("Metadata mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
