@@ -315,6 +315,10 @@ const (
 	// Delivery insights (DORA metrics) actions
 	ActionViewDeliveryInsights = "deliveryinsights:view"
 
+	// Scorecards actions
+	ActionViewScorecards   = "scorecards:view"
+	ActionManageScorecards = "scorecards:manage"
+
 	// PortalAssistant actions
 	ActionInvokePortalAssistant = "portal-assistant:invoke"
 )
@@ -597,6 +601,11 @@ var systemActions = []Action{
 	// Delivery insights (DORA metrics). Queried at namespace, project and component
 	// scope, so the lowest level it is evaluated at is the component.
 	{Name: ActionViewDeliveryInsights, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Scorecards. Cluster-scoped: they gate the platform-wide Scorecards overview and
+	// check management in the portal, which span every namespace.
+	{Name: ActionViewScorecards, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionManageScorecards, LowestScope: ScopeCluster, IsInternal: false},
 
 	// Platform logs observability
 	{Name: ActionViewPlatformLogs, LowestScope: ScopeCluster, IsInternal: false},
