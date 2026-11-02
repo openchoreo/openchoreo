@@ -39,6 +39,34 @@ type EndpointReleaseBindingSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	EndpointTypeEnvironmentConfigs *runtime.RawExtension `json:"endpointTypeEnvironmentConfigs,omitempty"`
+
+	// BackendOverrides sets environment-specific values for the release's
+	// backends, matched by name, so each environment can run its own traffic
+	// split (a canary step, a blue/green switch) while the release stays the
+	// same. Each entry must name a backend of the pinned release; the binding
+	// controller reports one that does not.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	BackendOverrides []EndpointBackendOverride `json:"backendOverrides,omitempty"`
+}
+
+// EndpointBackendOverride sets environment-specific values for one backend.
+// Fields use the names of the EndpointBackendRef fields they replace.
+type EndpointBackendOverride struct {
+	// Name is the name of the backend in the release.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Weight replaces the release's weight for this backend in this
+	// environment, with the same semantics: relative to the other backends'
+	// weights, and 0 sends no traffic. status.backends reports the effective
+	// weight.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // EndpointReleaseBindingOwner identifies the endpoint this EndpointReleaseBinding belongs to.

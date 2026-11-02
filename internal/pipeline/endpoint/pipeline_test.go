@@ -195,7 +195,7 @@ func TestRender_ExposesBackendFields(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"name": "stable", "kind": "Component", "componentName": "greeter", "endpoint": "http",
 		"protocol": "HTTP", "serviceName": "greeter-dev-1a2b", "namespace": "dp-org-shop-dev-a1b2c3d",
-		"port": float64(8080), "targetPort": float64(9090), "weight": float64(90),
+		"port": float64(8080), "targetPort": float64(9090), "weight": float64(90), "percent": float64(0),
 		"podSelectors": map[string]any{"openchoreo.dev/component-uid": "greeter-uid"},
 		"serviceURL":   "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
 		"basePath":     "/",

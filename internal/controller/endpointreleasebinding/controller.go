@@ -122,6 +122,11 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, err
 	}
 
+	if err := validateBackendOverrides(in.release, binding); err != nil {
+		markSyncedFalse(binding, ReasonBackendOverrideInvalid, err.Error())
+		return ctrl.Result{}, nil
+	}
+
 	md := buildMetadataContext(binding, in)
 
 	resolved, err := r.resolveBackends(ctx, binding, in.release, md)

@@ -134,6 +134,11 @@ type Backend struct {
 	// Weight is the relative traffic weight from the backendRef.
 	Weight int32 `json:"weight"`
 
+	// Percent is the backend's share of its rule's traffic, from 0 to 100.
+	// The shares of a rule's backends add up to exactly 100, for data planes
+	// that take percentages instead of relative weights.
+	Percent int32 `json:"percent"`
+
 	// ServiceURL is the in-cluster URL of the ComponentType's Service, e.g.
 	// http://greeter-dev-1a2b3c.dp-default-shop-dev-4d5e6f.svc.cluster.local:8080/api.
 	// Empty when serviceName is.
