@@ -121,6 +121,7 @@ func setupControlPlaneControllers(
 	celCostLimit uint64,
 	renderTimeout time.Duration,
 	secretRemoteKeys observabilityalertsnotificationchannel.RemoteKeyFormat,
+	referencedConfigRollout bool,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -208,11 +209,12 @@ func setupControlPlaneControllers(
 			RenderTimeout: renderTimeout,
 		},
 		&releasebinding.Reconciler{
-			Client:              c,
-			Scheme:              s,
-			PlaneClientProvider: planeClientProvider,
-			CELCostLimit:        celCostLimit,
-			RenderTimeout:       renderTimeout,
+			Client:                  c,
+			Scheme:                  s,
+			PlaneClientProvider:     planeClientProvider,
+			CELCostLimit:            celCostLimit,
+			RenderTimeout:           renderTimeout,
+			ReferencedConfigRollout: referencedConfigRollout,
 		},
 		&renderedrelease.Reconciler{
 			Client:              c,
@@ -312,6 +314,7 @@ func main() {
 	var renderTimeout time.Duration
 	var secretRemoteKeyPrefix string
 	var secretRemoteKeySeparator string
+	var referencedConfigRollout bool
 	var tlsOpts []func(*tls.Config)
 	// Environment defaults are resolved before the flags are declared, so a malformed value
 	// is reported after flag.Parse rather than silently replaced by the built-in default.
@@ -362,6 +365,11 @@ func main() {
 	flag.StringVar(&secretRemoteKeySeparator, "secret-remote-key-separator", getEnv("SECRET_REMOTE_KEY_SEPARATOR", "/"),
 		"Separator that joins the segments of the keys the secret API writes to external secret stores. "+
 			"Must match the openchoreo-api remote_key_separator setting.")
+	flag.BoolVar(&referencedConfigRollout, "referenced-config-rollout", getEnvBool("REFERENCED_CONFIG_ROLLOUT", false),
+		"Restart a component's pods only when a ConfigMap, Secret or ExternalSecret their pod template references "+
+			"changes, instead of on any change to the component's rendered resources. Also enables the "+
+			"openchoreo.dev/restart-on-change annotation. Defaults to the REFERENCED_CONFIG_ROLLOUT environment "+
+			"variable when set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -497,7 +505,7 @@ func main() {
 		}, celCostLimit, renderTimeout, observabilityalertsnotificationchannel.RemoteKeyFormat{
 			Prefix:    secretRemoteKeyPrefix,
 			Separator: secretRemoteKeySeparator,
-		})
+		}, referencedConfigRollout)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)

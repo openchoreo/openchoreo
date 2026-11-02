@@ -94,6 +94,10 @@ type Reconciler struct {
 	// timeout again at each step. Zero disables the deadline. It is handed to the
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
+
+	// ReferencedConfigRollout restarts a component's pods only when configuration their pod
+	// template references changes, instead of on any change to the rendered resources.
+	ReferencedConfigRollout bool
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -572,6 +576,20 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
 	}
 
+	// With referenced-config rollout, the pipeline keeps the pods' dp-resource-hash from the
+	// existing dataplane Release while the configuration they use is unchanged. Only Deployments
+	// and StatefulSets carry the hash.
+	var previousDataPlaneResources []map[string]any
+	wt := WorkloadType(snapshotComponentType.Spec.WorkloadType)
+	if r.ReferencedConfigRollout && (wt == WorkloadTypeDeployment || wt == WorkloadTypeStatefulSet) {
+		previousDataPlaneResources, err = r.previousDataPlaneResources(ctx, releaseBinding,
+			makeDataPlaneReleaseName(componentRelease, releaseBinding))
+		if err != nil {
+			logger.Error(err, "Failed to get the existing dataplane Release")
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -586,6 +604,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
 		ResourceDependencyItems:    resourceDepItems,
+		PreviousDataPlaneResources: previousDataPlaneResources,
 	}
 
 	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
@@ -1171,6 +1190,47 @@ func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environm
 	return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
 }
 
+// previousDataPlaneResources returns the resources of the existing dataplane Release of the
+// ReleaseBinding. It returns nil if the Release does not exist yet, is not controlled by the
+// ReleaseBinding, or has a resource that cannot be decoded. The Release is replaced after
+// rendering, so in those cases the render just goes ahead without the previous resources.
+func (r *Reconciler) previousDataPlaneResources(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	releaseName string,
+) ([]map[string]any, error) {
+	release := &openchoreov1alpha1.RenderedRelease{}
+	key := client.ObjectKey{Namespace: releaseBinding.Namespace, Name: releaseName}
+	if err := r.Get(ctx, key, release); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get dataplane Release %q: %w", releaseName, err)
+	}
+	if !metav1.IsControlledBy(release, releaseBinding) {
+		return nil, nil
+	}
+
+	resources := make([]map[string]any, 0, len(release.Spec.Resources))
+	for _, resource := range release.Spec.Resources {
+		if resource.Object == nil || len(resource.Object.Raw) == 0 {
+			continue
+		}
+		// Decode with encoding/json rather than unstructured, which turns whole numbers into int64.
+		// The pipeline compares against a JSON copy of the current render, which has float64 numbers.
+		var obj map[string]any
+		if err := json.Unmarshal(resource.Object.Raw, &obj); err != nil {
+			log.FromContext(ctx).Info("Ignoring the existing dataplane Release, a resource cannot be decoded",
+				"release", releaseName, "resourceID", resource.ID, "error", err.Error())
+			return nil, nil
+		}
+		if obj != nil {
+			resources = append(resources, obj)
+		}
+	}
+	return resources, nil
+}
+
 // Helper functions to build snapshot structures from ComponentRelease
 
 func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.Component {
@@ -1669,6 +1729,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Pipeline = componentpipeline.NewPipeline(
 			componentpipeline.WithCostLimit(r.CELCostLimit),
 			componentpipeline.WithRenderTimeout(r.RenderTimeout),
+			componentpipeline.WithReferencedConfigRollout(r.ReferencedConfigRollout),
 		)
 	}
 

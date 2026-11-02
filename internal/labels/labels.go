@@ -105,9 +105,21 @@ const (
 	LabelKeyPlane   = "openchoreo.dev/plane"
 	LabelKeyPlaneID = "openchoreo.dev/plane-id"
 
-	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
-	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
+	// AnnotationKeyDPResourceHash contains a hash of other dataplane resources of the component, to
+	// trigger pod rollout when they change. It covers every resource except the workload, or, when
+	// referenced-config rollout is enabled, only the ConfigMaps, Secrets and ExternalSecrets the
+	// workload's pod template references.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
+
+	// AnnotationKeyRestartOnChange lets ComponentType and Trait authors decide whether a rendered
+	// dataplane resource restarts the component's pods when it changes. "true" includes it in
+	// AnnotationKeyDPResourceHash even when the pod template does not reference it, e.g. a
+	// cert-manager Certificate whose Secret the pods mount. "false" leaves it out even when the
+	// pod template references it, e.g. a config file the application reloads by itself. Without
+	// the annotation, only the ConfigMaps, Secrets and ExternalSecrets the pod template references
+	// are included. It applies to deployment and statefulset ComponentTypes, and not on the
+	// workload itself. It is only used when referenced-config rollout is enabled.
+	AnnotationKeyRestartOnChange = "openchoreo.dev/restart-on-change"
 
 	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
 	// (e.g. HTTPRoute). The ReleaseBinding controller uses it to construct the endpoint invoke URL.

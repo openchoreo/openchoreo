@@ -155,7 +155,7 @@ security:
 
 # @schema
 # type: object
-# description: Feature flags shared across the control plane (API server and Backstage).
+# description: Feature flags shared across the control plane (controller, API server and Backstage).
 # @schema
 features:
   # @schema
@@ -183,6 +183,18 @@ features:
     # default: "/"
     # @schema
     remoteKeySeparator: "/"
+
+  # @schema
+  # type: object
+  # description: Referenced-config rollout. Controls which changes to a component restart its pods.
+  # @schema
+  referencedConfigRollout:
+    # @schema
+    # type: boolean
+    # description: Restart a component's pods only when a ConfigMap, Secret or ExternalSecret their pod template references changes, instead of on any change to the component's rendered resources, such as a Service, HTTPRoute or HorizontalPodAutoscaler. Also enables the openchoreo.dev/restart-on-change annotation, which lets ComponentType and Trait authors include or exclude a resource. Turning it on does not restart pods by itself.
+    # default: false
+    # @schema
+    enabled: false
 
 # @schema
 # type: object
