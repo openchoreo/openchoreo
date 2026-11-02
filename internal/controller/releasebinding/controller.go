@@ -95,8 +95,8 @@ type Reconciler struct {
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
 
-	// ReferencedConfigRollout restarts a component's pods only when configuration their pod
-	// template references changes, instead of on any change to the rendered resources.
+	// ReferencedConfigRollout limits the configuration changes that restart a component's pods
+	// to what their pod template references, instead of any change to the rendered resources.
 	ReferencedConfigRollout bool
 }
 
@@ -1191,9 +1191,9 @@ func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environm
 }
 
 // previousDataPlaneResources returns the resources of the existing dataplane Release of the
-// ReleaseBinding. It returns nil if the Release does not exist yet, is not controlled by the
-// ReleaseBinding, or has a resource that cannot be decoded. The Release is replaced after
-// rendering, so in those cases the render just goes ahead without the previous resources.
+// ReleaseBinding. It returns nil if the Release does not exist yet or is not controlled by the
+// ReleaseBinding, and skips resources that cannot be decoded. The Release is replaced after
+// rendering, so the render then goes ahead with what is available.
 func (r *Reconciler) previousDataPlaneResources(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
@@ -1220,9 +1220,7 @@ func (r *Reconciler) previousDataPlaneResources(
 		// The pipeline compares against a JSON copy of the current render, which has float64 numbers.
 		var obj map[string]any
 		if err := json.Unmarshal(resource.Object.Raw, &obj); err != nil {
-			log.FromContext(ctx).Info("Ignoring the existing dataplane Release, a resource cannot be decoded",
-				"release", releaseName, "resourceID", resource.ID, "error", err.Error())
-			return nil, nil
+			continue
 		}
 		if obj != nil {
 			resources = append(resources, obj)

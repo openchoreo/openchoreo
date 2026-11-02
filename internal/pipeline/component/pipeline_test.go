@@ -1963,34 +1963,40 @@ func TestHashOrderIndependence(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline()
-
-	// Compute hash for each order
-	if err := p.addDPResourceHashAnnotation(resources1, input); err != nil {
-		t.Fatalf("failed for order 1: %v", err)
+	pipelines := map[string]*Pipeline{
+		"default":                   NewPipeline(),
+		"referenced-config rollout": NewPipeline(WithReferencedConfigRollout(true)),
 	}
-	hash1 := getHashFromDeployment(resources1)
+	for name, p := range pipelines {
+		t.Run(name, func(t *testing.T) {
+			// Compute hash for each order
+			if err := p.addDPResourceHashAnnotation(resources1, input); err != nil {
+				t.Fatalf("failed for order 1: %v", err)
+			}
+			hash1 := getHashFromDeployment(resources1)
 
-	if err := p.addDPResourceHashAnnotation(resources2, input); err != nil {
-		t.Fatalf("failed for order 2: %v", err)
-	}
-	hash2 := getHashFromDeployment(resources2)
+			if err := p.addDPResourceHashAnnotation(resources2, input); err != nil {
+				t.Fatalf("failed for order 2: %v", err)
+			}
+			hash2 := getHashFromDeployment(resources2)
 
-	if err := p.addDPResourceHashAnnotation(resources3, input); err != nil {
-		t.Fatalf("failed for order 3: %v", err)
-	}
-	hash3 := getHashFromDeployment(resources3)
+			if err := p.addDPResourceHashAnnotation(resources3, input); err != nil {
+				t.Fatalf("failed for order 3: %v", err)
+			}
+			hash3 := getHashFromDeployment(resources3)
 
-	if hash1 == "" {
-		t.Fatal("expected a hash annotation")
-	}
+			if hash1 == "" {
+				t.Fatal("expected a hash annotation")
+			}
 
-	// All hashes should be identical regardless of resource order
-	if hash1 != hash2 {
-		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash2)
-	}
-	if hash1 != hash3 {
-		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash3)
+			// All hashes should be identical regardless of resource order
+			if hash1 != hash2 {
+				t.Errorf("hash changed with different resource order: %s != %s", hash1, hash2)
+			}
+			if hash1 != hash3 {
+				t.Errorf("hash changed with different resource order: %s != %s", hash1, hash3)
+			}
+		})
 	}
 }
 
@@ -2316,6 +2322,13 @@ func TestDPResourceHashKeepsPreviousValue(t *testing.T) {
 		spec["refreshPolicy"] = map[string]any{"periodSeconds": int64(15)}
 		return externalSecret
 	}
+	changedExternalSecret := func() map[string]any {
+		externalSecret := typedExternalSecret()
+		externalSecret["spec"].(map[string]any)["data"] = []map[string]any{
+			{"secretKey": "password", "remoteRef": map[string]any{"key": "db-rotated"}},
+		}
+		return externalSecret
+	}
 	fromJSON := func(resources []map[string]any) []map[string]any {
 		decoded, err := jsonCopy(resources)
 		if err != nil {
@@ -2420,6 +2433,18 @@ func TestDPResourceHashKeepsPreviousValue(t *testing.T) {
 			want: legacyHash,
 		},
 		{
+			name: "changed ExternalSecret content uses the computed hash",
+			previous: fromJSON([]map[string]any{
+				previousWorkload(envFromSecretPodSpec(), legacyHash),
+				typedExternalSecret(),
+			}),
+			current: []map[string]any{
+				hashTestDeployment(envFromSecretPodSpec()),
+				changedExternalSecret(),
+			},
+			wantComputed: true,
+		},
+		{
 			name:     "previous render without the workload is ignored",
 			previous: []map[string]any{hashTestConfigMap("info")},
 			current: []map[string]any{
@@ -2479,6 +2504,31 @@ func TestDPResourceHashKeepsPreviousValue(t *testing.T) {
 				hashTestExternalSecret("app-secrets", "app-secrets"),
 			},
 			wantComputed: true,
+		},
+		{
+			// For example an optional reference to config that a Trait renders conditionally
+			name: "a previously counted resource that is no longer rendered uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+			},
+			want: "",
+		},
+		{
+			name: "removing a resource marked true uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(map[string]any{}, legacyHash),
+				withRestartOnChange(certificate(), "true"),
+				service,
+			},
+			current: []map[string]any{
+				hashTestDeployment(map[string]any{}),
+				service,
+			},
+			want: "",
 		},
 	}
 
@@ -2703,7 +2753,7 @@ func TestDPResourceHashRestartOnChangeInvalid(t *testing.T) {
 		want  string
 	}{
 		{name: "unknown string", value: "yes", want: `ConfigMap "app-env": annotation openchoreo.dev/restart-on-change must be "true" or "false", got "yes"`},
-		{name: "unquoted boolean", value: true, want: `ConfigMap "app-env": annotation openchoreo.dev/restart-on-change must be "true" or "false", got true`},
+		{name: "unquoted boolean", value: true, want: `ConfigMap "app-env": annotation openchoreo.dev/restart-on-change must be the string "true" or "false", got true (bool)`},
 	}
 
 	for _, tt := range tests {

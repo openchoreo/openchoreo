@@ -598,9 +598,10 @@ func (p *Pipeline) addDPResourceHashAnnotation(resources []renderer.RenderedReso
 // reference do not restart the pods. ComponentType and Trait authors can override this per
 // resource with the restart-on-change annotation.
 //
-// When the previous render is given and the resources this render counts have the same content
-// in it, the previous value is kept. This way, changing what the hash counts, by turning the
-// option on or with the restart-on-change annotation, does not restart the pods by itself.
+// When the previous render is given, the resources this render counts have the same content in
+// it, and the resources the previous render counted are all still rendered, the previous value is
+// kept. This way, changing what the hash counts, by turning the option on or with the
+// restart-on-change annotation, does not restart the pods by itself.
 func referencedConfigHash(workload map[string]any, resources, previousResources []map[string]any) (string, error) {
 	if err := validateRestartOnChange(resources, workload); err != nil {
 		return "", err
@@ -609,13 +610,13 @@ func referencedConfigHash(workload map[string]any, resources, previousResources 
 	configResources := configResourcesToHash(workload, resources)
 	resourceHash := hashResources(configResources)
 
-	// Keep the previous value while the counted resources are unchanged
+	// Keep the previous value while the counted resources are unchanged and none was removed
 	if previousWorkload := findResource(previousResources, resourceKey(workload)); previousWorkload != nil {
 		unchanged, err := sameContent(configResources, previousResources)
 		if err != nil {
 			return "", err
 		}
-		if unchanged {
+		if unchanged && allRendered(configResourcesToHash(previousWorkload, previousResources), resources) {
 			previousHash, _ := podTemplateAnnotation(previousWorkload, labels.AnnotationKeyDPResourceHash)
 			return previousHash, nil
 		}
@@ -728,6 +729,20 @@ func sameContent(resources, previousResources []map[string]any) (bool, error) {
 	return hashResources(current) == hashResources(previous), nil
 }
 
+// allRendered reports whether every resource in previous is still in resources, matched by key.
+func allRendered(previous, resources []map[string]any) bool {
+	rendered := make(map[string]bool, len(resources))
+	for _, resource := range resources {
+		rendered[resourceKey(resource)] = true
+	}
+	for _, resource := range previous {
+		if !rendered[resourceKey(resource)] {
+			return false
+		}
+	}
+	return true
+}
+
 // jsonCopy returns a copy of v decoded from its JSON encoding.
 func jsonCopy[T any](v T) (T, error) {
 	var out T
@@ -767,9 +782,13 @@ func validateRestartOnChange(resources []map[string]any, workload map[string]any
 			continue
 		}
 		kind, _ := resource["kind"].(string)
-		return fmt.Errorf("%s %q: annotation %s must be %q or %q, got %#v", kind,
-			nestedString(resource, "metadata", "name"), labels.AnnotationKeyRestartOnChange,
-			restartOnChangeTrue, restartOnChangeFalse, value)
+		name := nestedString(resource, "metadata", "name")
+		if _, isString := value.(string); !isString {
+			return fmt.Errorf("%s %q: annotation %s must be the string %q or %q, got %v (%T)", kind, name,
+				labels.AnnotationKeyRestartOnChange, restartOnChangeTrue, restartOnChangeFalse, value, value)
+		}
+		return fmt.Errorf("%s %q: annotation %s must be %q or %q, got %q", kind, name,
+			labels.AnnotationKeyRestartOnChange, restartOnChangeTrue, restartOnChangeFalse, value)
 	}
 	return nil
 }

@@ -49,6 +49,9 @@ func TestPreviousDataPlaneResources(t *testing.T) {
 	withEmptyResource := release(true, configMap)
 	withEmptyResource.Spec.Resources = append(withEmptyResource.Spec.Resources,
 		openchoreov1alpha1.RenderedManifest{ID: "empty", Object: &runtime.RawExtension{}})
+	withNonObjectResource := release(true, configMap)
+	withNonObjectResource.Spec.Resources = append(withNonObjectResource.Spec.Resources,
+		openchoreov1alpha1.RenderedManifest{ID: "list", Object: &runtime.RawExtension{Raw: []byte(`["not", "an", "object"]`)}})
 
 	tests := []struct {
 		name    string
@@ -77,9 +80,14 @@ func TestPreviousDataPlaneResources(t *testing.T) {
 			want:    nil,
 		},
 		{
-			name:    "Release with a resource that is not an object",
-			objects: []client.Object{release(true, `["not", "an", "object"]`)},
-			want:    nil,
+			name:    "Release with a resource that is not an object skips it",
+			objects: []client.Object{withNonObjectResource},
+			want: []map[string]any{{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "app-env"},
+				"data":       map[string]any{"LOG_LEVEL": "info"},
+			}},
 		},
 		{
 			name:    "Release with an empty resource skips it",
