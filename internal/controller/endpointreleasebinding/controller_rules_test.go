@@ -12,12 +12,21 @@ import (
 )
 
 var _ = Describe("buildRules", func() {
-	resolved := func(names ...string) []endpointpipeline.Backend {
-		out := make([]endpointpipeline.Backend, 0, len(names))
-		for i, n := range names {
-			out = append(out, endpointpipeline.Backend{Name: n, ServiceName: n + "-svc", Weight: int32(100 - i*100)})
+	// rulesFor builds the rules with the named backends resolved, and each
+	// backend's effective mirror on its status entry as resolveBackends sets it.
+	rulesFor := func(
+		b *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease, names ...string,
+	) []endpointpipeline.Rule {
+		res := &resolvedBackends{}
+		for _, ref := range release.Spec.BackendRefs {
+			res.statuses = append(res.statuses, openchoreov1alpha1.ResolvedEndpointBackend{
+				Name: ref.Name, Mirror: effectiveMirror(b, ref),
+			})
 		}
-		return out
+		for i, n := range names {
+			res.backends = append(res.backends, endpointpipeline.Backend{Name: n, ServiceName: n + "-svc", Weight: int32(100 - i*100)})
+		}
+		return buildRules(release, res)
 	}
 
 	It("puts one rule per matched backend before the weighted default rule", func() {
@@ -27,7 +36,7 @@ var _ = Describe("buildRules", func() {
 		}
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), canary)
 
-		rules := buildRules(release, resolved("stable", "canary"))
+		rules := rulesFor(newBinding("rules", testRelease), release, "stable", "canary")
 
 		Expect(rules).To(HaveLen(2))
 		Expect(rules[0].Name).To(Equal("canary"))
@@ -48,9 +57,52 @@ var _ = Describe("buildRules", func() {
 		}
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview)
 
-		rules := buildRules(release, resolved("stable"))
+		rules := rulesFor(newBinding("rules", testRelease), release, "stable")
 
 		Expect(rules).To(HaveLen(1))
 		Expect(rules[0].Name).To(Equal(defaultRuleName))
+	})
+
+	It("copies a share of the default rule's requests to a mirror, with the environment's share", func() {
+		shadow := componentBackend("shadow", "greeter-v2", 0)
+		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 10}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), shadow)
+
+		rules := rulesFor(newBinding("rules", testRelease), release, "stable", "shadow")
+		Expect(rules).To(HaveLen(1))
+		Expect(rules[0].Mirrors).To(ConsistOf(
+			And(HaveField("Backend.Name", "shadow"), HaveField("Percent", int32(10)))))
+
+		b := newBinding("rules", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "shadow", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 100}},
+		}
+		rules = rulesFor(b, release, "stable", "shadow")
+		Expect(rules[0].Mirrors).To(ConsistOf(HaveField("Percent", int32(100))))
+
+		b.Spec.BackendOverrides[0].Mirror.Percent = 0
+		Expect(rulesFor(b, release, "stable", "shadow")[0].Mirrors).To(BeEmpty(),
+			"a mirror share of 0 stops copying")
+	})
+
+	It("refuses a mirror override on a backend that is not a mirror", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
+		b := newBinding("rules", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "stable", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 50}},
+		}
+		err := validateBackendOverrides(release, b)
+		Expect(err).To(MatchError(ContainSubstring("no mirror")))
+	})
+
+	It("keeps a mirror backend at weight 0 whatever an override says", func() {
+		shadow := componentBackend("shadow", "greeter-v2", 0)
+		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 20}
+		b := newBinding("rules", testRelease)
+		weight := int32(50)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "shadow", Weight: &weight}}
+
+		Expect(effectiveWeight(b, shadow)).To(BeZero(), "a mirror only receives copies")
+		Expect(effectiveMirror(b, shadow).Percent).To(Equal(int32(20)))
 	})
 })

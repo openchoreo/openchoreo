@@ -52,3 +52,18 @@ func TestReleaseHash_MatchChangesTheHash(t *testing.T) {
 		t.Fatalf("expected a match to change the release hash")
 	}
 }
+
+func TestReleaseHash_MirrorChangesTheHash(t *testing.T) {
+	spec := func(mirror *openchoreov1alpha1.EndpointMirror) ReleaseSpec {
+		return ReleaseSpec{BackendRefs: []openchoreov1alpha1.EndpointBackendRef{{
+			Name:      "shadow",
+			Kind:      openchoreov1alpha1.EndpointBackendKindComponent,
+			Component: &openchoreov1alpha1.EndpointComponentBackend{Name: "greeter", Endpoint: "http"},
+			Weight:    ptr.To(int32(0)),
+			Mirror:    mirror,
+		}}}
+	}
+	if computeReleaseHash(spec(&openchoreov1alpha1.EndpointMirror{Percent: 10})) == computeReleaseHash(spec(nil)) {
+		t.Fatalf("expected a mirror to change the release hash")
+	}
+}

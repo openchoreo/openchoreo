@@ -74,15 +74,30 @@ spec:
               backendOverrides:
                 description: |-
                   BackendOverrides sets environment-specific values for the release's
-                  backends, matched by name, so each environment can run its own traffic
-                  split (a canary step, a blue/green switch) while the release stays the
-                  same. Each entry must name a backend of the pinned release; the binding
+                  backends, matched by name: a backend's weight and its mirror share, so
+                  each environment can run its own traffic split (a canary step, a
+                  blue/green switch) while the release stays the same. Each entry must name a backend of the pinned release; the binding
                   controller reports one that does not.
                 items:
                   description: |-
                     EndpointBackendOverride sets environment-specific values for one backend.
                     Fields use the names of the EndpointBackendRef fields they replace.
                   properties:
+                    mirror:
+                      description: |-
+                        Mirror replaces the release's mirror share for this backend in this
+                        environment. The backend must have a mirror in the release.
+                      properties:
+                        percent:
+                          description: Percent of the requests to copy, from 0 to
+                            100.
+                          format: int32
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                      required:
+                      - percent
+                      type: object
                     name:
                       description: Name is the name of the backend in the release.
                       minLength: 1
@@ -100,6 +115,10 @@ spec:
                   required:
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: 'set weight or mirror, not both: a mirror backend only
+                      receives copies'
+                    rule: '!(has(self.weight) && has(self.mirror))'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -174,6 +193,21 @@ spec:
                       description: Message is a human-readable explanation accompanying
                         Reason.
                       type: string
+                    mirror:
+                      description: |-
+                        Mirror is the effective mirror share applied to this backend, when it is
+                        a mirror.
+                      properties:
+                        percent:
+                          description: Percent of the requests to copy, from 0 to
+                            100.
+                          format: int32
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                      required:
+                      - percent
+                      type: object
                     name:
                       description: Name matches the name of the EndpointBackendRef
                         this entry resolves.

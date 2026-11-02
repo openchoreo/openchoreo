@@ -88,6 +88,7 @@ func (r *Reconciler) resolveBackends(
 			Name:   ref.Name,
 			Kind:   ref.Kind,
 			Weight: weight,
+			Mirror: effectiveMirror(binding, ref),
 		}
 		if res.backend == nil {
 			status.Reason = res.reason
@@ -120,33 +121,51 @@ const defaultRuleName = "default"
 //   - one rule per backend with a match, in backendRefs order, sending every
 //     request it matches to that backend alone, whatever the weights;
 //   - the default rule, splitting every other request across the resolved
-//     backends by their weight in this environment.
+//     backends by their weight in this environment, and copying a share of
+//     them to each mirror backend.
 //
-// A matched backend that is not resolved here is left out; its status entry
+// A matched or mirror backend that is not resolved here is left out; its status entry
 // says why, and the rest of the routing is unaffected, so a release can be
 // promoted ahead of its preview component.
-func buildRules(release *openchoreov1alpha1.EndpointRelease, backends []endpointpipeline.Backend) []endpointpipeline.Rule {
+func buildRules(
+	release *openchoreov1alpha1.EndpointRelease,
+	resolved *resolvedBackends,
+) []endpointpipeline.Rule {
+	backends := resolved.backends
 	byName := make(map[string]endpointpipeline.Backend, len(backends))
 	for _, b := range backends {
 		byName[b.Name] = b
 	}
+	mirrorOf := make(map[string]*openchoreov1alpha1.EndpointMirror, len(resolved.statuses))
+	for _, s := range resolved.statuses {
+		mirrorOf[s.Name] = s.Mirror
+	}
 	var rules []endpointpipeline.Rule
+	mirrors := []endpointpipeline.Mirror{}
 	for _, ref := range release.Spec.BackendRefs {
 		b, ok := byName[ref.Name]
-		if !ok || ref.Match == nil {
+		if !ok {
 			continue
 		}
-		b.Weight, b.Percent = 1, 100
-		rules = append(rules, endpointpipeline.Rule{
-			Name:     ref.Name,
-			Matches:  []endpointpipeline.Match{convertMatch(ref.Match)},
-			Backends: []endpointpipeline.Backend{b},
-		})
+		if ref.Match != nil {
+			matched := b
+			matched.Weight, matched.Percent = 1, 100
+			rules = append(rules, endpointpipeline.Rule{
+				Name:     ref.Name,
+				Matches:  []endpointpipeline.Match{convertMatch(ref.Match)},
+				Backends: []endpointpipeline.Backend{matched},
+				Mirrors:  []endpointpipeline.Mirror{},
+			})
+		}
+		if m := mirrorOf[ref.Name]; m != nil && m.Percent > 0 {
+			mirrors = append(mirrors, endpointpipeline.Mirror{Backend: b, Percent: m.Percent})
+		}
 	}
 	return append(rules, endpointpipeline.Rule{
 		Name:     defaultRuleName,
 		Matches:  []endpointpipeline.Match{},
 		Backends: backends,
+		Mirrors:  mirrors,
 	})
 }
 
@@ -180,8 +199,12 @@ func findOverride(binding *openchoreov1alpha1.EndpointReleaseBinding, name strin
 
 // effectiveWeight returns a backend's weight in the binding's environment: the
 // binding's override for it, or the release's weight (1 when unset, the CRD
-// default).
+// default). A mirror backend only receives copies, so its weight stays 0
+// whatever an override says.
 func effectiveWeight(binding *openchoreov1alpha1.EndpointReleaseBinding, ref openchoreov1alpha1.EndpointBackendRef) int32 {
+	if ref.Mirror != nil {
+		return 0
+	}
 	if o := findOverride(binding, ref.Name); o != nil && o.Weight != nil {
 		return *o.Weight
 	}
@@ -191,24 +214,45 @@ func effectiveWeight(binding *openchoreov1alpha1.EndpointReleaseBinding, ref ope
 	return 1
 }
 
+// effectiveMirror returns a backend's mirror share in the binding's
+// environment: the binding's override for it, or the release's. Nil when the
+// backend is not a mirror.
+func effectiveMirror(binding *openchoreov1alpha1.EndpointReleaseBinding, ref openchoreov1alpha1.EndpointBackendRef) *openchoreov1alpha1.EndpointMirror {
+	if ref.Mirror == nil {
+		return nil
+	}
+	if o := findOverride(binding, ref.Name); o != nil && o.Mirror != nil {
+		return o.Mirror.DeepCopy()
+	}
+	return ref.Mirror.DeepCopy()
+}
+
 // validateBackendOverrides checks that every backendOverrides entry names a
-// backend of the pinned release, so a typo can't silently leave the routing
-// unchanged. A binding can be applied before its release (GitOps), so this is
+// backend of the pinned release, and sets a mirror share only on a mirror
+// backend, so a typo can't silently leave the routing unchanged. A binding can be applied before its release (GitOps), so this is
 // checked here rather than at admission.
 func validateBackendOverrides(release *openchoreov1alpha1.EndpointRelease, binding *openchoreov1alpha1.EndpointReleaseBinding) error {
-	known := make(map[string]bool, len(release.Spec.BackendRefs))
+	known := make(map[string]openchoreov1alpha1.EndpointBackendRef, len(release.Spec.BackendRefs))
 	for _, ref := range release.Spec.BackendRefs {
-		known[ref.Name] = true
+		known[ref.Name] = ref
 	}
-	var unknown []string
+	var unknown, notMirrors []string
 	for _, o := range binding.Spec.BackendOverrides {
-		if !known[o.Name] {
+		ref, ok := known[o.Name]
+		switch {
+		case !ok:
 			unknown = append(unknown, o.Name)
+		case o.Mirror != nil && ref.Mirror == nil:
+			notMirrors = append(notMirrors, o.Name)
 		}
 	}
 	if len(unknown) > 0 {
 		return fmt.Errorf("spec.backendOverrides names backend(s) not in EndpointRelease %q: %s",
 			release.Name, strings.Join(unknown, ", "))
+	}
+	if len(notMirrors) > 0 {
+		return fmt.Errorf("spec.backendOverrides sets mirror on backend(s) that have no mirror in EndpointRelease %q: %s",
+			release.Name, strings.Join(notMirrors, ", "))
 	}
 	return nil
 }
