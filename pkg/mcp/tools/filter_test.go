@@ -310,6 +310,50 @@ func TestToolFilterMiddlewarePDPError(t *testing.T) {
 	}
 }
 
+// TestToolFilterMiddlewareFailClosedListIsStale verifies that a tools/list
+// emptied by a missing subject or a PDP error carries ttlMs 0, so clients do
+// not cache it, while a filtered list keeps the server's TTL.
+func TestToolFilterMiddlewareFailClosedListIsStale(t *testing.T) {
+	const ttlMs = 60_000
+	perms := map[string]ToolPermission{
+		"list_namespaces": {ToolName: "list_namespaces", Action: "namespace:view"},
+	}
+	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+		return &mcp.ListToolsResult{
+			Cacheable: mcp.Cacheable{TTLMs: ttlMs, CacheScope: "private"},
+			Tools:     []*mcp.Tool{{Name: "list_namespaces"}},
+		}, nil
+	}
+	tests := []struct {
+		name      string
+		ctx       context.Context
+		pdp       *mockPDP
+		wantTools int
+		wantTTLMs int
+	}{
+		{"no subject", context.Background(), &mockPDP{profile: allowAllProfile("namespace:view")}, 0, 0},
+		{"PDP error", ctxWithSubject(context.Background()), &mockPDP{err: errors.New("pdp unavailable")}, 0, 0},
+		{"allowed", ctxWithSubject(context.Background()), &mockPDP{profile: allowAllProfile("namespace:view")}, 1, ttlMs},
+		{"denied by policy", ctxWithSubject(context.Background()), &mockPDP{profile: denyAllProfile()}, 0, ttlMs},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mw := mustNewToolFilterMiddleware(t, slog.Default(), tt.pdp, perms, nil)
+			res, err := mw(next)(tt.ctx, methodListTools, &mcp.ListToolsRequest{Params: &mcp.ListToolsParams{}})
+			if err != nil {
+				t.Fatalf("tools/list: %v", err)
+			}
+			list := res.(*mcp.ListToolsResult)
+			if len(list.Tools) != tt.wantTools || list.TTLMs != tt.wantTTLMs {
+				t.Errorf("tools/ttlMs = %d/%d, want %d/%d", len(list.Tools), list.TTLMs, tt.wantTools, tt.wantTTLMs)
+			}
+			if list.CacheScope != "private" {
+				t.Errorf("cacheScope = %q, want private", list.CacheScope)
+			}
+		})
+	}
+}
+
 // TestToolFilterMiddlewareCallToolAllowed verifies that an authorized user can
 // call a tool.
 func TestToolFilterMiddlewareCallToolAllowed(t *testing.T) {
