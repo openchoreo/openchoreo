@@ -34,3 +34,21 @@ func TestReleaseHash_BackendWithoutReleaseLineKeepsItsHash(t *testing.T) {
 		t.Fatalf("expected naming a release line to change the release hash")
 	}
 }
+
+func TestReleaseHash_MatchChangesTheHash(t *testing.T) {
+	spec := func(match *openchoreov1alpha1.EndpointMatch) ReleaseSpec {
+		return ReleaseSpec{BackendRefs: []openchoreov1alpha1.EndpointBackendRef{{
+			Name:      "canary",
+			Kind:      openchoreov1alpha1.EndpointBackendKindComponent,
+			Component: &openchoreov1alpha1.EndpointComponentBackend{Name: "greeter", Endpoint: "http"},
+			Weight:    ptr.To(int32(0)),
+			Match:     match,
+		}}}
+	}
+	header := &openchoreov1alpha1.EndpointMatch{
+		Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-canary", Value: "true"}},
+	}
+	if computeReleaseHash(spec(header)) == computeReleaseHash(spec(nil)) {
+		t.Fatalf("expected a match to change the release hash")
+	}
+}

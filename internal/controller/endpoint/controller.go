@@ -221,7 +221,7 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 		return nil, fmt.Errorf("list Workloads: %w", err)
 	}
 
-	var problems []backendProblem
+	problems := matchProblems(ep)
 	for _, ref := range ep.Spec.BackendRefs {
 		if ref.Kind != openchoreov1alpha1.EndpointBackendKindComponent || ref.Component == nil {
 			continue

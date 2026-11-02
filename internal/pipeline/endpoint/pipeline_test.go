@@ -230,3 +230,54 @@ func TestRender_InputValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestRender_ExposesRules(t *testing.T) {
+	input := sampleInput(t)
+	input.Rules = []Rule{
+		{
+			Name:     "canary",
+			Matches:  []Match{NewMatch(nil, []HeaderMatch{{Name: "X-Canary", Value: "true"}}, nil)},
+			Backends: []Backend{fixtureBackends()[1]},
+		},
+		{Name: "default", Matches: []Match{}, Backends: fixtureBackends()},
+	}
+	input.EndpointTypeSpec = &v1alpha1.EndpointTypeSpec{
+		Resources: []v1alpha1.ResourceTemplate{{
+			ID: "probe",
+			Template: rawExt(t, map[string]any{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "${metadata.name}"},
+				"data": map[string]any{
+					"names":     "${rules.map(r, r.name)}",
+					"condition": "${rules[0].matches[0].conditions[0]}",
+				},
+			}),
+		}},
+	}
+
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	data := out.Entries[0].Object["data"].(map[string]any)
+	assert.Equal(t, []any{"canary", "default"}, data["names"])
+	assert.Equal(t, map[string]any{"name": "x-canary", "type": "Exact", "value": "true"}, data["condition"])
+}
+
+func TestRender_RulesDefaultToEmpty(t *testing.T) {
+	input := sampleInput(t)
+	input.EndpointTypeSpec = &v1alpha1.EndpointTypeSpec{
+		Resources: []v1alpha1.ResourceTemplate{{
+			ID: "probe",
+			Template: rawExt(t, map[string]any{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "${metadata.name}"},
+				"data":       map[string]any{"count": "${size(rules)}"},
+			}),
+		}},
+	}
+
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, out.Entries[0].Object["data"].(map[string]any)["count"])
+}

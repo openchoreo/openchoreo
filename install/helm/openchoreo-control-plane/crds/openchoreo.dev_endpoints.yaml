@@ -128,6 +128,93 @@ spec:
                       enum:
                       - Component
                       type: string
+                    match:
+                      description: |-
+                        Match sends every request that meets all of its conditions to this
+                        backend, whatever its weight. Other requests are split by weight, so a
+                        backend at weight 0 with a match receives only the requests it matches:
+                        testers, a preview path, or an A/B cookie group. When several backends
+                        match a request, the first one in the list gets it.
+                      properties:
+                        cookies:
+                          description: |-
+                            Cookies the request must carry, by exact value. EndpointTypes render a
+                            cookie as a match on the Cookie header.
+                          items:
+                            description: EndpointCookieMatch is a cookie condition.
+                            properties:
+                              name:
+                                description: Name is the cookie name.
+                                pattern: ^[A-Za-z0-9_-]{1,64}$
+                                type: string
+                              value:
+                                description: |-
+                                  Value is the exact cookie value. Kept to safe characters, because types
+                                  embed it in a regular expression on the Cookie header.
+                                pattern: ^[A-Za-z0-9_.-]{1,128}$
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          maxItems: 1
+                          minItems: 1
+                          type: array
+                        headers:
+                          description: Headers the request must carry.
+                          items:
+                            description: EndpointHeaderMatch is a header condition.
+                            properties:
+                              name:
+                                description: Name is the header name, case-insensitive.
+                                maxLength: 256
+                                minLength: 1
+                                pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                type: string
+                              type:
+                                default: Exact
+                                description: Type is how the value is compared.
+                                enum:
+                                - Exact
+                                - RegularExpression
+                                type: string
+                              value:
+                                description: Value is the expected value, or the regular
+                                  expression.
+                                maxLength: 4096
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          maxItems: 8
+                          minItems: 1
+                          type: array
+                        path:
+                          description: |-
+                            Path the request must be for, relative to where the Endpoint is served:
+                            a path of /next on an Endpoint served at /checkout matches /checkout/next.
+                          properties:
+                            type:
+                              default: PathPrefix
+                              description: Type is how the path is compared.
+                              enum:
+                              - PathPrefix
+                              - Exact
+                              type: string
+                            value:
+                              description: Value is the path, relative to where the
+                                Endpoint is served.
+                              maxLength: 1024
+                              pattern: ^/[^?#]*$
+                              type: string
+                          required:
+                          - value
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: set a path, headers or cookies, or remove match
+                        rule: has(self.path) || has(self.headers) || has(self.cookies)
                     name:
                       description: |-
                         Name identifies this backend within the Endpoint. It is the list's map key,
@@ -153,6 +240,9 @@ spec:
                   x-kubernetes-validations:
                   - message: component must be set when kind is Component
                     rule: self.kind != 'Component' || has(self.component)
+                  - message: default names the rule that splits traffic by weight;
+                      give a backend with a match another name
+                    rule: '!has(self.match) || self.name != ''default'''
                 maxItems: 16
                 minItems: 1
                 type: array

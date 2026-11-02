@@ -111,6 +111,63 @@ func (r *Reconciler) resolveBackends(
 	return out, nil
 }
 
+// defaultRuleName names the rule that splits requests across the backends by
+// weight.
+const defaultRuleName = "default"
+
+// buildRules builds the routing rules the type renders as ${rules}, in order:
+//
+//   - one rule per backend with a match, in backendRefs order, sending every
+//     request it matches to that backend alone, whatever the weights;
+//   - the default rule, splitting every other request across the resolved
+//     backends by their weight in this environment.
+//
+// A matched backend that is not resolved here is left out; its status entry
+// says why, and the rest of the routing is unaffected, so a release can be
+// promoted ahead of its preview component.
+func buildRules(release *openchoreov1alpha1.EndpointRelease, backends []endpointpipeline.Backend) []endpointpipeline.Rule {
+	byName := make(map[string]endpointpipeline.Backend, len(backends))
+	for _, b := range backends {
+		byName[b.Name] = b
+	}
+	var rules []endpointpipeline.Rule
+	for _, ref := range release.Spec.BackendRefs {
+		b, ok := byName[ref.Name]
+		if !ok || ref.Match == nil {
+			continue
+		}
+		b.Weight, b.Percent = 1, 100
+		rules = append(rules, endpointpipeline.Rule{
+			Name:     ref.Name,
+			Matches:  []endpointpipeline.Match{convertMatch(ref.Match)},
+			Backends: []endpointpipeline.Backend{b},
+		})
+	}
+	return append(rules, endpointpipeline.Rule{
+		Name:     defaultRuleName,
+		Matches:  []endpointpipeline.Match{},
+		Backends: backends,
+	})
+}
+
+// convertMatch copies a backend's match into the render context, normalized
+// so every type renders it the same way.
+func convertMatch(m *openchoreov1alpha1.EndpointMatch) endpointpipeline.Match {
+	var path *endpointpipeline.PathMatch
+	if m.Path != nil {
+		path = &endpointpipeline.PathMatch{Type: string(m.Path.Type), Value: m.Path.Value}
+	}
+	headers := make([]endpointpipeline.HeaderMatch, 0, len(m.Headers))
+	for _, h := range m.Headers {
+		headers = append(headers, endpointpipeline.HeaderMatch{Name: h.Name, Type: string(h.Type), Value: h.Value})
+	}
+	cookies := make([]endpointpipeline.CookieMatch, 0, len(m.Cookies))
+	for _, c := range m.Cookies {
+		cookies = append(cookies, endpointpipeline.CookieMatch{Name: c.Name, Value: c.Value})
+	}
+	return endpointpipeline.NewMatch(path, headers, cookies)
+}
+
 // findOverride returns the binding's override for the named backend, or nil.
 func findOverride(binding *openchoreov1alpha1.EndpointReleaseBinding, name string) *openchoreov1alpha1.EndpointBackendOverride {
 	for i := range binding.Spec.BackendOverrides {

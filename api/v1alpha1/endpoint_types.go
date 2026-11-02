@@ -119,6 +119,7 @@ const (
 // EndpointBackendRef is one traffic backend of an Endpoint. It is a
 // discriminated union on kind; exactly the payload matching kind must be set.
 // +kubebuilder:validation:XValidation:rule="self.kind != 'Component' || has(self.component)",message="component must be set when kind is Component"
+// +kubebuilder:validation:XValidation:rule="!has(self.match) || self.name != 'default'",message="default names the rule that splits traffic by weight; give a backend with a match another name"
 type EndpointBackendRef struct {
 	// Name identifies this backend within the Endpoint. It is the list's map key,
 	// the handle status reports resolution against, and what a template uses to
@@ -147,6 +148,106 @@ type EndpointBackendRef struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1000000
 	Weight *int32 `json:"weight,omitempty"`
+
+	// Match sends every request that meets all of its conditions to this
+	// backend, whatever its weight. Other requests are split by weight, so a
+	// backend at weight 0 with a match receives only the requests it matches:
+	// testers, a preview path, or an A/B cookie group. When several backends
+	// match a request, the first one in the list gets it.
+	// +optional
+	Match *EndpointMatch `json:"match,omitempty"`
+}
+
+// EndpointMatch is the set of conditions a request must all meet.
+// +kubebuilder:validation:XValidation:rule="has(self.path) || has(self.headers) || has(self.cookies)",message="set a path, headers or cookies, or remove match"
+type EndpointMatch struct {
+	// Path the request must be for, relative to where the Endpoint is served:
+	// a path of /next on an Endpoint served at /checkout matches /checkout/next.
+	// +optional
+	Path *EndpointPathMatch `json:"path,omitempty"`
+
+	// Headers the request must carry.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	Headers []EndpointHeaderMatch `json:"headers,omitempty"`
+
+	// Cookies the request must carry, by exact value. EndpointTypes render a
+	// cookie as a match on the Cookie header.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
+	Cookies []EndpointCookieMatch `json:"cookies,omitempty"`
+}
+
+// EndpointPathMatchType is how a request path is compared.
+// +kubebuilder:validation:Enum=PathPrefix;Exact
+type EndpointPathMatchType string
+
+const (
+	// EndpointPathMatchPathPrefix matches the path and every path below it.
+	EndpointPathMatchPathPrefix EndpointPathMatchType = "PathPrefix"
+	// EndpointPathMatchExact matches the path only.
+	EndpointPathMatchExact EndpointPathMatchType = "Exact"
+)
+
+// EndpointPathMatch is a path condition.
+type EndpointPathMatch struct {
+	// Type is how the path is compared.
+	// +optional
+	// +kubebuilder:default=PathPrefix
+	Type EndpointPathMatchType `json:"type,omitempty"`
+
+	// Value is the path, relative to where the Endpoint is served.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:Pattern=`^/[^?#]*$`
+	Value string `json:"value"`
+}
+
+// EndpointHeaderMatchType is how a header value is compared.
+// +kubebuilder:validation:Enum=Exact;RegularExpression
+type EndpointHeaderMatchType string
+
+const (
+	// EndpointHeaderMatchExact compares the header value exactly.
+	EndpointHeaderMatchExact EndpointHeaderMatchType = "Exact"
+	// EndpointHeaderMatchRegularExpression matches the value against an RE2 regular expression.
+	EndpointHeaderMatchRegularExpression EndpointHeaderMatchType = "RegularExpression"
+)
+
+// EndpointHeaderMatch is a header condition.
+type EndpointHeaderMatch struct {
+	// Name is the header name, case-insensitive.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$`
+	Name string `json:"name"`
+
+	// Type is how the value is compared.
+	// +optional
+	// +kubebuilder:default=Exact
+	Type EndpointHeaderMatchType `json:"type,omitempty"`
+
+	// Value is the expected value, or the regular expression.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=4096
+	Value string `json:"value"`
+}
+
+// EndpointCookieMatch is a cookie condition.
+type EndpointCookieMatch struct {
+	// Name is the cookie name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_-]{1,64}$`
+	Name string `json:"name"`
+
+	// Value is the exact cookie value. Kept to safe characters, because types
+	// embed it in a regular expression on the Cookie header.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]{1,128}$`
+	Value string `json:"value"`
 }
 
 // EndpointComponentBackend references a named workload endpoint of a Component.
