@@ -3076,6 +3076,17 @@ backstage:
       enabled: false
     # @schema
     # type: object
+    # description: Scorecards portal feature
+    # @schema
+    scorecards:
+      # @schema
+      # type: boolean
+      # description: Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container.
+      # default: true
+      # @schema
+      enabled: true
+    # @schema
+    # type: object
     # description: Authentication feature flags
     # @schema
     auth:

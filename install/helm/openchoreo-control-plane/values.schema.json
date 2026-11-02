@@ -616,6 +616,21 @@
               "title": "observability",
               "type": "object"
             },
+            "scorecards": {
+              "additionalProperties": false,
+              "description": "Scorecards portal feature",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "scorecards",
+              "type": "object"
+            },
             "workflows": {
               "additionalProperties": false,
               "description": "Build plane / Workflows functionality configuration",

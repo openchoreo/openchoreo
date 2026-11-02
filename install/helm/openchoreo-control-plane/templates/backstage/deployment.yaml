@@ -126,6 +126,8 @@ spec:
         # Feature flags for OpenChoreo functionality
         - name: OPENCHOREO_FEATURES_COST_INSIGHTS_ENABLED
           value: {{ .Values.backstage.features.costInsights.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_SCORECARDS_ENABLED
+          value: {{ .Values.backstage.features.scorecards.enabled | quote }}
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
           value: {{ .Values.backstage.features.workflows.enabled | quote }}
         - name: OPENCHOREO_FEATURES_OBSERVABILITY_ENABLED
