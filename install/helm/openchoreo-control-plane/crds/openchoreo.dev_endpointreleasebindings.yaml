@@ -71,6 +71,39 @@ spec:
               first-environment binding of an Endpoint with spec.autoDeploy, which the
               Endpoint controller creates and advances to each new EndpointRelease.
             properties:
+              backendOverrides:
+                description: |-
+                  BackendOverrides sets environment-specific values for the release's
+                  backends, matched by name, so each environment can run its own traffic
+                  split (a canary step, a blue/green switch) while the release stays the
+                  same. Each entry must name a backend of the pinned release; the binding
+                  controller reports one that does not.
+                items:
+                  description: |-
+                    EndpointBackendOverride sets environment-specific values for one backend.
+                    Fields use the names of the EndpointBackendRef fields they replace.
+                  properties:
+                    name:
+                      description: Name is the name of the backend in the release.
+                      minLength: 1
+                      type: string
+                    weight:
+                      description: |-
+                        Weight replaces the release's weight for this backend in this
+                        environment, with the same semantics: relative to the other backends'
+                        weights, and 0 sends no traffic. status.backends reports the effective
+                        weight.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               endpointRelease:
                 description: |-
                   EndpointRelease is the name of the EndpointRelease pinned by this binding.

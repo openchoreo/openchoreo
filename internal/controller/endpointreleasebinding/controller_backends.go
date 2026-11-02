@@ -77,10 +77,7 @@ func (r *Reconciler) resolveBackends(
 	out := &resolvedBackends{}
 
 	for _, ref := range release.Spec.BackendRefs {
-		weight := int32(1)
-		if ref.Weight != nil {
-			weight = *ref.Weight
-		}
+		weight := effectiveWeight(binding, ref)
 
 		res, err := r.resolveBackend(ctx, binding, ref, md)
 		if err != nil {
@@ -110,7 +107,53 @@ func (r *Reconciler) resolveBackends(
 		out.policyTargets = append(out.policyTargets, res.target)
 	}
 
+	out.backends = endpointpipeline.WithPercents(out.backends)
 	return out, nil
+}
+
+// findOverride returns the binding's override for the named backend, or nil.
+func findOverride(binding *openchoreov1alpha1.EndpointReleaseBinding, name string) *openchoreov1alpha1.EndpointBackendOverride {
+	for i := range binding.Spec.BackendOverrides {
+		if binding.Spec.BackendOverrides[i].Name == name {
+			return &binding.Spec.BackendOverrides[i]
+		}
+	}
+	return nil
+}
+
+// effectiveWeight returns a backend's weight in the binding's environment: the
+// binding's override for it, or the release's weight (1 when unset, the CRD
+// default).
+func effectiveWeight(binding *openchoreov1alpha1.EndpointReleaseBinding, ref openchoreov1alpha1.EndpointBackendRef) int32 {
+	if o := findOverride(binding, ref.Name); o != nil && o.Weight != nil {
+		return *o.Weight
+	}
+	if ref.Weight != nil {
+		return *ref.Weight
+	}
+	return 1
+}
+
+// validateBackendOverrides checks that every backendOverrides entry names a
+// backend of the pinned release, so a typo can't silently leave the routing
+// unchanged. A binding can be applied before its release (GitOps), so this is
+// checked here rather than at admission.
+func validateBackendOverrides(release *openchoreov1alpha1.EndpointRelease, binding *openchoreov1alpha1.EndpointReleaseBinding) error {
+	known := make(map[string]bool, len(release.Spec.BackendRefs))
+	for _, ref := range release.Spec.BackendRefs {
+		known[ref.Name] = true
+	}
+	var unknown []string
+	for _, o := range binding.Spec.BackendOverrides {
+		if !known[o.Name] {
+			unknown = append(unknown, o.Name)
+		}
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("spec.backendOverrides names backend(s) not in EndpointRelease %q: %s",
+			release.Name, strings.Join(unknown, ", "))
+	}
+	return nil
 }
 
 // resolveBackend resolves one backendRef to the data-plane Service that

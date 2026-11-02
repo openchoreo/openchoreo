@@ -79,6 +79,10 @@ const (
 	// since the RenderedRelease is left as it was rather than updated.
 	ReasonBackendsUnresolved controller.ConditionReason = "BackendsUnresolved"
 
+	// ReasonBackendOverrideInvalid indicates a spec.backendOverrides entry
+	// names a backend the pinned EndpointRelease does not have.
+	ReasonBackendOverrideInvalid controller.ConditionReason = "BackendOverrideInvalid"
+
 	// ReasonRenderingFailed indicates the endpoint pipeline failed to render
 	// the type's resources (CEL evaluation error, failed validation rule,
 	// malformed template).

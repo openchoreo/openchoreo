@@ -159,7 +159,7 @@ func TestRender_ExposesBackendFields(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"name": "stable", "kind": "Component", "componentName": "greeter", "endpoint": "http",
 		"protocol": "HTTP", "serviceName": "greeter-dev-1a2b", "namespace": "dp-org-shop-dev-a1b2c3d",
-		"port": float64(8080), "weight": float64(90),
+		"port": float64(8080), "weight": float64(90), "percent": float64(0),
 		"serviceURL": "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
 		"basePath":   "/",
 	}, out.Entries[0].Object["data"].(map[string]any)["backend"])
