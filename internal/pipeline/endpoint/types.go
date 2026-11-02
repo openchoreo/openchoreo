@@ -76,7 +76,8 @@ type RenderInput struct {
 
 	// Rules are the routing rules for this environment, exposed to CEL as
 	// ${rules}: one rule per backend with a match, in backendRefs order, then
-	// the default rule that splits every other request by weight. Optional:
+	// the default rule that splits every other request by weight and copies a
+	// share of them to each mirror backend. Optional:
 	// types that only route by weight keep using ${backends}.
 	Rules []Rule
 
@@ -149,6 +150,16 @@ type Rule struct {
 	// Backends are the rule's backends with their weight in this environment.
 	// A match rule has its one backend, at weight 1.
 	Backends []Backend `json:"backends"`
+
+	// Mirrors copy a share of the rule's requests to a backend. Only the
+	// default rule has mirrors.
+	Mirrors []Mirror `json:"mirrors"`
+}
+
+// Mirror copies Percent of a rule's requests to Backend.
+type Mirror struct {
+	Backend Backend `json:"backend"`
+	Percent int32   `json:"percent"`
 }
 
 // Match is one set of conditions a request must all meet. Lists are never

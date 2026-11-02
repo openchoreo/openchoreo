@@ -198,6 +198,22 @@ spec:
                       x-kubernetes-validations:
                       - message: set a path, headers or cookies, or remove match
                         rule: has(self.path) || has(self.headers) || has(self.cookies)
+                    mirror:
+                      description: |-
+                        Mirror sends this backend a copy of a share of the requests the Endpoint
+                        splits by weight, and discards its responses. Only a backend at weight 0
+                        without a match can be a mirror, so everything it receives is a copy.
+                      properties:
+                        percent:
+                          description: Percent of the requests to copy, from 0 to
+                            100.
+                          format: int32
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                      required:
+                      - percent
+                      type: object
                     name:
                       description: |-
                         Name identifies this backend within the Endpoint. It is the list's map key,
@@ -223,6 +239,10 @@ spec:
                   x-kubernetes-validations:
                   - message: component must be set when kind is Component
                     rule: self.kind != 'Component' || has(self.component)
+                  - message: a backend with mirror only receives copies; set its weight
+                      to 0 and remove match
+                    rule: '!has(self.mirror) || (has(self.weight) && self.weight ==
+                      0 && !has(self.match))'
                   - message: default names the rule that splits traffic by weight;
                       give a backend with a match another name
                     rule: '!has(self.match) || self.name != ''default'''

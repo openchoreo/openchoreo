@@ -41,9 +41,9 @@ type EndpointReleaseBindingSpec struct {
 	EndpointTypeEnvironmentConfigs *runtime.RawExtension `json:"endpointTypeEnvironmentConfigs,omitempty"`
 
 	// BackendOverrides sets environment-specific values for the release's
-	// backends, matched by name, so each environment can run its own traffic
-	// split (a canary step, a blue/green switch) while the release stays the
-	// same. Each entry must name a backend of the pinned release; the binding
+	// backends, matched by name: a backend's weight and its mirror share, so
+	// each environment can run its own traffic split (a canary step, a
+	// blue/green switch) while the release stays the same. Each entry must name a backend of the pinned release; the binding
 	// controller reports one that does not.
 	// +optional
 	// +listType=map
@@ -53,6 +53,7 @@ type EndpointReleaseBindingSpec struct {
 
 // EndpointBackendOverride sets environment-specific values for one backend.
 // Fields use the names of the EndpointBackendRef fields they replace.
+// +kubebuilder:validation:XValidation:rule="!(has(self.weight) && has(self.mirror))",message="set weight or mirror, not both: a mirror backend only receives copies"
 type EndpointBackendOverride struct {
 	// Name is the name of the backend in the release.
 	// +kubebuilder:validation:Required
@@ -67,6 +68,11 @@ type EndpointBackendOverride struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1000000
 	Weight *int32 `json:"weight,omitempty"`
+
+	// Mirror replaces the release's mirror share for this backend in this
+	// environment. The backend must have a mirror in the release.
+	// +optional
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
 }
 
 // EndpointReleaseBindingOwner identifies the endpoint this EndpointReleaseBinding belongs to.
@@ -137,6 +143,11 @@ type ResolvedEndpointBackend struct {
 	// Weight is the effective weight applied to this backend.
 	// +optional
 	Weight int32 `json:"weight,omitempty"`
+
+	// Mirror is the effective mirror share applied to this backend, when it is
+	// a mirror.
+	// +optional
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
 
 	// Resolved indicates whether the backend was found and can receive traffic
 	// in this environment.

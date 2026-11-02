@@ -154,7 +154,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 
 	// One CEL cost budget per reconcile, shared by rendering and URLs.
 	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
-	input := buildRenderInput(binding, in, md, resolved.backends)
+	input := buildRenderInput(binding, in, md, resolved.backends, buildRules(in.release, resolved))
 	policies, err := networkPolicyManifests(binding, in, md, resolved.policyTargets)
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to render network policies: %v", err))

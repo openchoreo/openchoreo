@@ -119,6 +119,7 @@ const (
 // EndpointBackendRef is one traffic backend of an Endpoint. It is a
 // discriminated union on kind; exactly the payload matching kind must be set.
 // +kubebuilder:validation:XValidation:rule="self.kind != 'Component' || has(self.component)",message="component must be set when kind is Component"
+// +kubebuilder:validation:XValidation:rule="!has(self.mirror) || (has(self.weight) && self.weight == 0 && !has(self.match))",message="a backend with mirror only receives copies; set its weight to 0 and remove match"
 // +kubebuilder:validation:XValidation:rule="!has(self.match) || self.name != 'default'",message="default names the rule that splits traffic by weight; give a backend with a match another name"
 type EndpointBackendRef struct {
 	// Name identifies this backend within the Endpoint. It is the list's map key,
@@ -156,6 +157,21 @@ type EndpointBackendRef struct {
 	// match a request, the first one in the list gets it.
 	// +optional
 	Match *EndpointMatch `json:"match,omitempty"`
+
+	// Mirror sends this backend a copy of a share of the requests the Endpoint
+	// splits by weight, and discards its responses. Only a backend at weight 0
+	// without a match can be a mirror, so everything it receives is a copy.
+	// +optional
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
+}
+
+// EndpointMirror copies a share of requests to a backend.
+type EndpointMirror struct {
+	// Percent of the requests to copy, from 0 to 100.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	Percent int32 `json:"percent"`
 }
 
 // EndpointMatch is the set of conditions a request must all meet.
