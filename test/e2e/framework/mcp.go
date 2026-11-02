@@ -19,6 +19,11 @@ import (
 
 const mcpCallTimeout = 30 * time.Second
 
+// MCPProtocolVersion is the protocol version every e2e MCP session must
+// negotiate. The go-sdk client quietly falls back to the legacy initialize
+// handshake when server/discover fails, so NewMCPSession checks it.
+const MCPProtocolVersion = "2026-07-28"
+
 var httpClientWithTimeout = &http.Client{Timeout: mcpCallTimeout}
 
 // MCPClientConfig holds configuration for creating an MCP client session.
@@ -43,8 +48,9 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
-// NewMCPSession creates an MCP client session connected to the given endpoint.
-// The caller must close the returned session when done.
+// NewMCPSession creates an MCP client session connected to the given endpoint,
+// failing unless the session negotiated MCPProtocolVersion. The caller must
+// close the returned session when done.
 func NewMCPSession(ctx context.Context, cfg MCPClientConfig) (*mcp.ClientSession, error) {
 	endpoint := cfg.Endpoint
 	if len(cfg.Toolsets) > 0 || cfg.FilterByAuthz != nil {
@@ -86,7 +92,27 @@ func NewMCPSession(ctx context.Context, cfg MCPClientConfig) (*mcp.ClientSession
 		Version: "1.0.0",
 	}, nil)
 
-	return client.Connect(ctx, transport, nil)
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		return nil, err
+	}
+	if got := session.InitializeResult().ProtocolVersion; got != MCPProtocolVersion {
+		_ = session.Close()
+		return nil, fmt.Errorf("MCP session negotiated protocol %q, want %q", got, MCPProtocolVersion)
+	}
+	return session, nil
+}
+
+// ListMCPToolNamesFresh lists tools on a new session. The go-sdk client
+// caches tools/list for the server's ttlMs, so a session that already listed
+// does not see a change in the caller's permissions until that expires.
+func ListMCPToolNamesFresh(ctx context.Context, cfg MCPClientConfig) ([]string, error) {
+	session, err := NewMCPSession(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+	return ListMCPToolNames(session)
 }
 
 // ListMCPToolNames lists tools and returns just the tool names.
@@ -186,24 +212,82 @@ func extractTextContent(result *mcp.CallToolResult) string {
 	return ""
 }
 
-// MCPRawPOST sends a raw HTTP POST to the MCP endpoint without any token.
-// Useful for testing unauthenticated access (401 response).
-func MCPRawPOST(endpoint string) (int, http.Header, error) {
-	body := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","clientInfo":{"name":"e2e-test","version":"1.0.0"},"capabilities":{}}}`
+// MCPRawPOST sends a stateless tools/list request at protocolVersion straight
+// to the MCP endpoint, bypassing the go-sdk client's version negotiation. An
+// empty token sends no Authorization header, for testing the 401 path.
+func MCPRawPOST(endpoint, token, protocolVersion string) (int, http.Header, []byte, error) {
+	body := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{`+
+		`"io.modelcontextprotocol/protocolVersion":%q,`+
+		`"io.modelcontextprotocol/clientInfo":{"name":"e2e-test","version":"1.0.0"},`+
+		`"io.modelcontextprotocol/clientCapabilities":{}}}}`, protocolVersion)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, strings.NewReader(body))
 	if err != nil {
-		return 0, nil, fmt.Errorf("create request: %w", err)
+		return 0, nil, nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("MCP-Protocol-Version", protocolVersion)
+	req.Header.Set("Mcp-Method", "tools/list")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := httpClientWithTimeout.Do(req)
 	if err != nil {
-		return 0, nil, fmt.Errorf("request failed: %w", err)
+		return 0, nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	_, _ = io.ReadAll(resp.Body)
-	return resp.StatusCode, resp.Header, nil
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, nil, nil, fmt.Errorf("read response: %w", err)
+	}
+	return resp.StatusCode, resp.Header, respBody, nil
+}
+
+// ExpectUnsupportedProtocolVersionRejected sends an authenticated request at
+// a protocol version no server supports and asserts it is rejected with HTTP
+// 400 and UnsupportedProtocolVersionError (-32022) listing MCPProtocolVersion.
+func ExpectUnsupportedProtocolVersionRejected(endpoint, token string) {
+	const unsupported = "2099-01-01"
+	status, _, body, err := MCPRawPOST(endpoint, token, unsupported)
+	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred(), "raw POST should succeed at HTTP level")
+	gomega.ExpectWithOffset(1, status).To(gomega.Equal(http.StatusBadRequest),
+		"unsupported protocol version should return 400, body: %s", body)
+	rpcErr, err := ParseMCPError(body)
+	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+	gomega.ExpectWithOffset(1, rpcErr.Code).To(gomega.Equal(mcp.CodeUnsupportedProtocolVersion))
+	var data mcp.UnsupportedProtocolVersionData
+	gomega.ExpectWithOffset(1, json.Unmarshal(rpcErr.Data, &data)).To(gomega.Succeed())
+	gomega.ExpectWithOffset(1, data.Requested).To(gomega.Equal(unsupported))
+	gomega.ExpectWithOffset(1, data.Supported).To(gomega.ContainElement(MCPProtocolVersion))
+}
+
+// MCPError is the JSON-RPC error of a raw MCP response.
+type MCPError struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data"`
+}
+
+// ParseMCPError decodes the JSON-RPC error from a raw MCP response body,
+// whether it was sent as JSON or as an SSE event.
+func ParseMCPError(body []byte) (*MCPError, error) {
+	payload := body
+	for line := range strings.SplitSeq(string(body), "\n") {
+		if data, ok := strings.CutPrefix(line, "data: "); ok {
+			payload = []byte(data)
+		}
+	}
+	var message struct {
+		Error *MCPError `json:"error"`
+	}
+	if err := json.Unmarshal(payload, &message); err != nil {
+		return nil, fmt.Errorf("decode MCP response %q: %w", body, err)
+	}
+	if message.Error == nil {
+		return nil, fmt.Errorf("MCP response carries no error: %s", body)
+	}
+	return message.Error, nil
 }
 
 // FetchOAuth2Token requests an access token from the Thunder IdP using

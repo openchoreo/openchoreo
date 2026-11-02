@@ -16,17 +16,32 @@ import (
 	"testing"
 	"time"
 
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
+	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpserver"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
 // Exercise the production HTTP handlers and SDK, including context propagation.
 // These requests deliberately carry no session ID or shared client state.
 func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map[string]json.RawMessage {
+	t.Helper()
+	status, response := statelessPOST(t, h, query, version, body)
+	if status != http.StatusOK {
+		t.Fatalf("HTTP %d: %s", status, response)
+	}
+	return response
+}
+
+// statelessPOST is statelessRPC without the 200 check, returning the HTTP
+// status alongside the decoded JSON-RPC response.
+func statelessPOST(t *testing.T, h http.Handler, query, version, body string) (int, map[string]json.RawMessage) {
 	t.Helper()
 	var message struct {
 		Method string         `json:"method"`
@@ -35,7 +50,7 @@ func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map
 	if err := json.Unmarshal([]byte(body), &message); err != nil {
 		t.Fatal(err)
 	}
-	if version == "2026-07-28" {
+	if version >= "2026-07-28" {
 		message.Params["_meta"] = map[string]any{
 			"io.modelcontextprotocol/protocolVersion":    version,
 			"io.modelcontextprotocol/clientCapabilities": map[string]any{},
@@ -53,7 +68,7 @@ func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	req.Header.Set("MCP-Protocol-Version", version)
-	if version == "2026-07-28" {
+	if version >= "2026-07-28" {
 		req.Header.Set("Mcp-Method", message.Method)
 		if name, ok := message.Params["name"].(string); ok {
 			req.Header.Set("Mcp-Name", name)
@@ -61,9 +76,6 @@ func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("HTTP %d: %s", w.Code, w.Body.String())
-	}
 	if id := w.Header().Get("Mcp-Session-Id"); id != "" {
 		t.Fatalf("unexpected session ID: %q", id)
 	}
@@ -78,12 +90,18 @@ func statelessRPC(t *testing.T, h http.Handler, query, version, body string) map
 	}
 	var response map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(payload), &response); err != nil {
-		t.Fatalf("decode response: %v; body=%s", err, w.Body.String())
+		t.Fatalf("HTTP %d: decode response: %v; body=%s", w.Code, err, w.Body.String())
 	}
-	return response
+	return w.Code, response
 }
 
-func TestHTTPServersStatelessProtocols(t *testing.T) {
+// toolsOnlyCapabilities is the only capability set our MCP servers advertise.
+const toolsOnlyCapabilities = `{"tools":{}}`
+
+// newStatelessTestServers builds the API and observer MCP handlers through
+// their production constructors.
+func newStatelessTestServers(t *testing.T) map[string]http.Handler {
+	t.Helper()
 	api := newTestMCPHandler(t, &tools.Toolsets{ProjectToolset: &fakeProjectToolset{}}, nil,
 		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
 	observer, err := observermcp.NewHTTPServer(nil,
@@ -91,10 +109,146 @@ func TestHTTPServersStatelessProtocols(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, handler := range map[string]http.Handler{
-		"api":      api,
-		"observer": observer,
-	} {
+	return map[string]http.Handler{"api": api, "observer": observer}
+}
+
+func TestHTTPServersAdvertiseOnlyTools(t *testing.T) {
+	for name, handler := range newStatelessTestServers(t) {
+		t.Run(name, func(t *testing.T) {
+			discover := statelessRPC(t, handler, "", "2026-07-28",
+				`{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{}}`)
+			var discovery struct {
+				Meta         map[string]json.RawMessage `json:"_meta"`
+				Capabilities json.RawMessage            `json:"capabilities"`
+				CacheScope   string                     `json:"cacheScope"`
+			}
+			if err := json.Unmarshal(discover["result"], &discovery); err != nil {
+				t.Fatal(err)
+			}
+			if string(discovery.Capabilities) != toolsOnlyCapabilities {
+				t.Errorf("capabilities = %s, want %s", discovery.Capabilities, toolsOnlyCapabilities)
+			}
+			if discovery.CacheScope != mcpserver.CacheScopePrivate {
+				t.Errorf("cacheScope = %q, want private", discovery.CacheScope)
+			}
+			var serverInfo struct {
+				Version string `json:"version"`
+			}
+			if err := json.Unmarshal(discovery.Meta["io.modelcontextprotocol/serverInfo"], &serverInfo); err != nil {
+				t.Fatalf("serverInfo: %v; result=%s", err, discover["result"])
+			}
+			if serverInfo.Version != version.Get().Version {
+				t.Errorf("serverInfo.version = %q, want the build version %q", serverInfo.Version, version.Get().Version)
+			}
+
+			initialize := statelessRPC(t, handler, "", "2025-06-18",
+				`{"jsonrpc":"2.0","id":2,"method":"initialize","params":`+
+					`{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"legacy","version":"1"}}}`)
+			var initialized struct {
+				Capabilities json.RawMessage `json:"capabilities"`
+				ServerInfo   struct {
+					Version string `json:"version"`
+				} `json:"serverInfo"`
+			}
+			if err := json.Unmarshal(initialize["result"], &initialized); err != nil {
+				t.Fatal(err)
+			}
+			if string(initialized.Capabilities) != toolsOnlyCapabilities {
+				t.Errorf("initialize capabilities = %s, want %s", initialized.Capabilities, toolsOnlyCapabilities)
+			}
+			if initialized.ServerInfo.Version != version.Get().Version {
+				t.Errorf("initialize serverInfo.version = %q, want %q",
+					initialized.ServerInfo.Version, version.Get().Version)
+			}
+		})
+	}
+}
+
+func TestHTTPServersToolsListIsPrivatelyCacheable(t *testing.T) {
+	for name, handler := range newStatelessTestServers(t) {
+		t.Run(name, func(t *testing.T) {
+			response := statelessRPC(t, handler, "?filterByAuthz=false", "2026-07-28",
+				`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
+			var result struct {
+				TTLMs      int    `json:"ttlMs"`
+				CacheScope string `json:"cacheScope"`
+			}
+			if err := json.Unmarshal(response["result"], &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.CacheScope != mcpserver.CacheScopePrivate {
+				t.Errorf("cacheScope = %q, want private", result.CacheScope)
+			}
+			if want := int(mcpserver.ToolsListTTL.Milliseconds()); result.TTLMs != want {
+				t.Errorf("ttlMs = %d, want %d", result.TTLMs, want)
+			}
+		})
+	}
+}
+
+func TestHTTPServersRejectUnsupportedProtocolVersion(t *testing.T) {
+	const unsupported = "2099-01-01"
+	for name, handler := range newStatelessTestServers(t) {
+		t.Run(name, func(t *testing.T) {
+			status, response := statelessPOST(t, handler, "", unsupported,
+				`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
+			if status != http.StatusBadRequest {
+				t.Errorf("HTTP %d, want 400", status)
+			}
+			var rpcErr struct {
+				Code int                                   `json:"code"`
+				Data mcpsdk.UnsupportedProtocolVersionData `json:"data"`
+			}
+			if err := json.Unmarshal(response["error"], &rpcErr); err != nil {
+				t.Fatalf("error: %v; response=%s", err, response)
+			}
+			if rpcErr.Code != mcpsdk.CodeUnsupportedProtocolVersion {
+				t.Errorf("code = %d, want %d", rpcErr.Code, mcpsdk.CodeUnsupportedProtocolVersion)
+			}
+			if rpcErr.Data.Requested != unsupported || !slices.Contains(rpcErr.Data.Supported, "2026-07-28") {
+				t.Errorf("data = %+v, want requested %q and 2026-07-28 among supported", rpcErr.Data, unsupported)
+			}
+		})
+	}
+}
+
+func TestNewSTDIOProtocolSettings(t *testing.T) {
+	server := NewSTDIO(&tools.Toolsets{ProjectToolset: &fakeProjectToolset{}})
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	if _, err := server.Connect(t.Context(), serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	session, err := client.Connect(t.Context(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer session.Close()
+
+	initialized := session.InitializeResult()
+	caps, err := json.Marshal(initialized.Capabilities)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(caps) != toolsOnlyCapabilities {
+		t.Errorf("capabilities = %s, want %s", caps, toolsOnlyCapabilities)
+	}
+	if initialized.ServerInfo == nil || initialized.ServerInfo.Version != version.Get().Version {
+		t.Errorf("serverInfo = %+v, want the build version %q", initialized.ServerInfo, version.Get().Version)
+	}
+
+	list, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	if want := int(mcpserver.ToolsListTTL.Milliseconds()); list.CacheScope != mcpserver.CacheScopePrivate ||
+		list.TTLMs != want {
+		t.Errorf("cacheScope/ttlMs = %q/%d, want %q/%d", list.CacheScope, list.TTLMs, mcpserver.CacheScopePrivate, want)
+	}
+}
+
+func TestHTTPServersStatelessProtocols(t *testing.T) {
+	for name, handler := range newStatelessTestServers(t) {
 		t.Run(name, func(t *testing.T) {
 			discover := statelessRPC(t, handler, "", "2026-07-28",
 				`{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{}}`)
@@ -135,17 +289,7 @@ func TestHTTPServersStatelessProtocols(t *testing.T) {
 }
 
 func TestHTTPServersListenAcknowledgedThroughAuth401(t *testing.T) {
-	api := newTestMCPHandler(t, &tools.Toolsets{ProjectToolset: &fakeProjectToolset{}}, nil,
-		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
-	observer, err := observermcp.NewHTTPServer(nil,
-		mcpaudit.MiddlewareOptions{Emitter: newAuditTestEmitter(t, io.Discard)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for name, handler := range map[string]http.Handler{
-		"api":      api,
-		"observer": observer,
-	} {
+	for name, handler := range newStatelessTestServers(t) {
 		t.Run(name, func(t *testing.T) {
 			auth401 := mcpmiddleware.Auth401Interceptor("http://localhost/.well-known/oauth-protected-resource", nil)
 			srv := httptest.NewServer(auth401(handler))
