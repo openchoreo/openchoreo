@@ -44,6 +44,10 @@ const (
 	// The EndpointRelease is still cut; only the automatic deployment is blocked.
 	ReasonAutoDeployFailed controller.ConditionReason = "AutoDeployFailed"
 
+	// ReasonInvalidMatch indicates a backendRef's match is one the data planes
+	// cannot all express the same way.
+	ReasonInvalidMatch controller.ConditionReason = "InvalidMatch"
+
 	// ReasonFinalizing indicates the Endpoint is being finalized.
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )
