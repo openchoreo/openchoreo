@@ -154,8 +154,8 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 	dir := t.TempDir()
 	// Indexed resource files; their file names are the "correct" reference values.
 	refs := map[string]string{
-		"docker-gitops-release.yaml": "apiVersion: openchoreo.dev/v1alpha1\nkind: DeploymentPipeline\nmetadata:\n  name: docker-gitops-release\n",
-		"standard.yaml":              "apiVersion: openchoreo.dev/v1alpha1\nkind: Workflow\nmetadata:\n  name: standard\n",
+		"docker-gitops-release.yaml": "apiVersion: openchoreo.dev/v1alpha1\nkind: Workflow\nmetadata:\n  name: docker-gitops-release\n",
+		"standard.yaml":              "apiVersion: openchoreo.dev/v1alpha1\nkind: DeploymentPipeline\nmetadata:\n  name: standard\n",
 	}
 	for name, content := range refs {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
@@ -165,7 +165,7 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 
 	s := indexServer(t, dir)
 
-	uri := "file:///p.yaml"
+	uri := fileURI(filepath.Join(dir, "p.yaml"))
 	// Reference `name` fields at different nesting points are misspelt; the
 	// document's own `metadata.name` (line 3) must NOT be "fixed".
 	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Project\nmetadata:\n  name: p1\nspec:\n  allowedWorkflows:\n    - kind: Workflow\n      name: docker-gitopsdd-release\n  deploymentPipelineRef:\n    name: standrd\n"
@@ -258,7 +258,7 @@ func TestCodeActionFileNameRefAllowedTraitsAndWorkflows(t *testing.T) {
 
 	s := indexServer(t, dir)
 
-	uri := "file:///dp.yaml"
+	uri := fileURI(filepath.Join(dir, "dp.yaml"))
 	// Mirrors the user's reported scenario: a `name` typo inside an
 	// allowedTraits item (plain `name`) and a `name` typo inside an
 	// allowedWorkflows item (with a sibling `kind`).
@@ -317,7 +317,7 @@ func TestCodeActionFileNameRefMatchesMetadataName(t *testing.T) {
 
 	s := indexServer(t, dir)
 
-	uri := "file:///dp.yaml"
+	uri := fileURI(filepath.Join(dir, "dp.yaml"))
 	text := "apiVersion: openchoreo.dev/v1alpha1\n" +
 		"kind: DeploymentPipeline\n" +
 		"metadata:\n" +

@@ -61,7 +61,7 @@ func (s *Server) diagnosticsForCached(uri, text string) []protocol.Diagnostic {
 		// rule-engine result, recompute only the reference diagnostics.
 		s.cacheHits++
 		if entry.docs != nil {
-			entry.refDiags = codeaction.FileNameRefDiagnosticsDocs(entry.docs, s.indexer.ResourceNames(), s.indexer.FileNames())
+			entry.refDiags = codeaction.FileNameRefDiagnosticsDocs(entry.docs, s.indexer.ResourceNames(), s.indexer.FileNames(), codeaction.ReferenceScope{Index: s.indexer, URI: uri})
 			entry.combined = combineDiagnostics(entry.validationDiags, entry.refDiags)
 		}
 		entry.indexVer = indexVer
@@ -70,7 +70,7 @@ func (s *Server) diagnosticsForCached(uri, text string) []protocol.Diagnostic {
 
 	s.cacheMisses++
 
-	rebuilt := s.computeValidation(text, indexVer)
+	rebuilt := s.computeValidation(uri, text, indexVer)
 	s.cache[uri] = rebuilt
 	return rebuilt.combined
 }
@@ -92,7 +92,7 @@ func (s *Server) deleteValidationEntry(uri string) {
 
 // computeValidation parses and validates a document from scratch. It returns a
 // fully populated entry that the caller stores under cacheMu.
-func (s *Server) computeValidation(text string, indexVer uint64) *validationEntry {
+func (s *Server) computeValidation(uri, text string, indexVer uint64) *validationEntry {
 	if !parser.HasOpenChoreoAPIVersion([]byte(text)) {
 		return &validationEntry{
 			text:     text,
@@ -111,7 +111,7 @@ func (s *Server) computeValidation(text string, indexVer uint64) *validationEntr
 	}
 
 	validationDiags := validateDocs(docs)
-	refDiags := codeaction.FileNameRefDiagnosticsDocs(docs, s.indexer.ResourceNames(), s.indexer.FileNames())
+	refDiags := codeaction.FileNameRefDiagnosticsDocs(docs, s.indexer.ResourceNames(), s.indexer.FileNames(), codeaction.ReferenceScope{Index: s.indexer, URI: uri})
 
 	return &validationEntry{
 		text:            text,

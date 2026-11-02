@@ -157,6 +157,7 @@ func (s *Server) debounceWatch(path string) {
 func (s *Server) processWatchChange(path string) {
 	s.invalidatePostRenderForEdit(fileToURI(path))
 	if s.updateIndexedFile(path) {
+		go s.triggerPreRenderSchemaValidationForPath(path)
 		s.revalidateOpenDocumentsAfterWatch()
 	}
 }

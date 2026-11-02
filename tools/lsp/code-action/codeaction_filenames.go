@@ -5,6 +5,7 @@ package codeaction
 
 import (
 	"fmt"
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"strings"
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
@@ -20,7 +21,7 @@ import (
 // when `docker-gitops-release` is a resource name -> `Change name to
 // "docker-gitops-release"`). resourceNames is the authoritative set of
 // `metadata.name` values that a reference can resolve to.
-func fileNameRefFixes(uri, text string, clientDiags []protocol.Diagnostic, requestRange protocol.Range, resourceNames, pool []string) []protocol.CodeAction {
+func fileNameRefFixes(uri, text string, clientDiags []protocol.Diagnostic, requestRange protocol.Range, resourceNames, pool []string, scopes ...ReferenceScope) []protocol.CodeAction {
 	if len(pool) == 0 {
 		return nil
 	}
@@ -36,7 +37,8 @@ func fileNameRefFixes(uri, text string, clientDiags []protocol.Diagnostic, reque
 			continue
 		}
 		walkNameValues(doc.Root, func(valNode *yaml.Node) {
-			best, ok := mostMatchingFileName(valNode.Value, resourceNames, pool)
+			names, candidates := referencePool(doc, valNode, resourceNames, pool, scopes)
+			best, ok := mostMatchingFileName(valNode.Value, names, candidates)
 			if !ok {
 				return
 			}
@@ -78,7 +80,7 @@ func FileNameRefDiagnostics(text string, resourceNames, pool []string) []protoco
 // is the authoritative set of `metadata.name` values a reference can resolve
 // to; pool adds file basenames so a resource whose file name differs from its
 // metadata.name still receives a "did you mean" suggestion.
-func FileNameRefDiagnosticsDocs(docs []*parser.DocumentNode, resourceNames, pool []string) []protocol.Diagnostic {
+func FileNameRefDiagnosticsDocs(docs []*parser.DocumentNode, resourceNames, pool []string, scopes ...ReferenceScope) []protocol.Diagnostic {
 	if len(pool) == 0 {
 		return nil
 	}
@@ -89,7 +91,8 @@ func FileNameRefDiagnosticsDocs(docs []*parser.DocumentNode, resourceNames, pool
 			continue
 		}
 		walkNameValues(doc.Root, func(valNode *yaml.Node) {
-			if best, ok := mostMatchingFileName(valNode.Value, resourceNames, pool); ok {
+			names, candidates := referencePool(doc, valNode, resourceNames, pool, scopes)
+			if best, ok := mostMatchingFileName(valNode.Value, names, candidates); ok {
 				severity := protocol.DiagnosticSeverity(2)
 				out = append(out, protocol.Diagnostic{
 					Range:    scalarRange(valNode),
@@ -142,6 +145,15 @@ func walkNameValues(root *yaml.Node, fn func(n *yaml.Node)) {
 // may outlive the resource, e.g. after a metadata.name edit) is still an
 // unresolved reference and is flagged.
 func mostMatchingFileName(current string, resourceNames, pool []string) (string, bool) {
+	for _, prefix := range []string{"deployment/", "statefulset/", "cronjob/", "job/", "proxy/"} {
+		if strings.HasPrefix(current, prefix) {
+			best, ok := mostMatchingFileName(strings.TrimPrefix(current, prefix), resourceNames, pool)
+			if ok {
+				return prefix + best, true
+			}
+			return "", false
+		}
+	}
 	if current == "" {
 		return "", false
 	}
@@ -168,4 +180,42 @@ func scalarRange(n *yaml.Node) protocol.Range {
 		Start: protocol.Position{Line: li, Character: start},
 		End:   protocol.Position{Line: li, Character: start + protocol.UInteger(utf16Len(n.Value))},
 	}
+}
+
+type ReferenceScope struct {
+	Index *indexer.Indexer
+	URI   string
+}
+
+func referencePool(doc *parser.DocumentNode, node *yaml.Node, names, pool []string, scopes []ReferenceScope) ([]string, []string) {
+	if len(scopes) == 0 || scopes[0].Index == nil {
+		return names, pool
+	}
+	parent, _ := lsputil.FindParentMappingAndKey(doc.Root, node)
+	kindNode := lsputil.FindSiblingKey(parent, "kind")
+	kind := ""
+	if kindNode != nil {
+		kind = kindNode.Value
+	}
+	if kind == "" {
+		_, field := lsputil.FindParentMappingAndKey(doc.Root, parent)
+		if field == "componentType" {
+			kind = "ComponentType"
+		}
+	}
+	if kind == "" {
+		return names, pool
+	}
+	var candidates []string
+	for _, entry := range scopes[0].Index.Snapshot(scopes[0].URI) {
+		d := entry.Document
+		if d.Kind != kind {
+			continue
+		}
+		if !strings.HasPrefix(kind, "Cluster") && indexer.NamespaceOrDefault(d.Metadata.Namespace) != indexer.NamespaceOrDefault(doc.Metadata.Namespace) {
+			continue
+		}
+		candidates = append(candidates, d.Metadata.Name)
+	}
+	return candidates, candidates
 }

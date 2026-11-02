@@ -5,6 +5,7 @@ package schemavalidator
 
 import (
 	"encoding/json"
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"strings"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -147,6 +148,9 @@ func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.Component
 		var match *v1alpha1.ClusterComponentType
 		for i := range idx.clusterComponentTypes {
 			candidate := &idx.clusterComponentTypes[i].doc
+			if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && string(candidate.Spec.WorkloadType) != "" && string(candidate.Spec.WorkloadType) != prefix {
+				continue
+			}
 			if candidate.Name == name {
 				if match != nil {
 					return nil, nil
@@ -159,11 +163,14 @@ func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.Component
 	if kind != "ComponentType" {
 		return nil, nil
 	}
-	ns := comp.obj.Namespace
+	ns := indexer.NamespaceOrDefault(comp.obj.Namespace)
 	var match *v1alpha1.ComponentType
 	for i := range idx.componentTypes {
 		candidate := &idx.componentTypes[i].doc
-		if candidate.Name == name && candidate.Namespace == ns {
+		if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && string(candidate.Spec.WorkloadType) != "" && string(candidate.Spec.WorkloadType) != prefix {
+			continue
+		}
+		if candidate.Name == name && indexer.NamespaceOrDefault(candidate.Namespace) == ns {
 			if match != nil {
 				return nil, nil
 			}
@@ -199,10 +206,11 @@ func (idx *index) resolveTrait(file string, doc *parser.DocumentNode, trait comp
 	if doc != nil {
 		ns = doc.Metadata.Namespace
 	}
+	ns = indexer.NamespaceOrDefault(ns)
 	var match *v1alpha1.Trait
 	for i := range idx.traits {
 		candidate := &idx.traits[i].doc
-		if candidate.Name == name && candidate.Namespace == ns {
+		if candidate.Name == name && indexer.NamespaceOrDefault(candidate.Namespace) == ns {
 			if match != nil {
 				return nil, nil
 			}

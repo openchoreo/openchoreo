@@ -5,6 +5,7 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,9 +22,17 @@ const preRenderPreRenderSchemaValidationSource = "openchoreo-schema"
 func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 	s.preRenderRunMu.Lock()
 	defer s.preRenderRunMu.Unlock()
+	revision := s.indexer.Version()
 	overlays := make(map[string]string)
 	for _, doc := range s.snapshotOpenDocuments() {
 		overlays[filepath.Clean(fileURIToPath(doc.URI))] = doc.Text
+	}
+	indexed := map[string][]*parser.DocumentNode{}
+	if len(files) > 0 {
+		for _, entry := range s.indexer.Snapshot(pathToDocumentURI(files[0])) {
+			p := filepath.Clean(fileURIToPath(entry.URI))
+			indexed[p] = append(indexed[p], entry.Document)
+		}
 	}
 	var resources []prerendervalidator.Resource
 	seen := make(map[string]bool)
@@ -33,6 +42,12 @@ func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 			continue
 		}
 		seen[path] = true
+		if _, open := overlays[path]; !open && len(indexed[path]) > 0 {
+			for _, doc := range indexed[path] {
+				resources = append(resources, prerendervalidator.Resource{Path: path, Document: doc})
+			}
+			continue
+		}
 		text, open := overlays[path]
 		if !open {
 			data, err := os.ReadFile(path)
@@ -49,7 +64,26 @@ func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 			resources = append(resources, prerendervalidator.Resource{Path: path, Document: doc})
 		}
 	}
+	if len(files) > 0 {
+		seenDocs := map[string]bool{}
+		for _, r := range resources {
+			seenDocs[fmt.Sprintf("%s:%d", filepath.Clean(r.Path), r.Document.DocumentIndex)] = true
+		}
+		for _, entry := range s.indexer.Snapshot(pathToDocumentURI(files[0])) {
+			p := filepath.Clean(fileURIToPath(entry.URI))
+			if _, open := overlays[p]; open {
+				continue
+			}
+			key := fmt.Sprintf("%s:%d", p, entry.Document.DocumentIndex)
+			if !seenDocs[key] {
+				resources = append(resources, prerendervalidator.Resource{Path: p, Document: entry.Document})
+			}
+		}
+	}
 	findings := prerendervalidator.ValidateDocuments(context.Background(), resources)
+	if s.indexer.Version() != revision {
+		return
+	}
 	if len(findings) == 0 {
 		s.clearSchemaFindings(files)
 		return
@@ -177,8 +211,14 @@ func (s *Server) mergeSchemaDiagnostics(uri string, diags []protocol.Diagnostic)
 
 func (s *Server) triggerPreRenderSchemaValidationForPath(path string) {
 	dir := filepath.Dir(path)
-	// Keep independent projects under a larger workspace isolated, matching
-	// the existing directory-based CLI validation scope.
+	for _, root := range s.workspaceRoots {
+		if projectContains(root, path) {
+			dir = root
+			break
+		}
+	}
+
+	// Use the containing workspace so sibling platform definitions are available.
 	files, err := parser.CollectYAMLFiles(dir, true)
 	if err != nil {
 		return

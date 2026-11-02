@@ -17,7 +17,7 @@ import (
 // the authoritative diagnostics recomputed by the server (Validate). resourceNames
 // is the authoritative set of resource metadata.names; pool adds indexed file
 // basenames, both used by the file-name reference fixes.
-func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange protocol.Range, serverDiags []protocol.Diagnostic, resourceNames, pool []string) []protocol.CodeAction {
+func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange protocol.Range, serverDiags []protocol.Diagnostic, resourceNames, pool []string, scopes ...ReferenceScope) []protocol.CodeAction {
 	// Use the client-reported diagnostics to pick which ranges the user is
 	// looking at, then recompute the authoritative codes from the document.
 	var actions []protocol.CodeAction
@@ -51,7 +51,7 @@ func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange pr
 
 	// Resource file name fixes: correct a misspelt `name` value to the
 	// most-matching resource name from the indexed list.
-	actions = append(actions, fileNameRefFixes(uri, text, clientDiags, requestRange, resourceNames, pool)...)
+	actions = append(actions, fileNameRefFixes(uri, text, clientDiags, requestRange, resourceNames, pool, scopes...)...)
 
 	if actions == nil {
 		actions = []protocol.CodeAction{}

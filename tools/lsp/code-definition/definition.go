@@ -40,7 +40,10 @@ func Handle(docText string, cursorLine, cursorCol int, sourceURI string, idx Kin
 		return nil
 	}
 
-	document := docs[0]
+	document := parser.DocumentForPosition(docs, cursorLine, cursorCol)
+	if document == nil {
+		return nil
+	}
 
 	// Find the scalar node at cursor position
 	node := lsputil.FindNodeAtPosition(document.Root, cursorLine, cursorCol)
@@ -113,6 +116,15 @@ func Handle(docText string, cursorLine, cursorCol int, sourceURI string, idx Kin
 			return sameProjectLocations(sourceURI, toLSPLocations(locations))
 		}
 
+		if scoped, ok := idx.(interface {
+			FindScopedDefinition(string, string, string, string) []indexer.Location
+		}); ok {
+			locations := scoped.FindScopedDefinition(kind, document.Metadata.Namespace, name, sourceURI)
+			if scopedRoot, ok := idx.(interface{ HasWorkspace(string) bool }); ok && scopedRoot.HasWorkspace(sourceURI) {
+				return toLSPLocations(locations)
+			}
+			return sameProjectLocations(sourceURI, toLSPLocations(locations))
+		}
 		locations := idx.FindDefinition(kind, name)
 		return sameProjectLocations(sourceURI, toLSPLocations(locations))
 	}

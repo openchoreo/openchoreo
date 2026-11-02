@@ -271,6 +271,8 @@ func (s *Server) DidClose(
 	// its old name in the index. Files that still exist on disk are untouched.
 	if _, err := os.Stat(fileURIToPath(uri)); err != nil {
 		s.indexer.RemoveFile(uri)
+	} else {
+		s.updateIndexedFile(fileURIToPath(uri))
 	}
 
 	// Closing may have removed resource names other open documents reference.

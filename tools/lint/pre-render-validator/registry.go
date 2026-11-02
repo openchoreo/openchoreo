@@ -6,6 +6,7 @@ package schemavalidator
 import (
 	"context"
 	"fmt"
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"sort"
 	"strings"
@@ -24,7 +25,12 @@ type ResourceKey struct{ APIVersion, Kind, Namespace, Name string }
 type ValidationContext struct{ Resources map[ResourceKey][]Resource }
 
 // Resolve returns every candidate: callers must not select an ambiguous match.
-func (c *ValidationContext) Resolve(key ResourceKey) []Resource { return c.Resources[key] }
+func (c *ValidationContext) Resolve(key ResourceKey) []Resource {
+	if !strings.HasPrefix(key.Kind, "Cluster") {
+		key.Namespace = indexer.NamespaceOrDefault(key.Namespace)
+	}
+	return c.Resources[key]
+}
 
 // Validator can serve multiple kinds; multiple validators may serve one kind.
 type Validator interface {
@@ -51,7 +57,7 @@ func ValidateDocuments(ctx context.Context, resources []Resource, validators ...
 		}
 		seen[identity] = true
 		unique = append(unique, r)
-		namespace := d.Metadata.Namespace
+		namespace := indexer.NamespaceOrDefault(d.Metadata.Namespace)
 		if strings.HasPrefix(d.Kind, "Cluster") {
 			namespace = ""
 		}

@@ -29,10 +29,13 @@ type Location struct {
 
 // Indexer maintains an in-memory index of all resources in the workspace.
 type Indexer struct {
-	mu        sync.RWMutex
-	index     map[ResourceKey][]Location // kind/name → locations
-	fileIndex map[string][]ResourceKey   // file URI → resources in that file
-	rootDirs  []string
+	mu                sync.RWMutex
+	contents          map[string][]byte
+	snapshotVersion   uint64
+	snapshotDocuments []SnapshotDocument
+	index             map[ResourceKey][]Location // kind/name → locations
+	fileIndex         map[string][]ResourceKey   // file URI → resources in that file
+	rootDirs          []string
 	// version is a monotonic counter bumped on every mutation. Consumers can
 	// use it as a fingerprint to invalidate derived state that depends on the
 	// index (e.g. reference checks against FileNames).
@@ -80,6 +83,7 @@ func (idx *Indexer) IndexWorkspacesWithProgress(roots []string, onProgress func(
 		return err
 	}
 
+	newContents := make(map[string][]byte)
 	newIndex := make(map[ResourceKey][]Location)
 	newFileIndex := make(map[string][]ResourceKey)
 
@@ -94,7 +98,12 @@ func (idx *Indexer) IndexWorkspacesWithProgress(roots []string, onProgress func(
 			}
 
 			uri := pathToFileURI(path)
-			resources, err := scanYAMLFile(path)
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return nil
+			}
+			newContents[uri] = data
+			resources, err := scanYAMLBytes(data)
 			if err != nil {
 				return nil // skip unparseable files
 			}
@@ -123,6 +132,7 @@ func (idx *Indexer) IndexWorkspacesWithProgress(roots []string, onProgress func(
 	}
 
 	idx.mu.Lock()
+	idx.contents = newContents
 	idx.rootDirs = roots
 	idx.index = newIndex
 	idx.fileIndex = newFileIndex
@@ -167,6 +177,10 @@ func countYAMLFiles(roots []string) (int, error) {
 func (idx *Indexer) UpdateFile(uri string, content []byte) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
+	if idx.contents == nil {
+		idx.contents = map[string][]byte{}
+	}
+	idx.contents[uri] = append([]byte(nil), content...)
 
 	// Remove old entries for this file
 	if oldKeys, ok := idx.fileIndex[uri]; ok {
@@ -183,6 +197,8 @@ func (idx *Indexer) UpdateFile(uri string, content []byte) error {
 		}
 		delete(idx.fileIndex, uri)
 	}
+
+	idx.version++
 
 	// Parse and index new content
 	resources, err := scanYAMLBytes(content)
@@ -201,8 +217,6 @@ func (idx *Indexer) UpdateFile(uri string, content []byte) error {
 		idx.fileIndex[uri] = append(idx.fileIndex[uri], key)
 	}
 
-	idx.version++
-
 	return nil
 }
 
@@ -210,6 +224,7 @@ func (idx *Indexer) UpdateFile(uri string, content []byte) error {
 func (idx *Indexer) RemoveFile(uri string) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
+	delete(idx.contents, uri)
 
 	if oldKeys, ok := idx.fileIndex[uri]; ok {
 		for _, key := range oldKeys {

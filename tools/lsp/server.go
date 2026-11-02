@@ -278,7 +278,7 @@ func (s *Server) CodeAction(context *glsp.Context, params *protocol.CodeActionPa
 		fileNames = s.indexer.FileNames()
 	}
 
-	actions := codeaction.Handle(uri, doc.Text, params.Context.Diagnostics, params.Range, s.diagnosticsForCached(uri, doc.Text), resourceNames, fileNames)
+	actions := codeaction.Handle(uri, doc.Text, params.Context.Diagnostics, params.Range, s.diagnosticsForCached(uri, doc.Text), resourceNames, fileNames, codeaction.ReferenceScope{Index: s.indexer, URI: uri})
 	return actions, nil
 }
 

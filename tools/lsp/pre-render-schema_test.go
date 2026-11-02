@@ -52,7 +52,7 @@ spec:
 	if err := os.MkdirAll(other, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(other, "type.yaml"), []byte(definition), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(other, "type.yaml"), []byte(strings.Replace(definition, "namespace: default", "namespace: other", 1)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	s := NewServer()
