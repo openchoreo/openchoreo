@@ -44,9 +44,9 @@ const (
 	externalSecretPollInterval = 30 * time.Second
 
 	// planeConfigPollInterval is how often a channel is reconciled while its secret references fail
-	// on the observability plane's configuration or contents (no secretStoreRef, a SecretReference that
-	// targets another plane, or an ExternalSecret this controller didn't create in the way). Neither
-	// planes nor the resources on them are watched, so a fix is only noticed by polling.
+	// on the observability plane's configuration or contents (no secretStoreRef, or an ExternalSecret
+	// this controller didn't create in the way). Neither planes nor the resources on them are
+	// watched, so a fix is only noticed by polling.
 	planeConfigPollInterval = 2 * time.Minute
 
 	// externalSecretRecheckInterval is how often a channel whose ExternalSecret has synced is reconciled
@@ -192,8 +192,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 			logger.Error(err, "Failed to delete the ExternalSecret of a channel with invalid secret references")
 			return ctrl.Result{}, err
 		}
-		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable ||
-			invalid.reason == ReasonExternalSecretConflict {
+		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonExternalSecretConflict {
 			// These depend on the observability plane, which is not watched, so poll for a fix.
 			return ctrl.Result{RequeueAfter: planeConfigPollInterval}, nil
 		}
