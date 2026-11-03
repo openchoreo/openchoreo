@@ -19,6 +19,8 @@ import (
 const (
 	openchoreoAPIVersion          = "openchoreo.dev/v1alpha1"
 	namespaceAPIVersion           = "v1"
+	KindClusterProjectType        = "ClusterProjectType"
+	KindClusterResourceType       = "ClusterResourceType"
 	KindClusterComponentType      = "ClusterComponentType"
 	KindClusterTrait              = "ClusterTrait"
 	KindClusterWorkflow           = "ClusterWorkflow"
@@ -33,6 +35,8 @@ const (
 	KindWorkflowPlane             = "WorkflowPlane"
 	KindObservabilityPlane        = "ObservabilityPlane"
 	KindComponentType             = "ComponentType"
+	KindProjectType               = "ProjectType"
+	KindResourceType              = "ResourceType"
 	KindTrait                     = "Trait"
 	KindWorkflow                  = "Workflow"
 	KindAuthzRole                 = "AuthzRole"
@@ -40,6 +44,11 @@ const (
 	KindSecretReference           = "SecretReference"
 	KindComponentRelease          = "ComponentRelease"
 	KindReleaseBinding            = "ReleaseBinding"
+	KindProjectRelease            = "ProjectRelease"
+	KindProjectReleaseBinding     = "ProjectReleaseBinding"
+	KindResource                  = "Resource"
+	KindResourceRelease           = "ResourceRelease"
+	KindResourceReleaseBinding    = "ResourceReleaseBinding"
 )
 
 // Options configures one export run.
@@ -56,7 +65,6 @@ type Report struct {
 	Exported        int
 	ExportedByKind  map[string]int
 	SecretDecisions []SecretDecision
-	Unsupported     []string
 }
 
 // Withheld describes the locations of credential-like values without storing
@@ -75,8 +83,7 @@ type SecretDecision struct {
 	Action string
 }
 
-// runEngine exports namespaces, projects, components, and workloads returned
-// by the Control Plane API.
+// runEngine exports declarative configuration returned by the Control Plane API.
 func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, error) {
 	if strings.TrimSpace(opts.OutputDir) == "" {
 		return nil, fmt.Errorf("output directory is required (use -o <path>)")
@@ -150,6 +157,11 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 				kind: "Project", name: projectName, namespace: namespaceName, project: projectName,
 				path: path.Join(projectDir, "project.yaml"), object: projectObject,
 			})
+			projectResources, err := collectProjectResources(ctx, c, namespaceName, projectName, projectDir)
+			if err != nil {
+				return nil, fmt.Errorf("project %q in namespace %q (nothing was written): %w", projectName, namespaceName, err)
+			}
+			resources = append(resources, projectResources...)
 
 			components, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
 				params := &gen.ListComponentsParams{Limit: &limit, Project: &projectName}
@@ -219,73 +231,17 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 					})
 				}
 
-				bindings, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ReleaseBinding, string, error) {
-					params := &gen.ListReleaseBindingsParams{Limit: &limit, Component: &componentName}
-					if cursor != "" {
-						params.Cursor = &cursor
-					}
-					result, err := c.ListReleaseBindings(ctx, namespaceName, params)
-					if err != nil {
-						return nil, "", err
-					}
-					return result.Items, nextCursor(result.Pagination), nil
-				})
+				releases, err := collectComponentReleases(ctx, c, namespaceName, projectName, componentName, componentDir)
 				if err != nil {
-					return nil, fmt.Errorf("component %q in namespace %q: list release bindings (nothing was written): %w", componentName, namespaceName, err)
+					return nil, fmt.Errorf("component %q in namespace %q (nothing was written): %w", componentName, namespaceName, err)
 				}
-				seenReleases := map[string]bool{}
-				for _, binding := range bindings {
-					bindingName := binding.Metadata.Name
-					if err := validName("release binding", bindingName); err != nil {
-						return nil, err
-					}
-					if binding.Spec == nil || binding.Spec.Owner.ComponentName != componentName || binding.Spec.Owner.ProjectName != projectName {
-						return nil, fmt.Errorf("release binding %q in namespace %q has an invalid owner", bindingName, namespaceName)
-					}
-					bindingObject, err := normalizeObject(binding, KindReleaseBinding, namespaceName)
-					if err != nil {
-						return nil, fmt.Errorf("release binding %q in namespace %q: %w", bindingName, namespaceName, err)
-					}
-					resources = append(resources, resource{
-						kind: KindReleaseBinding, name: bindingName, namespace: namespaceName, project: projectName,
-						path: path.Join(componentDir, "release-bindings", bindingName+".yaml"), object: bindingObject,
-					})
-					if binding.Spec.ReleaseName == nil || *binding.Spec.ReleaseName == "" || seenReleases[*binding.Spec.ReleaseName] {
-						continue
-					}
-					releaseName := *binding.Spec.ReleaseName
-					if err := validName("component release", releaseName); err != nil {
-						return nil, err
-					}
-					seenReleases[releaseName] = true
-					release, err := c.GetComponentRelease(ctx, namespaceName, releaseName)
-					if err != nil {
-						return nil, fmt.Errorf("get component release %q referenced by binding %q: %w", releaseName, bindingName, err)
-					}
-					if release == nil || release.Spec == nil || release.Spec.Owner.ComponentName != componentName || release.Spec.Owner.ProjectName != projectName {
-						return nil, fmt.Errorf("component release %q referenced by binding %q has an invalid owner", releaseName, bindingName)
-					}
-					releaseObject, err := normalizeObject(*release, KindComponentRelease, namespaceName)
-					if err != nil {
-						return nil, fmt.Errorf("component release %q: %w", releaseName, err)
-					}
-					resources = append(resources, resource{
-						kind: KindComponentRelease, name: releaseName, namespace: namespaceName, project: projectName,
-						path: path.Join(componentDir, "releases", releaseName+".yaml"), object: releaseObject,
-					})
-				}
+				resources = append(resources, releases...)
 			}
 		}
 	}
 
 	sort.Slice(resources, func(i, j int) bool { return resources[i].path < resources[j].path })
 	report := &Report{
-		Unsupported: []string{
-			"ProjectRelease and ProjectReleaseBinding (not present in the supplied directory tree)",
-			"Resource, ResourceRelease, and ResourceReleaseBinding (not present in the supplied directory tree)",
-			"ClusterResourceType and ClusterProjectType (no destination folders in the supplied directory tree)",
-			"Argo ClusterWorkflowTemplate (not exposed by the OpenChoreo API)",
-		},
 		ExportedByKind: map[string]int{},
 	}
 	var safe []resource

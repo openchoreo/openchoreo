@@ -41,6 +41,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 	mockClient := mocks.NewMockInterface(t)
 	expectNoClusterResources(mockClient)
 	expectNoNamespacePlatformResources(mockClient)
+	expectNoProjectResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
 	}, nil)
@@ -59,6 +60,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 			}{ComponentName: "api", ProjectName: "shop"}},
 		}},
 	}, nil)
+	mockClient.EXPECT().ListComponentReleases(mock.Anything, "acme", mock.Anything).Return(&gen.ComponentReleaseList{}, nil)
 	mockClient.EXPECT().ListReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 
 	report, err := runEngine(context.Background(), mockClient, Options{OutputDir: root})
@@ -66,7 +68,6 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 	assert.Equal(t, 4, report.Created)
 	assert.Equal(t, 4, report.Exported)
 	assert.Equal(t, map[string]int{"Namespace": 1, "Project": 1, "Component": 1, "Workload": 1}, report.ExportedByKind)
-	assert.NotEmpty(t, report.Unsupported)
 
 	namespaceObject := readManifest(t, root, "namespaces/acme/namespace.yaml")
 	assert.Equal(t, "v1", namespaceObject["apiVersion"])
@@ -137,11 +138,12 @@ func TestRun_UpdatesExistingComponentFile(t *testing.T) {
 	assert.Contains(t, string(data), "two")
 }
 
-func TestRun_ExportsReleaseBindingsAndReferencedReleases(t *testing.T) {
+func TestRun_ExportsReleaseBindingsAndAllComponentReleases(t *testing.T) {
 	root := t.TempDir()
 	mockClient := mocks.NewMockInterface(t)
 	expectNoClusterResources(mockClient)
 	expectNoNamespacePlatformResources(mockClient)
+	expectNoProjectResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
 	}, nil)
@@ -165,19 +167,31 @@ func TestRun_ExportsReleaseBindingsAndReferencedReleases(t *testing.T) {
 			},
 		}},
 	}, nil)
-	mockClient.EXPECT().GetComponentRelease(mock.Anything, "acme", "api-release-1").Return(&gen.ComponentRelease{
-		Metadata: gen.ObjectMeta{Name: "api-release-1"},
-		Spec: &gen.ComponentReleaseSpec{Owner: struct {
-			ComponentName string `json:"componentName"`
-			ProjectName   string `json:"projectName"`
-		}{ComponentName: "api", ProjectName: "shop"}},
-	}, nil)
+	spec := &gen.ComponentReleaseSpec{}
+	spec.Owner.ProjectName = "shop"
+	spec.Owner.ComponentName = "api"
+	mockClient.EXPECT().ListComponentReleases(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListComponentReleasesParams) (*gen.ComponentReleaseList, error) {
+			require.Equal(t, "api", *p.Component)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ComponentReleaseList{
+					Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "api-release-1"}, Spec: spec}},
+					Pagination: gen.Pagination{NextCursor: stringPointer("next-release")},
+				}, nil
+			}
+			require.Equal(t, "next-release", *p.Cursor)
+			return &gen.ComponentReleaseList{
+				Items: []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "api-unbound"}, Spec: spec}},
+			}, nil
+		}).Twice()
 
 	report, err := runEngine(context.Background(), mockClient, Options{OutputDir: root})
 	require.NoError(t, err)
-	assert.Equal(t, 5, report.Exported)
+	assert.Equal(t, 6, report.Exported)
 	assert.Equal(t, "ReleaseBinding", readManifest(t, root, "namespaces/acme/projects/shop/components/api/release-bindings/api-dev.yaml")["kind"])
 	assert.Equal(t, "ComponentRelease", readManifest(t, root, "namespaces/acme/projects/shop/components/api/releases/api-release-1.yaml")["kind"])
+	assert.Equal(t, "ComponentRelease", readManifest(t, root, "namespaces/acme/projects/shop/components/api/releases/api-unbound.yaml")["kind"])
 }
 
 func TestRun_StripsPlaintextSecretByDefault(t *testing.T) {
@@ -267,6 +281,7 @@ func mockComponentClient(t *testing.T, envKey, envValue string) *mocks.MockInter
 	mockClient := mocks.NewMockInterface(t)
 	expectNoClusterResources(mockClient)
 	expectNoNamespacePlatformResources(mockClient)
+	expectNoProjectResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
 	}, nil)
@@ -277,6 +292,7 @@ func mockComponentClient(t *testing.T, envKey, envValue string) *mocks.MockInter
 		Items: []gen.Component{component},
 	}, nil)
 	mockClient.EXPECT().ListWorkloads(mock.Anything, "acme", mock.Anything).Return(&gen.WorkloadList{}, nil)
+	mockClient.EXPECT().ListComponentReleases(mock.Anything, "acme", mock.Anything).Return(&gen.ComponentReleaseList{}, nil)
 	mockClient.EXPECT().ListReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
 	return mockClient
 }
@@ -289,6 +305,8 @@ func componentSpec(project string) *gen.ComponentSpec {
 
 func expectNoClusterResources(mc *mocks.MockInterface) {
 	empty := mock.Anything
+	mc.EXPECT().ListClusterProjectTypes(empty, empty).Return(&gen.ClusterProjectTypeList{}, nil)
+	mc.EXPECT().ListClusterResourceTypes(empty, empty).Return(&gen.ClusterResourceTypeList{}, nil)
 	mc.EXPECT().ListClusterComponentTypes(empty, empty).Return(&gen.ClusterComponentTypeList{}, nil)
 	mc.EXPECT().ListClusterTraits(empty, empty).Return(&gen.ClusterTraitList{}, nil)
 	mc.EXPECT().ListClusterWorkflows(empty, empty).Return(&gen.ClusterWorkflowList{}, nil)
@@ -306,6 +324,8 @@ func expectNoNamespacePlatformResources(mc *mocks.MockInterface) {
 	mc.EXPECT().ListDataPlanes(empty, empty, empty).Return(&gen.DataPlaneList{}, nil)
 	mc.EXPECT().ListWorkflowPlanes(empty, empty, empty).Return(&gen.WorkflowPlaneList{}, nil)
 	mc.EXPECT().ListObservabilityPlanes(empty, empty, empty).Return(&gen.ObservabilityPlaneList{}, nil)
+	mc.EXPECT().ListProjectTypes(empty, empty, empty).Return(&gen.ProjectTypeList{}, nil)
+	mc.EXPECT().ListResourceTypes(empty, empty, empty).Return(&gen.ResourceTypeList{}, nil)
 	mc.EXPECT().ListComponentTypes(empty, empty, empty).Return(&gen.ComponentTypeList{}, nil)
 	mc.EXPECT().ListTraits(empty, empty, empty).Return(&gen.TraitList{}, nil)
 	mc.EXPECT().ListWorkflows(empty, empty, empty).Return(&gen.WorkflowList{}, nil)
@@ -323,4 +343,196 @@ func readManifest(t *testing.T, root, relativePath string) map[string]any {
 	var object map[string]any
 	require.NoError(t, yaml.Unmarshal(data, &object), relativePath)
 	return object
+}
+
+func expectNoProjectResources(mc *mocks.MockInterface) {
+	empty := mock.Anything
+	mc.EXPECT().ListProjectReleases(empty, empty, empty).Return(&gen.ProjectReleaseList{}, nil)
+	mc.EXPECT().ListProjectReleaseBindings(empty, empty, empty).Return(&gen.ProjectReleaseBindingList{}, nil)
+	mc.EXPECT().ListResources(empty, empty, empty).Return(&gen.ResourceInstanceList{}, nil)
+}
+
+func TestRun_ExportsProjectAndResourceReleases(t *testing.T) {
+	c := mocks.NewMockInterface(t)
+	expectNoClusterResources(c)
+	expectNoNamespacePlatformResources(c)
+	c.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
+		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
+	}, nil)
+	c.EXPECT().ListProjects(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectList{
+		Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: "shop"}}},
+	}, nil)
+	c.EXPECT().ListComponents(mock.Anything, "acme", "shop", mock.Anything).Return(&gen.ComponentList{}, nil)
+	projectSpec := &gen.ProjectReleaseSpec{}
+	projectSpec.Owner.ProjectName = "shop"
+	c.EXPECT().ListProjectReleases(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
+			require.Equal(t, "shop", *p.Project)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ProjectReleaseList{
+					Items:      []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-release"}, Spec: projectSpec}},
+					Pagination: gen.Pagination{NextCursor: stringPointer("project-page-2")},
+				}, nil
+			}
+			require.Equal(t, "project-page-2", *p.Cursor)
+			return &gen.ProjectReleaseList{
+				Items: []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-unbound"}, Spec: projectSpec}},
+			}, nil
+		}).Twice()
+	projectBindingSpec := &gen.ProjectReleaseBindingSpec{Environment: "development", ProjectRelease: stringPointer("shop-release")}
+	projectBindingSpec.Owner.ProjectName = "shop"
+	c.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error) {
+			require.Equal(t, "shop", *p.Project)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ProjectReleaseBindingList{
+					Items:      []gen.ProjectReleaseBinding{{Metadata: gen.ObjectMeta{Name: "shop-development"}, Spec: projectBindingSpec}},
+					Pagination: gen.Pagination{NextCursor: stringPointer("binding-page-2")},
+				}, nil
+			}
+			require.Equal(t, "binding-page-2", *p.Cursor)
+			pending := &gen.ProjectReleaseBindingSpec{Environment: "staging"}
+			pending.Owner.ProjectName = "shop"
+			return &gen.ProjectReleaseBindingList{
+				Items: []gen.ProjectReleaseBinding{{Metadata: gen.ObjectMeta{Name: "shop-staging"}, Spec: pending}},
+			}, nil
+		}).Twice()
+	parameters := map[string]any{"dbPassword": "plaintext-to-strip", "storage": "10Gi"}
+	resourceSpec := &gen.ResourceInstanceSpec{Parameters: &parameters}
+	resourceSpec.Owner.ProjectName = "shop"
+	c.EXPECT().ListResources(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
+			require.Equal(t, "shop", *p.Project)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ResourceInstanceList{Pagination: gen.Pagination{NextCursor: stringPointer("resource-page-2")}}, nil
+			}
+			require.Equal(t, "resource-page-2", *p.Cursor)
+			return &gen.ResourceInstanceList{
+				Items: []gen.ResourceInstance{{Metadata: gen.ObjectMeta{Name: "database"}, Spec: resourceSpec}},
+			}, nil
+		}).Twice()
+	resourceReleaseSpec := &gen.ResourceReleaseSpec{}
+	resourceReleaseSpec.Owner.ProjectName = "shop"
+	resourceReleaseSpec.Owner.ResourceName = "database"
+	c.EXPECT().ListResourceReleases(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error) {
+			require.Equal(t, "database", *p.Resource)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ResourceReleaseList{
+					Items:      []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-release"}, Spec: resourceReleaseSpec}},
+					Pagination: gen.Pagination{NextCursor: stringPointer("release-page-2")},
+				}, nil
+			}
+			require.Equal(t, "release-page-2", *p.Cursor)
+			return &gen.ResourceReleaseList{
+				Items: []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-unbound"}, Spec: resourceReleaseSpec}},
+			}, nil
+		}).Twice()
+	resourceBindingSpec := &gen.ResourceReleaseBindingSpec{Environment: "development", ResourceRelease: stringPointer("database-release")}
+	resourceBindingSpec.Owner.ProjectName = "shop"
+	resourceBindingSpec.Owner.ResourceName = "database"
+	c.EXPECT().ListResourceReleaseBindings(mock.Anything, "acme", mock.Anything).
+		RunAndReturn(func(_ context.Context, _ string, p *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error) {
+			require.Equal(t, "database", *p.Resource)
+			require.NotNil(t, p.Limit)
+			if p.Cursor == nil {
+				return &gen.ResourceReleaseBindingList{
+					Items:      []gen.ResourceReleaseBinding{{Metadata: gen.ObjectMeta{Name: "database-development"}, Spec: resourceBindingSpec}},
+					Pagination: gen.Pagination{NextCursor: stringPointer("binding-page-2")},
+				}, nil
+			}
+			require.Equal(t, "binding-page-2", *p.Cursor)
+			return &gen.ResourceReleaseBindingList{
+				Items: []gen.ResourceReleaseBinding{{Metadata: gen.ObjectMeta{Name: "database-staging"}, Spec: resourceBindingSpec}},
+			}, nil
+		}).Twice()
+
+	root := t.TempDir()
+	report, err := runEngine(t.Context(), c, Options{OutputDir: root})
+	require.NoError(t, err)
+	assert.Equal(t, 11, report.Exported)
+	assert.Equal(t, map[string]int{
+		"Namespace": 1, "Project": 1, KindProjectRelease: 2, KindProjectReleaseBinding: 2,
+		KindResource: 1, KindResourceRelease: 2, KindResourceReleaseBinding: 2,
+	}, report.ExportedByKind)
+	for relative, kind := range map[string]string{
+		"releases/shop-release.yaml":                                    KindProjectRelease,
+		"releases/shop-unbound.yaml":                                    KindProjectRelease,
+		"release-bindings/shop-development.yaml":                        KindProjectReleaseBinding,
+		"release-bindings/shop-staging.yaml":                            KindProjectReleaseBinding,
+		"resources/database/resource.yaml":                              KindResource,
+		"resources/database/releases/database-release.yaml":             KindResourceRelease,
+		"resources/database/releases/database-unbound.yaml":             KindResourceRelease,
+		"resources/database/release-bindings/database-development.yaml": KindResourceReleaseBinding,
+		"resources/database/release-bindings/database-staging.yaml":     KindResourceReleaseBinding,
+	} {
+		object := readManifest(t, root, "namespaces/acme/projects/shop/"+relative)
+		assert.Equal(t, kind, object["kind"])
+		assert.Equal(t, openchoreoAPIVersion, object["apiVersion"])
+		assert.Equal(t, "acme", object["metadata"].(map[string]any)["namespace"])
+		assert.NotContains(t, object, "status")
+	}
+	require.Len(t, report.SecretDecisions, 1)
+	assert.Equal(t, KindResource, report.SecretDecisions[0].Kind)
+	object := readManifest(t, root, "namespaces/acme/projects/shop/resources/database/resource.yaml")
+	assert.Equal(t, map[string]any{"storage": "10Gi"}, object["spec"].(map[string]any)["parameters"])
+}
+
+func TestRun_ProjectReleaseFailureDoesNotWrite(t *testing.T) {
+	for _, failure := range []string{"API error", "later page error", "wrong owner", "missing spec", "unsafe name", "missing release"} {
+		t.Run(failure, func(t *testing.T) {
+			c := mocks.NewMockInterface(t)
+			expectNoClusterResources(c)
+			expectNoNamespacePlatformResources(c)
+			c.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
+				Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
+			}, nil)
+			c.EXPECT().ListProjects(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectList{
+				Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: "shop"}}},
+			}, nil)
+			spec := &gen.ProjectReleaseSpec{}
+			spec.Owner.ProjectName = "shop"
+			list := &gen.ProjectReleaseList{Items: []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-release"}, Spec: spec}}}
+			var apiErr error
+			switch failure {
+			case "API error":
+				apiErr = errors.New("API unavailable")
+			case "wrong owner":
+				spec.Owner.ProjectName = "other-project"
+			case "missing spec":
+				list.Items[0].Spec = nil
+			case "unsafe name":
+				list.Items[0].Metadata.Name = "../../escape"
+			case "missing release":
+				bindingSpec := &gen.ProjectReleaseBindingSpec{ProjectRelease: stringPointer("missing")}
+				bindingSpec.Owner.ProjectName = "shop"
+				c.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectReleaseBindingList{
+					Items: []gen.ProjectReleaseBinding{{Metadata: gen.ObjectMeta{Name: "shop-dev"}, Spec: bindingSpec}},
+				}, nil)
+			}
+			if failure == "later page error" {
+				list.Pagination.NextCursor = stringPointer("page-2")
+				c.EXPECT().ListProjectReleases(mock.Anything, "acme", mock.Anything).
+					RunAndReturn(func(_ context.Context, _ string, p *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
+						if p.Cursor != nil {
+							require.Equal(t, "page-2", *p.Cursor)
+							return nil, errors.New("API unavailable")
+						}
+						return list, nil
+					}).Twice()
+			} else {
+				c.EXPECT().ListProjectReleases(mock.Anything, "acme", mock.Anything).Return(list, apiErr)
+			}
+			root := filepath.Join(t.TempDir(), "output")
+			report, err := runEngine(t.Context(), c, Options{OutputDir: root})
+			require.ErrorContains(t, err, "nothing was written")
+			assert.Nil(t, report)
+			_, statErr := os.Stat(root)
+			assert.ErrorIs(t, statErr, os.ErrNotExist)
+		})
+	}
 }

@@ -30,7 +30,7 @@ func TestNewExportCmd_RequiresOutputFlag(t *testing.T) {
 	assert.Contains(t, err.Error(), "output")
 }
 
-func TestRun_PrintsIncompleteCoverage(t *testing.T) {
+func TestRun_PrintsSummary(t *testing.T) {
 	mockClient := mocks.NewMockInterface(t)
 	expectNoClusterResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
@@ -38,13 +38,15 @@ func TestRun_PrintsIncompleteCoverage(t *testing.T) {
 
 	require.NoError(t, Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()}))
 	assert.Contains(t, output.String(), "0 resource(s)")
-	assert.Contains(t, output.String(), "Coverage is incomplete")
-	assert.Contains(t, output.String(), "ProjectRelease and ProjectReleaseBinding")
+	assert.NotContains(t, output.String(), "Coverage is incomplete")
+	assert.NotContains(t, output.String(), "ClusterWorkflowTemplate")
 }
 
 func TestRun_HidesDeniedResourceKind(t *testing.T) {
 	mockClient := mocks.NewMockInterface(t)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
+	mockClient.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(&gen.ClusterProjectTypeList{}, nil)
+	mockClient.EXPECT().ListClusterResourceTypes(mock.Anything, mock.Anything).Return(&gen.ClusterResourceTypeList{}, nil)
 	mockClient.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{}, nil)
 	mockClient.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{}, nil)
 	mockClient.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{}, nil)
@@ -55,7 +57,7 @@ func TestRun_HidesDeniedResourceKind(t *testing.T) {
 
 	var output bytes.Buffer
 	err := Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()})
-	require.EqualError(t, err, "you do not have permission to perform this export operation")
+	require.EqualError(t, err, "your role does not have permission to perform this export operation!")
 	assert.NotContains(t, err.Error(), "ClusterAuthzRole")
 	assert.Empty(t, output.String(), "authorization failures should not print partial export details")
 }

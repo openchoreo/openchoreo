@@ -25,11 +25,10 @@ func NewExportCmd(newClient client.NewClientFunc) *cobra.Command {
 		Short: "Export declarative configuration as YAML",
 		Long: `Export supported resources from every namespace into a GitOps-oriented directory tree.
 
-This version exports supported cluster-scoped resources, namespace platform
-configuration, Namespaces, Projects, Components, Workloads, ComponentReleases,
-and ReleaseBindings. It writes only OpenChoreo resource manifests and does not
-create or modify Kustomize or Flux configuration. Review the reported coverage
-gaps before using the output with Flux.`,
+Exports cluster-scoped and namespace platform configuration, Namespaces,
+Projects, Components, Workloads, Resources, and their releases and release
+bindings. It writes resource manifests and does not create or modify Kustomize
+or Flux configuration.`,
 		Example: `  occ export -o ./my-gitops-repo`,
 		Args:    cobra.NoArgs,
 		PreRunE: auth.RequireLogin(),
@@ -76,10 +75,6 @@ func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer,
 			fmt.Fprintf(w, "PLAINTEXT %s %s/%s/%s: %s (%s)\n",
 				decision.Kind, decision.Namespace, decision.Project, decision.Name,
 				decision.Action, strings.Join(decision.Reasons, ", "))
-		}
-		fmt.Fprintln(w, "Coverage is incomplete; not exported by this version:")
-		for _, category := range report.Unsupported {
-			fmt.Fprintf(w, "  - %s\n", category)
 		}
 	}
 	if err != nil {
