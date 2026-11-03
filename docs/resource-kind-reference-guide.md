@@ -805,7 +805,7 @@ gateway:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `targetPlane` | TargetPlaneRef | No | Plane whose external secret store holds the value: `WorkflowPlane`, `ClusterWorkflowPlane`, `DataPlane`, `ClusterDataPlane`, `ObservabilityPlane` or `ClusterObservabilityPlane` |
+| `targetPlane` | TargetPlaneRef | No | Plane whose external secret store the secret API pushed the value to: `WorkflowPlane`, `ClusterWorkflowPlane`, `DataPlane`, `ClusterDataPlane`, `ObservabilityPlane` or `ClusterObservabilityPlane`. Consumers don't require it to match the plane they sync to; the value is read through that plane's own store |
 | `template` | SecretTemplate | Yes | Secret type and metadata (annotations, labels) |
 | `data[]` | SecretDataSource[] | Yes (min 1) | Mapping of secret keys to external store references |
 | `refreshInterval` | Duration | No | Refresh interval (default: 1h) |
@@ -922,7 +922,7 @@ gateway:
 | `emailConfig` | EmailConfig | Conditional | Email configuration (from, to, SMTP, template) — required when type=email |
 | `webhookConfig` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
 
-SMTP `auth.username` / `auth.password` and webhook header `valueFrom` take a `secretKeyRef` (`name`, `key`). The `name` refers to a SecretReference in the channel's namespace and the `key` to one of its `data[].secretKey` entries, as in a Workload. The controller applies an ExternalSecret to the environment's observability plane that syncs the values from that plane's secret store, so the observability plane needs a `secretStoreRef`. A SecretReference must either have no `targetPlane` or target the channel's observability plane, and its remote keys must be the key the secret API writes for it (`<remoteKeyPrefix>/<namespace>/<type>/<name>`, from the channel's namespace and the SecretReference's type and name).
+SMTP `auth.username` / `auth.password` and webhook header `valueFrom` take a `secretKeyRef` (`name`, `key`). The `name` refers to a SecretReference in the channel's namespace and the `key` to one of its `data[].secretKey` entries, as in a Workload. The controller applies an ExternalSecret to the environment's observability plane that syncs the values from that plane's secret store, so the observability plane needs a `secretStoreRef`. A SecretReference's remote keys must be the key the secret API writes for it (`<remoteKeyPrefix>/<namespace>/<type>/<name>`, from the channel's namespace and the SecretReference's type and name). Its `targetPlane` is not checked, so a secret created for another plane works when the observability plane's secret store can read it, for example when the planes' stores point at the same backend. Otherwise the ExternalSecret fails to sync and `SecretsReady` reports why.
 
 If no SecretReference has the referenced name, a Kubernetes Secret with that name is copied to the observability plane instead. This fallback is deprecated. All references of a channel must resolve the same way.
 
