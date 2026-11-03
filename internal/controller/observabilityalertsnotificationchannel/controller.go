@@ -292,25 +292,13 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, channel *openchoreod
 }
 
 // getObservabilityPlaneClient gets the observability plane and a client for it by deriving it from the environment.
-// It follows the chain: Channel.Environment -> Environment.DataPlaneRef -> DataPlane.ObservabilityPlaneRef -> ObservabilityPlane
 func (r *Reconciler) getObservabilityPlaneClient(
 	ctx context.Context,
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 ) (*controller.ObservabilityPlaneResult, client.Client, error) {
-	// Get the Environment
-	env := &openchoreodevv1alpha1.Environment{}
-	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
-		return nil, nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
-	}
-
-	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
+	obsResult, err := r.resolveObservabilityPlane(ctx, channel)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
-	}
-
-	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
+		return nil, nil, err
 	}
 
 	opClient, err := obsResult.GetK8sClient(r.PlaneClientProvider)
@@ -319,6 +307,31 @@ func (r *Reconciler) getObservabilityPlaneClient(
 	}
 
 	return obsResult, opClient, nil
+}
+
+// resolveObservabilityPlane follows the chain: Channel.Environment -> Environment.DataPlaneRef ->
+// DataPlane.ObservabilityPlaneRef -> ObservabilityPlane. The error is a NotFound error when an
+// object in the chain doesn't exist.
+func (r *Reconciler) resolveObservabilityPlane(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+) (*controller.ObservabilityPlaneResult, error) {
+	env := &openchoreodevv1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
+		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
+	}
+
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
+	}
+
+	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
+	}
+
+	return obsResult, nil
 }
 
 // channelResourceLabels returns the labels of the resources applied to the observability plane for the channel.
@@ -543,11 +556,27 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 		return ctrl.Result{}, nil
 	}
 
-	// Get ObservabilityPlane client
-	_, opClient, err := r.getObservabilityPlaneClient(ctx, channel)
+	// The Environment finalizer waits for the environment's channels, so the plane normally
+	// resolves. If an object in the chain is gone anyway (the environment never existed or was
+	// removed without waiting, or the plane was deleted), there is no plane left to reach.
+	obsPlane, err := r.resolveObservabilityPlane(ctx, channel)
+	if apierrors.IsNotFound(err) {
+		message := fmt.Sprintf("skipping cleanup on the observability plane, which can no longer be resolved: %v. "+
+			"ConfigMap, Secret and ExternalSecret %s/%s may remain there", err, channel.Namespace, channel.Name)
+		logger.Info("Observability plane not found during finalization, skipping cleanup", "reason", err.Error())
+		if r.Recorder != nil {
+			r.Recorder.Event(channel, corev1.EventTypeWarning, string(ReasonObservabilityPlaneUnavailable), message)
+		}
+		return r.removeFinalizer(ctx, channel)
+	}
+	if err != nil {
+		logger.Error(err, "Failed to resolve observability plane during finalization")
+		return ctrl.Result{}, err
+	}
+	opClient, err := obsPlane.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client during finalization")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to create observability plane client for %s: %w", obsPlane.GetName(), err)
 	}
 
 	// Delete ConfigMap from observability plane
@@ -568,14 +597,18 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 		return ctrl.Result{}, err
 	}
 
-	// Remove the finalizer once cleanup is done
+	return r.removeFinalizer(ctx, channel)
+}
+
+// removeFinalizer removes the cleanup finalizer from the notification channel.
+func (r *Reconciler) removeFinalizer(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (ctrl.Result, error) {
 	if controllerutil.RemoveFinalizer(channel, NotificationChannelCleanupFinalizer) {
 		if err := r.Update(ctx, channel); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
 
-	logger.Info("Successfully finalized notification channel")
+	log.FromContext(ctx).Info("Successfully finalized notification channel")
 	return ctrl.Result{}, nil
 }
 
