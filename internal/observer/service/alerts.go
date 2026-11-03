@@ -513,35 +513,34 @@ func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *
 	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels, s.getNotificationChannelConfig, s.logger)
 }
 
-// getNotificationChannelConfig reads the K8s ConfigMap/Secret for the notification channel.
-func (s *AlertService) getNotificationChannelConfig(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error) {
+// getNotificationChannelConfig reads the K8s ConfigMap/Secret of the notification channel. The controller
+// applies both to the observability plane in the channel's namespace, named after the channel. Channel names
+// are unique only within a namespace, so the channel is looked up in the namespace of the alert.
+func (s *AlertService) getNotificationChannelConfig(ctx context.Context, namespace, channelName string) (*notifications.NotificationChannelConfig, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
-
-	labelSelector := client.MatchingLabels{
-		labels.LabelKeyNotificationChannelName: channelName,
+	if namespace == "" {
+		return nil, fmt.Errorf("the alert has no namespace to look up notification channel %q in", channelName)
 	}
 
-	configMapList := &corev1.ConfigMapList{}
-	if err := s.k8sClient.List(ctx, configMapList, labelSelector); err != nil {
-		return nil, fmt.Errorf("failed to list ConfigMaps: %w", err)
-	}
-	if len(configMapList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find notification channel ConfigMap with label %s=%s",
-			labels.LabelKeyNotificationChannelName, channelName)
-	}
-	configMap := configMapList.Items[0].DeepCopy()
+	key := client.ObjectKey{Namespace: namespace, Name: channelName}
 
-	secretList := &corev1.SecretList{}
-	if err := s.k8sClient.List(ctx, secretList, labelSelector); err != nil {
-		return nil, fmt.Errorf("failed to list Secrets: %w", err)
+	configMap := &corev1.ConfigMap{}
+	if err := s.k8sClient.Get(ctx, key, configMap); err != nil {
+		return nil, fmt.Errorf("failed to get notification channel ConfigMap %s: %w", key, err)
 	}
-	if len(secretList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find notification channel Secret with label %s=%s",
-			labels.LabelKeyNotificationChannelName, channelName)
+	if configMap.Labels[labels.LabelKeyNotificationChannelName] != channelName {
+		return nil, fmt.Errorf("notification channel ConfigMap %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
 	}
-	secret := secretList.Items[0].DeepCopy()
+
+	secret := &corev1.Secret{}
+	if err := s.k8sClient.Get(ctx, key, secret); err != nil {
+		return nil, fmt.Errorf("failed to get notification channel Secret %s: %w", key, err)
+	}
+	if secret.Labels[labels.LabelKeyNotificationChannelName] != channelName {
+		return nil, fmt.Errorf("notification channel Secret %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
+	}
 
 	channelType := configMap.Data["type"]
 	if channelType == "" {
