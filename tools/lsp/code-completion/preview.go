@@ -121,17 +121,18 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 		indent = "  "
 	}
 	count := 0
-	var expand func(*schema.FieldSchema, string) string
-	expand = func(n *schema.FieldSchema, prefix string) string {
+	var expand func(*schema.FieldSchema, string, string) string
+	expand = func(n *schema.FieldSchema, prefix string, objectPath string) string {
 		if n == nil {
 			return ""
 		}
 		out := ""
 		for _, name := range sortedFieldNames(n) {
 			child := n.Properties[name]
+			childPath := joinSchemaPath(objectPath, name)
 			body := ""
 			if child.Type == "object" {
-				body = expand(child, prefix+indent)
+				body = expand(child, prefix+indent, childPath)
 			}
 			if !child.Required && body == "" && !referenceKindHint(n, name, child) {
 				continue
@@ -153,12 +154,16 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 				item := *child.Items
 				item.Required = true
 				wrapper := &schema.FieldSchema{Type: "object", Properties: map[string]*schema.FieldSchema{"item": &item}}
-				itemBody := expand(wrapper, listPrefix)
+				itemBody := expand(wrapper, listPrefix, childPath+"[]")
 				out += prefix + name + ":\n" + listPrefix + "-" + strings.TrimPrefix(itemBody, listPrefix+"item:")
 				continue
 			}
 			count++
-			value := fmt.Sprintf("${%d:value}", count)
+			placeholder := "<" + placeholderLabel(name) + ">"
+			if childPath == "metadata.name" {
+				placeholder = placeholderLabel(d.Kind) + "-name"
+			}
+			value := fmt.Sprintf("${%d:%s}", count, placeholder)
 			switch child.Type {
 			case "integer", "number":
 				value = fmt.Sprintf("${%d:0}", count)
@@ -252,7 +257,7 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 			}
 		}
 	}
-	result := strings.TrimSuffix(expand(&missing, prefix), "\n")
+	result := strings.TrimSuffix(expand(&missing, prefix, path), "\n")
 	if result == "" {
 		return ""
 	}
@@ -311,4 +316,11 @@ func referenceKindHint(parent *schema.FieldSchema, name string, child *schema.Fi
 		}
 	}
 	return false
+}
+
+// Convert schema field identifiers into readable, resource-independent labels.
+func placeholderLabel(field string) string {
+	field = regexp.MustCompile(`([A-Z]+)([A-Z][a-z])`).ReplaceAllString(field, "${1}-${2}")
+	field = regexp.MustCompile(`([a-z0-9])([A-Z])`).ReplaceAllString(field, "${1}-${2}")
+	return strings.ToLower(strings.ReplaceAll(field, "_", "-"))
 }

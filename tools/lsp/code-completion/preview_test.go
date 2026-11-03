@@ -253,3 +253,34 @@ func TestGeneratedEnumsAcrossTemplateVersions(t *testing.T) {
 		}
 	}
 }
+
+func TestDescriptivePlaceholders(t *testing.T) {
+	for _, tc := range []struct{ field, label string }{{"projectName", "project-name"}, {"secretKeyRef", "secret-key-ref"}, {"HTTPPort", "http-port"}, {"httpURL", "http-url"}, {"name", "name"}} {
+		if got := placeholderLabel(tc.field); got != tc.label {
+			t.Fatalf("%s: %s", tc.field, got)
+		}
+	}
+	header := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	preview := RequiredPreview(header, 1, len("kind: Component"), "  ")
+	if !strings.Contains(preview, ":<project-name>}") {
+		t.Fatalf("missing descriptive placeholder: %s", preview)
+	}
+	accepted := acceptAuditPreview(header, preview, 1)
+	if !strings.Contains(accepted, "projectName: <project-name>") || !strings.Contains(accepted, "name: component-name") {
+		t.Fatal(accepted)
+	}
+	if !strings.Contains(accepted, "name: deployment/a") || !strings.Contains(accepted, "kind: ComponentType") {
+		t.Fatalf("constraints must retain valid examples: %s", accepted)
+	}
+	docs, err := parser.ParseYAML([]byte(accepted))
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := ruleengine.NewEngine()
+	engine.AddKindRules("Component", template.RulesForKind("Component"))
+	for _, finding := range engine.Evaluate(docs[0]) {
+		if finding.Severity == ruleengine.SeverityError {
+			t.Fatalf("descriptive placeholder invalidated skeleton: %+v", finding)
+		}
+	}
+}
