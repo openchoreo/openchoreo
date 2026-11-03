@@ -227,16 +227,19 @@ func effectiveMirror(binding *openchoreov1alpha1.EndpointReleaseBinding, ref ope
 	return ref.Mirror.DeepCopy()
 }
 
-// validateBackendOverrides checks that every backendOverrides entry names a
-// backend of the pinned release, and sets a mirror share only on a mirror
-// backend, so a typo can't silently leave the routing unchanged. A binding can be applied before its release (GitOps), so this is
-// checked here rather than at admission.
-func validateBackendOverrides(release *openchoreov1alpha1.EndpointRelease, binding *openchoreov1alpha1.EndpointReleaseBinding) error {
+// ignoredOverrides explains which backendOverrides entries the pinned release
+// gives no meaning to, or returns "": an entry naming a backend the release
+// does not have, setting a mirror share on a backend that is not a mirror in
+// it, or setting a weight on one that is. Such entries are ignored rather than blocking the binding, because a
+// release that retired a backend (a finished canary, a retired blue) must
+// promote to environments whose overrides still name it. They are reported so
+// a typo doesn't go unnoticed.
+func ignoredOverrides(release *openchoreov1alpha1.EndpointRelease, binding *openchoreov1alpha1.EndpointReleaseBinding) string {
 	known := make(map[string]openchoreov1alpha1.EndpointBackendRef, len(release.Spec.BackendRefs))
 	for _, ref := range release.Spec.BackendRefs {
 		known[ref.Name] = ref
 	}
-	var unknown, notMirrors []string
+	var unknown, notMirrors, weightedMirrors []string
 	for _, o := range binding.Spec.BackendOverrides {
 		ref, ok := known[o.Name]
 		switch {
@@ -244,17 +247,27 @@ func validateBackendOverrides(release *openchoreov1alpha1.EndpointRelease, bindi
 			unknown = append(unknown, o.Name)
 		case o.Mirror != nil && ref.Mirror == nil:
 			notMirrors = append(notMirrors, o.Name)
+		case o.Weight != nil && ref.Mirror != nil:
+			weightedMirrors = append(weightedMirrors, o.Name)
 		}
 	}
+	var parts []string
 	if len(unknown) > 0 {
-		return fmt.Errorf("spec.backendOverrides names backend(s) not in EndpointRelease %q: %s",
-			release.Name, strings.Join(unknown, ", "))
+		parts = append(parts, fmt.Sprintf("backend(s) not in EndpointRelease %q: %s",
+			release.Name, strings.Join(unknown, ", ")))
 	}
 	if len(notMirrors) > 0 {
-		return fmt.Errorf("spec.backendOverrides sets mirror on backend(s) that have no mirror in EndpointRelease %q: %s",
-			release.Name, strings.Join(notMirrors, ", "))
+		parts = append(parts, fmt.Sprintf("mirror set on backend(s) that have no mirror in EndpointRelease %q: %s",
+			release.Name, strings.Join(notMirrors, ", ")))
 	}
-	return nil
+	if len(weightedMirrors) > 0 {
+		parts = append(parts, fmt.Sprintf("weight set on mirror backend(s) in EndpointRelease %q: %s",
+			release.Name, strings.Join(weightedMirrors, ", ")))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "spec.backendOverrides entries ignored: " + strings.Join(parts, "; ")
 }
 
 // resolveBackend resolves one backendRef to the data-plane Service that

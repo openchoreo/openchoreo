@@ -257,6 +257,7 @@ var _ = Describe("Backend resolution and rendering", func() {
 		updated := reconcileBinding(r, cli, b)
 
 		Expect(condition(updated, ConditionSynced).Status).To(Equal(metav1.ConditionTrue))
+		Expect(condition(updated, ConditionBackendOverridesApplied).Status).To(Equal(metav1.ConditionTrue))
 		Expect(updated.Status.Backends).To(ConsistOf(
 			And(HaveField("Name", "stable"), HaveField("Weight", int32(75))),
 			And(HaveField("Name", "canary"), HaveField("Weight", int32(25))),
@@ -269,20 +270,30 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}))
 	})
 
-	It("reports an override that names no backend of the release", func() {
+	It("ignores and reports an override for a backend the release no longer has", func() {
+		// The release retired the canary; this environment's overrides still
+		// name it, as after promoting a release that removed a backend.
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
-		b := newBinding("typo", testRelease)
-		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "canry", Weight: ptr.To[int32](5)}}
+		b := newBinding("retired", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "stable", Weight: ptr.To[int32](100)},
+			{Name: "canary", Weight: ptr.To[int32](0)},
+		}
 		r, cli := build(release, b, deployedComponent("greeter", dpNS))
 
 		updated := reconcileBinding(r, cli, b)
 
-		synced := condition(updated, ConditionSynced)
-		Expect(synced.Status).To(Equal(metav1.ConditionFalse))
-		Expect(synced.Reason).To(Equal(string(ReasonBackendOverrideInvalid)))
-		Expect(synced.Message).To(ContainSubstring("canry"))
-		_, err := renderedRelease(cli, updated)
-		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		applied := condition(updated, ConditionBackendOverridesApplied)
+		Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+		Expect(applied.Reason).To(Equal(string(ReasonBackendOverridesIgnored)))
+		Expect(applied.Message).To(ContainSubstring("canary"))
+		Expect(condition(updated, ConditionSynced).Status).To(Equal(metav1.ConditionTrue),
+			"an ignored override must not hold the binding back")
+		rr, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routeBackendRefs(rr)).To(Equal([]any{
+			map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(100)},
+		}))
 	})
 
 	It("leaves the existing RenderedRelease untouched when a backend disappears", func() {

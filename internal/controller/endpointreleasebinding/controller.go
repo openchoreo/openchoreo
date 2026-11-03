@@ -11,6 +11,7 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -115,6 +116,10 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	}()
 
 	trackSpecUpdate(binding)
+	if len(binding.Spec.BackendOverrides) == 0 {
+		// Cleared even when the inputs below don't load.
+		meta.RemoveStatusCondition(&binding.Status.Conditions, string(ConditionBackendOverridesApplied))
+	}
 
 	in, err := r.loadInputs(ctx, binding)
 	if err != nil || in == nil {
@@ -122,10 +127,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, err
 	}
 
-	if err := validateBackendOverrides(in.release, binding); err != nil {
-		markSyncedFalse(binding, ReasonBackendOverrideInvalid, err.Error())
-		return ctrl.Result{}, nil
-	}
+	reportOverrides(binding, in.release)
 
 	md := buildMetadataContext(binding, in)
 
@@ -306,4 +308,20 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listBindingsForProject)).
 		Named("endpointreleasebinding").
 		Complete(r)
+}
+
+// reportOverrides sets BackendOverridesApplied when the binding has
+// overrides: False, with the entries the pinned release ignores, or True. It
+// never blocks rendering and is not part of Ready.
+func reportOverrides(binding *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease) {
+	if len(binding.Spec.BackendOverrides) == 0 {
+		meta.RemoveStatusCondition(&binding.Status.Conditions, string(ConditionBackendOverridesApplied))
+		return
+	}
+	if msg := ignoredOverrides(release, binding); msg != "" {
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonBackendOverridesIgnored, msg)
+		return
+	}
+	controller.MarkTrueCondition(binding, ConditionBackendOverridesApplied, ReasonBackendOverridesApplied,
+		fmt.Sprintf("%d backend override(s) applied", len(binding.Spec.BackendOverrides)))
 }

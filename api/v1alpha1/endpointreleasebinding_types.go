@@ -43,8 +43,10 @@ type EndpointReleaseBindingSpec struct {
 	// BackendOverrides sets environment-specific values for the release's
 	// backends, matched by name: a backend's weight and its mirror share, so
 	// each environment can run its own traffic split (a canary step, a
-	// blue/green switch) while the release stays the same. Each entry must name a backend of the pinned release; the binding
-	// controller reports one that does not.
+	// blue/green switch) while the release stays the same. An entry for a
+	// backend the pinned release does not have is ignored and reported in the
+	// BackendOverridesApplied condition, so a release that retired a backend
+	// can still be promoted.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
