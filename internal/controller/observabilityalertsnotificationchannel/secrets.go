@@ -199,10 +199,9 @@ func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string)
 // SecretReference's type and name. Both names are validated Kubernetes names, so this rules out
 // keys of other namespaces or of the platform, and path segments such as "..".
 //
-// The SecretReference's targetPlane is not checked. It records the plane whose store the secret
-// API pushed the value to, and planes can share one store. Whoever writes the SecretReference sets
-// it, so it doesn't guard anything. A value the observability plane's store can't read shows up
-// as the ExternalSecret failing to sync.
+// targetPlane is not checked: whoever writes the SecretReference sets it, and planes can share a
+// store. A value the observability plane's store can't read shows up as the ExternalSecret failing
+// to sync.
 func (r *Reconciler) validateSecretReferences(
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 	obsPlane *controller.ObservabilityPlaneResult,
