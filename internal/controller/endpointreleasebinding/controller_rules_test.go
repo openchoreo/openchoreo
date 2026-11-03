@@ -85,14 +85,20 @@ var _ = Describe("buildRules", func() {
 			"a mirror share of 0 stops copying")
 	})
 
-	It("refuses a mirror override on a backend that is not a mirror", func() {
-		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
+	It("ignores and reports a mirror override on a backend that is not a mirror", func() {
+		// A mirror turned into a canary keeps its old mirror override.
+		canary := componentBackend("canary", "greeter-v2", 0)
+		canary.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-canary", Value: "true"}},
+		}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), canary)
 		b := newBinding("rules", testRelease)
 		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
-			{Name: "stable", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 50}},
+			{Name: "canary", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 50}},
 		}
-		err := validateBackendOverrides(release, b)
-		Expect(err).To(MatchError(ContainSubstring("no mirror")))
+		Expect(ignoredOverrides(release, b)).To(ContainSubstring("no mirror"))
+		rules := rulesFor(b, release, "stable", "canary")
+		Expect(rules[len(rules)-1].Mirrors).To(BeEmpty(), "the stale mirror share is ignored")
 	})
 
 	It("keeps a mirror backend at weight 0 whatever an override says", func() {
@@ -104,5 +110,16 @@ var _ = Describe("buildRules", func() {
 
 		Expect(effectiveWeight(b, shadow)).To(BeZero(), "a mirror only receives copies")
 		Expect(effectiveMirror(b, shadow).Percent).To(Equal(int32(20)))
+	})
+
+	It("reports a weight override on a mirror backend as ignored", func() {
+		shadow := componentBackend("shadow", "greeter-v2", 0)
+		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 20}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), shadow)
+		b := newBinding("rules", testRelease)
+		weight := int32(50)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "shadow", Weight: &weight}}
+
+		Expect(ignoredOverrides(release, b)).To(ContainSubstring("weight set on mirror backend(s)"))
 	})
 })
