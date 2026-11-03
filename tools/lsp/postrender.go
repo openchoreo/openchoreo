@@ -5,8 +5,10 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
+	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -76,12 +78,59 @@ func (s *Server) ExecuteCommand(
 	if params == nil {
 		return nil, fmt.Errorf("missing executeCommand parameters")
 	}
+	if params.Command == "openchoreo.requiredFieldsPreview" {
+		var request struct {
+			Text      string
+			Version   int
+			Line      int
+			Character int
+			Indent    string
+		}
+		if len(params.Arguments) != 1 {
+			return nil, fmt.Errorf("missing preview input")
+		}
+		data, err := json.Marshal(params.Arguments[0])
+		if err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(data, &request); err != nil {
+			return nil, err
+		}
+		return map[string]any{"version": request.Version, "text": codecompletion.RequiredPreview(request.Text, request.Line, request.Character, request.Indent)}, nil
+	}
 	if params.Command != postRenderCommand {
 		return nil, fmt.Errorf("unknown command %q", params.Command)
 	}
 	uri, err := postRenderURI(params.Arguments)
 	if err != nil {
 		return nil, err
+	}
+	// The editor supplies an authoritative snapshot with manual requests. This
+	// also repairs stale server buffers before the validation epoch is captured.
+	if len(params.Arguments) > 1 {
+		data, e := json.Marshal(params.Arguments[1])
+		if e != nil {
+			return nil, e
+		}
+		var documents []Document
+		if e = json.Unmarshal(data, &documents); e != nil {
+			return nil, fmt.Errorf("invalid editor snapshot: %w", e)
+		}
+		for _, doc := range documents {
+			current := s.GetDocument(doc.URI)
+			if current == nil || doc.Version < current.Version || doc.Text == current.Text {
+				continue
+			}
+			if fileURIToPath(doc.URI) == "" {
+				continue
+			}
+			if e = s.DidChange(nil, &protocol.DidChangeTextDocumentParams{
+				TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(doc.URI)}, Version: protocol.Integer(doc.Version)},
+				ContentChanges: []any{protocol.TextDocumentContentChangeEventWhole{Text: doc.Text}},
+			}); e != nil {
+				return nil, e
+			}
+		}
 	}
 	return s.runPostRenderValidation(uri), nil
 }

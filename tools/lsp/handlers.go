@@ -184,7 +184,7 @@ func (s *Server) Initialize(
 				ResolveProvider: &codeLensResolve,
 			},
 			ExecuteCommandProvider: &protocol.ExecuteCommandOptions{
-				Commands: []string{postRenderCommand},
+				Commands: []string{postRenderCommand, "openchoreo.requiredFieldsPreview"},
 			},
 		},
 	}, nil
