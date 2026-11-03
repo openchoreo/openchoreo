@@ -364,14 +364,22 @@ Parameters:
 {{- end }}
 
 {{/*
-Filtered pod labels
-Drops user-supplied keys that the chart also sets on the pod template.
-Rendering both would produce duplicate YAML keys, which strict consumers reject.
-Chart-owned labels are rendered after the filtered map and stay authoritative.
+Pod labels
+Merges chart-owned selector and platform identity labels with user-supplied
+labels. Chart-owned values take precedence so custom labels cannot break
+selectors or misattribute pods to another plane.
+
+Usage:
+  {{ include "openchoreo-control-plane.podLabels" (dict "context" . "component" "my-component" "custom" .Values.myComponent.podLabels) }}
+
+Parameters:
+  - context: The current Helm context (usually .)
+  - component: The component name (e.g., "portal-assistant")
+  - custom: The user-supplied pod labels
 */}}
-{{- define "openchoreo-control-plane.filteredPodLabels" -}}
-{{- $labels := omit . "app.kubernetes.io/name" "app.kubernetes.io/instance" "app.kubernetes.io/component" "openchoreo.dev/plane" -}}
-{{- if $labels -}}
-{{- toYaml $labels -}}
-{{- end -}}
+{{- define "openchoreo-control-plane.podLabels" -}}
+{{- $ownedLabels := merge (dict)
+      (include "openchoreo-control-plane.componentSelectorLabels" (dict "context" .context "component" .component) | fromYaml)
+      (include "openchoreo-control-plane.platformIdentityLabels" .context | fromYaml) -}}
+{{- toYaml (merge (dict) $ownedLabels (.custom | default dict)) -}}
 {{- end }}

@@ -212,9 +212,6 @@ func findDuplicateKey(node *yaml.Node) error {
 				return fmt.Errorf("duplicate key %q at line %d (first at line %d)", key.Value, key.Line, first)
 			}
 			seen[key.Value] = key.Line
-			if err := findDuplicateKey(node.Content[i+1]); err != nil {
-				return err
-			}
 		}
 	}
 	for _, child := range node.Content {
