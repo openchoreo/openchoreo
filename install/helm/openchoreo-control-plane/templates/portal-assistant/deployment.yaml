@@ -29,12 +29,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/portal-assistant/configmap.yaml") . | sha256sum }}
         checksum/auth-config: {{ include (print $.Template.BasePath "/portal-assistant/auth-configmap.yaml") . | sha256sum }}
       labels:
-        {{- with .Values.portalAssistant.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: portal-assistant
-        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
+        {{- include "openchoreo-control-plane.podLabels" (dict "context" . "component" "portal-assistant" "custom" .Values.portalAssistant.podLabels) | nindent 8 }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.portalAssistant.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}

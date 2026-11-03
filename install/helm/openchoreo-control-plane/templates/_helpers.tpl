@@ -362,3 +362,24 @@ Parameters:
 {{- end -}}
 {{- printf "%s:%s" $repo (.image.tag | default .context.Chart.AppVersion) -}}
 {{- end }}
+
+{{/*
+Pod labels
+Merges chart-owned selector and platform identity labels with user-supplied
+labels. Chart-owned values take precedence so custom labels cannot break
+selectors or misattribute pods to another plane.
+
+Usage:
+  {{ include "openchoreo-control-plane.podLabels" (dict "context" . "component" "my-component" "custom" .Values.myComponent.podLabels) }}
+
+Parameters:
+  - context: The current Helm context (usually .)
+  - component: The component name (e.g., "portal-assistant")
+  - custom: The user-supplied pod labels
+*/}}
+{{- define "openchoreo-control-plane.podLabels" -}}
+{{- $ownedLabels := merge (dict)
+      (include "openchoreo-control-plane.componentSelectorLabels" (dict "context" .context "component" .component) | fromYaml)
+      (include "openchoreo-control-plane.platformIdentityLabels" .context | fromYaml) -}}
+{{- toYaml (merge (dict) $ownedLabels (.custom | default dict)) -}}
+{{- end }}
