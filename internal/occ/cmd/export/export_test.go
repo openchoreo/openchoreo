@@ -221,10 +221,10 @@ func TestRun_KeepsPlaintextWhenDecisionAllows(t *testing.T) {
 	root := t.TempDir()
 	report, err := runEngine(context.Background(), mockClient, Options{
 		OutputDir: root,
-		KeepPlaintext: func(finding Withheld) bool {
+		KeepPlaintext: func(finding Withheld) (bool, error) {
 			assert.Equal(t, "Component", finding.Kind)
 			assert.NotContains(t, finding.Reasons[0], secretValue)
-			return true
+			return true, nil
 		},
 	})
 	require.NoError(t, err)

@@ -53,8 +53,10 @@ const (
 
 // Options configures one export run.
 type Options struct {
-	OutputDir     string
-	KeepPlaintext func(Withheld) bool
+	OutputDir string
+	// KeepPlaintext decides whether to retain each detected value before any files
+	// are written. A nil callback removes values; an error aborts the export.
+	KeepPlaintext func(Withheld) (bool, error)
 }
 
 // Report summarizes the files written by one export run.
@@ -74,10 +76,11 @@ type Withheld struct {
 	Namespace string
 	Project   string
 	Name      string
+	File      string
 	Reasons   []string
 }
 
-// SecretDecision records how a resource containing credential-like values was handled.
+// SecretDecision records how one credential-like value was handled.
 type SecretDecision struct {
 	Withheld
 	Action string
@@ -247,19 +250,28 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 	var safe []resource
 	var rendered [][]byte
 	for _, item := range resources {
-		if reasons := findPlaintextSecrets(item.object); len(reasons) > 0 {
+		for _, credential := range plaintextCredentials(item.object) {
 			finding := Withheld{
 				Kind:      item.kind,
 				Namespace: item.namespace,
 				Project:   item.project,
 				Name:      item.name,
-				Reasons:   reasons,
+				File:      item.path,
+				Reasons:   []string{credential.path},
 			}
-			if opts.KeepPlaintext != nil && opts.KeepPlaintext(finding) {
+			keep := false
+			if opts.KeepPlaintext != nil {
+				var err error
+				keep, err = opts.KeepPlaintext(finding)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if keep {
 				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "kept"})
 			} else {
-				stripped := stripPlaintextSecrets(item.object)
-				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: fmt.Sprintf("stripped %d value(s)", stripped)})
+				delete(credential.parent, credential.key)
+				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "stripped 1 value(s)"})
 			}
 		}
 		data, err := serialize(item.object)

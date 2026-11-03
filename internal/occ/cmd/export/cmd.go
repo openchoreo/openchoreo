@@ -39,10 +39,8 @@ or Flux configuration.`,
 				return err
 			}
 			reader := bufio.NewReader(cmd.InOrStdin())
-			return runWithSecretDecision(context.Background(), cl, cmd.OutOrStdout(), Params{OutputDir: outputDir},
-				func(finding Withheld) bool {
-					return promptKeepPlaintext(reader, cmd.OutOrStdout(), finding)
-				})
+			return runWithSecretDecision(cmd.Context(), cl, cmd.OutOrStdout(), Params{OutputDir: outputDir},
+				newPlaintextDecision(reader, cmd.OutOrStdout()))
 		},
 	}
 	cmd.Flags().StringP("output", "o", "", "Root directory of the output repository (created if missing)")
@@ -55,7 +53,7 @@ func Run(ctx context.Context, c client.Interface, w io.Writer, params Params) er
 	return runWithSecretDecision(ctx, c, w, params, nil)
 }
 
-func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, params Params, keep func(Withheld) bool) error {
+func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, params Params, keep func(Withheld) (bool, error)) error {
 	report, err := runEngine(ctx, c, Options{OutputDir: params.OutputDir, KeepPlaintext: keep})
 	if err != nil && isExportPermissionError(err) {
 		return errors.New("your role does not have permission to perform this export operation!")
@@ -90,23 +88,68 @@ func isExportPermissionError(err error) bool {
 		strings.Contains(message, "forbidden")
 }
 
-func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) bool {
-	fmt.Fprintf(out, "\nPossible plaintext credential in %s %s/%s/%s at %s.\n",
-		finding.Kind, finding.Namespace, finding.Project, finding.Name, strings.Join(finding.Reasons, ", "))
-	fmt.Fprint(out, "Keep these value(s) in the exported YAML? [y/N]: ")
+type plaintextChoice string
+
+const (
+	plaintextKeep      plaintextChoice = "y"
+	plaintextRemove    plaintextChoice = "n"
+	plaintextKeepAll   plaintextChoice = "a"
+	plaintextRemoveAll plaintextChoice = "r"
+)
+
+var errExportCanceled = errors.New("export canceled; no files were written")
+
+func newPlaintextDecision(reader *bufio.Reader, out io.Writer) func(Withheld) (bool, error) {
+	var remaining plaintextChoice
+	return func(finding Withheld) (bool, error) {
+		if remaining != "" {
+			return remaining == plaintextKeepAll, nil
+		}
+		choice, err := promptKeepPlaintext(reader, out, finding)
+		if err != nil {
+			return false, err
+		}
+		if choice == plaintextKeepAll || choice == plaintextRemoveAll {
+			remaining = choice
+		}
+		return choice == plaintextKeep || choice == plaintextKeepAll, nil
+	}
+}
+
+func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) (plaintextChoice, error) {
+	var parts []string
+	for _, part := range []string{finding.Namespace, finding.Project, finding.Name} {
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	fmt.Fprintf(out, "\nPossible plaintext credential\n  Resource: %s %s\n  File: %s\n  Field: %s\n  Reason: Literal value in a sensitive field\n\n",
+		finding.Kind, strings.Join(parts, "/"), finding.File, strings.Join(finding.Reasons, ", "))
+	fmt.Fprint(out, "Keep this value in the exported YAML?\n[y] Keep this\n[n] Remove this\n[a] Keep this and all remaining findings\n[r] Remove this and all remaining findings\n[q] Cancel export\nChoice [y/n/a/r/q]: ")
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil && len(line) == 0 {
-			fmt.Fprintln(out, "\nNo response; stripping detected value(s).")
-			return false
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				return "", fmt.Errorf("read plaintext credential choice: %w", err)
+			}
+			if len(line) == 0 {
+				fmt.Fprintln(out, "\nNo response; removing this value.")
+				return plaintextRemove, nil
+			}
 		}
 		switch strings.ToLower(strings.TrimSpace(line)) {
 		case "y", "yes":
-			return true
+			return plaintextKeep, nil
 		case "n", "no", "":
-			return false
+			return plaintextRemove, nil
+		case "a":
+			return plaintextKeepAll, nil
+		case "r":
+			return plaintextRemoveAll, nil
+		case "q":
+			return "", errExportCanceled
 		default:
-			fmt.Fprint(out, "Please answer y or n: ")
+			fmt.Fprint(out, "Invalid choice. Enter y, n, a, r, or q.\nChoice [y/n/a/r/q]: ")
 		}
 	}
 }

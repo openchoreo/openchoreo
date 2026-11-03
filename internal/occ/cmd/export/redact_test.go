@@ -19,7 +19,7 @@ func TestPlaintextCredentials(t *testing.T) {
 		value any
 		want  bool
 	}{
-		{name: "literal", value: "carrot123", want: true},
+		{name: "literal", value: "foo123", want: true},
 		{name: "empty", value: ""},
 		{name: "number", value: 123},
 		{name: "structured reference", value: map[string]any{"secretKeyRef": map[string]any{"name": "db", "key": "password"}}},

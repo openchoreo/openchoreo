@@ -26,50 +26,47 @@ func isPlaintextCredential(name string, value any) bool {
 }
 
 func findPlaintextSecrets(object map[string]any) []string {
+	credentials := plaintextCredentials(object)
 	var findings []string
-	walk(object, "", &findings)
-	sort.Strings(findings)
+	for _, credential := range credentials {
+		findings = append(findings, credential.path)
+	}
 	return findings
 }
 
 func stripPlaintextSecrets(object map[string]any) int {
-	return stripValues(object)
-}
-
-func stripValues(node any) int {
-	stripped := 0
-	switch value := node.(type) {
-	case map[string]any:
-		if key, ok := value["key"].(string); ok && isPlaintextCredential(key, value["value"]) {
-			delete(value, "value")
-			stripped++
-		}
-		for key, child := range value {
-			if key != "key" && isPlaintextCredential(key, child) {
-				delete(value, key)
-				stripped++
-				continue
-			}
-			stripped += stripValues(child)
-		}
-	case []any:
-		for _, child := range value {
-			stripped += stripValues(child)
-		}
+	credentials := plaintextCredentials(object)
+	for _, credential := range credentials {
+		delete(credential.parent, credential.key)
 	}
-	return stripped
+	return len(credentials)
 }
 
-func walk(node any, currentPath string, findings *[]string) {
+type plaintextCredential struct {
+	path   string
+	parent map[string]any
+	key    string
+}
+
+func plaintextCredentials(object map[string]any) []plaintextCredential {
+	var findings []plaintextCredential
+	walk(object, "", &findings)
+	sort.Slice(findings, func(i, j int) bool { return findings[i].path < findings[j].path })
+	return findings
+}
+
+func walk(node any, currentPath string, findings *[]plaintextCredential) {
 	switch value := node.(type) {
 	case map[string]any:
 		if key, ok := value["key"].(string); ok && isPlaintextCredential(key, value["value"]) {
-			*findings = append(*findings, fmt.Sprintf("%s.value (key %q)", currentPath, key))
+			*findings = append(*findings, plaintextCredential{
+				path: fmt.Sprintf("%s.value (key %q)", currentPath, key), parent: value, key: "value",
+			})
 		}
 		for key, child := range value {
 			childPath := currentPath + "." + key
 			if key != "key" && isPlaintextCredential(key, child) {
-				*findings = append(*findings, childPath)
+				*findings = append(*findings, plaintextCredential{path: childPath, parent: value, key: key})
 				continue
 			}
 			walk(child, childPath, findings)
