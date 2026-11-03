@@ -156,8 +156,17 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 
 			By("workload pod runs as its own ServiceAccount without an API token")
 			Eventually(func(g Gomega) {
-				framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
 					"openchoreo.dev/component="+componentWebApp, ".spec")
+				serviceSAName, err := framework.Kubectl(kubeContext,
+					"get", "pod",
+					"-n", dpNs,
+					"-l", "openchoreo.dev/component="+componentService,
+					"-o", "jsonpath={.items[0].spec.serviceAccountName}",
+				)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(saName).NotTo(Equal(serviceSAName),
+					"%s and %s should not share a ServiceAccount", componentWebApp, componentService)
 			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("TCP port is reachable from tester pod")
