@@ -29,8 +29,15 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 		"kustomize.toolkit.fluxcd.io/name":      "openchoreo-projects",
 		"kustomize.toolkit.fluxcd.io/namespace": "flux-system",
 	}
+	lastApplied := map[string]string{
+		"kubectl.kubernetes.io/last-applied-configuration": `{"spec":{"parameters":{"dbPassword":"old-password"}}}`,
+	}
+	annotations := map[string]string{
+		"kubectl.kubernetes.io/last-applied-configuration": lastApplied["kubectl.kubernetes.io/last-applied-configuration"],
+		"openchoreo.dev/description":                       "Payments API",
+	}
 	component := gen.Component{
-		Metadata: gen.ObjectMeta{Name: "api", Uid: stringPointer("uid"), CreationTimestamp: &created, Labels: &labels},
+		Metadata: gen.ObjectMeta{Name: "api", Uid: stringPointer("uid"), CreationTimestamp: &created, Labels: &labels, Annotations: &annotations},
 		Spec: &gen.ComponentSpec{
 			Owner: struct {
 				ProjectName string `json:"projectName"`
@@ -43,7 +50,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 	expectNoNamespacePlatformResources(mockClient)
 	expectNoProjectResources(mockClient)
 	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
-		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme"}}},
+		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme", Annotations: &lastApplied}}},
 	}, nil)
 	mockClient.EXPECT().ListProjects(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectList{
 		Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: "shop"}}},
@@ -74,6 +81,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 	assert.Equal(t, "Namespace", namespaceObject["kind"])
 	assert.NotContains(t, namespaceObject, "status")
 	assert.NotContains(t, namespaceObject["metadata"].(map[string]any), "namespace")
+	assert.NotContains(t, namespaceObject["metadata"].(map[string]any), "annotations")
 
 	projectObject := readManifest(t, root, "namespaces/acme/projects/shop/project.yaml")
 	assert.Equal(t, openchoreoAPIVersion, projectObject["apiVersion"])
@@ -93,6 +101,7 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 	assert.Equal(t, "acme", metadata["namespace"])
 	assert.NotContains(t, metadata, "uid")
 	assert.Equal(t, map[string]any{"team": "payments"}, metadata["labels"])
+	assert.Equal(t, map[string]any{"openchoreo.dev/description": "Payments API"}, metadata["annotations"])
 	workloadObject := readManifest(t, root, "namespaces/acme/projects/shop/components/api/workload.yaml")
 	assert.Equal(t, "Workload", workloadObject["kind"])
 	assert.Equal(t, openchoreoAPIVersion, workloadObject["apiVersion"])

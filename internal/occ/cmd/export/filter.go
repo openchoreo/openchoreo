@@ -61,6 +61,12 @@ func normalizeObject(value any, kind, namespace string) (map[string]any, error) 
 	} else {
 		metadata["namespace"] = namespace
 	}
+	if annotations, ok := metadata["annotations"].(map[string]any); ok {
+		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
+		if len(annotations) == 0 {
+			delete(metadata, "annotations")
+		}
+	}
 	if labelsMap, ok := metadata["labels"].(map[string]any); ok {
 		for key := range labelsMap {
 			if labelsToDrop[key] || (kind == "Namespace" && namespaceLabelsToDrop[key]) {
