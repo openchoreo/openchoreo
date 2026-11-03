@@ -112,6 +112,16 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 						labelComponent+"="+componentGreeter+","+labelReleaseLine+"="+line)
 				}, 3*time.Minute, 2*time.Second).Should(Succeed())
 			}
+
+			By("checking each line runs as its own ServiceAccount")
+			serviceAccounts := map[string]string{}
+			for _, line := range []string{lineStable, lineCanary} {
+				Eventually(func(g Gomega) {
+					serviceAccounts[line] = framework.AssertDedicatedServiceAccount(g, kubeContext, dpDevNs, "deployment",
+						labelComponent+"="+componentGreeter+","+labelReleaseLine+"="+line, ".spec.template.spec")
+				}, 1*time.Minute, 2*time.Second).Should(Succeed())
+			}
+			Expect(serviceAccounts[lineStable]).NotTo(Equal(serviceAccounts[lineCanary]))
 		})
 
 		It("serves each line on its own service", func() {
@@ -264,6 +274,16 @@ var _ = Describe("Release Lines", Ordered, Label("tier1"), func() {
 			By("checking a line's Service doesn't select the main line's pods")
 			for _, line := range []string{lineStable, lineCanary} {
 				Expect(lineDeployment(line).Spec.Selector.MatchLabels).NotTo(HaveKey("openchoreo.dev/component-uid"))
+			}
+
+			By("checking the main line doesn't share a line's ServiceAccount")
+			var mainServiceAccount string
+			Eventually(func(g Gomega) {
+				mainServiceAccount = framework.AssertDedicatedServiceAccount(g, kubeContext, dpDevNs, "deployment",
+					labelComponent+"="+componentGreeter+",!"+labelReleaseLine, ".spec.template.spec")
+			}, 1*time.Minute, 2*time.Second).Should(Succeed())
+			for _, line := range []string{lineStable, lineCanary} {
+				Expect(lineDeployment(line).Spec.Template.Spec.ServiceAccountName).NotTo(Equal(mainServiceAccount))
 			}
 		})
 	})

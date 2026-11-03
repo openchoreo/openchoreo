@@ -70,7 +70,7 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			return err
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-		By("patching scheduled-task ReleaseBinding for a 1-minute schedule")
+		By("patching scheduled-task ReleaseBinding for a 1-minute schedule and an image pull secret")
 		output, err = framework.Kubectl(kubeContext, "patch", "releasebinding", scheduledRBName,
 			"-n", cpNs, "--type=merge", "-p", scheduleOverridePatch)
 		Expect(err).NotTo(HaveOccurred(), "failed to patch schedule on ReleaseBinding %s: %s", scheduledRBName, output)
@@ -123,7 +123,12 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 
 			By("workload pod runs as its own ServiceAccount without an API token")
 			Eventually(func(g Gomega) {
-				assertDedicatedServiceAccount(g, "pod", componentService, ".spec")
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
+					"openchoreo.dev/component="+componentService, ".spec")
+				pullSecrets, err := framework.KubectlGetJsonpath(kubeContext, dpNs, "serviceaccount", saName,
+					"{.imagePullSecrets}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(pullSecrets).To(BeEmpty(), "ServiceAccount %s should have no imagePullSecrets by default", saName)
 			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("TCP port is reachable from tester pod")
@@ -151,7 +156,8 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 
 			By("workload pod runs as its own ServiceAccount without an API token")
 			Eventually(func(g Gomega) {
-				assertDedicatedServiceAccount(g, "pod", componentWebApp, ".spec")
+				framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
+					"openchoreo.dev/component="+componentWebApp, ".spec")
 			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("TCP port is reachable from tester pod")
@@ -183,9 +189,14 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				g.Expect(out).NotTo(BeEmpty(), "no CronJob found for component %s in %s", componentScheduled, dpNs)
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 
-			By("CronJob pods run as their own ServiceAccount without an API token")
+			By("CronJob pods run as their own ServiceAccount without an API token, with the ReleaseBinding's image pull secrets")
 			Eventually(func(g Gomega) {
-				assertDedicatedServiceAccount(g, "cronjob", componentScheduled, ".spec.jobTemplate.spec.template.spec")
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "cronjob",
+					"openchoreo.dev/component="+componentScheduled, ".spec.jobTemplate.spec.template.spec")
+				pullSecrets, err := framework.KubectlGetJsonpath(kubeContext, dpNs, "serviceaccount", saName,
+					"{.imagePullSecrets[*].name}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(pullSecrets).To(Equal(imagePullSecretName))
 			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("CronJob status.lastScheduleTime is populated (Job was scheduled)")
@@ -330,40 +341,6 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 		})
 	})
 })
-
-// assertDedicatedServiceAccount checks that a component's first object of the given kind has
-// a pod spec (at podSpecPath) running as the component's own ServiceAccount instead of the
-// namespace default, with no API token mounted, and that the ServiceAccount exists with
-// automountServiceAccountToken disabled.
-func assertDedicatedServiceAccount(g Gomega, kind, component, podSpecPath string) {
-	jp := func(field string) string {
-		out, err := framework.Kubectl(kubeContext,
-			"get", kind,
-			"-n", dpNs,
-			"-l", "openchoreo.dev/component="+component,
-			"-o", "jsonpath={.items[0]"+podSpecPath+field+"}",
-		)
-		g.Expect(err).NotTo(HaveOccurred())
-		return out
-	}
-
-	saName := jp(".serviceAccountName")
-	g.Expect(saName).NotTo(BeEmpty(), "%s for %s has no serviceAccountName", kind, component)
-	g.Expect(saName).NotTo(Equal("default"), "%s for %s runs as the default ServiceAccount", kind, component)
-	g.Expect(jp(".automountServiceAccountToken")).To(Equal("false"),
-		"%s for %s should set automountServiceAccountToken: false", kind, component)
-	g.Expect(jp(".volumes[*].projected.sources[*].serviceAccountToken.path")).To(BeEmpty(),
-		"%s for %s should not mount a ServiceAccount token", kind, component)
-
-	saAutomount, err := framework.Kubectl(kubeContext,
-		"get", "serviceaccount", saName,
-		"-n", dpNs,
-		"-o", "jsonpath={.automountServiceAccountToken}",
-	)
-	g.Expect(err).NotTo(HaveOccurred(), "ServiceAccount %s for %s not found", saName, component)
-	g.Expect(saAutomount).To(Equal("false"),
-		"ServiceAccount %s should set automountServiceAccountToken: false", saName)
-}
 
 // endpointExternalHTTPURL reads the rendered external HTTP gateway URL for a
 // named endpoint off the ReleaseBinding status, assembled from scheme/host/
