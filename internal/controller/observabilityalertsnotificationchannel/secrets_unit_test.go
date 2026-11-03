@@ -411,11 +411,28 @@ func TestValidateSecretReferences(t *testing.T) {
 		requireInvalidSecrets(t, err, ReasonSecretStoreNotConfigured)
 	})
 
-	t.Run("SecretReference pushed to another plane", func(t *testing.T) {
+	t.Run("valid with another plane as targetPlane", func(t *testing.T) {
+		// Planes can share one secret store, so a value pushed to another plane's store may be
+		// readable through the observability plane's store too.
+		for _, target := range []openchoreov1alpha1.TargetPlaneRef{
+			{Kind: "DataPlane", Name: "default"},
+			{Kind: "ClusterWorkflowPlane", Name: "shared"},
+			{Kind: "ObservabilityPlane", Name: "other"},
+		} {
+			sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+			sr.Spec.TargetPlane = &target
+			if err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+				t.Errorf("targetPlane %s/%s: unexpected error: %v", target.Kind, target.Name, err)
+			}
+		}
+	})
+
+	t.Run("another plane as targetPlane does not lift the remote key check", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
+		sr.Spec.Data[0].RemoteRef.Key = "secret/other/generic/webhook-auth"
 		err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
-		requireInvalidSecrets(t, err, ReasonSecretStoreUnreachable)
+		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
 	})
 
 	dashed := &Reconciler{RemoteKeys: RemoteKeyFormat{Prefix: "secret", Separator: "-"}}
@@ -908,14 +925,43 @@ func TestReconcile_InvalidReferenceIsReportedNotRetried(t *testing.T) {
 func TestReconcile_PlaneConfigurationProblemsArePolled(t *testing.T) {
 	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
 	sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
-	sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
 	f := newReconcileFixture(t, []client.Object{channel, sr})
+	op := &openchoreov1alpha1.ObservabilityPlane{}
+	if err := f.cp.Get(context.Background(), types.NamespacedName{Name: "default", Namespace: testNamespace}, op); err != nil {
+		t.Fatalf("get ObservabilityPlane: %v", err)
+	}
+	op.Spec.SecretStoreRef = nil
+	if err := f.cp.Update(context.Background(), op); err != nil {
+		t.Fatalf("update ObservabilityPlane: %v", err)
+	}
 
 	// The observability plane is not watched, so a fix to it is only noticed by polling.
 	if result := f.reconcile(t); result.RequeueAfter != planeConfigPollInterval {
 		t.Errorf("RequeueAfter = %v, want %v", result.RequeueAfter, planeConfigPollInterval)
 	}
-	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonSecretStoreUnreachable)
+	if _, ok := f.externalSecret(t); ok {
+		t.Error("no ExternalSecret should be applied while the observability plane has no secret store")
+	}
+	got := f.channel(t)
+	requireCondition(t, got, ConditionSecretsReady, metav1.ConditionFalse, ReasonSecretStoreNotConfigured)
+	requireCondition(t, got, ConditionReady, metav1.ConditionFalse, ReasonSecretStoreNotConfigured)
+}
+
+func TestReconcile_SecretReferenceOfAnotherPlaneIsSyncedThroughTheObservabilityPlaneStore(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+	sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
+	sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
+	f := newReconcileFixture(t, []client.Object{channel, sr})
+
+	f.reconcile(t)
+	es, ok := f.externalSecret(t)
+	if !ok {
+		t.Fatal("ExternalSecret was not applied to the observability plane")
+	}
+	if store, _, _ := unstructured.NestedString(es.Object, "spec", "secretStoreRef", "name"); store != testStore {
+		t.Errorf("secretStoreRef.name = %q, want the observability plane's store %q", store, testStore)
+	}
+	requireCondition(t, f.channel(t), ConditionSecretsReady, metav1.ConditionUnknown, ReasonExternalSecretPending)
 }
 
 func TestReconcile_RemoteKeyOutsideNamespaceIsRejected(t *testing.T) {
