@@ -201,8 +201,19 @@ func networkPolicyManifests(
 // ("r_") and project ("p_") RenderedReleases: the underscore is sanitized to
 // "-" in the visible name but drives the hash, and K8s names cannot contain
 // "_", so a Component named "e-{endpoint}" hashes a different input.
+//
+// The name is also the value of the openchoreo.dev/rendered-release-name label
+// on every resource applied from it, so it must fit a label value (63). Only
+// names longer than that are shortened: those could never be applied, while a
+// shorter name shortened as well would rename an existing RenderedRelease and
+// recreate its routes.
 func makeRenderedReleaseName(binding *openchoreov1alpha1.EndpointReleaseBinding) string {
-	return dpkubernetes.GenerateK8sName("e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+	name := dpkubernetes.GenerateK8sName("e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+	if len(name) <= dpkubernetes.MaxLabelNameLength {
+		return name
+	}
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+		"e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
 }
 
 // convertEntriesToManifests marshals each pipeline-rendered map into a
