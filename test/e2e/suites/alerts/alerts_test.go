@@ -80,6 +80,19 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		out, err = framework.KubectlApplyLiteral(kubeContext, notificationChannelYAML())
 		Expect(err).NotTo(HaveOccurred(), "apply notification channel: %s", out)
 
+		By("waiting for the notification channel to reach the observability plane")
+		// In multi-cluster mode cpNs exists only on the CP cluster, so this
+		// covers the channel controller creating it on the OP cluster.
+		Eventually(func(g Gomega) {
+			out, err := framework.KubectlGetJsonpath(kubeContext, cpNs,
+				"observabilityalertsnotificationchannel", notificationChannel,
+				`{.status.conditions[?(@.type=="Ready")].status}|{.status.conditions[?(@.type=="Ready")].message}`)
+			g.Expect(err).NotTo(HaveOccurred())
+			status, message, _ := strings.Cut(out, "|")
+			g.Expect(status).To(Equal("True"), "notification channel not Ready: %s", message)
+			framework.AssertResourceExists(g, opCtx(), cpNs, "configmap", notificationChannel)
+		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
 		logSearchPhrase = "e2e-log-alert-trigger-" + framework.RandSuffix(6)
 
 		By("applying shared alert component")
