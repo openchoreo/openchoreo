@@ -2361,8 +2361,11 @@ type NamespaceStatusPhase string
 
 // NotificationEmailConfig Configuration for email notification channels
 type NotificationEmailConfig struct {
-	// From Sender email address
+	// From Sender email address. Must be a bare address; it is also used as the SMTP envelope sender.
 	From string `json:"from"`
+
+	// FromName Optional sender display name. When set, the From header is rendered as "fromName <from>".
+	FromName *string `json:"fromName,omitempty"`
 
 	// Smtp SMTP server configuration
 	Smtp NotificationSMTPConfig `json:"smtp"`

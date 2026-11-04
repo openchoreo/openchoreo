@@ -347,6 +347,9 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 	// Add email-specific config if type is email
 	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeEmail && channel.Spec.EmailConfig != nil {
 		configMap.Data["from"] = channel.Spec.EmailConfig.From
+		if channel.Spec.EmailConfig.FromName != "" {
+			configMap.Data["fromName"] = channel.Spec.EmailConfig.FromName
+		}
 		configMap.Data["to"] = fmt.Sprintf("%v", channel.Spec.EmailConfig.To)
 		configMap.Data["smtp.host"] = channel.Spec.EmailConfig.SMTP.Host
 		configMap.Data["smtp.port"] = fmt.Sprintf("%d", channel.Spec.EmailConfig.SMTP.Port)

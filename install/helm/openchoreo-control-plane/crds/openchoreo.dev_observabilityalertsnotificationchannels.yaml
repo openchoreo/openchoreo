@@ -61,9 +61,18 @@ spec:
                 properties:
                   from:
                     description: |-
-                      From is the sender email address
+                      From is the sender email address. It must be a bare address (no display name) since it
+                      is also used as the SMTP envelope sender. Use FromName to set a display name.
                       Required when type is "email"
                     pattern: ^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
+                    type: string
+                  fromName:
+                    description: |-
+                      FromName is an optional display name for the sender. When set, the From header of
+                      alert emails is rendered as "FromName <from>". The SMTP envelope sender is always the
+                      bare From address.
+                    maxLength: 128
+                    pattern: ^[^\r\n]*$
                     type: string
                   smtp:
                     description: |-

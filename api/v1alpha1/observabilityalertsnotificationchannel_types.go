@@ -36,11 +36,20 @@ type SecretValueFrom struct {
 
 // EmailConfig defines the configuration for email notification channels
 type EmailConfig struct {
-	// From is the sender email address
+	// From is the sender email address. It must be a bare address (no display name) since it
+	// is also used as the SMTP envelope sender. Use FromName to set a display name.
 	// Required when type is "email"
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
 	From string `json:"from"`
+
+	// FromName is an optional display name for the sender. When set, the From header of
+	// alert emails is rendered as "FromName <from>". The SMTP envelope sender is always the
+	// bare From address.
+	// +optional
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:Pattern=`^[^\r\n]*$`
+	FromName string `json:"fromName,omitempty"`
 
 	// To is the list of recipient email addresses
 	// Required when type is "email"
