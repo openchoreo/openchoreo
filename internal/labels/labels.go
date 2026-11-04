@@ -94,6 +94,23 @@ const (
 	// - Data plane runtime namespaces (e.g., dp-*)
 	LabelKeyControlPlaneNamespace = "openchoreo.dev/control-plane"
 
+	// LabelKeyKVNamespace marks a plane namespace that holds the K8s Secrets and PushSecrets the
+	// Secret API provisions for one control plane namespace, named by LabelKeyNamespaceName.
+	LabelKeyKVNamespace = "openchoreo.dev/kv-namespace"
+
+	// LabelKeyWorkflowNamespace marks a workflow plane namespace that runs the workflows and holds the
+	// git secrets of one control plane namespace, named by LabelKeyNamespaceName.
+	LabelKeyWorkflowNamespace = "openchoreo.dev/workflow-namespace"
+
+	// LabelKeySecretType marks the kind of secret a SecretReference stands for, such as a git secret.
+	LabelKeySecretType = "openchoreo.dev/secret-type"
+	// LabelKeyWorkflowPlaneKind is the kind of the workflow plane a git secret was pushed through.
+	LabelKeyWorkflowPlaneKind = "openchoreo.dev/workflow-plane-kind"
+	// LabelKeyWorkflowPlaneName is the name of the workflow plane a git secret was pushed through.
+	LabelKeyWorkflowPlaneName = "openchoreo.dev/workflow-plane-name"
+	// LabelValueGitCredentials is the LabelKeySecretType value of a git secret.
+	LabelValueGitCredentials = "git-credentials"
+
 	// LabelKeySystemComponent identifies platform infrastructure pods (e.g., gateway) that need
 	// network access to user workloads. Used in NetworkPolicy rules to allow ingress from system components.
 	LabelKeySystemComponent = "openchoreo.dev/system-component"
@@ -129,6 +146,8 @@ const (
 	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
 
 	LabelValueManagedBy = "openchoreo-control-plane"
+	// LabelValueOpenChoreoAPI marks resources created or managed by the openchoreo-api.
+	LabelValueOpenChoreoAPI = "openchoreo-api"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"
 )

@@ -14,9 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -37,6 +40,10 @@ type Reconciler struct {
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
 	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
 	CacheVersion  string                // Cache key version prefix (e.g., "v2")
+	// PlaneClientProvider reaches the plane cluster to sweep plane namespaces.
+	PlaneClientProvider kubernetesClient.ObservabilityPlaneClientProvider
+	// APIReader confirms a control plane namespace is gone before its plane namespaces are deleted.
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch;create;update;patch;delete
@@ -88,6 +95,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			logger.Error(err, "failed to get agent connection status")
 			// Don't fail reconciliation for status query errors
 		}
+
+		r.sweepPlaneNamespaces(ctx, clusterObservabilityPlane)
 
 		if err := r.Status().Update(ctx, clusterObservabilityPlane); err != nil {
 			logger.Error(err, "failed to update ClusterObservabilityPlane status")
@@ -167,6 +176,27 @@ func (r *Reconciler) finalize(ctx context.Context, _, clusterObservabilityPlane 
 
 	if !controllerutil.ContainsFinalizer(clusterObservabilityPlane, ClusterObservabilityPlaneCleanupFinalizer) {
 		return ctrl.Result{}, nil
+	}
+
+	// Runs before the gateway notification, which disconnects the plane's agents.
+	if r.PlaneClientProvider != nil && r.APIReader != nil {
+		msg, err := controller.FinalizeClusterPlane(ctx, r.Client, r.APIReader,
+			string(openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane), clusterObservabilityPlane.Name,
+			func() (client.Client, error) {
+				return r.PlaneClientProvider.ClusterObservabilityPlaneClient(clusterObservabilityPlane)
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if msg != "" {
+			logger.Info(msg)
+			if meta.SetStatusCondition(&clusterObservabilityPlane.Status.Conditions, controller.NewPlaneDeletionBlockedCondition(clusterObservabilityPlane.Generation, msg)) {
+				if err := r.Status().Update(ctx, clusterObservabilityPlane); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{RequeueAfter: controller.PlaneDeletionRetryInterval}, nil
+		}
 	}
 
 	// Notify gateway of ClusterObservabilityPlane deletion before removing finalizer
@@ -321,6 +351,40 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ClusterObservabilityPlane{}).
+		// A removed control plane namespace triggers a sweep of its plane namespaces.
+		Watches(
+			&corev1.Namespace{},
+			handler.EnqueueRequestsFromMapFunc(r.allClusterObservabilityPlanes),
+			builder.WithPredicates(controller.ControlPlaneNamespaceRemovedPredicate()),
+		).
 		Named("clusterobservabilityplane").
 		Complete(r)
+}
+
+// sweepPlaneNamespaces deletes the plane namespaces in this plane's cluster whose
+// control plane namespace is gone, while an agent is connected.
+func (r *Reconciler) sweepPlaneNamespaces(ctx context.Context, clusterObservabilityPlane *openchoreov1alpha1.ClusterObservabilityPlane) {
+	if r.PlaneClientProvider == nil || r.APIReader == nil {
+		return
+	}
+	if clusterObservabilityPlane.Status.AgentConnection == nil || !clusterObservabilityPlane.Status.AgentConnection.Connected {
+		return
+	}
+	controller.SweepPlaneNamespaces(ctx, r.Client, r.APIReader, func() (client.Client, error) {
+		return r.PlaneClientProvider.ClusterObservabilityPlaneClient(clusterObservabilityPlane)
+	})
+}
+
+// allClusterObservabilityPlanes enqueues every ClusterObservabilityPlane so each sweeps its cluster.
+func (r *Reconciler) allClusterObservabilityPlanes(ctx context.Context, _ client.Object) []reconcile.Request {
+	var list openchoreov1alpha1.ClusterObservabilityPlaneList
+	if err := r.List(ctx, &list); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ClusterObservabilityPlanes")
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKey{Name: list.Items[i].Name}})
+	}
+	return requests
 }

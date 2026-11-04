@@ -32,6 +32,10 @@ type Reconciler struct {
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
 	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
 	CacheVersion  string                // Cache key version prefix (e.g., "v2")
+	// PlaneClientProvider reaches the plane cluster to delete plane namespaces on finalize.
+	PlaneClientProvider kubernetesClient.DataPlaneClientProvider
+	// APIReader reads the control plane namespace uncached when the plane is deleted.
+	APIReader client.Reader
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

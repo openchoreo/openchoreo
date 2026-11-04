@@ -27,6 +27,7 @@ import (
 	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
+	"github.com/openchoreo/openchoreo/internal/planenamespace"
 )
 
 const (
@@ -2725,7 +2726,7 @@ func TestEnsurePrerequisites(t *testing.T) {
 		fc := fake.NewClientBuilder().WithScheme(s).Build()
 		r := &Reconciler{Client: fc, Scheme: s}
 
-		err := r.ensurePrerequisites(context.Background(), "workflow-ns", "wf-sa", fc)
+		err := r.ensurePrerequisites(context.Background(), "acme", "workflow-ns", "wf-sa", fc)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2755,6 +2756,46 @@ func TestEnsurePrerequisites(t *testing.T) {
 		}
 	})
 
+	t.Run("labels the workflow namespace of a control plane namespace", func(t *testing.T) {
+		fc := fake.NewClientBuilder().WithScheme(s).WithObjects(makeNamespace("workflows-acme")).Build()
+		r := &Reconciler{Client: fc, Scheme: s}
+
+		if err := r.ensurePrerequisites(context.Background(), "acme", "workflows-acme", "wf-sa", fc); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		ns := &corev1.Namespace{}
+		if err := fc.Get(context.Background(), types.NamespacedName{Name: "workflows-acme"}, ns); err != nil {
+			t.Fatalf("expected namespace to exist: %v", err)
+		}
+		for k, v := range planenamespace.Workflow.Labels("acme") {
+			if ns.Labels[k] != v {
+				t.Errorf("workflow namespace label %s = %q, want %q", k, ns.Labels[k], v)
+			}
+		}
+		sa := &corev1.ServiceAccount{}
+		if err := fc.Get(context.Background(), types.NamespacedName{Name: "wf-sa", Namespace: "workflows-acme"}, sa); err != nil {
+			t.Errorf("expected service account to exist: %v", err)
+		}
+	})
+
+	t.Run("leaves a namespace other than the run's own unlabeled", func(t *testing.T) {
+		fc := fake.NewClientBuilder().WithScheme(s).Build()
+		r := &Reconciler{Client: fc, Scheme: s}
+
+		if err := r.ensurePrerequisites(context.Background(), "acme", "workflows-other", "wf-sa", fc); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		ns := &corev1.Namespace{}
+		if err := fc.Get(context.Background(), types.NamespacedName{Name: "workflows-other"}, ns); err != nil {
+			t.Fatalf("expected namespace to exist: %v", err)
+		}
+		if len(ns.Labels) != 0 {
+			t.Errorf("expected no labels on a namespace outside the run's own, got %v", ns.Labels)
+		}
+	})
+
 	t.Run("succeeds when resources already exist", func(t *testing.T) {
 		fc := fake.NewClientBuilder().WithScheme(s).
 			WithObjects(
@@ -2765,7 +2806,7 @@ func TestEnsurePrerequisites(t *testing.T) {
 			).Build()
 		r := &Reconciler{Client: fc, Scheme: s}
 
-		err := r.ensurePrerequisites(context.Background(), "workflow-ns", "wf-sa", fc)
+		err := r.ensurePrerequisites(context.Background(), "acme", "workflow-ns", "wf-sa", fc)
 		if err != nil {
 			t.Fatalf("expected no error when resources already exist, got: %v", err)
 		}
@@ -2778,7 +2819,7 @@ func TestEnsurePrerequisites(t *testing.T) {
 		fc := fake.NewClientBuilder().WithScheme(noNSScheme).Build()
 		r := &Reconciler{Client: fc, Scheme: noNSScheme}
 
-		err := r.ensurePrerequisites(context.Background(), "workflow-ns", "wf-sa", fc)
+		err := r.ensurePrerequisites(context.Background(), "acme", "workflow-ns", "wf-sa", fc)
 		if err == nil {
 			t.Fatal("expected error when resource creation fails")
 		}
