@@ -13,10 +13,12 @@ import (
 	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
-// NotificationChannelConfigGetter resolves a notification channel config by channel name.
-type NotificationChannelConfigGetter func(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error)
+// NotificationChannelConfigGetter resolves the config of the notification channel with the given name in the
+// given namespace.
+type NotificationChannelConfigGetter func(ctx context.Context, namespace, channelName string) (*notifications.NotificationChannelConfig, error)
 
-// DispatchAlertNotifications sends the alert to all channels and returns an aggregated error.
+// DispatchAlertNotifications sends the alert to all channels and returns an aggregated error. The channels are
+// resolved in the alert's namespace.
 func DispatchAlertNotifications(
 	ctx context.Context,
 	alertDetails *observertypes.AlertDetails,
@@ -26,7 +28,7 @@ func DispatchAlertNotifications(
 ) error {
 	var errs []error
 	for _, channel := range channels {
-		channelConfig, err := getConfig(ctx, channel)
+		channelConfig, err := getConfig(ctx, alertDetails.Namespace, channel)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get notification channel config for %q: %w", channel, err))
 			continue
