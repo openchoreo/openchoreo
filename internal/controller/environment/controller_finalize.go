@@ -43,9 +43,10 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *openchore
 // The finalization flow is:
 //  1. Check if the environment is referenced by any DeploymentPipeline — if so, block deletion.
 //  2. Wait for all ReleaseBindings and ProjectReleaseBindings that reference this environment to be gone.
-//  3. Delete the data plane namespaces associated with the environment.
-//  4. Wait for namespace deletion to complete.
-//  5. Remove the finalizer to allow garbage collection.
+//  3. Wait for all ObservabilityAlertsNotificationChannels that reference this environment to be gone.
+//  4. Delete the data plane namespaces associated with the environment.
+//  5. Wait for namespace deletion to complete.
+//  6. Remove the finalizer to allow garbage collection.
 func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov1alpha1.Environment) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
 	if !controllerutil.ContainsFinalizer(environment, EnvCleanupFinalizer) {
@@ -69,8 +70,11 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 		return ctrl.Result{RequeueAfter: time.Second * 30}, nil
 	}
 
-	// Mark the environment condition as finalizing.
-	if meta.SetStatusCondition(&environment.Status.Conditions, NewEnvironmentFinalizingCondition(environment.Generation)) {
+	// Mark the environment condition as finalizing, but keep a condition that says which
+	// dependents finalization waits for. Every status write triggers another reconcile, so
+	// flipping between the two would spin for as long as the dependents remain.
+	if !isWaitingOnDependents(environment) &&
+		meta.SetStatusCondition(&environment.Status.Conditions, NewEnvironmentFinalizingCondition(environment.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -100,6 +104,32 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 			}
 		}
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+
+	// Step 3: Delete all notification channels of this environment and wait for them to be gone.
+	// A channel's finalizer resolves the observability plane through this Environment to
+	// remove the channel's resources there, so the Environment must outlive it too.
+	pendingChannels, err := r.deleteAndCountNotificationChannels(ctx, environment)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if pendingChannels > 0 {
+		msg := fmt.Sprintf("Deleting %d notification channel(s)", pendingChannels)
+		logger.Info(msg)
+		if meta.SetStatusCondition(&environment.Status.Conditions, NewNotificationChannelsPendingCondition(environment.Generation, msg)) {
+			if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+
+	// No dependents remain, so report plain finalizing again.
+	if meta.SetStatusCondition(&environment.Status.Conditions, NewEnvironmentFinalizingCondition(environment.Generation)) {
+		if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// Step 4 & 5: Delete data plane namespaces and wait for them to be gone.
@@ -157,6 +187,14 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 
 	// Step 6: All cleanup complete — remove finalizer.
 	return r.removeFinalizer(ctx, environment)
+}
+
+// isWaitingOnDependents reports whether the Ready condition says that finalization is
+// waiting for release bindings or notification channels to be deleted.
+func isWaitingOnDependents(environment *openchoreov1alpha1.Environment) bool {
+	cond := meta.FindStatusCondition(environment.Status.Conditions, ConditionReady.String())
+	return cond != nil && (cond.Reason == string(ReasonReleaseBindingsPending) ||
+		cond.Reason == string(ReasonNotificationChannelsPending))
 }
 
 // removeFinalizer removes the cleanup finalizer from the environment.
@@ -279,6 +317,32 @@ func (r *Reconciler) deleteAndCountProjectReleaseBindings(ctx context.Context, e
 		if binding.DeletionTimestamp.IsZero() {
 			if err := r.Delete(ctx, binding); err != nil && !apierrors.IsNotFound(err) {
 				return 0, fmt.Errorf("failed to delete project release binding %s: %w", binding.Name, err)
+			}
+		}
+	}
+
+	return count, nil
+}
+
+// deleteAndCountNotificationChannels deletes all notification channels that
+// reference this environment and returns the count of those still present
+// (pending deletion or not yet deleted).
+func (r *Reconciler) deleteAndCountNotificationChannels(ctx context.Context, environment *openchoreov1alpha1.Environment) (int, error) {
+	channelList := &openchoreov1alpha1.ObservabilityAlertsNotificationChannelList{}
+	if err := r.List(ctx, channelList, client.InNamespace(environment.Namespace)); err != nil {
+		return 0, fmt.Errorf("failed to list notification channels: %w", err)
+	}
+
+	count := 0
+	for i := range channelList.Items {
+		channel := &channelList.Items[i]
+		if channel.Spec.Environment != environment.Name {
+			continue
+		}
+		count++
+		if channel.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, channel); err != nil && !apierrors.IsNotFound(err) {
+				return 0, fmt.Errorf("failed to delete notification channel %s: %w", channel.Name, err)
 			}
 		}
 	}
