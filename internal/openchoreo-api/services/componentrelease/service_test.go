@@ -147,6 +147,71 @@ func TestCreateComponentRelease(t *testing.T) {
 		assert.Equal(t, openchoreov1alpha1.ComponentReleaseStatus{}, result.Status)
 	})
 
+	lineRelease := func() *openchoreov1alpha1.ComponentRelease {
+		return &openchoreov1alpha1.ComponentRelease{
+			ObjectMeta: metav1.ObjectMeta{Name: testReleaseName},
+			Spec: openchoreov1alpha1.ComponentReleaseSpec{
+				Owner: openchoreov1alpha1.ComponentReleaseOwner{
+					ProjectName:   testProjectName,
+					ComponentName: testComponentName,
+					ReleaseLine:   "next",
+				},
+			},
+		}
+	}
+	lineObjects := func() []client.Object {
+		return []client.Object{
+			&openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: testComponentName, Namespace: testNamespace},
+				Spec: openchoreov1alpha1.ComponentSpec{
+					Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+					ComponentType: openchoreov1alpha1.ComponentTypeRef{
+						Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
+						Name: "deployment/line-type",
+					},
+				},
+			},
+			&openchoreov1alpha1.ClusterComponentType{
+				ObjectMeta: metav1.ObjectMeta{Name: "line-type"},
+				Spec:       openchoreov1alpha1.ClusterComponentTypeSpec{WorkloadType: "deployment"},
+			},
+			&openchoreov1alpha1.ReleaseLine{
+				ObjectMeta: metav1.ObjectMeta{Name: "next", Namespace: testNamespace},
+				Spec: openchoreov1alpha1.ReleaseLineSpec{
+					Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: testProjectName, ComponentName: testComponentName},
+				},
+			},
+		}
+	}
+	requireValidationError := func(t *testing.T, err error, msg string) {
+		t.Helper()
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+		assert.Contains(t, vErr.Msg, msg)
+	}
+
+	t.Run("line release for an unknown line", func(t *testing.T) {
+		svc := newService(t, lineObjects()...)
+		cr := lineRelease()
+		cr.Spec.Owner.ReleaseLine = "v9"
+		_, err := svc.CreateComponentRelease(ctx, testNamespace, cr)
+		requireValidationError(t, err, `release line "v9" not found for component "test-comp"`)
+	})
+
+	t.Run("main line release of a component with release lines", func(t *testing.T) {
+		svc := newService(t, lineObjects()...)
+		cr := lineRelease()
+		cr.Spec.Owner.ReleaseLine = ""
+		_, err := svc.CreateComponentRelease(ctx, testNamespace, cr)
+		require.NoError(t, err)
+	})
+
+	t.Run("line release of one of the component's lines", func(t *testing.T) {
+		svc := newService(t, lineObjects()...)
+		_, err := svc.CreateComponentRelease(ctx, testNamespace, lineRelease())
+		require.NoError(t, err)
+	})
+
 	t.Run("nil input", func(t *testing.T) {
 		svc := newService(t)
 

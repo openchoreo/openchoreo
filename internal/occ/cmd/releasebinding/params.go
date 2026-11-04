@@ -10,6 +10,7 @@ type GenerateParams struct {
 	All              bool   // Generate for all components
 	ProjectName      string // Generate for all components in this project
 	ComponentName    string // Generate for specific component
+	ReleaseLine      string // Optional: release line of the component (only with project+component)
 	ComponentRelease string // Explicit component release name (only with project+component)
 	TargetEnv        string // Required: target environment name
 	UsePipeline      string // Required: deployment pipeline name

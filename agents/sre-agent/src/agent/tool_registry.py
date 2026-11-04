@@ -58,6 +58,9 @@ class TOOLS:
     GET_COMPONENT = Tool(
         "get_component", server=OPENCHOREO, active_form="Fetching component..."
     )
+    GET_RELEASE_LINE = Tool(
+        "get_release_line", server=OPENCHOREO, active_form="Fetching release line..."
+    )
     PATCH_RELEASEBINDING = Tool(
         "patch_releasebinding", server=OPENCHOREO, active_form="Patching release binding..."
     )

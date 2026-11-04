@@ -631,8 +631,8 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 // getStableRequeueInterval returns the requeue interval for stable resources
 // Returns zero duration if interval is set to 0 (no requeue)
 func getStableRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.Duration {
-	// Use configured interval or default to 5m
-	baseInterval := 5 * time.Minute
+	// Use configured interval or default to 1m
+	baseInterval := 1 * time.Minute
 	if release.Spec.Interval != nil {
 		baseInterval = release.Spec.Interval.Duration
 		// If set to 0, don't requeue

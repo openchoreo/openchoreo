@@ -295,6 +295,7 @@ async def run_analysis(
                 project=search_scope.project,
                 component=search_scope.component,
                 environment=search_scope.environment,
+                release_line=search_scope.release_line,
             )
             logger.info("Updated FinOps report to completed: report_id=%s", report_id)
 
@@ -312,6 +313,7 @@ async def run_analysis(
                     project=search_scope.project,
                     component=search_scope.component,
                     environment=search_scope.environment,
+                    release_line=search_scope.release_line,
                 )
             except Exception as update_error:
                 logger.error("Failed to update status: %s", type(update_error).__name__)
@@ -327,6 +329,7 @@ async def run_analysis(
                     project=search_scope.project,
                     component=search_scope.component,
                     environment=search_scope.environment,
+                    release_line=search_scope.release_line,
                 )
             except Exception as update_error:
                 logger.error("Failed to update status: %s", type(update_error).__name__)

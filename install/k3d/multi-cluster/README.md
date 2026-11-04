@@ -42,7 +42,7 @@ See [Tested versions of third-party prerequisites](../../../docs/contributors/te
 export GATEWAY_API_VERSION=v1.5.1
 export CERT_MANAGER_VERSION=v1.19.4
 export ESO_VERSION=2.0.1
-export KGATEWAY_VERSION=v2.3.1
+export KGATEWAY_VERSION=v2.3.11
 export THUNDER_VERSION=1.0.1
 export OPENSEARCH_OPERATOR_VERSION=2.8.0
 
@@ -842,7 +842,8 @@ helm upgrade --install observability-metrics-prometheus \
   --set global.installationMode="multiClusterExporter" \
   --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
   --set kube-prometheus-stack.prometheus.enabled=false \
-  --set kube-prometheus-stack.alertmanager.enabled=false
+  --set kube-prometheus-stack.alertmanager.enabled=false \
+  --set-json 'kube-prometheus-stack.kubelet.serviceMonitor.authorization=null'
 ```
 
 ##### Cost (finops-opencost)
@@ -876,6 +877,8 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 EOF
 ```
 

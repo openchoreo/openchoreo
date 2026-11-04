@@ -2964,6 +2964,192 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/workflowruns:
+    post:
+      operationId: createComponentWorkflowRun
+      summary: Run a component workflow
+      description: >-
+        Starts a run of the component's configured workflow with the component's workflow parameters.
+        With releaseLine set to one of the component's release lines, that line's workflow parameter
+        overrides are applied. Omitted or main builds the main line.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComponentWorkflowRunRequest'
+      responses:
+        '201':
+          description: Workflow run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/releaselines:
+    get:
+      operationId: listComponentReleaseLines
+      summary: List component release lines
+      description: Returns a paginated list of the release lines of a component. The first page of an unfiltered list starts with main, the implicit line every component has, described from its bindings without a release line.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Release lines of the component
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLineList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createComponentReleaseLine
+      summary: Create component release line
+      description: Creates a release line for a component. The owner is taken from the path. The name main is the implicit line, and default is reserved.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseLine'
+      responses:
+        '201':
+          description: Release line created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/releaselines/{releaseLineName}:
+    get:
+      operationId: getComponentReleaseLine
+      summary: Get component release line
+      description: Returns a release line of a component, including its status per environment. The name main returns the implicit line.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      responses:
+        '200':
+          description: Release line details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateComponentReleaseLine
+      summary: Update component release line
+      description: Replaces the spec of a release line (full update). The owner cannot change. The implicit main line cannot be updated.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseLine'
+      responses:
+        '200':
+          description: Release line updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseLine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteComponentReleaseLine
+      summary: Delete component release line
+      description: Deletes a release line. The line's bindings in every environment, its releases and its Workload are then removed. The implicit main line cannot be deleted.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ReleaseLineNameParam'
+      responses:
+        '204':
+          description: Release line deletion accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # Authorization Endpoints
   # =============================================================================
@@ -6562,6 +6748,15 @@ components:
         type: string
         example: api-service
 
+    ReleaseLineNameParam:
+      name: releaseLineName
+      in: path
+      required: true
+      description: Release line name
+      schema:
+        type: string
+        example: next
+
     WorkflowRunNameParam:
       name: runName
       in: path
@@ -8096,6 +8291,8 @@ components:
           type: string
           description: Base URL of the FinOps Agent API in the observability plane cluster
           example: http://finops-agent.observability-plane.svc:8080
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
 
     ObservabilityPlaneStatus:
       type: object
@@ -8360,6 +8557,8 @@ components:
           type: string
           description: Base URL of the FinOps Agent API in the observability plane cluster
           example: http://finops-agent.observability-plane.svc:8080
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
 
     ClusterObservabilityPlaneStatus:
       type: object
@@ -9784,6 +9983,141 @@ components:
           description: Trait parameters
           additionalProperties: true
 
+    ReleaseLineList:
+      type: object
+      description: Paginated list of the release lines of a component
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseLine'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ReleaseLine:
+      type: object
+      description: |
+        ReleaseLine resource.
+        A named series of releases of one component that is built and deployed independently of the component's other lines.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ReleaseLine
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ReleaseLineSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ReleaseLineStatus'
+
+    ReleaseLineSpec:
+      type: object
+      description: Desired state of a ReleaseLine
+      required:
+        - owner
+      properties:
+        owner:
+          type: object
+          description: Component this release line belongs to
+          required:
+            - projectName
+            - componentName
+          properties:
+            projectName:
+              type: string
+              description: Name of the project
+              example: default
+            componentName:
+              type: string
+              description: Name of the component
+              example: hello
+        autoDeploy:
+          type: boolean
+          description: Overrides the component's autoDeploy for this line
+        parameters:
+          type: object
+          description: Deep-merged onto the component's parameters for this line
+          additionalProperties: true
+        traits:
+          type: array
+          description: Merged onto the component's traits for this line, keyed by kind, name and instance name
+          items:
+            $ref: '#/components/schemas/ComponentTrait'
+        workflow:
+          type: object
+          description: Build overrides for this line
+          properties:
+            parameters:
+              type: object
+              description: Deep-merged onto the component's workflow parameters for this line
+              additionalProperties: true
+
+    ReleaseLineStatus:
+      type: object
+      description: Observed state of a ReleaseLine
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        conditions:
+          type: array
+          description: Current state conditions of the release line
+          items:
+            $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Most recent ComponentRelease produced for this line
+          properties:
+            name:
+              type: string
+              description: Name of the ComponentRelease
+              example: hello-next-fc84488f9
+            releaseHash:
+              type: string
+              description: Hash of the ComponentRelease spec
+        environments:
+          type: array
+          description: The line's ReleaseBindings, one per environment it is deployed to
+          items:
+            $ref: '#/components/schemas/ReleaseLineEnvironment'
+
+    ReleaseLineEnvironment:
+      type: object
+      description: A release line's deployment in one environment
+      required:
+        - environment
+        - releaseBinding
+      properties:
+        environment:
+          type: string
+          description: Name of the environment
+          example: development
+        releaseBinding:
+          type: string
+          description: Name of the line's ReleaseBinding in the environment
+          example: hello-next-4833a175-development
+        release:
+          type: string
+          description: Name of the ComponentRelease bound in the environment
+          example: hello-next-fc84488f9
+        ready:
+          type: boolean
+          description: Whether the ReleaseBinding reports Ready
     # -------------------------------------------------------------------------
     # Component Releases
     # -------------------------------------------------------------------------
@@ -9851,6 +10185,10 @@ components:
               type: string
               description: Parent component name
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line this release belongs to. Omitted for the main line.
+              example: next
         componentType:
           type: object
           description: Frozen ComponentType spec at release time
@@ -9945,6 +10283,10 @@ components:
               type: string
               description: Name of the component
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line this binding belongs to. Omitted for the main line.
+              example: next
         environment:
           type: string
           description: Target environment name
@@ -11520,6 +11862,23 @@ components:
           type: string
           description: Optional release name (auto-generated if not provided)
           example: v1.0.0
+        releaseLine:
+          type: string
+          description: Release line to release from, built from the line's Workload and overrides. Omitted or main releases the main line.
+          example: next
+
+    CreateComponentWorkflowRunRequest:
+      type: object
+      description: Request to run a component's workflow
+      properties:
+        releaseLine:
+          type: string
+          description: Release line to build. Omitted or main builds the main line.
+          example: api-service-v2
+        commit:
+          type: string
+          description: Optional commit SHA to build instead of the latest commit of the configured revision
+          example: a1b2c3d
 
     # -------------------------------------------------------------------------
     # Authorization Schemas
@@ -12420,6 +12779,10 @@ components:
               type: string
               description: Name of the owning component
               example: api-service
+            releaseLine:
+              type: string
+              description: Release line of the owning component. Omitted for the main line.
+              example: api-service-v2
         container:
           $ref: '#/components/schemas/WorkloadContainer'
         endpoints:
@@ -12569,6 +12932,9 @@ components:
           type: string
           description: Target component name
           minLength: 1
+        releaseLine:
+          type: string
+          description: Target component's release line. Omitted targets its main line.
         name:
           type: string
           description: Target endpoint name on the target component
@@ -12832,6 +13198,20 @@ components:
     ObservabilityAlertsNotificationChannelStatus:
       type: object
       description: Observed state of an ObservabilityAlertsNotificationChannel
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed ObservabilityAlertsNotificationChannel
+        conditions:
+          type: array
+          description: |
+            Current state conditions of the ObservabilityAlertsNotificationChannel.
+            Ready reports whether the channel is applied to the observability plane, and SecretsReady
+            whether its secret values are available there. A SecretsReady reason of
+            DeprecatedKubernetesSecret means the channel still references Kubernetes Secrets.
+          items:
+            $ref: '#/components/schemas/Condition'
 
     NotificationEmailConfig:
       type: object
@@ -12919,6 +13299,13 @@ components:
           type: string
           description: Email body template using CEL expressions
           example: "Alert: ${alert.name} triggered at ${alert.startsAt}."
+        contentType:
+          type: string
+          description: Content type of the email body
+          enum:
+            - text/plain
+            - text/html
+          default: text/plain
 
     NotificationWebhookConfig:
       type: object
@@ -12959,15 +13346,19 @@ components:
 
     NotificationSecretKeyRef:
       type: object
-      description: Reference to a specific key in a Kubernetes secret
+      description: |
+        Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+        such as one created with the secrets API targeting the channel's observability plane, and the key
+        to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+        name and key is used instead; referencing Kubernetes Secrets is deprecated.
       properties:
         name:
           type: string
-          description: Name of the Kubernetes secret
+          description: Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
           example: smtp-credentials
         key:
           type: string
-          description: Key within the secret
+          description: Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
           example: password
 
     # -------------------------------------------------------------------------
@@ -13077,6 +13468,8 @@ components:
             - ClusterWorkflowPlane
             - DataPlane
             - ClusterDataPlane
+            - ObservabilityPlane
+            - ClusterObservabilityPlane
           example: DataPlane
         name:
           type: string

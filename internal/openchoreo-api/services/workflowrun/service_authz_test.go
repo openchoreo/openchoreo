@@ -327,6 +327,8 @@ func TestListWorkflowRuns_Authz(t *testing.T) {
 // GetWorkflowRun authz tests
 // ---------------------------------------------------------------------------
 
+const testReleaseLine = "next"
+
 func TestGetWorkflowRun_Authz(t *testing.T) {
 	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
 
@@ -354,6 +356,22 @@ func TestGetWorkflowRun_Authz(t *testing.T) {
 		svc := newAuthzService(t, mockSvc, mockPDP)
 		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("release line label in the authz context", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		lineRun := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		lineRun.Labels[ocLabels.LabelKeyReleaseLine] = testReleaseLine
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(lineRun, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Context.Resource.ReleaseLine == testReleaseLine
+		})).Return(allowDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found does not check authz", func(t *testing.T) {
@@ -627,7 +645,7 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		// mockSvc.TriggerWorkflow should NOT be called
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(triggerComp), mockPDP, testutil.TestLogger())
-		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", "")
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
@@ -645,7 +663,7 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		})).Return(denyDecision(), nil)
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(triggerComp), mockPDP, testutil.TestLogger())
-		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", "")
 	})
 
 	t.Run("allowed delegates to internal service", func(t *testing.T) {
@@ -660,14 +678,31 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 			Status:        workflowrun.ExportStatusPending,
 		}
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
-		mockSvc.EXPECT().TriggerWorkflow(mock.Anything, testNamespace, "proj", "my-comp", "abc1234f").
+		mockSvc.EXPECT().TriggerWorkflow(mock.Anything, testNamespace, "proj", "my-comp", "abc1234f", "").
 			Return(triggerResp, nil)
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(triggerComp), mockPDP, testutil.TestLogger())
-		result, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		result, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", "")
 		require.NoError(t, err)
 		assert.Equal(t, "my-comp", result.ComponentName)
 		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
+	})
+
+	t.Run("authorizes against the component's project when the caller doesn't name it", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		comp := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: testComponentName, Namespace: testNamespace},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName}},
+		}
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Resource.Hierarchy.Project == testProjectName && req.Resource.Hierarchy.Component == testComponentName
+		})).Return(denyDecision(), nil)
+
+		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(comp), mockPDP, testutil.TestLogger())
+		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "", testComponentName, "abc1234f", testReleaseLine)
+		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
 	t.Run("missing component returns ErrComponentNotFound without calling PDP", func(t *testing.T) {
@@ -675,7 +710,7 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		mockPDP := authzmocks.NewMockPDP(t)
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(), mockPDP, testutil.TestLogger())
-		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "missing-comp", "abc1234f")
+		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "missing-comp", "abc1234f", "")
 		require.ErrorIs(t, err, component.ErrComponentNotFound)
 	})
 
@@ -700,7 +735,20 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		})).Return(denyDecision(), nil)
 
 		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, fakeClient, mockPDP, testutil.TestLogger())
-		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", "")
+	})
+
+	t.Run("populates resource.releaseLine from the request", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == authz.ActionCreateWorkflowRun &&
+				req.Context.Resource.ReleaseLine == testReleaseLine
+		})).Return(denyDecision(), nil)
+
+		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(triggerComp), mockPDP, testutil.TestLogger())
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f", testReleaseLine)
 	})
 }
 

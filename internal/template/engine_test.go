@@ -307,6 +307,54 @@ name: ${oc_dns_label("My App!")}
 `,
 		},
 		{
+			name: "oc_generate_name_limit with single argument",
+			template: `
+name: ${oc_generate_name_limit(20, "Hello World!")}
+`,
+			inputs: `{}`,
+			want: `name: hello-world-7f83b165
+`,
+		},
+		{
+			name: "oc_generate_name_limit truncates to the given length",
+			template: `
+name: ${oc_generate_name_limit(30, "very-long-endpoint-name", "very-long-component-name", "very-long-env-name")}
+`,
+			inputs: `{}`,
+			want: `name: very-lo-very-l-very-l-23ab5d45
+`,
+		},
+		{
+			name: "oc_generate_name_limit at 63 matches oc_dns_label",
+			template: `
+name: ${oc_generate_name_limit(63, "very-long-endpoint-name", "very-long-component-name", "very-long-env-name")}
+`,
+			inputs: `{}`,
+			want: `name: very-long-endpoint-very-long-compone-very-long-env-nam-23ab5d45
+`,
+		},
+		{
+			name: "oc_generate_name_limit with list argument at 253 matches oc_generate_name",
+			template: `
+name: ${oc_generate_name_limit(253, ["http", "my-service", "prod", "default"])}
+`,
+			inputs: `{}`,
+			want: `name: http-my-service-prod-default-800d0dd2
+`,
+		},
+		{
+			name: "oc_generate_name_limit with dynamic values",
+			template: `
+name: ${oc_generate_name_limit(int(spec.maxLength), metadata.componentName, spec.environment)}
+`,
+			inputs: `{
+  "metadata": {"componentName": "payment-service"},
+  "spec": {"environment": "prod", "maxLength": 20}
+}`,
+			want: `name: payme-prod-59307a3d
+`,
+		},
+		{
 			name: "dynamic map key with string concatenation and number",
 			template: `
 services:
@@ -751,6 +799,48 @@ value: '${oc_merge({"a": 1})}'
 			inputs:      `{}`,
 			wantErr:     true,
 			errContains: "oc_merge requires at least 2 arguments",
+		},
+		{
+			name:        "oc_generate_name_limit with only a length",
+			template:    `value: ${oc_generate_name_limit(52)}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "oc_generate_name_limit requires a length limit and at least one name part",
+		},
+		{
+			name:        "oc_generate_name_limit with an empty list",
+			template:    `value: ${oc_generate_name_limit(52, [])}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "oc_generate_name_limit requires at least one name part",
+		},
+		{
+			name:        "oc_generate_name_limit below the minimum for its parts",
+			template:    `value: ${oc_generate_name_limit(13, "a", "b", "c")}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "maxLength 13 is outside [14, 253] for 3 name part(s)",
+		},
+		{
+			name:        "oc_generate_name_limit above the DNS subdomain maximum",
+			template:    `value: ${oc_generate_name_limit(254, "my-app")}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "maxLength 254 is outside [10, 253] for 1 name part(s)",
+		},
+		{
+			name:        "oc_generate_name_limit with a string length",
+			template:    `value: ${oc_generate_name_limit("52", "my-app")}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "no matching overload",
+		},
+		{
+			name:        "oc_generate_name_limit with a JSON number length needs int()",
+			template:    `value: ${oc_generate_name_limit(spec.maxLength, "my-app")}`,
+			inputs:      `{"spec": {"maxLength": 52}}`,
+			wantErr:     true,
+			errContains: "no such overload",
 		},
 	}
 

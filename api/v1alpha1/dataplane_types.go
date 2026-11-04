@@ -88,7 +88,7 @@ type GatewaySpec struct {
 
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore
 type SecretStoreRef struct {
-	// Name of the ClusterSecretStore resource in the data plane cluster
+	// Name of the ClusterSecretStore resource in the plane's cluster
 	Name string `json:"name"`
 }
 

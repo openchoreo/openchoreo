@@ -228,6 +228,12 @@ const (
 	NamespaceStatusPhaseTerminating NamespaceStatusPhase = "Terminating"
 )
 
+// Defines values for NotificationEmailTemplateContentType.
+const (
+	Texthtml  NotificationEmailTemplateContentType = "text/html"
+	Textplain NotificationEmailTemplateContentType = "text/plain"
+)
+
 // Defines values for ObservabilityAlertsNotificationChannelSpecType.
 const (
 	Email   ObservabilityAlertsNotificationChannelSpecType = "email"
@@ -366,10 +372,12 @@ const (
 
 // Defines values for TargetPlaneRefKind.
 const (
-	TargetPlaneRefKindClusterDataPlane     TargetPlaneRefKind = "ClusterDataPlane"
-	TargetPlaneRefKindClusterWorkflowPlane TargetPlaneRefKind = "ClusterWorkflowPlane"
-	TargetPlaneRefKindDataPlane            TargetPlaneRefKind = "DataPlane"
-	TargetPlaneRefKindWorkflowPlane        TargetPlaneRefKind = "WorkflowPlane"
+	TargetPlaneRefKindClusterDataPlane          TargetPlaneRefKind = "ClusterDataPlane"
+	TargetPlaneRefKindClusterObservabilityPlane TargetPlaneRefKind = "ClusterObservabilityPlane"
+	TargetPlaneRefKindClusterWorkflowPlane      TargetPlaneRefKind = "ClusterWorkflowPlane"
+	TargetPlaneRefKindDataPlane                 TargetPlaneRefKind = "DataPlane"
+	TargetPlaneRefKindObservabilityPlane        TargetPlaneRefKind = "ObservabilityPlane"
+	TargetPlaneRefKindWorkflowPlane             TargetPlaneRefKind = "WorkflowPlane"
 )
 
 // Defines values for TraitRemoveTargetPlane.
@@ -1042,6 +1050,9 @@ type ClusterObservabilityPlaneSpec struct {
 
 	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
 	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 }
 
 // ClusterObservabilityPlaneStatus Observed state of a ClusterObservabilityPlane
@@ -1429,6 +1440,9 @@ type ComponentReleaseSpec struct {
 
 		// ProjectName Parent project name
 		ProjectName string `json:"projectName"`
+
+		// ReleaseLine Release line this release belongs to. Omitted for the main line.
+		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner"`
 
 	// Traits Frozen trait specs at release time
@@ -1766,6 +1780,15 @@ type CreateComponentRequest struct {
 
 	// Workflow Workflow configuration for component creation
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
+}
+
+// CreateComponentWorkflowRunRequest Request to run a component's workflow
+type CreateComponentWorkflowRunRequest struct {
+	// Commit Optional commit SHA to build instead of the latest commit of the configured revision
+	Commit *string `json:"commit,omitempty"`
+
+	// ReleaseLine Release line to build. Omitted or main builds the main line.
+	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
 // CreateGitSecretRequest Request body for creating a git secret
@@ -2228,6 +2251,9 @@ type GatewaySpec struct {
 
 // GenerateReleaseRequest Request to generate an immutable release snapshot from the current component state
 type GenerateReleaseRequest struct {
+	// ReleaseLine Release line to release from, built from the line's Workload and overrides. Omitted or main releases the main line.
+	ReleaseLine *string `json:"releaseLine,omitempty"`
+
 	// ReleaseName Optional release name (auto-generated if not provided)
 	ReleaseName *string `json:"releaseName,omitempty"`
 }
@@ -2353,9 +2379,15 @@ type NotificationEmailTemplate struct {
 	// Body Email body template using CEL expressions
 	Body string `json:"body"`
 
+	// ContentType Content type of the email body
+	ContentType *NotificationEmailTemplateContentType `json:"contentType,omitempty"`
+
 	// Subject Email subject line template using CEL expressions
 	Subject string `json:"subject"`
 }
+
+// NotificationEmailTemplateContentType Content type of the email body
+type NotificationEmailTemplateContentType string
 
 // NotificationSMTPAuth SMTP authentication configuration
 type NotificationSMTPAuth struct {
@@ -2387,18 +2419,24 @@ type NotificationSMTPTLSConfig struct {
 	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
 
-// NotificationSecretKeyRef Reference to a specific key in a Kubernetes secret
+// NotificationSecretKeyRef Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+// such as one created with the secrets API targeting the channel's observability plane, and the key
+// to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+// name and key is used instead; referencing Kubernetes Secrets is deprecated.
 type NotificationSecretKeyRef struct {
-	// Key Key within the secret
+	// Key Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
 	Key *string `json:"key,omitempty"`
 
-	// Name Name of the Kubernetes secret
+	// Name Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
 	Name *string `json:"name,omitempty"`
 }
 
 // NotificationSecretValueFrom How to obtain a secret value
 type NotificationSecretValueFrom struct {
-	// SecretKeyRef Reference to a specific key in a Kubernetes secret
+	// SecretKeyRef Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+	// such as one created with the secrets API targeting the channel's observability plane, and the key
+	// to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+	// name and key is used instead; referencing Kubernetes Secrets is deprecated.
 	SecretKeyRef *NotificationSecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
@@ -2539,7 +2577,16 @@ type ObservabilityAlertsNotificationChannelSpec1 struct {
 }
 
 // ObservabilityAlertsNotificationChannelStatus Observed state of an ObservabilityAlertsNotificationChannel
-type ObservabilityAlertsNotificationChannelStatus = map[string]interface{}
+type ObservabilityAlertsNotificationChannelStatus struct {
+	// Conditions Current state conditions of the ObservabilityAlertsNotificationChannel.
+	// Ready reports whether the channel is applied to the observability plane, and SecretsReady
+	// whether its secret values are available there. A SecretsReady reason of
+	// DeprecatedKubernetesSecret means the channel still references Kubernetes Secrets.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ObservabilityAlertsNotificationChannel
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
 
 // ObservabilityPlane ObservabilityPlane resource.
 // Represents monitoring and logging infrastructure within a namespace.
@@ -2597,6 +2644,9 @@ type ObservabilityPlaneSpec struct {
 
 	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
 	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 }
 
 // ObservabilityPlaneStatus Observed state of an ObservabilityPlane
@@ -3084,6 +3134,9 @@ type ReleaseBindingSpec struct {
 
 		// ProjectName Name of the project
 		ProjectName string `json:"projectName"`
+
+		// ReleaseLine Release line this binding belongs to. Omitted for the main line.
+		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner"`
 
 	// ReleaseName Reference to component release
@@ -3121,6 +3174,96 @@ type ReleaseBindingStatus struct {
 
 	// ResolvedConnections Connections that have been successfully resolved
 	ResolvedConnections *[]ResolvedConnection `json:"resolvedConnections,omitempty"`
+}
+
+// ReleaseLine ReleaseLine resource.
+// A named series of releases of one component that is built and deployed independently of the component's other lines.
+type ReleaseLine struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ReleaseLine
+	Spec   *ReleaseLineSpec   `json:"spec,omitempty"`
+	Status *ReleaseLineStatus `json:"status,omitempty"`
+}
+
+// ReleaseLineEnvironment A release line's deployment in one environment
+type ReleaseLineEnvironment struct {
+	// Environment Name of the environment
+	Environment string `json:"environment"`
+
+	// Ready Whether the ReleaseBinding reports Ready
+	Ready *bool `json:"ready,omitempty"`
+
+	// Release Name of the ComponentRelease bound in the environment
+	Release *string `json:"release,omitempty"`
+
+	// ReleaseBinding Name of the line's ReleaseBinding in the environment
+	ReleaseBinding string `json:"releaseBinding"`
+}
+
+// ReleaseLineList Paginated list of the release lines of a component
+type ReleaseLineList struct {
+	Items []ReleaseLine `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ReleaseLineSpec Desired state of a ReleaseLine
+type ReleaseLineSpec struct {
+	// AutoDeploy Overrides the component's autoDeploy for this line
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+
+	// Owner Component this release line belongs to
+	Owner struct {
+		// ComponentName Name of the component
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Name of the project
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Deep-merged onto the component's parameters for this line
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Traits Merged onto the component's traits for this line, keyed by kind, name and instance name
+	Traits *[]ComponentTrait `json:"traits,omitempty"`
+
+	// Workflow Build overrides for this line
+	Workflow *struct {
+		// Parameters Deep-merged onto the component's workflow parameters for this line
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	} `json:"workflow,omitempty"`
+}
+
+// ReleaseLineStatus Observed state of a ReleaseLine
+type ReleaseLineStatus struct {
+	// Conditions Current state conditions of the release line
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Environments The line's ReleaseBindings, one per environment it is deployed to
+	Environments *[]ReleaseLineEnvironment `json:"environments,omitempty"`
+
+	// LatestRelease Most recent ComponentRelease produced for this line
+	LatestRelease *struct {
+		// Name Name of the ComponentRelease
+		Name *string `json:"name,omitempty"`
+
+		// ReleaseHash Hash of the ComponentRelease spec
+		ReleaseHash *string `json:"releaseHash,omitempty"`
+	} `json:"latestRelease,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ReleaseResourceTree Resource tree for a single release
@@ -4467,6 +4610,9 @@ type WorkloadConnection struct {
 	// Project Target component's project name. If empty, defaults to the same project as the consumer.
 	Project *string `json:"project,omitempty"`
 
+	// ReleaseLine Target component's release line. Omitted targets its main line.
+	ReleaseLine *string `json:"releaseLine,omitempty"`
+
 	// Visibility Visibility level at which this connection consumes the endpoint
 	Visibility WorkloadConnectionVisibility `json:"visibility"`
 }
@@ -4604,6 +4750,9 @@ type WorkloadSpec struct {
 
 		// ProjectName Name of the owning project
 		ProjectName string `json:"projectName"`
+
+		// ReleaseLine Release line of the owning component. Omitted for the main line.
+		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner,omitempty"`
 
 	// Source Commit provenance of the image in container. Populated by the producer
@@ -4703,6 +4852,9 @@ type ProjectTypeNameParam = string
 
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
+
+// ReleaseLineNameParam defines model for ReleaseLineNameParam.
+type ReleaseLineNameParam = string
 
 // ResourceNameParam defines model for ResourceNameParam.
 type ResourceNameParam = string
@@ -5034,6 +5186,23 @@ type ListComponentsParams struct {
 	// Project Filter resources by project name
 	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
 
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListComponentReleaseLinesParams defines parameters for ListComponentReleaseLines.
+type ListComponentReleaseLinesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5592,6 +5761,15 @@ type UpdateComponentJSONRequestBody = Component
 
 // GenerateReleaseJSONRequestBody defines body for GenerateRelease for application/json ContentType.
 type GenerateReleaseJSONRequestBody = GenerateReleaseRequest
+
+// CreateComponentReleaseLineJSONRequestBody defines body for CreateComponentReleaseLine for application/json ContentType.
+type CreateComponentReleaseLineJSONRequestBody = ReleaseLine
+
+// UpdateComponentReleaseLineJSONRequestBody defines body for UpdateComponentReleaseLine for application/json ContentType.
+type UpdateComponentReleaseLineJSONRequestBody = ReleaseLine
+
+// CreateComponentWorkflowRunJSONRequestBody defines body for CreateComponentWorkflowRun for application/json ContentType.
+type CreateComponentWorkflowRunJSONRequestBody = CreateComponentWorkflowRunRequest
 
 // CreateComponentTypeJSONRequestBody defines body for CreateComponentType for application/json ContentType.
 type CreateComponentTypeJSONRequestBody = ComponentType

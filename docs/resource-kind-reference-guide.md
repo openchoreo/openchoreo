@@ -331,7 +331,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `environmentName` | string | Yes | Target environment |
 | `resources[]` | Resource[] | No | Rendered K8s resources (id + raw object) |
 | `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
-| `interval` | Duration | No | Stable-state watch interval (default 5m) |
+| `interval` | Duration | No | Stable-state watch interval (default 1m) |
 | `progressingInterval` | Duration | No | Transitioning watch interval (default 10s) |
 
 **Status:**
@@ -782,6 +782,7 @@ gateway:
 | `observerURL` | string | Yes | Base URL of the Observer API |
 | `rcaAgentURL` | string | No | RCA Agent API URL |
 | `finOpsAgentURL` | string | No | FinOps Agent API URL |
+| `secretStoreRef` | SecretStoreRef | No | ESO ClusterSecretStore reference; needed for notification channels that reference SecretReferences |
 
 **Status:** Same as DataPlane (conditions + agentConnection).
 
@@ -804,6 +805,7 @@ gateway:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `targetPlane` | TargetPlaneRef | No | Plane whose external secret store holds the value: `WorkflowPlane`, `ClusterWorkflowPlane`, `DataPlane`, `ClusterDataPlane`, `ObservabilityPlane` or `ClusterObservabilityPlane` |
 | `template` | SecretTemplate | Yes | Secret type and metadata (annotations, labels) |
 | `data[]` | SecretDataSource[] | Yes (min 1) | Mapping of secret keys to external store references |
 | `refreshInterval` | Duration | No | Refresh interval (default: 1h) |
@@ -914,9 +916,22 @@ gateway:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `environment` | string | Yes | Environment the channel belongs to (immutable) |
+| `isEnvDefault` | bool | No | Whether this is the environment's default channel |
 | `type` | NotificationChannelType | Yes | `email` or `webhook` |
-| `email` | EmailConfig | Conditional | Email configuration (from, to, SMTP, template) — required when type=email |
-| `webhook` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
+| `emailConfig` | EmailConfig | Conditional | Email configuration (from, to, SMTP, template) — required when type=email |
+| `webhookConfig` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
+
+SMTP `auth.username` / `auth.password` and webhook header `valueFrom` take a `secretKeyRef` (`name`, `key`). The `name` refers to a SecretReference in the channel's namespace and the `key` to one of its `data[].secretKey` entries, as in a Workload. The controller applies an ExternalSecret to the environment's observability plane that syncs the values from that plane's secret store, so the observability plane needs a `secretStoreRef`. A SecretReference's remote keys must be the key the secret API writes for it (`<remoteKeyPrefix>/<namespace>/<type>/<name>`, from the channel's namespace and the SecretReference's type and name). If the observability plane's secret store can't read a value, the ExternalSecret fails to sync and `SecretsReady` reports why.
+
+If no SecretReference has the referenced name, a Kubernetes Secret with that name is copied to the observability plane instead. This fallback is deprecated. All references of a channel must resolve the same way.
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Generation observed by the controller |
+| `conditions` | []Condition | `Ready` (applied to the observability plane) and `SecretsReady` (secret values available there; reason `DeprecatedKubernetesSecret` when copied from Kubernetes Secrets) |
 
 [Back to Top](#overview)
 

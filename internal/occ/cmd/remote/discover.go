@@ -281,11 +281,11 @@ func printDiscovered(out io.Writer, sources []string, found []discovered) {
 	fmt.Fprintf(out, "%s:\n", summary)
 
 	heads := []string{"PATH", "PROJECT", "COMPONENT"}
-	cells := func(f discovered) []string { return []string{f.path, f.id.project, f.id.component} }
+	cells := func(f discovered) []string { return []string{f.path, f.id.project, f.id.ref()} }
 	if !shared {
 		heads = []string{"PATH", "NAMESPACE", "PROJECT", "COMPONENT"}
 		cells = func(f discovered) []string {
-			return []string{f.path, f.id.namespace, f.id.project, f.id.component}
+			return []string{f.path, f.id.namespace, f.id.project, f.id.ref()}
 		}
 	}
 
@@ -312,7 +312,7 @@ func printPlannedLinks(out io.Writer, found []discovered,
 		for _, link := range links {
 			host, port := link.target(overrides)
 			rows = append(rows, []string{
-				f.id.component,
+				f.id.ref(),
 				strings.TrimPrefix(link.key, "ep/"),
 				net.JoinHostPort(host, strconv.Itoa(port)),
 				strings.Join(bindingNames(link.envBindings), ", "),
@@ -334,6 +334,20 @@ func printPlannedLinks(out io.Writer, found []discovered,
 	}
 }
 
+// printUnmatchedOverrides warns about --local overrides that name no workload of the set,
+// such as a mistyped release line, which would otherwise be ignored silently.
+func printUnmatchedOverrides(out io.Writer, found []discovered, overrides map[string]LocalTarget) {
+	refs := make(map[string]bool, len(found))
+	for _, f := range found {
+		refs[f.id.ref()] = true
+	}
+	for _, ref := range sortedKeys(overrides) {
+		if !refs[ref] {
+			fmt.Fprintf(out, "! --local %s names no workload passed to occ remote; it is ignored\n", ref)
+		}
+	}
+}
+
 // printBindingCollisions warns, for --dry-run, about env vars more than one workload
 // binds. The bindings merge into one flat map where the last writer wins, so a
 // collision silently decides which upstream an app reaches.
@@ -341,8 +355,8 @@ func printBindingCollisions(out io.Writer, found []discovered) {
 	owners := map[string][]string{}
 	for _, f := range found {
 		for _, name := range declaredEnvNames(f.wl) {
-			if !slices.Contains(owners[name], f.id.component) {
-				owners[name] = append(owners[name], f.id.component)
+			if !slices.Contains(owners[name], f.id.ref()) {
+				owners[name] = append(owners[name], f.id.ref())
 			}
 		}
 	}

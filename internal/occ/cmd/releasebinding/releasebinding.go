@@ -291,6 +291,7 @@ func (r *ReleaseBinding) generateForComponent(gen *generator.BindingGenerator, p
 	bindingInfo, err := gen.GenerateBindingWithInfo(generator.BindingOptions{
 		ProjectName:      params.ProjectName,
 		ComponentName:    params.ComponentName,
+		ReleaseLine:      params.ReleaseLine,
 		ComponentRelease: params.ComponentRelease,
 		TargetEnv:        params.TargetEnv,
 		PipelineInfo:     pipelineInfo,
@@ -346,7 +347,7 @@ func (r *ReleaseBinding) generateForComponent(gen *generator.BindingGenerator, p
 func (r *ReleaseBinding) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
-		fmt.Fprintf(os.Stderr, "Error generating binding for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
+		fmt.Fprintf(os.Stderr, "Error generating binding for %s: %v\n", generator.DescribeLine(e.ProjectName, e.ComponentName, e.ReleaseLine), e.Error)
 	}
 
 	// Write or print bindings

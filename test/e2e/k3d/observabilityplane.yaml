@@ -11,3 +11,5 @@ spec:
     clientCA:
       value: ""
   observerURL: http://observer.e2e-op.local:21080
+  secretStoreRef:
+    name: default

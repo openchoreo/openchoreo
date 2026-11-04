@@ -24,6 +24,19 @@ const (
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"
 	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
 
+	// LabelKeyReleaseLine identifies the release line a rendered object belongs to.
+	// Absent for the component's main line.
+	LabelKeyReleaseLine = "openchoreo.dev/release-line"
+
+	// LabelKeyReleaseLineUID holds the UID of the ReleaseLine a rendered object belongs to, which
+	// observability backends filter on. Absent for the component's main line.
+	LabelKeyReleaseLineUID = "openchoreo.dev/release-line-uid"
+
+	// LabelKeyReleaseLineComponentUID holds the component UID on a release line's pods, which don't
+	// carry LabelKeyComponentUID so that the main line's selectors never match them. Match either
+	// label to find every pod of a component.
+	LabelKeyReleaseLineComponentUID = "openchoreo.dev/release-line-component-uid"
+
 	// LabelKeyResourceName identifies the Resource (managed-infrastructure
 	// abstraction) that owns a rendered DP-side object.
 	LabelKeyResourceName = "openchoreo.dev/resource"
@@ -92,9 +105,21 @@ const (
 	LabelKeyPlane   = "openchoreo.dev/plane"
 	LabelKeyPlaneID = "openchoreo.dev/plane-id"
 
-	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
-	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
+	// AnnotationKeyDPResourceHash contains a hash of other dataplane resources of the component, to
+	// trigger pod rollout when they change. It covers every resource except the workload, or, when
+	// referenced-config rollout is enabled, only the ConfigMaps, Secrets and ExternalSecrets the
+	// workload's pod template references.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
+
+	// AnnotationKeyRestartOnChange lets ComponentType and Trait authors decide whether a rendered
+	// dataplane resource restarts the component's pods when it changes. "true" includes it in
+	// AnnotationKeyDPResourceHash even when the pod template does not reference it, e.g. a
+	// ConfigMap the application reads through the Kubernetes API. "false" leaves it out even
+	// when the pod template references it, e.g. a config file the application reloads by itself.
+	// Without the annotation, only the ConfigMaps, Secrets and ExternalSecrets the pod template
+	// references are included. It applies to deployment and statefulset ComponentTypes, and not
+	// on the workload itself. It is only used when referenced-config rollout is enabled.
+	AnnotationKeyRestartOnChange = "openchoreo.dev/restart-on-change"
 
 	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
 	// (e.g. HTTPRoute). The ReleaseBinding controller uses it to construct the endpoint invoke URL.

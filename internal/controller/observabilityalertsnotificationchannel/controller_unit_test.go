@@ -146,6 +146,25 @@ func TestCreateConfigMap_EmailFull(t *testing.T) {
 	}
 }
 
+func TestCreateConfigMap_EmailContentType(t *testing.T) {
+	r := newReconcilerWithObjects(t)
+	ch := newEmailChannel("email-html", "development")
+	ch.Spec.EmailConfig.Template = &openchoreov1alpha1.EmailTemplate{
+		Subject:     "[HTML test] ${alertName}",
+		Body:        `<html><body><h1>${alertName}</h1></body></html>`,
+		ContentType: "text/html",
+	}
+
+	cm := r.createConfigMap(ch)
+
+	if got, want := cm.Data["template.contentType"], "text/html"; got != want {
+		t.Errorf("Data[template.contentType]: got %q, want %q", got, want)
+	}
+	if got, want := cm.Data["template.body"], `<html><body><h1>${alertName}</h1></body></html>`; got != want {
+		t.Errorf("Data[template.body]: got %q, want %q", got, want)
+	}
+}
+
 func TestCreateConfigMap_EmailWithoutTemplateOrTLS(t *testing.T) {
 	r := newReconcilerWithObjects(t)
 	ch := newEmailChannel("email-min", "dev")
@@ -157,6 +176,9 @@ func TestCreateConfigMap_EmailWithoutTemplateOrTLS(t *testing.T) {
 	}
 	if _, ok := cm.Data["template.body"]; ok {
 		t.Error("template.body should be absent when Template is nil")
+	}
+	if _, ok := cm.Data["template.contentType"]; ok {
+		t.Error("template.contentType should be absent when Template is nil")
 	}
 	if _, ok := cm.Data["smtp.tls.insecureSkipVerify"]; ok {
 		t.Error("smtp.tls.insecureSkipVerify should be absent when TLS is nil")

@@ -33,7 +33,7 @@ func TestAuditLogsCmd_Flags(t *testing.T) {
 		"actor", "actor-type", "issuer", "session-id", "entitlement",
 		"action", "category", "result", "surface", "producer", "operation-id",
 		"request-id", "event-id", "source-ip", "user-agent",
-		"resource-type", "resource-name", "namespace", "project", "component", "resource", "env",
+		"resource-type", "resource-name", "namespace", "project", "component", "release-line", "resource", "env",
 		"search",
 	} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "missing flag --%s", name)
@@ -115,6 +115,7 @@ func TestQueryParams(t *testing.T) {
 		"namespace":     "acme-corp",
 		"project":       "online-store",
 		"component":     "cart",
+		"release-line":  "next",
 		"resource":      "analytics-db",
 		"env":           "acme-corp/production",
 		"returned-item": "db-creds",
@@ -150,6 +151,7 @@ func TestQueryParams(t *testing.T) {
 		Namespaces:    []string{"acme-corp"},
 		Projects:      []string{"online-store"},
 		Components:    []string{"cart"},
+		ReleaseLines:  []string{"next"},
 		Resources:     []string{"analytics-db"},
 		Environments:  []string{"acme-corp/production"},
 		ReturnedItems: []string{"db-creds"},

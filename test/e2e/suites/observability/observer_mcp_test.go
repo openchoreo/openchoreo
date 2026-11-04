@@ -155,7 +155,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		// O1: an unauthenticated POST to /mcp must return 401 + WWW-Authenticate: Bearer (main.go:472-484).
 		// Baseline auth gate. Proves the auth interceptor is actually wired on the live /mcp route
 		// (middleware wiring, not authz decision logic).
-		status, headers, err := framework.MCPRawPOST(mcObserverMCPEndpoint)
+		status, headers, _, err := framework.MCPRawPOST(mcObserverMCPEndpoint, "", framework.MCPProtocolVersion)
 		Expect(err).NotTo(HaveOccurred(), "raw POST should succeed at HTTP level")
 		Expect(status).To(Equal(401), "unauthenticated /mcp request should return 401")
 		Expect(headers.Get("WWW-Authenticate")).To(ContainSubstring("Bearer"),
@@ -169,6 +169,12 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		names, err := framework.ListMCPToolNames(adminSession)
 		Expect(err).NotTo(HaveOccurred(), "tools/list should succeed with a valid token")
 		Expect(names).NotTo(BeEmpty(), "observer tool list should not be empty")
+	})
+
+	It("O2b: rejects an unsupported protocol version with -32022 through ingress and auth", func() {
+		// O2b: NewMCPSession already requires the sessions to negotiate 2026-07-28; this sends a
+		// version no server supports through the live gateway and jwt middleware.
+		framework.ExpectUnsupportedProtocolVersionRejected(mcObserverMCPEndpoint, adminToken)
 	})
 
 	It("O3: all 17 observer tools are registered/visible (no visibility filter)", func() {
@@ -423,7 +429,11 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
 		By("pinning the subject still sees exactly all observer tools after the grant")
-		after, err := framework.ListMCPToolNames(subjectSession)
+		// subjectSession would answer from its cached tools/list, so list on a new session.
+		after, err := framework.ListMCPToolNamesFresh(context.Background(), framework.MCPClientConfig{
+			Endpoint: mcObserverMCPEndpoint,
+			Token:    subjectToken,
+		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(after).To(ConsistOf(allObserverTools))
 

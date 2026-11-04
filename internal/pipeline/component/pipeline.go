@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -40,9 +41,15 @@ const (
 
 // Kubernetes resource kind constants
 const (
-	kindDeployment  = "Deployment"
-	kindStatefulSet = "StatefulSet"
+	kindDeployment     = "Deployment"
+	kindStatefulSet    = "StatefulSet"
+	kindConfigMap      = "ConfigMap"
+	kindSecret         = "Secret"
+	kindExternalSecret = "ExternalSecret"
 )
+
+// externalSecretsGroup is the API group of External Secrets Operator resources.
+const externalSecretsGroup = "external-secrets.io"
 
 // Option is a function that configures a Pipeline.
 type Option func(*Pipeline)
@@ -64,6 +71,16 @@ func WithCostLimit(limit uint64) Option {
 func WithRenderTimeout(timeout time.Duration) Option {
 	return func(p *Pipeline) {
 		p.renderTimeout = timeout
+	}
+}
+
+// WithReferencedConfigRollout limits the dp-resource-hash annotation to the ConfigMaps,
+// Secrets and ExternalSecrets the pod template references, and enables the restart-on-change
+// annotation. Without it, the hash covers every dataplane resource except the workload, so a
+// change to any of them restarts the pods.
+func WithReferencedConfigRollout(enabled bool) Option {
+	return func(p *Pipeline) {
+		p.referencedConfigRollout = enabled
 	}
 }
 
@@ -520,8 +537,10 @@ func compareResources(a, b map[string]any) bool {
 }
 
 // addDPResourceHashAnnotation adds an annotation to the pod template of Deployment/StatefulSet
-// workloads containing a hash of all non-workload dataplane resources. This triggers pod
-// rollout when ConfigMaps, Secrets, or other dependent resources change.
+// workloads containing a hash of other dataplane resources, so that a change to them triggers
+// a pod rollout. By default, the hash covers every dataplane resource except the workload.
+// With WithReferencedConfigRollout, it covers only the configuration the pods reference, see
+// referencedConfigHash.
 func (p *Pipeline) addDPResourceHashAnnotation(resources []renderer.RenderedResource, input *RenderInput) error {
 	workloadType := input.ComponentType.Spec.WorkloadType
 
@@ -530,56 +549,367 @@ func (p *Pipeline) addDPResourceHashAnnotation(resources []renderer.RenderedReso
 		return nil
 	}
 
-	// Collect all non-workload dataplane resources
-	resourcesToHash := make([]map[string]any, 0, len(resources))
+	allResources := make([]map[string]any, 0, len(resources))
+	dataPlaneResources := make([]map[string]any, 0, len(resources))
 	for _, rr := range resources {
-		// Skip non-dataplane resources
-		if rr.TargetPlane != v1alpha1.TargetPlaneDataPlane {
-			continue
+		allResources = append(allResources, rr.Resource)
+		if rr.TargetPlane == v1alpha1.TargetPlaneDataPlane {
+			dataPlaneResources = append(dataPlaneResources, rr.Resource)
 		}
-
-		// Skip the main workload resource
-		kind, _ := rr.Resource["kind"].(string)
-		if isMainWorkloadKind(kind, workloadType) {
-			continue
-		}
-
-		resourcesToHash = append(resourcesToHash, rr.Resource)
 	}
 
-	// If no non-workload dataplane resources, nothing to hash
-	if len(resourcesToHash) == 0 {
+	workload := findMainWorkload(allResources, workloadType)
+	if workload == nil {
 		return nil
 	}
 
-	// Sort resources to ensure deterministic hash regardless of resource ordering
-	sort.SliceStable(resourcesToHash, func(i, j int) bool {
-		return compareResources(resourcesToHash[i], resourcesToHash[j])
-	})
-
-	// Extract content excluding metadata for hashing
-	hashContent := make([]map[string]any, 0, len(resourcesToHash))
-	for _, resource := range resourcesToHash {
-		hashContent = append(hashContent, extractContentExcludingMetadata(resource))
+	var resourceHash string
+	if p.referencedConfigRollout {
+		var err error
+		if resourceHash, err = referencedConfigHash(workload, dataPlaneResources, input.PreviousDataPlaneResources); err != nil {
+			return err
+		}
+	} else {
+		nonWorkloadResources := make([]map[string]any, 0, len(dataPlaneResources))
+		for _, resource := range dataPlaneResources {
+			if kind, _ := resource["kind"].(string); !isMainWorkloadKind(kind, workloadType) {
+				nonWorkloadResources = append(nonWorkloadResources, resource)
+			}
+		}
+		resourceHash = hashResources(nonWorkloadResources)
 	}
 
-	// Compute hash
-	resourceHash := hash.ComputeHash(hashContent, nil)
+	// If no resource is hashed, there is nothing to annotate
+	if resourceHash == "" {
+		return nil
+	}
 
-	// Find the main workload resource and add annotation to pod template
-	for _, rr := range resources {
-		kind, _ := rr.Resource["kind"].(string)
-		if !isMainWorkloadKind(kind, workloadType) {
+	if err := addPodTemplateAnnotation(workload, labels.AnnotationKeyDPResourceHash, resourceHash); err != nil {
+		kind, _ := workload["kind"].(string)
+		return fmt.Errorf("failed to add annotation to %s: %w", kind, err)
+	}
+	return nil
+}
+
+// referencedConfigHash returns the dp-resource-hash value for the workload when only the
+// configuration the pods reference counts, or "" when the workload gets no annotation. It hashes
+// the dataplane ConfigMaps, Secrets and ExternalSecrets that the pod template references, so
+// changes to Services, HTTPRoutes, HorizontalPodAutoscalers and to configuration the pods do not
+// reference do not restart the pods. ComponentType and Trait authors can override this per
+// resource with the restart-on-change annotation.
+//
+// When the previous render is given, the resources this render counts have the same content in
+// it, and the resources the previous render counted are all still rendered, the previous value is
+// kept. This way, changing what the hash counts, by turning the option on or with the
+// restart-on-change annotation, does not restart the pods by itself.
+func referencedConfigHash(workload map[string]any, resources, previousResources []map[string]any) (string, error) {
+	if err := validateRestartOnChange(resources, workload); err != nil {
+		return "", err
+	}
+
+	configResources := configResourcesToHash(workload, resources)
+	resourceHash := hashResources(configResources)
+
+	// Keep the previous value while the counted resources are unchanged and none was removed
+	if previousWorkload := findResource(previousResources, resourceKey(workload)); previousWorkload != nil {
+		unchanged, err := sameContent(configResources, previousResources)
+		if err != nil {
+			return "", err
+		}
+		if unchanged && allRendered(configResourcesToHash(previousWorkload, previousResources), resources) {
+			previousHash, _ := podTemplateAnnotation(previousWorkload, labels.AnnotationKeyDPResourceHash)
+			return previousHash, nil
+		}
+	}
+	return resourceHash, nil
+}
+
+// findMainWorkload returns the first resource whose kind is the main workload kind for the
+// given workloadType, or nil if there is none.
+func findMainWorkload(resources []map[string]any, workloadType string) map[string]any {
+	for _, resource := range resources {
+		kind, _ := resource["kind"].(string)
+		if isMainWorkloadKind(kind, workloadType) {
+			return resource
+		}
+	}
+	return nil
+}
+
+// resourceKey identifies a resource by its apiVersion, kind, namespace and name.
+func resourceKey(resource map[string]any) string {
+	apiVersion, _ := resource["apiVersion"].(string)
+	kind, _ := resource["kind"].(string)
+	return strings.Join([]string{
+		apiVersion, kind, nestedString(resource, "metadata", "namespace"), nestedString(resource, "metadata", "name"),
+	}, "/")
+}
+
+// findResource returns the resource with the given key, or nil if there is none.
+func findResource(resources []map[string]any, key string) map[string]any {
+	for _, resource := range resources {
+		if resourceKey(resource) == key {
+			return resource
+		}
+	}
+	return nil
+}
+
+// configResourcesToHash returns the ConfigMaps, Secrets and ExternalSecrets in resources that the
+// workload's pod template references. A resource with the restart-on-change annotation is
+// included when it is "true" and left out when it is "false". The workload itself is never included.
+func configResourcesToHash(workload map[string]any, resources []map[string]any) []map[string]any {
+	refs := podTemplateConfigRefs(workload)
+	workloadKey := resourceKey(workload)
+
+	selected := make([]map[string]any, 0, len(resources))
+	for _, resource := range resources {
+		if resourceKey(resource) == workloadKey {
 			continue
 		}
 
-		if err := addPodTemplateAnnotation(rr.Resource, labels.AnnotationKeyDPResourceHash, resourceHash); err != nil {
-			return fmt.Errorf("failed to add annotation to %s: %w", kind, err)
+		switch restartOnChange(resource) {
+		case restartOnChangeTrue:
+			selected = append(selected, resource)
+		case restartOnChangeFalse:
+			continue
+		default:
+			if refs.references(resource) {
+				selected = append(selected, resource)
+			}
 		}
-		break // Only one main workload
+	}
+	return selected
+}
+
+// hashResources returns a hash of the content of the resources, excluding metadata, or "" if
+// there are none.
+func hashResources(resources []map[string]any) string {
+	if len(resources) == 0 {
+		return ""
 	}
 
+	// Sort resources to ensure deterministic hash regardless of resource ordering
+	sorted := append([]map[string]any(nil), resources...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return compareResources(sorted[i], sorted[j])
+	})
+
+	// Extract content excluding metadata for hashing
+	hashContent := make([]map[string]any, 0, len(sorted))
+	for _, resource := range sorted {
+		hashContent = append(hashContent, extractContentExcludingMetadata(resource))
+	}
+
+	return hash.ComputeHash(hashContent, nil)
+}
+
+// sameContent reports whether every resource in resources is in previousResources with the same
+// content. The previous render is decoded from JSON, so the resources are compared through a JSON
+// copy. Otherwise, a rendered int64 would not match the float64 it decodes to.
+func sameContent(resources, previousResources []map[string]any) (bool, error) {
+	previousByKey := make(map[string]map[string]any, len(previousResources))
+	for _, resource := range previousResources {
+		previousByKey[resourceKey(resource)] = resource
+	}
+
+	previous := make([]map[string]any, 0, len(resources))
+	for _, resource := range resources {
+		match, found := previousByKey[resourceKey(resource)]
+		if !found {
+			return false, nil
+		}
+		previous = append(previous, match)
+	}
+
+	current, err := jsonCopy(resources)
+	if err != nil {
+		return false, fmt.Errorf("failed to copy the configuration resources: %w", err)
+	}
+	return hashResources(current) == hashResources(previous), nil
+}
+
+// allRendered reports whether every resource in previous is still in resources, matched by key.
+func allRendered(previous, resources []map[string]any) bool {
+	rendered := make(map[string]bool, len(resources))
+	for _, resource := range resources {
+		rendered[resourceKey(resource)] = true
+	}
+	for _, resource := range previous {
+		if !rendered[resourceKey(resource)] {
+			return false
+		}
+	}
+	return true
+}
+
+// jsonCopy returns a copy of v decoded from its JSON encoding.
+func jsonCopy[T any](v T) (T, error) {
+	var out T
+	data, err := json.Marshal(v)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(data, &out)
+	return out, err
+}
+
+// Values of the restart-on-change annotation
+const (
+	restartOnChangeTrue  = "true"
+	restartOnChangeFalse = "false"
+)
+
+// restartOnChange returns the value of the restart-on-change annotation on a resource, or "" if
+// it is not set.
+func restartOnChange(resource map[string]any) string {
+	value, _ := nestedMap(resource, "metadata", "annotations")[labels.AnnotationKeyRestartOnChange].(string)
+	return value
+}
+
+// validateRestartOnChange returns an error for the first resource whose restart-on-change
+// annotation is neither "true" nor "false". Annotation values must be strings, so an unquoted
+// true in a template is reported too. The workload is skipped, since the annotation does not
+// apply to it.
+func validateRestartOnChange(resources []map[string]any, workload map[string]any) error {
+	workloadKey := resourceKey(workload)
+	for _, resource := range resources {
+		if resourceKey(resource) == workloadKey {
+			continue
+		}
+		value, found := nestedMap(resource, "metadata", "annotations")[labels.AnnotationKeyRestartOnChange]
+		if !found || value == restartOnChangeTrue || value == restartOnChangeFalse {
+			continue
+		}
+		kind, _ := resource["kind"].(string)
+		name := nestedString(resource, "metadata", "name")
+		if _, isString := value.(string); !isString {
+			return fmt.Errorf("%s %q: annotation %s must be the string %q or %q, got %v (%T)", kind, name,
+				labels.AnnotationKeyRestartOnChange, restartOnChangeTrue, restartOnChangeFalse, value, value)
+		}
+		return fmt.Errorf("%s %q: annotation %s must be %q or %q, got %q", kind, name,
+			labels.AnnotationKeyRestartOnChange, restartOnChangeTrue, restartOnChangeFalse, value)
+	}
 	return nil
+}
+
+// configRefs holds the names of the ConfigMaps and Secrets that a pod template references.
+type configRefs struct {
+	configMaps map[string]bool
+	secrets    map[string]bool
+}
+
+// podTemplateConfigRefs collects the ConfigMaps and Secrets that the workload's pod template
+// references through env, envFrom and volumes. Init containers are included, since native
+// sidecars are declared as init containers.
+func podTemplateConfigRefs(workload map[string]any) configRefs {
+	refs := configRefs{configMaps: map[string]bool{}, secrets: map[string]bool{}}
+	podSpec := nestedMap(workload, "spec", "template", "spec")
+
+	for _, field := range []string{"containers", "initContainers"} {
+		for _, container := range nestedMaps(podSpec, field) {
+			for _, env := range nestedMaps(container, "env") {
+				refs.addConfigMap(nestedString(env, "valueFrom", "configMapKeyRef", "name"))
+				refs.addSecret(nestedString(env, "valueFrom", "secretKeyRef", "name"))
+			}
+			for _, envFrom := range nestedMaps(container, "envFrom") {
+				refs.addConfigMap(nestedString(envFrom, "configMapRef", "name"))
+				refs.addSecret(nestedString(envFrom, "secretRef", "name"))
+			}
+		}
+	}
+
+	for _, volume := range nestedMaps(podSpec, "volumes") {
+		refs.addConfigMap(nestedString(volume, "configMap", "name"))
+		refs.addSecret(nestedString(volume, "secret", "secretName"))
+		for _, source := range nestedMaps(volume, "projected", "sources") {
+			refs.addConfigMap(nestedString(source, "configMap", "name"))
+			refs.addSecret(nestedString(source, "secret", "name"))
+		}
+	}
+
+	return refs
+}
+
+func (r configRefs) addConfigMap(name string) {
+	if name != "" {
+		r.configMaps[name] = true
+	}
+}
+
+func (r configRefs) addSecret(name string) {
+	if name != "" {
+		r.secrets[name] = true
+	}
+}
+
+// references reports whether the pod template references the given resource. An ExternalSecret
+// counts when the pod template references the Secret it creates, which is named by
+// spec.target.name, or after the ExternalSecret itself when that is not set.
+func (r configRefs) references(resource map[string]any) bool {
+	apiVersion, _ := resource["apiVersion"].(string)
+	kind, _ := resource["kind"].(string)
+	name := nestedString(resource, "metadata", "name")
+
+	switch {
+	case apiVersion == "v1" && kind == kindConfigMap:
+		return r.configMaps[name]
+	case apiVersion == "v1" && kind == kindSecret:
+		return r.secrets[name]
+	case strings.HasPrefix(apiVersion, externalSecretsGroup+"/") && kind == kindExternalSecret:
+		if target := nestedString(resource, "spec", "target", "name"); target != "" {
+			name = target
+		}
+		return r.secrets[name]
+	default:
+		return false
+	}
+}
+
+// podTemplateAnnotation returns the value of an annotation on the pod template of a workload resource.
+func podTemplateAnnotation(resource map[string]any, key string) (string, bool) {
+	annotations := nestedMap(resource, "spec", "template", "metadata", "annotations")
+	value, found := annotations[key].(string)
+	return value, found
+}
+
+// nestedMap returns the map at the given path, or nil if any element is missing or not a map.
+func nestedMap(obj map[string]any, fields ...string) map[string]any {
+	current := obj
+	for _, field := range fields {
+		next, ok := current[field].(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = next
+	}
+	return current
+}
+
+// nestedMaps returns the map items of the list at the given path, skipping items that are not maps.
+func nestedMaps(obj map[string]any, fields ...string) []map[string]any {
+	parent := nestedMap(obj, fields[:len(fields)-1]...)
+	switch items := parent[fields[len(fields)-1]].(type) {
+	case []map[string]any:
+		return items
+	case []any:
+		result := make([]map[string]any, 0, len(items))
+		for _, item := range items {
+			if m, ok := item.(map[string]any); ok {
+				result = append(result, m)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+// nestedString returns the string at the given path, or "" if it is missing or not a string.
+func nestedString(obj map[string]any, fields ...string) string {
+	parent := nestedMap(obj, fields[:len(fields)-1]...)
+	value, _ := parent[fields[len(fields)-1]].(string)
+	return value
 }
 
 // isMainWorkloadKind returns true if the kind matches the expected main workload for the given workloadType.

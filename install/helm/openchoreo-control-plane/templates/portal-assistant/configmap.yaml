@@ -15,6 +15,12 @@ data:
   {{- if .Values.portalAssistant.llm.baseUrl }}
   PORTAL_ASSISTANT_LLM_BASE_URL: {{ .Values.portalAssistant.llm.baseUrl | quote }}
   {{- end }}
+  {{- if ne (.Values.portalAssistant.llm.auth | default "api_key") "api_key" }}
+  LLM_AUTH: {{ .Values.portalAssistant.llm.auth | quote }}
+  {{- end }}
+  {{- if .Values.portalAssistant.llm.tokenScope }}
+  LLM_TOKEN_SCOPE: {{ .Values.portalAssistant.llm.tokenScope | quote }}
+  {{- end }}
   MAX_CONCURRENT_CHATS: {{ .Values.portalAssistant.config.maxConcurrentChats | quote }}
   AUTHZ_TIMEOUT_SECONDS: {{ .Values.portalAssistant.config.authzTimeoutSeconds | quote }}
   JWKS_URL_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}

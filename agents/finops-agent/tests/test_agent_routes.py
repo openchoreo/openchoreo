@@ -89,3 +89,19 @@ def test_analyze_rejects_malformed_body(app):
     with patch("src.api.agent_routes.get_report_backend"):
         resp = TestClient(app).post("/api/v1alpha1/analyses", json={"searchScope": {}})
     assert resp.status_code == 422
+
+
+def test_analyze_stores_the_release_line_on_the_pending_row(app):
+    backend = MagicMock()
+    backend.upsert_report = AsyncMock()
+    body = {**VALID_BODY, "searchScope": {**VALID_BODY["searchScope"], "releaseLine": "canary"}}
+
+    with (
+        patch("src.api.agent_routes.get_report_backend", return_value=backend),
+        patch("src.api.agent_routes.run_analysis") as run,
+    ):
+        resp = TestClient(app).post("/api/v1alpha1/analyses", json=body)
+
+    assert resp.status_code == 200
+    assert backend.upsert_report.await_args.kwargs["release_line"] == "canary"
+    assert run.call_args.kwargs["search_scope"].release_line == "canary"

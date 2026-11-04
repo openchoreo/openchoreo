@@ -40,10 +40,12 @@ const (
 	managedByLabel         = "openchoreo.dev/managed-by"
 	managedByOpenchoreoAPI = "openchoreo-api"
 
-	planeKindWorkflowPlane        = "WorkflowPlane"
-	planeKindClusterWorkflowPlane = "ClusterWorkflowPlane"
-	planeKindDataPlane            = "DataPlane"
-	planeKindClusterDataPlane     = "ClusterDataPlane"
+	planeKindWorkflowPlane             = "WorkflowPlane"
+	planeKindClusterWorkflowPlane      = "ClusterWorkflowPlane"
+	planeKindDataPlane                 = "DataPlane"
+	planeKindClusterDataPlane          = "ClusterDataPlane"
+	planeKindObservabilityPlane        = "ObservabilityPlane"
+	planeKindClusterObservabilityPlane = "ClusterObservabilityPlane"
 
 	pushSecretAPIVersion = "external-secrets.io/v1alpha1"
 	pushSecretKind       = "PushSecret"
@@ -500,60 +502,103 @@ func (s *secretService) resolvePlane(ctx context.Context, namespaceName, kind, n
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, wp); err != nil {
 			return nil, mapPlaneGetError(err)
 		}
-		if wp.Spec.SecretStoreRef == nil || wp.Spec.SecretStoreRef.Name == "" {
-			return nil, ErrSecretStoreNotConfigured
+		storeName, err := secretStoreName(wp.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
 		}
 		c, err := s.planeClientProvider.WorkflowPlaneClient(wp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
 		}
-		return &planeInfo{k8sClient: c, secretStoreName: wp.Spec.SecretStoreRef.Name}, nil
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
 
 	case planeKindClusterWorkflowPlane:
 		cwp := &openchoreov1alpha1.ClusterWorkflowPlane{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, cwp); err != nil {
 			return nil, mapPlaneGetError(err)
 		}
-		if cwp.Spec.SecretStoreRef == nil || cwp.Spec.SecretStoreRef.Name == "" {
-			return nil, ErrSecretStoreNotConfigured
+		storeName, err := secretStoreName(cwp.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
 		}
 		c, err := s.planeClientProvider.ClusterWorkflowPlaneClient(cwp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cluster workflow plane client: %w", err)
 		}
-		return &planeInfo{k8sClient: c, secretStoreName: cwp.Spec.SecretStoreRef.Name}, nil
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
 
 	case planeKindDataPlane:
 		dp := &openchoreov1alpha1.DataPlane{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, dp); err != nil {
 			return nil, mapPlaneGetError(err)
 		}
-		if dp.Spec.SecretStoreRef == nil || dp.Spec.SecretStoreRef.Name == "" {
-			return nil, ErrSecretStoreNotConfigured
+		storeName, err := secretStoreName(dp.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
 		}
 		c, err := s.planeClientProvider.DataPlaneClient(dp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get data plane client: %w", err)
 		}
-		return &planeInfo{k8sClient: c, secretStoreName: dp.Spec.SecretStoreRef.Name}, nil
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
 
 	case planeKindClusterDataPlane:
 		cdp := &openchoreov1alpha1.ClusterDataPlane{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, cdp); err != nil {
 			return nil, mapPlaneGetError(err)
 		}
-		if cdp.Spec.SecretStoreRef == nil || cdp.Spec.SecretStoreRef.Name == "" {
-			return nil, ErrSecretStoreNotConfigured
+		storeName, err := secretStoreName(cdp.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
 		}
 		c, err := s.planeClientProvider.ClusterDataPlaneClient(cdp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cluster data plane client: %w", err)
 		}
-		return &planeInfo{k8sClient: c, secretStoreName: cdp.Spec.SecretStoreRef.Name}, nil
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
+
+	case planeKindObservabilityPlane:
+		op := &openchoreov1alpha1.ObservabilityPlane{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, op); err != nil {
+			return nil, mapPlaneGetError(err)
+		}
+		storeName, err := secretStoreName(op.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
+		}
+		c, err := s.planeClientProvider.ObservabilityPlaneClient(op)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get observability plane client: %w", err)
+		}
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
+
+	case planeKindClusterObservabilityPlane:
+		cop := &openchoreov1alpha1.ClusterObservabilityPlane{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, cop); err != nil {
+			return nil, mapPlaneGetError(err)
+		}
+		storeName, err := secretStoreName(cop.Spec.SecretStoreRef)
+		if err != nil {
+			return nil, err
+		}
+		c, err := s.planeClientProvider.ClusterObservabilityPlaneClient(cop)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cluster observability plane client: %w", err)
+		}
+		return &planeInfo{k8sClient: c, secretStoreName: storeName}, nil
 
 	default:
 		return nil, &services.ValidationError{Msg: fmt.Sprintf("unsupported targetPlane.kind: %s", kind)}
 	}
+}
+
+// secretStoreName returns the name of a plane's ClusterSecretStore, or ErrSecretStoreNotConfigured
+// when the plane has none.
+func secretStoreName(ref *openchoreov1alpha1.SecretStoreRef) (string, error) {
+	if ref == nil || ref.Name == "" {
+		return "", ErrSecretStoreNotConfigured
+	}
+	return ref.Name, nil
 }
 
 func mapPlaneGetError(err error) error {

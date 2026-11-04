@@ -53,6 +53,13 @@ func (h *Handler) QueryLogs(
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
+		if errors.Is(err, service.ErrReleaseLineNotSupported) {
+			return errorResponse(http.StatusNotImplemented, gen.NotImplemented,
+				types.ErrorCodeV1LogsReleaseLineNotSupported, err.Error()), nil
+		}
 		h.logger.Error("Failed to query logs", "error", err)
 		errorCode := types.ErrorCodeV1LogsInternalGeneric
 		switch {

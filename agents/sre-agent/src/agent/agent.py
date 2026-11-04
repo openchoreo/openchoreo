@@ -132,6 +132,7 @@ RCA_AGENT = Agent(
         TOOLS.QUERY_TRACES,
         TOOLS.QUERY_TRACE_SPANS,
         TOOLS.LIST_COMPONENTS,
+        TOOLS.GET_RELEASE_LINE,
         TOOLS.LIST_RELEASE_BINDINGS,
         TOOLS.GET_RELEASE_BINDING,
         TOOLS.GET_COMPONENT_RELEASE,
@@ -156,6 +157,7 @@ REMED_AGENT = Agent(
     tools={
         TOOLS.LIST_COMPONENTS,
         TOOLS.GET_COMPONENT,
+        TOOLS.GET_RELEASE_LINE,
         TOOLS.LIST_WORKLOADS,
         TOOLS.GET_WORKLOAD,
         TOOLS.LIST_RELEASE_BINDINGS,
@@ -231,8 +233,9 @@ async def stream_chat(
                 {"messages": agent_messages},
                 stream_mode="messages",
             ):
-                # Skip non-AI message chunks (e.g., ToolMessage has content as list)
-                if not isinstance(chunk.content, str):
+                # Skip ToolMessage chunks. AI chunks can't be told apart by content
+                # type, since the OpenAI Responses API streams their content as a list.
+                if getattr(chunk, "type", None) == "tool":
                     continue
 
                 for block in chunk.content_blocks:

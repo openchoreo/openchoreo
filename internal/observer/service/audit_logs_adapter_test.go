@@ -40,6 +40,7 @@ func fullAuditLogsParams() observability.AuditLogsParams {
 			Environments: []string{"default/production"},
 			Projects:     []string{"payments"},
 			Components:   []string{"checkout"},
+			ReleaseLines: []string{"next"},
 			Resources:    []string{"orders-db"},
 			Names:        []string{"checkout"},
 		},
@@ -104,6 +105,7 @@ func TestLogsAdapter_GetAuditLogs_RequestContract(t *testing.T) {
 	assert.Equal(t, []any{"default/production"}, resource["environment"])
 	assert.Equal(t, []any{"payments"}, resource["project"])
 	assert.Equal(t, []any{"checkout"}, resource["component"])
+	assert.Equal(t, []any{"next"}, resource["release_line"])
 	assert.Equal(t, []any{"orders-db"}, resource["resource"])
 	assert.Equal(t, []any{"checkout"}, resource["name"])
 
@@ -167,7 +169,7 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 			"request_id": "req-1", "source_ip": "10.42.0.7", "user_agent": "occ/1.2.0",
 			"producer": "openchoreo-api", "surface": "rest", "operation_id": "CreateProject",
 			"http":     map[string]any{"method": "POST", "path": "/api/v1/namespaces/default/projects"},
-			"resource": map[string]any{"type": "project", "namespace": "default", "name": "payments"},
+			"resource": map[string]any{"type": "project", "namespace": "default", "release_line": "next", "name": "payments"},
 			"collector": map[string]any{
 				"namespaceName": "openchoreo-control-plane", "podName": "api-0", "containerName": "api-server",
 			},
@@ -206,6 +208,7 @@ func TestLogsAdapter_GetAuditLogs_MapsResponse(t *testing.T) {
 	assert.Equal(t, "POST", rec.HTTP.Method)
 	require.NotNil(t, rec.Resource)
 	assert.Equal(t, "payments", rec.Resource.Name)
+	assert.Equal(t, "next", rec.Resource.ReleaseLine)
 	require.NotNil(t, rec.Collector)
 	assert.Equal(t, "api-server", rec.Collector.ContainerName)
 

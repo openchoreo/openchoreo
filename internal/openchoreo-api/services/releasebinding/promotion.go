@@ -16,6 +16,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 func (s *releaseBindingService) validatePromotionPath(ctx context.Context, namespaceName string,
@@ -68,7 +69,8 @@ func (s *releaseBindingService) validatePromotionPath(ctx context.Context, names
 	// Request UIDs and status must not let a new or blocked binding bypass promotion.
 	if existing != nil && existing.Spec.Owner == rb.Spec.Owner && existing.Spec.Environment == rb.Spec.Environment {
 		rendered := &openchoreov1alpha1.RenderedRelease{}
-		key := client.ObjectKey{Namespace: namespaceName, Name: fmt.Sprintf("%s-%s", rb.Spec.Owner.ComponentName, rb.Spec.Environment)}
+		key := client.ObjectKey{Namespace: namespaceName,
+			Name: releaseline.RenderedReleaseName(rb.Spec.Owner.ComponentName, rb.Spec.Owner.ReleaseLine, rb.Spec.Environment)}
 		if err := s.k8sClient.Get(ctx, key, rendered); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get rendered release for promotion: %w", err)

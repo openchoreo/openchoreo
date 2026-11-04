@@ -10,7 +10,7 @@ set -euo pipefail
 GATEWAY_API_VERSION="v1.5.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"
-KGATEWAY_VERSION="v2.3.1"
+KGATEWAY_VERSION="v2.3.11"
 OPENBAO_CHART_VERSION="0.25.6"
 THUNDER_VERSION="1.0.1"
 
@@ -542,6 +542,8 @@ spec:
       value: |
 $(echo "$ca" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 EOF
 
     # Link whichever planes exist to the observability plane (not gated on --with-build,

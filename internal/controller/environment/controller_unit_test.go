@@ -94,6 +94,7 @@ func TestConditionReasonConstants(t *testing.T) {
 		{name: "ReasonEnvironmentFinalizing", reason: string(ReasonEnvironmentFinalizing), want: "EnvironmentFinalizing"},
 		{name: "ReasonDeletionBlocked", reason: string(ReasonDeletionBlocked), want: "DeletionBlocked"},
 		{name: "ReasonReleaseBindingsPending", reason: string(ReasonReleaseBindingsPending), want: "ReleaseBindingsPending"},
+		{name: "ReasonNotificationChannelsPending", reason: string(ReasonNotificationChannelsPending), want: "NotificationChannelsPending"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -169,6 +170,25 @@ func TestNewReleaseBindingsPendingCondition(t *testing.T) {
 				t.Error("expected LastTransitionTime to be set")
 			}
 		})
+	}
+}
+
+func TestNewNotificationChannelsPendingCondition(t *testing.T) {
+	cond := NewNotificationChannelsPendingCondition(4, "Deleting 1 notification channel(s)")
+	if cond.Type != ConditionReady.String() {
+		t.Errorf("expected type %q, got %q", ConditionReady.String(), cond.Type)
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("expected status %q, got %q", metav1.ConditionFalse, cond.Status)
+	}
+	if cond.Reason != string(ReasonNotificationChannelsPending) {
+		t.Errorf("expected reason %q, got %q", ReasonNotificationChannelsPending, cond.Reason)
+	}
+	if cond.Message != "Deleting 1 notification channel(s)" {
+		t.Errorf("expected message %q, got %q", "Deleting 1 notification channel(s)", cond.Message)
+	}
+	if cond.ObservedGeneration != 4 {
+		t.Errorf("expected observedGeneration 4, got %d", cond.ObservedGeneration)
 	}
 }
 

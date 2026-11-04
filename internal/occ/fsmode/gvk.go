@@ -13,6 +13,7 @@ var (
 	TraitGVK                = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "Trait"}
 	ComponentReleaseGVK     = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ComponentRelease"}
 	ReleaseBindingGVK       = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ReleaseBinding"}
+	ReleaseLineGVK          = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ReleaseLine"}
 	DeploymentPipelineGVK   = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "DeploymentPipeline"}
 	ProjectGVK              = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "Project"}
 	EnvironmentGVK          = schema.GroupVersionKind{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "Environment"}

@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // WorkloadDescriptor represents the structure of a workload.yaml file
@@ -215,6 +216,12 @@ func validateConversionParams(params CreateWorkloadParams) error {
 	return nil
 }
 
+// WorkloadName names the Workload of a component's release line: "{component}-workload" for its
+// main line and "{componentLineName}-workload" for a release line.
+func WorkloadName(componentName, releaseLine string) string {
+	return releaseline.ScopedName(componentName, releaseline.Normalize(releaseLine), "workload")
+}
+
 // createBaseWorkload creates the basic workload structure with common fields
 func createBaseWorkload(workloadName string, params CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	source, err := SourceFromParams(params)
@@ -235,6 +242,7 @@ func createBaseWorkload(workloadName string, params CreateWorkloadParams) (*open
 			Owner: openchoreov1alpha1.WorkloadOwner{
 				ProjectName:   params.ProjectName,
 				ComponentName: params.ComponentName,
+				ReleaseLine:   releaseline.Normalize(params.ReleaseLine),
 			},
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Container: openchoreov1alpha1.Container{
@@ -276,7 +284,7 @@ func SourceFromParams(params CreateWorkloadParams) (*openchoreov1alpha1.Workload
 
 func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params CreateWorkloadParams, descriptorPath string) (*openchoreov1alpha1.Workload, error) {
 	// Determine workload name
-	workloadName := params.ComponentName + "-workload"
+	workloadName := WorkloadName(params.ComponentName, params.ReleaseLine)
 	if workloadName == "" {
 		return nil, fmt.Errorf("workload name must be provided either in params or descriptor metadata")
 	}
@@ -555,8 +563,8 @@ func CreateBasicWorkload(params CreateWorkloadParams) (*openchoreov1alpha1.Workl
 		return nil, fmt.Errorf("invalid conversion parameters: %w", err)
 	}
 
-	// Generate workload name from component name
-	workloadName := params.ComponentName + "-workload"
+	// Generate workload name from component name and release line
+	workloadName := WorkloadName(params.ComponentName, params.ReleaseLine)
 
 	// Create the basic workload using shared function
 	workload, err := createBaseWorkload(workloadName, params)

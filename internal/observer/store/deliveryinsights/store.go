@@ -44,6 +44,9 @@ const (
 	ScopeTypeNamespace = "namespace"
 	ScopeTypeProject   = "project"
 	ScopeTypeComponent = "component"
+	// ScopeTypeReleaseLine is one release line of a component, keyed by the line's UID. The main
+	// line, which has no UID, is keyed by its component's UID.
+	ScopeTypeReleaseLine = "releaseline"
 )
 
 // Rollup granularities.
@@ -57,11 +60,14 @@ const (
 // Exactly one row exists per rendered-release UID; retries and reconcile churn collapse
 // into it via upsert. All timestamps are epoch milliseconds (UTC); nil means unknown.
 type DeploymentFact struct {
-	ReleaseUID       string
-	Namespace        string
-	ProjectUID       string
-	ComponentUID     string
-	EnvironmentUID   string
+	ReleaseUID     string
+	Namespace      string
+	ProjectUID     string
+	ComponentUID   string
+	EnvironmentUID string
+	// ReleaseLineUID is the release line the deployment belongs to; empty for components
+	// without release lines.
+	ReleaseLineUID   string
 	ProjectName      string
 	ComponentName    string
 	EnvironmentName  string
@@ -98,6 +104,7 @@ type RecoveryFact struct {
 	ProjectUID       string
 	ComponentUID     string
 	EnvironmentUID   string
+	ReleaseLineUID   string
 	ReleaseUID       string
 	IncidentID       string
 	Severity         string
@@ -157,8 +164,12 @@ type FactQuery struct {
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
-	StartMs        int64
-	EndMs          int64
+	ReleaseLineUID string
+	// AllReleaseLines covers every line of the component. Without it, a component covers its
+	// main line.
+	AllReleaseLines bool
+	StartMs         int64
+	EndMs           int64
 	// Limit caps a paged fact read (normalized through normalizeLimit) and is what
 	// the drill-down list wants: a page of rows, newest or oldest first.
 	//
@@ -209,9 +220,10 @@ type Store interface {
 	UpsertRollups(ctx context.Context, rollups []MetricRollup) error
 	// AttributeIncident marks the deployment live in (componentUID, environmentUID)
 	// at triggeredMs as failed-by-incident, if one deployed within windowMs before
-	// the trigger and no failure is attributed to it yet (rollout failures win).
+	// the trigger and no failure is attributed to it yet (rollout failures win). A
+	// non-empty releaseLineUID matches only that line's deployments.
 	AttributeIncident(
-		ctx context.Context, componentUID, environmentUID, incidentID string,
+		ctx context.Context, componentUID, environmentUID, releaseLineUID, incidentID string,
 		triggeredMs, windowMs int64) (AttributionResult, error)
 	QueryRollups(ctx context.Context, q RollupQuery) ([]MetricRollup, error)
 	// CountDeployments tallies deployments in exactly [StartMs, EndMs). Summary

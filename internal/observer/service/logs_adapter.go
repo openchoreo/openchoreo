@@ -30,10 +30,12 @@ type LogsAdapterConfig struct {
 // componentSearchScope represents the search scope for component log queries
 // matching the adapter's expected request format.
 type componentSearchScope struct {
-	Namespace      string `json:"namespace"`
-	ProjectUID     string `json:"projectUid,omitempty"`
-	ComponentUID   string `json:"componentUid,omitempty"`
-	EnvironmentUID string `json:"environmentUid,omitempty"`
+	Namespace       string `json:"namespace"`
+	ProjectUID      string `json:"projectUid,omitempty"`
+	ComponentUID    string `json:"componentUid,omitempty"`
+	EnvironmentUID  string `json:"environmentUid,omitempty"`
+	ReleaseLineUID  string `json:"releaseLineUid,omitempty"`
+	AllReleaseLines bool   `json:"allReleaseLines,omitempty"`
 }
 
 // workflowSearchScope represents the search scope for workflow log queries
@@ -122,10 +124,12 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 
 	adapterReq := backendLogsRequest{
 		SearchScope: componentSearchScope{
-			Namespace:      params.Namespace,
-			ProjectUID:     params.ProjectID,
-			ComponentUID:   params.ComponentID,
-			EnvironmentUID: params.EnvironmentID,
+			Namespace:       params.Namespace,
+			ProjectUID:      params.ProjectID,
+			ComponentUID:    params.ComponentID,
+			EnvironmentUID:  params.EnvironmentID,
+			ReleaseLineUID:  params.ReleaseLineID,
+			AllReleaseLines: params.AllReleaseLines,
 		},
 		StartTime:    params.StartTime,
 		EndTime:      params.EndTime,
@@ -184,9 +188,10 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 	}
 
 	return &observability.ComponentApplicationLogsResult{
-		Logs:       logs,
-		TotalCount: adapterResp.Total,
-		Took:       adapterResp.TookMs,
+		Logs:               logs,
+		TotalCount:         adapterResp.Total,
+		Took:               adapterResp.TookMs,
+		ReleaseLineApplied: observability.ReleaseLineApplied(resp.Header),
 	}, nil
 }
 

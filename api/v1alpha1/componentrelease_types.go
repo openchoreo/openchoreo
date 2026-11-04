@@ -163,6 +163,15 @@ type ComponentReleaseOwner struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ComponentName string `json:"componentName"`
+
+	// ReleaseLine names the ReleaseLine this resource belongs to.
+	// Empty for the component's main line, which is implicit and has no ReleaseLine.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
+	// +kubebuilder:validation:XValidation:rule="self != 'default'",message="default is a reserved name; omit releaseLine for the main line"
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 func init() {

@@ -4,9 +4,15 @@
 package workflowtemplates
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 type ciWorkflowContract struct {
@@ -17,6 +23,10 @@ type ciWorkflowContract struct {
 	buildArgsArg  bool
 	dockerParams  bool
 }
+
+// lineImageTag tags a release line's images with the line, so lines that build the same commit don't
+// overwrite each other's images. The main line keeps v1.
+const lineImageTag = "${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"
 
 var ciWorkflowContracts = []ciWorkflowContract{
 	{
@@ -173,8 +183,8 @@ func TestCIWorkflows_BuildParameters(t *testing.T) {
 				"CI workflow must expose buildEnv as workflow parameter build-env")
 			requireParameterValueParts(t, args, "image-name", []string{"metadata", "namespaceName", "openchoreo.dev/project", "openchoreo.dev/component"},
 				"CI workflow must derive image-name from namespace/project/component")
-			requireParameterValue(t, args, "image-tag", "v1",
-				"CI workflow must provide a stable image-tag parameter")
+			requireParameterValue(t, args, "image-tag", lineImageTag,
+				"CI workflow must tag images v1, and v1-<line> for a release line")
 			requireParameterValueParts(t, args, "registry-push-secret", []string{"metadata", "workflowRunName", "registry-push-secret"},
 				"publish-image must receive the generated registry push secret name")
 
@@ -188,6 +198,17 @@ func TestCIWorkflows_BuildParameters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCIWorkflows_LineImageTag(t *testing.T) {
+	render := func(labels map[string]any) any {
+		got, err := template.NewEngine().Render(context.Background(), lineImageTag,
+			map[string]any{"metadata": map[string]any{"labels": labels}})
+		require.NoError(t, err)
+		return got
+	}
+	assert.Equal(t, "v1", render(map[string]any{"openchoreo.dev/component": "hello"}))
+	assert.Equal(t, "v1-next", render(map[string]any{"openchoreo.dev/component": "hello", "openchoreo.dev/release-line": "next"}))
 }
 
 func TestCIWorkflows_SecretResources(t *testing.T) {

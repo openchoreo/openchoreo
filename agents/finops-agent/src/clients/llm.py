@@ -8,6 +8,7 @@ from typing import Any
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
+from common.llm_auth import get_llm_api_key
 from src.config import settings
 
 
@@ -47,7 +48,7 @@ def get_model(
         kwargs["use_responses_api"] = True
     return init_chat_model(
         model=model_name,
-        api_key=api_key,
+        api_key=get_llm_api_key(settings, api_key),
         max_tokens=settings.finops_llm_max_tokens,
         **kwargs,
     )

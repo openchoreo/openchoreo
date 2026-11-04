@@ -301,3 +301,25 @@ func TestBatchCheck_SingleRequest(t *testing.T) {
 	require.Len(t, results, 1)
 	require.False(t, results[0], "expected results[0] to be false")
 }
+
+// TestCheck_RecordsReleaseLine guards that the release line an operation acts on is recorded
+// in the hierarchy, like the environment, whether the check allows or denies it.
+func TestCheck_RecordsReleaseLine(t *testing.T) {
+	for name, allowed := range map[string]bool{"allow": true, "deny": false} {
+		t.Run(name, func(t *testing.T) {
+			pdp := authzmocks.NewMockPDP(t)
+			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+				Return(&authz.Decision{Decision: allowed, Context: &authz.DecisionContext{}}, nil)
+			checker := newTestChecker(pdp)
+
+			req := testCheckRequest()
+			req.Context = authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: "next"}}
+
+			ctx, auditData := audit.NewAuditContext(ctxWithSubject(testSubjectContext()), &audit.Resource{}, audit.RequestInfo{})
+			_ = checker.Check(ctx, req)
+
+			want := audit.Hierarchy{Namespace: "ns-1", Project: "my-project", ReleaseLine: "next"}
+			require.Equal(t, want, auditData.Hierarchy)
+		})
+	}
+}

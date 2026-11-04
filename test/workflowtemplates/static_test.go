@@ -4,6 +4,7 @@
 package workflowtemplates
 
 import (
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -445,4 +446,32 @@ func TestGenerateWorkload_K3d(t *testing.T) {
 		"curl -s ", // TLS-valid ingress, no -k
 	)
 	requireNotContains(t, s, "curl -sk", "k3d variant must not use -k")
+}
+
+// The e2e copies of generate-workload must forward a build's release line to occ, so a line's build
+// publishes the line's Workload rather than the main line's.
+func TestE2EGenerateWorkload_ForwardsReleaseLine(t *testing.T) {
+	for _, path := range []string{
+		"../e2e/k3d/workflow-templates/generate-workload-e2e.yaml",
+		"../e2e/k3d/multi-cluster/workflow-templates/generate-workload-e2e-mc.yaml",
+	} {
+		t.Run(path, func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("reading %s: %v", path, err)
+			}
+			text := string(data)
+			for _, want := range []string{
+				"- name: release-line",
+				"value: '{{inputs.parameters.release-line}}'",
+			} {
+				if !strings.Contains(text, want) {
+					t.Errorf("%s: missing %q", path, want)
+				}
+			}
+			if got := strings.Count(text, `${RELEASE_LINE:+--release-line "${RELEASE_LINE}"}`); got != 2 {
+				t.Errorf("%s: both occ workload create calls must pass --release-line, found %d", path, got)
+			}
+		})
+	}
 }

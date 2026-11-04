@@ -30,6 +30,7 @@ import (
 
 const (
 	testNamespace  = "ns1"
+	testStoreName  = "store"
 	testSecretName = "my-secret"
 	testLabelValue = "payments"
 )
@@ -169,6 +170,8 @@ func TestValidatePlaneKind(t *testing.T) {
 		planeKindClusterWorkflowPlane,
 		planeKindDataPlane,
 		planeKindClusterDataPlane,
+		planeKindObservabilityPlane,
+		planeKindClusterObservabilityPlane,
 	} {
 		if err := validatePlaneKind(kind); err != nil {
 			t.Errorf("expected %s to be valid, got %v", kind, err)
@@ -365,7 +368,7 @@ func TestResolvePlane_WorkflowPlane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if info.secretStoreName != "store" {
+	if info.secretStoreName != testStoreName {
 		t.Errorf("secretStoreName = %q", info.secretStoreName)
 	}
 	if info.k8sClient != targetClient {
@@ -395,8 +398,76 @@ func TestResolvePlane_ClusterDataPlane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if info.secretStoreName != "store" {
+	if info.secretStoreName != testStoreName {
 		t.Errorf("secretStoreName = %q", info.secretStoreName)
+	}
+}
+
+func TestResolvePlane_ObservabilityPlane(t *testing.T) {
+	scheme := newTestScheme(t)
+	op := &openchoreov1alpha1.ObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "op1", Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
+			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "store"},
+		},
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(op).Build()
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	targetClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	mockProvider.EXPECT().ObservabilityPlaneClient(op).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+
+	info, err := svc.resolvePlane(context.Background(), testNamespace, planeKindObservabilityPlane, "op1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.secretStoreName != testStoreName {
+		t.Errorf("secretStoreName = %q", info.secretStoreName)
+	}
+	if info.k8sClient != targetClient {
+		t.Errorf("expected target client to be returned")
+	}
+}
+
+func TestResolvePlane_ClusterObservabilityPlane(t *testing.T) {
+	scheme := newTestScheme(t)
+	cop := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "cop1"},
+		Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+			PlaneID:        "main",
+			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "store"},
+		},
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cop).Build()
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	targetClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	mockProvider.EXPECT().ClusterObservabilityPlaneClient(cop).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: k8sClient, planeClientProvider: mockProvider, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+
+	info, err := svc.resolvePlane(context.Background(), testNamespace, planeKindClusterObservabilityPlane, "cop1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.secretStoreName != testStoreName {
+		t.Errorf("secretStoreName = %q", info.secretStoreName)
+	}
+}
+
+func TestResolvePlane_ObservabilityPlaneNoSecretStore(t *testing.T) {
+	scheme := newTestScheme(t)
+	op := &openchoreov1alpha1.ObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "op1", Namespace: testNamespace},
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(op).Build()
+	svc := &secretService{k8sClient: k8sClient, logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
+
+	_, err := svc.resolvePlane(context.Background(), testNamespace, planeKindObservabilityPlane, "op1")
+	if !errors.Is(err, ErrSecretStoreNotConfigured) {
+		t.Errorf("expected ErrSecretStoreNotConfigured, got %v", err)
 	}
 }
 
@@ -408,6 +479,7 @@ func TestResolvePlane_NotFound(t *testing.T) {
 	for _, kind := range []string{
 		planeKindWorkflowPlane, planeKindClusterWorkflowPlane,
 		planeKindDataPlane, planeKindClusterDataPlane,
+		planeKindObservabilityPlane, planeKindClusterObservabilityPlane,
 	} {
 		_, err := svc.resolvePlane(context.Background(), testNamespace, kind, "missing")
 		if !errors.Is(err, ErrPlaneNotFound) {

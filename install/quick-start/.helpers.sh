@@ -872,6 +872,8 @@ spec:
       value: |
 $(echo "$agent_ca" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 OPEOF
 
     log_success "ClusterObservabilityPlane resource created"

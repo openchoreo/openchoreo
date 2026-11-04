@@ -108,5 +108,6 @@ func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthzWithAction(ctx co
 			Project:   rb.Spec.Owner.ProjectName,
 			Component: rb.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: rb.Spec.Owner.ReleaseLine}},
 	})
 }

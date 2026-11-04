@@ -12,9 +12,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
@@ -426,5 +431,283 @@ func TestGetComponentUIDRejectsAComponentOfAnotherProject(t *testing.T) {
 	}
 	if !errors.Is(err, ErrResourceNotFound) {
 		t.Fatalf("expected ErrResourceNotFound, got %v", err)
+	}
+	var notFound *NotFoundError
+	if !errors.As(err, &notFound) || notFound.Error() != `component "payments-api" not found` {
+		t.Fatalf("expected the component named as not found, without its owner, got %v", err)
+	}
+}
+
+// newCapturingTokenServer creates an httptest.Server that records the form parameters of
+// the most recent token request and always returns a valid token response.
+func newCapturingTokenServer(t *testing.T, captured *url.Values) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+		*captured = params
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+}
+
+// writeAssertionFile writes a client assertion to a file in a temp dir and returns its path.
+func writeAssertionFile(t *testing.T, contents string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "azure-identity-token")
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatalf("failed to write assertion file: %v", err)
+	}
+	return path
+}
+
+// TestFetchAccessToken_UsesClientAssertion verifies that when a client assertion file is
+// configured, the token request carries the RFC 7523 assertion parameters and omits the
+// client secret even though one is set.
+func TestFetchAccessToken_UsesClientAssertion(t *testing.T) {
+	t.Parallel()
+
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	cfg := &config.UIDResolverConfig{
+		OAuthClientAssertionFile: writeAssertionFile(t, "header.payload.signature\n"),
+		MaxAuthRetry:             0,
+	}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, err := resolver.GetNamespaceUID(context.Background(), "ns"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := captured.Get("client_assertion_type"); got != clientAssertionType {
+		t.Errorf("expected client_assertion_type %q, got %q", clientAssertionType, got)
+	}
+	if got := captured.Get("client_assertion"); got != "header.payload.signature" {
+		t.Errorf("expected trimmed assertion in token request, got %q", got)
+	}
+	if got := captured.Get("client_secret"); got != "" {
+		t.Errorf("expected no client_secret when an assertion file is configured, got %q", got)
+	}
+	if got := captured.Get("grant_type"); got != "client_credentials" {
+		t.Errorf("expected grant_type client_credentials, got %q", got)
+	}
+}
+
+// TestFetchAccessToken_RereadsClientAssertion verifies that the assertion file is read on
+// every token request, so a token rotated in place by the platform is picked up.
+func TestFetchAccessToken_RereadsClientAssertion(t *testing.T) {
+	t.Parallel()
+
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	assertionFile := writeAssertionFile(t, "first-assertion")
+	cfg := &config.UIDResolverConfig{OAuthClientAssertionFile: assertionFile, MaxAuthRetry: 0}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error on first fetch: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "first-assertion" {
+		t.Fatalf("expected first-assertion, got %q", got)
+	}
+
+	// Simulate the platform rotating the projected token in place.
+	if err := os.WriteFile(assertionFile, []byte("second-assertion"), 0o600); err != nil {
+		t.Fatalf("failed to rotate assertion file: %v", err)
+	}
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error on second fetch: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "second-assertion" {
+		t.Errorf("expected rotated assertion to be re-read, got %q", got)
+	}
+}
+
+// TestFetchAccessToken_ExpandsClientAssertionPath verifies that an environment variable
+// reference in the assertion file path is resolved, as Azure Workload Identity exposes its
+// per-pod token path only through AZURE_FEDERATED_TOKEN_FILE.
+func TestFetchAccessToken_ExpandsClientAssertionPath(t *testing.T) {
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	t.Setenv("TEST_FEDERATED_TOKEN_FILE", writeAssertionFile(t, "projected-assertion"))
+	cfg := &config.UIDResolverConfig{
+		OAuthClientAssertionFile: "${TEST_FEDERATED_TOKEN_FILE}",
+		MaxAuthRetry:             0,
+	}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "projected-assertion" {
+		t.Errorf("expected assertion from the expanded path, got %q", got)
+	}
+}
+
+// TestFetchAccessToken_ClientAssertionFileUnusable verifies that an unreadable or empty
+// assertion file fails the token request instead of silently falling back to the secret.
+func TestFetchAccessToken_ClientAssertionFileUnusable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		assertionFile func(t *testing.T) string
+	}{
+		{
+			name: "missing file",
+			assertionFile: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "does-not-exist")
+			},
+		},
+		{
+			name: "empty file",
+			assertionFile: func(t *testing.T) string {
+				return writeAssertionFile(t, "  \n")
+			},
+		},
+		{
+			name: "unset path variable",
+			assertionFile: func(*testing.T) string {
+				return "${OPENCHOREO_TEST_UNSET_TOKEN_FILE}"
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tokenSrv := newAlwaysOKTokenServer(t)
+			defer tokenSrv.Close()
+
+			apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(uidResponse("uid-1")))
+			}))
+			defer apiSrv.Close()
+
+			cfg := &config.UIDResolverConfig{
+				OAuthClientAssertionFile: tt.assertionFile(t),
+				MaxAuthRetry:             0,
+			}
+			resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+			_, err := resolver.GetNamespaceUID(context.Background(), "ns")
+			if err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if !errors.Is(err, ErrScopeAuthFailed) {
+				t.Errorf("expected ErrScopeAuthFailed, got %v", err)
+			}
+		})
+	}
+}
+
+func TestResolveReleaseLineScope(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/namespaces/ns/components/hello/releaselines/next" {
+			_, _ = w.Write([]byte(`{"metadata":{"name":"next","uid":"uid-next"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer apiServer.Close()
+	r := newTestResolver(t, apiServer, nil, nil)
+	ctx := context.Background()
+
+	scope, err := r.ResolveReleaseLineScope(ctx, "ns", "hello", "", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "no line covers the main line, as before release lines")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "", true)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{All: true}, scope, "allLines covers every line of the component")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "", "", true)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope, "a scope without a component already covers every line")
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "main", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{}, scope)
+
+	scope, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "next", false)
+	require.NoError(t, err)
+	assert.Equal(t, ReleaseLineScope{UID: "uid-next"}, scope)
+
+	_, err = r.ResolveReleaseLineScope(ctx, "ns", "hello", "ghost", false)
+	require.ErrorIs(t, err, ErrResourceNotFound)
+	var notFound *NotFoundError
+	require.ErrorAs(t, err, &notFound)
+	assert.Equal(t, `release line "ghost" not found`, notFound.Error())
+}
+
+func TestCheckReleaseLineApplied(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/namespaces/ns/components/lined/releaselines":
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}},{"metadata":{"name":"next"}}]}`))
+		case "/api/v1/namespaces/ns/components/plain/releaselines":
+			_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"main"}}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer apiServer.Close()
+	r := newTestResolver(t, apiServer, nil, nil)
+	ctx := context.Background()
+
+	for name, tc := range map[string]struct {
+		component string
+		lines     ReleaseLineScope
+		applied   bool
+		wantErr   bool
+	}{
+		"main line":                            {component: "lined"},
+		"one line, applied":                    {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, applied: true},
+		"one line, not applied":                {component: "lined", lines: ReleaseLineScope{UID: "uid-next"}, wantErr: true},
+		"every line, applied":                  {component: "lined", lines: ReleaseLineScope{All: true}, applied: true},
+		"every line of a component with lines": {component: "lined", lines: ReleaseLineScope{All: true}, wantErr: true},
+		"every line of a component without":    {component: "plain", lines: ReleaseLineScope{All: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := r.CheckReleaseLineApplied(ctx, "ns", tc.component, tc.lines, tc.applied, "logs adapter")
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorIs(t, err, ErrReleaseLineNotSupported)
+			assert.ErrorContains(t, err, "logs adapter")
+		})
 	}
 }

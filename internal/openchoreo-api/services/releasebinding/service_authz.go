@@ -50,7 +50,9 @@ func (s *releaseBindingServiceWithAuthz) CreateReleaseBinding(ctx context.Contex
 		Context: authz.Context{
 			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
 			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+				ReleaseLine: rb.Spec.Owner.ReleaseLine,
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -76,7 +78,10 @@ func (s *releaseBindingServiceWithAuthz) UpdateReleaseBinding(ctx context.Contex
 		},
 		Context: authz.Context{
 			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
-			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, existing.Spec.Environment, false)},
+			Resource: authz.ResourceAttribute{
+				Environment: services.FormatDualScopedResourceName(namespaceName, existing.Spec.Environment, false),
+				ReleaseLine: existing.Spec.Owner.ReleaseLine,
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -102,7 +107,9 @@ func (s *releaseBindingServiceWithAuthz) ListReleaseBindings(ctx context.Context
 				Context: authz.Context{
 					// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
 					Resource: authz.ResourceAttribute{
-						Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+						Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+						ReleaseLine: rb.Spec.Owner.ReleaseLine,
+					},
 				},
 			}
 		},
@@ -128,7 +135,9 @@ func (s *releaseBindingServiceWithAuthz) GetReleaseBinding(ctx context.Context, 
 		Context: authz.Context{
 			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
 			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+				ReleaseLine: rb.Spec.Owner.ReleaseLine,
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -155,7 +164,9 @@ func (s *releaseBindingServiceWithAuthz) DeleteReleaseBinding(ctx context.Contex
 		Context: authz.Context{
 			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
 			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+				ReleaseLine: rb.Spec.Owner.ReleaseLine,
+			},
 		},
 	}); err != nil {
 		return err

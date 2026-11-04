@@ -663,7 +663,7 @@ func TestTriggerWorkflow(t *testing.T) {
 
 	t.Run("component not found", func(t *testing.T) {
 		svc := newService(t)
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "nonexistent", "abc1234")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "nonexistent", "abc1234", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get component")
 	})
@@ -671,7 +671,7 @@ func TestTriggerWorkflow(t *testing.T) {
 	t.Run("component without workflow config", func(t *testing.T) {
 		comp := testutil.NewComponent(testNamespace, "proj", "my-comp")
 		svc := newService(t, comp)
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not have a workflow configured")
 	})
@@ -683,7 +683,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		}
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "not-a-sha!")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "not-a-sha!", "")
 		require.ErrorIs(t, err, ErrInvalidCommitSHA)
 	})
 
@@ -691,7 +691,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
 		comp := buildComponentWithWorkflow(testNamespace, "real-project", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "wrong-project", "my-comp", "abc1234")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "wrong-project", "my-comp", "abc1234", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not match component owner project")
 	})
@@ -704,7 +704,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f", "")
 		require.NoError(t, err)
 		assert.Equal(t, "my-comp", result.ComponentName)
 		assert.Equal(t, "proj", result.ProjectName)
@@ -722,7 +722,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindClusterWorkflow)
 		svc := newService(t, cwf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f", "")
 		require.NoError(t, err)
 		assert.Equal(t, "my-comp", result.ComponentName)
 		assert.Contains(t, result.Name, "my-comp-run-")
@@ -736,7 +736,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "", "")
 		require.NoError(t, err)
 		assert.Empty(t, result.Commit)
 	})
@@ -749,7 +749,7 @@ func TestTriggerWorkflow(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "owned-proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "my-comp", "abc1234f")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "my-comp", "abc1234f", "")
 		require.NoError(t, err)
 		assert.Equal(t, "owned-proj", result.ProjectName)
 	})
@@ -1272,7 +1272,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		}
 		svc := newService(t, wf, comp)
 
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "no-repo-comp", "abc1234f")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "no-repo-comp", "abc1234f", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty repository URL")
 	})
@@ -1285,7 +1285,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "short-sha-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "short-sha-comp", "abc1234")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "short-sha-comp", "abc1234", "")
 		require.NoError(t, err)
 		assert.Equal(t, "abc1234", result.Commit)
 	})
@@ -1299,7 +1299,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		svc := newService(t, wf, comp)
 
 		fullSHA := "abcdef1234567890abcdef1234567890abcdef12"
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "full-sha-comp", fullSHA)
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "full-sha-comp", fullSHA, "")
 		require.NoError(t, err)
 		assert.Equal(t, fullSHA, result.Commit)
 	})
@@ -1312,7 +1312,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "too-short-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "too-short-comp", "abc12")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "too-short-comp", "abc12", "")
 		require.ErrorIs(t, err, ErrInvalidCommitSHA)
 	})
 
@@ -1325,7 +1325,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		svc := newService(t, wf, comp)
 
 		tooLong := "abcdef1234567890abcdef1234567890abcdef1234" // 41 chars
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "too-long-comp", tooLong)
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "too-long-comp", tooLong, "")
 		require.ErrorIs(t, err, ErrInvalidCommitSHA)
 	})
 
@@ -1337,7 +1337,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "nonhex-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "nonhex-comp", "ghijklm")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "nonhex-comp", "ghijklm", "")
 		require.ErrorIs(t, err, ErrInvalidCommitSHA)
 	})
 
@@ -1346,7 +1346,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "missing-wf-comp", "nonexistent-workflow", openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, comp)
 
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "missing-wf-comp", "abc1234f")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "missing-wf-comp", "abc1234f", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get workflow")
 	})
@@ -1355,7 +1355,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "missing-cwf-comp", "nonexistent-cwf", openchoreov1alpha1.WorkflowRefKindClusterWorkflow)
 		svc := newService(t, comp)
 
-		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "missing-cwf-comp", "abc1234f")
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "missing-cwf-comp", "abc1234f", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get ClusterWorkflow")
 	})
@@ -1368,7 +1368,7 @@ func TestTriggerWorkflowAdditional(t *testing.T) {
 		comp := buildComponentWithWorkflow(testNamespace, "proj", "label-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
 		svc := newService(t, wf, comp)
 
-		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "label-comp", "abc1234f")
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "label-comp", "abc1234f", "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "label-comp", result.ComponentName)

@@ -15,6 +15,11 @@ spec:
     smtp:
       host: mail.acme.com                 # Replace with your SMTP host
       port: 587                           # Replace with your SMTP port
+      # SMTP credentials come from a SecretReference in the channel's namespace. Create it in the
+      # observability plane's secret store before applying this file, for example:
+      #   occ secret create generic email-notification-channel-development-smtp-auth \
+      #     --namespace default --target-plane ClusterObservabilityPlane/default \
+      #     --from-literal=username=<smtp-username> --from-literal=password=<smtp-password>
       auth:
         username:
           secretKeyRef:
@@ -43,17 +48,6 @@ spec:
         Enabled AI Root Cause Analysis: ${triggerAiRca}
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: email-notification-channel-development-smtp-auth
-  namespace: default
-type: Opaque
-stringData:
-  username: smtp-username   # Replace with your SMTP username
-  password: smtp-password   # Replace with your SMTP password
-
----
 # Example webhook Notification Channel for development environment
 apiVersion: openchoreo.dev/v1alpha1
 kind: ObservabilityAlertsNotificationChannel
@@ -68,7 +62,12 @@ spec:
     headers:
       Content-Type:
         value: "application/json"
-      # Custom header for webhook authentication (if required)
+      # Custom header for webhook authentication (if required). The value comes from a SecretReference
+      # in the channel's namespace. Create it in the observability plane's secret store before applying
+      # this file, for example:
+      #   occ secret create generic webhook-notification-channel-development-webhook-auth \
+      #     --namespace default --target-plane ClusterObservabilityPlane/default \
+      #     --from-literal=api-key=<webhook-api-key>
       X-API-Key:
         valueFrom:
           secretKeyRef:
@@ -127,13 +126,3 @@ spec:
           }
         ]
       }
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webhook-notification-channel-development-webhook-auth
-  namespace: default
-type: Opaque
-stringData:
-  api-key: webhook-api-key    # Replace with your webhook API key

@@ -18,6 +18,9 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -77,8 +80,13 @@ spec:
                               Provided via secret reference (TODO: Support inline password)
                             properties:
                               secretKeyRef:
-                                description: SecretKeyRef references a specific key
-                                  in a Kubernetes secret
+                                description: |-
+                                  SecretKeyRef references a secret value by name and key.
+                                  The name refers to a SecretReference in the channel's namespace, and the key to one of
+                                  its spec.data[].secretKey entries. The value is synced to the observability plane from
+                                  the plane's secret store.
+                                  If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+                                  channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
                                 properties:
                                   key:
                                     minLength: 1
@@ -97,8 +105,13 @@ spec:
                               Provided via secret reference (TODO: Support inline username)
                             properties:
                               secretKeyRef:
-                                description: SecretKeyRef references a specific key
-                                  in a Kubernetes secret
+                                description: |-
+                                  SecretKeyRef references a secret value by name and key.
+                                  The name refers to a SecretReference in the channel's namespace, and the key to one of
+                                  its spec.data[].secretKey entries. The value is synced to the observability plane from
+                                  the plane's secret store.
+                                  If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+                                  channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
                                 properties:
                                   key:
                                     minLength: 1
@@ -152,6 +165,15 @@ spec:
                         description: |-
                           Body is the email body template using CEL expressions
                           Example: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
+                        type: string
+                      contentType:
+                        default: text/plain
+                        description: |-
+                          ContentType specifies the MIME type of the rendered email body.
+                          Supported values are "text/plain" and "text/html".
+                        enum:
+                        - text/plain
+                        - text/html
                         type: string
                       subject:
                         description: |-
@@ -220,8 +242,13 @@ spec:
                             Mutually exclusive with value
                           properties:
                             secretKeyRef:
-                              description: SecretKeyRef references a specific key
-                                in a Kubernetes secret
+                              description: |-
+                                SecretKeyRef references a secret value by name and key.
+                                The name refers to a SecretReference in the channel's namespace, and the key to one of
+                                its spec.data[].secretKey entries. The value is synced to the observability plane from
+                                the plane's secret store.
+                                If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+                                channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
                               properties:
                                 key:
                                   minLength: 1
@@ -271,6 +298,73 @@ spec:
           status:
             description: ObservabilityAlertsNotificationChannelStatus defines the
               observed state of ObservabilityAlertsNotificationChannel.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the notification channel's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the generation observed by the
+                  controller
+                format: int64
+                type: integer
             type: object
         type: object
     served: true

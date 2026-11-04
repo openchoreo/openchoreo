@@ -167,11 +167,11 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 
 // releaseFixture returns a Release pre-labeled so that hasOwnedReleases
 // will match it for the given ReleaseBinding owner fields.
-func releaseFixture(name, namespace, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
+func releaseFixture(name, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
 	rel := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				labels.LabelKeyProjectName:     project,
 				labels.LabelKeyComponentName:   component,
@@ -801,7 +801,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Pre-creating a Release with the matching labels so handleUndeploy finds it")
 			Expect(k8sClient.Create(ctx,
-				releaseFixture(releaseName, ns, project, compName, envName),
+				releaseFixture(releaseName, project, compName, envName),
 			)).To(Succeed())
 
 			By("First reconcile: handleUndeploy deletes the Release and sets being-undeployed conditions")
@@ -917,6 +917,51 @@ var _ = Describe("ReleaseBinding Controller", func() {
 	// The ReleaseBinding should wait for its owned Release to be fully deleted
 	// before removing its own finalizer.
 
+	Context("Finalization of a release line's binding", func() {
+		const (
+			project  = "lines-proj"
+			compName = "lines-comp"
+			envName  = "lines-env"
+			rbName   = "lines-comp-lines-env"
+		)
+		defaultRelease := compName + "-" + envName
+		nextRelease := compName + "-next-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(defaultRelease)
+			forceDeleteRelease(nextRelease)
+		})
+
+		It("deletes only the Releases of its own line", func() {
+			r := testReconciler()
+
+			By("deleting the main line's binding, whose Releases carry no release line label")
+			rb := rbFixture(rbName, project, compName, envName, "rel", true)
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			Expect(k8sClient.Create(ctx, releaseFixture(defaultRelease, project, compName, envName))).To(Succeed())
+			rel := releaseFixture(nextRelease, project, compName, envName)
+			rel.Labels[labels.LabelKeyReleaseLine] = "next"
+			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
+
+			Expect(k8sClient.Delete(ctx, rb)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, req)
+				g.Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rbName}, &openchoreov1alpha1.ReleaseBinding{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: defaultRelease}, &openchoreov1alpha1.RenderedRelease{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "the binding's own Release is deleted")
+			next := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: nextRelease}, next)).To(Succeed())
+			Expect(next.DeletionTimestamp.IsZero()).To(BeTrue(), "another line's Release is left alone")
+		})
+	})
+
 	Context("Finalization blocked by an owned Release that has its own finalizer", func() {
 		const (
 			blockFinalizer = "test.openchoreo.dev/block-deletion"
@@ -941,7 +986,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
 			By("Creating an owned Release with matching labels AND a blocking finalizer")
-			rel := releaseFixture(releaseName, ns, project, compName, envName, blockFinalizer)
+			rel := releaseFixture(releaseName, project, compName, envName, blockFinalizer)
 			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
 
 			By("Triggering deletion of the ReleaseBinding")
@@ -1316,6 +1361,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				dataPlane,
 				environment,
 				environmentName,
+				"",
 			)
 
 			By("Verifying pod selectors include all required fields")

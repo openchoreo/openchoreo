@@ -220,3 +220,35 @@ async def test_failure_during_status_update_is_swallowed():
             search_scope=SEARCH_SCOPE,
             request_context=make_request_context(),
         )
+
+
+@pytest.mark.asyncio
+async def test_completed_report_records_the_release_line_from_the_request():
+    report = make_report(recommendation=None)
+    scope = SEARCH_SCOPE.model_copy(update={"release_line": "canary"})
+
+    with patched_analysis(report) as backend:
+        await agent_mod.run_analysis(
+            report_id="r1",
+            search_scope=scope,
+            request_context=make_request_context(),
+        )
+
+    assert backend.upsert_report.await_args.kwargs["release_line"] == "canary"
+
+
+@pytest.mark.asyncio
+async def test_failed_report_records_the_release_line_from_the_request():
+    report = make_report(recommendation=None)
+    scope = SEARCH_SCOPE.model_copy(update={"release_line": "canary"})
+
+    with patched_analysis(report, ainvoke_side_effect=RuntimeError("boom")) as backend:
+        await agent_mod.run_analysis(
+            report_id="r1",
+            search_scope=scope,
+            request_context=make_request_context(),
+        )
+
+    kwargs = backend.upsert_report.await_args.kwargs
+    assert kwargs["status"] == "failed"
+    assert kwargs["release_line"] == "canary"

@@ -233,6 +233,18 @@ func (r *ObservabilityPlaneResult) GetPlaneID() string {
 	return ""
 }
 
+// GetSecretStoreName returns the secret store name from the observability plane (either ObservabilityPlane or ClusterObservabilityPlane).
+// Returns empty string if no secret store ref is configured.
+func (r *ObservabilityPlaneResult) GetSecretStoreName() string {
+	if r.ObservabilityPlane != nil && r.ObservabilityPlane.Spec.SecretStoreRef != nil {
+		return r.ObservabilityPlane.Spec.SecretStoreRef.Name
+	}
+	if r.ClusterObservabilityPlane != nil && r.ClusterObservabilityPlane.Spec.SecretStoreRef != nil {
+		return r.ClusterObservabilityPlane.Spec.SecretStoreRef.Name
+	}
+	return ""
+}
+
 // GetK8sClient returns a Kubernetes client for this observability plane result.
 // It dispatches to the correct client constructor based on whether this is an ObservabilityPlane or ClusterObservabilityPlane.
 func (r *ObservabilityPlaneResult) GetK8sClient(provider kubernetesClient.ObservabilityPlaneClientProvider) (client.Client, error) {

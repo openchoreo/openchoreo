@@ -103,7 +103,7 @@ E2E_OP_NS              := openchoreo-observability-plane
 GATEWAY_API_VERSION    ?= v1.5.1
 CERT_MANAGER_VERSION   ?= v1.19.4
 ESO_VERSION            ?= 2.0.1
-KGATEWAY_VERSION       ?= v2.3.1
+KGATEWAY_VERSION       ?= v2.3.11
 OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 1.0.1
 DEX_VERSION            ?= 0.24.1
@@ -117,8 +117,18 @@ OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.0.0-latest-dev
 # logs use the OpenObserve community module there instead of OpenSearch.
 OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.0.0-latest-dev
 
-E2E_IMAGE_REGISTRY ?= ghcr.io
+OCI_REGISTRY_HOST ?= ghcr.io
+E2E_IMAGE_REGISTRY ?= $(OCI_REGISTRY_HOST)
 E2E_IMAGE_REGISTRY_VALUES := --set-string global.imageRegistry=$(E2E_IMAGE_REGISTRY)
+
+OCI_REGISTRY_USERNAME ?=
+OCI_REGISTRY_PASSWORD ?=
+export OCI_REGISTRY_USERNAME
+export OCI_REGISTRY_PASSWORD
+E2E_PULL_SECRET_VALUES :=
+ifneq ($(strip $(OCI_REGISTRY_USERNAME)),)
+E2E_PULL_SECRET_VALUES := --set-string global.imagePullSecrets[0].name=oci-registry-pull-secret
+endif
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
@@ -197,6 +207,23 @@ define e2e_patch_gateway
 	@$(E2E_KUBECTL) patch deployment gateway-default -n $(1) \
 		--type='json' \
 		-p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
+endef
+
+# ---------------------------------------------------------------------------
+# Helper: provision the oci-registry-pull-secret Secret used by
+# E2E_PULL_SECRET_VALUES. No-op when OCI_REGISTRY_USERNAME/PASSWORD are unset.
+# Usage: $(call e2e_pull_secret,<kubectl-cmd>,<namespace>)
+# ---------------------------------------------------------------------------
+define e2e_pull_secret
+	@if [ -n "$(E2E_PULL_SECRET_VALUES)" ]; then \
+		$(1) create namespace $(2) --dry-run=client -o yaml | $(1) apply -f - ; \
+		$(1) create secret docker-registry oci-registry-pull-secret \
+			--namespace $(2) \
+			--docker-server="$(E2E_IMAGE_REGISTRY)" \
+			--docker-username="$$OCI_REGISTRY_USERNAME" \
+			--docker-password="$$OCI_REGISTRY_PASSWORD" \
+			--dry-run=client -o yaml | $(1) apply -f - ; \
+	fi
 endef
 
 # ---------------------------------------------------------------------------
@@ -525,9 +552,11 @@ _e2e.install-dex:
 _e2e.install-cp:
 	@$(call log_info, Installing Control Plane)
 	@if [ "$(E2E_WITH_UI)" = "true" ] || [ "$(E2E_WITH_EXT_IDP)" = "true" ]; then $(MAKE) _e2e.prepare-backstage-secret; fi
+	$(call e2e_pull_secret,$(E2E_KUBECTL),$(E2E_CP_NS))
 	$(E2E_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-cp.yaml \
 		$(E2E_CP_EXTRA_VALUES) \
@@ -550,10 +579,12 @@ _e2e.install-cp:
 .PHONY: _e2e.install-dp
 _e2e.install-dp:
 	$(call e2e_copy_gateway_certs,$(E2E_DP_NS))
+	$(call e2e_pull_secret,$(E2E_KUBECTL),$(E2E_DP_NS))
 	@$(call log_info, Installing Data Plane)
 	$(E2E_HELM) upgrade --install openchoreo-data-plane $(E2E_DP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-dp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -582,10 +613,12 @@ _e2e.install-wp:
 	$(E2E_HELM) upgrade --install registry twuni/docker-registry \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(PROJECT_DIR)/install/k3d/single-cluster/values-registry.yaml
+	$(call e2e_pull_secret,$(E2E_KUBECTL),$(E2E_WP_NS))
 	@$(call log_info, Installing Workflow Plane)
 	$(E2E_HELM) upgrade --install openchoreo-workflow-plane $(E2E_WP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-wp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -620,10 +653,12 @@ _e2e.install-op:
 		--from-literal=OPENSEARCH_PASSWORD="ThisIsTheOpenSearchPassword1" \
 		--from-literal=UID_RESOLVER_OAUTH_CLIENT_SECRET="openchoreo-observer-resource-reader-client-secret" \
 		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
+	$(call e2e_pull_secret,$(E2E_KUBECTL),$(E2E_OP_NS))
 	@$(call log_info, Installing Observability Plane)
 	$(E2E_HELM) upgrade --install openchoreo-observability-plane $(E2E_OP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-op.yaml \
 		--set observer.audit.enabled=true \
@@ -942,10 +977,12 @@ _e2e.mc.install-thunder:
 
 .PHONY: _e2e.mc.install-cp
 _e2e.mc.install-cp:
+	$(call e2e_pull_secret,$(E2E_MC_CP_KUBECTL),$(E2E_CP_NS))
 	@$(call log_info, Installing Control Plane)
 	$(E2E_MC_CP_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-cp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -969,10 +1006,12 @@ _e2e.mc.install-dp:
 	@# a hostPath volume — seed it on the node so the init container doesn't block.
 	docker exec k3d-$(E2E_MC_DP_CLUSTER_NAME)-server-0 sh -c \
 		"[ -f /etc/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
+	$(call e2e_pull_secret,$(E2E_MC_DP_KUBECTL),$(E2E_DP_NS))
 	@$(call log_info, Installing Data Plane)
 	$(E2E_MC_DP_HELM) upgrade --install openchoreo-data-plane $(E2E_DP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-dp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -1026,10 +1065,12 @@ _e2e.mc.install-wp:
 	$(E2E_MC_WP_HELM) upgrade --install registry twuni/docker-registry \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(PROJECT_DIR)/install/k3d/single-cluster/values-registry.yaml
+	$(call e2e_pull_secret,$(E2E_MC_WP_KUBECTL),$(E2E_WP_NS))
 	@$(call log_info, Installing Workflow Plane)
 	$(E2E_MC_WP_HELM) upgrade --install openchoreo-workflow-plane $(E2E_WP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-wp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
@@ -1065,10 +1106,12 @@ _e2e.mc.install-op:
 		--for=condition=Ready externalsecret/opensearch-admin-credentials --timeout=60s
 	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=Ready externalsecret/openobserve-admin-credentials --timeout=60s
+	$(call e2e_pull_secret,$(E2E_MC_OP_KUBECTL),$(E2E_OP_NS))
 	@$(call log_info, Installing Observability Plane)
 	$(E2E_MC_OP_HELM) upgrade --install openchoreo-observability-plane $(E2E_OP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		$(E2E_IMAGE_REGISTRY_VALUES) \
+		$(E2E_PULL_SECRET_VALUES) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_MC_K3D_DIR)/values-op.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)

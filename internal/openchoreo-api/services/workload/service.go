@@ -51,6 +51,10 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 	if err := s.validateComponentExists(ctx, namespaceName, w.Spec.Owner.ComponentName); err != nil {
 		return nil, err
 	}
+	if err := services.ValidateReleaseLineOwner(ctx, s.k8sClient, namespaceName,
+		w.Spec.Owner.ProjectName, w.Spec.Owner.ComponentName, w.Spec.Owner.ReleaseLine); err != nil {
+		return nil, err
+	}
 
 	exists, err := s.workloadExists(ctx, namespaceName, w.Name)
 	if err != nil {

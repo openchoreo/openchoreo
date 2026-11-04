@@ -499,3 +499,77 @@ metadata:
 	})
 	assert.Contains(t, out, "namespace is required")
 }
+
+func TestApply_ReleaseLineRoutedToOwnerComponent(t *testing.T) {
+	const linePath = "/api/v1/namespaces/default/components/hello/releaselines"
+	var calls []string
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == linePath+"/main":
+			return testutil.JSONResp(http.StatusOK, map[string]any{}), nil
+		case r.Method == http.MethodGet:
+			return testutil.JSONResp(http.StatusNotFound, map[string]any{"error": "not found"}), nil
+		case r.Method == http.MethodPut:
+			return testutil.JSONResp(http.StatusOK, map[string]any{}), nil
+		default:
+			return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
+		}
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "lines.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseLine
+metadata:
+  name: main
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: hello
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseLine
+metadata:
+  name: next
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: hello
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: yamlFile}))
+	})
+	assert.Contains(t, out, "releaseline/main configured")
+	assert.Contains(t, out, "releaseline/next created")
+	assert.Equal(t, []string{
+		"GET " + linePath + "/main",
+		"PUT " + linePath + "/main",
+		"GET " + linePath + "/next",
+		"POST " + linePath,
+	}, calls)
+}
+
+func TestApply_ReleaseLineWithoutOwnerComponent(t *testing.T) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("no request expected")
+		return nil, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "line.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: ReleaseLine
+metadata:
+  name: next
+  namespace: default
+spec: {}
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.Error(t, Apply(cl, Params{FilePath: yamlFile}))
+	})
+	assert.Contains(t, out, "releaseline/next: spec.owner.componentName is required")
+}

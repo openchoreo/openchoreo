@@ -18,6 +18,9 @@ import (
 // methodCallTool is the MCP method name for tool invocation.
 const methodCallTool = "tools/call"
 
+// resourceTypeReleaseLine is the audit resource type of release line operations.
+const resourceTypeReleaseLine = "releaseline"
+
 // newAuditMiddleware returns the mcp.Middleware that emits one audit event
 // per tools/call on a bound tool. Everything else — initialize, ping,
 // tools/list, notifications, and calls to unbound tools — passes through
@@ -59,6 +62,9 @@ func newAuditMiddleware(
 			ctx, auditData := audit.NewAuditContext(
 				ctx, &audit.Resource{Namespace: namespaceName, Name: resourceName}, audit.NewRequestInfo(nil),
 			)
+			if client := clientInfo(req); client != nil {
+				audit.SetMCPClient(ctx, client.Name, client.Version)
+			}
 
 			// Seed the hierarchy from the same namespace_name/project_name/
 			// component_name/resource_name convention callToolScope uses
@@ -68,11 +74,17 @@ func newAuditMiddleware(
 			// reaches AuthzChecker.Check (and thus audit.SetHierarchy) at
 			// all. A service-layer Check later overrides it with the
 			// resolved hierarchy — see audit.SeedHierarchy's doc comment.
+			releaseLine := firstArg(args, "release_line", "release_line_name")
+			// A release line is its own line, whichever argument names it (create_release_line uses "name").
+			if op.ResourceType == resourceTypeReleaseLine && resourceName != "" {
+				releaseLine = resourceName
+			}
 			audit.SeedHierarchy(ctx, audit.Hierarchy{
-				Namespace: namespaceName,
-				Project:   argFromParsed(args, "project_name"),
-				Component: argFromParsed(args, "component_name"),
-				Resource:  argFromParsed(args, "resource_name"),
+				Namespace:   namespaceName,
+				Project:     argFromParsed(args, "project_name"),
+				Component:   argFromParsed(args, "component_name"),
+				Resource:    argFromParsed(args, "resource_name"),
+				ReleaseLine: releaseLine,
 			})
 
 			// A panic in next must still produce an audit record — recover just
@@ -216,6 +228,16 @@ func argFromParsed(args map[string]any, argName string) string {
 	return ""
 }
 
+// firstArg returns the first of the named string arguments that is set.
+func firstArg(args map[string]any, argNames ...string) string {
+	for _, name := range argNames {
+		if v := argFromParsed(args, name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // extractResourceArg reads the named field out of a tools/call request's raw
 // JSON arguments. Returns "" if the argument is absent or not a string.
 func extractResourceArg(req mcp.Request, argName string) string {
@@ -223,6 +245,17 @@ func extractResourceArg(req mcp.Request, argName string) string {
 		return ""
 	}
 	return argFromParsed(parseCallArguments(req), argName)
+}
+
+// clientInfo returns the calling client's self-reported identity: the
+// per-request io.modelcontextprotocol/clientInfo under 2026-07-28, else the
+// initialize handshake's clientInfo. Returns nil when the client sent none.
+func clientInfo(req mcp.Request) *mcp.Implementation {
+	r, ok := req.(interface{ ClientInfo() *mcp.Implementation })
+	if !ok {
+		return nil
+	}
+	return r.ClientInfo()
 }
 
 // requestHeader returns the HTTP header carrying this specific tools/call —

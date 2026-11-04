@@ -350,6 +350,26 @@ func TestQueryIncidents_AuthzUnauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
+func TestQueryIncidents_ScopeNotFound(t *testing.T) {
+	t.Parallel()
+
+	err := fmt.Errorf("%w: %w", service.ErrAlertsResolveSearchScope, service.ErrScopeNotFound)
+
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(nil, err)
+
+	h := &Handler{
+		baseHandler:          baseHandler{logger: noopLogger()},
+		alertIncidentService: svc,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
+	rr := serve(t, h, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "SCOPE_NOT_FOUND")
+}
+
 func TestQueryIncidents_GenericError(t *testing.T) {
 	t.Parallel()
 
