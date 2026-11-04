@@ -11,7 +11,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "pydantic>=2.14.0",
     "pydantic-settings>=2.14.2",
-    "pyjwt[crypto]>=2.14.0",
+    "pyjwt[crypto]>=2.15.1",
     "pyyaml>=6.0.0",
 ]
 
