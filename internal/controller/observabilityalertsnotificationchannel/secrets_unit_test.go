@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1064,6 +1065,65 @@ func TestReconcile_KubernetesSecretFallbackLeavesAForeignExternalSecret(t *testi
 		t.Error("the foreign ExternalSecret must not be deleted")
 	}
 	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonExternalSecretConflict)
+}
+
+func TestReconcile_CreatesTheChannelNamespaceOnTheObservabilityPlane(t *testing.T) {
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")})
+
+	f.reconcile(t)
+	ns := &corev1.Namespace{}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testNamespace}, ns); err != nil {
+		t.Fatalf("the channel's namespace must be created on the observability plane: %v", err)
+	}
+	if got := ns.Labels[labels.LabelKeyCreatedBy]; got != managedByLabelValue {
+		t.Errorf("namespace label %s = %q, want %q", labels.LabelKeyCreatedBy, got, managedByLabelValue)
+	}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testChannel, Namespace: testNamespace}, &corev1.ConfigMap{}); err != nil {
+		t.Errorf("get ConfigMap: %v", err)
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionTrue, ReasonReconciled)
+}
+
+func TestReconcile_LeavesAnExistingNamespaceAsItIs(t *testing.T) {
+	existing := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace, Labels: map[string]string{"team": "obs"}}}
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")}, existing)
+
+	f.reconcile(t)
+	ns := &corev1.Namespace{}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testNamespace}, ns); err != nil {
+		t.Fatalf("get namespace: %v", err)
+	}
+	if want := map[string]string{"team": "obs"}; !equality.Semantic.DeepEqual(ns.Labels, want) {
+		t.Errorf("namespace labels = %v, want %v", ns.Labels, want)
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionTrue, ReasonReconciled)
+}
+
+func TestReconcile_NamespaceCreationFailureIsReported(t *testing.T) {
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")})
+	failing := fake.NewClientBuilder().WithScheme(newOPScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*corev1.Namespace); ok {
+					return apierrors.NewForbidden(corev1.Resource("namespaces"), obj.GetName(), fmt.Errorf("denied"))
+				}
+				return c.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	provider := k8sMocks.NewMockObservabilityPlaneClientProvider(t)
+	provider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(failing, nil)
+	f.r.PlaneClientProvider = provider
+
+	_, err := f.r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: testChannel, Namespace: testNamespace}})
+	if err == nil {
+		t.Fatal("Reconcile must return the namespace creation error so it is retried")
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonApplyFailed)
+	err = failing.Get(context.Background(), types.NamespacedName{Name: testChannel, Namespace: testNamespace}, &corev1.ConfigMap{})
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("the ConfigMap must not be applied without the namespace; get ConfigMap: %v", err)
+	}
 }
 
 func TestFinalize_LeavesAForeignExternalSecret(t *testing.T) {

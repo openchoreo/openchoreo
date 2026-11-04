@@ -90,6 +90,8 @@ type Reconciler struct {
 // When the channel's secret references name SecretReferences, the Secret is produced by an ExternalSecret
 // that syncs the values from the observability plane's secret store. When they name Kubernetes Secrets
 // (deprecated), the values are copied into the Secret.
+// The resources are applied in the channel's namespace, which is created on the observability plane
+// if it doesn't exist there.
 // Owner references are not set on the ConfigMap and Secret as they are applied to a separate cluster.
 //
 // For more details, check Reconcile and its Result here:
@@ -161,6 +163,14 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client")
 		controller.MarkFalseCondition(channel, ConditionReady, ReasonObservabilityPlaneUnavailable, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	// The ConfigMap, Secret and ExternalSecret are applied in the channel's namespace, which may exist
+	// only on the control plane when the observability plane runs on a separate cluster.
+	if err := ensureNamespace(ctx, opClient, channel.Namespace); err != nil {
+		logger.Error(err, "Failed to ensure namespace on observability plane")
+		controller.MarkFalseCondition(channel, ConditionReady, ReasonApplyFailed, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -497,6 +507,28 @@ func (r *Reconciler) resolveSecretKeyRef(ctx context.Context, namespace string, 
 
 	// Trim whitespace/newlines that may have been accidentally included in the secret
 	return strings.TrimSpace(string(value)), nil
+}
+
+// ensureNamespace creates the namespace on the observability plane if it doesn't exist. An existing
+// namespace is left as it is. The namespace is not deleted with the channel, as other channels or
+// resources may live in it.
+func ensureNamespace(ctx context.Context, opClient client.Client, name string) error {
+	if err := opClient.Get(ctx, client.ObjectKey{Name: name}, &corev1.Namespace{}); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get namespace %s on the observability plane: %w", name, err)
+	}
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{labels.LabelKeyCreatedBy: managedByLabelValue},
+		},
+	}
+	if err := opClient.Create(ctx, namespace); err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %s on the observability plane: %w", name, err)
+	}
+	return nil
 }
 
 // applyConfigMap applies the ConfigMap to the observability plane cluster
