@@ -93,6 +93,83 @@ func TestStripPlaintextCredentialsPreservesReferencesInSameResource(t *testing.T
 	}, object)
 }
 
+func TestPlaintextCredentialsPreservesWorkloadBindings(t *testing.T) {
+	for _, kind := range []string{"Workload", KindComponentRelease} {
+		t.Run(kind, func(t *testing.T) {
+			bindings := map[string]any{
+				"envBindings": map[string]any{
+					"password": "DB_PASSWORD",
+					"apiToken": "API_TOKEN",
+					"key":      "CLIENT_SECRET",
+					"value":    "CLIENT_SECRET_ENV",
+				},
+				"fileBindings": map[string]any{
+					"password":   "/etc/database/password",
+					"privateKey": "/etc/database/tls.key",
+				},
+			}
+			workload := map[string]any{
+				"dependencies": map[string]any{
+					"resources": []any{map[string]any{"ref": "database"}, bindings},
+				},
+				"container": map[string]any{
+					"env": []any{map[string]any{"key": "DB_PASSWORD", "value": "literal-password"}},
+				},
+			}
+			spec := workload
+			prefix := ".spec"
+			if kind == KindComponentRelease {
+				spec = map[string]any{"workload": workload}
+				prefix += ".workload"
+			}
+			object := map[string]any{"kind": kind, "spec": spec}
+			before, err := serialize(bindings)
+			require.NoError(t, err)
+
+			assert.Equal(t, []string{prefix + `.container.env[0].value (key "DB_PASSWORD")`}, findPlaintextSecrets(object))
+			assert.Equal(t, 1, stripPlaintextSecrets(object))
+			assert.Empty(t, findPlaintextSecrets(object))
+			after, err := serialize(bindings)
+			require.NoError(t, err)
+			assert.Equal(t, before, after)
+		})
+	}
+}
+
+func TestPlaintextCredentialsDoesNotExemptArbitraryBindings(t *testing.T) {
+	for _, kind := range []string{"", "Workload", KindComponentRelease, KindResource} {
+		t.Run(kind, func(t *testing.T) {
+			object := map[string]any{
+				"kind": kind,
+				"spec": map[string]any{
+					"parameters": map[string]any{
+						"envBindings":  map[string]any{"password": "literal-password"},
+						"fileBindings": map[string]any{"privateKey": "literal-key"},
+					},
+				},
+			}
+			assert.Equal(t, []string{
+				".spec.parameters.envBindings.password",
+				".spec.parameters.fileBindings.privateKey",
+			}, findPlaintextSecrets(object))
+			assert.Equal(t, 2, stripPlaintextSecrets(object))
+		})
+	}
+
+	// The same path in a different resource kind must not receive the exemption.
+	object := map[string]any{
+		"kind": KindResource,
+		"spec": map[string]any{
+			"dependencies": map[string]any{
+				"resources": []any{map[string]any{
+					"envBindings": map[string]any{"password": "literal-password"},
+				}},
+			},
+		},
+	}
+	assert.Equal(t, []string{".spec.dependencies.resources[0].envBindings.password"}, findPlaintextSecrets(object))
+}
+
 func TestResourceTypeSamplesDoNotContainPlaintextCredentials(t *testing.T) {
 	for _, name := range []string{"nats", "postgres", "valkey"} {
 		t.Run(name, func(t *testing.T) {

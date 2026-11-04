@@ -19,6 +19,8 @@ var credentialReference = regexp.MustCompile(
 	`^(\{\{\s*\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*\s*\}\}|` +
 		`\$\{\s*[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*|\[('[^'\r\n]+'|"[^"\r\n]+"|[0-9]+)\])*\s*\})$`)
 
+var resourceBindingPath = regexp.MustCompile(`^\.dependencies\.resources\[[0-9]+\]\.(envBindings|fileBindings)$`)
+
 func isPlaintextCredential(name string, value any) bool {
 	text, ok := value.(string)
 	return ok && text != "" && sensitiveName.MatchString(name) &&
@@ -50,12 +52,33 @@ type plaintextCredential struct {
 
 func plaintextCredentials(object map[string]any) []plaintextCredential {
 	var findings []plaintextCredential
-	walk(object, "", &findings)
+	kind, _ := object["kind"].(string)
+	walk(object, kind, "", &findings)
 	sort.Slice(findings, func(i, j int) bool { return findings[i].path < findings[j].path })
 	return findings
 }
 
-func walk(node any, currentPath string, findings *[]plaintextCredential) {
+// Workload resource bindings contain environment variable names or mount paths,
+// not credential values. Scope this exemption to their schema-defined locations;
+// similarly named maps in arbitrary parameters must still be inspected.
+func isWorkloadResourceBinding(kind, currentPath string) bool {
+	var prefix string
+	switch kind {
+	case "Workload":
+		prefix = ".spec"
+	case KindComponentRelease:
+		prefix = ".spec.workload"
+	default:
+		return false
+	}
+	relativePath, ok := strings.CutPrefix(currentPath, prefix)
+	return ok && resourceBindingPath.MatchString(relativePath)
+}
+
+func walk(node any, kind, currentPath string, findings *[]plaintextCredential) {
+	if isWorkloadResourceBinding(kind, currentPath) {
+		return
+	}
 	switch value := node.(type) {
 	case map[string]any:
 		if key, ok := value["key"].(string); ok && isPlaintextCredential(key, value["value"]) {
@@ -69,11 +92,11 @@ func walk(node any, currentPath string, findings *[]plaintextCredential) {
 				*findings = append(*findings, plaintextCredential{path: childPath, parent: value, key: key})
 				continue
 			}
-			walk(child, childPath, findings)
+			walk(child, kind, childPath, findings)
 		}
 	case []any:
 		for i, child := range value {
-			walk(child, fmt.Sprintf("%s[%d]", currentPath, i), findings)
+			walk(child, kind, fmt.Sprintf("%s[%d]", currentPath, i), findings)
 		}
 	}
 }

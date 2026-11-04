@@ -1,0 +1,51 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"openchoreo.dev/v1alpha1","kind":"ResourceReleaseBinding","metadata":{"annotations":{},"name":"student-workload-db-development","namespace":"default"},"spec":{"environment":"development","owner":{"projectName":"student-workload","resourceName":"student-workload-db"},"resourceRelease":"student-workload-db-654cb5545f","resourceTypeEnvironmentConfigs":{"host":"172.18.0.4","port":"1433"}}}
+  creationTimestamp: "2026-11-04T05:15:37Z"
+  finalizers:
+  - openchoreo.dev/resourcereleasebinding-cleanup
+  generation: 1
+  name: student-workload-db-development
+  namespace: default
+  resourceVersion: "796836"
+  uid: ad9be81e-800d-477f-8e93-ab9d45fa111e
+spec:
+  environment: development
+  owner:
+    projectName: student-workload
+    resourceName: student-workload-db
+  resourceRelease: student-workload-db-654cb5545f
+  resourceTypeEnvironmentConfigs:
+    host: 172.18.0.4
+    port: "1433"
+status:
+  conditions:
+  - lastTransitionTime: "2026-11-04T05:15:37Z"
+    message: 'binding owner (project: "student-workload", resource: "student-workload-db")
+      does not match ResourceRelease owner (project: "default", resource: "student-workload-db")'
+    observedGeneration: 1
+    reason: InvalidReleaseConfiguration
+    status: "False"
+    type: Synced
+  - lastTransitionTime: "2026-11-04T05:15:37Z"
+    message: ResourcesReady cannot be evaluated until Synced=True
+    observedGeneration: 1
+    reason: SyncedNotReady
+    status: Unknown
+    type: ResourcesReady
+  - lastTransitionTime: "2026-11-04T05:15:37Z"
+    message: OutputsResolved cannot be evaluated until Synced=True
+    observedGeneration: 1
+    reason: SyncedNotReady
+    status: Unknown
+    type: OutputsResolved
+  - lastTransitionTime: "2026-11-04T05:15:37Z"
+    message: 'binding owner (project: "student-workload", resource: "student-workload-db")
+      does not match ResourceRelease owner (project: "default", resource: "student-workload-db")'
+    observedGeneration: 1
+    reason: InvalidReleaseConfiguration
+    status: "False"
+    type: Ready
