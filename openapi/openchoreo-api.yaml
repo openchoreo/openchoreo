@@ -13230,6 +13230,7 @@ components:
           type: string
           description: Optional sender display name. When set, the From header is rendered as "fromName <from>".
           maxLength: 128
+          pattern: '^[^\r\n]*$'
           example: Example Alerts
         to:
           type: array

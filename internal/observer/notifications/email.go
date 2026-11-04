@@ -70,9 +70,10 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 	// The From header carries the display name (if any); the envelope sender (MAIL FROM)
 	// must remain the bare address. mail.Address quotes the name and RFC 2047-encodes
 	// non-ASCII or control characters, so the name cannot inject extra headers.
+	// A whitespace-only name is treated as unset, so the header never shows a blank name.
 	fromHeader := config.Email.SMTP.From
-	if config.Email.SMTP.FromName != "" {
-		fromHeader = (&mail.Address{Name: config.Email.SMTP.FromName, Address: config.Email.SMTP.From}).String()
+	if fromName := strings.TrimSpace(config.Email.SMTP.FromName); fromName != "" {
+		fromHeader = (&mail.Address{Name: fromName, Address: config.Email.SMTP.From}).String()
 	}
 
 	message := fmt.Sprintf(

@@ -459,6 +459,16 @@ func TestSendEmailWithConfig_FromName(t *testing.T) {
 			wantHeader: "From: alerts@example.com\r\n",
 		},
 		{
+			name:       "whitespace-only display name keeps bare address",
+			fromName:   "   ",
+			wantHeader: "From: alerts@example.com\r\n",
+		},
+		{
+			name:       "surrounding whitespace is trimmed",
+			fromName:   "  Example Alerts  ",
+			wantHeader: "From: \"Example Alerts\" <alerts@example.com>\r\n",
+		},
+		{
 			name:       "ASCII display name",
 			fromName:   "Example Alerts",
 			wantHeader: "From: \"Example Alerts\" <alerts@example.com>\r\n",
