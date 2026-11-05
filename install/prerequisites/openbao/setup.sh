@@ -84,16 +84,6 @@ kubectl ${KUBE_CONTEXT:+--context "$KUBE_CONTEXT"} exec -n "${OPENBAO_NAMESPACE}
     bao write auth/kubernetes/config \
         kubernetes_host=\"https://\${KUBERNETES_PORT_443_TCP_ADDR}:443\"
 
-    # Reader policy (data plane)
-    bao policy write openchoreo-secret-reader-policy - <<'POLICY'
-path \"secret/data/*\" {
-  capabilities = [\"read\"]
-}
-path \"secret/metadata/*\" {
-  capabilities = [\"list\", \"read\"]
-}
-POLICY
-
     # Writer policy (workflow plane / ESO PushSecrets)
     bao policy write openchoreo-secret-writer-policy - <<'POLICY'
 path \"secret/data/*\" {
@@ -103,13 +93,6 @@ path \"secret/metadata/*\" {
   capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\"]
 }
 POLICY
-
-    # Reader role for data plane namespaces
-    bao write auth/kubernetes/role/openchoreo-secret-reader-role \
-        bound_service_account_names=default \
-        bound_service_account_namespaces='dp*' \
-        policies=openchoreo-secret-reader-policy \
-        ttl=20m
 
     # Writer role for workflow plane and openbao namespace
     bao write auth/kubernetes/role/openchoreo-secret-writer-role \
