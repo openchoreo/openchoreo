@@ -28,14 +28,16 @@ type RenderedReleaseSpec struct {
 	Resources []RenderedManifest `json:"resources,omitempty"`
 
 	// Interval watch interval for the release resources when stable.
-	// Defaults to 1m if not specified.
+	// Defaults to the controller's --renderedrelease-stable-interval flag (1m unless
+	// changed) if not specified. Set to 0 to stop periodic checks.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 
 	// ProgressingInterval watch interval for the release resources when transitioning.
-	// Defaults to 10s if not specified.
+	// Defaults to the controller's --renderedrelease-progressing-interval flag (10s
+	// unless changed) if not specified. Set to 0 to stop periodic checks.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
