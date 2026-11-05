@@ -13224,8 +13224,14 @@ components:
       properties:
         from:
           type: string
-          description: Sender email address
+          description: Sender email address. Must be a bare address; it is also used as the SMTP envelope sender.
           example: alerts@example.com
+        fromName:
+          type: string
+          description: Optional sender display name. When set, the From header is rendered as "fromName <from>".
+          maxLength: 128
+          pattern: '^[^\r\n]*$'
+          example: Example Alerts
         to:
           type: array
           description: List of recipient email addresses

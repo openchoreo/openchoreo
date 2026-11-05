@@ -5,6 +5,7 @@ package observabilityalertsnotificationchannel
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1390,6 +1391,40 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Entry("leading dot", "invalid-to-leading-dot", ".user@example.com"),
 			Entry("consecutive dots", "invalid-to-consecutive-dots", "user..name@example.com"),
 			Entry("trailing dot", "invalid-to-trailing-dot", "user.@example.com"),
+		)
+
+		It("should accept a sender display name alongside a bare From address", func() {
+			channel := newEmailChannel("valid-from-name", "alerts@example.com", []string{"valid@example.com"})
+			channel.Spec.EmailConfig.FromName = "Example Alerts"
+
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+			Expect(k8sClient.Delete(testCtx, channel)).To(Succeed())
+		})
+
+		It("should reject a display name embedded in the From address", func() {
+			channel := newEmailChannel("invalid-from-with-name", "Example Alerts <alerts@example.com>", []string{"valid@example.com"})
+
+			err := k8sClient.Create(testCtx, channel)
+
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("spec.emailConfig.from"))
+		})
+
+		DescribeTable("should reject an invalid sender display name",
+			func(name, fromName string) {
+				channel := newEmailChannel(name, "alerts@example.com", []string{"valid@example.com"})
+				channel.Spec.EmailConfig.FromName = fromName
+
+				err := k8sClient.Create(testCtx, channel)
+
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsInvalid(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring("spec.emailConfig.fromName"))
+			},
+			Entry("contains a newline", "invalid-from-name-newline", "Alerts\nBcc: attacker@example.com"),
+			Entry("contains a carriage return", "invalid-from-name-cr", "Alerts\rX"),
+			Entry("too long", "invalid-from-name-too-long", strings.Repeat("a", 129)),
 		)
 	})
 })
