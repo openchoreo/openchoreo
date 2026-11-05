@@ -171,6 +171,19 @@ func fetchComp(ctx context.Context, name string) *openchoreov1alpha1.Component {
 	return comp
 }
 
+// waitForCache waits until the cached client returns each obj with its UID, so a reconcile
+// does not miss a new object or read a deleted predecessor with the same name.
+func waitForCache(ctx context.Context, objs ...client.Object) {
+	GinkgoHelper()
+	for _, obj := range objs {
+		cached := obj.DeepCopyObject().(client.Object)
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), cached)).To(Succeed())
+			g.Expect(cached.GetUID()).To(Equal(obj.GetUID()))
+		}, itTimeout, itInterval).Should(Succeed())
+	}
+}
+
 // reconcileUntilCondition drives reconciliation until the component has the expected condition
 // or the timeout expires. Returns the final condition.
 func reconcileUntilCondition(
@@ -993,6 +1006,7 @@ var _ = Describe("Component Controller — Finalization", func() {
 				"deployment/service", false)
 			comp.Finalizers = nil
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+			waitForCache(ctx, comp)
 
 			By("Reconciling to add finalizer")
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: compNamespacedName})
@@ -1103,6 +1117,7 @@ var _ = Describe("Component Controller — Finalization", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, workflowRun)).To(Succeed())
+			waitForCache(ctx, comp, release, binding, wl, workflowRun)
 
 			By("Reconciling to add finalizer")
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: compNamespacedName})
@@ -1206,6 +1221,7 @@ var _ = Describe("Component Controller — Finalization", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			waitForCache(ctx, comp, release)
 
 			By("Reconciling to add finalizer to Component")
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: compNamespacedName})
@@ -1321,6 +1337,8 @@ var _ = Describe("Component Controller — AutoDeploy webhook rejection", func()
 			comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
 				"deployment/"+ctName, true)
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+
+			waitForCache(ctx, ct, wl, proj, pipe, comp)
 
 			fakeRecorder = record.NewFakeRecorder(100)
 		})
