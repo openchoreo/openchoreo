@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -29,6 +30,29 @@ import (
 
 func int32Ptr(v int32) *int32 { return &v }
 func boolPtr(v bool) *bool    { return &v }
+
+// esoFieldManager is a field manager other than this controller. External Secrets
+// Operator writes the Secrets it creates as "externalsecrets.external-secrets.io/<name>"
+// (an Update); tests use it for objects that carry this controller's tracking labels
+// without having been applied by it.
+const esoFieldManager = "externalsecrets.external-secrets.io/app-secrets"
+
+// setManagedBy gives obj a single managedFields entry for manager and operation,
+// the way the API server records a write.
+func setManagedBy(obj *unstructured.Unstructured, manager string, operation metav1.ManagedFieldsOperationType) {
+	obj.SetManagedFields([]metav1.ManagedFieldsEntry{{
+		Manager:    manager,
+		Operation:  operation,
+		APIVersion: obj.GetAPIVersion(),
+		FieldsType: "FieldsV1",
+		FieldsV1:   &metav1.FieldsV1{Raw: []byte(`{"f:metadata":{"f:labels":{}}}`)},
+	}})
+}
+
+// markAppliedByController records obj as server-side applied by this controller.
+func markAppliedByController(obj *unstructured.Unstructured) {
+	setManagedBy(obj, ControllerName, metav1.ManagedFieldsOperationApply)
+}
 
 // toUnstructured converts a typed object to *unstructured.Unstructured using the default converter.
 func toUnstructured(t *testing.T, obj interface{}) *unstructured.Unstructured {
@@ -160,8 +184,41 @@ func TestFindStaleResources(t *testing.T) {
 	makeObj := func(resourceID string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
 		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
+		markAppliedByController(obj)
 		return obj
 	}
+
+	// ESO copies an ExternalSecret's labels onto the Secret it creates when the
+	// ExternalSecret has no target template, so that Secret carries our tracking
+	// labels and comes back from the list. It was never applied by us, and it must
+	// not be deleted as ours: with creationPolicy Orphan it should outlive the
+	// ExternalSecret, and with Merge it existed before and belongs to someone else.
+	t.Run("live resource another manager wrote is not stale", func(t *testing.T) {
+		copied := makeObj("res-1")
+		setManagedBy(copied, esoFieldManager, metav1.ManagedFieldsOperationApply)
+		stale := r.findStaleResources([]*unstructured.Unstructured{copied}, []*unstructured.Unstructured{makeObj("res-2")})
+		if len(stale) != 0 {
+			t.Errorf("expected 0 stale (not applied by %s), got %d", ControllerName, len(stale))
+		}
+	})
+
+	t.Run("live resource with no managedFields is not stale", func(t *testing.T) {
+		bare := makeObj("res-1")
+		bare.SetManagedFields(nil)
+		stale := r.findStaleResources([]*unstructured.Unstructured{bare}, []*unstructured.Unstructured{makeObj("res-2")})
+		if len(stale) != 0 {
+			t.Errorf("expected 0 stale (no managedFields), got %d", len(stale))
+		}
+	})
+
+	t.Run("an Update entry from our manager is not an apply", func(t *testing.T) {
+		updated := makeObj("res-1")
+		setManagedBy(updated, ControllerName, metav1.ManagedFieldsOperationUpdate)
+		stale := r.findStaleResources([]*unstructured.Unstructured{updated}, []*unstructured.Unstructured{makeObj("res-2")})
+		if len(stale) != 0 {
+			t.Errorf("expected 0 stale (only an Update entry), got %d", len(stale))
+		}
+	})
 
 	t.Run("empty live resources returns empty", func(t *testing.T) {
 		result := r.findStaleResources(nil, nil)
@@ -393,25 +450,43 @@ func TestHasTransitioningResources(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestHasResurrectableWorkload(t *testing.T) {
-	// desired is a rendered manifest carrying its GVK + resource-ID label; live is the object
-	// fetched back from the plane (no GVK on list items) sharing the same resource-ID label.
+	// desired is a rendered manifest carrying its GVK, name and resource-ID label; live is the
+	// object fetched back from the plane, stamped with the GVK it was listed under. Each
+	// resource ID names its object ("d1" lives at dp-ns/d1) unless a case says otherwise.
 	desired := func(resID string, gvk schema.GroupVersionKind) *unstructured.Unstructured {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(gvk)
+		u.SetNamespace("dp-ns")
+		u.SetName(resID)
 		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
 		return u
 	}
 	deploymentGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	statefulSetGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
-	liveDeployment := func(resID string, replicas *int32, paused bool) *unstructured.Unstructured {
-		u := toUnstructured(t, &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: replicas, Paused: paused}})
+	listed := func(u *unstructured.Unstructured, gvk schema.GroupVersionKind, name, resID string) *unstructured.Unstructured {
+		u.SetGroupVersionKind(gvk)
+		u.SetNamespace("dp-ns")
+		u.SetName(name)
 		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
 		return u
 	}
+	liveDeployment := func(resID string, replicas *int32, paused bool) *unstructured.Unstructured {
+		u := toUnstructured(t, &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: replicas, Paused: paused}})
+		return listed(u, deploymentGVK, resID, resID)
+	}
 	liveStatefulSet := func(resID string, replicas *int32) *unstructured.Unstructured {
 		u := toUnstructured(t, &appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: replicas}})
-		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
-		return u
+		return listed(u, statefulSetGVK, resID, resID)
+	}
+	// A different object that carries d1's resource-ID label, e.g. one an operator
+	// copied the tracking labels onto. It must not stand in for d1.
+	idTwinStatefulSet := func(replicas *int32) *unstructured.Unstructured {
+		u := toUnstructured(t, &appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: replicas}})
+		return listed(u, statefulSetGVK, "d1", "d1")
+	}
+	idTwinDeployment := func(replicas *int32) *unstructured.Unstructured {
+		u := toUnstructured(t, &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: replicas}})
+		return listed(u, deploymentGVK, "d1-copy", "d1")
 	}
 	serviceGVK := schema.GroupVersionKind{Version: "v1", Kind: "Service"}
 
@@ -471,6 +546,30 @@ func TestHasResurrectableWorkload(t *testing.T) {
 			name:    "mix with a scaled-to-zero deployment returns true",
 			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK), desired("d2", deploymentGVK)},
 			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(1), false), liveDeployment("d2", int32Ptr(0), false)},
+			want:    true,
+		},
+		{
+			name:    "same-id object of another kind listed after the deployment is not read",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(1), false), idTwinStatefulSet(int32Ptr(0))},
+			want:    false,
+		},
+		{
+			name:    "same-id object of another kind listed before the deployment is not read",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{idTwinStatefulSet(int32Ptr(0)), liveDeployment("d1", int32Ptr(1), false)},
+			want:    false,
+		},
+		{
+			name:    "same-id deployment under another name is not read",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(1), false), idTwinDeployment(int32Ptr(0))},
+			want:    false,
+		},
+		{
+			name:    "deployment at zero is found among same-id objects",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(0), false), idTwinDeployment(int32Ptr(2))},
 			want:    true,
 		},
 	}
@@ -1575,6 +1674,121 @@ func TestBuildResourceStatusMixedResources(t *testing.T) {
 	}
 	if byID["res-2"].LastObservedTime != nil {
 		t.Error("res-2: expected nil LastObservedTime when no live resource")
+	}
+}
+
+// TestBuildResourceStatusMatchesLiveByIdentity pins that a desired resource takes
+// its status from its own live object, not from another listed object that
+// carries the same resource ID.
+//
+// ESO copies an ExternalSecret's labels onto the Secret it creates when
+// spec.target.template is unset, our tracking labels included, and Secret is in
+// the well-known list, so both come back from the list under one resource ID and,
+// by ESO's default, one name. Keyed by resource ID alone, whichever was listed
+// last won, and the list order follows map iteration in findAllKnownGVKs: the
+// stored status flipped between the ExternalSecret's and none, and each flip was
+// a status write that requeued the release.
+func TestBuildResourceStatusMatchesLiveByIdentity(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	const resourceID = "es"
+	esGVK := schema.GroupVersionKind{Group: "external-secrets.io", Version: "v1", Kind: "ExternalSecret"}
+	secretGVK := schema.GroupVersionKind{Version: "v1", Kind: "Secret"}
+	tracked := func(gvk schema.GroupVersionKind) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+		obj.SetNamespace("dp-ns")
+		obj.SetName("app-secrets")
+		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
+		return obj
+	}
+
+	desiredES := tracked(esGVK)
+	liveES := tracked(esGVK)
+	liveES.Object["status"] = map[string]any{
+		"refreshTime": "2026-11-05T13:20:11Z",
+		"conditions": []any{
+			map[string]any{"type": "Ready", "status": "True", "reason": "SecretSynced"},
+		},
+	}
+	liveSecret := tracked(secretGVK)
+	liveSecret.Object["type"] = "Opaque"
+	liveSecret.Object["data"] = map[string]any{"password": "c2VjcmV0"}
+
+	for _, tc := range []struct {
+		name string
+		live []*unstructured.Unstructured
+	}{
+		{name: "secret listed after the ExternalSecret", live: []*unstructured.Unstructured{liveES, liveSecret}},
+		{name: "secret listed before the ExternalSecret", live: []*unstructured.Unstructured{liveSecret, liveES}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desiredES}, tc.live)
+			if len(result) != 1 {
+				t.Fatalf("expected 1 result, got %d", len(result))
+			}
+			if result[0].Status == nil {
+				t.Fatal("status is nil: the ExternalSecret was paired with the Secret that shares its resource ID")
+			}
+			var got map[string]any
+			if err := json.Unmarshal(result[0].Status.Raw, &got); err != nil {
+				t.Fatalf("unmarshal status: %v", err)
+			}
+			if got["refreshTime"] != "2026-11-05T13:20:11Z" {
+				t.Errorf("status = %v, want the ExternalSecret's status", got)
+			}
+		})
+	}
+}
+
+// TestListLiveResourcesByGVKsStampsListedGVK pins that every live item carries
+// the GVK it was listed under, which identity matching relies on. The
+// unstructured decoder only fills an item's kind and apiVersion when the item
+// has none and the list response names its own, so the controller stamps them
+// rather than rely on each plane client to.
+func TestListLiveResourcesByGVKsStampsListedGVK(t *testing.T) {
+	ctx := context.Background()
+	release := &openchoreov1alpha1.RenderedRelease{ObjectMeta: metav1.ObjectMeta{UID: "rr-uid-1"}}
+	configMapGVK := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+
+	cm := &unstructured.Unstructured{}
+	cm.SetGroupVersionKind(configMapGVK)
+	cm.SetNamespace("dp-ns")
+	cm.SetName("app-config")
+	cm.SetLabels(map[string]string{
+		labels.LabelKeyManagedBy:                 ControllerName,
+		labels.LabelKeyRenderedReleaseUID:        string(release.UID),
+		labels.LabelKeyRenderedReleaseResourceID: "cm",
+	})
+
+	// A plane client whose list items come back without kind/apiVersion.
+	planeClient := fake.NewClientBuilder().WithObjects(cm).WithInterceptorFuncs(interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := c.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if ul, ok := list.(*unstructured.UnstructuredList); ok {
+				for i := range ul.Items {
+					delete(ul.Items[i].Object, "kind")
+					delete(ul.Items[i].Object, "apiVersion")
+				}
+			}
+			return nil
+		},
+	}).Build()
+
+	r := &Reconciler{}
+	live, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, []schema.GroupVersionKind{configMapGVK})
+	if err != nil {
+		t.Fatalf("listLiveResourcesByGVKs: %v", err)
+	}
+	if len(live) != 1 {
+		t.Fatalf("expected 1 live resource, got %d", len(live))
+	}
+	if got := live[0].GroupVersionKind(); got != configMapGVK {
+		t.Errorf("live GVK = %v, want %v", got, configMapGVK)
 	}
 }
 
