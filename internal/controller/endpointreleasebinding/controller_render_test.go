@@ -296,6 +296,21 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}))
 	})
 
+	It("does not render when the overrides leave every backend at weight 0", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
+		b := newBinding("zero", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "stable", Weight: ptr.To[int32](0)}}
+		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+
+		backends := condition(updated, ConditionBackendsResolved)
+		Expect(backends.Status).To(Equal(metav1.ConditionFalse))
+		Expect(backends.Reason).To(Equal(string(ReasonNoWeightedBackend)))
+		_, err := renderedRelease(cli, updated)
+		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "a route to nowhere must not be rendered")
+	})
+
 	It("leaves the existing RenderedRelease untouched when a backend disappears", func() {
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 90), componentBackend("canary", "greeter-v2", 10))
 		b := newBinding("disappears", testRelease)

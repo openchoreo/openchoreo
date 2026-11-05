@@ -151,6 +151,15 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		markSyncedFalse(binding, ReasonBackendsUnresolved, "RenderedRelease not updated until every backend resolves")
 		return ctrl.Result{}, nil
 	}
+	if !hasWeight(resolved.backends) {
+		// Every resolved backend is at weight 0 in this environment, so the
+		// route would send traffic nowhere. Keep the current RenderedRelease.
+		msg := fmt.Sprintf("No backend has a weight above 0 in environment %q; check spec.backendOverrides",
+			binding.Spec.Environment)
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonNoWeightedBackend, msg)
+		markSyncedFalse(binding, ReasonNoWeightedBackend, "RenderedRelease not updated until a backend has a weight above 0")
+		return ctrl.Result{}, nil
+	}
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,
 		fmt.Sprintf("%d backend(s) resolved", len(resolved.backends)))
 

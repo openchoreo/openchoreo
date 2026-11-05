@@ -227,6 +227,16 @@ func effectiveMirror(binding *openchoreov1alpha1.EndpointReleaseBinding, ref ope
 	return ref.Mirror.DeepCopy()
 }
 
+// hasWeight reports whether any resolved backend receives traffic.
+func hasWeight(backends []endpointpipeline.Backend) bool {
+	for _, b := range backends {
+		if b.Weight > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // ignoredOverrides explains which backendOverrides entries the pinned release
 // gives no meaning to, or returns "": an entry naming a backend the release
 // does not have, setting a mirror share on a backend that is not a mirror in

@@ -84,6 +84,10 @@ const (
 	// since the RenderedRelease is left as it was rather than updated.
 	ReasonBackendsUnresolved controller.ConditionReason = "BackendsUnresolved"
 
+	// ReasonNoWeightedBackend indicates every resolved backend has weight 0
+	// in this environment, so rendering would route traffic nowhere.
+	ReasonNoWeightedBackend controller.ConditionReason = "NoWeightedBackend"
+
 	// ReasonBackendOverridesApplied indicates every spec.backendOverrides
 	// entry applies to a backend of the pinned release.
 	ReasonBackendOverridesApplied controller.ConditionReason = "BackendOverridesApplied"
