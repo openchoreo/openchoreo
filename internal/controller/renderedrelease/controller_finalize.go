@@ -47,6 +47,46 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1a
 	return false, nil
 }
 
+// finalizeRetryInterval is how long finalization waits before its next pass: after
+// marking the release as finalizing, and while deleted resources are still
+// disappearing from the plane.
+const finalizeRetryInterval = 5 * time.Second
+
+// markFinalizing persists the Finalizing condition the first time finalization
+// runs, and reports whether it wrote it. After a write the caller returns and
+// comes back after finalizeRetryInterval. The watch drops the controller's own
+// status writes, so the write does not trigger the next pass; and continuing in
+// this pass is not safe, because UpdateStatusConditions writes a copy built from
+// old, which leaves release with a stale resourceVersion for the finalizer
+// removal at the end.
+//
+// The condition is only added when absent. The cleanup failure paths reuse the
+// Finalizing type with reason CleanupFailed; resetting it here on every pass
+// flipped it between CleanupFailed and CleanupInProgress and wrote status twice
+// per retry.
+func (r *Reconciler) markFinalizing(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease) (bool, error) {
+	if meta.FindStatusCondition(release.Status.Conditions, string(ConditionFinalizing)) != nil {
+		return false, nil
+	}
+	meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseFinalizingCondition(release.Generation))
+	return true, controller.UpdateStatusConditions(ctx, r.Client, old, release)
+}
+
+// cleanupPending requeues while deleted resources are still present on the plane.
+// This pass got through its deletes, so a CleanupFailed reason left by an earlier
+// pass no longer holds; it goes back to CleanupInProgress, since markFinalizing
+// leaves an existing condition alone.
+func (r *Reconciler) cleanupPending(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease, remaining int) (ctrl.Result, error) {
+	log.FromContext(ctx).WithValues("release", release.Name).
+		Info("Resource deletion is still pending, retrying...", "remainingResources", remaining)
+	if meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseFinalizingCondition(release.Generation)) {
+		if err := controller.UpdateStatusConditions(ctx, r.Client, old, release); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{RequeueAfter: finalizeRetryInterval}, nil
+}
+
 // finalize dispatches to the appropriate plane-specific cleanup based on targetPlane.
 func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease) (ctrl.Result, error) {
 	if release.Spec.TargetPlane == targetPlaneObservabilityPlane {
@@ -62,14 +102,13 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 		return ctrl.Result{}, nil
 	}
 
-	// STEP 1: Set finalizing status condition and return to persist it
-	// Mark the Release condition as finalizing and return so that the Release will indicate that it is being finalized.
-	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseFinalizingCondition(release.Generation)) {
-		if err := controller.UpdateStatusConditions(ctx, r.Client, old, release); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+	// STEP 1: Mark the release as finalizing and persist that before any cleanup
+	marked, err := r.markFinalizing(ctx, old, release)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if marked {
+		return ctrl.Result{RequeueAfter: finalizeRetryInterval}, nil
 	}
 
 	// STEP 2: Get data plane client
@@ -105,9 +144,7 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 
 	// STEP 5: Check if any resources still exist - if so, requeue for retry
 	if len(liveResources) > 0 {
-		logger := log.FromContext(ctx).WithValues("release", release.Name)
-		logger.Info("Resource deletion is still pending, retrying...", "remainingResources", len(liveResources))
-		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		return r.cleanupPending(ctx, old, release, len(liveResources))
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer
@@ -132,12 +169,13 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 		activeFinalizer = DataPlaneCleanupFinalizer
 	}
 
-	// STEP 1: Set finalizing status condition and return to persist it
-	if meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseFinalizingCondition(release.Generation)) {
-		if err := controller.UpdateStatusConditions(ctx, r.Client, old, release); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+	// STEP 1: Mark the release as finalizing and persist that before any cleanup
+	marked, err := r.markFinalizing(ctx, old, release)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if marked {
+		return ctrl.Result{RequeueAfter: finalizeRetryInterval}, nil
 	}
 
 	// STEP 2: Get observability plane client
@@ -172,9 +210,7 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 
 	// STEP 5: Check if any resources still exist - if so, requeue for retry
 	if len(liveResources) > 0 {
-		logger := log.FromContext(ctx).WithValues("release", release.Name)
-		logger.Info("Resource deletion is still pending, retrying...", "remainingResources", len(liveResources))
-		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		return r.cleanupPending(ctx, old, release, len(liveResources))
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer
