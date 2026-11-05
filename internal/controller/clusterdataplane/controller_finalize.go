@@ -7,12 +7,15 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // ClusterDataPlaneCleanupFinalizer is the finalizer that is used to clean up clusterdataplane resources.
@@ -38,6 +41,25 @@ func (r *Reconciler) finalize(ctx context.Context, clusterDataPlane *openchoreov
 
 	if !controllerutil.ContainsFinalizer(clusterDataPlane, ClusterDataPlaneCleanupFinalizer) {
 		return ctrl.Result{}, nil
+	}
+
+	// Runs before the gateway notification, which disconnects the plane's agents.
+	if r.PlaneClientProvider != nil && r.APIReader != nil {
+		msg, err := controller.FinalizeClusterPlane(ctx, r.Client, r.APIReader,
+			string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane), clusterDataPlane.Name,
+			func() (client.Client, error) { return r.PlaneClientProvider.ClusterDataPlaneClient(clusterDataPlane) })
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if msg != "" {
+			logger.Info(msg)
+			if meta.SetStatusCondition(&clusterDataPlane.Status.Conditions, controller.NewPlaneDeletionBlockedCondition(clusterDataPlane.Generation, msg)) {
+				if err := r.Status().Update(ctx, clusterDataPlane); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{RequeueAfter: controller.PlaneDeletionRetryInterval}, nil
+		}
 	}
 
 	// Notify gateway of ClusterDataPlane deletion before removing finalizer

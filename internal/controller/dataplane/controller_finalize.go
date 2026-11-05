@@ -60,6 +60,25 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	// Runs before the gateway notification, which disconnects the plane's agents.
+	if r.PlaneClientProvider != nil && r.APIReader != nil {
+		msg, err := controller.FinalizeNamespacedPlane(ctx, r.Client, r.APIReader, dataPlane,
+			string(openchoreov1alpha1.DataPlaneRefKindDataPlane),
+			func() (client.Client, error) { return r.PlaneClientProvider.DataPlaneClient(dataPlane) })
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if msg != "" {
+			logger.Info(msg)
+			if meta.SetStatusCondition(&dataPlane.Status.Conditions, NewDeletionBlockedCondition(dataPlane.Generation, msg)) {
+				if err := controller.UpdateStatusConditions(ctx, r.Client, old, dataPlane); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{RequeueAfter: controller.PlaneDeletionRetryInterval}, nil
+		}
+	}
+
 	// Mark the condition as finalizing and return so that the dataplane will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
 	if meta.SetStatusCondition(&dataPlane.Status.Conditions, NewDataPlaneFinalizingCondition(dataPlane.Generation)) {

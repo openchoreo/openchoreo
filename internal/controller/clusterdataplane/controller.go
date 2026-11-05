@@ -14,8 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -31,6 +34,10 @@ type Reconciler struct {
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
 	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
 	CacheVersion  string                // Cache key version prefix (e.g., "v2")
+	// PlaneClientProvider reaches the plane cluster to sweep plane namespaces.
+	PlaneClientProvider kubernetesClient.DataPlaneClientProvider
+	// APIReader confirms a control plane namespace is gone before its plane namespaces are deleted.
+	APIReader client.Reader
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -84,6 +91,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			logger.Error(err, "failed to get agent connection status")
 			// Don't fail reconciliation for status query errors
 		}
+
+		r.sweepPlaneNamespaces(ctx, clusterDataPlane)
 
 		// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field
 		if err := r.Status().Update(ctx, clusterDataPlane); err != nil {
@@ -260,6 +269,40 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Cluster-scoped planes don't watch namespace-scoped resources like Environments
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ClusterDataPlane{}).
+		// A removed control plane namespace triggers a sweep of its plane namespaces.
+		Watches(
+			&corev1.Namespace{},
+			handler.EnqueueRequestsFromMapFunc(r.allClusterDataPlanes),
+			builder.WithPredicates(controller.ControlPlaneNamespaceRemovedPredicate()),
+		).
 		Named("clusterdataplane").
 		Complete(r)
+}
+
+// sweepPlaneNamespaces deletes the plane namespaces in this plane's cluster whose
+// control plane namespace is gone, while an agent is connected.
+func (r *Reconciler) sweepPlaneNamespaces(ctx context.Context, clusterDataPlane *openchoreov1alpha1.ClusterDataPlane) {
+	if r.PlaneClientProvider == nil || r.APIReader == nil {
+		return
+	}
+	if clusterDataPlane.Status.AgentConnection == nil || !clusterDataPlane.Status.AgentConnection.Connected {
+		return
+	}
+	controller.SweepPlaneNamespaces(ctx, r.Client, r.APIReader, func() (client.Client, error) {
+		return r.PlaneClientProvider.ClusterDataPlaneClient(clusterDataPlane)
+	})
+}
+
+// allClusterDataPlanes enqueues every ClusterDataPlane so each sweeps its cluster.
+func (r *Reconciler) allClusterDataPlanes(ctx context.Context, _ client.Object) []reconcile.Request {
+	var list openchoreov1alpha1.ClusterDataPlaneList
+	if err := r.List(ctx, &list); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ClusterDataPlanes")
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKey{Name: list.Items[i].Name}})
+	}
+	return requests
 }
