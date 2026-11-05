@@ -101,6 +101,10 @@ func (p *PKCEAuth) ExchangeAuthCode(authCode string) (*PKCETokenResponse, error)
 		"redirect_uri":  {p.RedirectURI},
 		"code_verifier": {p.CodeVerifier},
 	}
+	// Entra ID v2 uses scope on the code redemption to pick the target resource.
+	if len(p.Scopes) > 0 {
+		data.Set("scope", strings.Join(p.Scopes, " "))
+	}
 
 	req, err := http.NewRequest("POST", p.TokenEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
