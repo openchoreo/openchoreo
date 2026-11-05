@@ -1,15 +1,18 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Package export implements the local engine behind `occ export`.
+// Package export implements the occ export command.
 package export
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
@@ -51,26 +54,21 @@ const (
 	KindResourceReleaseBinding    = "ResourceReleaseBinding"
 )
 
-// Options configures one export run.
-type Options struct {
-	OutputDir string
-	// KeepPlaintext decides whether to retain each detected value before any files
-	// are written. A nil callback removes values; an error aborts the export.
-	KeepPlaintext func(Withheld) (bool, error)
-}
-
-// Report summarizes the files written by one export run.
+// Report summarizes exported resources, file changes, and release selection.
 type Report struct {
-	Created         int
-	Updated         int
-	Unchanged       int
-	Exported        int
-	ExportedByKind  map[string]int
-	SecretDecisions []SecretDecision
+	Created                 int
+	Updated                 int
+	Unchanged               int
+	Exported                int
+	ExportedByKind          map[string]int
+	SecretDecisions         []SecretDecision
+	ReleaseCutoff           *time.Time
+	ReleasesSkipped         int
+	OlderReferencedReleases int
+	UndatedReleases         int
 }
 
-// Withheld describes the locations of credential-like values without storing
-// or exposing the values themselves.
+// Withheld identifies a possible plaintext credential without storing its value.
 type Withheld struct {
 	Kind      string
 	Namespace string
@@ -86,11 +84,51 @@ type SecretDecision struct {
 	Action string
 }
 
+// resource holds a normalized manifest and its destination path.
+type resource struct {
+	kind      string
+	name      string
+	namespace string
+	project   string
+	path      string
+	object    map[string]any
+}
+
+// Run exports resources and writes a summary.
+func Run(ctx context.Context, c client.Interface, w io.Writer, params Params) error {
+	return runWithSecretDecision(ctx, c, w, params, nil)
+}
+
+// runWithSecretDecision exports resources using the supplied credential decision callback.
+func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer, params Params, keep func(Withheld) (bool, error)) error {
+	report, err := runEngine(ctx, c, Options{
+		OutputDir: params.OutputDir, KeepPlaintext: keep,
+		AllReleases: params.AllReleases,
+	})
+	if err != nil && isExportPermissionError(err) {
+		return errors.New("your role does not have permission to perform this export operation!")
+	}
+	if report != nil {
+		if printErr := printReport(w, report, params.OutputDir, err == nil); printErr != nil {
+			return errors.Join(err, fmt.Errorf("write export summary: %w", printErr))
+		}
+	}
+	return err
+}
+
+func isExportPermissionError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "do not have permission") ||
+		strings.Contains(message, "permission denied") ||
+		strings.Contains(message, "forbidden")
+}
+
 // runEngine exports declarative configuration returned by the Control Plane API.
 func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, error) {
 	if strings.TrimSpace(opts.OutputDir) == "" {
 		return nil, fmt.Errorf("output directory is required (use -o <path>)")
 	}
+	releaseFilter := newReleaseFilter(opts.AllReleases, time.Now())
 
 	namespaces, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Namespace, string, error) {
 		params := &gen.ListNamespacesParams{Limit: &limit}
@@ -160,7 +198,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 				kind: "Project", name: projectName, namespace: namespaceName, project: projectName,
 				path: path.Join(projectDir, "project.yaml"), object: projectObject,
 			})
-			projectResources, err := collectProjectResources(ctx, c, namespaceName, projectName, projectDir)
+			projectResources, err := collectProjectResources(ctx, c, namespaceName, projectName, projectDir, releaseFilter)
 			if err != nil {
 				return nil, fmt.Errorf("project %q in namespace %q (nothing was written): %w", projectName, namespaceName, err)
 			}
@@ -234,7 +272,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 					})
 				}
 
-				releases, err := collectComponentReleases(ctx, c, namespaceName, projectName, componentName, componentDir)
+				releases, err := collectComponentReleases(ctx, c, namespaceName, projectName, componentName, componentDir, releaseFilter)
 				if err != nil {
 					return nil, fmt.Errorf("component %q in namespace %q (nothing was written): %w", componentName, namespaceName, err)
 				}
@@ -245,7 +283,11 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 
 	sort.Slice(resources, func(i, j int) bool { return resources[i].path < resources[j].path })
 	report := &Report{
-		ExportedByKind: map[string]int{},
+		ExportedByKind:          map[string]int{},
+		ReleaseCutoff:           releaseFilter.since,
+		ReleasesSkipped:         releaseFilter.skipped,
+		OlderReferencedReleases: releaseFilter.olderReferenced,
+		UndatedReleases:         releaseFilter.undated,
 	}
 	var safe []resource
 	var rendered [][]byte
@@ -302,15 +344,6 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 		report.ExportedByKind[item.kind]++
 	}
 	return report, nil
-}
-
-type resource struct {
-	kind      string
-	name      string
-	namespace string
-	project   string
-	path      string
-	object    map[string]any
 }
 
 func nextCursor(p gen.Pagination) string {

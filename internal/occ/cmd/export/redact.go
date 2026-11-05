@@ -10,11 +10,16 @@ import (
 	"strings"
 )
 
+type plaintextCredential struct {
+	path   string
+	parent map[string]any
+	key    string
+}
+
 var sensitiveName = regexp.MustCompile(
 	`(?i)(^|[-_.])(password|passwd|secret|token|api[-_]?key|private[-_]?key|client[-_]?secret|credentials?)([-_.]|$)|(password|passwd|secret|token|api[-_]?key|private[-_]?key|client[-_]?secret|credentials?)$`)
 
-// Only direct references are exempt. Expressions containing literal defaults,
-// function calls, or surrounding text may still contain plaintext credentials.
+// credentialReference matches direct template references without literal defaults or surrounding text.
 var credentialReference = regexp.MustCompile(
 	`^(\{\{\s*\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*\s*\}\}|` +
 		`\$\{\s*[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*|\[('[^'\r\n]+'|"[^"\r\n]+"|[0-9]+)\])*\s*\})$`)
@@ -27,6 +32,7 @@ func isPlaintextCredential(name string, value any) bool {
 		!credentialReference.MatchString(strings.TrimSpace(text))
 }
 
+// findPlaintextSecrets returns sorted locations of possible plaintext credentials.
 func findPlaintextSecrets(object map[string]any) []string {
 	credentials := plaintextCredentials(object)
 	var findings []string
@@ -36,18 +42,13 @@ func findPlaintextSecrets(object map[string]any) []string {
 	return findings
 }
 
+// stripPlaintextSecrets removes detected credential values and returns the count.
 func stripPlaintextSecrets(object map[string]any) int {
 	credentials := plaintextCredentials(object)
 	for _, credential := range credentials {
 		delete(credential.parent, credential.key)
 	}
 	return len(credentials)
-}
-
-type plaintextCredential struct {
-	path   string
-	parent map[string]any
-	key    string
 }
 
 func plaintextCredentials(object map[string]any) []plaintextCredential {
@@ -58,9 +59,8 @@ func plaintextCredentials(object map[string]any) []plaintextCredential {
 	return findings
 }
 
-// Workload resource bindings contain environment variable names or mount paths,
-// not credential values. Scope this exemption to their schema-defined locations;
-// similarly named maps in arbitrary parameters must still be inspected.
+// isWorkloadResourceBinding identifies fields containing environment variable names
+// or mount paths. Other resource kinds and arbitrary parameters must still be inspected.
 func isWorkloadResourceBinding(kind, currentPath string) bool {
 	var prefix string
 	switch kind {

@@ -34,36 +34,50 @@ func TestNewExportCmd_RequiresOutputFlag(t *testing.T) {
 	assert.Contains(t, err.Error(), "output")
 }
 
-func TestRun_PrintsSummary(t *testing.T) {
-	mockClient := mocks.NewMockInterface(t)
-	expectNoClusterResources(mockClient)
-	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
-	var output bytes.Buffer
-
-	require.NoError(t, Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()}))
-	assert.Contains(t, output.String(), "0 resource(s)")
-	assert.NotContains(t, output.String(), "Coverage is incomplete")
-	assert.NotContains(t, output.String(), "ClusterWorkflowTemplate")
+func TestNewExportCmd_ReleaseHistoryFlags(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "default", want: "plus binding-referenced releases"},
+		{name: "all releases", args: []string{"--all-releases"}, want: "All releases (--all-releases)"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := mockComponentClient(t, "", "")
+			cmd := NewExportCmd(func() (client.Interface, error) { return c, nil })
+			cmd.PreRunE = nil
+			var output bytes.Buffer
+			cmd.SetOut(&output)
+			cmd.SetArgs(append([]string{"-o", t.TempDir()}, tt.args...))
+			require.NoError(t, cmd.Execute())
+			assert.Contains(t, output.String(), tt.want)
+		})
+	}
 }
 
-func TestRun_HidesDeniedResourceKind(t *testing.T) {
-	mockClient := mocks.NewMockInterface(t)
-	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
-	mockClient.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(&gen.ClusterProjectTypeList{}, nil)
-	mockClient.EXPECT().ListClusterResourceTypes(mock.Anything, mock.Anything).Return(&gen.ClusterResourceTypeList{}, nil)
-	mockClient.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{}, nil)
-	mockClient.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{}, nil)
-	mockClient.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{}, nil)
-	mockClient.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{}, nil)
-	mockClient.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowPlaneList{}, nil)
-	mockClient.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{}, nil)
-	mockClient.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(nil, errors.New("You do not have permission to perform this operation"))
-
-	var output bytes.Buffer
-	err := Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()})
-	require.EqualError(t, err, "your role does not have permission to perform this export operation!")
-	assert.NotContains(t, err.Error(), "ClusterAuthzRole")
-	assert.Empty(t, output.String(), "authorization failures should not print partial export details")
+func TestNewExportCmd_RejectsInvalidReleaseHistoryBeforeFetching(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		args []string
+	}{
+		{name: "removed months option", args: []string{"--release-months", "12"}},
+		{name: "removed cutoff option", args: []string{"--releases-since", "2026-05-01T00:00:00Z"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "output")
+			cmd := NewExportCmd(func() (client.Interface, error) {
+				t.Fatal("invalid history options must be rejected before creating the client")
+				return nil, nil
+			})
+			cmd.PreRunE = nil
+			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
+			cmd.SetArgs(append([]string{"-o", root}, tt.args...))
+			require.Error(t, cmd.Execute())
+			assert.NoDirExists(t, root)
+		})
+	}
 }
 
 func TestPromptKeepPlaintext(t *testing.T) {

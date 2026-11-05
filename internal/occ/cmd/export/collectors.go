@@ -16,6 +16,7 @@ import (
 
 type resourcePage[T any] func(limit int, cursor string) ([]T, string, error)
 
+// collectResources fetches and normalizes resources for export.
 func collectResources[T any](kind, namespace, project string, fetch resourcePage[T], nameOf func(T) string, pathOf func(string) string) ([]resource, error) {
 	items, err := pagination.FetchAll[T](pagination.FetchPage[T](fetch))
 	if err != nil {
@@ -40,6 +41,25 @@ func collectResources[T any](kind, namespace, project string, fetch resourcePage
 	return resources, nil
 }
 
+// collectOwnedResources collects resources and validates their ownership.
+func collectOwnedResources[T any](kind, namespace, project string, owner map[string]string, fetch resourcePage[T], nameOf func(T) string, pathOf func(string) string) ([]resource, error) {
+	items, err := collectResources(kind, namespace, project, fetch, nameOf, pathOf)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		spec, _ := item.object["spec"].(map[string]any)
+		actual, _ := spec["owner"].(map[string]any)
+		for key, value := range owner {
+			if actual[key] != value {
+				return nil, fmt.Errorf("%s %q in namespace %q has an invalid owner; expected %s %q", kind, item.name, namespace, key, value)
+			}
+		}
+	}
+	return items, nil
+}
+
+// collectClusterResources collects cluster-scoped configuration.
 func collectClusterResources(ctx context.Context, c client.Interface) ([]resource, error) {
 	var out []resource
 	add := func(items []resource, err error) error {
@@ -186,6 +206,7 @@ func collectClusterResources(ctx context.Context, c client.Interface) ([]resourc
 	return out, nil
 }
 
+// collectNamespacePlatformResources collects platform configuration for a namespace.
 func collectNamespacePlatformResources(ctx context.Context, c client.Interface, namespace string) ([]resource, error) {
 	var out []resource
 	add := func(items []resource, err error) error {
@@ -407,64 +428,9 @@ func namespacedResourcePath(namespace, category, name string) string {
 	return path.Join("namespaces", namespace, "platform", category, name+".yaml")
 }
 
-// collectOwnedResources verifies API filters before placing objects under their owner.
-func collectOwnedResources[T any](kind, namespace, project string, owner map[string]string, fetch resourcePage[T], nameOf func(T) string, pathOf func(string) string) ([]resource, error) {
-	items, err := collectResources(kind, namespace, project, fetch, nameOf, pathOf)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		spec, _ := item.object["spec"].(map[string]any)
-		actual, _ := spec["owner"].(map[string]any)
-		for key, value := range owner {
-			if actual[key] != value {
-				return nil, fmt.Errorf("%s %q in namespace %q has an invalid owner; expected %s %q", kind, item.name, namespace, key, value)
-			}
-		}
-	}
-	return items, nil
-}
-
-// validateReleaseReferences ensures every pinned release is included under the same owner.
-func validateReleaseReferences(bindings, releases []resource, field string) error {
-	names := make(map[string]bool, len(releases))
-	for _, release := range releases {
-		names[release.name] = true
-	}
-	for _, binding := range bindings {
-		spec := binding.object["spec"].(map[string]any)
-		name, _ := spec[field].(string)
-		if name == "" {
-			continue
-		}
-		if err := validName("referenced release", name); err != nil {
-			return err
-		}
-		if !names[name] {
-			return fmt.Errorf("%s %q in namespace %q references release %q that was not exported for its owner", binding.kind, binding.name, binding.namespace, name)
-		}
-	}
-	return nil
-}
-
-func collectProjectResources(ctx context.Context, c client.Interface, namespace, project, projectDir string) ([]resource, error) {
+// collectProjectResources collects project releases, bindings, and resource instances.
+func collectProjectResources(ctx context.Context, c client.Interface, namespace, project, projectDir string, filter *releaseFilter) ([]resource, error) {
 	owner := map[string]string{"projectName": project}
-	releases, err := collectOwnedResources(KindProjectRelease, namespace, project, owner, func(limit int, cursor string) ([]gen.ProjectRelease, string, error) {
-		p := &gen.ListProjectReleasesParams{Limit: &limit, Project: &project}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListProjectReleases(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.ProjectRelease) string { return v.Metadata.Name }, func(name string) string {
-		return path.Join(projectDir, "releases", name+".yaml")
-	})
-	if err != nil {
-		return nil, err
-	}
 	bindings, err := collectOwnedResources(KindProjectReleaseBinding, namespace, project, owner, func(limit int, cursor string) ([]gen.ProjectReleaseBinding, string, error) {
 		p := &gen.ListProjectReleaseBindingsParams{Limit: &limit, Project: &project}
 		if cursor != "" {
@@ -481,7 +447,20 @@ func collectProjectResources(ctx context.Context, c client.Interface, namespace,
 	if err != nil {
 		return nil, err
 	}
-	if err := validateReleaseReferences(bindings, releases, "projectRelease"); err != nil {
+	releases, err := collectReleases(KindProjectRelease, namespace, project, owner, bindings, "projectRelease", filter, func(limit int, cursor string) ([]gen.ProjectRelease, string, error) {
+		p := &gen.ListProjectReleasesParams{Limit: &limit, Project: &project}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListProjectReleases(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.ProjectRelease) gen.ObjectMeta { return v.Metadata }, func(name string) string {
+		return path.Join(projectDir, "releases", name+".yaml")
+	})
+	if err != nil {
 		return nil, err
 	}
 	instances, err := collectOwnedResources(KindResource, namespace, project, owner, func(limit int, cursor string) ([]gen.ResourceInstance, string, error) {
@@ -504,7 +483,7 @@ func collectProjectResources(ctx context.Context, c client.Interface, namespace,
 	out = append(out, instances...)
 	for _, instance := range instances {
 		resourceDir := path.Join(projectDir, "resources", instance.name)
-		children, err := collectResourceReleases(ctx, c, namespace, project, instance.name, resourceDir)
+		children, err := collectResourceReleases(ctx, c, namespace, project, instance.name, resourceDir, filter)
 		if err != nil {
 			return nil, err
 		}
@@ -513,24 +492,9 @@ func collectProjectResources(ctx context.Context, c client.Interface, namespace,
 	return out, nil
 }
 
-func collectResourceReleases(ctx context.Context, c client.Interface, namespace, project, resourceName, resourceDir string) ([]resource, error) {
+// collectResourceReleases collects selected releases and bindings for a resource instance.
+func collectResourceReleases(ctx context.Context, c client.Interface, namespace, project, resourceName, resourceDir string, filter *releaseFilter) ([]resource, error) {
 	owner := map[string]string{"projectName": project, "resourceName": resourceName}
-	releases, err := collectOwnedResources(KindResourceRelease, namespace, project, owner, func(limit int, cursor string) ([]gen.ResourceRelease, string, error) {
-		p := &gen.ListResourceReleasesParams{Limit: &limit, Resource: &resourceName}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListResourceReleases(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.ResourceRelease) string { return v.Metadata.Name }, func(name string) string {
-		return path.Join(resourceDir, "releases", name+".yaml")
-	})
-	if err != nil {
-		return nil, err
-	}
 	bindings, err := collectOwnedResources(KindResourceReleaseBinding, namespace, project, owner, func(limit int, cursor string) ([]gen.ResourceReleaseBinding, string, error) {
 		p := &gen.ListResourceReleaseBindingsParams{Limit: &limit, Resource: &resourceName}
 		if cursor != "" {
@@ -547,30 +511,28 @@ func collectResourceReleases(ctx context.Context, c client.Interface, namespace,
 	if err != nil {
 		return nil, err
 	}
-	if err := validateReleaseReferences(bindings, releases, "resourceRelease"); err != nil {
+	releases, err := collectReleases(KindResourceRelease, namespace, project, owner, bindings, "resourceRelease", filter, func(limit int, cursor string) ([]gen.ResourceRelease, string, error) {
+		p := &gen.ListResourceReleasesParams{Limit: &limit, Resource: &resourceName}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListResourceReleases(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.ResourceRelease) gen.ObjectMeta { return v.Metadata }, func(name string) string {
+		return path.Join(resourceDir, "releases", name+".yaml")
+	})
+	if err != nil {
 		return nil, err
 	}
 	return append(releases, bindings...), nil
 }
 
-func collectComponentReleases(ctx context.Context, c client.Interface, namespace, project, component, componentDir string) ([]resource, error) {
+// collectComponentReleases collects selected releases and bindings for a component.
+func collectComponentReleases(ctx context.Context, c client.Interface, namespace, project, component, componentDir string, filter *releaseFilter) ([]resource, error) {
 	owner := map[string]string{"projectName": project, "componentName": component}
-	releases, err := collectOwnedResources(KindComponentRelease, namespace, project, owner, func(limit int, cursor string) ([]gen.ComponentRelease, string, error) {
-		p := &gen.ListComponentReleasesParams{Limit: &limit, Component: &component}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListComponentReleases(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.ComponentRelease) string { return v.Metadata.Name }, func(name string) string {
-		return path.Join(componentDir, "releases", name+".yaml")
-	})
-	if err != nil {
-		return nil, err
-	}
 	bindings, err := collectOwnedResources(KindReleaseBinding, namespace, project, owner, func(limit int, cursor string) ([]gen.ReleaseBinding, string, error) {
 		p := &gen.ListReleaseBindingsParams{Limit: &limit, Component: &component}
 		if cursor != "" {
@@ -587,7 +549,20 @@ func collectComponentReleases(ctx context.Context, c client.Interface, namespace
 	if err != nil {
 		return nil, err
 	}
-	if err := validateReleaseReferences(bindings, releases, "releaseName"); err != nil {
+	releases, err := collectReleases(KindComponentRelease, namespace, project, owner, bindings, "releaseName", filter, func(limit int, cursor string) ([]gen.ComponentRelease, string, error) {
+		p := &gen.ListComponentReleasesParams{Limit: &limit, Component: &component}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListComponentReleases(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.ComponentRelease) gen.ObjectMeta { return v.Metadata }, func(name string) string {
+		return path.Join(componentDir, "releases", name+".yaml")
+	})
+	if err != nil {
 		return nil, err
 	}
 	return append(releases, bindings...), nil

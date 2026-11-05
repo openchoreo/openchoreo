@@ -19,6 +19,7 @@ const (
 	outcomeUnchanged
 )
 
+// prepareOutputDir creates the output directory if it does not exist.
 func prepareOutputDir(root string) error {
 	info, err := os.Stat(root)
 	switch {
@@ -36,6 +37,7 @@ func prepareOutputDir(root string) error {
 	}
 }
 
+// writeFile atomically writes a manifest and reports whether its contents changed.
 func writeFile(root, relativePath string, data []byte) (writeOutcome, error) {
 	localPath := filepath.FromSlash(relativePath)
 	if !filepath.IsLocal(localPath) {

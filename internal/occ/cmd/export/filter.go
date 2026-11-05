@@ -27,6 +27,7 @@ var namespaceLabelsToDrop = map[string]bool{
 	"kubernetes.io/metadata.name": true,
 }
 
+// normalizeObject converts an API resource into a declarative manifest.
 func normalizeObject(value any, kind, namespace string) (map[string]any, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -80,6 +81,7 @@ func normalizeObject(value any, kind, namespace string) (map[string]any, error) 
 	return object, nil
 }
 
+// serialize renders a resource as YAML.
 func serialize(object map[string]any) ([]byte, error) {
 	data, err := yaml.Marshal(object)
 	if err != nil {

@@ -4,6 +4,7 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -147,8 +148,10 @@ func TestRun_UpdatesExistingComponentFile(t *testing.T) {
 	assert.Contains(t, string(data), "two")
 }
 
-func TestRun_ExportsReleaseBindingsAndAllComponentReleases(t *testing.T) {
+func TestRun_ExportsReleaseBindingsAndRecentComponentReleases(t *testing.T) {
 	root := t.TempDir()
+	old := time.Now().AddDate(-1, 0, 0)
+	recent := time.Now()
 	mockClient := mocks.NewMockInterface(t)
 	expectNoClusterResources(mockClient)
 	expectNoNamespacePlatformResources(mockClient)
@@ -185,19 +188,25 @@ func TestRun_ExportsReleaseBindingsAndAllComponentReleases(t *testing.T) {
 			require.NotNil(t, p.Limit)
 			if p.Cursor == nil {
 				return &gen.ComponentReleaseList{
-					Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "api-release-1"}, Spec: spec}},
+					Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "api-release-1", CreationTimestamp: &old}, Spec: spec}},
 					Pagination: gen.Pagination{NextCursor: stringPointer("next-release")},
 				}, nil
 			}
 			require.Equal(t, "next-release", *p.Cursor)
 			return &gen.ComponentReleaseList{
-				Items: []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "api-unbound"}, Spec: spec}},
+				Items: []gen.ComponentRelease{
+					{Metadata: gen.ObjectMeta{Name: "api-unbound", CreationTimestamp: &recent}, Spec: spec},
+					{Metadata: gen.ObjectMeta{Name: "api-old-unbound", CreationTimestamp: &old}, Spec: spec},
+				},
 			}, nil
 		}).Twice()
 
 	report, err := runEngine(context.Background(), mockClient, Options{OutputDir: root})
 	require.NoError(t, err)
 	assert.Equal(t, 6, report.Exported)
+	assert.Equal(t, 1, report.ReleasesSkipped)
+	assert.Equal(t, 1, report.OlderReferencedReleases)
+	assert.NoFileExists(t, filepath.Join(root, "namespaces/acme/projects/shop/components/api/releases/api-old-unbound.yaml"))
 	assert.Equal(t, "ReleaseBinding", readManifest(t, root, "namespaces/acme/projects/shop/components/api/release-bindings/api-dev.yaml")["kind"])
 	assert.Equal(t, "ComponentRelease", readManifest(t, root, "namespaces/acme/projects/shop/components/api/releases/api-release-1.yaml")["kind"])
 	assert.Equal(t, "ComponentRelease", readManifest(t, root, "namespaces/acme/projects/shop/components/api/releases/api-unbound.yaml")["kind"])
@@ -362,6 +371,8 @@ func expectNoProjectResources(mc *mocks.MockInterface) {
 }
 
 func TestRun_ExportsProjectAndResourceReleases(t *testing.T) {
+	old := time.Now().AddDate(-1, 0, 0)
+	recent := time.Now()
 	c := mocks.NewMockInterface(t)
 	expectNoClusterResources(c)
 	expectNoNamespacePlatformResources(c)
@@ -380,13 +391,16 @@ func TestRun_ExportsProjectAndResourceReleases(t *testing.T) {
 			require.NotNil(t, p.Limit)
 			if p.Cursor == nil {
 				return &gen.ProjectReleaseList{
-					Items:      []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-release"}, Spec: projectSpec}},
+					Items:      []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-release", CreationTimestamp: &old}, Spec: projectSpec}},
 					Pagination: gen.Pagination{NextCursor: stringPointer("project-page-2")},
 				}, nil
 			}
 			require.Equal(t, "project-page-2", *p.Cursor)
 			return &gen.ProjectReleaseList{
-				Items: []gen.ProjectRelease{{Metadata: gen.ObjectMeta{Name: "shop-unbound"}, Spec: projectSpec}},
+				Items: []gen.ProjectRelease{
+					{Metadata: gen.ObjectMeta{Name: "shop-unbound", CreationTimestamp: &recent}, Spec: projectSpec},
+					{Metadata: gen.ObjectMeta{Name: "shop-old-unbound", CreationTimestamp: &old}, Spec: projectSpec},
+				},
 			}, nil
 		}).Twice()
 	projectBindingSpec := &gen.ProjectReleaseBindingSpec{Environment: "development", ProjectRelease: stringPointer("shop-release")}
@@ -432,13 +446,16 @@ func TestRun_ExportsProjectAndResourceReleases(t *testing.T) {
 			require.NotNil(t, p.Limit)
 			if p.Cursor == nil {
 				return &gen.ResourceReleaseList{
-					Items:      []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-release"}, Spec: resourceReleaseSpec}},
+					Items:      []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-release", CreationTimestamp: &old}, Spec: resourceReleaseSpec}},
 					Pagination: gen.Pagination{NextCursor: stringPointer("release-page-2")},
 				}, nil
 			}
 			require.Equal(t, "release-page-2", *p.Cursor)
 			return &gen.ResourceReleaseList{
-				Items: []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-unbound"}, Spec: resourceReleaseSpec}},
+				Items: []gen.ResourceRelease{
+					{Metadata: gen.ObjectMeta{Name: "database-unbound", CreationTimestamp: &recent}, Spec: resourceReleaseSpec},
+					{Metadata: gen.ObjectMeta{Name: "database-old-unbound", CreationTimestamp: &old}, Spec: resourceReleaseSpec},
+				},
 			}, nil
 		}).Twice()
 	resourceBindingSpec := &gen.ResourceReleaseBindingSpec{Environment: "development", ResourceRelease: stringPointer("database-release")}
@@ -464,6 +481,11 @@ func TestRun_ExportsProjectAndResourceReleases(t *testing.T) {
 	report, err := runEngine(t.Context(), c, Options{OutputDir: root})
 	require.NoError(t, err)
 	assert.Equal(t, 11, report.Exported)
+	assert.Equal(t, 2, report.ReleasesSkipped)
+	assert.Equal(t, 2, report.OlderReferencedReleases)
+	assert.Zero(t, report.UndatedReleases)
+	assert.NoFileExists(t, filepath.Join(root, "namespaces/acme/projects/shop/releases/shop-old-unbound.yaml"))
+	assert.NoFileExists(t, filepath.Join(root, "namespaces/acme/projects/shop/resources/database/releases/database-old-unbound.yaml"))
 	assert.Equal(t, map[string]int{
 		"Namespace": 1, "Project": 1, KindProjectRelease: 2, KindProjectReleaseBinding: 2,
 		KindResource: 1, KindResourceRelease: 2, KindResourceReleaseBinding: 2,
@@ -536,6 +558,9 @@ func TestRun_ProjectReleaseFailureDoesNotWrite(t *testing.T) {
 			} else {
 				c.EXPECT().ListProjectReleases(mock.Anything, "acme", mock.Anything).Return(list, apiErr)
 			}
+			if failure != "missing release" {
+				c.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectReleaseBindingList{}, nil)
+			}
 			root := filepath.Join(t.TempDir(), "output")
 			report, err := runEngine(t.Context(), c, Options{OutputDir: root})
 			require.ErrorContains(t, err, "nothing was written")
@@ -544,4 +569,52 @@ func TestRun_ProjectReleaseFailureDoesNotWrite(t *testing.T) {
 			assert.ErrorIs(t, statErr, os.ErrNotExist)
 		})
 	}
+}
+
+func TestRun_PrintsSummary(t *testing.T) {
+	mockClient := mocks.NewMockInterface(t)
+	expectNoClusterResources(mockClient)
+	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
+	var output bytes.Buffer
+
+	require.NoError(t, Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()}))
+	assert.Contains(t, output.String(), "0 resource(s)")
+	assert.Contains(t, output.String(), "Export completed")
+	assert.Contains(t, output.String(), "Files:\n  CREATED")
+	assert.Contains(t, output.String(), "Resources by kind:\n  No resources exported.")
+	assert.Contains(t, output.String(), "Plaintext credentials:\n  None detected.")
+	assert.NotContains(t, output.String(), "Coverage is incomplete")
+	assert.NotContains(t, output.String(), "ClusterWorkflowTemplate")
+}
+
+func TestRun_PrintsIncompleteSummaryOnWriteFailure(t *testing.T) {
+	root := t.TempDir()
+	// A directory at a manifest path prevents export from writing that file.
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "namespaces/acme/namespace.yaml"), 0o750))
+	var output bytes.Buffer
+	err := Run(t.Context(), mockComponentClient(t, "", ""), &output, Params{OutputDir: root})
+	require.Error(t, err)
+	assert.Contains(t, output.String(), "Export incomplete")
+	assert.NotContains(t, output.String(), "Export completed")
+	assert.Contains(t, output.String(), "0 resource(s)")
+}
+
+func TestRun_HidesDeniedResourceKind(t *testing.T) {
+	mockClient := mocks.NewMockInterface(t)
+	mockClient.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{}, nil)
+	mockClient.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(&gen.ClusterProjectTypeList{}, nil)
+	mockClient.EXPECT().ListClusterResourceTypes(mock.Anything, mock.Anything).Return(&gen.ClusterResourceTypeList{}, nil)
+	mockClient.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{}, nil)
+	mockClient.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{}, nil)
+	mockClient.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{}, nil)
+	mockClient.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{}, nil)
+	mockClient.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(nil, errors.New("You do not have permission to perform this operation"))
+
+	var output bytes.Buffer
+	err := Run(t.Context(), mockClient, &output, Params{OutputDir: t.TempDir()})
+	require.EqualError(t, err, "your role does not have permission to perform this export operation!")
+	assert.NotContains(t, err.Error(), "ClusterAuthzRole")
+	assert.Empty(t, output.String(), "authorization failures should not print partial export details")
 }
