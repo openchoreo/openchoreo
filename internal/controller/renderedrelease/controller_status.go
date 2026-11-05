@@ -50,51 +50,47 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 	return true, nil
 }
 
-// resourceIdentity names an object on a plane: its group, kind, namespace and name.
-type resourceIdentity struct {
-	group, kind, namespace, name string
+// resourceKey names an object on a plane as it was read: the GVK, namespace and name.
+type resourceKey struct {
+	gvk             schema.GroupVersionKind
+	namespace, name string
 }
 
-func identityOf(obj *unstructured.Unstructured) resourceIdentity {
-	gvk := obj.GroupVersionKind()
-	return resourceIdentity{group: gvk.Group, kind: gvk.Kind, namespace: obj.GetNamespace(), name: obj.GetName()}
+// keyOf returns the key obj is indexed and looked up under.
+func keyOf(obj *unstructured.Unstructured) resourceKey {
+	return resourceKey{gvk: obj.GroupVersionKind(), namespace: obj.GetNamespace(), name: obj.GetName()}
 }
 
 // liveResourceIndex pairs desired resources with the live objects they were applied as.
 //
-// It matches by identity, not by resource ID. The resource ID is a label, and
+// It matches by object, not by resource ID. The resource ID is a label, and
 // operators that copy labels onto the objects they create hand it to objects that
 // are not ours: ESO copies an ExternalSecret's labels onto its Secret when the
 // ExternalSecret has no target template, so both are listed under one resource ID.
 // listLiveResourcesByGVKs stamps every live item with the GVK it was listed under,
-// which is where the group and kind come from.
-type liveResourceIndex map[resourceIdentity][]*unstructured.Unstructured
+// which is where the GVK in the key comes from.
+//
+// The version is part of the key. The same object is listed once per version the
+// controller knows for its kind (the spec's and the one in the previous status),
+// each copy in that version's shape, and status has to be read in the version the
+// spec asks for. Every desired GVK is listed (findAllKnownGVKs), so a desired
+// resource that exists is found.
+type liveResourceIndex map[resourceKey]*unstructured.Unstructured
 
+// indexLiveResources indexes live resources by the GVK they were listed under,
+// their namespace and name.
 func indexLiveResources(liveResources []*unstructured.Unstructured) liveResourceIndex {
 	index := make(liveResourceIndex, len(liveResources))
 	for _, live := range liveResources {
-		id := identityOf(live)
-		index[id] = append(index[id], live)
+		index[keyOf(live)] = live
 	}
 	return index
 }
 
-// lookup returns the live object desired was applied as. An object listed under
-// more than one version (its kind is in the spec and in the previous status at
-// different versions) is returned in the version desired names, so the answer does
-// not depend on list order.
+// lookup returns the live object desired was applied as, read in desired's version.
 func (idx liveResourceIndex) lookup(desired *unstructured.Unstructured) (*unstructured.Unstructured, bool) {
-	candidates := idx[identityOf(desired)]
-	if len(candidates) == 0 {
-		return nil, false
-	}
-	version := desired.GroupVersionKind().Version
-	for _, live := range candidates {
-		if live.GroupVersionKind().Version == version {
-			return live, true
-		}
-	}
-	return candidates[0], true
+	live, found := idx[keyOf(desired)]
+	return live, found
 }
 
 // buildResourceStatus converts applied unstructured objects to ResourceStatus entries using live resources
@@ -235,7 +231,7 @@ func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.Re
 // up at any time. Replicas are read from the live object, not the rendered spec: the control
 // plane strips spec.replicas from autoscaled workloads, so only the live object reflects what
 // the autoscaler set. Workloads are picked by the desired GVK and paired to their live object
-// by identity (see liveResourceIndex).
+// by GVK, namespace and name (see liveResourceIndex).
 func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Unstructured) bool {
 	liveIndex := indexLiveResources(liveResources)
 

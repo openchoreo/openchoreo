@@ -220,6 +220,18 @@ func TestFindStaleResources(t *testing.T) {
 		}
 	})
 
+	t.Run("our Apply entry after another manager's entry still counts", func(t *testing.T) {
+		applied := makeObj("res-1")
+		applied.SetManagedFields(append([]metav1.ManagedFieldsEntry{{
+			Manager:   esoFieldManager,
+			Operation: metav1.ManagedFieldsOperationUpdate,
+		}}, applied.GetManagedFields()...))
+		stale := r.findStaleResources([]*unstructured.Unstructured{applied}, []*unstructured.Unstructured{makeObj("res-2")})
+		if len(stale) != 1 {
+			t.Errorf("expected 1 stale (applied by %s, listed after another manager), got %d", ControllerName, len(stale))
+		}
+	})
+
 	t.Run("empty live resources returns empty", func(t *testing.T) {
 		result := r.findStaleResources(nil, nil)
 		if len(result) != 0 {
@@ -251,6 +263,8 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("live resource with no ID label is not stale", func(t *testing.T) {
 		noIDObj := &unstructured.Unstructured{}
 		noIDObj.SetLabels(map[string]string{"other": "label"})
+		// Applied by us, so it is the missing ID that keeps it from being stale.
+		markAppliedByController(noIDObj)
 		stale := r.findStaleResources([]*unstructured.Unstructured{noIDObj}, nil)
 		if len(stale) != 0 {
 			t.Errorf("expected 0 (no ID label skipped), got %d", len(stale))
@@ -488,6 +502,12 @@ func TestHasResurrectableWorkload(t *testing.T) {
 		u := toUnstructured(t, &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: replicas}})
 		return listed(u, deploymentGVK, "d1-copy", "d1")
 	}
+	// The same kind and name as d1 in another namespace.
+	otherNamespaceDeployment := func(replicas *int32) *unstructured.Unstructured {
+		u := liveDeployment("d1", replicas, false)
+		u.SetNamespace("other-ns")
+		return u
+	}
 	serviceGVK := schema.GroupVersionKind{Version: "v1", Kind: "Service"}
 
 	tests := []struct {
@@ -571,6 +591,18 @@ func TestHasResurrectableWorkload(t *testing.T) {
 			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
 			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(0), false), idTwinDeployment(int32Ptr(2))},
 			want:    true,
+		},
+		{
+			name:    "same name at zero in another namespace is not read",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(1), false), otherNamespaceDeployment(int32Ptr(0))},
+			want:    false,
+		},
+		{
+			name:    "same name at zero in another namespace is not read, listed first",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{otherNamespaceDeployment(int32Ptr(0)), liveDeployment("d1", int32Ptr(1), false)},
+			want:    false,
 		},
 	}
 
@@ -1741,6 +1773,82 @@ func TestBuildResourceStatusMatchesLiveByIdentity(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBuildResourceStatusReadsDesiredVersionAndNamespace pins that a desired
+// resource only takes status from the live object in its own namespace, listed
+// under its own version.
+//
+// The same object is listed once per version the controller knows for its kind
+// (the spec's and the one recorded in the previous status), and each copy comes
+// back in that version's shape. Storing another version's status under the
+// desired version would let readyWhen and outputs written against the desired
+// version read fields it does not have.
+func TestBuildResourceStatusReadsDesiredVersionAndNamespace(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	hpaV1 := schema.GroupVersionKind{Group: "autoscaling", Version: "v1", Kind: "HorizontalPodAutoscaler"}
+	hpaV2 := schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"}
+	hpa := func(gvk schema.GroupVersionKind, namespace string, status map[string]any) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+		obj.SetNamespace(namespace)
+		obj.SetName("app")
+		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: "hpa"})
+		if status != nil {
+			obj.Object["status"] = status
+		}
+		return obj
+	}
+	desired := hpa(hpaV2, "dp-ns", nil)
+	v1Copy := hpa(hpaV1, "dp-ns", map[string]any{"currentCPUUtilizationPercentage": int64(40)})
+	v2Copy := hpa(hpaV2, "dp-ns", map[string]any{"currentMetrics": []any{}})
+	otherNamespace := hpa(hpaV2, "other-ns", map[string]any{"currentReplicas": int64(9)})
+
+	statusOf := func(t *testing.T, live []*unstructured.Unstructured) map[string]any {
+		t.Helper()
+		result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, live)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].Status == nil {
+			return nil
+		}
+		var got map[string]any
+		if err := json.Unmarshal(result[0].Status.Raw, &got); err != nil {
+			t.Fatalf("unmarshal status: %v", err)
+		}
+		return got
+	}
+
+	for _, tc := range []struct {
+		name string
+		live []*unstructured.Unstructured
+	}{
+		{name: "other version listed first", live: []*unstructured.Unstructured{v1Copy, v2Copy, otherNamespace}},
+		{name: "other version listed last", live: []*unstructured.Unstructured{otherNamespace, v2Copy, v1Copy}},
+	} {
+		t.Run("reads the desired version's copy: "+tc.name, func(t *testing.T) {
+			got := statusOf(t, tc.live)
+			if _, ok := got["currentMetrics"]; !ok || len(got) != 1 {
+				t.Errorf("status = %v, want the v2 copy's status", got)
+			}
+		})
+	}
+
+	t.Run("does not fall back to a copy listed under another version", func(t *testing.T) {
+		if got := statusOf(t, []*unstructured.Unstructured{v1Copy}); got != nil {
+			t.Errorf("status = %v, want none: only the v1 copy was listed and the spec asks for v2", got)
+		}
+	})
+
+	t.Run("does not read the same name in another namespace", func(t *testing.T) {
+		if got := statusOf(t, []*unstructured.Unstructured{otherNamespace}); got != nil {
+			t.Errorf("status = %v, want none: the only live object is in another namespace", got)
+		}
+	})
 }
 
 // TestListLiveResourcesByGVKsStampsListedGVK pins that every live item carries
