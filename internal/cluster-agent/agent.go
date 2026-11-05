@@ -8,12 +8,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/url"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -36,6 +39,18 @@ const maxReconnectJitter = 750 * time.Millisecond
 // with whatever it has — before either gives up on it.
 const resourceTreeRequestTimeout = protocol.AgentRequestTimeout
 
+// heartbeatMisses is how many heartbeat intervals may pass with nothing at all
+// heard from the gateway before the agent treats the connection as dead. It
+// matches the gateway's own 3x ratio (30s ping, 90s timeout).
+const heartbeatMisses = 3
+
+// writeTimeout bounds one message write. Writers hold a.mu, which
+// closeConnection also needs, so a write stuck on a dead peer would otherwise
+// stall every other response and the reconnect itself. Generous enough for a
+// large list response; gorilla fails the writes queued behind a timed-out one
+// immediately, so a dead socket holds the lock for at most this long.
+const writeTimeout = 30 * time.Second
+
 // Connection abstracts a WebSocket connection for testability.
 // *websocket.Conn satisfies this interface.
 type Connection interface {
@@ -43,7 +58,28 @@ type Connection interface {
 	WriteMessage(messageType int, data []byte) error
 	WriteControl(messageType int, data []byte, deadline time.Time) error
 	SetPingHandler(h func(appData string) error)
+	SetWriteDeadline(t time.Time) error
 	Close() error
+}
+
+// activityConn pushes the read deadline forward whenever bytes arrive from the
+// gateway. Watching frames is not enough: gorilla sends each server message as
+// a single frame, so no ping or pong can arrive while a large one is still in
+// flight, and a slow but healthy transfer would be mistaken for a dead peer.
+// It sits under TLS, so it sees every byte on the wire.
+type activityConn struct {
+	net.Conn
+	// timeout is zero until connect arms it after the handshake, leaving the
+	// dialer's handshake deadline alone.
+	timeout atomic.Int64
+}
+
+func (c *activityConn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	if t := time.Duration(c.timeout.Load()); n > 0 && t > 0 {
+		_ = c.Conn.SetReadDeadline(time.Now().Add(t))
+	}
+	return n, err
 }
 
 type Agent struct {
@@ -285,11 +321,40 @@ func (a *Agent) connect() error {
 		}
 	}
 
+	// Detect a dead connection from this side. The gateway already drops an
+	// agent it stops hearing from, but if the path goes half-open (a proxy,
+	// load balancer or NAT forgets the flow without sending a reset) the
+	// agent would otherwise sit in ReadMessage until TCP gives up - minutes
+	// at best, never if a proxy keeps our leg alive - while the gateway
+	// reports the plane as having no agents. Any bytes from the gateway push
+	// the read deadline forward; handleConnection pings on the agent's own
+	// interval so an idle connection does not depend on the gateway's ping
+	// settings to stay alive.
+	var activity *activityConn
+	if a.config.HeartbeatInterval > 0 {
+		dialer.NetDialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
+			activity = &activityConn{Conn: c}
+			return activity, nil
+		}
+	}
+
 	a.logger.Info("connecting to control plane", "url", u.String())
 
 	conn, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("dial failed: %w", err)
+	}
+
+	if activity != nil {
+		timeout := heartbeatMisses * a.config.HeartbeatInterval
+		activity.timeout.Store(int64(timeout))
+		// This only fails on a socket that is already closed, and then the
+		// first read fails too and Start reconnects.
+		_ = conn.SetReadDeadline(time.Now().Add(timeout))
 	}
 
 	// No lock needed here - connect() is only called from the single-threaded Start() loop
@@ -354,11 +419,39 @@ func (a *Agent) handleConnection(ctx context.Context) (graceful bool) {
 		a.closeConnection()
 	}()
 
+	if interval := a.config.HeartbeatInterval; interval > 0 {
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+				}
+				// The gateway's pong is what keeps the read deadline set in
+				// connect moving on an idle connection. WriteControl is safe
+				// alongside the a.mu-guarded writers, and a failed ping needs
+				// no handling: the read deadline is what ends a dead session.
+				// The ping holds gorilla's write lock, which message writers
+				// wait on under a.mu, so it gets the same bound they do.
+				if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(min(interval, writeTimeout))); err != nil {
+					a.logger.Debug("failed to send ping", "error", err)
+				}
+			}
+		}()
+	}
+
 	// Main message processing loop
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				a.logger.Warn("nothing heard from gateway within heartbeat timeout, reconnecting",
+					"timeout", heartbeatMisses*a.config.HeartbeatInterval,
+				)
+			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				a.logger.Error("websocket error", "error", err)
 			} else {
 				a.logger.Debug("connection closed", "error", err)
@@ -438,8 +531,18 @@ func (a *Agent) handleHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) {
 		return
 	}
 
+	// Bound the backend call: the gateway stops waiting after its own tunnel
+	// timeout, and without a deadline a hung backend pins this goroutine for
+	// good.
+	ctx := context.Background()
+	if a.config.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, a.config.RequestTimeout)
+		defer cancel()
+	}
+
 	// Route the request to the appropriate backend service
-	response := a.router.Route(req)
+	response := a.router.Route(ctx, req)
 
 	if err := a.sendHTTPTunnelResponse(response); err != nil {
 		a.logger.Error("failed to send HTTP tunnel response",
@@ -467,10 +570,29 @@ func (a *Agent) sendHTTPTunnelResponse(resp *messaging.HTTPTunnelResponse) error
 		"statusCode", resp.StatusCode,
 	)
 
-	if err := a.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := a.writeMessageLocked(data); err != nil {
 		return fmt.Errorf("sendHTTPTunnelResponse: failed to write message: %w", err)
 	}
 	return nil
+}
+
+// writeMessageLocked writes one text message under the write deadline.
+// The caller must hold a.mu and have checked that a.conn is set.
+//
+// A failed write closes the connection. gorilla makes a write error permanent,
+// so the socket can carry no further responses, yet the read loop may sit on
+// it until the heartbeat timeout - or indefinitely with heartbeats off. Closing
+// it ends the read and sends Start straight to reconnecting.
+func (a *Agent) writeMessageLocked(data []byte) error {
+	err := a.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	if err == nil {
+		err = a.conn.WriteMessage(websocket.TextMessage, data)
+	}
+	if err != nil {
+		a.conn.Close()
+		a.conn = nil
+	}
+	return err
 }
 
 func (a *Agent) closeConnection() {
