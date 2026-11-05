@@ -10,6 +10,7 @@ spec:
   type: email
   emailConfig:
     from: notifications@openchoreo.dev    # Replace with your SMTP sender email address
+    fromName: OpenChoreo Alerts           # Optional sender display name shown in the From header
     to:
       - openchoreo-devops-group@acme.com  # Replace with your recipients' email addresses
     smtp:

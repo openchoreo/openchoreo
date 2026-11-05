@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/smtp"
 	"strconv"
 	"strings"
@@ -21,6 +22,8 @@ type SMTPConfig struct {
 	Username string
 	Password string
 	From     string
+	// FromName is an optional sender display name used only in the From header.
+	FromName string
 }
 
 // EmailConfig holds email-specific configuration
@@ -64,6 +67,15 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 		contentType = "text/plain" // default to text/plain if not specified
 	}
 
+	// The From header carries the display name (if any); the envelope sender (MAIL FROM)
+	// must remain the bare address. mail.Address quotes the name and RFC 2047-encodes
+	// non-ASCII or control characters, so the name cannot inject extra headers.
+	// A whitespace-only name is treated as unset, so the header never shows a blank name.
+	fromHeader := config.Email.SMTP.From
+	if fromName := strings.TrimSpace(config.Email.SMTP.FromName); fromName != "" {
+		fromHeader = (&mail.Address{Name: fromName, Address: config.Email.SMTP.From}).String()
+	}
+
 	message := fmt.Sprintf(
 		"From: %s\r\n"+
 			"To: %s\r\n"+
@@ -73,7 +85,7 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 			"Content-Transfer-Encoding: 8bit\r\n"+
 			"\r\n"+
 			"%s",
-		config.Email.SMTP.From,
+		fromHeader,
 		strings.Join(to, ","),
 		subject,
 		contentType,
@@ -108,9 +120,10 @@ func PrepareEmailNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.
 
 	emailConfig := EmailConfig{
 		SMTP: SMTPConfig{
-			Host: configMap.Data["smtp.host"],
-			Port: smtpPort,
-			From: configMap.Data["from"],
+			Host:     configMap.Data["smtp.host"],
+			Port:     smtpPort,
+			From:     configMap.Data["from"],
+			FromName: configMap.Data["fromName"],
 		},
 		To:              recipients,
 		SubjectTemplate: configMap.Data["template.subject"],
@@ -145,6 +158,7 @@ func PrepareEmailNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.
 		"host", emailConfig.SMTP.Host,
 		"port", emailConfig.SMTP.Port,
 		"from", emailConfig.SMTP.From,
+		"fromName", emailConfig.SMTP.FromName,
 		"hasUsername", emailConfig.SMTP.Username != "",
 		"hasPassword", emailConfig.SMTP.Password != "")
 

@@ -107,6 +107,7 @@ func TestCreateConfigMap_EmailFull(t *testing.T) {
 		Body:    "Alert ${alert.name} fired",
 	}
 	ch.Spec.EmailConfig.SMTP.TLS = &openchoreov1alpha1.SMTPTLSConfig{InsecureSkipVerify: true}
+	ch.Spec.EmailConfig.FromName = "Example Alerts"
 
 	cm := r.createConfigMap(ch)
 
@@ -130,6 +131,7 @@ func TestCreateConfigMap_EmailFull(t *testing.T) {
 		{"type", "email"},
 		{"isEnvDefault", "true"},
 		{"from", "sender@example.com"},
+		{"fromName", "Example Alerts"},
 		{"smtp.host", "smtp.example.com"},
 		{"smtp.port", "587"},
 		{"smtp.tls.insecureSkipVerify", "true"},
@@ -182,6 +184,9 @@ func TestCreateConfigMap_EmailWithoutTemplateOrTLS(t *testing.T) {
 	}
 	if _, ok := cm.Data["smtp.tls.insecureSkipVerify"]; ok {
 		t.Error("smtp.tls.insecureSkipVerify should be absent when TLS is nil")
+	}
+	if _, ok := cm.Data["fromName"]; ok {
+		t.Error("fromName should be absent when FromName is empty")
 	}
 	if cm.Data["isEnvDefault"] != "false" {
 		t.Errorf("isEnvDefault: got %q, want %q", cm.Data["isEnvDefault"], "false")
