@@ -14,30 +14,45 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/openchoreo/openchoreo/internal/planenamespace"
 )
 
 const (
 	workflowRoleNameSuffix        = "role"
 	workflowRoleBindingNameSuffix = "role-binding"
+
+	// workflowNamespaceCreatedBy is recorded on the workflow namespaces this controller creates.
+	workflowNamespaceCreatedBy = "workflowrun-controller"
 )
 
 // ensurePrerequisites creates prerequisite resources in the workflow plane
 // before creating the workflow run: create namespace, service account, role, and role binding.
-func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, wpClient client.Client) error {
+func (r *Reconciler) ensurePrerequisites(ctx context.Context, cpNamespace, namespace, serviceAccountName string, wpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("namespace", namespace, "serviceAccount", serviceAccountName)
 
 	roleName := fmt.Sprintf("%s-%s", serviceAccountName, workflowRoleNameSuffix)
 	roleBindingName := fmt.Sprintf("%s-%s", serviceAccountName, workflowRoleBindingNameSuffix)
 
-	resources := []struct {
+	type resource struct {
 		obj  client.Object
 		name string
-	}{
-		{makeNamespace(namespace), "Namespace"},
-		{makeServiceAccount(namespace, serviceAccountName), "ServiceAccount"},
-		{makeRole(namespace, roleName), "Role"},
-		{makeRoleBinding(namespace, serviceAccountName, roleName, roleBindingName), "RoleBinding"},
 	}
+	var resources []resource
+
+	// The run's own workflow namespace is labeled so the plane controllers delete it with its control plane namespace.
+	if namespace == planenamespace.Workflow.Name(cpNamespace) {
+		if err := planenamespace.Workflow.Ensure(ctx, wpClient, cpNamespace, workflowNamespaceCreatedBy); err != nil {
+			return fmt.Errorf("failed to ensure Namespace: %w", err)
+		}
+	} else {
+		resources = append(resources, resource{makeNamespace(namespace), "Namespace"})
+	}
+	resources = append(resources,
+		resource{makeServiceAccount(namespace, serviceAccountName), "ServiceAccount"},
+		resource{makeRole(namespace, roleName), "Role"},
+		resource{makeRoleBinding(namespace, serviceAccountName, roleName, roleBindingName), "RoleBinding"},
+	)
 
 	for _, res := range resources {
 		if err := ensureResource(ctx, wpClient, res.obj, res.name, logger); err != nil {

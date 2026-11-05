@@ -767,6 +767,9 @@ func TestCreatePushSecret(t *testing.T) {
 			if !ok {
 				t.Fatal("spec is not a map")
 			}
+			if spec["deletionPolicy"] != "Delete" {
+				t.Errorf("deletionPolicy = %v, want %q", spec["deletionPolicy"], "Delete")
+			}
 			if spec["updatePolicy"] != "Replace" {
 				t.Errorf("updatePolicy = %v, want %q", spec["updatePolicy"], "Replace")
 			}
@@ -806,41 +809,6 @@ func TestCreatePushSecret(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// --- ensureNamespaceExists tests ---
-
-func TestEnsureNamespaceExists_AlreadyExists(t *testing.T) {
-	scheme := newTestScheme(t)
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "existing-ns",
-		},
-	}
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ns).Build()
-	svc := &gitSecretService{logger: newTestLogger()}
-
-	err := svc.ensureNamespaceExists(context.Background(), k8sClient, "existing-ns")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestEnsureNamespaceExists_CreatesNew(t *testing.T) {
-	scheme := newTestScheme(t)
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &gitSecretService{logger: newTestLogger()}
-
-	err := svc.ensureNamespaceExists(context.Background(), k8sClient, "new-ns")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Verify the namespace was created
-	ns := &corev1.Namespace{}
-	if err := k8sClient.Get(context.Background(), client.ObjectKey{Name: "new-ns"}, ns); err != nil {
-		t.Fatalf("namespace was not created: %v", err)
 	}
 }
 
@@ -1047,79 +1015,6 @@ func TestListGitSecrets_ClientError(t *testing.T) {
 	_, err := svc.ListGitSecrets(context.Background(), testNamespace)
 	if err == nil {
 		t.Fatal("expected error, got nil")
-	}
-}
-
-// --- ensureNamespaceExists error tests ---
-
-func TestEnsureNamespaceExists_GetError(t *testing.T) {
-	scheme := newTestScheme(t)
-	getErr := errors.New("api server unavailable")
-	k8sClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
-				return getErr
-			},
-		}).
-		Build()
-
-	svc := &gitSecretService{logger: newTestLogger()}
-
-	err := svc.ensureNamespaceExists(context.Background(), k8sClient, "some-ns")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
-
-func TestEnsureNamespaceExists_CreateError(t *testing.T) {
-	scheme := newTestScheme(t)
-	createErr := errors.New("quota exceeded")
-	callCount := 0
-	k8sClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Get: func(_ context.Context, _ client.WithWatch, key client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
-				// Simulate namespace not found
-				return apierrors.NewNotFound(corev1.Resource("namespaces"), key.Name)
-			},
-			Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
-				callCount++
-				return createErr
-			},
-		}).
-		Build()
-
-	svc := &gitSecretService{logger: newTestLogger()}
-
-	err := svc.ensureNamespaceExists(context.Background(), k8sClient, "new-ns")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if callCount != 1 {
-		t.Errorf("expected Create to be called once, got %d", callCount)
-	}
-}
-
-func TestEnsureNamespaceExists_ConcurrentCreation(t *testing.T) {
-	scheme := newTestScheme(t)
-	k8sClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Get: func(_ context.Context, _ client.WithWatch, key client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
-				return apierrors.NewNotFound(corev1.Resource("namespaces"), key.Name)
-			},
-			Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
-				return apierrors.NewAlreadyExists(corev1.Resource("namespaces"), "new-ns")
-			},
-		}).
-		Build()
-
-	svc := &gitSecretService{logger: newTestLogger()}
-
-	err := svc.ensureNamespaceExists(context.Background(), k8sClient, "new-ns")
-	if err != nil {
-		t.Fatalf("expected no error on concurrent creation, got %v", err)
 	}
 }
 

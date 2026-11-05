@@ -14,9 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -36,6 +39,10 @@ type Reconciler struct {
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
 	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
 	CacheVersion  string                // Cache key version prefix (e.g., "v2")
+	// PlaneClientProvider reaches the plane cluster to sweep plane namespaces.
+	PlaneClientProvider kubernetesClient.WorkflowPlaneClientProvider
+	// APIReader confirms a control plane namespace is gone before its plane namespaces are deleted.
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterworkflowplanes,verbs=get;list;watch;create;update;patch;delete
@@ -87,6 +94,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			logger.Error(err, "failed to get agent connection status")
 			// Don't fail reconciliation for status query errors
 		}
+
+		r.sweepPlaneNamespaces(ctx, clusterWorkflowPlane)
 
 		if err := r.Status().Update(ctx, clusterWorkflowPlane); err != nil {
 			logger.Error(err, "failed to update ClusterWorkflowPlane status")
@@ -166,6 +175,27 @@ func (r *Reconciler) finalize(ctx context.Context, _, clusterWorkflowPlane *open
 
 	if !controllerutil.ContainsFinalizer(clusterWorkflowPlane, ClusterWorkflowPlaneCleanupFinalizer) {
 		return ctrl.Result{}, nil
+	}
+
+	// Runs before the gateway notification, which disconnects the plane's agents.
+	if r.PlaneClientProvider != nil && r.APIReader != nil {
+		msg, err := controller.FinalizeClusterPlane(ctx, r.Client, r.APIReader,
+			string(openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane), clusterWorkflowPlane.Name,
+			func() (client.Client, error) {
+				return r.PlaneClientProvider.ClusterWorkflowPlaneClient(clusterWorkflowPlane)
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if msg != "" {
+			logger.Info(msg)
+			if meta.SetStatusCondition(&clusterWorkflowPlane.Status.Conditions, controller.NewPlaneDeletionBlockedCondition(clusterWorkflowPlane.Generation, msg)) {
+				if err := r.Status().Update(ctx, clusterWorkflowPlane); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{RequeueAfter: controller.PlaneDeletionRetryInterval}, nil
+		}
 	}
 
 	// Notify gateway of ClusterWorkflowPlane deletion before removing finalizer
@@ -320,6 +350,40 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ClusterWorkflowPlane{}).
+		// A removed control plane namespace triggers a sweep of its plane namespaces.
+		Watches(
+			&corev1.Namespace{},
+			handler.EnqueueRequestsFromMapFunc(r.allClusterWorkflowPlanes),
+			builder.WithPredicates(controller.ControlPlaneNamespaceRemovedPredicate()),
+		).
 		Named("clusterworkflowplane").
 		Complete(r)
+}
+
+// sweepPlaneNamespaces deletes the plane namespaces in this plane's cluster whose
+// control plane namespace is gone, while an agent is connected.
+func (r *Reconciler) sweepPlaneNamespaces(ctx context.Context, clusterWorkflowPlane *openchoreov1alpha1.ClusterWorkflowPlane) {
+	if r.PlaneClientProvider == nil || r.APIReader == nil {
+		return
+	}
+	if clusterWorkflowPlane.Status.AgentConnection == nil || !clusterWorkflowPlane.Status.AgentConnection.Connected {
+		return
+	}
+	controller.SweepPlaneNamespaces(ctx, r.Client, r.APIReader, func() (client.Client, error) {
+		return r.PlaneClientProvider.ClusterWorkflowPlaneClient(clusterWorkflowPlane)
+	})
+}
+
+// allClusterWorkflowPlanes enqueues every ClusterWorkflowPlane so each sweeps its cluster.
+func (r *Reconciler) allClusterWorkflowPlanes(ctx context.Context, _ client.Object) []reconcile.Request {
+	var list openchoreov1alpha1.ClusterWorkflowPlaneList
+	if err := r.List(ctx, &list); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ClusterWorkflowPlanes")
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKey{Name: list.Items[i].Name}})
+	}
+	return requests
 }

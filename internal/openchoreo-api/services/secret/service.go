@@ -22,15 +22,13 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/planenamespace"
 )
 
 const (
-	// kvNamespacePrefix is the prefix of the namespace in the target plane
-	// where the K8s Secret and PushSecret are provisioned.
-	kvNamespacePrefix = "openchoreo-kv-"
-
 	// fieldOwner is the field manager name used for Server-Side Apply.
 	fieldOwner = "openchoreo-api"
 
@@ -55,12 +53,6 @@ const (
 	// external store, instead of waiting for the next refreshInterval.
 	syncTriggerAnnotation = "openchoreo.dev/sync-trigger"
 )
-
-// kvNamespace returns the namespace in the target plane where the K8s Secret
-// and PushSecret are provisioned.
-func kvNamespace(ownerNamespace string) string {
-	return kvNamespacePrefix + ownerNamespace
-}
 
 // remoteKeyFormat decides how keys in the external secret store are laid out.
 type remoteKeyFormat struct {
@@ -160,8 +152,8 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		return nil, err
 	}
 
-	targetNs := kvNamespace(namespaceName)
-	if err := s.ensureNamespaceExists(ctx, planeInfo.k8sClient, targetNs); err != nil {
+	targetNs := planenamespace.KV.Name(namespaceName)
+	if err := planenamespace.KV.Ensure(ctx, planeInfo.k8sClient, namespaceName, labels.LabelValueOpenChoreoAPI); err != nil {
 		return nil, err
 	}
 
@@ -217,7 +209,10 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 		return nil, err
 	}
 
-	targetNs := kvNamespace(namespaceName)
+	targetNs := planenamespace.KV.Name(namespaceName)
+	if err := planenamespace.KV.Ensure(ctx, planeInfo.k8sClient, namespaceName, labels.LabelValueOpenChoreoAPI); err != nil {
+		return nil, err
+	}
 	newKeys := sortedKeys(req.Data)
 
 	k8sSecret := buildK8sSecret(secretName, targetNs, secretType, req.Data)
@@ -280,7 +275,7 @@ func (s *secretService) GetSecret(ctx context.Context, namespaceName, secretName
 		return nil, err
 	}
 
-	planeSecret, err := s.fetchSecret(ctx, planeInfo.k8sClient, kvNamespace(namespaceName), secretName)
+	planeSecret, err := s.fetchSecret(ctx, planeInfo.k8sClient, planenamespace.KV.Name(namespaceName), secretName)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +393,7 @@ func (s *secretService) listPlaneSecrets(ctx context.Context, ownerNamespace, pl
 	cursor := ""
 	for {
 		listOpts := []client.ListOption{
-			client.InNamespace(kvNamespace(ownerNamespace)),
+			client.InNamespace(planenamespace.KV.Name(ownerNamespace)),
 			client.Limit(planeSecretsPageSize),
 		}
 		if cursor != "" {
@@ -462,7 +457,7 @@ func (s *secretService) DeleteSecret(ctx context.Context, namespaceName, secretN
 		return err
 	}
 
-	targetNs := kvNamespace(namespaceName)
+	targetNs := planenamespace.KV.Name(namespaceName)
 
 	pushSecret := &unstructured.Unstructured{}
 	pushSecret.SetAPIVersion(pushSecretAPIVersion)
@@ -606,25 +601,6 @@ func mapPlaneGetError(err error) error {
 		return ErrPlaneNotFound
 	}
 	return fmt.Errorf("failed to get target plane: %w", err)
-}
-
-// ensureNamespaceExists creates the namespace in the target plane if absent.
-func (s *secretService) ensureNamespaceExists(ctx context.Context, k8sClient client.Client, namespaceName string) error {
-	ns := &corev1.Namespace{}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: namespaceName}, ns); err == nil {
-		return nil
-	} else if client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to check namespace existence: %w", err)
-	}
-
-	ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
-	if err := k8sClient.Create(ctx, ns); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to create namespace %s: %w", namespaceName, err)
-	}
-	return nil
 }
 
 // --- builders ---
