@@ -44,6 +44,8 @@ type SpansResult struct {
 	Spans      []TraceSpan `json:"spans"`
 	TotalCount int         `json:"totalCount"`
 	Took       int         `json:"tookMs"`
+	// ReleaseLineApplied is true when the adapter applied the release line part of the scope.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // TracesQueryParams defines parameters for querying traces
@@ -57,6 +59,9 @@ type TracesQueryParams struct {
 	ProjectID     string `json:"projectId"`
 	ComponentID   string `json:"componentId,omitempty"`
 	EnvironmentID string `json:"environmentId,omitempty"`
+	ReleaseLineID string `json:"releaseLineId,omitempty"`
+	// AllReleaseLines covers every line of the component instead of its main line.
+	AllReleaseLines bool `json:"allReleaseLines,omitempty"`
 
 	// Query options
 	TraceID           string `json:"traceId,omitempty"`
@@ -70,6 +75,8 @@ type TracesQueryResult struct {
 	Traces     []Trace `json:"traces"`
 	TotalCount int     `json:"totalCount"`
 	Took       int     `json:"tookMs"`
+	// ReleaseLineApplied is true when the adapter applied the release line part of the scope.
+	ReleaseLineApplied bool `json:"releaseLineApplied,omitempty"`
 }
 
 // Trace represents a distributed trace

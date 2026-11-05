@@ -5,6 +5,7 @@ package observabilityalertsnotificationchannel
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -1186,6 +1188,128 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				return apierrors.IsNotFound(err)
 			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
 		})
+
+		// The Environment is deleted before the channel, as when their namespace is deleted.
+		Context("When the Environment is deleted first", func() {
+			newChannel := func(name string) *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel {
+				return &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+					Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+						Environment:   environment.Name,
+						Type:          openchoreodevv1alpha1.NotificationChannelTypeWebhook,
+						WebhookConfig: &openchoreodevv1alpha1.WebhookConfig{URL: "https://hooks.example.com/alerts"},
+					},
+				}
+			}
+
+			reconcileChannel := func(reconciler *Reconciler) (reconcile.Result, error) {
+				return reconciler.Reconcile(testCtx, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: channel.Name, Namespace: namespace},
+				})
+			}
+
+			deleteChannel := func() {
+				current := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), current)).To(Succeed())
+				Expect(current.Finalizers).To(ContainElement(NotificationChannelCleanupFinalizer))
+				Expect(k8sClient.Delete(testCtx, current)).To(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), current)
+					return err == nil && !current.DeletionTimestamp.IsZero()
+				}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+			}
+
+			channelGone := func() bool {
+				err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{})
+				return apierrors.IsNotFound(err)
+			}
+
+			It("should clean up the observability plane while the Environment is finalizing", func() {
+				const envFinalizer = "openchoreo.dev/environment-cleanup"
+				DeferCleanup(func() {
+					env := &openchoreodevv1alpha1.Environment{}
+					if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(environment), env); err == nil {
+						controllerutil.RemoveFinalizer(env, envFinalizer)
+						Expect(k8sClient.Update(testCtx, env)).To(Succeed())
+					}
+					Eventually(func() bool {
+						return apierrors.IsNotFound(k8sClient.Get(testCtx, client.ObjectKeyFromObject(environment), &openchoreodevv1alpha1.Environment{}))
+					}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+				})
+
+				channel = newChannel("test-channel-env-finalizing")
+				Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+				reconciler := &Reconciler{
+					Client:              k8sClient,
+					Scheme:              k8sClient.Scheme(),
+					PlaneClientProvider: mockProvider,
+				}
+
+				By("reconciling to apply the ConfigMap and Secret to the observability plane")
+				_, err := reconcileChannel(reconciler)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.ConfigMap{})).To(Succeed())
+				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.Secret{})).To(Succeed())
+
+				By("deleting the Environment, which its finalizer holds while channels remain")
+				env := &openchoreodevv1alpha1.Environment{}
+				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(environment), env)).To(Succeed())
+				controllerutil.AddFinalizer(env, envFinalizer)
+				Expect(k8sClient.Update(testCtx, env)).To(Succeed())
+				Expect(k8sClient.Delete(testCtx, env)).To(Succeed())
+
+				By("deleting and finalizing the channel")
+				deleteChannel()
+				result, err := reconcileChannel(reconciler)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				By("verifying the plane resources and the channel are gone")
+				Expect(apierrors.IsNotFound(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.ConfigMap{}))).To(BeTrue())
+				Expect(apierrors.IsNotFound(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.Secret{}))).To(BeTrue())
+				Eventually(channelGone, time.Second*10, time.Millisecond*500).Should(BeTrue())
+			})
+
+			It("should remove the finalizer when the Environment is already gone", func() {
+				channel = newChannel("test-channel-env-gone")
+				Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+				recorder := record.NewFakeRecorder(10)
+				reconciler := &Reconciler{
+					Client:              k8sClient,
+					Scheme:              k8sClient.Scheme(),
+					PlaneClientProvider: mockProvider,
+					Recorder:            recorder,
+				}
+
+				By("reconciling to apply the ConfigMap and Secret to the observability plane")
+				_, err := reconcileChannel(reconciler)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("deleting the Environment completely")
+				Expect(k8sClient.Delete(testCtx, environment)).To(Succeed())
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(testCtx, client.ObjectKeyFromObject(environment), &openchoreodevv1alpha1.Environment{}))
+				}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+				By("deleting and finalizing the channel")
+				deleteChannel()
+				result, err := reconcileChannel(reconciler)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+				Eventually(channelGone, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+				By("verifying a warning names the resources left on the unreachable plane")
+				Expect(recorder.Events).To(Receive(SatisfyAll(
+					ContainSubstring(corev1.EventTypeWarning),
+					ContainSubstring(string(ReasonObservabilityPlaneUnavailable)),
+					ContainSubstring("failed to get environment "+environment.Name),
+					ContainSubstring(namespace+"/"+channel.Name),
+				)))
+				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.ConfigMap{})).To(Succeed())
+			})
+		})
 	})
 
 	Context("When creating a resource with an invalid email address", func() {
@@ -1267,6 +1391,40 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Entry("leading dot", "invalid-to-leading-dot", ".user@example.com"),
 			Entry("consecutive dots", "invalid-to-consecutive-dots", "user..name@example.com"),
 			Entry("trailing dot", "invalid-to-trailing-dot", "user.@example.com"),
+		)
+
+		It("should accept a sender display name alongside a bare From address", func() {
+			channel := newEmailChannel("valid-from-name", "alerts@example.com", []string{"valid@example.com"})
+			channel.Spec.EmailConfig.FromName = "Example Alerts"
+
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+			Expect(k8sClient.Delete(testCtx, channel)).To(Succeed())
+		})
+
+		It("should reject a display name embedded in the From address", func() {
+			channel := newEmailChannel("invalid-from-with-name", "Example Alerts <alerts@example.com>", []string{"valid@example.com"})
+
+			err := k8sClient.Create(testCtx, channel)
+
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("spec.emailConfig.from"))
+		})
+
+		DescribeTable("should reject an invalid sender display name",
+			func(name, fromName string) {
+				channel := newEmailChannel(name, "alerts@example.com", []string{"valid@example.com"})
+				channel.Spec.EmailConfig.FromName = fromName
+
+				err := k8sClient.Create(testCtx, channel)
+
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsInvalid(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring("spec.emailConfig.fromName"))
+			},
+			Entry("contains a newline", "invalid-from-name-newline", "Alerts\nBcc: attacker@example.com"),
+			Entry("contains a carriage return", "invalid-from-name-cr", "Alerts\rX"),
+			Entry("too long", "invalid-from-name-too-long", strings.Repeat("a", 129)),
 		)
 	})
 })

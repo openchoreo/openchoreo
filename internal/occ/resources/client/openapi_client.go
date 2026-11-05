@@ -453,6 +453,57 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName, componentNa
 	return resp.JSON201, nil
 }
 
+// CreateComponentWorkflowRun runs the component's workflow, with the release line's overrides when set
+func (c *Client) CreateComponentWorkflowRun(ctx context.Context, namespaceName, componentName string, req gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error) {
+	resp, err := c.client.CreateComponentWorkflowRunWithResponse(ctx, namespaceName, componentName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger component workflow run: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// ListComponentReleaseLines retrieves the release lines of a component
+func (c *Client) ListComponentReleaseLines(ctx context.Context, namespaceName, componentName string, params *gen.ListComponentReleaseLinesParams) (*gen.ReleaseLineList, error) {
+	if params == nil {
+		params = &gen.ListComponentReleaseLinesParams{}
+	}
+	resp, err := c.client.ListComponentReleaseLinesWithResponse(ctx, namespaceName, componentName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list release lines: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetComponentReleaseLine retrieves a release line of a component
+func (c *Client) GetComponentReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) (*gen.ReleaseLine, error) {
+	resp, err := c.client.GetComponentReleaseLineWithResponse(ctx, namespaceName, componentName, releaseLineName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release line: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteComponentReleaseLine deletes a release line of a component
+func (c *Client) DeleteComponentReleaseLine(ctx context.Context, namespaceName, componentName, releaseLineName string) error {
+	resp, err := c.client.DeleteComponentReleaseLineWithResponse(ctx, namespaceName, componentName, releaseLineName)
+	if err != nil {
+		return fmt.Errorf("failed to delete release line: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 // ListReleaseBindings retrieves all release bindings for a component
 func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error) {
 	if params == nil {

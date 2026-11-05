@@ -402,7 +402,8 @@ spec:
   endpointSelector:
     matchLabels:
       app: test
-  ingress: []
+  ingress:
+  - {}
 `)
 }
 

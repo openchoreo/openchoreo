@@ -1,6 +1,8 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +28,14 @@ class CommonSettings(BaseSettings):
     oauth_token_url: str = ""
     oauth_client_id: str = ""
     oauth_client_secret: str = ""
+    oauth_client_assertion_file: str = ""
     oauth_scope: str = ""
+
+    # How the agent authenticates to the LLM endpoint: "api_key" sends the
+    # agent's static key; "azure" sends an Entra ID token for llm_token_scope,
+    # obtained through DefaultAzureCredential (workload identity on AKS).
+    llm_auth: Literal["api_key", "azure"] = "api_key"
+    llm_token_scope: str = "https://cognitiveservices.azure.com/.default"
 
     log_level: str = "INFO"
     openai_debug_logs: bool = False

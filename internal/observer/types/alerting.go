@@ -66,6 +66,11 @@ type AlertDetails struct {
 	ComponentID   string `json:"componentId"`
 	ProjectID     string `json:"projectId"`
 	EnvironmentID string `json:"environmentId"`
+	// ReleaseLine is the component's release line the alert fired for, empty for its main line.
+	// Notifications set it to main when the component has release lines.
+	ReleaseLine string `json:"releaseLine"`
+	// ReleaseLineID is the UID of that release line, empty for the main line.
+	ReleaseLineID string `json:"releaseLineId"`
 
 	// Notification channels to send alerts to
 	NotificationChannels []string `json:"notificationChannels,omitempty"`

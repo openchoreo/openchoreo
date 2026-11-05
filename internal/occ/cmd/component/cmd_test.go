@@ -181,9 +181,17 @@ func TestLogsCmd_FactoryError(t *testing.T) {
 
 func TestLogsCmd_Flags(t *testing.T) {
 	cmd := newLogsCmd(errFactory("unused"))
-	for _, name := range []string{"namespace", "project", "env", "follow", "since", "tail"} {
+	for _, name := range []string{"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected flag %q", name)
 	}
+}
+
+func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
+	cmd := newLogsCmd(errFactory("unused"))
+	require.NoError(t, cmd.ParseFlags([]string{"--release-line", "next", "--all-release-lines"}))
+	err := cmd.ValidateFlagGroups()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "none of the others can be")
 }
 
 // --- workflow subcommands ---

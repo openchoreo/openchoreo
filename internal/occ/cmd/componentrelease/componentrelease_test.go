@@ -48,8 +48,9 @@ func TestList_MultipleItems(t *testing.T) {
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
 		Items: []gen.ComponentRelease{
 			{Metadata: gen.ObjectMeta{Name: "rel-1", CreationTimestamp: &now}, Spec: &gen.ComponentReleaseSpec{Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{ComponentName: "comp-a"}}},
 			{Metadata: gen.ObjectMeta{Name: "rel-2", CreationTimestamp: &now}},
 		},
@@ -202,8 +203,9 @@ func TestPrintComponentReleases_WithSpec(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "rel-with-spec", CreationTimestamp: &now},
 			Spec: &gen.ComponentReleaseSpec{
 				Owner: struct {
-					ComponentName string `json:"componentName"`
-					ProjectName   string `json:"projectName"`
+					ComponentName string  `json:"componentName"`
+					ProjectName   string  `json:"projectName"`
+					ReleaseLine   *string `json:"releaseLine,omitempty"`
 				}{ComponentName: "comp-a", ProjectName: "proj-1"},
 			},
 		},
@@ -288,8 +290,9 @@ func TestGet_SuccessWithSpec(t *testing.T) {
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 		Spec: &gen.ComponentReleaseSpec{
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{ComponentName: "comp-a", ProjectName: "proj-1"},
 		},
 	}, nil)

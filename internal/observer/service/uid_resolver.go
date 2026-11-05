@@ -13,11 +13,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // tokenCache holds the OAuth2 access token with its expiration
@@ -30,6 +32,33 @@ var (
 	ErrResourceNotFound = errors.New("resource not found")
 	ErrScopeAuthFailed  = errors.New("observer scope resolution auth failed")
 )
+
+// clientAssertionType is the RFC 7523 assertion type for JWT client authentication.
+const clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+// NotFoundError names a search scope resource that does not exist. It matches ErrResourceNotFound.
+type NotFoundError struct {
+	// Kind is the resource kind, such as "component" or "release line".
+	Kind string
+	Name string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("%s %q not found", e.Kind, e.Name)
+}
+
+// Is reports a NotFoundError as ErrResourceNotFound.
+func (e *NotFoundError) Is(target error) bool {
+	return target == ErrResourceNotFound
+}
+
+// namedNotFound puts the kind and name of a missing resource in front of a not found error.
+func namedNotFound(err error, kind, name string) error {
+	if !errors.Is(err, ErrResourceNotFound) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", &NotFoundError{Kind: kind, Name: name}, err)
+}
 
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
@@ -78,7 +107,8 @@ func (r *ResourceUIDResolver) GetNamespaceUID(ctx context.Context, namespaceName
 	path := fmt.Sprintf("/api/v1/namespaces/%s", url.PathEscape(namespaceName))
 	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve namespace UID for namespace %q: %w", namespaceName, err)
+		return "", fmt.Errorf("failed to resolve namespace UID for namespace %q: %w", namespaceName,
+			namedNotFound(err, "namespace", namespaceName))
 	}
 
 	return uid, nil
@@ -100,7 +130,7 @@ func (r *ResourceUIDResolver) GetProjectUID(ctx context.Context, namespaceName, 
 			"failed to resolve project UID for namespace %q project %q: %w",
 			namespaceName,
 			projectName,
-			err,
+			namedNotFound(err, "project", projectName),
 		)
 	}
 
@@ -129,7 +159,7 @@ func (r *ResourceUIDResolver) GetComponentUID(
 			namespaceName,
 			projectName,
 			componentName,
-			err,
+			namedNotFound(err, "component", componentName),
 		)
 	}
 
@@ -148,7 +178,7 @@ func (r *ResourceUIDResolver) GetComponentUID(
 		projectName != "" && owner != projectName {
 		return "", fmt.Errorf(
 			"%w: component %q in namespace %q belongs to project %q, not %q",
-			ErrResourceNotFound, componentName, namespaceName, owner, projectName,
+			&NotFoundError{Kind: "component", Name: componentName}, componentName, namespaceName, owner, projectName,
 		)
 	}
 
@@ -171,11 +201,122 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 			"failed to resolve environment UID for namespace %q environment %q: %w",
 			namespaceName,
 			environmentName,
-			err,
+			namedNotFound(err, "environment", environmentName),
 		)
 	}
 
 	return uid, nil
+}
+
+// ReleaseLineScope is the release line part of a component search scope, resolved to UIDs.
+// The zero value covers the component's main line, and a scope without a component covers
+// every line.
+type ReleaseLineScope struct {
+	// UID restricts the scope to one release line.
+	UID string
+	// All covers every line of the component.
+	All bool
+}
+
+// ResolveReleaseLineScope resolves the release line of a component search scope. Without a line, a
+// component scope covers its main line, as it did before release lines, and allLines covers every
+// line.
+func (r *ResourceUIDResolver) ResolveReleaseLineScope(
+	ctx context.Context, namespaceName, componentName, releaseLineName string, allLines bool,
+) (ReleaseLineScope, error) {
+	return resolveReleaseLineScope(ctx, r, namespaceName, componentName, releaseLineName, allLines)
+}
+
+// releaseLineUIDResolver resolves a component's release line name to its UID.
+type releaseLineUIDResolver interface {
+	GetReleaseLineUID(ctx context.Context, namespaceName, componentName, releaseLineName string) (string, error)
+}
+
+func resolveReleaseLineScope(
+	ctx context.Context, r releaseLineUIDResolver, namespaceName, componentName, releaseLineName string, allLines bool,
+) (ReleaseLineScope, error) {
+	if releaseLineName == "" || releaseLineName == releaseline.MainLine {
+		return ReleaseLineScope{All: allLines && componentName != ""}, nil
+	}
+	uid, err := r.GetReleaseLineUID(ctx, namespaceName, componentName, releaseLineName)
+	return ReleaseLineScope{UID: uid}, err
+}
+
+// CheckReleaseLineApplied returns ErrReleaseLineNotSupported, naming the adapter, when the scope
+// needs release line support that the adapter did not confirm. An adapter without it matches the
+// main line only, which is still every line of a component without release lines.
+func (r *ResourceUIDResolver) CheckReleaseLineApplied(
+	ctx context.Context, namespaceName, componentName string, lines ReleaseLineScope, applied bool, adapter string,
+) error {
+	if applied || (lines.UID == "" && !lines.All) {
+		return nil
+	}
+	if lines.UID == "" {
+		hasLines, err := r.HasReleaseLines(ctx, namespaceName, componentName)
+		if err != nil {
+			return err
+		}
+		if !hasLines {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s", ErrReleaseLineNotSupported, adapter)
+}
+
+// GetReleaseLineUID resolves a component's release line name to its UID. A line of another
+// component is not found, the same as one that does not exist. The main line has no UID.
+func (r *ResourceUIDResolver) GetReleaseLineUID(ctx context.Context, namespaceName, componentName, releaseLineName string) (string, error) {
+	if releaseLineName == "" || releaseLineName == releaseline.MainLine {
+		return "", nil
+	}
+
+	// Call API: GET /api/v1/namespaces/{ns}/components/{componentName}/releaselines/{releaseLineName}
+	path := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines/%s",
+		url.PathEscape(namespaceName),
+		url.PathEscape(componentName),
+		url.PathEscape(releaseLineName))
+	uid, err := r.fetchResourceUID(ctx, path)
+	if err != nil {
+		return "", fmt.Errorf(
+			"failed to resolve release line UID for namespace %q component %q release line %q: %w",
+			namespaceName,
+			componentName,
+			releaseLineName,
+			namedNotFound(err, "release line", releaseLineName),
+		)
+	}
+
+	return uid, nil
+}
+
+// HasReleaseLines reports whether a component has release lines besides its main line.
+func (r *ResourceUIDResolver) HasReleaseLines(ctx context.Context, namespaceName, componentName string) (bool, error) {
+	// The first page lists the main line first, so a limit of one returns at most one other line.
+	path := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/releaselines?limit=1",
+		url.PathEscape(namespaceName),
+		url.PathEscape(componentName))
+	body, err := r.fetchBody(ctx, path)
+	if err != nil {
+		return false, fmt.Errorf("failed to list release lines of component %q in namespace %q: %w", componentName, namespaceName,
+			namedNotFound(err, "component", componentName))
+	}
+
+	var response struct {
+		Items []struct {
+			Metadata struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return false, fmt.Errorf("failed to decode response: %w", err)
+	}
+	for _, item := range response.Items {
+		if item.Metadata.Name != releaseline.MainLine {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // fetchResourceUID makes an HTTP GET request to the openchoreo-api and extracts data.uid
@@ -188,23 +329,54 @@ type resolvedResource struct {
 }
 
 func (r *ResourceUIDResolver) fetchResource(ctx context.Context, path string) (resolvedResource, error) {
+	body, err := r.fetchBody(ctx, path)
+	if err != nil {
+		return resolvedResource{}, err
+	}
+
+	var response struct {
+		Metadata struct {
+			UID string `json:"uid"`
+		} `json:"metadata"`
+		Spec struct {
+			Owner struct {
+				ProjectName string `json:"projectName"`
+			} `json:"owner"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return resolvedResource{}, fmt.Errorf("failed to decode response: %w", err)
+	}
+	if response.Metadata.UID == "" {
+		return resolvedResource{}, fmt.Errorf("uid not found in response")
+	}
+
+	r.logger.Debug("Resolved resource UID", "path", path, "uid", response.Metadata.UID)
+	return resolvedResource{
+		uid:          response.Metadata.UID,
+		ownerProject: response.Spec.Owner.ProjectName,
+	}, nil
+}
+
+// fetchBody GETs a path of the openchoreo-api and returns the body of a 200 response.
+func (r *ResourceUIDResolver) fetchBody(ctx context.Context, path string) ([]byte, error) {
 	// Skip API call if not configured
 	if r.config.OpenChoreoAPIURL == "" {
-		return resolvedResource{}, fmt.Errorf("openchoreo API URL not configured")
+		return nil, fmt.Errorf("openchoreo API URL not configured")
 	}
 
 	// Build request URL
 	reqURL := strings.TrimSuffix(r.config.OpenChoreoAPIURL, "/") + path
 	for attempt := 0; attempt < (r.config.MaxAuthRetry + 1); attempt++ {
-		res, err, retry := r.doFetchResourceUID(ctx, reqURL, path, attempt)
+		body, err, retry := r.doFetch(ctx, reqURL, path, attempt)
 		if retry {
 			continue
 		}
-		return res, err
+		return body, err
 	}
 	// Unreachable: every loop iteration either returns or continues (401 retry path).
 	// Kept as a defensive fallback.
-	return resolvedResource{}, fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
+	return nil, fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
 }
 
 func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string) (string, error) {
@@ -212,14 +384,14 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 	return res.uid, err
 }
 
-// doFetchResourceUID performs a single HTTP attempt to fetch a resource UID.
-// It returns (uid, err, retry) where retry=true signals the caller to retry (401 case).
-func (r *ResourceUIDResolver) doFetchResourceUID(
+// doFetch performs a single HTTP GET attempt and returns the body of a 200 response.
+// It returns (body, err, retry) where retry=true signals the caller to retry (401 case).
+func (r *ResourceUIDResolver) doFetch(
 	ctx context.Context, reqURL, path string, attempt int,
-) (resolvedResource, error, bool) {
+) ([]byte, error, bool) {
 	token, err := r.getAccessToken(ctx)
 	if err != nil {
-		return resolvedResource{}, fmt.Errorf("%w: failed to obtain access token: %w", ErrScopeAuthFailed, err), false
+		return nil, fmt.Errorf("%w: failed to obtain access token: %w", ErrScopeAuthFailed, err), false
 	}
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, r.config.Timeout)
@@ -227,7 +399,7 @@ func (r *ResourceUIDResolver) doFetchResourceUID(
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return resolvedResource{}, fmt.Errorf("failed to create request: %w", err), false
+		return nil, fmt.Errorf("failed to create request: %w", err), false
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -237,7 +409,7 @@ func (r *ResourceUIDResolver) doFetchResourceUID(
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
-		return resolvedResource{}, fmt.Errorf("request failed: %w", err), false
+		return nil, fmt.Errorf("request failed: %w", err), false
 	}
 	defer resp.Body.Close()
 
@@ -245,42 +417,14 @@ func (r *ResourceUIDResolver) doFetchResourceUID(
 	case http.StatusOK:
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return resolvedResource{}, fmt.Errorf("failed to read response body: %w", err), false
+			return nil, fmt.Errorf("failed to read response body: %w", err), false
 		}
-
 		r.logger.Debug("Raw UID resolver response", "path", path, "status", resp.StatusCode, "body", string(body))
-
-		var response struct {
-			Metadata struct {
-				UID string `json:"uid"`
-			} `json:"metadata"`
-			Spec struct {
-				Owner struct {
-					ProjectName string `json:"projectName"`
-				} `json:"owner"`
-			} `json:"spec"`
-		}
-
-		if err := json.Unmarshal(body, &response); err != nil {
-			return resolvedResource{}, fmt.Errorf("failed to decode response: %w", err), false
-		}
-
-		if response.Metadata.UID == "" {
-			return resolvedResource{}, fmt.Errorf("uid not found in response"), false
-		}
-
-		r.logger.Debug("Resolved resource UID",
-			"path", path,
-			"uid", response.Metadata.UID)
-
-		return resolvedResource{
-			uid:          response.Metadata.UID,
-			ownerProject: response.Spec.Owner.ProjectName,
-		}, nil, false
+		return body, nil, false
 
 	case http.StatusNotFound:
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return resolvedResource{}, fmt.Errorf("%w: %s", ErrResourceNotFound, path), false
+		return nil, fmt.Errorf("%w: %s", ErrResourceNotFound, path), false
 
 	case http.StatusUnauthorized:
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -293,16 +437,16 @@ func (r *ResourceUIDResolver) doFetchResourceUID(
 		if remaining > 0 {
 			r.logger.Debug("Received 401 from openchoreo-api; invalidating cached token and retrying",
 				"path", path, "attempt", attempt+1, "remaining_retries", remaining)
-			return resolvedResource{}, nil, true
+			return nil, nil, true
 		}
 
 		r.logger.Error("Received 401 from openchoreo-api and retries are exhausted",
 			"path", path, "max_auth_retry", r.config.MaxAuthRetry)
-		return resolvedResource{}, fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1), false
+		return nil, fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1), false
 
 	default:
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return resolvedResource{}, fmt.Errorf("API returned status %d", resp.StatusCode), false
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode), false
 	}
 }
 
@@ -348,12 +492,15 @@ func (r *ResourceUIDResolver) getAccessToken(ctx context.Context) (string, error
 	return token, nil
 }
 
-// fetchAccessToken performs the OAuth2 client credentials grant
+// fetchAccessToken performs the OAuth2 client credentials grant, authenticating with
+// either a client secret or a JWT client assertion read from disk.
 func (r *ResourceUIDResolver) fetchAccessToken(ctx context.Context) (string, time.Duration, error) {
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", r.config.OAuthClientID)
-	data.Set("client_secret", r.config.OAuthClientSecret)
+	if err := r.setClientAuth(data); err != nil {
+		return "", 0, err
+	}
 	if scope := strings.TrimSpace(r.config.OAuthScope); scope != "" {
 		data.Set("scope", scope)
 	}
@@ -399,4 +546,39 @@ func (r *ResourceUIDResolver) fetchAccessToken(ctx context.Context) (string, tim
 	}
 
 	return tokenResp.AccessToken, expiresIn, nil
+}
+
+// setClientAuth adds the client authentication parameters to a token request. A configured
+// client assertion file takes precedence over the client secret.
+func (r *ResourceUIDResolver) setClientAuth(data url.Values) error {
+	assertionFile := strings.TrimSpace(r.config.OAuthClientAssertionFile)
+	if assertionFile == "" {
+		data.Set("client_secret", r.config.OAuthClientSecret)
+		return nil
+	}
+
+	// The path may reference an environment variable, such as ${AZURE_FEDERATED_TOKEN_FILE}:
+	// Azure Workload Identity mounts the token at a per-pod path that only its injected
+	// variable carries.
+	path := os.ExpandEnv(assertionFile)
+	if path == "" {
+		return fmt.Errorf("client assertion file %q resolved to an empty path", assertionFile)
+	}
+
+	// Read on every token request rather than caching: platforms that project an identity
+	// token, such as Azure Workload Identity and EKS IRSA, rotate the file in place well
+	// before the pod restarts, so a cached copy would expire.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read client assertion file %q: %w", path, err)
+	}
+
+	assertion := strings.TrimSpace(string(raw))
+	if assertion == "" {
+		return fmt.Errorf("client assertion file %q is empty", path)
+	}
+
+	data.Set("client_assertion_type", clientAssertionType)
+	data.Set("client_assertion", assertion)
+	return nil
 }

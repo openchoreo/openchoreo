@@ -105,6 +105,23 @@ func TestFilterLogsByContainer(t *testing.T) {
 	assert.Equal(t, "m2", got[1].Log)
 }
 
+func TestPrintLogs_ReleaseLine(t *testing.T) {
+	// A component type may name a line's pods any way it likes.
+	logs := []client.LogEntry{{Log: "from next", Metadata: &client.LogMetadata{PodName: "hello-canary-7d9c8b6f5-abcde"}}}
+	out := testutil.CaptureStdout(t, func() {
+		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "next"})
+	})
+	assert.Contains(t, out, "from next", "the observer already restricted the logs to the line")
+}
+
+func TestPrintLogs_MainLineKeyword(t *testing.T) {
+	logs := []client.LogEntry{{Log: "from main", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
+	out := testutil.CaptureStdout(t, func() {
+		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "main"})
+	})
+	assert.Contains(t, out, "from main", "the observer already restricted the logs to the main line")
+}
+
 // --- printLogEntry ---
 
 func TestPrintLogEntry(t *testing.T) {

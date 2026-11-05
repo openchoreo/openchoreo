@@ -77,11 +77,11 @@ func TestAddJitter(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestGetStableRequeueInterval(t *testing.T) {
-	t.Run("nil interval defaults to 5m with jitter", func(t *testing.T) {
+	t.Run("nil interval defaults to 1m with jitter", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{}
 		result := getStableRequeueInterval(release)
-		if result < 5*time.Minute || result >= 6*time.Minute {
-			t.Errorf("expected result in [5m, 6m), got %v", result)
+		if result < time.Minute || result >= time.Minute+12*time.Second {
+			t.Errorf("expected result in [1m, 1m12s), got %v", result)
 		}
 	})
 

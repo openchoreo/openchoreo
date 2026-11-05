@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -93,6 +94,10 @@ type Reconciler struct {
 	// timeout again at each step. Zero disables the deadline. It is handed to the
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
+
+	// ReferencedConfigRollout limits the configuration changes that restart a component's pods
+	// to what their pod template references, instead of any change to the rendered resources.
+	ReferencedConfigRollout bool
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -116,6 +121,7 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
@@ -253,6 +259,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	releaseLine, ok, err := r.validateReleaseLine(ctx, releaseBinding)
+	if err != nil || !ok {
+		return ctrl.Result{}, err
+	}
+	var releaseLineUID string
+	if releaseLine != nil {
+		releaseLineUID = string(releaseLine.UID)
+	}
+
 	// Fetch Project object
 	project := &openchoreov1alpha1.Project{}
 	if err := r.Get(ctx, types.NamespacedName{
@@ -270,7 +285,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
+	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID)
 }
 
 // validateComponentRelease validates the ComponentRelease configuration
@@ -298,10 +313,16 @@ func (r *Reconciler) validateComponentRelease(componentRelease *openchoreov1alph
 			componentRelease.Spec.Owner.ProjectName, componentRelease.Spec.Owner.ComponentName)
 	}
 
+	if releaseBinding.Spec.Owner.ReleaseLine != componentRelease.Spec.Owner.ReleaseLine {
+		return fmt.Errorf("release binding release line %q does not match component release line %q",
+			releaseBinding.Spec.Owner.ReleaseLine, componentRelease.Spec.Owner.ReleaseLine)
+	}
+
 	return nil
 }
 
-// buildMetadataContext creates the MetadataContext from ComponentRelease, component, project, dataplane, and environment.
+// buildMetadataContext creates the MetadataContext from ComponentRelease, component, project, dataplane,
+// and environment. releaseLineUID is the UID of the release's ReleaseLine, empty without one.
 func (r *Reconciler) buildMetadataContext(
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 	component *openchoreov1alpha1.Component,
@@ -309,11 +330,13 @@ func (r *Reconciler) buildMetadataContext(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	environment *openchoreov1alpha1.Environment,
 	environmentName string,
+	releaseLineUID string,
 ) pipelinecontext.MetadataContext {
 	// Extract information
 	namespaceName := componentRelease.Namespace
 	projectName := componentRelease.Spec.Owner.ProjectName
 	componentName := componentRelease.Spec.Owner.ComponentName
+	releaseLine := componentRelease.Spec.Owner.ReleaseLine
 	componentUID := string(component.UID)
 	projectUID := string(project.UID)
 	dataPlaneName := dataPlane.Name
@@ -321,8 +344,11 @@ func (r *Reconciler) buildMetadataContext(
 	environmentUID := string(environment.UID)
 
 	// Generate base name using platform naming conventions
-	// Format: {component}-{env}-{hash}
+	// Format: {component}-{env}-{hash}, or {component}-{releaseLine}-{env}-{hash} for a release line
 	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
+	if releaseLine != "" {
+		baseName = releaseline.ObjectBaseName(componentName, releaseLine, environmentName)
+	}
 
 	// Generate namespace using platform naming conventions
 	// Format: dp-{namespace}-{project}-{env}-{hash}
@@ -353,10 +379,21 @@ func (r *Reconciler) buildMetadataContext(
 		labels.LabelKeyProjectUID:      projectUID,
 	}
 
+	if releaseLine != "" {
+		standardLabels[labels.LabelKeyReleaseLine] = releaseLine
+		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
+		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
+		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
+		// The main line selects on the component UID, so a line's pods carry it under another key.
+		delete(podSelectors, labels.LabelKeyComponentUID)
+		podSelectors[labels.LabelKeyReleaseLineComponentUID] = componentUID
+	}
+
 	return pipelinecontext.MetadataContext{
 		Name:               baseName,
 		Namespace:          namespace,
 		ComponentNamespace: namespaceName,
+		ReleaseLineName:    releaseLine,
 		Labels:             standardLabels,
 		Annotations:        map[string]string{},
 		PodSelectors:       podSelectors,
@@ -467,7 +504,8 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 // Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
-	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
+	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project,
+	releaseLineUID string) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Handle undeploy state - delete Release resources if they exist
@@ -481,7 +519,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	dataPlane := dataPlaneResult.ToDataPlane()
 
 	// Build MetadataContext with computed names
-	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
+	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment, releaseLineUID)
 
 	// Fetch default notification channel for the environment if available
 	// This will be passed to the rendering pipeline and made available in the trait CEL context
@@ -538,6 +576,20 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
 	}
 
+	// With referenced-config rollout, the pipeline keeps the pods' dp-resource-hash from the
+	// existing dataplane Release while the configuration they use is unchanged. Only Deployments
+	// and StatefulSets carry the hash.
+	var previousDataPlaneResources []map[string]any
+	wt := WorkloadType(snapshotComponentType.Spec.WorkloadType)
+	if r.ReferencedConfigRollout && (wt == WorkloadTypeDeployment || wt == WorkloadTypeStatefulSet) {
+		previousDataPlaneResources, err = r.previousDataPlaneResources(ctx, releaseBinding,
+			makeDataPlaneReleaseName(componentRelease, releaseBinding))
+		if err != nil {
+			logger.Error(err, "Failed to get the existing dataplane Release")
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -552,6 +604,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
 		ResourceDependencyItems:    resourceDepItems,
+		PreviousDataPlaneResources: previousDataPlaneResources,
 	}
 
 	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
@@ -595,7 +648,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
 		Environment:   metadataContext.EnvironmentName,
-		ComponentName: metadataContext.ComponentName,
+		ComponentName: releaseline.ComponentLineName(metadataContext.ComponentName, metadataContext.ReleaseLineName),
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
 		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
@@ -624,6 +677,33 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Create or update dataplane Release
 	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
+
+	if releaseBinding.Spec.Owner.ReleaseLine != "" {
+		for _, plane := range []struct {
+			name, releaseName string
+			resources         []openchoreov1alpha1.RenderedManifest
+		}{
+			{openchoreov1alpha1.TargetPlaneDataPlane, dpReleaseName, dataPlaneReleaseResources},
+			{openchoreov1alpha1.TargetPlaneObservabilityPlane, makeObservabilityReleaseName(componentRelease, releaseBinding), observabilityPlaneReleaseResources},
+		} {
+			collision, err := r.findReleaseLineCollision(ctx, releaseBinding, plane.releaseName, plane.name, plane.resources)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if collision != "" {
+				logger.Info(collision)
+				return blockReleaseLine(releaseBinding, ReasonReleaseLineNameCollision, collision), nil
+			}
+		}
+		overlap, err := findMainLinePodLabel(releaseBinding.Spec.Owner.ReleaseLine, dataPlaneReleaseResources)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if overlap != "" {
+			logger.Info(overlap)
+			return blockReleaseLine(releaseBinding, ReasonReleaseLinePodLabelOverlap, overlap), nil
+		}
+	}
 	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpReleaseName,
@@ -650,6 +730,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			labels.LabelKeyEnvironmentName:      releaseBinding.Spec.Environment,
 			labels.LabelKeyComponentReleaseName: componentRelease.Name,
 			labels.LabelKeyComponentReleaseUID:  string(componentRelease.UID),
+		}
+		if line := releaseBinding.Spec.Owner.ReleaseLine; line != "" {
+			dataPlaneRelease.Labels[labels.LabelKeyReleaseLine] = line
 		}
 
 		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {
@@ -974,6 +1057,9 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 				labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 			}
+			if line := releaseBinding.Spec.Owner.ReleaseLine; line != "" {
+				observabilityRelease.Labels[labels.LabelKeyReleaseLine] = line
+			}
 
 			observabilityRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
 				Owner: openchoreov1alpha1.RenderedReleaseOwner{
@@ -1088,15 +1174,59 @@ func (r *Reconciler) setReleaseSyncedCondition(
 // Release naming helper functions
 
 // makeDataPlaneReleaseName returns the name for a dataplane Release.
-// Format: {componentName}-{environment}
+// Format: releaseline.RenderedReleaseName
 func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
-	return fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	return releaseName(componentRelease, releaseBinding.Spec.Environment)
 }
 
 // makeObservabilityReleaseName returns the name for an observability plane Release.
-// Format: {componentName}-{environment}-observability
+// Format: the dataplane Release name followed by "-observability"
 func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
-	return fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	return releaseName(componentRelease, releaseBinding.Spec.Environment) + "-observability"
+}
+
+func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environment string) string {
+	owner := componentRelease.Spec.Owner
+	return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
+}
+
+// previousDataPlaneResources returns the resources of the existing dataplane Release of the
+// ReleaseBinding. It returns nil if the Release does not exist yet or is not controlled by the
+// ReleaseBinding, and skips resources that cannot be decoded. The Release is replaced after
+// rendering, so the render then goes ahead with what is available.
+func (r *Reconciler) previousDataPlaneResources(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	releaseName string,
+) ([]map[string]any, error) {
+	release := &openchoreov1alpha1.RenderedRelease{}
+	key := client.ObjectKey{Namespace: releaseBinding.Namespace, Name: releaseName}
+	if err := r.Get(ctx, key, release); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get dataplane Release %q: %w", releaseName, err)
+	}
+	if !metav1.IsControlledBy(release, releaseBinding) {
+		return nil, nil
+	}
+
+	resources := make([]map[string]any, 0, len(release.Spec.Resources))
+	for _, resource := range release.Spec.Resources {
+		if resource.Object == nil || len(resource.Object.Raw) == 0 {
+			continue
+		}
+		// Decode with encoding/json rather than unstructured, which turns whole numbers into int64.
+		// The pipeline compares against a JSON copy of the current render, which has float64 numbers.
+		var obj map[string]any
+		if err := json.Unmarshal(resource.Object.Raw, &obj); err != nil {
+			continue
+		}
+		if obj != nil {
+			resources = append(resources, obj)
+		}
+	}
+	return resources, nil
 }
 
 // Helper functions to build snapshot structures from ComponentRelease
@@ -1597,6 +1727,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Pipeline = componentpipeline.NewPipeline(
 			componentpipeline.WithCostLimit(r.CELCostLimit),
 			componentpipeline.WithRenderTimeout(r.RenderTimeout),
+			componentpipeline.WithReferencedConfigRollout(r.ReferencedConfigRollout),
 		)
 	}
 
@@ -1622,6 +1753,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
+		Watches(&openchoreov1alpha1.ReleaseLine{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

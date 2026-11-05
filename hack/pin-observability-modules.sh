@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODULES_REPO="oci://ghcr.io/openchoreo/helm-charts"
+MODULES_REPO="${MODULES_REPO:-oci://ghcr.io/openchoreo/helm-charts}"
 
 # chart|flag|shell var|make var ("-" = not tracked there)
 MODULES="observability-logs-opensearch|--logs-opensearch-version|LOGS_OPENSEARCH_VERSION|OBSERVABILITY_LOGS_OPENSEARCH_VERSION

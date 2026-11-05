@@ -28,7 +28,7 @@ type RenderedReleaseSpec struct {
 	Resources []RenderedManifest `json:"resources,omitempty"`
 
 	// Interval watch interval for the release resources when stable.
-	// Defaults to 5m if not specified.
+	// Defaults to 1m if not specified.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional

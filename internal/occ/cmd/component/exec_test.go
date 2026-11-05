@@ -34,6 +34,18 @@ func TestBuildExecWebSocketURL(t *testing.T) {
 			wantPath:   "/exec/namespaces/default/components/my-service",
 		},
 		{
+			name: "release line is passed through",
+			base: "http://localhost:8080",
+			params: ExecParams{
+				Namespace:   "default",
+				Component:   "hello",
+				ReleaseLine: "next",
+			},
+			wantScheme: "ws://",
+			wantPath:   "/exec/namespaces/default/components/hello",
+			wantKeys:   []string{"releaseLine"},
+		},
+		{
 			name: "https converts to wss",
 			base: "https://api.example.com",
 			params: ExecParams{

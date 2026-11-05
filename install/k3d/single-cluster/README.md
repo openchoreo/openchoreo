@@ -69,11 +69,11 @@ Single install, watches Gateway resources across all namespaces.
 ```bash
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-control-plane \
-  --version v2.3.1
+  --version v2.3.11
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-control-plane --create-namespace \
-  --version v2.3.1
+  --version v2.3.11
 ```
 
 ## 3. Setup Control Plane
@@ -430,6 +430,8 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
+  secretStoreRef:
+    name: default
 EOF
 ```
 

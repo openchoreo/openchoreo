@@ -556,3 +556,18 @@ func TestWebhook_FinOpsWithEmptyAlertValue(t *testing.T) {
 	assert.Eventually(t, func() bool { return f.finOpsCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
 		"expected 1 FinOps call even with empty alert value")
 }
+
+func TestBuildAlertDetails_ReleaseLine(t *testing.T) {
+	svc := &AlertService{}
+	rule := testAlertRule("payments-next-prod-high-error-rate", false, false)
+	rule.Labels[labels.LabelKeyReleaseLine] = "next"
+
+	details := svc.buildAlertDetails(webhookReq(rule.Name), rule)
+	assert.Equal(t, "next", details.ReleaseLine)
+	assert.Equal(t, "next", details.ToMap()["releaseLine"], "notification templates can reference releaseLine")
+
+	delete(rule.Labels, labels.LabelKeyReleaseLine)
+	details = svc.buildAlertDetails(webhookReq(rule.Name), rule)
+	assert.Empty(t, details.ReleaseLine)
+	assert.Contains(t, details.ToMap(), "releaseLine", "always present so templates never hit a missing key")
+}

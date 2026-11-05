@@ -19,6 +19,10 @@ on:
         description: 'Prerelease identifier (e.g. rc.1, beta.2)'
         required: false
         type: string
+      target_branch:
+        description: 'Branch to bump instead of auto-detecting release-v<major>.<minor>'
+        required: false
+        type: string
 
 concurrency:
   group: prepare-next-version-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
@@ -33,7 +37,7 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
@@ -55,6 +59,7 @@ jobs:
           IN_MINOR: ${{ github.event.inputs.minor }}
           IN_PATCH: ${{ github.event.inputs.patch }}
           IN_PRERELEASE: ${{ github.event.inputs.pre_release_id || '' }}
+          IN_TARGET_BRANCH: ${{ github.event.inputs.target_branch || '' }}
         run: |
           MAJOR="$IN_MAJOR"
           MINOR="$IN_MINOR"
@@ -75,7 +80,14 @@ jobs:
             VERSION="${VERSION}-${PRERELEASE}"
           fi
 
-          if git ls-remote --exit-code origin "refs/heads/release-v${MAJOR}.${MINOR}" 2>/dev/null; then
+          if [ -n "$IN_TARGET_BRANCH" ] && ! git check-ref-format --branch "$IN_TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "::error::invalid target_branch: ${IN_TARGET_BRANCH}"
+            exit 1
+          fi
+
+          if [ -n "$IN_TARGET_BRANCH" ]; then
+            TARGET="$IN_TARGET_BRANCH"
+          elif git ls-remote --exit-code origin "refs/heads/release-v${MAJOR}.${MINOR}" 2>/dev/null; then
             TARGET="release-v${MAJOR}.${MINOR}"
           else
             TARGET="main"

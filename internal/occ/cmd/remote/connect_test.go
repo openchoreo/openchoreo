@@ -689,7 +689,7 @@ func TestConnectEndToEndEndpointDependency(t *testing.T) {
 	resp := &remoteconnect.ResolveResponse{
 		Capability: "test-capability",
 		Targets: []remoteconnect.ResolvedTarget{{
-			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", httpEndpointName),
+			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", "", httpEndpointName),
 			Proto: "tcp",
 			Endpoint: &remoteconnect.EndpointRender{
 				Scheme:   httpEndpointName,
@@ -971,7 +971,7 @@ func TestConnectAnnouncesAttemptNotSuccessWhenDialFails(t *testing.T) {
 	resp := &remoteconnect.ResolveResponse{
 		Capability: "cap",
 		Targets: []remoteconnect.ResolvedTarget{{
-			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", httpEndpointName),
+			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", "", httpEndpointName),
 			Proto: "tcp",
 			Endpoint: &remoteconnect.EndpointRender{
 				Scheme: httpEndpointName,
@@ -1026,7 +1026,7 @@ func TestConnectAnnouncesEachWorkloadOnce(t *testing.T) {
 	resp := &remoteconnect.ResolveResponse{
 		Capability: "cap",
 		Targets: []remoteconnect.ResolvedTarget{{
-			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", httpEndpointName),
+			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", "", httpEndpointName),
 			Proto: "tcp",
 			Endpoint: &remoteconnect.EndpointRender{
 				Scheme: httpEndpointName,
@@ -1077,7 +1077,7 @@ func TestConnectFetchesRouteToNamedAgentAcrossMultipleAgents(t *testing.T) {
 		Capability: "cap",
 		// The only target belongs to the endpoint's agent, in another project.
 		Targets: []remoteconnect.ResolvedTarget{{
-			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", httpEndpointName),
+			Key:   remoteconnect.EndpointTargetKey("finance", "ledger-svc", "", httpEndpointName),
 			Proto: "tcp",
 			Endpoint: &remoteconnect.EndpointRender{
 				Scheme:   httpEndpointName,
@@ -1171,7 +1171,7 @@ func printEnvSecretCase(t *testing.T, showSecrets bool, confirm func(names []str
 	resp := &remoteconnect.ResolveResponse{
 		Capability: "test-capability",
 		Targets: []remoteconnect.ResolvedTarget{{
-			Key:      remoteconnect.EndpointTargetKey("finance", "ledger-svc", httpEndpointName),
+			Key:      remoteconnect.EndpointTargetKey("finance", "ledger-svc", "", httpEndpointName),
 			Proto:    "tcp",
 			Endpoint: &remoteconnect.EndpointRender{Scheme: httpEndpointName},
 			AgentID:  agentID,

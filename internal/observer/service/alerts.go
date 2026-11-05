@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,6 +27,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	legacytypes "github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 const (
@@ -347,6 +349,8 @@ func (s *AlertService) buildAlertDetails(req internalgen.AlertWebhookRequest, al
 		Component:        alertRule.Labels[labels.LabelKeyComponentName],
 		Project:          alertRule.Labels[labels.LabelKeyProjectName],
 		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
+		ReleaseLine:      alertRule.Labels[labels.LabelKeyReleaseLine],
+		ReleaseLineID:    alertRule.Labels[labels.LabelKeyReleaseLineUID],
 	}
 
 	alertDetails.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
@@ -405,6 +409,8 @@ func (s *AlertService) buildAlertEntry(alertDetails *legacytypes.AlertDetails, r
 		ComponentID:          alertDetails.ComponentID,
 		EnvironmentID:        alertDetails.EnvironmentID,
 		ProjectID:            alertDetails.ProjectID,
+		ReleaseLineName:      alertDetails.ReleaseLine,
+		ReleaseLineID:        alertDetails.ReleaseLineID,
 		IncidentEnabled:      alertDetails.IncidentEnabled,
 		Severity:             string(alertRule.Spec.Severity),
 		Description:          alertRule.Spec.Description,
@@ -461,6 +467,8 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 		ComponentID:           alertDetails.ComponentID,
 		EnvironmentID:         alertDetails.EnvironmentID,
 		ProjectID:             alertDetails.ProjectID,
+		ReleaseLineName:       alertDetails.ReleaseLine,
+		ReleaseLineID:         alertDetails.ReleaseLineID,
 	}); err != nil {
 		s.logger.Warn("Failed to store incident entry", "error", err, "alertID", alertID)
 	}
@@ -470,9 +478,28 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 func (s *AlertService) sendNotificationAsync(alertID string, alertDetails *legacytypes.AlertDetails) {
 	notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := s.sendAlertNotification(notifCtx, alertDetails); err != nil {
+	if err := s.sendAlertNotification(notifCtx, s.notificationDetails(notifCtx, alertDetails)); err != nil {
 		s.logger.Warn("Failed to send alert notification", "error", err, "alertID", alertID)
 	}
+}
+
+// notificationDetails names the main line in a notification when the component has release lines.
+func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *legacytypes.AlertDetails) *legacytypes.AlertDetails {
+	if alertDetails.ReleaseLine != "" || alertDetails.Component == "" || s.resolver == nil {
+		return alertDetails
+	}
+	hasLines, err := s.resolver.HasReleaseLines(ctx, alertDetails.Namespace, alertDetails.Component)
+	if err != nil {
+		s.logger.Warn("Failed to check the release lines of the alert's component", "error", err,
+			"namespace", alertDetails.Namespace, "component", alertDetails.Component)
+		return alertDetails
+	}
+	if !hasLines {
+		return alertDetails
+	}
+	details := *alertDetails
+	details.ReleaseLine = releaseline.MainLine
+	return &details
 }
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
@@ -486,35 +513,34 @@ func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *
 	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels, s.getNotificationChannelConfig, s.logger)
 }
 
-// getNotificationChannelConfig reads the K8s ConfigMap/Secret for the notification channel.
-func (s *AlertService) getNotificationChannelConfig(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error) {
+// getNotificationChannelConfig reads the K8s ConfigMap/Secret of the notification channel. The controller
+// applies both to the observability plane in the channel's namespace, named after the channel. Channel names
+// are unique only within a namespace, so the channel is looked up in the namespace of the alert.
+func (s *AlertService) getNotificationChannelConfig(ctx context.Context, namespace, channelName string) (*notifications.NotificationChannelConfig, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
-
-	labelSelector := client.MatchingLabels{
-		labels.LabelKeyNotificationChannelName: channelName,
+	if namespace == "" {
+		return nil, fmt.Errorf("the alert has no namespace to look up notification channel %q in", channelName)
 	}
 
-	configMapList := &corev1.ConfigMapList{}
-	if err := s.k8sClient.List(ctx, configMapList, labelSelector); err != nil {
-		return nil, fmt.Errorf("failed to list ConfigMaps: %w", err)
-	}
-	if len(configMapList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find notification channel ConfigMap with label %s=%s",
-			labels.LabelKeyNotificationChannelName, channelName)
-	}
-	configMap := configMapList.Items[0].DeepCopy()
+	key := client.ObjectKey{Namespace: namespace, Name: channelName}
 
-	secretList := &corev1.SecretList{}
-	if err := s.k8sClient.List(ctx, secretList, labelSelector); err != nil {
-		return nil, fmt.Errorf("failed to list Secrets: %w", err)
+	configMap := &corev1.ConfigMap{}
+	if err := s.k8sClient.Get(ctx, key, configMap); err != nil {
+		return nil, fmt.Errorf("failed to get notification channel ConfigMap %s: %w", key, err)
 	}
-	if len(secretList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find notification channel Secret with label %s=%s",
-			labels.LabelKeyNotificationChannelName, channelName)
+	if configMap.Labels[labels.LabelKeyNotificationChannelName] != channelName {
+		return nil, fmt.Errorf("notification channel ConfigMap %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
 	}
-	secret := secretList.Items[0].DeepCopy()
+
+	secret := &corev1.Secret{}
+	if err := s.k8sClient.Get(ctx, key, secret); err != nil {
+		return nil, fmt.Errorf("failed to get notification channel Secret %s: %w", key, err)
+	}
+	if secret.Labels[labels.LabelKeyNotificationChannelName] != channelName {
+		return nil, fmt.Errorf("notification channel Secret %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
+	}
 
 	channelType := configMap.Data["type"]
 	if channelType == "" {
@@ -579,6 +605,8 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 			"rule":      ruleInfo,
 		},
 	}
+	// An alert without a release line comes from the component's main line.
+	rcaPayload["release_line"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
 
 	payloadBytes, err := json.Marshal(rcaPayload)
 	if err != nil {
@@ -611,14 +639,21 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 		}
 	}
 
+	searchScope := map[string]interface{}{
+		"component":   alertDetails.Component,
+		"namespace":   alertDetails.Namespace,
+		"project":     alertDetails.Project,
+		"environment": alertDetails.Environment,
+	}
+	// An alert without a release line comes from the component's main line.
+	searchScope["releaseLine"] = cmp.Or(alertDetails.ReleaseLine, releaseline.MainLine)
+	// The agent names the ReleaseBinding to right-size, and can't derive a line's binding name itself.
+	searchScope["releaseBinding"] = releaseline.ScopedName(alertDetails.Component,
+		releaseline.Normalize(alertDetails.ReleaseLine), alertDetails.Environment)
+
 	// Build the FinOps analysis payload
 	finOpsPayload := map[string]interface{}{
-		"searchScope": map[string]interface{}{
-			"component":   alertDetails.Component,
-			"namespace":   alertDetails.Namespace,
-			"project":     alertDetails.Project,
-			"environment": alertDetails.Environment,
-		},
+		"searchScope": searchScope,
 		"budgetedCost": map[string]interface{}{
 			"amount":   float64(alertRule.Spec.Condition.Threshold),
 			"period":   alertRule.Spec.Condition.Window.Duration.String(),

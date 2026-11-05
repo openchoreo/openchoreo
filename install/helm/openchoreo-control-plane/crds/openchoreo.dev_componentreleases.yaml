@@ -499,6 +499,19 @@ spec:
                       this component
                     minLength: 1
                     type: string
+                  releaseLine:
+                    description: |-
+                      ReleaseLine names the ReleaseLine this resource belongs to.
+                      Empty for the component's main line, which is implicit and has no ReleaseLine.
+                    maxLength: 63
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: main is the implicit line; omit releaseLine for it
+                      rule: self != 'main'
+                    - message: default is a reserved name; omit releaseLine for the
+                        main line
+                      rule: self != 'default'
                 required:
                 - componentName
                 - projectName
@@ -1095,6 +1108,20 @@ spec:
                                 If empty, defaults to the same project as the consumer.
                                 Required when namespace is specified.
                               type: string
+                            releaseLine:
+                              description: |-
+                                ReleaseLine is the target component's release line. Empty targets its main line.
+                                It never follows the consumer's own line.
+                              maxLength: 63
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                              x-kubernetes-validations:
+                              - message: main is the implicit line; omit releaseLine
+                                  for it
+                                rule: self != 'main'
+                              - message: default is a reserved name; omit releaseLine
+                                  for the main line
+                                rule: self != 'default'
                             visibility:
                               description: Visibility is the visibility level at which
                                 this connection consumes the endpoint.

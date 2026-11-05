@@ -12,6 +12,7 @@ rules:
   resources:
   - projects
   - components
+  - releaselines
   - workloads
   - environments
   - dataplanes

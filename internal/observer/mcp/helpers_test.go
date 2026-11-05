@@ -201,3 +201,27 @@ func TestValidateGranularity(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateComponentLineScope(t *testing.T) {
+	tests := []struct {
+		name                 string
+		component, env, line string
+		all                  bool
+		wantErr              bool
+	}{
+		{name: "no line", component: "", env: "", line: ""},
+		{name: "line with component and environment", component: "comp", env: "dev", line: "next"},
+		{name: "line without environment", component: "comp", env: "", line: "next", wantErr: true},
+		{name: "line without component", component: "", env: "dev", line: "next", wantErr: true},
+		{name: "every line", component: "comp", env: "dev", all: true},
+		{name: "every line and a line", component: "comp", env: "dev", line: "next", all: true, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateComponentLineScope("ns", "proj", tt.component, tt.env, tt.line, tt.all)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateComponentLineScope() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

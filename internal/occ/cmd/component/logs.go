@@ -116,7 +116,7 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	printLogs(logs, params.Container)
+	printLogs(logs, params)
 
 	return nil
 }
@@ -143,9 +143,9 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 }
 
 // printLogs prints the entries, restricting to a single container when requested.
-func printLogs(logs []client.LogEntry, container string) {
-	if container != "" {
-		logs = filterLogsByContainer(logs, container)
+func printLogs(logs []client.LogEntry, params LogsParams) {
+	if params.Container != "" {
+		logs = filterLogsByContainer(logs, params.Container)
 	}
 	for _, log := range logs {
 		printLogEntry(log)
@@ -185,7 +185,7 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	printLogs(logs, params.Container)
+	printLogs(logs, params)
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
@@ -223,7 +223,7 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			printLogs(logs, params.Container)
+			printLogs(logs, params)
 
 			// Update startTime
 			if len(logs) > 0 {
@@ -263,6 +263,8 @@ func (cp *Component) fetchLogs(
 		ProjectName:     params.Project,
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
+		ReleaseLine:     params.ReleaseLine,
+		AllReleaseLines: params.AllReleaseLines,
 		Limit:           int64(params.Tail),
 		SortOrder:       sortOrder,
 		LogType:         "runtime",

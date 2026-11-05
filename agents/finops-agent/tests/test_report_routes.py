@@ -346,3 +346,56 @@ def test_update_ignores_already_dismissed_action(app):
 
     assert resp.status_code == 200
     assert backend._state["actions"][0]["status"] == "dismissed"
+
+
+# ------------------------------------------------------------------ release line
+
+
+def test_list_reports_passes_and_returns_release_line(app):
+    backend = AsyncMock()
+    backend.list_reports.return_value = {
+        "reports": [
+            {
+                "reportId": "r1",
+                "namespace": "ns",
+                "project": "proj",
+                "environment": "dev",
+                "component": "comp",
+                "releaseLine": "canary",
+                "timestamp": "2026-06-16T00:00:00Z",
+                "summary": "s",
+                "status": "completed",
+            }
+        ],
+        "totalCount": 1,
+    }
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get(
+            "/api/v1alpha1/reports?namespace=ns&project=proj&component=comp&releaseLine=canary"
+        )
+
+    assert resp.status_code == 200
+    assert backend.list_reports.await_args.kwargs["release_line"] == "canary"
+    assert resp.json()["reports"][0]["releaseLine"] == "canary"
+
+
+def test_get_report_returns_release_line(app):
+    backend = AsyncMock()
+    backend.get_report.return_value = {
+        "reportId": "r1",
+        "namespace": "ns",
+        "project": "proj",
+        "environment": "dev",
+        "component": "comp",
+        "releaseLine": "canary",
+        "@timestamp": "2026-06-16T00:00:00Z",
+        "status": "completed",
+        "report": {"summary": "s"},
+    }
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).get("/api/v1alpha1/reports/r1")
+
+    assert resp.status_code == 200
+    assert resp.json()["releaseLine"] == "canary"

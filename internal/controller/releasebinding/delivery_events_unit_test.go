@@ -112,6 +112,7 @@ func makeDeliveryDeployment() *unstructured.Unstructured {
 		labels.LabelKeyProjectUID:                "project-uid-1",
 		labels.LabelKeyComponentUID:              "component-uid-1",
 		labels.LabelKeyEnvironmentUID:            "environment-uid-1",
+		labels.LabelKeyReleaseLineUID:            "release-line-uid-1",
 	})
 	return obj
 }
@@ -311,6 +312,9 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 			payload.EnvironmentUID != "environment-uid-1" {
 			t.Errorf("payload scope UIDs = %q/%q/%q, want stamped label values",
 				payload.ProjectUID, payload.ComponentUID, payload.EnvironmentUID)
+		}
+		if payload.ReleaseLineUID != "release-line-uid-1" {
+			t.Errorf("payload releaseLineUid = %q, want the stamped label value", payload.ReleaseLineUID)
 		}
 		if payload.Phase != "Started" {
 			t.Errorf("payload phase = %q, want Started", payload.Phase)

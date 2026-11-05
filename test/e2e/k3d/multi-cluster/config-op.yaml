@@ -44,3 +44,7 @@ registries:
       "cr.openchoreo.dev":
         endpoint:
           - https://ghcr.io
+      "o2cr.ai":
+        endpoint:
+          - https://o2cr.ai
+          - https://registry-1.docker.io

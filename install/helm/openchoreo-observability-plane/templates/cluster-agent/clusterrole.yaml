@@ -26,10 +26,14 @@ rules:
   - jobs
   - cronjobs
   verbs: ["get", "list"]
+# External Secrets Operator. Notification channels sync their secrets from the
+# plane's ClusterSecretStore through an ExternalSecret, and the secret API
+# pushes values into that store through a PushSecret.
 - apiGroups: ["external-secrets.io"]
   resources:
   - externalsecrets
-  verbs: ["get", "list"]
+  - pushsecrets
+  verbs: ["*"]
 # Deployment scale subresource (required for kubectl scale)
 - apiGroups: ["apps"]
   resources:

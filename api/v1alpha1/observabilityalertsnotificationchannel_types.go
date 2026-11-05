@@ -24,18 +24,32 @@ const (
 
 // SecretValueFrom defines how to obtain a secret value
 type SecretValueFrom struct {
-	// SecretKeyRef references a specific key in a Kubernetes secret
+	// SecretKeyRef references a secret value by name and key.
+	// The name refers to a SecretReference in the channel's namespace, and the key to one of
+	// its spec.data[].secretKey entries. The value is synced to the observability plane from
+	// the plane's secret store.
+	// If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+	// channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
 	// +optional
 	SecretKeyRef *SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 // EmailConfig defines the configuration for email notification channels
 type EmailConfig struct {
-	// From is the sender email address
+	// From is the sender email address. It must be a bare address (no display name) since it
+	// is also used as the SMTP envelope sender. Use FromName to set a display name.
 	// Required when type is "email"
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
 	From string `json:"from"`
+
+	// FromName is an optional display name for the sender. When set, the From header of
+	// alert emails is rendered as "FromName <from>". The SMTP envelope sender is always the
+	// bare From address.
+	// +optional
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:Pattern=`^[^\r\n]*$`
+	FromName string `json:"fromName,omitempty"`
 
 	// To is the list of recipient email addresses
 	// Required when type is "email"
@@ -108,6 +122,13 @@ type EmailTemplate struct {
 	// Example: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
 	// +kubebuilder:validation:Required
 	Body string `json:"body"`
+
+	// ContentType specifies the MIME type of the rendered email body.
+	// Supported values are "text/plain" and "text/html".
+	// +kubebuilder:validation:Enum=text/plain;text/html
+	// +kubebuilder:default=text/plain
+	// +optional
+	ContentType string `json:"contentType,omitempty"`
 }
 
 // WebhookHeaderValue defines a header value that can be provided inline or via secret reference
@@ -196,11 +217,22 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 type ObservabilityAlertsNotificationChannelStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// ObservedGeneration is the generation observed by the controller
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of the notification channel's state
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Notifications",type=integer,JSONPath=`.status.notificationCount`
 
@@ -225,4 +257,14 @@ type ObservabilityAlertsNotificationChannelList struct {
 
 func init() {
 	SchemeBuilder.Register(&ObservabilityAlertsNotificationChannel{}, &ObservabilityAlertsNotificationChannelList{})
+}
+
+// GetConditions returns the conditions of the ObservabilityAlertsNotificationChannel.
+func (c *ObservabilityAlertsNotificationChannel) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+// SetConditions sets the conditions of the ObservabilityAlertsNotificationChannel.
+func (c *ObservabilityAlertsNotificationChannel) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
 }

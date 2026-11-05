@@ -43,6 +43,8 @@ type IncidentEntry struct {
 	ComponentID           string
 	EnvironmentID         string
 	ProjectID             string
+	ReleaseLineName       string
+	ReleaseLineID         string
 }
 
 // ErrIncidentNotFound is returned when an incident with the given ID does not exist.
@@ -59,8 +61,12 @@ type QueryParams struct {
 	ProjectID     string
 	ComponentID   string
 	EnvironmentID string
-	Limit         int
-	SortOrder     string
+	ReleaseLineID string
+	// AllReleaseLines covers every line of the component. Without it, a component covers its
+	// main line.
+	AllReleaseLines bool
+	Limit           int
+	SortOrder       string
 }
 
 // IncidentEntryStore defines lifecycle and write operations for incident persistence.

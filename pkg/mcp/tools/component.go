@@ -11,6 +11,7 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 //nolint:dupl // paginated list handlers share similar structure
@@ -254,11 +255,14 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 			"one. To promote a component to a new environment, create(or update) the release binding " +
 			"in the target environment with the desired component release. If the project's deployment " +
 			"pipeline promotes into that environment, the release must already be bound in a source " +
-			"environment for the same component and project, otherwise the request is rejected.",
+			"environment for the same component and project, otherwise the request is rejected. Each " +
+			"release line of a component has its own binding per environment: set release_line for a line " +
+			"other than main, and bind a release of that line.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": defaultStringProperty(),
+			"release_line":   releaseLineProperty(),
 			"environment":    stringProperty("Target environment name"),
 			"release_name":   stringProperty("Name of the component release to bind"),
 			"component_type_environment_configs": map[string]any{
@@ -282,6 +286,7 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 		NamespaceName                   string                 `json:"namespace_name"`
 		ProjectName                     string                 `json:"project_name"`
 		ComponentName                   string                 `json:"component_name"`
+		ReleaseLine                     string                 `json:"release_line"`
 		Environment                     string                 `json:"environment"`
 		ReleaseName                     string                 `json:"release_name"`
 		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_environment_configs"`
@@ -291,12 +296,16 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]
 		createReq := &gen.ReleaseBindingSpec{
 			Environment: args.Environment,
 			Owner: struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{
 				ComponentName: args.ComponentName,
 				ProjectName:   args.ProjectName,
 			},
+		}
+		if line := releaseline.Normalize(args.ReleaseLine); line != "" {
+			createReq.Owner.ReleaseLine = &line
 		}
 		if args.ReleaseName != "" {
 			createReq.ReleaseName = &args.ReleaseName
@@ -526,11 +535,13 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPe
 			"Use this for components that follow the from-image approach (i.e., they do not use workflows to " +
 			"build images from source). For components that use workflows to build from source, the workload " +
 			"is generated automatically; use update_workload to modify it if the source repository does not " +
-			"contain a workload descriptor (workload.yaml). " +
+			"contain a workload descriptor (workload.yaml). Each release line has its own workload: set " +
+			"release_line for a line other than main. " +
 			"Use get_workload_schema to see the full workload_spec structure before calling this tool.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
+			"release_line":   releaseLineProperty(),
 			"workload_spec": map[string]any{
 				"type":        "object",
 				"description": "Workload specification (containers, resources, env vars, etc.)",
@@ -539,10 +550,11 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPe
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
 		ComponentName string                 `json:"component_name"`
+		ReleaseLine   string                 `json:"release_line"`
 		WorkloadSpec  map[string]interface{} `json:"workload_spec"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.CreateWorkload(
-			ctx, args.NamespaceName, args.ComponentName, args.WorkloadSpec)
+			ctx, args.NamespaceName, args.ComponentName, releaseline.Normalize(args.ReleaseLine), args.WorkloadSpec)
 		return handleToolResult(result, err)
 	})
 }
@@ -621,21 +633,25 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server, perms map[string]To
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
 		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
-			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping.",
+			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping. " +
+			"Set release_line to build a line other than main: the line's workflow " +
+			"parameters are merged onto the component's, and the build updates the line's workload.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": defaultStringProperty(),
+			"release_line":   releaseLineProperty(),
 			"commit":         stringProperty("Optional: Git commit SHA to use for the workflow run"),
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
 		ProjectName   string `json:"project_name"`
 		ComponentName string `json:"component_name"`
+		ReleaseLine   string `json:"release_line"`
 		Commit        string `json:"commit"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.BuildToolset.TriggerWorkflowRun(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit)
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit, releaseline.Normalize(args.ReleaseLine))
 		return handleToolResult(result, err)
 	})
 }

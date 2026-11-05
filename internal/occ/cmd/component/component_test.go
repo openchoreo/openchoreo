@@ -18,6 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 func TestFindLowestEnvironment(t *testing.T) {
@@ -333,8 +334,9 @@ func TestMergeOverridesWithBinding(t *testing.T) {
 			Spec: &gen.ReleaseBindingSpec{
 				Environment: env,
 				Owner: struct {
-					ComponentName string `json:"componentName"`
-					ProjectName   string `json:"projectName"`
+					ComponentName string  `json:"componentName"`
+					ProjectName   string  `json:"projectName"`
+					ReleaseLine   *string `json:"releaseLine,omitempty"`
 				}{
 					ComponentName: "my-comp",
 					ProjectName:   "my-proj",
@@ -520,6 +522,45 @@ func TestDelete_Success(t *testing.T) {
 	assert.Contains(t, out, "Component 'my-comp' deleted")
 }
 
+// --- Release line get and delete tests ---
+
+func TestGetReleaseLine_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetComponentReleaseLine(mock.Anything, "ns", "hello", lineNext).Return(&gen.ReleaseLine{
+		Metadata: gen.ObjectMeta{Name: lineNext},
+	}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.GetReleaseLine(ReleaseLineParams{Namespace: "ns", ComponentName: "hello", ReleaseLineName: lineNext}))
+	})
+	assert.Contains(t, out, "name: next")
+}
+
+func TestGetReleaseLine_APIError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetComponentReleaseLine(mock.Anything, "ns", "hello", lineNext).Return(nil, fmt.Errorf("not found: next"))
+
+	cp := New(mc)
+	assert.EqualError(t, cp.GetReleaseLine(ReleaseLineParams{Namespace: "ns", ComponentName: "hello", ReleaseLineName: lineNext}), "not found: next")
+}
+
+func TestDeleteReleaseLine_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().DeleteComponentReleaseLine(mock.Anything, "ns", "hello", lineNext).Return(nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.DeleteReleaseLine(ReleaseLineParams{Namespace: "ns", ComponentName: "hello", ReleaseLineName: lineNext}))
+	})
+	assert.Contains(t, out, "Release line 'next' of component 'hello' deleted")
+}
+
+func TestDeleteReleaseLine_MissingNamespace(t *testing.T) {
+	cp := New(mocks.NewMockInterface(t))
+	require.Error(t, cp.DeleteReleaseLine(ReleaseLineParams{ComponentName: "hello", ReleaseLineName: lineNext}))
+}
+
 // --- StartWorkflow tests ---
 
 func TestStartWorkflow_MissingNamespace(t *testing.T) {
@@ -616,6 +657,78 @@ func TestStartWorkflow_ProjectDerivedFromComponent(t *testing.T) {
 }
 
 // --- ListWorkflowRuns tests ---
+
+func TestListReleaseLines_MissingNamespace(t *testing.T) {
+	cp := New(mocks.NewMockInterface(t))
+	assert.EqualError(t, cp.ListReleaseLines(ListReleaseLinesParams{ComponentName: "hello"}), "namespace is required")
+}
+
+func TestListReleaseLines_APIError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	cp := New(mc)
+	assert.EqualError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}), "server error")
+}
+
+func TestListReleaseLines_Success(t *testing.T) {
+	release, ready := "hello-next-fc84488f9", true
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.Anything).Return(&gen.ReleaseLineList{
+		Items: []gen.ReleaseLine{
+			{Metadata: gen.ObjectMeta{Name: "main"}},
+			{Metadata: gen.ObjectMeta{Name: "next"}, Status: &gen.ReleaseLineStatus{Environments: &[]gen.ReleaseLineEnvironment{
+				{Environment: "development", ReleaseBinding: "hello-next-development", Release: &release, Ready: &ready},
+				{Environment: "staging", ReleaseBinding: "hello-next-staging"},
+			}}},
+		},
+	}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
+	})
+
+	assert.Regexp(t, `main\s+-\s+-\s+-`, out)
+	assert.Regexp(t, `next\s+development\s+hello-next-fc84488f9\s+True`, out)
+	assert.Regexp(t, `next\s+staging\s+False`, out)
+}
+
+func TestListReleaseLines_FollowsCursor(t *testing.T) {
+	next := "page-2"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.ReleaseLineList{
+		Items:      []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "main"}}},
+		Pagination: gen.Pagination{NextCursor: &next},
+	}, nil)
+	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.MatchedBy(func(p *gen.ListComponentReleaseLinesParams) bool {
+		return p.Cursor != nil && *p.Cursor == next
+	})).Return(&gen.ReleaseLineList{
+		Items: []gen.ReleaseLine{{Metadata: gen.ObjectMeta{Name: "next"}}},
+	}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
+	})
+
+	assert.Contains(t, out, "main")
+	assert.Contains(t, out, "next")
+}
+
+func TestListReleaseLines_Empty(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListComponentReleaseLines(mock.Anything, "ns", "hello", mock.Anything).Return(&gen.ReleaseLineList{Items: []gen.ReleaseLine{}}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.ListReleaseLines(ListReleaseLinesParams{Namespace: "ns", ComponentName: "hello"}))
+	})
+
+	assert.Contains(t, out, "No release lines found")
+}
 
 func TestListWorkflowRuns_MissingNamespace(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
@@ -795,8 +908,9 @@ func TestDeploy_Promote_Success(t *testing.T) {
 				Spec: &gen.ReleaseBindingSpec{
 					Environment: "dev",
 					Owner: struct {
-						ComponentName string `json:"componentName"`
-						ProjectName   string `json:"projectName"`
+						ComponentName string  `json:"componentName"`
+						ProjectName   string  `json:"projectName"`
+						ReleaseLine   *string `json:"releaseLine,omitempty"`
 					}{ComponentName: "my-comp"},
 					ReleaseName: makeReleaseName(relName),
 				},
@@ -864,8 +978,9 @@ func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 				Spec: &gen.ReleaseBindingSpec{
 					Environment: "dev",
 					Owner: struct {
-						ComponentName string `json:"componentName"`
-						ProjectName   string `json:"projectName"`
+						ComponentName string  `json:"componentName"`
+						ProjectName   string  `json:"projectName"`
+						ReleaseLine   *string `json:"releaseLine,omitempty"`
 					}{ComponentName: "my-comp"},
 					ReleaseName: makeReleaseName(relName),
 				},
@@ -1422,8 +1537,9 @@ func TestPromote_GetTargetBindingError(t *testing.T) {
 				Spec: &gen.ReleaseBindingSpec{
 					Environment: "dev",
 					Owner: struct {
-						ComponentName string `json:"componentName"`
-						ProjectName   string `json:"projectName"`
+						ComponentName string  `json:"componentName"`
+						ProjectName   string  `json:"projectName"`
+						ReleaseLine   *string `json:"releaseLine,omitempty"`
 					}{ComponentName: "my-comp"},
 					ReleaseName: makeReleaseName(relName),
 				},
@@ -1438,3 +1554,141 @@ func TestPromote_GetTargetBindingError(t *testing.T) {
 }
 
 // --- StartWorkflow: with Parameters and WorkflowKind ---
+
+func TestStartWorkflow_ReleaseLine(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().CreateComponentWorkflowRun(mock.Anything, "ns", "my-comp", mock.MatchedBy(func(req gen.CreateComponentWorkflowRunRequest) bool {
+		return req.ReleaseLine != nil && *req.ReleaseLine == "my-comp-next" && req.Commit == nil
+	})).Return(&gen.WorkflowRun{Metadata: gen.ObjectMeta{Name: "my-comp-run-1"}}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.StartWorkflow(StartWorkflowParams{Namespace: "ns", ComponentName: "my-comp", ReleaseLine: "my-comp-next"}))
+	})
+	assert.Contains(t, out, "my-comp-run-1")
+}
+
+func TestStartWorkflow_ReleaseLineRejectsSet(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{
+		Namespace: "ns", ComponentName: "my-comp", ReleaseLine: "my-comp-next", Set: []string{"repository.revision.branch=x"},
+	})
+	assert.ErrorContains(t, err, "--set cannot be combined with --release-line")
+}
+
+const lineNext = "next"
+
+// The binding names of line next, as occ and the controllers name them.
+var (
+	nextDev     = releaseline.ScopedName("hello", lineNext, "dev")
+	nextStaging = releaseline.ScopedName("hello", lineNext, "staging")
+)
+
+type bindingOwner = struct {
+	ComponentName string  `json:"componentName"`
+	ProjectName   string  `json:"projectName"`
+	ReleaseLine   *string `json:"releaseLine,omitempty"`
+}
+
+func TestDeploy_MainLineKeyword(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
+		return req.ReleaseLine == nil
+	})).Return(&gen.ComponentRelease{Metadata: gen.ObjectMeta{Name: "hello-20260101-1"}}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "hello-dev").Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return rb.Metadata.Name == "hello-dev" && rb.Spec.Owner.ReleaseLine == nil
+	})).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "hello-dev"},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: makeReleaseName("hello-20260101-1")},
+	}, nil)
+
+	testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "main"}))
+	})
+}
+
+func TestDeploy_ReleaseLine_DeployToLowestEnv(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "hello", mock.MatchedBy(func(req gen.GenerateReleaseRequest) bool {
+		return req.ReleaseLine != nil && *req.ReleaseLine == lineNext
+	})).Return(&gen.ComponentRelease{Metadata: gen.ObjectMeta{Name: "hello-next-20260101-1"}}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextDev).Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return rb.Metadata.Name == nextDev && rb.Spec.Environment == "dev" &&
+			rb.Spec.Owner.ReleaseLine != nil && *rb.Spec.Owner.ReleaseLine == lineNext &&
+			*rb.Spec.ReleaseName == "hello-next-20260101-1"
+	})).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: nextDev},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: makeReleaseName("hello-next-20260101-1")},
+	}, nil)
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next"}))
+	})
+	assert.Contains(t, out, nextDev)
+}
+
+func TestDeploy_ReleaseLine_PromotesFromSameLine(t *testing.T) {
+	stable, next := "stable", "next"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{
+			{Metadata: gen.ObjectMeta{Name: "hello-stable-dev"}, Spec: &gen.ReleaseBindingSpec{
+				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &stable}, ReleaseName: makeReleaseName("hello-stable-r1"),
+			}},
+			{Metadata: gen.ObjectMeta{Name: nextDev}, Spec: &gen.ReleaseBindingSpec{
+				Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &next}, ReleaseName: makeReleaseName("hello-next-r2"),
+			}},
+		},
+	}, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextStaging).Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return rb.Metadata.Name == nextStaging && *rb.Spec.ReleaseName == "hello-next-r2" &&
+			rb.Spec.Owner.ReleaseLine != nil && *rb.Spec.Owner.ReleaseLine == lineNext
+	})).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: nextStaging},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r2")},
+	}, nil)
+
+	require.NoError(t, New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next", To: "staging"}))
+}
+
+func TestDeploy_ReleaseLine_RollbackPinsRelease(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{}, nil)
+	existing := &gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: nextStaging},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r2")},
+	}
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", nextStaging).Return(existing, nil)
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", nextStaging, mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return *rb.Spec.ReleaseName == "hello-next-r1"
+	})).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: nextStaging},
+		Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: makeReleaseName("hello-next-r1")},
+	}, nil)
+
+	require.NoError(t, New(mc).Deploy(DeployParams{
+		Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next", To: "staging", Release: "hello-next-r1",
+	}))
+}
+
+func TestDeploy_ReleaseLine_NoSourceBindingOnLine(t *testing.T) {
+	stable := "stable"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "hello-stable-dev"}, Spec: &gen.ReleaseBindingSpec{
+			Environment: "dev", Owner: bindingOwner{ComponentName: "hello", ReleaseLine: &stable}, ReleaseName: makeReleaseName("hello-stable-r1"),
+		}}},
+	}, nil)
+
+	err := New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next", To: "staging"})
+	assert.EqualError(t, err, "no release binding found for release line 'next' in source environment 'dev'")
+}

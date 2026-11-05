@@ -105,14 +105,16 @@ func (s *EventsService) queryComponentEvents(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentEventsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLines.UID,
+		AllReleaseLines: scope.ReleaseLines.All,
 	}
 
 	result, err := s.eventsAdapter.GetComponentEvents(ctx, params)
@@ -122,6 +124,11 @@ func (s *EventsService) queryComponentEvents(
 	}
 	if result == nil {
 		return nil, fmt.Errorf("%w: component events adapter returned nil result", ErrEventsRetrieval)
+	}
+
+	if err := s.resolver.CheckReleaseLineApplied(ctx, scope.NamespaceName, scope.ComponentName,
+		scope.ReleaseLines, result.ReleaseLineApplied, "logs adapter"); err != nil {
+		return nil, err
 	}
 
 	s.logger.Debug("Component events retrieved from adapter",

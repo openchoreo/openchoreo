@@ -63,6 +63,9 @@ class ReportAlertContext(BaseModel):
     )
     condition: AlertCondition = Field(..., description="The condition that triggered the alert")
     component: str = Field(..., description="Component name the alert was configured on")
+    release_line: str | None = Field(
+        default=None, description="Release line the alert was configured on, if any"
+    )
     project: str = Field(..., description="Project name of the relevant component")
     environment: str = Field(..., description="Environment name of the relevant project")
 

@@ -55,7 +55,7 @@ func (h *Handler) QueryAlerts(
 		case errors.Is(err, service.ErrAlertsResolveSearchScope):
 			if errors.Is(err, service.ErrScopeNotFound) {
 				return gen.QueryAlerts400JSONResponse(errorPayload(gen.BadRequest,
-					"SCOPE_NOT_FOUND", "one or more resources in the search scope were not found")), nil
+					scopeNotFoundCode, scopeNotFoundText(err))), nil
 			}
 			h.logger.Error("Failed to resolve alerts search scope", "error", err)
 			return gen.QueryAlerts500JSONResponse(errorPayload(gen.InternalServerError,
@@ -108,6 +108,9 @@ func (h *Handler) QueryIncidents(
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
 			return gen.QueryIncidents503JSONResponse(errorPayload(gen.InternalServerError,
 				"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")), nil
+		case errors.Is(err, service.ErrScopeNotFound):
+			return gen.QueryIncidents400JSONResponse(errorPayload(gen.BadRequest,
+				scopeNotFoundCode, scopeNotFoundText(err))), nil
 		default:
 			h.logger.Error("Failed to query incidents", "error", err)
 			return gen.QueryIncidents500JSONResponse(errorPayload(gen.InternalServerError,

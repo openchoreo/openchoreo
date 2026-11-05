@@ -30,11 +30,11 @@ func newExecHandler(t *testing.T, pdp *testutil.CapturingPDP, objs ...client.Obj
 	}
 }
 
-// execComponent builds a minimal Component owned by the given project, enough for
+// execComponent builds a minimal Component in namespace "default" owned by the given project, enough for
 // the handler to resolve the component's owning project before authorizing.
-func execComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+func execComponent(name, project string) *openchoreov1alpha1.Component {
 	return &openchoreov1alpha1.Component{
-		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: name},
 		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
 		},
@@ -48,7 +48,7 @@ func execComponent(namespace, name, project string) *openchoreov1alpha1.Componen
 
 func TestExecHandler_AuthzEnvironmentContext_ExplicitEnv(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp, execComponent("default", "greeter-service", "default"))
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?env=development&project=default",
@@ -84,7 +84,7 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 			}},
 		},
 	}
-	h := newExecHandler(t, pdp, proj, pipeline, execComponent("default", "greeter-service", "default"))
+	h := newExecHandler(t, pdp, proj, pipeline, execComponent("greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?project=default",
@@ -103,7 +103,7 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 // victim-svc is owned by team-b; the caller claims team-a.
 func TestExecHandler_DeniesComponentProjectMismatch(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
+	h := newExecHandler(t, pdp, execComponent("victim-svc", "team-b"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/victim-svc?env=development&project=team-a",
@@ -130,4 +130,41 @@ func TestExecHandler_ComponentNotFound(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), `component "ghost" not found`)
 	require.Empty(t, pdp.Captured, "authz must not run for a non-existent component")
+}
+
+func TestExecPodSelector(t *testing.T) {
+	require.Equal(t,
+		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default,!openchoreo.dev/release-line",
+		execPodSelector("default", "hello", "development", ""))
+	require.Equal(t,
+		"openchoreo.dev/component=hello,openchoreo.dev/environment=development,openchoreo.dev/namespace=default,openchoreo.dev/release-line=next",
+		execPodSelector("default", "hello", "development", "next"))
+}
+
+// The release line requested for exec reaches the ABAC context, so the audit record names it.
+func TestExecHandler_AuthzReleaseLineContext(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=next",
+		nil).WithContext(testutil.AuthzContext())
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Len(t, pdp.Captured, 1, "authz check should run before pod resolution")
+	require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
+}
+
+// The main line keyword reaches the ABAC context as the main line, which has no release line.
+func TestExecHandler_MainLineKeyword(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("greeter-service", "default"))
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/greeter-service?env=development&project=default&releaseLine=main",
+		nil).WithContext(testutil.AuthzContext())
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Len(t, pdp.Captured, 1)
+	require.Empty(t, pdp.Captured[0].Context.Resource.ReleaseLine)
 }

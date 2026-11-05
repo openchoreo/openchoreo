@@ -4,12 +4,14 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"mime"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
 // The generated servers default every error they raise before (or around) a
@@ -32,6 +34,29 @@ func errorPayload(title gen.ErrorResponseTitle, errorCode, message string) gen.E
 		ErrorCode: &errorCode,
 		Message:   &message,
 	}
+}
+
+const (
+	scopeNotFoundCode    = "SCOPE_NOT_FOUND"
+	scopeNotFoundMessage = "one or more resources in the search scope were not found"
+)
+
+// scopeNotFoundResponse reports a query whose search scope names a resource that doesn't exist,
+// such as an unknown component or release line, as a client error.
+func scopeNotFoundResponse(err error) (apiResponse, bool) {
+	if !errors.Is(err, service.ErrScopeNotFound) && !errors.Is(err, service.ErrResourceNotFound) {
+		return apiResponse{}, false
+	}
+	return errorResponse(http.StatusBadRequest, gen.BadRequest, scopeNotFoundCode, scopeNotFoundText(err)), true
+}
+
+// scopeNotFoundText names the missing resource when the resolver reported it.
+func scopeNotFoundText(err error) string {
+	var notFound *service.NotFoundError
+	if errors.As(err, &notFound) {
+		return notFound.Error()
+	}
+	return scopeNotFoundMessage
 }
 
 // writeGeneratedError renders a gen.ErrorResponse for an error raised by the

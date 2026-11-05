@@ -182,6 +182,19 @@ func TestValidate(t *testing.T) {
 			expectErr: true,
 		},
 		{
+			name:      "missing both client secret and client assertion file",
+			mutate:    func(c *Config) { c.UIDResolver.OAuthClientSecret = "" },
+			expectErr: true,
+		},
+		{
+			name: "client assertion file replaces client secret",
+			mutate: func(c *Config) {
+				c.UIDResolver.OAuthClientSecret = ""
+				c.UIDResolver.OAuthClientAssertionFile = "${AZURE_FEDERATED_TOKEN_FILE}"
+			},
+			expectErr: false,
+		},
+		{
 			name:      "missing metrics adapter URL",
 			mutate:    func(c *Config) { c.Adapters.MetricsAdapterURL = "" },
 			expectErr: true,

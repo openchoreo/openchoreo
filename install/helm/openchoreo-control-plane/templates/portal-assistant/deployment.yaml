@@ -1,6 +1,10 @@
 {{- if .Values.portalAssistant.enabled }}
-{{- if not .Values.portalAssistant.llm.secretName }}
-{{- fail "portalAssistant.llm.secretName is required when portalAssistant is enabled. Create a Secret containing PORTAL_ASSISTANT_LLM_API_KEY and set portalAssistant.llm.secretName to its name." }}
+{{- $llmAuth := .Values.portalAssistant.llm.auth | default "api_key" }}
+{{- if and (not .Values.portalAssistant.llm.secretName) (ne $llmAuth "azure") }}
+{{- fail "portalAssistant.llm.secretName is required when portalAssistant is enabled, unless portalAssistant.llm.auth is azure. Create a Secret containing PORTAL_ASSISTANT_LLM_API_KEY and set portalAssistant.llm.secretName to its name." }}
+{{- end }}
+{{- if and (eq $llmAuth "azure") (not .Values.portalAssistant.llm.baseUrl) }}
+{{- fail "portalAssistant.llm.baseUrl is required when portalAssistant.llm.auth is azure. Set it to the Azure OpenAI endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/." }}
 {{- end }}
 {{- if not .Values.portalAssistant.llm.modelName }}
 {{- fail "portalAssistant.llm.modelName is required when portalAssistant is enabled (e.g. 'openai:gpt-4o-mini')." }}
@@ -25,6 +29,9 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/portal-assistant/configmap.yaml") . | sha256sum }}
         checksum/auth-config: {{ include (print $.Template.BasePath "/portal-assistant/auth-configmap.yaml") . | sha256sum }}
       labels:
+        {{- with .Values.portalAssistant.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: portal-assistant
         {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
@@ -64,8 +71,10 @@ spec:
           containerPort: {{ .Values.portalAssistant.service.port }}
           protocol: TCP
         envFrom:
+        {{- with .Values.portalAssistant.llm.secretName }}
         - secretRef:
-            name: {{ .Values.portalAssistant.llm.secretName }}
+            name: {{ . }}
+        {{- end }}
         - configMapRef:
             name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}-config
         env:

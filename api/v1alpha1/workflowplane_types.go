@@ -31,7 +31,7 @@ type WorkflowPlaneSpec struct {
 	// This field is mandatory - all workflow planes must use cluster agent communication
 	ClusterAgent ClusterAgentConfig `json:"clusterAgent"`
 
-	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the data plane
+	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the workflow plane
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 

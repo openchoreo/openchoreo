@@ -37,6 +37,10 @@ type Reconciler struct {
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
 	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
 	CacheVersion  string                // Cache key version prefix (e.g., "v2")
+	// PlaneClientProvider reaches the plane cluster to delete plane namespaces on finalize.
+	PlaneClientProvider kubernetesClient.ObservabilityPlaneClientProvider
+	// APIReader reads the control plane namespace uncached when the plane is deleted.
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityplanes,verbs=get;list;watch;create;update;patch;delete
@@ -193,6 +197,27 @@ func (r *Reconciler) finalize(ctx context.Context, _, observabilityPlane *opench
 
 	if !controllerutil.ContainsFinalizer(observabilityPlane, ObservabilityPlaneCleanupFinalizer) {
 		return ctrl.Result{}, nil
+	}
+
+	// Runs before the gateway notification, which disconnects the plane's agents.
+	if r.PlaneClientProvider != nil && r.APIReader != nil {
+		msg, err := controller.FinalizeNamespacedPlane(ctx, r.Client, r.APIReader, observabilityPlane,
+			string(openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane),
+			func() (client.Client, error) {
+				return r.PlaneClientProvider.ObservabilityPlaneClient(observabilityPlane)
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if msg != "" {
+			logger.Info(msg)
+			if meta.SetStatusCondition(&observabilityPlane.Status.Conditions, controller.NewPlaneDeletionBlockedCondition(observabilityPlane.Generation, msg)) {
+				if err := r.Status().Update(ctx, observabilityPlane); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{RequeueAfter: controller.PlaneDeletionRetryInterval}, nil
+		}
 	}
 
 	// Notify gateway of ObservabilityPlane deletion before removing finalizer

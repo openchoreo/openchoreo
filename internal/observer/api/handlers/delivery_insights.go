@@ -126,7 +126,7 @@ func (h *Handler) deliveryInsightsErrorPayload(err error, errorCode, message str
 			"AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")
 	case errors.Is(err, service.ErrScopeNotFound):
 		return http.StatusBadRequest, errorPayload(gen.BadRequest,
-			"SCOPE_NOT_FOUND", "one or more resources in the search scope were not found")
+			scopeNotFoundCode, scopeNotFoundText(err))
 	case errors.Is(err, service.ErrScopeResolutionFailed):
 		h.logger.Error("Failed to resolve delivery insights search scope", "error", err)
 		return http.StatusInternalServerError, errorPayload(gen.InternalServerError,

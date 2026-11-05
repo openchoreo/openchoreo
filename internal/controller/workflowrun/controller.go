@@ -295,7 +295,7 @@ func (r *Reconciler) ensureRunResource(
 	}
 
 	// Ensure prerequisite resources (namespace, RBAC) are created in the workflow plane
-	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, wpClient); err != nil {
+	if err := r.ensurePrerequisites(ctx, workflowRun.Namespace, runResNamespace, serviceAccountName, wpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources",
 			"workflowrun", workflowRun.Name)
 		return ctrl.Result{Requeue: true}

@@ -153,6 +153,11 @@ func applyResource(
 	if !ok {
 		return fmt.Errorf("%s/%s: unsupported kind %q (supported: %s)", strings.ToLower(info.kind), info.name, info.kind, strings.Join(supportedKinds(), ", "))
 	}
+	if entry.forResource != nil {
+		if entry, err = entry.forResource(resource); err != nil {
+			return fmt.Errorf("%s/%s: %w", strings.ToLower(info.kind), info.name, err)
+		}
+	}
 
 	// Resolve namespace for namespaced resources
 	ns := info.namespace

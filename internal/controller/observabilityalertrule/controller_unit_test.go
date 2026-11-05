@@ -371,3 +371,23 @@ func TestGetObserverInternalBaseURL(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildAlertRuleRequest_ReleaseLine(t *testing.T) {
+	rule := validAlertRule("my-rule")
+	req, err := buildAlertRuleRequest(rule)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Metadata.ReleaseLineUID != "" {
+		t.Errorf("a rule without a release line sent releaseLineUid %q", req.Metadata.ReleaseLineUID)
+	}
+
+	rule.Labels["openchoreo.dev/release-line-uid"] = "line-uid-1"
+	req, err = buildAlertRuleRequest(rule)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Metadata.ReleaseLineUID != "line-uid-1" {
+		t.Errorf("releaseLineUid: got %q, want %q", req.Metadata.ReleaseLineUID, "line-uid-1")
+	}
+}

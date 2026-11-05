@@ -366,6 +366,19 @@ hostnames:
 
 Use `oc_dns_label` when the name appears as a hostname subdomain (RFC 1123 label, max 63 chars). Use `oc_generate_name` for all other Kubernetes resource names.
 
+### oc_generate_name_limit(maxLength, ...args)
+Same as `oc_generate_name` but truncates to the length given as the first argument. Use it when a resource kind has its own name limit, such as a CronJob (52 chars):
+
+```yaml
+# CronJob name (≤52 chars)
+name: ${oc_generate_name_limit(52, metadata.componentName, metadata.environmentName)}
+
+# Array input also works
+name: ${oc_generate_name_limit(52, [metadata.componentName, "backup"])}
+```
+
+`maxLength` must be at most 253 and leave room for one character and one hyphen per name part plus the 8-character hash (for example, at least 10 for one part and 14 for three). A value outside that range fails the render. Numbers set in a Component's `parameters` reach CEL as floating-point values, so wrap a parameter-driven limit in `int()`, as in `oc_generate_name_limit(int(parameters.nameLimit), ...)`. For the same inputs, `oc_generate_name_limit(253, ...)` returns the same name as `oc_generate_name(...)`, and `oc_generate_name_limit(63, ...)` the same as `oc_dns_label(...)`.
+
 ## OpenChoreo Resource Control Fields
 
 OpenChoreo extends the templating system with special fields for dynamic resource generation:

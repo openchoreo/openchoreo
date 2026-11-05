@@ -125,11 +125,22 @@ on:
       SLACK_WEBHOOK_URL:
         description: "Slack Incoming Webhook URL for failure notifications. When empty, notifications are skipped."
         required: false
+      OCI_REGISTRY_USERNAME:
+        description: "Username for a non-default OCI_REGISTRY_HOST. ghcr.io falls back to github.actor when empty."
+        required: false
+      OCI_REGISTRY_PASSWORD:
+        description: "Password/token for a non-default OCI_REGISTRY_HOST. ghcr.io falls back to github.token when empty."
+        required: false
 
 permissions:
   contents: read
 
 env:
+  OCI_REGISTRY_HOST: ${{ vars.OCI_REGISTRY_HOST || 'ghcr.io' }}
+  OCI_REGISTRY_USERNAME: ${{ secrets.OCI_REGISTRY_USERNAME }}
+  OCI_REGISTRY_PASSWORD: ${{ secrets.OCI_REGISTRY_PASSWORD }}
+  IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
+  HELM_OCI_REGISTRY: ${{ vars.HELM_OCI_REGISTRY || 'oci://ghcr.io/openchoreo/helm-charts' }}
   # `inputs` is empty on the nightly `schedule` trigger, so fall back to the
   # rolling latest-dev chart; the dispatch/call paths already default to it too.
   HELM_CHART_VERSION: ${{ inputs.helm_chart_version || '0.0.0-latest-dev' }}
@@ -206,6 +217,13 @@ jobs:
       - name: Add e2e host entries
         run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
 
+      - name: Login to container registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
+
       - name: Run e2e tests (tier 1)
         run: |
           make e2e \
@@ -269,6 +287,13 @@ jobs:
 
       - name: Add e2e host entries
         run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
+
+      - name: Login to container registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Run e2e tests (tier 2)
         run: |
@@ -338,6 +363,13 @@ jobs:
         # sessions against observer.e2e-mc-op.local. Other DP/WP/OP services are
         # still reached only via host.k3d.internal from within k3d nodes.
         run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local observer.e2e-mc-op.local' | sudo tee -a /etc/hosts
+
+      - name: Login to container registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Run multi-cluster e2e tests (tier 3)
         env:
@@ -473,6 +505,14 @@ jobs:
         if: steps.ui-suite.outputs.present == 'true'
         working-directory: test/ui
         run: npx playwright install --with-deps chromium
+
+      - name: Login to container registry
+        if: steps.ui-suite.outputs.present == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Install OpenChoreo e2e cluster
         if: steps.ui-suite.outputs.present == 'true'
@@ -617,6 +657,14 @@ jobs:
         if: steps.ui-suite.outputs.present == 'true'
         working-directory: test/ui
         run: npx playwright install --with-deps chromium
+
+      - name: Login to container registry
+        if: steps.ui-suite.outputs.present == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.OCI_REGISTRY_HOST }}
+          username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
+          password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
       - name: Install OpenChoreo e2e cluster with Dex
         if: steps.ui-suite.outputs.present == 'true'

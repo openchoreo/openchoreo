@@ -38,12 +38,15 @@ func newGenerateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate release binding manifests",
-		Long:  "Generate ReleaseBinding manifests for one or more components.",
+		Long:  "Generate ReleaseBinding manifests for one or more components. --all and --project bind every line of each component, and --release-line binds one line of --component.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allSet := isFlagInArgs("--all")
 			projectSet := isFlagInArgs("--project")
 			componentSet := isFlagInArgs("--component")
 			componentReleaseSet := isFlagInArgs("--component-release")
+			if isFlagInArgs("--release-line") && !componentSet {
+				return fmt.Errorf("--release-line requires --component to be specified")
+			}
 
 			usePipeline := flags.GetUsePipeline(cmd)
 			if allSet && usePipeline == "" {
@@ -80,6 +83,7 @@ func newGenerateCmd() *cobra.Command {
 			}
 			if componentSet {
 				params.ComponentName = flags.GetComponent(cmd)
+				params.ReleaseLine = flags.GetReleaseLine(cmd)
 			}
 			if componentReleaseSet {
 				params.ComponentRelease = flags.GetComponentRelease(cmd)
@@ -90,6 +94,7 @@ func newGenerateCmd() *cobra.Command {
 	flags.AddAll(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
+	flags.AddReleaseLine(cmd)
 	flags.AddTargetEnv(cmd)
 	flags.AddUsePipeline(cmd)
 	flags.AddComponentRelease(cmd)

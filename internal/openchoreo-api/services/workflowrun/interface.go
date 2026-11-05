@@ -23,5 +23,5 @@ type Service interface {
 	DeleteWorkflowRun(ctx context.Context, namespaceName, runName string) error
 	// TriggerWorkflow creates a WorkflowRun from a component's workflow configuration.
 	// The authorized version is used by API handlers; the unauthz version is used by webhook processing.
-	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit, releaseLine string) (*models.WorkflowRunTriggerResponse, error)
 }

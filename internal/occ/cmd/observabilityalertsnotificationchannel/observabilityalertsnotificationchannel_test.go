@@ -48,6 +48,35 @@ func TestPrintList_WithItems(t *testing.T) {
 	assert.Contains(t, out, "channel-2")
 }
 
+func TestPrintList_StatusColumns(t *testing.T) {
+	conditions := []gen.Condition{
+		{Type: "Ready", Status: gen.ConditionStatusTrue, Reason: "Reconciled"},
+		{Type: "SecretsReady", Status: gen.ConditionStatusTrue, Reason: "DeprecatedKubernetesSecret"},
+	}
+	items := []gen.ObservabilityAlertsNotificationChannel{
+		{
+			Metadata: gen.ObjectMeta{Name: "legacy-channel"},
+			Spec: &gen.ObservabilityAlertsNotificationChannelSpec{
+				Type:        gen.Webhook,
+				Environment: "development",
+			},
+			Status: &gen.ObservabilityAlertsNotificationChannelStatus{Conditions: &conditions},
+		},
+		{Metadata: gen.ObjectMeta{Name: "new-channel"}},
+	}
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, printList(items))
+	})
+	for _, header := range []string{"TYPE", "ENVIRONMENT", "STATUS", "SECRETS"} {
+		assert.Contains(t, out, header)
+	}
+	assert.Contains(t, out, "webhook")
+	assert.Contains(t, out, "development")
+	assert.Contains(t, out, "Reconciled")
+	assert.Contains(t, out, "DeprecatedKubernetesSecret")
+	assert.Contains(t, out, "new-channel")
+}
+
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {

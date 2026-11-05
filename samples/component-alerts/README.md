@@ -30,7 +30,7 @@ This sample uses a simple, role-based workflow:
 ### Files in this folder
 
 - `alert-rule-trait.yaml`: The `Trait` definition for `observability-alert-rule` that enables attaching alert rules to components. This trait uses `openAPIV3Schema` format and is typically installed as part of the OpenChoreo control plane, but is included here for reference. **One-time setup by Platform Engineers.**
-- `alert-notification-channels.yaml`: Two `ObservabilityAlertsNotificationChannel`s (one email, one webhook) plus their backing `Secret`s for the `development` environment. **One-time setup per environment by Platform Engineers.**
+- `alert-notification-channels.yaml`: Two `ObservabilityAlertsNotificationChannel`s (one email, one webhook) for the `development` environment. Their SMTP credentials and webhook API key come from `SecretReference`s that you create first. **One-time setup per environment by Platform Engineers.**
 - `components-with-alert-rules.yaml`: `Component` definitions for `frontend`, `recommendation`, and `cart` microservices with alert rules attached as `observability-alert-rule` traits. **Defined once by Developers - alert rules propagate through environments.**
 - `failure-scenario-setup.yaml`: `ReleaseBinding`s that deliberately misconfigure the system (env var overrides, CPU / memory limit overrides) to cause alerts to fire. Also demonstrates environment-specific alert customization via `traitEnvironmentConfigs`.
 - `trigger-alerts.sh`: Simple script that drives traffic to the `frontend` to trigger the configured alerts.
@@ -54,18 +54,36 @@ kubectl get clustertrait observability-alert-rule
 
 Platform Engineers configure notification channels once per environment (email/webhook) and reuse them across all alert rules in that environment.
 
-1. Edit `samples/component-alerts/alert-notification-channels.yaml` and replace the placeholder values:
-   - SMTP credentials (host, port, username, password, from/to email addresses)
+1. Create the secrets the notification channels reference. A channel's `secretKeyRef` names a `SecretReference` in the channel's namespace and one of its keys, and the value is synced from the secret store of the environment's observability plane. Create them with `occ` (this needs the secret management API enabled, `features.secretManagement.enabled` in the control plane chart, and a `secretStoreRef` on the observability plane):
+   ```bash
+   occ secret create generic email-notification-channel-development-smtp-auth \
+     --namespace default --target-plane ClusterObservabilityPlane/default \
+     --from-literal=username=<smtp-username> --from-literal=password=<smtp-password>
+
+   occ secret create generic webhook-notification-channel-development-webhook-auth \
+     --namespace default --target-plane ClusterObservabilityPlane/default \
+     --from-literal=api-key=<webhook-api-key>
+   ```
+   A channel can only read the secret store key that the secret API writes for the `SecretReference` (`<remoteKeyPrefix>/<namespace>/<type>/<name>` by default, where `<type>` is `generic`, `basic-auth`, `ssh-auth`, `registry` or `tls`), so a `SecretReference` you write by hand must have the same name and `spec.template.type` as the secret it points at.
+
+   > Referencing a plain Kubernetes `Secret` by name still works when no `SecretReference` has that name, but it is deprecated. Such channels report `DeprecatedKubernetesSecret` in their `SecretsReady` condition.
+
+2. Edit `samples/component-alerts/alert-notification-channels.yaml` and replace the placeholder values:
+   - SMTP host, port, and from/to email addresses
    - Webhook URL and custom headers (if required)
    - **Email template** (optional): For emails that require specific formatting, you can provide a `template` using CEL expressions. The sample includes a template. If not provided, the raw alertDetails object will be sent.
    - **Webhook payload template** (optional): For webhooks that require specific JSON formats (like Slack), you can provide a `payloadTemplate` using CEL expressions. The sample includes a Slack-compatible template. If not provided, the raw alertDetails object will be sent.
 
-2. Apply the notification channels:
+3. Apply the notification channels:
    ```bash
    kubectl apply -f samples/component-alerts/alert-notification-channels.yaml
    ```
+   Check that they are ready; the `Ready` and `SecretsReady` conditions explain what is missing otherwise:
+   ```bash
+   kubectl get observabilityalertsnotificationchannels -n default
+   ```
 
-3. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The first notification channel created will be marked as the default notification channel for the environment by OpenChoreo.
+4. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The first notification channel created will be marked as the default notification channel for the environment by OpenChoreo.
 
 ---
 
@@ -205,6 +223,7 @@ kubectl delete -f samples/component-alerts/alert-rule-trait.yaml
    - `${component}` - Component name
    - `${project}` - Project name
    - `${environment}` - Environment name
+   - `${releaseLine}` - Release line the alert fired for, empty for components without release lines
    - `${alertTimestamp}` - Alert timestamp
    - `${componentId}` - Component UID
    - `${projectId}` - Project UID

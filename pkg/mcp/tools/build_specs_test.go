@@ -3,7 +3,12 @@
 
 package tools
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
 
 // buildToolSpecs returns test specs for build toolset
 func buildToolSpecs() []toolTestSpec {
@@ -21,19 +26,20 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"trigger", "workflow"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
-			optionalParams:      []string{"commit"},
+			optionalParams:      []string{"commit", "release_line"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"commit":         "abc1234",
+				"release_line":   testReleaseLineName,
 			},
 			expectedMethod: "TriggerWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != testProjectName ||
-					args[2] != testComponentName || args[3] != "abc1234" {
-					t.Errorf("Expected (%s, %s, %s, abc1234), got (%v, %v, %v, %v)",
-						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
+					args[2] != testComponentName || args[3] != "abc1234" || args[4] != testReleaseLineName {
+					t.Errorf("Expected (%s, %s, %s, abc1234, %s), got %v",
+						testNamespaceName, testProjectName, testComponentName, testReleaseLineName, args)
 				}
 			},
 		},
@@ -182,5 +188,34 @@ func buildWorkflowSpecs() []toolTestSpec {
 				}
 			},
 		},
+	}
+}
+
+func TestTriggerWorkflowRunMainLine(t *testing.T) {
+	clientSession, mockHandler := setupTestServer(t)
+	defer clientSession.Close()
+
+	// "main" names the implicit line, which builds without a release line.
+	result, err := clientSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "trigger_workflow_run",
+		Arguments: map[string]any{
+			"namespace_name": testNamespaceName,
+			"project_name":   testProjectName,
+			"component_name": testComponentName,
+			"release_line":   "main",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected protocol error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected tool error: %v", result.Content)
+	}
+	calls := mockHandler.calls["TriggerWorkflowRun"]
+	if len(calls) != 1 {
+		t.Fatalf("expected one TriggerWorkflowRun call, got %d", len(calls))
+	}
+	if args := calls[0].([]interface{}); args[4] != "" {
+		t.Errorf("expected release line \"\" for main, got %q", args[4])
 	}
 }

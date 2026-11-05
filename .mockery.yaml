@@ -90,6 +90,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releaseline:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource:
     interfaces:
       Service:

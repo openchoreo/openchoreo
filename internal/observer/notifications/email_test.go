@@ -102,6 +102,24 @@ func TestPrepareEmailNotificationConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "fromName is read from ConfigMap",
+			configMapData: map[string]string{
+				"from":     "alerts@example.com",
+				"fromName": "Example Alerts",
+			},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Equal(t, "alerts@example.com", cfg.SMTP.From)
+				assert.Equal(t, "Example Alerts", cfg.SMTP.FromName)
+			},
+		},
+		{
+			name:          "missing fromName leaves it empty",
+			configMapData: map[string]string{"from": "alerts@example.com"},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Empty(t, cfg.SMTP.FromName)
+			},
+		},
+		{
 			name:          "missing smtp.port defaults to 587",
 			configMapData: map[string]string{"smtp.host": "mail.example.com"},
 			check: func(t *testing.T, cfg EmailConfig) {
@@ -155,6 +173,20 @@ func TestPrepareEmailNotificationConfig(t *testing.T) {
 			check: func(t *testing.T, cfg EmailConfig) {
 				assert.Equal(t, "subj", cfg.SubjectTemplate)
 				assert.Equal(t, "body", cfg.BodyTemplate)
+			},
+		},
+		{
+			name:          "html content type populated",
+			configMapData: map[string]string{"template.contentType": "text/html"},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Equal(t, "text/html", cfg.ContentType)
+			},
+		},
+		{
+			name:          "plain text content type populated",
+			configMapData: map[string]string{"template.contentType": "text/plain"},
+			check: func(t *testing.T, cfg EmailConfig) {
+				assert.Equal(t, "text/plain", cfg.ContentType)
 			},
 		},
 	}
@@ -353,4 +385,164 @@ func TestSendEmailWithConfig_MessageFormat(t *testing.T) {
 	assert.True(t, strings.Contains(msg, "To: alice@example.com\r\n"))
 	assert.True(t, strings.Contains(msg, "Subject: My Subject\r\n"))
 	assert.True(t, strings.Contains(msg, "My Body"))
+}
+
+func TestSendEmailWithConfig_ContentType(t *testing.T) {
+	tests := []struct {
+		name            string
+		contentType     string
+		wantContentType string
+	}{
+		{
+			name:            "defaults to plain text when unset",
+			contentType:     "",
+			wantContentType: "text/plain",
+		},
+		{
+			name:            "explicit plain text",
+			contentType:     "text/plain",
+			wantContentType: "text/plain",
+		},
+		{
+			name:            "html",
+			contentType:     "text/html",
+			wantContentType: "text/html",
+		},
+		{
+			name:            "unsupported value falls back to plain text",
+			contentType:     "application/json",
+			wantContentType: "text/plain",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var capturedMsg []byte
+
+			orig := smtpSendMail
+			t.Cleanup(func() { smtpSendMail = orig })
+			smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+				capturedMsg = msg
+				return nil
+			}
+
+			body := `<html><body><h1 style="color:#ff6700">Alert</h1></body></html>`
+			config := &NotificationChannelConfig{
+				Email: EmailConfig{
+					To:          []string{"alice@example.com"},
+					SMTP:        SMTPConfig{Host: "mail.example.com", Port: 587, From: "sender@example.com"},
+					ContentType: tc.contentType,
+				},
+			}
+
+			err := SendEmailWithConfig(context.Background(), config, "HTML Subject", body)
+			require.NoError(t, err)
+
+			msg := string(capturedMsg)
+			assert.Contains(t, msg, "MIME-Version: 1.0\r\n")
+			assert.Contains(t, msg, "Content-Type: "+tc.wantContentType+"; charset=\"UTF-8\"\r\n")
+			assert.Contains(t, msg, "Content-Transfer-Encoding: 8bit\r\n")
+			assert.Contains(t, msg, "\r\n\r\n"+body)
+		})
+	}
+}
+
+func TestSendEmailWithConfig_FromName(t *testing.T) {
+	tests := []struct {
+		name       string
+		fromName   string
+		wantHeader string
+	}{
+		{
+			name:       "no display name keeps bare address",
+			fromName:   "",
+			wantHeader: "From: alerts@example.com\r\n",
+		},
+		{
+			name:       "whitespace-only display name keeps bare address",
+			fromName:   "   ",
+			wantHeader: "From: alerts@example.com\r\n",
+		},
+		{
+			name:       "surrounding whitespace is trimmed",
+			fromName:   "  Example Alerts  ",
+			wantHeader: "From: \"Example Alerts\" <alerts@example.com>\r\n",
+		},
+		{
+			name:       "ASCII display name",
+			fromName:   "Example Alerts",
+			wantHeader: "From: \"Example Alerts\" <alerts@example.com>\r\n",
+		},
+		{
+			name:       "display name with quotes is escaped",
+			fromName:   `Ops "Prod"`,
+			wantHeader: `From: "Ops \"Prod\"" <alerts@example.com>` + "\r\n",
+		},
+		{
+			name:       "non-ASCII display name is RFC 2047 encoded",
+			fromName:   "Alertes Équipe",
+			wantHeader: "From: =?utf-8?q?Alertes_=C3=89quipe?= <alerts@example.com>\r\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedFrom string
+			var capturedMsg []byte
+
+			orig := smtpSendMail
+			t.Cleanup(func() { smtpSendMail = orig })
+			smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+				capturedFrom = from
+				capturedMsg = msg
+				return nil
+			}
+
+			config := &NotificationChannelConfig{
+				Email: EmailConfig{
+					To: []string{"oncall@example.com"},
+					SMTP: SMTPConfig{
+						Host:     "mail.example.com",
+						Port:     587,
+						From:     "alerts@example.com",
+						FromName: tt.fromName,
+					},
+				},
+			}
+			require.NoError(t, SendEmailWithConfig(context.Background(), config, "subj", "body"))
+
+			assert.Equal(t, "alerts@example.com", capturedFrom, "envelope sender must stay a bare address")
+			assert.True(t, strings.HasPrefix(string(capturedMsg), tt.wantHeader), "got message: %q", string(capturedMsg))
+		})
+	}
+}
+
+func TestSendEmailWithConfig_FromNameCannotInjectHeaders(t *testing.T) {
+	var capturedMsg []byte
+
+	orig := smtpSendMail
+	t.Cleanup(func() { smtpSendMail = orig })
+	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		capturedMsg = msg
+		return nil
+	}
+
+	config := &NotificationChannelConfig{
+		Email: EmailConfig{
+			To: []string{"oncall@example.com"},
+			SMTP: SMTPConfig{
+				Host:     "mail.example.com",
+				Port:     587,
+				From:     "alerts@example.com",
+				FromName: "Alerts\r\nBcc: attacker@example.com",
+			},
+		},
+	}
+	require.NoError(t, SendEmailWithConfig(context.Background(), config, "subj", "body"))
+
+	headers, _, found := strings.Cut(string(capturedMsg), "\r\n\r\n")
+	require.True(t, found)
+	for _, line := range strings.Split(headers, "\r\n") {
+		assert.False(t, strings.HasPrefix(line, "Bcc:"), "display name injected a header line: %q", line)
+	}
 }

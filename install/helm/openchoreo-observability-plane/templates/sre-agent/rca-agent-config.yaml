@@ -14,11 +14,20 @@ data:
   {{- if .Values.rca.llm.baseUrl }}
   RCA_LLM_BASE_URL: {{ .Values.rca.llm.baseUrl | quote }}
   {{- end }}
+  {{- if ne (.Values.rca.llm.auth | default "api_key") "api_key" }}
+  LLM_AUTH: {{ .Values.rca.llm.auth | quote }}
+  {{- end }}
+  {{- if .Values.rca.llm.tokenScope }}
+  LLM_TOKEN_SCOPE: {{ .Values.rca.llm.tokenScope | quote }}
+  {{- end }}
   REPORT_BACKEND: {{ .Values.rca.reportBackend | quote }}
   OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
   OAUTH_CLIENT_ID: {{ .Values.rca.oauth.clientId | quote }}
   {{- if .Values.rca.oauth.scope }}
   OAUTH_SCOPE: {{ .Values.rca.oauth.scope | quote }}
+  {{- end }}
+  {{- if .Values.rca.oauth.clientAssertionFile }}
+  OAUTH_CLIENT_ASSERTION_FILE: {{ .Values.rca.oauth.clientAssertionFile | quote }}
   {{- end }}
   TLS_INSECURE_SKIP_VERIFY: {{ or .Values.security.oidc.jwksUrlTlsInsecureSkipVerify .Values.security.oidc.uidResolverTlsInsecureSkipVerify | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}

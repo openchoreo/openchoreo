@@ -126,6 +126,8 @@ func TestBuildComponentCELEnv_CustomFunctions(t *testing.T) {
 		`oc_merge({}, {})`,
 		`oc_omit()`,
 		`oc_generate_name("prefix")`,
+		`oc_generate_name_limit(52, "prefix")`,
+		`oc_generate_name_limit(52, "prefix", "suffix")`,
 	}
 
 	for _, expr := range testCases {
@@ -220,6 +222,7 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 		{"valid metadata.componentName", "metadata.componentName", false, ""},
 		{"valid metadata.namespace", "metadata.namespace", false, ""},
 		{"valid metadata.componentNamespace", "metadata.componentNamespace", false, ""},
+		{"valid metadata.componentLineName", "metadata.componentLineName", false, ""},
 		{"valid metadata.labels", "metadata.labels", false, ""},
 		{"valid metadata.podSelectors", "metadata.podSelectors", false, ""},
 
@@ -286,6 +289,7 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 		// Valid metadata access
 		{"valid metadata.namespace", "metadata.namespace", false, ""},
 		{"valid metadata.componentName", "metadata.componentName", false, ""},
+		{"valid metadata.componentLineName", "metadata.componentLineName", false, ""},
 
 		// Invalid metadata access
 		{"invalid metadata.badField", "metadata.badField", true, "undefined field"},

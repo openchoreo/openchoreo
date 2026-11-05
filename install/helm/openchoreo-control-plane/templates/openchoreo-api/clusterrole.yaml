@@ -44,6 +44,7 @@ rules:
   - projectreleases
   - projectreleasebindings
   - releasebindings
+  - releaselines
   - renderedreleases
   - resources
   - resourcereleases
@@ -114,6 +115,7 @@ rules:
   - projectreleases/status
   - projectreleasebindings/status
   - releasebindings/status
+  - releaselines/status
   - renderedreleases/status
   - resources/status
   - resourcereleases/status

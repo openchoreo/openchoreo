@@ -9,27 +9,27 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/planenamespace"
 )
 
 //nolint:gosec // False positive: these are annotation keys and namespace prefixes, not credentials
 const (
-	secretTypeBasicAuth      = "basic-auth"
-	secretTypeSSHAuth        = "ssh-auth"
-	gitSecretTypeLabel       = "openchoreo.dev/secret-type"
-	gitSecretTypeValue       = "git-credentials"
-	gitSecretAuthTypeLabel   = "kubernetes.io/secret-type"
-	ownerNamespaceLabel      = "openchoreo.dev/owner-namespace"
-	workflowPlaneKindLabel   = "openchoreo.dev/workflow-plane-kind"
-	workflowPlaneNameLabel   = "openchoreo.dev/workflow-plane-name"
-	gitSecretNamespacePrefix = "workflows-"
+	secretTypeBasicAuth    = "basic-auth"
+	secretTypeSSHAuth      = "ssh-auth"
+	gitSecretTypeLabel     = labels.LabelKeySecretType
+	gitSecretTypeValue     = labels.LabelValueGitCredentials
+	gitSecretAuthTypeLabel = "kubernetes.io/secret-type"
+	ownerNamespaceLabel    = "openchoreo.dev/owner-namespace"
+	workflowPlaneKindLabel = labels.LabelKeyWorkflowPlaneKind
+	workflowPlaneNameLabel = labels.LabelKeyWorkflowPlaneName
 
 	workflowPlaneKindWorkflowPlane        = "WorkflowPlane"
 	workflowPlaneKindClusterWorkflowPlane = "ClusterWorkflowPlane"
@@ -37,7 +37,7 @@ const (
 
 // getWorkflowNamespace returns the workflow execution namespace for a given control plane namespace.
 func getWorkflowNamespace(namespaceName string) string {
-	return gitSecretNamespacePrefix + namespaceName
+	return planenamespace.Workflow.Name(namespaceName)
 }
 
 type gitSecretService struct {
@@ -105,7 +105,8 @@ func (s *gitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 	}
 
 	workflowNamespace := getWorkflowNamespace(namespaceName)
-	if err := s.ensureNamespaceExists(ctx, wpInfo.client, workflowNamespace); err != nil {
+	if err := planenamespace.Workflow.Ensure(ctx, wpInfo.client, namespaceName, labels.LabelValueOpenChoreoAPI); err != nil {
+		s.logger.Error("Failed to ensure workflow namespace", "error", err, "namespace", workflowNamespace)
 		return nil, err
 	}
 
@@ -466,6 +467,8 @@ func (s *gitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 
 	pushSecret.Object["spec"] = map[string]any{
 		"updatePolicy": "Replace",
+		// Removes the pushed values from the store when the PushSecret is deleted.
+		"deletionPolicy": "Delete",
 		"secretStoreRefs": []map[string]any{
 			{
 				"kind": "ClusterSecretStore",
@@ -480,36 +483,6 @@ func (s *gitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 		"data": dataMatches,
 	}
 	return pushSecret
-}
-
-// ensureNamespaceExists checks if a namespace exists and creates it if not.
-func (s *gitSecretService) ensureNamespaceExists(ctx context.Context, k8sClient client.Client, namespaceName string) error {
-	namespace := &corev1.Namespace{}
-	key := client.ObjectKey{Name: namespaceName}
-	if err := k8sClient.Get(ctx, key, namespace); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Info("Creating namespace in workflow plane", "namespace", namespaceName)
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-			}
-			if err := k8sClient.Create(ctx, namespace); err != nil {
-				if apierrors.IsAlreadyExists(err) {
-					s.logger.Debug("Namespace already exists (concurrent creation)", "namespace", namespaceName)
-					return nil
-				}
-				s.logger.Error("Failed to create namespace", "error", err, "namespace", namespaceName)
-				return fmt.Errorf("failed to create namespace %s: %w", namespaceName, err)
-			}
-			s.logger.Info("Successfully created namespace in workflow plane", "namespace", namespaceName)
-			return nil
-		}
-		s.logger.Error("Failed to check namespace existence", "error", err, "namespace", namespaceName)
-		return fmt.Errorf("failed to check namespace existence: %w", err)
-	}
-	s.logger.Debug("Namespace already exists in workflow plane", "namespace", namespaceName)
-	return nil
 }
 
 // validateCredentials checks that the required credential fields are present for the given secret type.

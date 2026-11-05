@@ -385,3 +385,28 @@ func TestReleaseHash_ChangesWithComponentTypePostRenderValidations(t *testing.T)
 		t.Fatalf("expected release hash to change when the ComponentType gains postRenderValidations")
 	}
 }
+
+func TestReleaseHash_DependencyWithoutReleaseLineKeepsItsHash(t *testing.T) {
+	withDependency := func(line string) *ReleaseSpec {
+		return &ReleaseSpec{
+			ComponentType: makeCTSnapshot(),
+			Workload: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+				Dependencies: &openchoreov1alpha1.WorkloadDependencies{
+					Endpoints: []openchoreov1alpha1.WorkloadConnection{{
+						Project: "shop", Component: "orders", ReleaseLine: line, Name: "http", Visibility: "project",
+						EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{Address: "ORDERS_URL"},
+					}},
+				},
+			},
+		}
+	}
+
+	// The hash the same spec had before dependencies could name a release line.
+	if got := ComputeReleaseHash(withDependency(""), nil); got != "659fb654f6" {
+		t.Fatalf("release hash of a dependency without a release line = %s, want 659fb654f6", got)
+	}
+	if ComputeReleaseHash(withDependency("next"), nil) == ComputeReleaseHash(withDependency(""), nil) {
+		t.Fatalf("expected a dependency on a release line to change the release hash")
+	}
+}

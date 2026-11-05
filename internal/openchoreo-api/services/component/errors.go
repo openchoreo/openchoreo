@@ -13,4 +13,5 @@ var (
 	ErrTraitNotFound            = errors.New("trait not found")
 	ErrValidation               = errors.New("validation error")
 	ErrComponentTypeNotFound    = errors.New("component type not found")
+	ErrReleaseLineNotFound      = errors.New("release line not found")
 )

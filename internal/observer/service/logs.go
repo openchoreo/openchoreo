@@ -56,6 +56,9 @@ type internalSearchScope struct {
 	ProjectUID     string
 	ComponentUID   string
 	EnvironmentUID string
+	ReleaseLines   ReleaseLineScope
+	// ComponentName is kept to tell whether the component has release lines
+	ComponentName string
 
 	// For workflow scope
 	WorkflowRunName string
@@ -116,16 +119,18 @@ func (s *LogsService) queryComponentLogs(
 		"environmentUid", scope.EnvironmentUID)
 
 	params := observability.ComponentApplicationLogsParams{
-		ComponentID:   scope.ComponentUID,
-		EnvironmentID: scope.EnvironmentUID,
-		ProjectID:     scope.ProjectUID,
-		Namespace:     scope.NamespaceName,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		SearchPhrase:  req.SearchPhrase,
-		LogLevels:     req.LogLevels,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		ComponentID:     scope.ComponentUID,
+		EnvironmentID:   scope.EnvironmentUID,
+		ProjectID:       scope.ProjectUID,
+		Namespace:       scope.NamespaceName,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		SearchPhrase:    req.SearchPhrase,
+		LogLevels:       req.LogLevels,
+		Limit:           req.Limit,
+		SortOrder:       req.SortOrder,
+		ReleaseLineID:   scope.ReleaseLines.UID,
+		AllReleaseLines: scope.ReleaseLines.All,
 	}
 
 	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
@@ -135,6 +140,11 @@ func (s *LogsService) queryComponentLogs(
 	}
 	if result == nil {
 		return nil, fmt.Errorf("%w: component logs adapter returned nil result", ErrLogsRetrieval)
+	}
+
+	if err := s.resolver.CheckReleaseLineApplied(ctx, scope.NamespaceName, scope.ComponentName,
+		scope.ReleaseLines, result.ReleaseLineApplied, "logs adapter"); err != nil {
+		return nil, err
 	}
 
 	s.logger.Debug("Component logs retrieved from adapter",
@@ -272,11 +282,17 @@ func resolveSearchScope(
 		if err != nil {
 			return nil, err
 		}
+		lines, err := resolver.ResolveReleaseLineScope(ctx, scope.Namespace, scope.Component, scope.ReleaseLine, scope.AllReleaseLines)
+		if err != nil {
+			return nil, err
+		}
 		return &internalSearchScope{
 			NamespaceName:   scope.Namespace,
 			ProjectUID:      projectUID,
 			ComponentUID:    componentUID,
 			EnvironmentUID:  environmentUID,
+			ReleaseLines:    lines,
+			ComponentName:   scope.Component,
 			IsWorkflowScope: false,
 		}, nil
 	}

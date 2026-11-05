@@ -12,11 +12,6 @@ spec:
     headers:
       Content-Type:
         value: "application/json"
-      X-API-Key:
-        valueFrom:
-          secretKeyRef:
-            name: webhook-notification-channel-development-webhook-auth
-            key: api-key
     payloadTemplate: |
       {
         "text": "Alert: ${alertName}",
@@ -67,13 +62,3 @@ spec:
           }
         ]
       }
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webhook-notification-channel-development-webhook-auth
-  namespace: default
-type: Opaque
-stringData:
-  api-key: dummy-webhook-api-key

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
@@ -265,6 +266,56 @@ func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
 	}
 }
 
+// TestNewMiddleware_RecordsMCPClient guards that the per-request clientInfo a
+// 2026-07-28 client sends is recorded as metadata.mcp_client.
+func TestNewMiddleware_RecordsMCPClient(t *testing.T) {
+	tests := []struct {
+		name string
+		meta mcp.Meta
+		want map[string]any
+	}{
+		{
+			name: "name and version",
+			meta: mcp.Meta{mcp.MetaKeyClientInfo: map[string]any{"name": "claude-code", "version": "2.1.0"}},
+			want: map[string]any{
+				audit.MetadataKeyMCPClient: map[string]any{"name": "claude-code", "version": "2.1.0"},
+			},
+		},
+		{
+			name: "name only",
+			meta: mcp.Meta{mcp.MetaKeyClientInfo: map[string]any{"name": "occ"}},
+			want: map[string]any{audit.MetadataKeyMCPClient: map[string]any{"name": "occ"}},
+		},
+		{name: "no clientInfo", meta: nil, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sink := &recordingSink{}
+			mw := testMiddleware(t, MiddlewareOptions{
+				Emitter: testEmitter(t, sink), Bindings: testBindings(), Config: audit.MiddlewareConfig{Enabled: true},
+			})
+			next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+				return &mcp.CallToolResult{}, nil
+			}
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{
+					Meta: tt.meta, Name: "create_project", Arguments: json.RawMessage(`{"name":"proj-1"}`),
+				},
+			}
+
+			if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(sink.events) != 1 {
+				t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+			}
+			if diff := cmp.Diff(tt.want, sink.events[0].Metadata); diff != "" {
+				t.Errorf("Metadata mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 // TestNewMiddleware_SeedsHierarchyFromCallArguments guards that the pre-call
 // seed reads namespace_name/project_name/component_name/resource_name — the
 // identical convention callToolScope uses — so a filter-layer denial (which
@@ -299,6 +350,48 @@ func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
 	want := audit.Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1", Resource: "r1"}
 	if sink.events[0].Hierarchy != want {
 		t.Errorf("Hierarchy = %+v, want %+v", sink.events[0].Hierarchy, want)
+	}
+}
+
+// TestNewMiddleware_SeedsReleaseLineOfReleaseLineTools guards that a release line operation records
+// the line it acts on, including create_release_line, which names the line in "name", so a
+// filter-layer denial still matches release line audit filters.
+func TestNewMiddleware_SeedsReleaseLineOfReleaseLineTools(t *testing.T) {
+	op := &audit.Operation{
+		ID: "CreateComponentReleaseLine", Action: "create_component_release_line", ResourceType: "releaseline",
+		Category: audit.CategoryManagement,
+	}
+	bindings := map[audit.MCPBindingKey]audit.MCPBinding{
+		{ToolName: "create_release_line"}: {Operation: op, ResourceArg: "name"},
+		{ToolName: "patch_release_line"}:  {Operation: op, ResourceArg: "release_line_name"},
+	}
+	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+		return &mcp.CallToolResult{}, nil
+	}
+
+	for tool, args := range map[string]string{
+		"create_release_line": `{"name":"next","namespace_name":"ns-1","component_name":"c1"}`,
+		"patch_release_line":  `{"release_line_name":"next","namespace_name":"ns-1","component_name":"c1"}`,
+	} {
+		t.Run(tool, func(t *testing.T) {
+			sink := &recordingSink{}
+			mw := testMiddleware(t, MiddlewareOptions{
+				Emitter: testEmitter(t, sink), Bindings: bindings, Config: audit.MiddlewareConfig{Enabled: true},
+			})
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Name: tool, Arguments: json.RawMessage(args)},
+			}
+			if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(sink.events) != 1 {
+				t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+			}
+			want := audit.Hierarchy{Namespace: "ns-1", Component: "c1", ReleaseLine: "next"}
+			if sink.events[0].Hierarchy != want {
+				t.Errorf("Hierarchy = %+v, want %+v", sink.events[0].Hierarchy, want)
+			}
+		})
 	}
 }
 

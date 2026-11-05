@@ -14,7 +14,7 @@ import (
 )
 
 // GenerateReleaseName generates a release name following the naming convention
-// Format: <component-name>-<YYYYMMDD>-<version>
+// Format: <component-name>-<YYYYMMDD>-<version>, where componentName is an output.ReleaseNameBase
 func GenerateReleaseName(componentName string, date time.Time, version string, index *fsmode.Index) (string, error) {
 	if date.IsZero() {
 		date = time.Now()

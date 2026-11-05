@@ -37,10 +37,12 @@ func (h *Handler) QueryTraces(
 		Limit:     derefInt(genReq.Limit, 100),
 		SortOrder: sort,
 		SearchScope: types.ComponentSearchScope{
-			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project),
-			Component:   derefString(genReq.SearchScope.Component),
-			Environment: derefString(genReq.SearchScope.Environment),
+			Namespace:       genReq.SearchScope.Namespace,
+			Project:         derefString(genReq.SearchScope.Project),
+			Component:       derefString(genReq.SearchScope.Component),
+			Environment:     derefString(genReq.SearchScope.Environment),
+			ReleaseLine:     derefString(genReq.SearchScope.ReleaseLine),
+			AllReleaseLines: derefBool(genReq.SearchScope.AllReleaseLines),
 		},
 	}
 
@@ -69,6 +71,9 @@ func (h *Handler) QueryTraces(
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
 		h.logger.Error("Failed to query traces", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
@@ -81,6 +86,9 @@ func (h *Handler) QueryTraces(
 			), nil
 		case errors.Is(err, service.ErrTracesResolveSearchScope):
 			errorCode = types.ErrorCodeV1TracesResolverFailed
+		case errors.Is(err, service.ErrReleaseLineNotSupported):
+			return errorResponse(http.StatusNotImplemented, gen.NotImplemented,
+				types.ErrorCodeV1TracesReleaseLineNotSupported, err.Error()), nil
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
@@ -122,10 +130,12 @@ func (h *Handler) QuerySpansForTrace(
 		SortOrder:         sort,
 		IncludeAttributes: derefBool(genReq.IncludeAttributes),
 		SearchScope: types.ComponentSearchScope{
-			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project),
-			Component:   derefString(genReq.SearchScope.Component),
-			Environment: derefString(genReq.SearchScope.Environment),
+			Namespace:       genReq.SearchScope.Namespace,
+			Project:         derefString(genReq.SearchScope.Project),
+			Component:       derefString(genReq.SearchScope.Component),
+			Environment:     derefString(genReq.SearchScope.Environment),
+			ReleaseLine:     derefString(genReq.SearchScope.ReleaseLine),
+			AllReleaseLines: derefBool(genReq.SearchScope.AllReleaseLines),
 		},
 	}
 
@@ -154,6 +164,9 @@ func (h *Handler) QuerySpansForTrace(
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
+		if resp, ok := scopeNotFoundResponse(err); ok {
+			return resp, nil
+		}
 		h.logger.Error("Failed to query spans", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
@@ -164,6 +177,9 @@ func (h *Handler) QuerySpansForTrace(
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
 			), nil
+		case errors.Is(err, service.ErrReleaseLineNotSupported):
+			return errorResponse(http.StatusNotImplemented, gen.NotImplemented,
+				types.ErrorCodeV1TracesReleaseLineNotSupported, err.Error()), nil
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):

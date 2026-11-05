@@ -25,6 +25,8 @@ const (
 	ReasonDeletionBlocked controller.ConditionReason = "DeletionBlocked"
 	// ReasonReleaseBindingsPending the environment is waiting for release bindings to be removed
 	ReasonReleaseBindingsPending controller.ConditionReason = "ReleaseBindingsPending"
+	// ReasonNotificationChannelsPending the environment is waiting for notification channels to be removed
+	ReasonNotificationChannelsPending controller.ConditionReason = "NotificationChannelsPending"
 )
 
 func NewEnvironmentReadyCondition(generation int64) metav1.Condition {
@@ -52,6 +54,16 @@ func NewReleaseBindingsPendingCondition(generation int64, message string) metav1
 		ConditionReady,
 		metav1.ConditionFalse,
 		ReasonReleaseBindingsPending,
+		message,
+		generation,
+	)
+}
+
+func NewNotificationChannelsPendingCondition(generation int64, message string) metav1.Condition {
+	return controller.NewCondition(
+		ConditionReady,
+		metav1.ConditionFalse,
+		ReasonNotificationChannelsPending,
 		message,
 		generation,
 	)

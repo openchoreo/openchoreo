@@ -440,9 +440,9 @@ func (_c *MockService_ListWorkflowRuns_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// TriggerWorkflow provides a mock function with given fields: ctx, namespaceName, projectName, componentName, commit
-func (_m *MockService) TriggerWorkflow(ctx context.Context, namespaceName string, projectName string, componentName string, commit string) (*models.WorkflowRunTriggerResponse, error) {
-	ret := _m.Called(ctx, namespaceName, projectName, componentName, commit)
+// TriggerWorkflow provides a mock function with given fields: ctx, namespaceName, projectName, componentName, commit, releaseLine
+func (_m *MockService) TriggerWorkflow(ctx context.Context, namespaceName string, projectName string, componentName string, commit string, releaseLine string) (*models.WorkflowRunTriggerResponse, error) {
+	ret := _m.Called(ctx, namespaceName, projectName, componentName, commit, releaseLine)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TriggerWorkflow")
@@ -450,19 +450,19 @@ func (_m *MockService) TriggerWorkflow(ctx context.Context, namespaceName string
 
 	var r0 *models.WorkflowRunTriggerResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*models.WorkflowRunTriggerResponse, error)); ok {
-		return rf(ctx, namespaceName, projectName, componentName, commit)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string) (*models.WorkflowRunTriggerResponse, error)); ok {
+		return rf(ctx, namespaceName, projectName, componentName, commit, releaseLine)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *models.WorkflowRunTriggerResponse); ok {
-		r0 = rf(ctx, namespaceName, projectName, componentName, commit)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string) *models.WorkflowRunTriggerResponse); ok {
+		r0 = rf(ctx, namespaceName, projectName, componentName, commit, releaseLine)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.WorkflowRunTriggerResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, namespaceName, projectName, componentName, commit)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, projectName, componentName, commit, releaseLine)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -481,13 +481,14 @@ type MockService_TriggerWorkflow_Call struct {
 //   - projectName string
 //   - componentName string
 //   - commit string
-func (_e *MockService_Expecter) TriggerWorkflow(ctx interface{}, namespaceName interface{}, projectName interface{}, componentName interface{}, commit interface{}) *MockService_TriggerWorkflow_Call {
-	return &MockService_TriggerWorkflow_Call{Call: _e.mock.On("TriggerWorkflow", ctx, namespaceName, projectName, componentName, commit)}
+//   - releaseLine string
+func (_e *MockService_Expecter) TriggerWorkflow(ctx interface{}, namespaceName interface{}, projectName interface{}, componentName interface{}, commit interface{}, releaseLine interface{}) *MockService_TriggerWorkflow_Call {
+	return &MockService_TriggerWorkflow_Call{Call: _e.mock.On("TriggerWorkflow", ctx, namespaceName, projectName, componentName, commit, releaseLine)}
 }
 
-func (_c *MockService_TriggerWorkflow_Call) Run(run func(ctx context.Context, namespaceName string, projectName string, componentName string, commit string)) *MockService_TriggerWorkflow_Call {
+func (_c *MockService_TriggerWorkflow_Call) Run(run func(ctx context.Context, namespaceName string, projectName string, componentName string, commit string, releaseLine string)) *MockService_TriggerWorkflow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string), args[5].(string))
 	})
 	return _c
 }
@@ -497,7 +498,7 @@ func (_c *MockService_TriggerWorkflow_Call) Return(_a0 *models.WorkflowRunTrigge
 	return _c
 }
 
-func (_c *MockService_TriggerWorkflow_Call) RunAndReturn(run func(context.Context, string, string, string, string) (*models.WorkflowRunTriggerResponse, error)) *MockService_TriggerWorkflow_Call {
+func (_c *MockService_TriggerWorkflow_Call) RunAndReturn(run func(context.Context, string, string, string, string, string) (*models.WorkflowRunTriggerResponse, error)) *MockService_TriggerWorkflow_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -60,6 +60,19 @@ func TestCreateReleaseBinding_AuthzCheck(t *testing.T) {
 		_, err := svc.CreateReleaseBinding(testutil.AuthzContext(), "ns-1", rb)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
+
+	t.Run("release line in the authz context", func(t *testing.T) {
+		lineRB := testRB()
+		lineRB.Spec.Owner.ReleaseLine = "next"
+		pdp := testutil.DenyPDP()
+		svc := &releaseBindingServiceWithAuthz{
+			internal: mocks.NewMockService(t),
+			authz:    testutil.NewTestAuthzChecker(pdp),
+		}
+		_, _ = svc.CreateReleaseBinding(testutil.AuthzContext(), "ns-1", lineRB)
+		require.Len(t, pdp.Captured, 1)
+		require.Equal(t, "next", pdp.Captured[0].Context.Resource.ReleaseLine)
+	})
 }
 
 // --- UpdateReleaseBinding ---

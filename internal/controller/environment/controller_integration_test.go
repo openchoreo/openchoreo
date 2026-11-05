@@ -1038,6 +1038,117 @@ var _ = Describe("Environment Controller", func() {
 				Expect(prb.DeletionTimestamp).To(BeNil())
 			})
 		})
+
+		// The channel finalizer resolves the observability plane through the Environment, so
+		// when both are deleted together (namespace deletion) the Environment must go last.
+		Context("waiting for notification channels during finalization", func() {
+			const channelFinalizer = "openchoreo.dev/notification-channel-cleanup"
+			var nn, channelNN, otherChannelNN types.NamespacedName
+
+			newWebhookChannel := func(name, env string, finalizers ...string) *openchoreov1alpha1.ObservabilityAlertsNotificationChannel {
+				return &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Finalizers: finalizers},
+					Spec: openchoreov1alpha1.ObservabilityAlertsNotificationChannelSpec{
+						Environment:   env,
+						Type:          openchoreov1alpha1.NotificationChannelTypeWebhook,
+						WebhookConfig: &openchoreov1alpha1.WebhookConfig{URL: "https://hooks.example.com/alerts"},
+					},
+				}
+			}
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-channel-cleanup"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				channelNN = types.NamespacedName{Namespace: ns, Name: "channel-for-env-cleanup"}
+				Expect(k8sClient.Create(ctx, newWebhookChannel(channelNN.Name, nn.Name, channelFinalizer))).To(Succeed())
+
+				otherChannelNN = types.NamespacedName{Namespace: ns, Name: "channel-other-env"}
+				Expect(k8sClient.Create(ctx, newWebhookChannel(otherChannelNN.Name, "some-other-environment"))).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				for _, key := range []types.NamespacedName{channelNN, otherChannelNN} {
+					channel := &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}
+					if err := k8sClient.Get(ctx, key, channel); err == nil {
+						controllerutil.RemoveFinalizer(channel, channelFinalizer)
+						_ = k8sClient.Update(ctx, channel)
+						_ = k8sClient.Delete(ctx, channel)
+					}
+				}
+			})
+
+			It("should delete the environment's notification channels and stay until they are gone", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("second reconcile — deletes the channel and requeues while it is still present")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+
+				channel := &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}
+				Eventually(func() *metav1.Time {
+					if err := k8sClient.Get(ctx, channelNN, channel); err != nil {
+						return nil
+					}
+					return channel.DeletionTimestamp
+				}, "5s", "100ms").ShouldNot(BeNil())
+
+				By("verifying the NotificationChannelsPending condition is set")
+				env := &openchoreov1alpha1.Environment{}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonNotificationChannelsPending)))
+
+				By("reconciling repeatedly — the environment waits without rewriting its status")
+				resourceVersion := env.ResourceVersion
+				for range 3 {
+					result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+				}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+				Expect(env.Finalizers).To(ContainElement(EnvCleanupFinalizer))
+				Expect(env.ResourceVersion).To(Equal(resourceVersion))
+
+				By("verifying the other environment's channel is untouched")
+				other := &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}
+				Expect(k8sClient.Get(ctx, otherChannelNN, other)).To(Succeed())
+				Expect(other.DeletionTimestamp).To(BeNil())
+
+				By("simulating the channel controller: removing its finalizer after cleaning up the plane")
+				Expect(k8sClient.Get(ctx, channelNN, channel)).To(Succeed())
+				controllerutil.RemoveFinalizer(channel, channelFinalizer)
+				Expect(k8sClient.Update(ctx, channel)).To(Succeed())
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, channelNN, &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}))
+				}, "5s", "100ms").Should(BeTrue())
+
+				By("reconciling until finalization completes (DataPlane not found, removes finalizer)")
+				Eventually(func(g Gomega) {
+					_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Environment{}))).To(BeTrue())
+				}, "5s", "100ms").Should(Succeed())
+			})
+		})
 	})
 
 	// -------------------------------------------------------------------------

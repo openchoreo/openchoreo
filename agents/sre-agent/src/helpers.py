@@ -20,6 +20,7 @@ class AlertScope:
     environment_uid: str
     component: str | None = None
     component_uid: str | None = None
+    release_line: str | None = None
 
 
 def validate_time_range(start_time: str, end_time: str) -> tuple[str, str]:
@@ -35,6 +36,7 @@ async def resolve_component_scope(
     project: str,
     component: str,
     environment: str,
+    release_line: str | None = None,
 ) -> AlertScope:
     auth = get_oauth2_auth()
     project_data = await get(f"/namespaces/{namespace}/projects/{project}", auth)
@@ -49,6 +51,7 @@ async def resolve_component_scope(
         environment_uid=environment_data["metadata"]["uid"],
         component=component,
         component_uid=component_data["metadata"]["uid"],
+        release_line=release_line or None,
     )
 
 

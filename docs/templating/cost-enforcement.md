@@ -55,7 +55,7 @@ own terms, the operator sees that error, and the breach surfaces on the next eva
 ## Custom-function cost accounting
 
 cel-go charges an unknown overload roughly O(1). The `oc_*` functions
-(`oc_hash`, `oc_generate_name`, `oc_dns_label`, `oc_merge`) walk tenant data, so an
+(`oc_hash`, `oc_generate_name`, `oc_dns_label`, `oc_generate_name_limit`, `oc_merge`) walk tenant data, so an
 `interpreter.ActualCostEstimator` charges them by bytes walked, feeding the same tracker as
 the limit and the budget.
 

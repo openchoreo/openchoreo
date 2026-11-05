@@ -35,6 +35,7 @@ func buildConnectionTargets(
 			Namespace:   releaseBinding.Namespace,
 			Project:     project,
 			Component:   conn.Component,
+			ReleaseLine: conn.ReleaseLine,
 			Endpoint:    conn.Name,
 			Visibility:  openchoreov1alpha1.EndpointVisibility(conn.Visibility),
 			Environment: releaseBinding.Spec.Environment,
@@ -86,24 +87,31 @@ func (r *Reconciler) resolveConnection(
 		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerEnv: indexKey}); err != nil {
 		return nil, nil, fmt.Errorf("failed to list ReleaseBindings for component %s/%s: %w", conn.Project, conn.Component, err)
 	}
+	rbList.Items = controller.FilterReleaseBindingsByLine(rbList.Items, conn.ReleaseLine)
 
 	if len(rbList.Items) == 0 {
+		reason, err := r.missingBindingReason(ctx, conn)
+		if err != nil {
+			return nil, nil, err
+		}
 		return nil, &openchoreov1alpha1.PendingConnection{
-			Namespace: conn.Namespace,
-			Project:   conn.Project,
-			Component: conn.Component,
-			Endpoint:  conn.Endpoint,
-			Reason:    fmt.Sprintf("ReleaseBinding not found for component %s/%s", conn.Project, conn.Component),
+			Namespace:   conn.Namespace,
+			Project:     conn.Project,
+			Component:   conn.Component,
+			ReleaseLine: conn.ReleaseLine,
+			Endpoint:    conn.Endpoint,
+			Reason:      reason,
 		}, nil
 	}
 
 	if len(rbList.Items) > 1 {
 		return nil, &openchoreov1alpha1.PendingConnection{
-			Namespace: conn.Namespace,
-			Project:   conn.Project,
-			Component: conn.Component,
-			Endpoint:  conn.Endpoint,
-			Reason:    fmt.Sprintf("multiple ReleaseBindings found for component %s/%s in environment %s", conn.Project, conn.Component, conn.Environment),
+			Namespace:   conn.Namespace,
+			Project:     conn.Project,
+			Component:   conn.Component,
+			ReleaseLine: conn.ReleaseLine,
+			Endpoint:    conn.Endpoint,
+			Reason:      fmt.Sprintf("multiple ReleaseBindings found for component %s/%s in environment %s", conn.Project, conn.Component, conn.Environment),
 		}, nil
 	}
 
@@ -111,11 +119,12 @@ func (r *Reconciler) resolveConnection(
 
 	if rb.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
 		return nil, &openchoreov1alpha1.PendingConnection{
-			Namespace: conn.Namespace,
-			Project:   conn.Project,
-			Component: conn.Component,
-			Endpoint:  conn.Endpoint,
-			Reason:    "component is undeployed",
+			Namespace:   conn.Namespace,
+			Project:     conn.Project,
+			Component:   conn.Component,
+			ReleaseLine: conn.ReleaseLine,
+			Endpoint:    conn.Endpoint,
+			Reason:      "component is undeployed",
 		}, nil
 	}
 
@@ -126,30 +135,43 @@ func (r *Reconciler) resolveConnection(
 		url := resolveURLForVisibility(ep, conn.Visibility)
 		if url == nil {
 			return nil, &openchoreov1alpha1.PendingConnection{
-				Namespace: conn.Namespace,
-				Project:   conn.Project,
-				Component: conn.Component,
-				Endpoint:  conn.Endpoint,
-				Reason:    fmt.Sprintf("endpoint %q has no URL for visibility %s", conn.Endpoint, conn.Visibility),
+				Namespace:   conn.Namespace,
+				Project:     conn.Project,
+				Component:   conn.Component,
+				ReleaseLine: conn.ReleaseLine,
+				Endpoint:    conn.Endpoint,
+				Reason:      fmt.Sprintf("endpoint %q has no URL for visibility %s", conn.Endpoint, conn.Visibility),
 			}, nil
 		}
 		return &openchoreov1alpha1.ResolvedConnection{
-			Namespace:  conn.Namespace,
-			Project:    conn.Project,
-			Component:  conn.Component,
-			Endpoint:   conn.Endpoint,
-			Visibility: conn.Visibility,
-			URL:        *url,
+			Namespace:   conn.Namespace,
+			Project:     conn.Project,
+			Component:   conn.Component,
+			ReleaseLine: conn.ReleaseLine,
+			Endpoint:    conn.Endpoint,
+			Visibility:  conn.Visibility,
+			URL:         *url,
 		}, nil, nil
 	}
 
 	return nil, &openchoreov1alpha1.PendingConnection{
-		Namespace: conn.Namespace,
-		Project:   conn.Project,
-		Component: conn.Component,
-		Endpoint:  conn.Endpoint,
-		Reason:    fmt.Sprintf("endpoint %q not yet resolved", conn.Endpoint),
+		Namespace:   conn.Namespace,
+		Project:     conn.Project,
+		Component:   conn.Component,
+		ReleaseLine: conn.ReleaseLine,
+		Endpoint:    conn.Endpoint,
+		Reason:      fmt.Sprintf("endpoint %q not yet resolved", conn.Endpoint),
 	}, nil
+}
+
+// missingBindingReason explains why no ReleaseBinding matches the target.
+func (r *Reconciler) missingBindingReason(ctx context.Context, conn openchoreov1alpha1.ConnectionTarget) (string, error) {
+	reason, err := controller.ReleaseLineDependencyProblem(ctx, r.Client,
+		conn.Namespace, conn.Project, conn.Component, conn.ReleaseLine, conn.Environment)
+	if err != nil || reason != "" {
+		return reason, err
+	}
+	return fmt.Sprintf("ReleaseBinding not found for component %s/%s", conn.Project, conn.Component), nil
 }
 
 // resolveURLForVisibility extracts the appropriate URL from an EndpointURLStatus
@@ -189,10 +211,10 @@ func buildConnectionItems(
 		return nil
 	}
 
-	// Build lookup: "namespace/project/component/endpoint/visibility" → ResolvedConnection
+	// Build lookup: "namespace/project/component/releaseLine/endpoint/visibility" → ResolvedConnection
 	resolved := make(map[string]openchoreov1alpha1.ResolvedConnection, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = rc
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.ReleaseLine, rc.Endpoint, string(rc.Visibility))] = rc
 	}
 
 	items := make([]pipelinecontext.ConnectionItem, 0, len(connections))
@@ -210,7 +232,7 @@ func buildConnectionItems(
 			Visibility: conn.Visibility,
 		}
 
-		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, conn.Visibility)
+		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.ReleaseLine, conn.Name, conn.Visibility)
 		if rc, ok := resolved[key]; ok {
 			item.EnvVars = buildEnvVarsForConnection(conn, rc)
 		}
@@ -311,23 +333,23 @@ func allConnectionsResolved(
 	}
 	resolved := make(map[string]struct{}, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = struct{}{}
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.ReleaseLine, rc.Endpoint, string(rc.Visibility))] = struct{}{}
 	}
 	for _, conn := range connections {
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, conn.Visibility)]; !ok {
+		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.ReleaseLine, conn.Name, conn.Visibility)]; !ok {
 			return false
 		}
 	}
 	return true
 }
 
-// connectionKey builds a lookup key for a connection target.
-func connectionKey(namespace, project, component, endpoint, visibility string) string {
-	return namespace + "/" + project + "/" + component + "/" + endpoint + "/" + visibility
+// connectionKey builds a lookup key for a connection target. Each line of a component is its own target.
+func connectionKey(namespace, project, component, releaseLine, endpoint, visibility string) string {
+	return namespace + "/" + project + "/" + component + "/" + releaseLine + "/" + endpoint + "/" + visibility
 }
 
 // setConnectionsCondition sets the ConnectionsResolved condition on the ReleaseBinding.

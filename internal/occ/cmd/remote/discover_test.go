@@ -1054,6 +1054,34 @@ spec:
 	}
 }
 
+// TestConnectDryRunWarnsAboutUnmatchedOverrides covers --local overrides that name no
+// workload of the set, such as a mistyped release line.
+func TestConnectDryRunWarnsAboutUnmatchedOverrides(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"components/comp1.yaml": consumerWorkloadYAML,
+		"components/comp2.yaml": providerWorkloadYAML,
+	})
+
+	var out bytes.Buffer
+	if err := New(nil).Connect(t.Context(), ConnectParams{
+		WorkloadPaths: []string{filepath.Join(root, "components")},
+		Namespace:     "default",
+		LocalOverrides: map[string]LocalTarget{
+			"comp2":      {Host: "127.0.0.1", Port: 9091},
+			"comp2@next": {Host: "127.0.0.1", Port: 9092},
+		},
+		DryRun: true,
+	}, &out); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	if want := "! --local comp2@next names no workload passed to occ remote; it is ignored"; !strings.Contains(out.String(), want) {
+		t.Errorf("output missing %q:\n%s", want, out.String())
+	}
+	if strings.Contains(out.String(), "! --local comp2 ") {
+		t.Errorf("warned about an override that names a workload:\n%s", out.String())
+	}
+}
+
 // TestConnectNoDirectoryHeaderWhenDirectoryContributedNothing covers the header only
 // appearing when a directory actually chose part of the set.
 func TestConnectNoDirectoryHeaderWhenDirectoryContributedNothing(t *testing.T) {
