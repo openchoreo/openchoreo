@@ -61,6 +61,7 @@ Existing files outside the selected export are not removed.`,
 			if err != nil {
 				return err
 			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Exporting resources...")
 			reader := bufio.NewReader(cmd.InOrStdin())
 			return runWithSecretDecision(cmd.Context(), cl, cmd.OutOrStdout(), Params{
 				OutputDir: outputDir, AllReleases: all,
