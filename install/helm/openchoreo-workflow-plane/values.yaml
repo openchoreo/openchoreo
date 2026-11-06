@@ -119,6 +119,19 @@ argo-workflows:
   # @schema
   # type: object
   # additionalProperties: true
+  # description: Argo Workflows image configuration
+  # @schema
+  images:
+    # @schema
+    # type: string
+    # description: Tag for all Argo Workflows images. Pinned ahead of the subchart's appVersion (v4.0.8), whose images trust the compromised eMudhra intermediate CAs.
+    # default: v4.0.15
+    # @schema
+    tag: v4.0.15
+
+  # @schema
+  # type: object
+  # additionalProperties: true
   # description: Argo Workflows server (UI) configuration
   # @schema
   server:
