@@ -234,8 +234,13 @@ func scheduledTaskComponentYAML(name, image string) string {
 	return mustYAMLDocs(comp, workload)
 }
 
-// scheduleOverridePatch forces a 1-minute schedule on the ReleaseBinding.
-const scheduleOverridePatch = `{"spec":{"componentTypeEnvironmentConfigs":{"schedule":"* * * * *"}}}`
+// imagePullSecretName is set on the scheduled-task ReleaseBinding to check that it reaches the
+// component's ServiceAccount. The Secret doesn't need to exist, since the image is public.
+const imagePullSecretName = "wt-regcred"
+
+// scheduleOverridePatch forces a 1-minute schedule and an image pull secret on the ReleaseBinding.
+const scheduleOverridePatch = `{"spec":{"componentTypeEnvironmentConfigs":{"schedule":"* * * * *",` +
+	`"imagePullSecrets":["` + imagePullSecretName + `"]}}}`
 
 // testerPodYAML returns a busybox pod that sleeps forever, used as the source
 // of in-cluster wget probes against project-visibility workloads. Deployed in

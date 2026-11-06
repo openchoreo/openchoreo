@@ -256,8 +256,25 @@ spec:
             - Always
             - IfNotPresent
             - Never
+        imagePullSecrets:
+          type: array
+          items:
+            type: string
+          default: []
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+        imagePullSecrets: |
+          ${size(environmentConfigs.imagePullSecrets) > 0 ? environmentConfigs.imagePullSecrets.map(n, {"name": n}) : oc_omit()}
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -274,6 +291,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -448,8 +467,25 @@ spec:
             - Always
             - IfNotPresent
             - Never
+        imagePullSecrets:
+          type: array
+          items:
+            type: string
+          default: []
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+        imagePullSecrets: |
+          ${size(environmentConfigs.imagePullSecrets) > 0 ? environmentConfigs.imagePullSecrets.map(n, {"name": n}) : oc_omit()}
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -466,6 +502,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -717,8 +755,25 @@ spec:
             - Always
             - IfNotPresent
             - Never
+        imagePullSecrets:
+          type: array
+          items:
+            type: string
+          default: []
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+        imagePullSecrets: |
+          ${size(environmentConfigs.imagePullSecrets) > 0 ? environmentConfigs.imagePullSecrets.map(n, {"name": n}) : oc_omit()}
+
     - id: deployment
       template:
         apiVersion: apps/v1
@@ -735,6 +790,8 @@ spec:
             metadata:
               labels: ${metadata.podSelectors}
             spec:
+              serviceAccountName: ${metadata.name}
+              automountServiceAccountToken: false
               containers:
                 - name: main
                   image: ${workload.container.image}
@@ -967,8 +1024,25 @@ spec:
             - Always
             - IfNotPresent
             - Never
+        imagePullSecrets:
+          type: array
+          items:
+            type: string
+          default: []
 
   resources:
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        automountServiceAccountToken: false
+        imagePullSecrets: |
+          ${size(environmentConfigs.imagePullSecrets) > 0 ? environmentConfigs.imagePullSecrets.map(n, {"name": n}) : oc_omit()}
+
     - id: cronjob
       template:
         apiVersion: batch/v1
@@ -995,6 +1069,8 @@ spec:
                   labels: ${metadata.podSelectors}
                 spec:
                   restartPolicy: ${parameters.restartPolicy}
+                  serviceAccountName: ${metadata.name}
+                  automountServiceAccountToken: false
                   containers:
                     - name: main
                       image: ${workload.container.image}
