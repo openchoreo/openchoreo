@@ -44,3 +44,11 @@ type DeleteParams struct {
 
 func (p DeleteParams) GetNamespace() string            { return p.Namespace }
 func (p DeleteParams) GetComponentReleaseName() string { return p.ComponentReleaseName }
+
+// DiffParams defines parameters for comparing two component releases
+type DiffParams struct {
+	Namespace string
+	From      string
+	To        string
+	Color     bool
+}

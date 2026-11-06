@@ -20,3 +20,11 @@ type DeleteParams struct {
 	Namespace           string
 	ResourceReleaseName string
 }
+
+// DiffParams defines parameters for comparing two resource releases
+type DiffParams struct {
+	Namespace string
+	From      string
+	To        string
+	Color     bool
+}
