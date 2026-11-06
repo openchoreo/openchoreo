@@ -41,6 +41,8 @@ type mockConnection struct {
 	writtenMsgs  [][]byte // captured messages from WriteMessage()
 	writeErr     error    // error to return from WriteMessage()
 	closed       bool
+	// writeDeadlines records every write deadline the agent set.
+	writeDeadlines []time.Time
 }
 
 func (m *mockConnection) ReadMessage() (int, []byte, error) {
@@ -72,6 +74,13 @@ func (m *mockConnection) WriteControl(_ int, _ []byte, _ time.Time) error {
 }
 
 func (m *mockConnection) SetPingHandler(_ func(string) error) {}
+
+func (m *mockConnection) SetWriteDeadline(t time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.writeDeadlines = append(m.writeDeadlines, t)
+	return nil
+}
 
 func (m *mockConnection) Close() error {
 	m.mu.Lock()
@@ -382,11 +391,17 @@ func TestAgent_Connect_InvalidURL(t *testing.T) {
 }
 
 func TestAgent_Connect_ServerUnavailable(t *testing.T) {
-	agent := newTestAgent(t, "ws://localhost:1", nil)
+	// With heartbeats on the agent dials through its own activity-tracking
+	// dialer; a refused dial must still surface as a dial failure.
+	for _, interval := range []time.Duration{0, 30 * time.Second} {
+		agent := newTestAgent(t, "ws://localhost:1", nil)
+		agent.config.HeartbeatInterval = interval
 
-	err := agent.connect()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "dial failed")
+		err := agent.connect()
+		assert.Error(t, err, "heartbeat interval %s", interval)
+		assert.Contains(t, err.Error(), "dial failed", "heartbeat interval %s", interval)
+		assert.Nil(t, agent.conn, "heartbeat interval %s", interval)
+	}
 }
 
 // --- Tests for Start/Stop lifecycle ---
@@ -786,6 +801,7 @@ func (c *closeErrorConnection) ReadMessage() (int, []byte, error) {
 func (c *closeErrorConnection) WriteMessage(_ int, _ []byte) error              { return nil }
 func (c *closeErrorConnection) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
 func (c *closeErrorConnection) SetPingHandler(_ func(string) error)             {}
+func (c *closeErrorConnection) SetWriteDeadline(_ time.Time) error              { return nil }
 func (c *closeErrorConnection) Close() error                                    { return nil }
 
 // blockingConnection blocks on ReadMessage until Close is called.
@@ -805,6 +821,7 @@ func (b *blockingConnection) WriteControl(_ int, _ []byte, _ time.Time) error {
 	return nil
 }
 func (b *blockingConnection) SetPingHandler(_ func(string) error) {}
+func (b *blockingConnection) SetWriteDeadline(_ time.Time) error  { return nil }
 func (b *blockingConnection) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -956,4 +973,258 @@ func TestAgent_Start_GoAwayReconnectsWithoutBackoff(t *testing.T) {
 		"GOAWAY must skip the reconnect backoff; the agent never redialled")
 
 	agent.Stop()
+}
+
+// silentGatewayServer upgrades the agent's connection and then neither reads
+// nor writes, holding the socket open. With no reads the server never answers
+// the agent's pings either, so from the agent's side this is indistinguishable
+// from a half-open path where a proxy or NAT has dropped the flow silently.
+func silentGatewayServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	release := make(chan struct{})
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		<-release
+	})
+	t.Cleanup(func() {
+		close(release)
+		srv.Close()
+	})
+	return srv
+}
+
+// A gateway that goes silent must not strand the agent. Before the agent
+// tracked heartbeats it blocked in ReadMessage on such a connection while the
+// gateway, having timed the agent out, reported "no agents" for the plane.
+func TestAgent_HandleConnection_SilentGatewayTimesOut(t *testing.T) {
+	srv := silentGatewayServer(t)
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+	agent.config.HeartbeatInterval = 50 * time.Millisecond
+	require.NoError(t, agent.connect())
+	defer agent.closeConnection()
+
+	returned := make(chan bool, 1)
+	go func() { returned <- agent.handleConnection(context.Background()) }()
+
+	select {
+	case graceful := <-returned:
+		assert.False(t, graceful, "a heartbeat timeout is a lost connection, not a GOAWAY; it must back off")
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent stayed on a connection the gateway had stopped answering")
+	}
+}
+
+// The agent's own pings must keep a healthy but otherwise idle connection
+// alive. Without them the read deadline would depend on the gateway pinging
+// often enough, and a gateway configured with a longer ping interval than
+// the agent's timeout would see every agent flap.
+func TestAgent_HandleConnection_IdleHealthyConnectionStaysUp(t *testing.T) {
+	// Reads (so gorilla answers the agent's pings) but never sends anything.
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	})
+	defer srv.Close()
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+	agent.config.HeartbeatInterval = 50 * time.Millisecond
+	require.NoError(t, agent.connect())
+
+	returned := make(chan struct{})
+	go func() {
+		agent.handleConnection(context.Background())
+		close(returned)
+	}()
+
+	// Ten intervals: over three times the read timeout.
+	select {
+	case <-returned:
+		t.Fatal("agent dropped an idle connection whose gateway was still answering pings")
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	agent.closeConnection()
+	<-returned
+}
+
+// Every write must carry a deadline. Writers hold a.mu, which reconnecting
+// also needs, so one write stuck on a dead peer would otherwise block every
+// other response and the reconnect behind it.
+func TestAgent_SendHTTPTunnelResponse_SetsWriteDeadline(t *testing.T) {
+	mock := &mockConnection{}
+	agent := newTestAgent(t, "ws://unused", nil)
+	agent.conn = mock
+
+	before := time.Now()
+	require.NoError(t, agent.sendHTTPTunnelResponse(&messaging.HTTPTunnelResponse{RequestID: "req-1", StatusCode: 200}))
+	require.NoError(t, agent.sendStreamChunk(&messaging.HTTPTunnelStreamChunk{RequestID: "req-1", Data: []byte("x")}))
+
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	require.Len(t, mock.writeDeadlines, 2, "both the response and the stream writer must set a deadline")
+	for _, d := range mock.writeDeadlines {
+		assert.True(t, d.After(before), "write deadline must be in the future")
+		assert.True(t, d.Before(before.Add(writeTimeout+time.Second)), "write deadline must be bounded")
+	}
+}
+
+// A hung backend must not pin the request goroutine forever: once the
+// gateway has given up on the request, the agent should too, and answer.
+func TestAgent_HandleHTTPTunnelRequest_BackendTimeout(t *testing.T) {
+	mock := &mockConnection{}
+	hung := newMockRoute("k8s", "https://kubernetes.svc", func(req *http.Request) (*http.Response, error) {
+		<-req.Context().Done()
+		return nil, req.Context().Err()
+	})
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{"k8s": hung}))
+	agent.config.RequestTimeout = 50 * time.Millisecond
+	agent.conn = mock
+
+	done := make(chan struct{})
+	go func() {
+		agent.handleHTTPTunnelRequest(&messaging.HTTPTunnelRequest{
+			RequestID: "req-hung", Target: "k8s", Method: "GET", Path: "/api/v1/pods",
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("request to a hung backend was never abandoned")
+	}
+
+	written := mock.getWrittenMessages()
+	require.Len(t, written, 1, "the gateway must still get an answer")
+	var got messaging.HTTPTunnelResponse
+	require.NoError(t, json.Unmarshal(written[0], &got))
+	assert.Equal(t, http.StatusBadGateway, got.StatusCode)
+}
+
+// A large message that is slow to arrive is not a dead connection. The gateway
+// sends each message as one frame, so no ping or pong can reach the agent
+// until it ends; only the bytes arriving show the peer is alive. The frame
+// here takes several heartbeat timeouts to deliver and must still be read.
+func TestAgent_HandleConnection_SlowFrameDoesNotTimeOut(t *testing.T) {
+	payload, err := json.Marshal(messaging.GoAway{Type: messaging.MessageTypeGoAway, Reason: "slow"})
+	require.NoError(t, err)
+	require.Less(t, len(payload), 126, "test frame uses the one-byte length form")
+
+	release := make(chan struct{})
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		// Write one unmasked, final text frame by hand, a byte at a time.
+		// Nothing else is written or read, so no control frame can refresh
+		// the agent's deadline - only the trickle of bytes.
+		frame := append([]byte{0x81, byte(len(payload))}, payload...) //nolint:gosec // G115: len(payload) < 126 is checked above
+		for _, b := range frame {
+			if _, err := conn.NetConn().Write([]byte{b}); err != nil {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		<-release
+	})
+	defer func() {
+		close(release)
+		srv.Close()
+	}()
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+	agent.config.HeartbeatInterval = 50 * time.Millisecond // 150ms timeout; delivery takes ~1s
+	require.NoError(t, agent.connect())
+	defer agent.closeConnection()
+
+	graceful := agent.handleConnection(context.Background())
+	assert.True(t, graceful, "agent gave up on a frame that was still arriving")
+}
+
+// failingWriteConnection blocks on reads like blockingConnection but fails
+// every write, as a socket does once a write has hit a dead peer.
+type failingWriteConnection struct{ blockingConnection }
+
+func (f *failingWriteConnection) WriteMessage(_ int, _ []byte) error {
+	return fmt.Errorf("write: broken pipe")
+}
+
+// A failed write means the socket can carry no more responses, so the agent
+// must drop it and reconnect rather than leave the read loop parked on it.
+// Heartbeats are off here, so nothing else would ever end that read.
+func TestAgent_WriteFailureClosesConnection(t *testing.T) {
+	conn := &failingWriteConnection{blockingConnection{readCh: make(chan struct{})}}
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{}))
+	agent.conn = conn
+
+	returned := make(chan bool, 1)
+	go func() { returned <- agent.handleConnection(context.Background()) }()
+
+	err := agent.sendHTTPTunnelResponse(&messaging.HTTPTunnelResponse{RequestID: "req-1", StatusCode: 200})
+	require.ErrorContains(t, err, "broken pipe", "the original write error must reach the caller")
+
+	select {
+	case graceful := <-returned:
+		assert.False(t, graceful, "a failed write is a lost connection, not a GOAWAY")
+	case <-time.After(2 * time.Second):
+		t.Fatal("read loop stayed on a connection that can no longer be written to")
+	}
+
+	assert.ErrorIs(t, agent.sendHTTPTunnelResponse(&messaging.HTTPTunnelResponse{RequestID: "req-2"}),
+		messaging.ErrNotConnected, "later writers must fail fast instead of retrying the dead socket")
+}
+
+// pingFailingConnection blocks on reads and fails every control write,
+// counting the attempts.
+type pingFailingConnection struct {
+	blockingConnection
+	pings atomic.Int32
+}
+
+func (p *pingFailingConnection) WriteControl(_ int, _ []byte, _ time.Time) error {
+	p.pings.Add(1)
+	return fmt.Errorf("write: broken pipe")
+}
+
+// A failed ping must not end the session on its own, nor stop the pinger. A
+// ping can fail on a momentary write stall; whether the connection is dead is
+// the read deadline's call, which a later successful ping and pong can still
+// keep from firing.
+func TestAgent_HandleConnection_FailedPingKeepsSession(t *testing.T) {
+	conn := &pingFailingConnection{blockingConnection: blockingConnection{readCh: make(chan struct{})}}
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{}))
+	agent.config.HeartbeatInterval = 10 * time.Millisecond
+	agent.conn = conn
+
+	returned := make(chan struct{})
+	go func() {
+		agent.handleConnection(context.Background())
+		close(returned)
+	}()
+
+	require.Eventually(t, func() bool { return conn.pings.Load() >= 3 }, 2*time.Second, 5*time.Millisecond,
+		"pinger stopped after a failed ping")
+	select {
+	case <-returned:
+		t.Fatal("a failed ping ended the session")
+	default:
+	}
+
+	agent.closeConnection()
+	<-returned
 }
