@@ -44,7 +44,8 @@ spec:
               interval:
                 description: |-
                   Interval watch interval for the release resources when stable.
-                  Defaults to 1m if not specified.
+                  Defaults to the controller's stable interval (1m unless configured) if not
+                  specified. Set to 0 to stop periodic checks.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               owner:
@@ -84,7 +85,8 @@ spec:
               progressingInterval:
                 description: |-
                   ProgressingInterval watch interval for the release resources when transitioning.
-                  Defaults to 10s if not specified.
+                  Defaults to the controller's progressing interval (10s unless configured) if not
+                  specified. Set to 0 to stop periodic checks.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               resources:

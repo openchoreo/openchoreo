@@ -95,3 +95,18 @@ func TestValidateRenderTimeout(t *testing.T) {
 		t.Fatal("validateRenderTimeout() accepted a negative duration")
 	}
 }
+
+func TestValidateRequeueInterval(t *testing.T) {
+	for _, interval := range []time.Duration{time.Nanosecond, 10 * time.Second, 5 * time.Minute} {
+		if err := validateRequeueInterval(interval); err != nil {
+			t.Fatalf("validateRequeueInterval(%s) returned %v", interval, err)
+		}
+	}
+	// spec.interval: 0 turns the requeue off for one release; a zero controller default
+	// would do that for every release that does not set it, so it is rejected.
+	for _, interval := range []time.Duration{0, -time.Second} {
+		if err := validateRequeueInterval(interval); err == nil {
+			t.Fatalf("validateRequeueInterval(%s) accepted a non-positive interval", interval)
+		}
+	}
+}

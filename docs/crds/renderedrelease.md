@@ -128,11 +128,13 @@ type RenderedReleaseSpec struct {
     // Resources contains the Kubernetes resources to deploy
     Resources []Resource `json:"resources,omitempty"`
     
-    // Interval is the watch interval for stable resources (defaults to 5m)
+    // Interval is the watch interval for stable resources
+    // (defaults to --renderedrelease-stable-interval, 1m)
     // Set to 0 to disable requeuing
     Interval *metav1.Duration `json:"interval,omitempty"`
     
-    // ProgressingInterval is the watch interval for transitioning resources (defaults to 10s)
+    // ProgressingInterval is the watch interval for transitioning resources
+    // (defaults to --renderedrelease-progressing-interval, 10s)
     // Set to 0 to disable requeuing
     ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 }
@@ -240,8 +242,17 @@ The controller detects transitioning states to adjust reconciliation frequency:
 - **Other Resources**: Considered stable (ConfigMaps, Secrets, Services, etc.)
 
 **Reconciliation Intervals:**
-- **Stable Resources**: Uses `interval` field (default 5m) with 20% jitter
-- **Transitioning Resources**: Uses `progressingInterval` field (default 10s) with 20% jitter
+- **Stable Resources**: Uses the `interval` field with 20% jitter. When unset, uses the controller's
+  `--renderedrelease-stable-interval` flag (`RENDEREDRELEASE_STABLE_INTERVAL`, Helm value
+  `controllerManager.manager.renderedRelease.stableInterval`), 1m by default
+- **Transitioning Resources**: Uses the `progressingInterval` field with 20% jitter. When unset, uses the
+  controller's `--renderedrelease-progressing-interval` flag (`RENDEREDRELEASE_PROGRESSING_INTERVAL`, Helm
+  value `controllerManager.manager.renderedRelease.progressingInterval`), 10s by default
+- **Capacity**: Every stable release costs one reconcile per interval, so the controller needs about
+  `releases x reconcile time / stable interval` workers to keep up. With hundreds of releases on a remote
+  data plane, raise the stable interval (e.g. 5m). A longer interval also delays noticing drift and health
+  changes on stable releases, including ResourceReleaseBinding `readyWhen` on custom resources, which are
+  treated as healthy once applied
 - **Jitter**: Prevents thundering herd by adding random delay to requeue intervals
 - **Disable Requeue**: Set interval to 0 to disable automatic reconciliation
 

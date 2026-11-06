@@ -100,38 +100,54 @@ func TestAddJitter(t *testing.T) {
 // getStableRequeueInterval
 // ─────────────────────────────────────────────────────────────
 
-func TestGetStableRequeueInterval(t *testing.T) {
-	t.Run("nil interval defaults to 1m with jitter", func(t *testing.T) {
-		release := &openchoreov1alpha1.RenderedRelease{}
-		result := getStableRequeueInterval(release)
-		if result < time.Minute || result >= time.Minute+12*time.Second {
-			t.Errorf("expected result in [1m, 1m12s), got %v", result)
+// expectJitteredInterval calls get repeatedly and fails unless every result is in
+// [base, base+20%), the jitter both requeue intervals add.
+func expectJitteredInterval(t *testing.T, base time.Duration, get func() time.Duration) {
+	t.Helper()
+	upper := base + base/5
+	for i := 0; i < 200; i++ {
+		if result := get(); result < base || result >= upper {
+			t.Fatalf("expected result in [%v, %v), got %v", base, upper, result)
 		}
+	}
+}
+
+func TestGetStableRequeueInterval(t *testing.T) {
+	t.Run("nil interval uses the controller default with 20pct jitter", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		expectJitteredInterval(t, 3*time.Minute, func() time.Duration {
+			return getStableRequeueInterval(release, 3*time.Minute)
+		})
 	})
 
-	t.Run("interval set to 0 returns zero", func(t *testing.T) {
+	t.Run("nil interval without a controller default uses 1m", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		expectJitteredInterval(t, time.Minute, func() time.Duration {
+			return getStableRequeueInterval(release, 0)
+		})
+	})
+
+	t.Run("interval set to 0 returns zero despite the controller default", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Interval: &metav1.Duration{Duration: 0},
 			},
 		}
-		result := getStableRequeueInterval(release)
+		result := getStableRequeueInterval(release, 3*time.Minute)
 		if result != 0 {
 			t.Errorf("expected 0, got %v", result)
 		}
 	})
 
-	t.Run("custom interval uses it as base with 20pct jitter", func(t *testing.T) {
+	t.Run("spec interval overrides the controller default", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Interval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
 		}
-		result := getStableRequeueInterval(release)
-		// 20% jitter: [10m, 12m)
-		if result < 10*time.Minute || result >= 12*time.Minute {
-			t.Errorf("expected result in [10m, 12m), got %v", result)
-		}
+		expectJitteredInterval(t, 10*time.Minute, func() time.Duration {
+			return getStableRequeueInterval(release, 3*time.Minute)
+		})
 	})
 }
 
@@ -140,37 +156,41 @@ func TestGetStableRequeueInterval(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestGetProgressingRequeueInterval(t *testing.T) {
-	t.Run("nil interval defaults to 10s with jitter", func(t *testing.T) {
+	t.Run("nil interval uses the controller default with 20pct jitter", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{}
-		result := getProgressingRequeueInterval(release)
-		if result < 10*time.Second || result >= 12*time.Second {
-			t.Errorf("expected result in [10s, 12s), got %v", result)
-		}
+		expectJitteredInterval(t, 20*time.Second, func() time.Duration {
+			return getProgressingRequeueInterval(release, 20*time.Second)
+		})
 	})
 
-	t.Run("interval set to 0 returns zero", func(t *testing.T) {
+	t.Run("nil interval without a controller default uses 10s", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		expectJitteredInterval(t, 10*time.Second, func() time.Duration {
+			return getProgressingRequeueInterval(release, 0)
+		})
+	})
+
+	t.Run("interval set to 0 returns zero despite the controller default", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				ProgressingInterval: &metav1.Duration{Duration: 0},
 			},
 		}
-		result := getProgressingRequeueInterval(release)
+		result := getProgressingRequeueInterval(release, 20*time.Second)
 		if result != 0 {
 			t.Errorf("expected 0, got %v", result)
 		}
 	})
 
-	t.Run("custom interval uses it as base with 20pct jitter", func(t *testing.T) {
+	t.Run("spec interval overrides the controller default", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				ProgressingInterval: &metav1.Duration{Duration: 30 * time.Second},
 			},
 		}
-		result := getProgressingRequeueInterval(release)
-		// 20% jitter: [30s, 36s)
-		if result < 30*time.Second || result >= 36*time.Second {
-			t.Errorf("expected result in [30s, 36s), got %v", result)
-		}
+		expectJitteredInterval(t, 30*time.Second, func() time.Duration {
+			return getProgressingRequeueInterval(release, 20*time.Second)
+		})
 	})
 }
 
