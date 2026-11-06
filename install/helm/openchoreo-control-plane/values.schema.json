@@ -2910,8 +2910,23 @@
     },
     "features": {
       "additionalProperties": false,
-      "description": "Feature flags shared across the control plane (API server and Backstage).",
+      "description": "Feature flags shared across the control plane (controller, API server and Backstage).",
       "properties": {
+        "referencedConfigRollout": {
+          "additionalProperties": false,
+          "description": "Referenced-config rollout. Controls which changes to a component restart its pods.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Limit the configuration changes that restart a component's pods to the ConfigMaps, Secrets and ExternalSecrets their pod template references, instead of any change to the component's rendered resources, such as a Service, HTTPRoute or HorizontalPodAutoscaler. Also enables the openchoreo.dev/restart-on-change annotation, which lets ComponentType and Trait authors include or exclude a resource. Changes to the pod template itself, such as a new image, still roll out the pods. Turning it on does not restart pods by itself.",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "referencedConfigRollout",
+          "type": "object"
+        },
         "secretManagement": {
           "additionalProperties": false,
           "description": "Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.",

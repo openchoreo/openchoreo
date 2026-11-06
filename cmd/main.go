@@ -121,6 +121,7 @@ func setupControlPlaneControllers(
 	celCostLimit uint64,
 	renderTimeout time.Duration,
 	secretRemoteKeys observabilityalertsnotificationchannel.RemoteKeyFormat,
+	referencedConfigRollout bool,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -214,11 +215,12 @@ func setupControlPlaneControllers(
 			RenderTimeout: renderTimeout,
 		},
 		&releasebinding.Reconciler{
-			Client:              c,
-			Scheme:              s,
-			PlaneClientProvider: planeClientProvider,
-			CELCostLimit:        celCostLimit,
-			RenderTimeout:       renderTimeout,
+			Client:                  c,
+			Scheme:                  s,
+			PlaneClientProvider:     planeClientProvider,
+			CELCostLimit:            celCostLimit,
+			RenderTimeout:           renderTimeout,
+			ReferencedConfigRollout: referencedConfigRollout,
 		},
 		&renderedrelease.Reconciler{
 			Client:              c,
@@ -324,6 +326,7 @@ func main() {
 	var renderTimeout time.Duration
 	var secretRemoteKeyPrefix string
 	var secretRemoteKeySeparator string
+	var referencedConfigRollout bool
 	var tlsOpts []func(*tls.Config)
 	// Environment defaults are resolved before the flags are declared, so a malformed value
 	// is reported after flag.Parse rather than silently replaced by the built-in default.
@@ -331,6 +334,7 @@ func main() {
 	// operator's intent is ambiguous, and guessing is what this rejects.
 	celCostLimitDefault, celCostLimitEnvErr := getEnvUint("CEL_COST_LIMIT", 0)
 	renderTimeoutDefault, renderTimeoutEnvErr := getEnvDuration("RENDER_TIMEOUT", 0)
+	referencedConfigRolloutDefault, referencedConfigRolloutEnvErr := getEnvBoolStrict("REFERENCED_CONFIG_ROLLOUT", false)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -374,6 +378,11 @@ func main() {
 	flag.StringVar(&secretRemoteKeySeparator, "secret-remote-key-separator", getEnv("SECRET_REMOTE_KEY_SEPARATOR", "/"),
 		"Separator that joins the segments of the keys the secret API writes to external secret stores. "+
 			"Must match the openchoreo-api remote_key_separator setting.")
+	flag.BoolVar(&referencedConfigRollout, "referenced-config-rollout", referencedConfigRolloutDefault,
+		"Limit the configuration changes that restart a component's pods to the ConfigMaps, Secrets and "+
+			"ExternalSecrets their pod template references, instead of any change to the component's rendered "+
+			"resources. Also enables the openchoreo.dev/restart-on-change annotation. Defaults to the "+
+			"REFERENCED_CONFIG_ROLLOUT environment variable when set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -393,6 +402,10 @@ func main() {
 	}
 	if renderTimeoutEnvErr != nil {
 		setupLog.Error(renderTimeoutEnvErr, "invalid RENDER_TIMEOUT")
+		os.Exit(1)
+	}
+	if referencedConfigRolloutEnvErr != nil {
+		setupLog.Error(referencedConfigRolloutEnvErr, "invalid REFERENCED_CONFIG_ROLLOUT")
 		os.Exit(1)
 	}
 	if secretRemoteKeySeparator == "" {
@@ -509,7 +522,7 @@ func main() {
 		}, celCostLimit, renderTimeout, observabilityalertsnotificationchannel.RemoteKeyFormat{
 			Prefix:    secretRemoteKeyPrefix,
 			Separator: secretRemoteKeySeparator,
-		})
+		}, referencedConfigRollout)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -597,6 +610,20 @@ func getEnvBool(key string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return parsed
+}
+
+// getEnvBoolStrict retrieves a boolean environment variable, returning a default if unset and
+// an error if malformed, for the same reason as getEnvUint.
+func getEnvBoolStrict(key string, defaultValue bool) (bool, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("parse %s=%q: %w", key, value, err)
+	}
+	return parsed, nil
 }
 
 // getEnvUint retrieves an unsigned integer environment variable, returning a default if
