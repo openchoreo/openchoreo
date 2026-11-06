@@ -65,6 +65,16 @@ resources:
 - clusterprojecttype_viewer_role.yaml
 - projecttype_editor_role.yaml
 - projecttype_viewer_role.yaml
+- endpointreleasebinding_editor_role.yaml
+- endpointreleasebinding_viewer_role.yaml
+- endpointrelease_editor_role.yaml
+- endpointrelease_viewer_role.yaml
+- endpoint_editor_role.yaml
+- endpoint_viewer_role.yaml
+- clusterendpointtype_editor_role.yaml
+- clusterendpointtype_viewer_role.yaml
+- endpointtype_editor_role.yaml
+- endpointtype_viewer_role.yaml
   - releasebinding_editor_role.yaml
   - releasebinding_viewer_role.yaml
   - componentrelease_editor_role.yaml

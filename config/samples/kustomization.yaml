@@ -54,4 +54,7 @@ resources:
   - v1alpha1_clusterprojecttype.yaml
   - v1alpha1_projectrelease.yaml
   - v1alpha1_projectreleasebinding.yaml
+  - openchoreo_v1alpha1_clusterendpointtype.yaml
+  - openchoreo_v1alpha1_endpoint.yaml
+  - openchoreo_v1alpha1_endpointreleasebinding.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
