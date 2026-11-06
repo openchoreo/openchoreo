@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,11 +103,30 @@ func TestQueryRawTraces_MapsAdapterStatuses(t *testing.T) {
 				assert.Equal(t, "bad query", rejected.Detail)
 			}},
 		{"501", http.StatusNotImplemented, `{"title":"notImplemented"}`,
-			func(t *testing.T, err error) { assert.ErrorIs(t, err, ErrRawTracesNotSupported) }},
+			func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, ErrRawTracesNotSupported)
+				var noRoute *rawTracesNoRouteError
+				assert.False(t, errors.As(err, &noRoute), "501 is a supported answer, not a missing route")
+			}},
+		{"400 with the result too large code", http.StatusBadRequest,
+			`{"title":"badRequest","errorCode":"RAW_QUERY_RESULT_TOO_LARGE","detail":"the result is too large"}`,
+			func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, ErrRawTracesResultTooLarge)
+				assert.NotErrorIs(t, err, ErrRawTracesRejected)
+			}},
 		{"404 from a module without the route", http.StatusNotFound, `404 page not found`,
-			func(t *testing.T, err error) { assert.ErrorIs(t, err, ErrRawTracesNotSupported) }},
+			func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, ErrRawTracesNotSupported)
+				var noRoute *rawTracesNoRouteError
+				require.ErrorAs(t, err, &noRoute)
+				assert.Equal(t, http.StatusNotFound, noRoute.status)
+			}},
 		{"405 from a module without the route", http.StatusMethodNotAllowed, `Method Not Allowed`,
-			func(t *testing.T, err error) { assert.ErrorIs(t, err, ErrRawTracesNotSupported) }},
+			func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, ErrRawTracesNotSupported)
+				var noRoute *rawTracesNoRouteError
+				assert.ErrorAs(t, err, &noRoute)
+			}},
 		{"413", http.StatusRequestEntityTooLarge, `{"title":"payloadTooLarge"}`,
 			func(t *testing.T, err error) { assert.ErrorIs(t, err, ErrRawTracesRequestTooLarge) }},
 		{"415", http.StatusUnsupportedMediaType, `{"title":"unsupportedMediaType"}`,
@@ -209,10 +229,36 @@ func TestQueryRawTraces_TimesOutPastTheMargin(t *testing.T) {
 	assert.ErrorIs(t, err, ErrRawTracesTimeout)
 }
 
-func TestAdapterErrorDetail_Truncates(t *testing.T) {
+func TestQueryRawTraces_KeepsACanceledRequestApart(t *testing.T) {
 	t.Parallel()
 
-	detail := adapterErrorDetail([]byte(`{"detail":"` + strings.Repeat("a", 2000) + `"}`))
+	release := make(chan struct{})
+	adapter := newRawTestAdapter(t, func(http.ResponseWriter, *http.Request) { <-release }, TracingAdapterConfig{})
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+	_, err := adapter.QueryRawTraces(ctx, rawParams())
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.NotErrorIs(t, err, ErrRawTracesTimeout)
+}
+
+func TestAdapterError(t *testing.T) {
+	t.Parallel()
+
+	code, detail := adapterError([]byte(`{"errorCode":"X","detail":"` + strings.Repeat("a", 2000) + `"}`))
+	assert.Equal(t, "X", code)
 	assert.LessOrEqual(t, len(detail), maxRejectionDetailLength+len("…"))
 	assert.True(t, errors.Is(&RawTracesRejectedError{Detail: detail}, ErrRawTracesRejected))
+}
+
+func TestTruncate_KeepsRunesWhole(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "abc", truncate("abc", 3))
+	assert.Equal(t, "ab…", truncate("abcd", 2))
+	// "é" is two bytes; a cut through it backs off to the rune before.
+	got := truncate("aé", 2)
+	assert.Equal(t, "a…", got)
+	assert.True(t, utf8.ValidString(got))
 }

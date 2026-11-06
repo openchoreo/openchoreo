@@ -58,7 +58,7 @@ func (h *Handler) QueryRawTraces(
 		return h.rawTracesErrorResponse(err), nil
 	}
 
-	return jsonResponse(http.StatusOK, result.Body), nil
+	return rawJSONResponse(result.Body), nil
 }
 
 func (h *Handler) rawTracesErrorResponse(err error) apiResponse {
@@ -90,6 +90,14 @@ func (h *Handler) rawTracesErrorResponse(err error) apiResponse {
 	case errors.Is(err, service.ErrRawTracesTimeout):
 		return errorResponse(http.StatusGatewayTimeout, gen.GatewayTimeout,
 			types.ErrorCodeV1TracesRawQueryTimeout, "The raw query ran past the query timeout")
+	}
+
+	if errors.Is(err, context.Canceled) {
+		// The caller went away; nobody reads this answer, and it is no failure
+		// of the Observer or the backend.
+		h.logger.Debug("Raw trace query canceled by the caller", "error", err)
+		return errorResponse(http.StatusInternalServerError, gen.InternalServerError,
+			types.ErrorCodeV1TracesInternalGeneric, "The raw trace query was canceled")
 	}
 
 	h.logger.Error("Failed to run raw trace query", "error", err)

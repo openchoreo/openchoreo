@@ -434,13 +434,14 @@ func main() {
 	// the server's write timeout, so that one route gets a longer write deadline.
 	// The deadline starts when the request arrives, and the adapter's timeout
 	// only when the query is forwarded, so it also covers the work before
-	// forwarding: reading the body and the authorization check.
-	rawQueryWriteDeadline := cfg.Server.ReadTimeout + cfg.Authz.Timeout +
-		cfg.Adapters.TracingRawQueryTimeout + 2*service.RawQueryDeadlineMargin
+	// forwarding: reading the body and the authorization check. It never
+	// shortens the server's own write timeout.
+	rawQueryWriteDeadline := max(cfg.Server.WriteTimeout, cfg.Server.ReadTimeout+cfg.Authz.Timeout+
+		cfg.Adapters.TracingRawQueryTimeout+2*service.RawQueryDeadlineMargin)
 	server := &http.Server{
 		Addr: addr,
 		Handler: observermiddleware.ExtendWriteDeadline(
-			http.MethodPost, "/api/v1alpha1/traces/raw-query", rawQueryWriteDeadline, publicAPILogger,
+			http.MethodPost, apihandler.RawTracesQueryPath, rawQueryWriteDeadline, publicAPILogger,
 		)(observermiddleware.CORS(cfg.CORS.AllowedOrigins)(publicHTTPHandler)),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,

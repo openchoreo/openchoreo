@@ -144,8 +144,8 @@ func StrictResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *
 // it instead.
 //
 // An absent Content-Type is allowed. The rejection is a 400 rather than the
-// arguably more correct 415 because the spec declares no 415 response and
-// gen.ErrorResponseTitle has no value for one.
+// arguably more correct 415 because the operations it covers declare no 415
+// response; only the raw trace query route does.
 func RequireJSONContentType(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

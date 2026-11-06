@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
@@ -40,6 +41,24 @@ var (
 	// answers 415: its backend doesn't take requests in that media type.
 	ErrRawTracesUnsupportedMediaType = errors.New("the tracing backend does not accept raw queries in this media type")
 )
+
+// RawQueryResultTooLargeCode is the errorCode a tracing adapter sets on its 400
+// answer when a raw query's result is larger than its maximum response size,
+// which tells that answer apart from a query the backend rejected.
+const RawQueryResultTooLargeCode = "RAW_QUERY_RESULT_TOO_LARGE"
+
+// rawTracesNoRouteError is ErrRawTracesNotSupported for an adapter that has no
+// raw query route at all (404 or 405), as opposed to one that answers 501.
+type rawTracesNoRouteError struct {
+	status int
+}
+
+func (e *rawTracesNoRouteError) Error() string {
+	return fmt.Sprintf("%s: the tracing adapter answered %d for the raw query route",
+		ErrRawTracesNotSupported, e.status)
+}
+
+func (e *rawTracesNoRouteError) Unwrap() error { return ErrRawTracesNotSupported }
 
 // RawTracesRejectedError carries the tracing adapter's reason for rejecting a
 // raw query, which names the query language the adapter expects.
@@ -72,6 +91,8 @@ func (t *TracingAdapter) QueryRawTraces(
 		if isTimeout(err) {
 			return nil, ErrRawTracesTimeout
 		}
+		// A canceled request keeps context.Canceled in its chain, so callers
+		// can tell a caller that went away from a failure.
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -100,15 +121,23 @@ func (t *TracingAdapter) QueryRawTraces(
 		}
 		return &observability.RawTracesQueryResult{Body: body}, nil
 	case http.StatusBadRequest:
-		return nil, &RawTracesRejectedError{Detail: adapterErrorDetail(body)}
+		code, detail := adapterError(body)
+		if code == RawQueryResultTooLargeCode {
+			return nil, ErrRawTracesResultTooLarge
+		}
+		return nil, &RawTracesRejectedError{Detail: detail}
 	case http.StatusRequestEntityTooLarge:
 		return nil, ErrRawTracesRequestTooLarge
 	case http.StatusUnsupportedMediaType:
 		return nil, ErrRawTracesUnsupportedMediaType
-	case http.StatusNotImplemented, http.StatusNotFound, http.StatusMethodNotAllowed:
-		// A tracing module released before raw queries existed has no such
-		// route: it answers 404 or 405, which means the same as 501 here.
+	case http.StatusNotImplemented:
 		return nil, ErrRawTracesNotSupported
+	case http.StatusNotFound, http.StatusMethodNotAllowed:
+		// A tracing module released before raw queries existed has no such
+		// route: it answers 404 or 405, which means the same as 501 to the
+		// caller. The distinct error lets the service log it, since a wrong
+		// adapter URL looks the same.
+		return nil, &rawTracesNoRouteError{status: resp.StatusCode}
 	case http.StatusGatewayTimeout:
 		return nil, ErrRawTracesTimeout
 	default:
@@ -116,15 +145,16 @@ func (t *TracingAdapter) QueryRawTraces(
 	}
 }
 
-// adapterErrorDetail extracts the reason from a tracing adapter error body,
-// falling back to the raw body.
-func adapterErrorDetail(body []byte) string {
+// adapterError extracts the errorCode and the reason from a tracing adapter
+// error body, falling back to the raw body for the reason.
+func adapterError(body []byte) (code, detail string) {
 	var e struct {
-		Detail  string `json:"detail"`
-		Message string `json:"message"`
+		ErrorCode string `json:"errorCode"`
+		Detail    string `json:"detail"`
+		Message   string `json:"message"`
 	}
-	detail := ""
 	if json.Unmarshal(body, &e) == nil {
+		code = e.ErrorCode
 		detail = e.Detail
 		if detail == "" {
 			detail = e.Message
@@ -136,12 +166,16 @@ func adapterErrorDetail(body []byte) string {
 	if detail == "" {
 		detail = "the tracing backend rejected the query"
 	}
-	return truncate(detail, maxRejectionDetailLength)
+	return code, truncate(detail, maxRejectionDetailLength)
 }
 
+// truncate cuts s to at most n bytes, at a rune boundary, and marks the cut.
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
 	}
 	return s[:n] + "…"
 }

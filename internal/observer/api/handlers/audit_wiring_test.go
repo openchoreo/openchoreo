@@ -4,6 +4,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -433,8 +435,13 @@ func TestQueryRawTracesAuditEvent(t *testing.T) {
 	assert.Equal(t, "read_raw_traces", event["action"])
 	assert.Equal(t, "access", event["category"])
 	assert.Equal(t, "success", event["result"])
+	body := `{"query": {"sql": "SELECT trace_id FROM \"default\" LIMIT 10"}}`
+	sum := sha256.Sum256([]byte(body))
 	assert.Equal(t, map[string]any{"parameters": map[string]any{
-		"contentType": "application/json",
-		"query":       `{"query":{"sql":"SELECT trace_id FROM \"default\" LIMIT 10"}}`,
+		"contentType":    "application/json",
+		"query":          `{"query":{"sql":"SELECT trace_id FROM \"default\" LIMIT 10"}}`,
+		"queryBytes":     float64(len(body)),
+		"querySha256":    hex.EncodeToString(sum[:]),
+		"queryTruncated": false,
 	}}, event["request"])
 }

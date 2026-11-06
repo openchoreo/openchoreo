@@ -29,16 +29,23 @@ func (s *TracesService) QueryRawTraces(
 		Body:        req.Body,
 	})
 	if err != nil {
+		var noRoute *rawTracesNoRouteError
+		if errors.As(err, &noRoute) {
+			s.logger.Warn("The tracing adapter has no raw query route; answering that raw queries are not supported. "+
+				"If the tracing module should support them, check its version and the tracing adapter URL",
+				"status", noRoute.status)
+		}
 		switch {
 		case errors.Is(err, ErrRawTracesNotSupported),
 			errors.Is(err, ErrRawTracesTimeout),
 			errors.Is(err, ErrRawTracesResultTooLarge),
 			errors.Is(err, ErrRawTracesRequestTooLarge),
 			errors.Is(err, ErrRawTracesUnsupportedMediaType),
-			errors.Is(err, ErrRawTracesRejected):
+			errors.Is(err, ErrRawTracesRejected),
+			errors.Is(err, context.Canceled):
 			return nil, err
 		}
-		s.logger.Error("Failed to run raw trace query", "error", err)
+		// Logged by the handler, which answers it.
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
 

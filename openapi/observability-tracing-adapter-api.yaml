@@ -234,7 +234,8 @@ paths:
           request can't widen them;
         - stop the query at its configured query timeout and answer 504;
         - reject a result larger than its configured maximum response size with
-          400, never returning a partial result;
+          400 and the errorCode `RAW_QUERY_RESULT_TOO_LARGE`, never returning a
+          partial result;
         - answer 415 for a media type its backend doesn't take, and 400 for a
           request the backend rejects, with the backend's reason.
 
@@ -259,7 +260,9 @@ paths:
         "400":
           description: |
             Invalid request, a request the backend rejects (the detail gives the
-            backend's reason), or a result larger than the maximum response size.
+            backend's reason), or a result larger than the maximum response size
+            (errorCode `RAW_QUERY_RESULT_TOO_LARGE`, which tells it apart from a
+            rejected request).
           content:
             application/json:
               schema:

@@ -4,11 +4,14 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,6 +80,27 @@ func TestTracesService_QueryRawTraces(t *testing.T) {
 			_, err := svc.QueryRawTraces(context.Background(), rawRequest())
 			assert.Equal(t, want, err)
 		}
+	})
+
+	t.Run("passes a canceled request through, not as a retrieval failure", func(t *testing.T) {
+		t.Parallel()
+		svc := rawTracesService(t, &fakeTracingAdapter{rawErr: fmt.Errorf("failed to execute request: %w", context.Canceled)})
+		_, err := svc.QueryRawTraces(context.Background(), rawRequest())
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.NotErrorIs(t, err, ErrTracesRetrieval)
+	})
+
+	t.Run("warns about an adapter without the raw query route", func(t *testing.T) {
+		t.Parallel()
+		var logs bytes.Buffer
+		svc, err := NewTracesService(&fakeTracingAdapter{rawErr: &rawTracesNoRouteError{status: http.StatusNotFound}},
+			nil, &config.Config{}, slog.New(slog.NewTextHandler(&logs, nil)))
+		require.NoError(t, err)
+
+		_, err = svc.QueryRawTraces(context.Background(), rawRequest())
+		assert.ErrorIs(t, err, ErrRawTracesNotSupported)
+		assert.Contains(t, logs.String(), "level=WARN")
+		assert.Contains(t, logs.String(), "no raw query route")
 	})
 
 	t.Run("wraps other errors as a retrieval failure", func(t *testing.T) {

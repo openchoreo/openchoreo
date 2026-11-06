@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,10 +25,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
-const (
-	rawQueryPath  = RawTracesQueryPath
-	jsonMediaType = "application/json"
-)
+const rawQueryPath = RawTracesQueryPath
 
 // rawQueryRequest builds a raw trace query request with a native backend body.
 func rawQueryRequest(contentType, body string) *http.Request {
@@ -53,7 +51,7 @@ func TestQueryRawTraces_PassesAJSONRequestAndTheResponseThrough(t *testing.T) {
 	t.Parallel()
 
 	const request = `{"size":0,"query":{"range":{"startTime":{"gte":1792404839161624162}}}}`
-	const response = `{"took":3,"hits":{"total":{"value":12345678901234567890}}}`
+	const response = "{\n  \"took\": 3, \"q\": \"a < b && c > d\",\n  \"hits\": {\"total\": {\"value\": 12345678901234567890}}\n}"
 	svc := servicemocks.NewMockTracesQuerier(t)
 	svc.On("QueryRawTraces", mock.Anything, mock.MatchedBy(func(req *types.RawTracesQueryRequest) bool {
 		// The request reaches the service byte for byte, so numbers keep their precision.
@@ -64,7 +62,7 @@ func TestQueryRawTraces_PassesAJSONRequestAndTheResponseThrough(t *testing.T) {
 	rr := serve(t, h, rawQueryRequest(jsonMediaType, request))
 
 	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.JSONEq(t, response, rr.Body.String(), "the response must be the backend's, unwrapped")
+	assert.Equal(t, response, rr.Body.String(), "the response must be the backend's, byte for byte")
 	assert.Contains(t, rr.Body.String(), "12345678901234567890", "the response must not lose number precision")
 }
 
@@ -94,6 +92,7 @@ func TestQueryRawTraces_TreatsMediaTypesCaseInsensitively(t *testing.T) {
 		{"APPLICATION/JSON; Charset=UTF-8", jsonMediaType},
 		{"Text/Plain", "text/plain"},
 		{"TEXT/PLAIN; charset=UTF-8", "text/plain"},
+		{"text/plain; Charset=utf-8", "text/plain"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.contentType, func(t *testing.T) {
@@ -126,7 +125,16 @@ func TestQueryRawTraces_RejectsInvalidRequests(t *testing.T) {
 			types.ErrorCodeV1TracesInvalidRequest, "the request body is empty"},
 		{"blank text body", "text/plain", "   ", http.StatusBadRequest,
 			types.ErrorCodeV1TracesInvalidRequest, "the request body is empty"},
-		{"malformed JSON", jsonMediaType, `{"query":`, http.StatusBadRequest, "", ""},
+		{"empty body", jsonMediaType, "", http.StatusBadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "the request body is empty"},
+		{"malformed JSON", jsonMediaType, `{"query":`, http.StatusBadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "The request body must be a single valid JSON value"},
+		{"two JSON values", jsonMediaType, `{"size":0} {"query":{"match_all":{}}}`, http.StatusBadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "The request body must be a single valid JSON value"},
+		{"text that isn't UTF-8", "text/plain", "SELECT \xff", http.StatusBadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "The request body is not valid UTF-8"},
+		{"a charset other than UTF-8", "text/plain; charset=utf-16", "SELECT 1", http.StatusUnsupportedMediaType,
+			types.ErrorCodeV1TracesRawQueryMediaType, "Send the request body as UTF-8"},
 		{"unsupported media type", "application/x-www-form-urlencoded", "q=1", http.StatusUnsupportedMediaType,
 			types.ErrorCodeV1TracesRawQueryMediaType,
 			"Send the tracing backend's native request as application/json or text/plain"},
@@ -232,6 +240,9 @@ func TestQueryRawTraces_MapsServiceErrors(t *testing.T) {
 			"Failed to run the raw trace query"},
 		{"unexpected failure", errors.New("boom"), http.StatusInternalServerError, "internalServerError",
 			types.ErrorCodeV1TracesInternalGeneric, "Failed to run the raw trace query"},
+		{"canceled by the caller", fmt.Errorf("failed to execute request: %w", context.Canceled),
+			http.StatusInternalServerError, "internalServerError",
+			types.ErrorCodeV1TracesInternalGeneric, "The raw trace query was canceled"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

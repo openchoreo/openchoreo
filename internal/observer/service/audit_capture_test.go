@@ -6,6 +6,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"testing"
@@ -276,9 +278,13 @@ func TestQueryRawTraces_RecordsTheRequest(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			sum := sha256.Sum256([]byte(tt.body))
 			assert.Equal(t, map[string]any{
-				"contentType": tt.contentType,
-				"query":       tt.want,
+				"contentType":    tt.contentType,
+				"query":          tt.want,
+				"queryBytes":     len(tt.body),
+				"querySha256":    hex.EncodeToString(sum[:]),
+				"queryTruncated": false,
 			}, data.Parameters)
 
 			record := publishedRecord(t, ctx, data, "QueryRawTraces")
@@ -314,4 +320,46 @@ func TestQueryRawTraces_CapsALongQuery(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, audit.MaxParameterLength, utf8.RuneCountInString(recorded))
 	assert.True(t, strings.HasPrefix(long, recorded))
+	sum := sha256.Sum256([]byte(long))
+	assert.Equal(t, true, data.Parameters["queryTruncated"], "a cut query must be flagged")
+	assert.Equal(t, len(long), data.Parameters["queryBytes"])
+	assert.Equal(t, hex.EncodeToString(sum[:]), data.Parameters["querySha256"])
+}
+
+func TestRawQueryText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		contentType   string
+		body          string
+		maxRunes      int
+		want          string
+		wantTruncated bool
+	}{
+		{"JSON whitespace is dropped outside strings", "application/json",
+			"{ \"a\" : \"x  y\",\n\t\"b\":[1, 2] }", 100, `{"a":"x  y","b":[1,2]}`, false},
+		{"escaped quotes keep the string open", "application/json",
+			`{"a": "say \" hi \\", "b" : 1}`, 100, `{"a":"say \" hi \\","b":1}`, false},
+		{"text is kept as written", "text/plain", "a  b\n c", 100, "a  b\n c", false},
+		{"cut at the rune limit", "text/plain", "abcdef", 4, "abcd", true},
+		{"multi-byte runes are not split", "text/plain", "héllo wörld", 7, "héllo w", true},
+		{"padding in front is flagged", "application/json",
+			`{"aggs":{"pad":{"terms":{"field":"` + strings.Repeat("x", 300) + `"}}},"query":{"term":{"secret":1}}}`,
+			audit.MaxParameterLength, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, truncated := rawQueryText(tt.contentType, []byte(tt.body), tt.maxRunes)
+			assert.Equal(t, tt.wantTruncated, truncated)
+			if truncated {
+				assert.Equal(t, tt.maxRunes, utf8.RuneCountInString(got), "a cut query keeps exactly the limit")
+			}
+			if tt.want != "" {
+				assert.Equal(t, tt.want, got)
+			}
+			assert.True(t, utf8.ValidString(got))
+		})
+	}
 }
