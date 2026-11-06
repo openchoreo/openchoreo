@@ -16,7 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -205,20 +207,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
-	// This maintains an inventory of what we applied for future cleanup operations
-	if statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil || statusUpdated {
-		// Return after updating the status to ensure it is persisted before continuing
+	// This maintains an inventory of what we applied for future cleanup operations.
+	//
+	// A successful write does not end the reconcile. The watch drops the
+	// controller's own status writes (ignoreStatusOnlyUpdates), so the requeue
+	// below is what brings this release back. Re-queuing on the write instead
+	// loops forever when a live object's status changes on its own, such as an
+	// ExternalSecret's refreshTime.
+	if _, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Check if resources are transitioning to determine the appropriate requeue interval:
-	// - Transitioning resources: more frequent requeue to reflect changes quickly
-	// - Stable resources: longer requeue interval to avoid excessive load
+	// Pick the next check from the state just observed. Both the delay and the
+	// queue priority are set on every path, so they follow the release's state
+	// rather than whatever priority the request happened to be dequeued with.
+	// Polls run at low priority so that real changes (spec, restart annotation,
+	// deletion), which arrive through the watch at priority 0, never wait behind them.
 	if r.hasTransitioningResources(release.Status.Resources) {
 		requeueAfter := getProgressingRequeueInterval(release)
+		priority := transitioningRequeuePriority(release.Status.Resources)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
-			"requeueAfter", requeueAfter)
-		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+			"requeueAfter", requeueAfter, "priority", priority)
+		// A zero progressingInterval disables the requeue: RequeueAfter 0 means
+		// none, and with the controller's own status writes filtered nothing else
+		// brings the release back until its spec or metadata changes.
+		return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(priority)}, nil
 	}
 
 	// Poll workloads scaled to zero faster so an autoscaler-driven scale-up is noticed promptly.
@@ -226,13 +239,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		requeueAfter := getResurrectableRequeueInterval()
 		logger.Info("Workload is scaled to zero, requeuing to detect autoscaler-driven scale-up",
 			"requeueAfter", requeueAfter)
-		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
 	}
 
 	requeueAfter := getStableRequeueInterval(release)
 	logger.Info("Successfully applied the Release resources to the target plane",
 		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
-	return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
 }
 
 // getDPClient gets the dataplane client for the specified environment
@@ -686,7 +699,7 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.RenderedRelease{}).
+		For(&openchoreov1alpha1.RenderedRelease{}, builder.WithPredicates(ignoreStatusOnlyUpdates())).
 		Named("renderedrelease").
 		Complete(r)
 }
