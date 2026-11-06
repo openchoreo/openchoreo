@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -75,19 +76,25 @@ func (t *TracingAdapter) QueryRawTraces(
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, t.rawMaxResponseBytes+1))
+	readLimit := t.rawMaxResponseBytes
+	if readLimit < math.MaxInt64 {
+		readLimit++ // one byte over the limit tells an oversized result apart
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, readLimit))
 	if err != nil {
 		if isTimeout(err) {
 			return nil, ErrRawTracesTimeout
 		}
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
-	if int64(len(body)) > t.rawMaxResponseBytes {
-		return nil, ErrRawTracesResultTooLarge
-	}
 
 	switch resp.StatusCode {
 	case http.StatusOK:
+		// Only a result is held to the maximum response size; an error answer
+		// keeps its own meaning whatever its length.
+		if int64(len(body)) > t.rawMaxResponseBytes {
+			return nil, ErrRawTracesResultTooLarge
+		}
 		if !json.Valid(body) {
 			return nil, fmt.Errorf("the tracing adapter returned a response that is not JSON")
 		}

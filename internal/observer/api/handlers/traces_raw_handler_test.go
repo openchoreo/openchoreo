@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,6 +83,34 @@ func TestQueryRawTraces_PassesATextRequestThrough(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 }
 
+func TestQueryRawTraces_TreatsMediaTypesCaseInsensitively(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		contentType string
+		want        string
+	}{
+		{"Application/JSON", jsonMediaType},
+		{"APPLICATION/JSON; Charset=UTF-8", jsonMediaType},
+		{"Text/Plain", "text/plain"},
+		{"TEXT/PLAIN; charset=UTF-8", "text/plain"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.contentType, func(t *testing.T) {
+			t.Parallel()
+			svc := servicemocks.NewMockTracesQuerier(t)
+			svc.On("QueryRawTraces", mock.Anything, mock.MatchedBy(func(req *types.RawTracesQueryRequest) bool {
+				return req.ContentType == tt.want && string(req.Body) == `{"size":0}`
+			})).Return(&types.RawTracesQueryResponse{Body: json.RawMessage(`{}`)}, nil)
+			h := &Handler{baseHandler: baseHandler{logger: noopLogger()}, tracesService: svc}
+
+			rr := serve(t, h, rawQueryRequest(tt.contentType, `{"size":0}`))
+
+			assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+		})
+	}
+}
+
 func TestQueryRawTraces_RejectsInvalidRequests(t *testing.T) {
 	t.Parallel()
 
@@ -137,6 +166,22 @@ func TestQueryRawTraces_RejectsAnOversizedRequest(t *testing.T) {
 	guard.ServeHTTP(rr, rawQueryRequest("text/plain", strings.Repeat("x", 17)))
 	require.Equal(t, http.StatusRequestEntityTooLarge, rr.Code, rr.Body.String())
 	assert.Equal(t, types.ErrorCodeV1TracesRawQueryRequestTooLarge, decodeRawError(t, rr).ErrorCode)
+}
+
+func TestQueryRawTraces_AcceptsTheLargestRequestLimit(t *testing.T) {
+	t.Parallel()
+
+	var got string
+	next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		got = string(b)
+	})
+	rr := httptest.NewRecorder()
+	rawTracesQueryGuard(noopLogger(), math.MaxInt64)(next).ServeHTTP(rr, rawQueryRequest("text/plain", "SELECT 1"))
+
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Equal(t, "SELECT 1", got)
 }
 
 func TestQueryRawTraces_ServiceNotInitialized(t *testing.T) {

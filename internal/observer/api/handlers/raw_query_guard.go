@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"log/slog"
+	"math"
 	"mime"
 	"net/http"
 
@@ -40,15 +41,22 @@ func rawTracesQueryGuard(logger *slog.Logger, maxBytes int64) func(http.Handler)
 				return
 			}
 
-			mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+			mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 			if err != nil || (mediaType != "application/json" && mediaType != "text/plain") {
 				writeRawQueryError(logger, w, http.StatusUnsupportedMediaType, gen.UnsupportedMediaType,
 					types.ErrorCodeV1TracesRawQueryMediaType,
 					"Send the tracing backend's native request as application/json or text/plain")
 				return
 			}
+			// Media types are case-insensitive, but the generated layer picks the
+			// body by an exact prefix match, so pass the canonical form on.
+			if canonical := mime.FormatMediaType(mediaType, params); canonical != "" {
+				r.Header.Set("Content-Type", canonical)
+			} else {
+				r.Header.Set("Content-Type", mediaType)
+			}
 
-			body, err := io.ReadAll(io.LimitReader(r.Body, maxBytes+1))
+			body, err := io.ReadAll(io.LimitReader(r.Body, readLimit(maxBytes)))
 			if err != nil {
 				writeRawQueryError(logger, w, http.StatusBadRequest, gen.BadRequest,
 					types.ErrorCodeV1TracesInvalidRequest, "Failed to read the request body")
@@ -65,6 +73,15 @@ func rawTracesQueryGuard(logger *slog.Logger, maxBytes int64) func(http.Handler)
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// readLimit is how much to read to tell whether a body is over maxBytes: one
+// byte more than the limit, unless that would overflow.
+func readLimit(maxBytes int64) int64 {
+	if maxBytes < math.MaxInt64 {
+		return maxBytes + 1
+	}
+	return maxBytes
 }
 
 func writeRawQueryError(

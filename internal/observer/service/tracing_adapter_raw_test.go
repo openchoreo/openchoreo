@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -146,6 +147,47 @@ func TestQueryRawTraces_RejectsAnOversizedResponse(t *testing.T) {
 
 	_, err := adapter.QueryRawTraces(context.Background(), rawParams())
 	assert.ErrorIs(t, err, ErrRawTracesResultTooLarge)
+}
+
+func TestQueryRawTraces_KeepsTheMeaningOfAnOversizedErrorAnswer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status int
+		want   error
+	}{
+		{http.StatusRequestEntityTooLarge, ErrRawTracesRequestTooLarge},
+		{http.StatusUnsupportedMediaType, ErrRawTracesUnsupportedMediaType},
+		{http.StatusNotImplemented, ErrRawTracesNotSupported},
+		{http.StatusGatewayTimeout, ErrRawTracesTimeout},
+		{http.StatusBadRequest, ErrRawTracesRejected},
+	}
+	for _, tt := range tests {
+		t.Run(http.StatusText(tt.status), func(t *testing.T) {
+			t.Parallel()
+			adapter := newRawTestAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = io.WriteString(w, `{"detail":"`+strings.Repeat("x", 4<<10)+`"}`)
+			}, TracingAdapterConfig{RawQueryMaxResponseBytes: 1024})
+
+			_, err := adapter.QueryRawTraces(context.Background(), rawParams())
+			assert.ErrorIs(t, err, tt.want)
+			assert.NotErrorIs(t, err, ErrRawTracesResultTooLarge,
+				"the maximum response size applies to results only")
+		})
+	}
+}
+
+func TestQueryRawTraces_AcceptsTheLargestResponseLimit(t *testing.T) {
+	t.Parallel()
+
+	adapter := newRawTestAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"took":1}`)
+	}, TracingAdapterConfig{RawQueryMaxResponseBytes: math.MaxInt64})
+
+	result, err := adapter.QueryRawTraces(context.Background(), rawParams())
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"took":1}`, string(result.Body))
 }
 
 func TestQueryRawTraces_TimesOutPastTheMargin(t *testing.T) {

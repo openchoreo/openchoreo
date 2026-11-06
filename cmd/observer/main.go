@@ -432,7 +432,11 @@ func main() {
 	//
 	// Raw trace queries may run up to their own timeout, which can be longer than
 	// the server's write timeout, so that one route gets a longer write deadline.
-	rawQueryWriteDeadline := cfg.Adapters.TracingRawQueryTimeout + 2*service.RawQueryDeadlineMargin
+	// The deadline starts when the request arrives, and the adapter's timeout
+	// only when the query is forwarded, so it also covers the work before
+	// forwarding: reading the body and the authorization check.
+	rawQueryWriteDeadline := cfg.Server.ReadTimeout + cfg.Authz.Timeout +
+		cfg.Adapters.TracingRawQueryTimeout + 2*service.RawQueryDeadlineMargin
 	server := &http.Server{
 		Addr: addr,
 		Handler: observermiddleware.ExtendWriteDeadline(
