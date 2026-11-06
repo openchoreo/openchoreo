@@ -214,7 +214,7 @@ func lineWorkload(component, line string) *openchoreov1alpha1.Workload {
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointType("HTTP"),
+						Type:       openchoreov1alpha1.EndpointProtocolHTTP,
 						Port:       greeterPort,
 						Visibility: []openchoreov1alpha1.EndpointVisibility{"project", "external"},
 					},

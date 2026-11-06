@@ -34,8 +34,8 @@ func TestCELMacroIntegration(t *testing.T) {
 					},
 				},
 				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
-					"http": {Port: 8080, Type: v1alpha1.EndpointTypeHTTP},
-					"grpc": {Port: 9090, Type: v1alpha1.EndpointTypeGRPC},
+					"http": {Port: 8080, Type: v1alpha1.EndpointProtocolHTTP},
+					"grpc": {Port: 9090, Type: v1alpha1.EndpointProtocolGRPC},
 				},
 			},
 		},
@@ -67,7 +67,7 @@ func TestCELMacroIntegration(t *testing.T) {
 					},
 				},
 				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
-					"http": {Port: 8080, Type: v1alpha1.EndpointTypeHTTP},
+					"http": {Port: 8080, Type: v1alpha1.EndpointProtocolHTTP},
 				},
 			},
 		},

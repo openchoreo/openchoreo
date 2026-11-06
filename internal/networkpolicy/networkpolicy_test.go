@@ -348,7 +348,7 @@ func TestMakeComponentPolicies_UDPEndpoint(t *testing.T) {
 		ComponentName: "dns-svc",
 		PodSelectors:  map[string]string{"app": "dns-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
-			"dns": {Type: openchoreov1alpha1.EndpointTypeUDP, Port: 5353},
+			"dns": {Type: openchoreov1alpha1.EndpointProtocolUDP, Port: 5353},
 		},
 	})
 	if len(policies) != 1 {
@@ -418,7 +418,7 @@ func TestMakeComponentPolicies_Cilium_HTTPEndpoint(t *testing.T) {
 			labels.LabelKeyProjectName:   "my-project",
 		},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
-			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
+			"http": {Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080},
 		},
 		Provider: ProviderCilium,
 	})
@@ -458,7 +458,7 @@ func TestMakeComponentPolicies_Cilium_TCPEndpoint(t *testing.T) {
 		ComponentName: "db",
 		PodSelectors:  map[string]string{"app": "db"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
-			"tcp": {Type: openchoreov1alpha1.EndpointTypeTCP, Port: 5432},
+			"tcp": {Type: openchoreov1alpha1.EndpointProtocolTCP, Port: 5432},
 		},
 		Provider: ProviderCilium,
 	})
@@ -494,8 +494,8 @@ func TestMakeComponentPolicies_Cilium_MixedL7L4Endpoints(t *testing.T) {
 		ComponentName: "mixed-svc",
 		PodSelectors:  map[string]string{"app": "mixed-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
-			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
-			"tcp":  {Type: openchoreov1alpha1.EndpointTypeTCP, Port: 5432},
+			"http": {Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080},
+			"tcp":  {Type: openchoreov1alpha1.EndpointProtocolTCP, Port: 5432},
 		},
 		Provider: ProviderCilium,
 	})
@@ -538,7 +538,7 @@ func TestMakeComponentPolicies_Cilium_ExternalVisibility(t *testing.T) {
 		PodSelectors:  map[string]string{"app": "public-api"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 			"http": {
-				Type:       openchoreov1alpha1.EndpointTypeHTTP,
+				Type:       openchoreov1alpha1.EndpointProtocolHTTP,
 				Port:       8080,
 				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
 			},
@@ -594,7 +594,7 @@ func TestMakeComponentPolicies_Cilium_NamespaceVisibility(t *testing.T) {
 		PodSelectors:  map[string]string{"app": "grpc-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 			"grpc": {
-				Type:       openchoreov1alpha1.EndpointTypeGRPC,
+				Type:       openchoreov1alpha1.EndpointProtocolGRPC,
 				Port:       9090,
 				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace},
 			},
@@ -651,7 +651,7 @@ func TestMakeComponentPolicies_Cilium_NameTruncation(t *testing.T) {
 		ComponentName: longName,
 		PodSelectors:  map[string]string{"app": "test"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
-			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
+			"http": {Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080},
 		},
 		Provider: ProviderCilium,
 	})

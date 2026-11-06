@@ -485,17 +485,17 @@ func splitDependencies(wl *v1alpha1.Workload, namespace string, byIdentity map[w
 // schemeForEndpointType mirrors the control plane's endpoint-type -> URL scheme
 // mapping (internal/controller/releasebinding's schemeForEndpointType) so a local link
 // renders an `address` binding identically to what a remote resolve would have produced.
-func schemeForEndpointType(t v1alpha1.EndpointType) string {
+func schemeForEndpointType(t v1alpha1.EndpointProtocol) string {
 	switch t {
-	case v1alpha1.EndpointTypeHTTP, v1alpha1.EndpointTypeGraphQL:
+	case v1alpha1.EndpointProtocolHTTP, v1alpha1.EndpointProtocolGraphQL:
 		return "http"
-	case v1alpha1.EndpointTypeWebsocket:
+	case v1alpha1.EndpointProtocolWebsocket:
 		return "ws"
-	case v1alpha1.EndpointTypeGRPC:
+	case v1alpha1.EndpointProtocolGRPC:
 		return "grpc"
-	case v1alpha1.EndpointTypeTCP:
+	case v1alpha1.EndpointProtocolTCP:
 		return "tcp"
-	case v1alpha1.EndpointTypeUDP:
+	case v1alpha1.EndpointProtocolUDP:
 		return "udp"
 	default:
 		return "http"

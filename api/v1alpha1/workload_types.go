@@ -79,19 +79,19 @@ type Container struct {
 	Files []FileVar `json:"files,omitempty"`
 }
 
-// EndpointType defines the different API technologies supported by the endpoint
-type EndpointType string
+// EndpointProtocol defines the different API technologies supported by the endpoint
+type EndpointProtocol string
 
 const (
-	EndpointTypeHTTP      EndpointType = "HTTP"
-	EndpointTypeGraphQL   EndpointType = "GraphQL"
-	EndpointTypeWebsocket EndpointType = "Websocket"
-	EndpointTypeGRPC      EndpointType = "gRPC"
-	EndpointTypeTCP       EndpointType = "TCP"
-	EndpointTypeUDP       EndpointType = "UDP"
+	EndpointProtocolHTTP      EndpointProtocol = "HTTP"
+	EndpointProtocolGraphQL   EndpointProtocol = "GraphQL"
+	EndpointProtocolWebsocket EndpointProtocol = "Websocket"
+	EndpointProtocolGRPC      EndpointProtocol = "gRPC"
+	EndpointProtocolTCP       EndpointProtocol = "TCP"
+	EndpointProtocolUDP       EndpointProtocol = "UDP"
 )
 
-func (e EndpointType) String() string {
+func (e EndpointProtocol) String() string {
 	return string(e)
 }
 
@@ -125,7 +125,7 @@ type WorkloadEndpoint struct {
 	// Type indicates the protocol/technology of the endpoint.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
-	Type EndpointType `json:"type"`
+	Type EndpointProtocol `json:"type"`
 
 	// Port exposed by the endpoint. If targetPort is not set, platform defaults to port for both.
 	// +kubebuilder:validation:Required
