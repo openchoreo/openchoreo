@@ -54,6 +54,15 @@ const (
 	ReasonApplySucceeded = "ApplySucceeded"
 	// ReasonApplyFailed indicates one or more resources failed to apply
 	ReasonApplyFailed = "ApplyFailed"
+
+	// DefaultStableInterval is the stable requeue interval when neither the release nor
+	// the controller sets one. Every stable release costs one reconcile per interval, so
+	// with many releases on a remote plane it can need more workers than the controller
+	// has; raise --renderedrelease-stable-interval there.
+	DefaultStableInterval = 1 * time.Minute
+	// DefaultProgressingInterval is the progressing requeue interval when neither the
+	// release nor the controller sets one.
+	DefaultProgressingInterval = 10 * time.Second
 )
 
 // Reconciler reconciles a RenderedRelease object
@@ -61,6 +70,14 @@ type Reconciler struct {
 	client.Client
 	PlaneClientProvider kubernetesClient.PlaneClientProvider
 	Scheme              *runtime.Scheme
+
+	// StableInterval is how long a release whose resources are all stable waits before
+	// the next check, when its spec.interval is unset. Zero uses DefaultStableInterval.
+	StableInterval time.Duration
+	// ProgressingInterval is how long a release with transitioning resources waits before
+	// the next check, when its spec.progressingInterval is unset. Zero uses
+	// DefaultProgressingInterval.
+	ProgressingInterval time.Duration
 }
 
 // TODO: Optimize to apply resource only if spec has changed
@@ -224,7 +241,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Polls run at low priority so that real changes (spec, restart annotation,
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
 	if r.hasTransitioningResources(release.Status.Resources) {
-		requeueAfter := getProgressingRequeueInterval(release)
+		requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
 		priority := transitioningRequeuePriority(release.Status.Resources)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
 			"requeueAfter", requeueAfter, "priority", priority)
@@ -242,7 +259,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
 	}
 
-	requeueAfter := getStableRequeueInterval(release)
+	requeueAfter := getStableRequeueInterval(release, r.StableInterval)
 	logger.Info("Successfully applied the Release resources to the target plane",
 		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
 	return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
@@ -671,11 +688,14 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 	return allLiveResources, nil
 }
 
-// getStableRequeueInterval returns the requeue interval for stable resources
-// Returns zero duration if interval is set to 0 (no requeue)
-func getStableRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.Duration {
-	// Use configured interval or default to 1m
-	baseInterval := 1 * time.Minute
+// getStableRequeueInterval returns the requeue interval for stable resources: the
+// release's spec.interval when set, else defaultInterval, else DefaultStableInterval.
+// Returns zero duration if spec.interval is set to 0 (no requeue)
+func getStableRequeueInterval(release *openchoreov1alpha1.RenderedRelease, defaultInterval time.Duration) time.Duration {
+	baseInterval := defaultInterval
+	if baseInterval <= 0 {
+		baseInterval = DefaultStableInterval
+	}
 	if release.Spec.Interval != nil {
 		baseInterval = release.Spec.Interval.Duration
 		// If set to 0, don't requeue
@@ -698,11 +718,15 @@ func getResurrectableRequeueInterval() time.Duration {
 	return addJitter(baseInterval, jitterMax)
 }
 
-// getProgressingRequeueInterval returns the requeue interval for transitioning resources
+// getProgressingRequeueInterval returns the requeue interval for transitioning resources:
+// the release's spec.progressingInterval when set, else defaultInterval, else
+// DefaultProgressingInterval.
 // Returns zero duration if progressingInterval is set to 0 (no requeue)
-func getProgressingRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.Duration {
-	// Use configured progressingInterval or default to 10s
-	baseInterval := 10 * time.Second
+func getProgressingRequeueInterval(release *openchoreov1alpha1.RenderedRelease, defaultInterval time.Duration) time.Duration {
+	baseInterval := defaultInterval
+	if baseInterval <= 0 {
+		baseInterval = DefaultProgressingInterval
+	}
 	if release.Spec.ProgressingInterval != nil {
 		baseInterval = release.Spec.ProgressingInterval.Duration
 		// If set to 0, don't requeue

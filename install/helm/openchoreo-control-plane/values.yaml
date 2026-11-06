@@ -790,6 +790,25 @@ controllerManager:
     # @schema
     maxConcurrentReconciles: 1
     # @schema
+    # type: object
+    # description: RenderedRelease controller settings
+    # @schema
+    renderedRelease:
+      # @schema
+      # type: string
+      # description: How long a RenderedRelease whose resources are all stable waits before the controller checks it again (Go duration, e.g. "1m"), unless the release sets spec.interval. 20% jitter is added. Every stable release costs one reconcile per interval, so the controller needs about releases x reconcile time / interval workers; with hundreds of releases on a remote data plane raise it (e.g. "5m"). Longer intervals also delay noticing drift and health changes on stable releases, including ResourceReleaseBinding readyWhen on custom resources. Must be greater than 0. Empty uses the controller's built-in default (1m).
+      # default: "1m"
+      # pattern: ^((([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)?$
+      # @schema
+      stableInterval: "1m"
+      # @schema
+      # type: string
+      # description: How long a RenderedRelease with transitioning resources (Progressing, Unknown or Degraded) waits before the controller checks it again (Go duration, e.g. "10s"), unless the release sets spec.progressingInterval. 20% jitter is added. Must be greater than 0. Empty uses the controller's built-in default (10s).
+      # default: "10s"
+      # pattern: ^((([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)?$
+      # @schema
+      progressingInterval: "10s"
+    # @schema
     # description: |
     #   Log verbosity level for the controller-manager, passed as --zap-log-level.
     #   Empty string leaves controller-runtime's zap default (debug) in place.

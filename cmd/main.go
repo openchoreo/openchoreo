@@ -122,6 +122,7 @@ func setupControlPlaneControllers(
 	renderTimeout time.Duration,
 	secretRemoteKeys observabilityalertsnotificationchannel.RemoteKeyFormat,
 	referencedConfigRollout bool,
+	rrIntervals renderedReleaseIntervals,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -226,6 +227,8 @@ func setupControlPlaneControllers(
 			Client:              c,
 			PlaneClientProvider: planeClientProvider,
 			Scheme:              s,
+			StableInterval:      rrIntervals.stable,
+			ProgressingInterval: rrIntervals.progressing,
 		},
 		&workflow.Reconciler{Client: c, Scheme: s},
 		&clusterworkflow.Reconciler{Client: c, Scheme: s},
@@ -327,6 +330,7 @@ func main() {
 	var secretRemoteKeyPrefix string
 	var secretRemoteKeySeparator string
 	var referencedConfigRollout bool
+	var rrIntervals renderedReleaseIntervals
 	var tlsOpts []func(*tls.Config)
 	// Environment defaults are resolved before the flags are declared, so a malformed value
 	// is reported after flag.Parse rather than silently replaced by the built-in default.
@@ -335,6 +339,10 @@ func main() {
 	celCostLimitDefault, celCostLimitEnvErr := getEnvUint("CEL_COST_LIMIT", 0)
 	renderTimeoutDefault, renderTimeoutEnvErr := getEnvDuration("RENDER_TIMEOUT", 0)
 	referencedConfigRolloutDefault, referencedConfigRolloutEnvErr := getEnvBoolStrict("REFERENCED_CONFIG_ROLLOUT", false)
+	rrStableIntervalDefault, rrStableIntervalEnvErr := getEnvDuration(
+		"RENDEREDRELEASE_STABLE_INTERVAL", renderedrelease.DefaultStableInterval)
+	rrProgressingIntervalDefault, rrProgressingIntervalEnvErr := getEnvDuration(
+		"RENDEREDRELEASE_PROGRESSING_INTERVAL", renderedrelease.DefaultProgressingInterval)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -383,6 +391,15 @@ func main() {
 			"ExternalSecrets their pod template references, instead of any change to the component's rendered "+
 			"resources. Also enables the openchoreo.dev/restart-on-change annotation. Defaults to the "+
 			"REFERENCED_CONFIG_ROLLOUT environment variable when set.")
+	flag.DurationVar(&rrIntervals.stable, "renderedrelease-stable-interval", rrStableIntervalDefault,
+		"How long a RenderedRelease whose resources are all stable waits before its next check, unless the "+
+			"release sets spec.interval. 20% jitter is added. Every stable release costs one reconcile per "+
+			"interval, so a shorter interval needs more workers. Must be greater than 0. Defaults to the "+
+			"RENDEREDRELEASE_STABLE_INTERVAL environment variable when set.")
+	flag.DurationVar(&rrIntervals.progressing, "renderedrelease-progressing-interval", rrProgressingIntervalDefault,
+		"How long a RenderedRelease with transitioning resources waits before its next check, unless the "+
+			"release sets spec.progressingInterval. 20% jitter is added. Must be greater than 0. Defaults to "+
+			"the RENDEREDRELEASE_PROGRESSING_INTERVAL environment variable when set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -408,12 +425,28 @@ func main() {
 		setupLog.Error(referencedConfigRolloutEnvErr, "invalid REFERENCED_CONFIG_ROLLOUT")
 		os.Exit(1)
 	}
+	if rrStableIntervalEnvErr != nil {
+		setupLog.Error(rrStableIntervalEnvErr, "invalid RENDEREDRELEASE_STABLE_INTERVAL")
+		os.Exit(1)
+	}
+	if rrProgressingIntervalEnvErr != nil {
+		setupLog.Error(rrProgressingIntervalEnvErr, "invalid RENDEREDRELEASE_PROGRESSING_INTERVAL")
+		os.Exit(1)
+	}
 	if secretRemoteKeySeparator == "" {
 		setupLog.Error(nil, "invalid secret remote key separator: must not be empty")
 		os.Exit(1)
 	}
 	if err := validateRenderTimeout(renderTimeout); err != nil {
 		setupLog.Error(err, "invalid render timeout")
+		os.Exit(1)
+	}
+	if err := validateRequeueInterval(rrIntervals.stable); err != nil {
+		setupLog.Error(err, "invalid --renderedrelease-stable-interval")
+		os.Exit(1)
+	}
+	if err := validateRequeueInterval(rrIntervals.progressing); err != nil {
+		setupLog.Error(err, "invalid --renderedrelease-progressing-interval")
 		os.Exit(1)
 	}
 
@@ -522,7 +555,7 @@ func main() {
 		}, celCostLimit, renderTimeout, observabilityalertsnotificationchannel.RemoteKeyFormat{
 			Prefix:    secretRemoteKeyPrefix,
 			Separator: secretRemoteKeySeparator,
-		}, referencedConfigRollout)
+		}, referencedConfigRollout, rrIntervals)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -659,6 +692,23 @@ func getEnvDuration(key string, defaultValue time.Duration) (time.Duration, erro
 func validateRenderTimeout(timeout time.Duration) error {
 	if timeout < 0 {
 		return fmt.Errorf("render timeout must not be negative: %s", timeout)
+	}
+	return nil
+}
+
+// renderedReleaseIntervals are the RenderedRelease controller's requeue intervals for
+// releases that do not set their own.
+type renderedReleaseIntervals struct {
+	stable      time.Duration
+	progressing time.Duration
+}
+
+// validateRequeueInterval rejects a controller-wide requeue interval of zero or less. A
+// release can set its own interval to 0 to turn its requeue off; a zero default would turn
+// it off for every release that does not set one, so it is refused.
+func validateRequeueInterval(interval time.Duration) error {
+	if interval <= 0 {
+		return fmt.Errorf("requeue interval must be greater than zero: %s", interval)
 	}
 	return nil
 }
