@@ -48,7 +48,7 @@ export OPENSEARCH_OPERATOR_VERSION=2.8.0
 # community-modules main) on main, pinned to released versions on release branches.
 export LOGS_OPENSEARCH_VERSION=0.8.1
 export TRACES_OPENSEARCH_VERSION=0.9.1
-export METRICS_PROMETHEUS_VERSION=0.9.1
+export METRICS_PROMETHEUS_VERSION=0.9.2
 export EVENTS_OTEL_COLLECTOR_VERSION=0.2.1
 export FINOPS_OPENCOST_VERSION=0.3.0
 ```
