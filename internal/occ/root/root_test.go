@@ -22,6 +22,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 
 	expected := []string{
 		"apply",
+		"export",
 		"login",
 		"logout",
 		"config",
