@@ -61,6 +61,17 @@ func keyOf(obj *unstructured.Unstructured) resourceKey {
 	return resourceKey{gvk: obj.GroupVersionKind(), namespace: obj.GetNamespace(), name: obj.GetName()}
 }
 
+// keyOfStatus returns the key of the object a status entry was recorded for.
+func keyOfStatus(s openchoreov1alpha1.RenderedManifestStatus) resourceKey {
+	return resourceKey{gvk: schema.GroupVersionKind{Group: s.Group, Version: s.Version, Kind: s.Kind}, namespace: s.Namespace, name: s.Name}
+}
+
+// unversioned returns k without its API version.
+func (k resourceKey) unversioned() resourceKey {
+	k.gvk.Version = ""
+	return k
+}
+
 // liveResourceIndex pairs desired resources with the live objects they were applied as.
 //
 // It matches by object, not by resource ID. The resource ID is a label, and
@@ -98,10 +109,11 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 	logger := log.FromContext(ctx)
 	liveIndex := indexLiveResources(liveResources)
 
-	// Build a map of old resource statuses for quick lookup by resource ID
-	oldResourceMap := make(map[string]openchoreov1alpha1.RenderedManifestStatus)
+	// Previous statuses are matched by object, so an object replaced under the same
+	// ID does not inherit the old one's observation time.
+	oldResourceMap := make(map[resourceKey]openchoreov1alpha1.RenderedManifestStatus, len(old.Status.Resources))
 	for _, oldResource := range old.Status.Resources {
-		oldResourceMap[oldResource.ID] = oldResource
+		oldResourceMap[keyOfStatus(oldResource)] = oldResource
 	}
 
 	resourceStatuses := make([]openchoreov1alpha1.RenderedManifestStatus, 0, len(desiredResources))
@@ -163,7 +175,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 			}
 
 			// Check if this resource existed before and if its status changed
-			if oldResource, exists := oldResourceMap[resourceID]; exists {
+			if oldResource, exists := oldResourceMap[keyOf(desiredObj)]; exists {
 				// Check if the resource status has actually changed
 				if apiequality.Semantic.DeepEqual(oldResource.Status, resourceStatus) && oldResource.HealthStatus == healthStatus {
 					// Status and health haven't changed, preserve the existing timestamp

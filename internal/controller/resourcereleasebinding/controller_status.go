@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -44,10 +45,71 @@ func (r *Reconciler) evaluateReadiness(
 ) time.Duration {
 	logger := log.FromContext(ctx)
 
-	observed := observedStatusByID(rr.Status.Resources, logger)
+	statuses := currentStatusEntries(rr, logger)
+	observed := observedStatusByID(statuses, logger)
 	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
-	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, observed, logger)
+	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, statuses, observed, logger)
 	return retryAfter
+}
+
+// renderedIdentity identifies an object regardless of API version, which can
+// differ between the manifest and status.
+type renderedIdentity struct {
+	group     string
+	kind      string
+	namespace string
+	name      string
+}
+
+func identityOfManifest(obj *unstructured.Unstructured) renderedIdentity {
+	gvk := obj.GroupVersionKind()
+	return renderedIdentity{group: gvk.Group, kind: gvk.Kind, namespace: obj.GetNamespace(), name: obj.GetName()}
+}
+
+func identityOfStatus(entry *openchoreov1alpha1.RenderedManifestStatus) renderedIdentity {
+	return renderedIdentity{group: entry.Group, kind: entry.Kind, namespace: entry.Namespace, name: entry.Name}
+}
+
+// recordedIn reports whether entry describes this object. An empty status
+// namespace matches any manifest namespace because the server clears it for
+// cluster-scoped objects; namespaced objects without a namespace fail to apply
+// and never reach status.
+func (id renderedIdentity) recordedIn(entry *openchoreov1alpha1.RenderedManifestStatus) bool {
+	if entry.Namespace == "" {
+		id.namespace = ""
+	}
+	return id == identityOfStatus(entry)
+}
+
+// currentStatusEntries returns the RenderedRelease status entries, minus those
+// recorded for a different object than the one now rendered under their ID.
+// Status lags the spec until the RenderedRelease controller reconciles, so after
+// a rename it still holds the old object's entry; dropping it reads as not yet
+// observed. Entries without a decodable rendered manifest are kept.
+func currentStatusEntries(rr *openchoreov1alpha1.RenderedRelease, logger logr.Logger) []openchoreov1alpha1.RenderedManifestStatus {
+	rendered := make(map[string]renderedIdentity, len(rr.Spec.Resources))
+	for i := range rr.Spec.Resources {
+		m := &rr.Spec.Resources[i]
+		if m.Object == nil {
+			continue
+		}
+		obj := &unstructured.Unstructured{}
+		if err := obj.UnmarshalJSON(m.Object.Raw); err != nil {
+			logger.Error(err, "decode RenderedRelease manifest", "id", m.ID)
+			continue
+		}
+		rendered[m.ID] = identityOfManifest(obj)
+	}
+
+	current := make([]openchoreov1alpha1.RenderedManifestStatus, 0, len(rr.Status.Resources))
+	for i := range rr.Status.Resources {
+		entry := &rr.Status.Resources[i]
+		if id, ok := rendered[entry.ID]; ok && !id.recordedIn(entry) {
+			continue
+		}
+		current = append(current, *entry)
+	}
+	return current
 }
 
 // observedStatusByID decodes RenderedRelease.status.resources[].status from
@@ -145,7 +207,8 @@ func mapResolvedOutputs(resolved []resourcepipeline.ResolvedOutput) []openchoreo
 // ResourcesApplied condition (when current-generation) overrides any
 // per-entry signal. Otherwise iterate snapshot.Resources: per-entry
 // readyWhen takes precedence; the fallback uses the per-Kind health
-// inference written into RenderedRelease.status.resources[].healthStatus.
+// inference written into RenderedRelease.status.resources[].healthStatus,
+// read from statuses (filtered by currentStatusEntries).
 func (r *Reconciler) evaluateResourcesReady(
 	ctx context.Context,
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
@@ -155,6 +218,7 @@ func (r *Reconciler) evaluateResourcesReady(
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
 	rr *openchoreov1alpha1.RenderedRelease,
+	statuses []openchoreov1alpha1.RenderedManifestStatus,
 	observed map[string]map[string]any,
 	logger logr.Logger,
 ) {
@@ -165,9 +229,9 @@ func (r *Reconciler) evaluateResourcesReady(
 		return
 	}
 
-	statusByID := make(map[string]*openchoreov1alpha1.RenderedManifestStatus, len(rr.Status.Resources))
-	for i := range rr.Status.Resources {
-		statusByID[rr.Status.Resources[i].ID] = &rr.Status.Resources[i]
+	statusByID := make(map[string]*openchoreov1alpha1.RenderedManifestStatus, len(statuses))
+	for i := range statuses {
+		statusByID[statuses[i].ID] = &statuses[i]
 	}
 
 	// Iterate only entries that survived IncludeWhen and were actually
