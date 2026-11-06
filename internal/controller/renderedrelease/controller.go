@@ -437,7 +437,9 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 	return nil
 }
 
-// findStaleResources finds resources that were previously managed but are no longer in the desired spec
+// findStaleResources finds resources that this controller applied but are no longer in the
+// desired spec. Live objects it did not apply are never stale, whatever labels they carry
+// (see appliedByController).
 func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstructured.Unstructured) []*unstructured.Unstructured {
 	// Build a set of desired resource IDs for fast lookup
 	desiredResourceIDs := make(map[string]bool)
@@ -450,7 +452,7 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 
 	// Find live resources that are not in the desired set
 	var staleResources []*unstructured.Unstructured
-	for _, liveObj := range liveResources {
+	for _, liveObj := range appliedByController(liveResources) {
 		liveResourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 		if liveResourceID != "" {
 			// If this live resource ID is not in the desired set, it's stale
@@ -461,6 +463,29 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 	}
 
 	return staleResources
+}
+
+// appliedByController returns the live resources this controller applied: those whose
+// managedFields hold a server-side apply entry from its field manager.
+//
+// The tracking labels alone do not say that. Operators copy labels onto the objects they
+// create (ESO copies an ExternalSecret's labels onto its Secret when the ExternalSecret has
+// no target template), and such an object is listed as if it were ours. managedFields are
+// not copied, and applyResources records an Apply entry under ControllerName on everything
+// it writes. Deleting only what carries that entry leaves those objects to their owner: the
+// Secret of an ExternalSecret with creationPolicy Orphan outlives it, and one with Merge
+// existed before it.
+func appliedByController(liveResources []*unstructured.Unstructured) []*unstructured.Unstructured {
+	applied := make([]*unstructured.Unstructured, 0, len(liveResources))
+	for _, obj := range liveResources {
+		for _, entry := range obj.GetManagedFields() {
+			if entry.Manager == ControllerName && entry.Operation == metav1.ManagedFieldsOperationApply {
+				applied = append(applied, obj)
+				break
+			}
+		}
+	}
+	return applied
 }
 
 // deleteResources deletes the given stale resources from the target plane
@@ -632,9 +657,14 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 			return nil, fmt.Errorf("failed to list resources for %s: %w", gvk.String(), err)
 		}
 
-		// Add all items to result
+		// Stamp each item with the GVK it was listed under: live resources are paired
+		// with desired ones by group and kind as well as name. The unstructured decoder
+		// only fills an item's kind from the list when the response names the list's
+		// own, so this does not rely on the plane client to do it.
 		for i := range list.Items {
-			allLiveResources = append(allLiveResources, &list.Items[i])
+			item := &list.Items[i]
+			item.SetGroupVersionKind(gvk)
+			allLiveResources = append(allLiveResources, item)
 		}
 	}
 
