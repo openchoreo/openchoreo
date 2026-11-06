@@ -70,6 +70,12 @@
           "additionalProperties": true,
           "description": "CRD management configuration",
           "properties": {
+            "full": {
+              "default": false,
+              "description": "Use full CRDs installed by a pre-install/pre-upgrade hook Job. Kept false so the minified CRDs stay rendered as chart templates; switching to the hook Job drops them from the release, and helm upgrade would then delete the CRDs and all Argo resources.",
+              "title": "full",
+              "type": "boolean"
+            },
             "keep": {
               "default": false,
               "description": "Keep CRDs on chart uninstall",
