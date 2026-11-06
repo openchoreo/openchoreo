@@ -681,7 +681,7 @@ install_openbao() {
     log_info "Installing OpenBao..."
 
     # values-openbao.yaml runs OpenBao in dev mode and, via its postStart hook,
-    # configures Kubernetes auth + reader/writer policies and seeds the platform
+    # configures Kubernetes auth for the ClusterSecretStore and seeds the platform
     # secrets that the ExternalSecrets sync into each plane. Shared with the k3d
     # installer (install/k3d/k3d-install.sh).
     local openbao_values="$SCRIPT_DIR/../k3d/common/values-openbao.yaml"
