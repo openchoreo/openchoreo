@@ -93,21 +93,6 @@
           "title": "fullnameOverride",
           "type": "string"
         },
-        "images": {
-          "additionalProperties": true,
-          "description": "Argo Workflows image configuration",
-          "properties": {
-            "tag": {
-              "default": "v4.0.15",
-              "description": "Image tag for the Argo Workflows controller, executor and server. Overrides the chart's default (v4.0.8), which still trusts the compromised eMudhra certificate authorities.",
-              "title": "tag",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "images",
-          "type": "object"
-        },
         "server": {
           "additionalProperties": true,
           "description": "Argo Workflows server (UI) configuration",

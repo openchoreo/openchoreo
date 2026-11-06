@@ -31,21 +31,6 @@ argo-workflows:
   # @schema
   # type: object
   # additionalProperties: true
-  # description: Argo Workflows image configuration
-  # @schema
-  images:
-    # @schema
-    # type: string
-    # description: >-
-    #   Image tag for the Argo Workflows controller, executor and server. Overrides the chart's
-    #   default (v4.0.8), which still trusts the compromised eMudhra certificate authorities.
-    # default: v4.0.15
-    # @schema
-    tag: v4.0.15
-
-  # @schema
-  # type: object
-  # additionalProperties: true
   # description: Argo Workflows controller configuration
   # @schema
   controller:
