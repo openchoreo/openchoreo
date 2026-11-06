@@ -139,15 +139,20 @@ func StrictResponseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *
 // uniformly to every body-bearing public operation, all of which declare
 // `content: application/json` in the spec.
 //
+// The raw trace query route is the exception: its body is the tracing
+// backend's native request, which may be text, so rawTracesQueryGuard checks
+// it instead.
+//
 // An absent Content-Type is allowed. The rejection is a 400 rather than the
-// arguably more correct 415 because the spec declares no 415 response and
-// gen.ErrorResponseTitle has no value for one.
+// arguably more correct 415 because the operations it covers declare no 415
+// response; only the raw trace query route does.
 func RequireJSONContentType(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := r.Header.Get("Content-Type")
-			// No body, or no declared type: nothing to reject.
-			if raw == "" || r.ContentLength == 0 {
+			// No body, or no declared type: nothing to reject. Raw trace queries
+			// are checked by rawTracesQueryGuard.
+			if raw == "" || r.ContentLength == 0 || isRawTracesQuery(r) {
 				next.ServeHTTP(w, r)
 				return
 			}

@@ -216,9 +216,19 @@ func capValue(v any) any {
 	}
 }
 
+// capString keeps the first MaxParameterLength runes of s. It walks only that
+// prefix, so a long value costs no more than a short one.
 func capString(s string) string {
-	if utf8.RuneCountInString(s) <= MaxParameterLength {
+	end := 0
+	for n := 0; n < MaxParameterLength; n++ {
+		if end >= len(s) {
+			return s
+		}
+		_, size := utf8.DecodeRuneInString(s[end:])
+		end += size
+	}
+	if end >= len(s) {
 		return s
 	}
-	return string([]rune(s)[:MaxParameterLength])
+	return s[:end]
 }

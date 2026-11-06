@@ -30,6 +30,8 @@ type fakeTracingAdapter struct {
 	spansErr         error
 	spanDetailResult *observability.SpanDetail
 	spanDetailErr    error
+	rawResult        *observability.RawTracesQueryResult
+	rawErr           error
 
 	tracesCalled      bool
 	spansCalled       bool
@@ -37,6 +39,14 @@ type fakeTracingAdapter struct {
 	lastTraceID       string
 	lastSpanID        string
 	lastParams        observability.TracesQueryParams
+	lastRawParams     *observability.RawTracesQueryParams
+}
+
+func (f *fakeTracingAdapter) QueryRawTraces(_ context.Context,
+	params observability.RawTracesQueryParams,
+) (*observability.RawTracesQueryResult, error) {
+	f.lastRawParams = &params
+	return f.rawResult, f.rawErr
 }
 
 func (f *fakeTracingAdapter) GetTraces(_ context.Context,

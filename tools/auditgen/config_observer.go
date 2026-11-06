@@ -73,6 +73,12 @@ var observerAuditReadOverrides = []auditgen.OperationDef{
 		ID: "GetSpanDetailsForTrace", Action: "read_span_details", ResourceType: "trace",
 		Category: "CategoryAccess", RESTResourceParam: "traceId",
 	},
+	// A raw query reads traces outside any namespace, project or component, so it
+	// is recorded like the other reads that disclose span data.
+	{
+		ID: "QueryRawTraces", Action: "read_raw_traces", ResourceType: "trace",
+		Category: "CategoryAccess",
+	},
 }
 
 // observerInternalResourceCategories is empty because every operation on the

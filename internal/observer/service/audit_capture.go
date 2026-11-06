@@ -4,11 +4,15 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // The builders below are the request.parameters allowlist of each audited
@@ -117,6 +121,60 @@ func spansQueryParameters(req *types.TracesQueryRequest) map[string]any {
 	putString(scope, "environment", req.SearchScope.Environment)
 	putGroup(p, "searchScope", scope)
 	return p
+}
+
+// rawTracesQueryParameters records the raw request: its media type, its
+// size, the SHA-256 of the body as received, and the start of the query as
+// text (a JSON request as compact JSON, a text request as written).
+//
+// Only the first audit.MaxParameterLength runes of the query are kept, so
+// queryTruncated says when the recorded query is not the whole request, and
+// querySha256 identifies the whole request.
+func rawTracesQueryParameters(req *types.RawTracesQueryRequest) map[string]any {
+	if req == nil {
+		return nil
+	}
+	sum := sha256.Sum256(req.Body)
+	query, truncated := rawQueryText(req.ContentType, req.Body, audit.MaxParameterLength)
+	p := map[string]any{
+		"queryBytes":     len(req.Body),
+		"querySha256":    hex.EncodeToString(sum[:]),
+		"queryTruncated": truncated,
+	}
+	putString(p, "contentType", req.ContentType)
+	putString(p, "query", query)
+	return p
+}
+
+// rawQueryText returns the first maxRunes runes of the query, and whether the
+// query is longer. A JSON body is compacted as it is read, so only the kept
+// prefix is ever copied, however large the body is.
+func rawQueryText(contentType string, body []byte, maxRunes int) (string, bool) {
+	isJSON := strings.HasPrefix(contentType, "application/json")
+	out := make([]byte, 0, min(len(body), maxRunes*utf8.UTFMax))
+	runes, inString, escaped := 0, false, false
+	for _, b := range body {
+		if isJSON {
+			switch {
+			case inString && escaped:
+				escaped = false
+			case inString && b == '\\':
+				escaped = true
+			case b == '"':
+				inString = !inString
+			case !inString && (b == ' ' || b == '\t' || b == '\n' || b == '\r'):
+				continue // insignificant whitespace
+			}
+		}
+		if utf8.RuneStart(b) {
+			if runes == maxRunes {
+				return string(out), true
+			}
+			runes++
+		}
+		out = append(out, b)
+	}
+	return string(out), false
 }
 
 // spanId is a path parameter, but resource.name holds the trace and an MCP

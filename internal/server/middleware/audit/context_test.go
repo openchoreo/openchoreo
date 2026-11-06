@@ -212,3 +212,23 @@ func TestSetReturned_CapsItemsAndKeepsCount(t *testing.T) {
 			len(got.Items), got.Count, MaxReturnedItems, MaxReturnedItems+5)
 	}
 }
+
+func TestCapString(t *testing.T) {
+	t.Parallel()
+
+	exact := strings.Repeat("é", MaxParameterLength)
+	tests := []struct {
+		name, in, want string
+	}{
+		{"a value at the limit is kept whole", exact, exact},
+		{"a longer value keeps exactly the limit", exact + "x", exact},
+		{"a short value is kept", "short", "short"},
+		{"an empty value stays empty", "", ""},
+	}
+	for _, tt := range tests {
+		if got := capString(tt.in); got != tt.want {
+			t.Errorf("%s: capString kept %d runes, want %d", tt.name,
+				utf8.RuneCountInString(got), utf8.RuneCountInString(tt.want))
+		}
+	}
+}
