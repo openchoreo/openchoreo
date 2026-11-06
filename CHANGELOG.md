@@ -2,6 +2,25 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.4.0-m.2
+
+Changes since [v1.4.0-m.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.4.0-m.1).
+
+### Features
+
+- **(Controller)** Opt-in mode where a component's rollout only triggers on changes to the configuration its pods actually reference, instead of any rendered data plane resource (Service, HTTPRoute, HPA, etc.). ([#5275](https://github.com/openchoreo/openchoreo/pull/5275))
+- **(Controller)** `--renderedrelease-stable-interval` and `--renderedrelease-progressing-interval` flags to tune how often a release re-checks its target plane, for installs with enough releases that the default outgrows the worker pool. ([#5343](https://github.com/openchoreo/openchoreo/pull/5343))
+- **(Notifications)** Email notification channels can set a sender display name. ([#5300](https://github.com/openchoreo/openchoreo/pull/5300), [backstage-plugins#890](https://github.com/openchoreo/backstage-plugins/pull/890))
+
+### Bug Fixes
+
+- **(Controller)** Notification channels are now looked up in the alert's own namespace, their namespace on the observability plane is created before use, secrets targeting another plane are no longer rejected, and environment finalization now waits for channels to be ready. ([#5280](https://github.com/openchoreo/openchoreo/pull/5280), [#5290](https://github.com/openchoreo/openchoreo/pull/5290), [#5292](https://github.com/openchoreo/openchoreo/pull/5292), [#5302](https://github.com/openchoreo/openchoreo/pull/5302))
+- **(Controller)** `RenderedRelease` no longer re-queues itself indefinitely when a live object's own status changes (e.g. an ExternalSecret's refresh time), and now matches live resources by identity instead of position. ([#5330](https://github.com/openchoreo/openchoreo/pull/5330), [#5327](https://github.com/openchoreo/openchoreo/pull/5327))
+- **(Gateway)** Dead gateway connections are now detected, and writes and backend requests are bounded. ([#5328](https://github.com/openchoreo/openchoreo/pull/5328))
+- **(MCP)** Closed several gaps against the MCP 2026-07-28 spec: `tools/list` results are no longer marked publicly cacheable, capabilities the server doesn't actually provide are no longer advertised, the reported server version is no longer hardcoded, and tool calls stop running after the client disconnects. ([#5283](https://github.com/openchoreo/openchoreo/pull/5283))
+- **(Install)** Deleting a plane now also deletes its control plane namespace, and an unused secret reader role was removed from the bundled OpenBao setup. ([#5303](https://github.com/openchoreo/openchoreo/pull/5303), [#5323](https://github.com/openchoreo/openchoreo/pull/5323))
+- **(Helm)** Argo Workflows images pinned to v4.0.15 for the eMudhra certificate distrust. ([#5192](https://github.com/openchoreo/openchoreo/pull/5192))
+
 ## v1.4.0-m.1
 
 Changes since [v1.3.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.3.0).
