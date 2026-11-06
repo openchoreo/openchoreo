@@ -612,15 +612,23 @@ install_kgateway() {
 install_thunder() {
     log_info "Installing ThunderID ($THUNDER_VERSION)..."
 
-    local thunder_values="$SCRIPT_DIR/../k3d/common/values-thunder.yaml"
-    if [[ ! -f "$thunder_values" ]]; then
+    local thunder_dir="$SCRIPT_DIR/../k3d/common"
+    if [[ ! -f "$thunder_dir/values-thunder.yaml" ]]; then
         # Inside container
-        thunder_values="/home/openchoreo/install/k3d/common/values-thunder.yaml"
+        thunder_dir="/home/openchoreo/install/k3d/common"
+    fi
+
+    # The portal's ThunderID application is a separate values file, layered only
+    # when the portal is installed: the base seeds the shared users, groups and
+    # the CLI/MCP clients, which a portal-less install still needs.
+    local thunder_values=("--values" "$thunder_dir/values-thunder.yaml")
+    if [[ "${ENABLE_PORTAL:-true}" == "true" ]]; then
+        thunder_values+=("--values" "$thunder_dir/values-thunder-portal.yaml")
     fi
 
     install_helm_chart "thunder" "oci://ghcr.io/thunder-id/helm-charts/thunderid" "$THUNDER_NS" "true" "false" "true" "600" \
         "--version" "$THUNDER_VERSION" \
-        "--values" "$thunder_values"
+        "${thunder_values[@]}"
 
     log_success "ThunderID installed"
 }
@@ -940,13 +948,23 @@ install_control_plane() {
             "--set" "openchoreoApi.config.audit.observabilityPlaneRef.name=default"
         )
     fi
+    local portal_args=()
+    if [[ "${ENABLE_PORTAL:-true}" == "true" ]]; then
+        portal_args=("--set-string" "backstage.image.tag=$BACKSTAGE_VERSION")
+    else
+        # The event forwarder's only default subscriber is the portal Service.
+        portal_args=(
+            "--set" "backstage.enabled=false"
+            "--set" "eventForwarder.enabled=false"
+        )
+    fi
     # Disable --wait for control plane to avoid deadlock with webhook cert hooks
     # But keep monitoring enabled to track pod status
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "true" "1800" \
         "--values" "$SCRIPT_DIR/.values-cp.yaml" \
         "--set-string" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set-string" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
-        "--set-string" "backstage.image.tag=$BACKSTAGE_VERSION" \
+        ${portal_args[@]+"${portal_args[@]}"} \
         ${audit_args[@]+"${audit_args[@]}"}
 
     # Wait for cluster-gateway to be ready (required for agent connections)
