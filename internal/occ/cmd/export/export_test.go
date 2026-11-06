@@ -63,8 +63,9 @@ func TestRun_ExportsNormalizedComponent(t *testing.T) {
 		Items: []gen.Workload{{
 			Metadata: gen.ObjectMeta{Name: "api-workload"},
 			Spec: &gen.WorkloadSpec{Owner: &struct {
-				ComponentName string `json:"componentName"`
-				ProjectName   string `json:"projectName"`
+				ComponentName string  `json:"componentName"`
+				ProjectName   string  `json:"projectName"`
+				ReleaseLine   *string `json:"releaseLine,omitempty"`
 			}{ComponentName: "api", ProjectName: "shop"}},
 		}},
 	}, nil)
@@ -172,8 +173,9 @@ func TestRun_ExportsReleaseBindingsAndRecentComponentReleases(t *testing.T) {
 			Spec: &gen.ReleaseBindingSpec{
 				Environment: "dev",
 				Owner: struct {
-					ComponentName string `json:"componentName"`
-					ProjectName   string `json:"projectName"`
+					ComponentName string  `json:"componentName"`
+					ProjectName   string  `json:"projectName"`
+					ReleaseLine   *string `json:"releaseLine,omitempty"`
 				}{ComponentName: "api", ProjectName: "shop"},
 				ReleaseName: stringPointer("api-release-1"),
 			},
@@ -581,7 +583,9 @@ func TestRun_PrintsSummary(t *testing.T) {
 	assert.Contains(t, output.String(), "0 resource(s)")
 	assert.Contains(t, output.String(), "Export completed")
 	assert.Contains(t, output.String(), "Files:\n  CREATED")
-	assert.Contains(t, output.String(), "Resources by kind:\n  No resources exported.")
+	assert.NotContains(t, output.String(), "Resources by kind:")
+	assert.NotContains(t, output.String(), "Older referenced:")
+	assert.NotContains(t, output.String(), "Older unreferenced:")
 	assert.Contains(t, output.String(), "Plaintext credentials:\n  None detected.")
 	assert.NotContains(t, output.String(), "Coverage is incomplete")
 	assert.NotContains(t, output.String(), "ClusterWorkflowTemplate")

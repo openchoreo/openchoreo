@@ -45,18 +45,37 @@ ComponentRelease, ProjectRelease, and ResourceRelease. Use --all-releases to
 include the entire release history. Releases without creation timestamps are
 retained.
 
+The summary shows total resources, file changes, release selection, and plaintext
+credential totals. Use --show-counts to include resource counts by kind and
+--show-credential-details to include the resource, file, field, and action for
+each credential decision. These flags can be combined.
+
 It writes resource manifests and does not create or modify Kustomize or Flux configuration.
 Existing files outside the selected export are not removed.`,
 		Example: `  # Export configuration, releases from the last three months, and older referenced releases
-  occ export -o ./my-gitops-repo
+  occ export -o <output-path>
 
   # Export configuration and the entire release history
-  occ export -o ./my-gitops-repo --all-releases`,
+  occ export -o <output-path> --all-releases
+
+  # Show exported resource counts by kind
+  occ export -o <output-path> --show-counts
+
+  # Show details of kept and removed plaintext credentials in the summary
+  occ export -o <output-path> --show-credential-details
+
+  # Show both resource counts and credential decision details
+  occ export -o <output-path> --show-counts --show-credential-details
+
+  # Export the entire release history with all summary details
+  occ export -o <output-path> --all-releases --show-counts --show-credential-details`,
 		Args:    cobra.NoArgs,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			outputDir, _ := cmd.Flags().GetString("output")
 			all, _ := cmd.Flags().GetBool("all-releases")
+			showCounts, _ := cmd.Flags().GetBool("show-counts")
+			showCredentialDetails, _ := cmd.Flags().GetBool("show-credential-details")
 			cl, err := newClient()
 			if err != nil {
 				return err
@@ -64,13 +83,16 @@ Existing files outside the selected export are not removed.`,
 			fmt.Fprintln(cmd.OutOrStdout(), "Exporting resources...")
 			reader := bufio.NewReader(cmd.InOrStdin())
 			return runWithSecretDecision(cmd.Context(), cl, cmd.OutOrStdout(), Params{
-				OutputDir: outputDir, AllReleases: all,
+				OutputDir: outputDir, AllReleases: all, ShowCounts: showCounts,
+				ShowCredentialDetails: showCredentialDetails,
 			},
 				newPlaintextDecision(reader, cmd.OutOrStdout()))
 		},
 	}
 	cmd.Flags().StringP("output", "o", "", "Root directory of the output repository (required; created if missing)")
 	cmd.Flags().Bool("all-releases", false, "Export the entire release history instead of the default three-month window plus referenced releases")
+	cmd.Flags().Bool("show-counts", false, "Show exported resource counts by kind in the summary")
+	cmd.Flags().Bool("show-credential-details", false, "Show resource, file, field, and action for each plaintext credential in the summary")
 	_ = cmd.MarkFlagRequired("output")
 	return cmd
 }
@@ -127,7 +149,7 @@ func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) 
 }
 
 // printReport writes export counts, release selection, and credential decisions.
-func printReport(out io.Writer, report *Report, outputDir string, complete bool) error {
+func printReport(out io.Writer, report *Report, params Params, complete bool) error {
 	var output strings.Builder
 	w := tabwriter.NewWriter(&output, 0, 0, 3, ' ', 0)
 	if complete {
@@ -135,23 +157,25 @@ func printReport(out io.Writer, report *Report, outputDir string, complete bool)
 	} else {
 		fmt.Fprintln(w, "\nExport incomplete")
 	}
-	fmt.Fprintf(w, "  Output:\t%s\n  Resources:\t%d resource(s)\n", outputDir, report.Exported)
+	fmt.Fprintf(w, "  Output:\t%s\n  Resources:\t%d resource(s)\n", params.OutputDir, report.Exported)
 	fmt.Fprintln(w, "\nFiles:")
 	fmt.Fprintln(w, "  CREATED\tUPDATED\tUNCHANGED")
 	fmt.Fprintf(w, "  %d\t%d\t%d\n", report.Created, report.Updated, report.Unchanged)
 
-	fmt.Fprintln(w, "\nResources by kind:")
-	if len(report.ExportedByKind) == 0 {
-		fmt.Fprintln(w, "  No resources exported.")
-	} else {
-		kinds := make([]string, 0, len(report.ExportedByKind))
-		for kind := range report.ExportedByKind {
-			kinds = append(kinds, kind)
-		}
-		sort.Strings(kinds)
-		fmt.Fprintln(w, "  KIND\tCOUNT")
-		for _, kind := range kinds {
-			fmt.Fprintf(w, "  %s\t%d\n", kind, report.ExportedByKind[kind])
+	if params.ShowCounts {
+		fmt.Fprintln(w, "\nResources by kind:")
+		if len(report.ExportedByKind) == 0 {
+			fmt.Fprintln(w, "  No resources exported.")
+		} else {
+			kinds := make([]string, 0, len(report.ExportedByKind))
+			for kind := range report.ExportedByKind {
+				kinds = append(kinds, kind)
+			}
+			sort.Strings(kinds)
+			fmt.Fprintln(w, "  KIND\tCOUNT")
+			for _, kind := range kinds {
+				fmt.Fprintf(w, "  %s\t%d\n", kind, report.ExportedByKind[kind])
+			}
 		}
 	}
 
@@ -161,8 +185,6 @@ func printReport(out io.Writer, report *Report, outputDir string, complete bool)
 	} else {
 		fmt.Fprintln(w, "  Policy:\tLast 3 calendar months, plus binding-referenced releases")
 		fmt.Fprintf(w, "  Cutoff (UTC):\t%s (inclusive)\n", report.ReleaseCutoff.UTC().Format(time.RFC3339Nano))
-		fmt.Fprintf(w, "  Older referenced:\t%d retained\n", report.OlderReferencedReleases)
-		fmt.Fprintf(w, "  Older unreferenced:\t%d skipped\n", report.ReleasesSkipped)
 		if report.UndatedReleases > 0 {
 			fmt.Fprintf(w, "  Without creation timestamps:\t%d retained\n", report.UndatedReleases)
 		}
@@ -181,13 +203,15 @@ func printReport(out io.Writer, report *Report, outputDir string, complete bool)
 			}
 		}
 		fmt.Fprintf(w, "  %d kept, %d removed\n", kept, removed)
-		for _, decision := range report.SecretDecisions {
-			action := "Removed"
-			if decision.Action == "kept" {
-				action = "Kept"
+		if params.ShowCredentialDetails {
+			for _, decision := range report.SecretDecisions {
+				action := "Removed"
+				if decision.Action == "kept" {
+					action = "Kept"
+				}
+				fmt.Fprintf(w, "\n  %s\n", resourceDisplayName(decision.Withheld))
+				fmt.Fprintf(w, "    Action:\t%s\n    File:\t%s\n    Field:\t%s\n", action, decision.File, strings.Join(decision.Reasons, ", "))
 			}
-			fmt.Fprintf(w, "\n  %s\n", resourceDisplayName(decision.Withheld))
-			fmt.Fprintf(w, "    Action:\t%s\n    File:\t%s\n    Field:\t%s\n", action, decision.File, strings.Join(decision.Reasons, ", "))
 		}
 	}
 	if err := w.Flush(); err != nil {

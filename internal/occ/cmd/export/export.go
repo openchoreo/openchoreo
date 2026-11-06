@@ -109,7 +109,7 @@ func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer,
 		return errors.New("your role does not have permission to perform this export operation!")
 	}
 	if report != nil {
-		if printErr := printReport(w, report, params.OutputDir, err == nil); printErr != nil {
+		if printErr := printReport(w, report, params, err == nil); printErr != nil {
 			return errors.Join(err, fmt.Errorf("write export summary: %w", printErr))
 		}
 	}

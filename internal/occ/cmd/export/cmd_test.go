@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,37 @@ func TestNewExportCmd_ReleaseHistoryFlags(t *testing.T) {
 			cmd.SetArgs(append([]string{"-o", t.TempDir()}, tt.args...))
 			require.NoError(t, cmd.Execute())
 			assert.Contains(t, output.String(), tt.want)
+		})
+	}
+}
+
+func TestNewExportCmd_ShowCounts(t *testing.T) {
+	for _, showCounts := range []bool{false, true} {
+		name := "default"
+		if showCounts {
+			name = "show counts"
+		}
+		t.Run(name, func(t *testing.T) {
+			c := mockComponentClient(t, "", "")
+			cmd := NewExportCmd(func() (client.Interface, error) { return c, nil })
+			cmd.PreRunE = nil
+			var output bytes.Buffer
+			cmd.SetOut(&output)
+			args := []string{"-o", t.TempDir()}
+			if showCounts {
+				args = append(args, "--show-counts")
+			}
+			cmd.SetArgs(args)
+			require.NoError(t, cmd.Execute())
+			if showCounts {
+				assert.Contains(t, output.String(), "Resources by kind:")
+				assert.Regexp(t, `Component\s+1\n`, output.String())
+				assert.Regexp(t, `Namespace\s+1\n`, output.String())
+			} else {
+				assert.NotContains(t, output.String(), "Resources by kind:")
+			}
+			assert.NotContains(t, output.String(), "Older referenced:")
+			assert.NotContains(t, output.String(), "Older unreferenced:")
 		})
 	}
 }
@@ -140,10 +172,11 @@ func TestPromptKeepPlaintext_ReadError(t *testing.T) {
 
 func TestNewExportCmd_PlaintextChoices(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		kept    [3]bool // Namespace token, component password, and environment secret, in prompt order.
-		prompts int
+		name        string
+		input       string
+		kept        [3]bool // Namespace token, component password, and environment secret, in prompt order.
+		prompts     int
+		showDetails bool
 	}{
 		{name: "individual choices", input: "y\nn\ny\n", kept: [3]bool{true, false, true}, prompts: 3},
 		{name: "keep all", input: "a\n", kept: [3]bool{true, true, true}, prompts: 1},
@@ -151,6 +184,7 @@ func TestNewExportCmd_PlaintextChoices(t *testing.T) {
 		{name: "keep remaining", input: "n\na\n", kept: [3]bool{false, true, true}, prompts: 2},
 		{name: "remove remaining", input: "y\nr\n", kept: [3]bool{true, false, false}, prompts: 2},
 		{name: "no input removes", input: "", prompts: 3},
+		{name: "explicit credential details", input: "y\nn\ny\n", kept: [3]bool{true, false, true}, prompts: 3, showDetails: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -161,7 +195,11 @@ func TestNewExportCmd_PlaintextChoices(t *testing.T) {
 			cmd.PreRunE = nil
 			cmd.SetIn(strings.NewReader(tt.input))
 			cmd.SetOut(&output)
-			cmd.SetArgs([]string{"-o", root})
+			args := []string{"-o", root}
+			if tt.showDetails {
+				args = append(args, "--show-credential-details")
+			}
+			cmd.SetArgs(args)
 			require.NoError(t, cmd.Execute())
 
 			component := readManifest(t, root, "namespaces/acme/projects/shop/components/api/component.yaml")
@@ -176,6 +214,25 @@ func TestNewExportCmd_PlaintextChoices(t *testing.T) {
 			assert.Equal(t, "{{ .password }}", parameters["password"])
 			assert.Equal(t, "CLIENT_SECRET", env["key"])
 			assert.Equal(t, tt.prompts, strings.Count(output.String(), "Possible plaintext credential\n"))
+			_, summary, found := strings.Cut(output.String(), "Plaintext credentials:\n")
+			require.True(t, found)
+			kept := 0
+			for _, keep := range tt.kept {
+				if keep {
+					kept++
+				}
+			}
+			assert.Contains(t, summary, fmt.Sprintf("%d kept, %d removed", kept, len(tt.kept)-kept))
+			if tt.showDetails {
+				assert.Regexp(t, `Action:\s+Kept`, summary)
+				assert.Regexp(t, `Action:\s+Removed`, summary)
+				assert.Contains(t, summary, "namespaces/acme/projects/shop/components/api/component.yaml")
+				assert.Contains(t, summary, ".spec.parameters.dbPassword")
+			} else {
+				assert.NotContains(t, summary, "Action:")
+				assert.NotContains(t, summary, "File:")
+				assert.NotContains(t, summary, "Field:")
+			}
 			assert.NotContains(t, output.String(), "component-secret-value")
 			assert.NotContains(t, output.String(), "env-secret-value")
 			assert.NotContains(t, output.String(), "namespace-secret-value")

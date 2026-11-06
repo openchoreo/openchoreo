@@ -9,6 +9,10 @@ type Params struct {
 	OutputDir string
 	// AllReleases includes the entire release history.
 	AllReleases bool
+	// ShowCounts includes exported resource counts by kind in the summary.
+	ShowCounts bool
+	// ShowCredentialDetails includes per-credential decisions in the summary.
+	ShowCredentialDetails bool
 }
 
 // Options configures resource collection, credential handling, and output.
