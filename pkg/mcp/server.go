@@ -13,6 +13,7 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpserver"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -65,10 +66,7 @@ const (
 func NewHTTPServer(
 	logger *slog.Logger, toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions,
 ) (http.Handler, error) {
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "openchoreo-api",
-		Version: "1.0.0",
-	}, nil)
+	server := mcpserver.NewServer("openchoreo-api")
 	perms, toolToToolsets := toolsets.Register(server)
 
 	auditMw, err := mcpaudit.NewMiddleware(auditOpts)
@@ -86,10 +84,7 @@ func NewHTTPServer(
 	// successes and failures.
 	server.AddReceivingMiddleware(auditMw, filterMw)
 
-	streamable := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
-		return server
-	}, &mcp.StreamableHTTPOptions{Stateless: true})
-	return withRequestQueryParams(streamable), nil
+	return withRequestQueryParams(mcpserver.NewStreamableHTTPHandler(server)), nil
 }
 
 // NewSTDIO creates an MCP server for STDIO transport (local CLI usage).
@@ -97,10 +92,7 @@ func NewHTTPServer(
 // HTTP request, no JWT token, and no authenticated user identity available.
 // The service layer still enforces authz for any operations that require it.
 func NewSTDIO(toolsets *tools.Toolsets) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "openchoreo-cli",
-		Version: "1.0.0",
-	}, nil)
+	server := mcpserver.NewServer("openchoreo-cli")
 	toolsets.Register(server)
 	return server
 }

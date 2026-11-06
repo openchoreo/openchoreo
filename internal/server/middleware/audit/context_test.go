@@ -153,6 +153,43 @@ func TestSetRequest_EmptyParamsRecordNone(t *testing.T) {
 	}
 }
 
+func TestSetMCPClient(t *testing.T) {
+	SetMCPClient(context.Background(), "claude-code", "2.1.0")
+
+	long := strings.Repeat("é", MaxParameterLength+10)
+	tests := []struct {
+		name, clientName, version string
+		want                      map[string]any
+	}{
+		{
+			name: "name and version", clientName: "claude-code", version: "2.1.0",
+			want: map[string]any{"name": "claude-code", "version": "2.1.0"},
+		},
+		{name: "empty version omitted", clientName: "occ", want: map[string]any{"name": "occ"}},
+		{
+			name: "values capped", clientName: long, version: long,
+			want: map[string]any{"name": capString(long), "version": capString(long)},
+		},
+		{name: "both empty records nothing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
+			SetMCPClient(ctx, tt.clientName, tt.version)
+			if tt.want == nil {
+				if data.Metadata != nil {
+					t.Fatalf("Metadata = %+v, want none recorded", data.Metadata)
+				}
+				return
+			}
+			got, _ := data.Metadata[MetadataKeyMCPClient].(map[string]any)
+			if len(got) != len(tt.want) || got["name"] != tt.want["name"] || got["version"] != tt.want["version"] {
+				t.Errorf("metadata.mcp_client = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSetReturned_CopiesItems(t *testing.T) {
 	ctx, data := NewAuditContext(context.Background(), &Resource{}, RequestInfo{})
 	items := []ReturnedItem{{Type: "secret", Name: "db-creds"}}

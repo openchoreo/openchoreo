@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpserver"
 )
 
 // NewHTTPServer creates a new MCP HTTP server for the observer API.
@@ -34,9 +35,7 @@ func NewHTTPServer(handler *MCPHandler, auditOpts mcpaudit.MiddlewareOptions) (h
 	}
 	server.AddReceivingMiddleware(auditMw)
 
-	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
-		return server
-	}, &mcpsdk.StreamableHTTPOptions{Stateless: true}), nil
+	return mcpserver.NewStreamableHTTPHandler(server), nil
 }
 
 // NewServer creates the MCP server with every observer tool registered, and no
@@ -46,10 +45,7 @@ func NewHTTPServer(handler *MCPHandler, auditOpts mcpaudit.MiddlewareOptions) (h
 // the protocol rather than trusting a hand-maintained list — the SDK offers no
 // way to read tools back off a *Server directly.
 func NewServer(handler *MCPHandler) *mcpsdk.Server {
-	server := mcpsdk.NewServer(&mcpsdk.Implementation{
-		Name:    "openchoreo-observer",
-		Version: "1.0.0",
-	}, nil)
+	server := mcpserver.NewServer("openchoreo-observer")
 
 	registerTools(server, handler)
 
