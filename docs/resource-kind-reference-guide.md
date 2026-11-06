@@ -18,10 +18,14 @@ This document describes the resource kinds used in OpenChoreo CRDs, the relation
     - [Resource](#resource)
     - [ResourceRelease](#resourcerelease)
     - [ResourceReleaseBinding](#resourcereleasebinding)
+    - [Endpoint](#endpoint)
+    - [EndpointRelease](#endpointrelease)
+    - [EndpointReleaseBinding](#endpointreleasebinding)
   - [Composition and Templating](#composition-and-templating)
     - [ComponentType / ClusterComponentType](#componenttype--clustercomponenttype)
     - [Trait / ClusterTrait](#trait--clustertrait)
     - [ResourceType / ClusterResourceType](#resourcetype--clusterresourcetype)
+    - [EndpointType / ClusterEndpointType](#endpointtype--clusterendpointtype)
     - [Workflow / ClusterWorkflow](#workflow--clusterworkflow)
     - [WorkflowRun](#workflowrun)
   - [Platform Infrastructure](#platform-infrastructure)
@@ -73,6 +77,13 @@ erDiagram
     ResourceReleaseBinding ||--o{ RenderedRelease : "renders"
     ResourceReleaseBinding }o--|| Environment : "targets"
     Workload }o--o{ Resource : "depends on"
+    Project ||--o{ Endpoint : "contains"
+    Endpoint }o--|| EndpointType : "references"
+    Endpoint }o--o{ Component : "routes to"
+    Endpoint ||--o{ EndpointRelease : "creates"
+    EndpointRelease ||--o{ EndpointReleaseBinding : "bound to"
+    EndpointReleaseBinding ||--o{ RenderedRelease : "renders"
+    EndpointReleaseBinding }o--|| Environment : "targets"
     Environment }o--|| DataPlane : "references"
     Project }o--|| DeploymentPipeline : "references"
     DeploymentPipeline }o--o{ Environment : "defines promotion paths"
@@ -104,6 +115,20 @@ Project
 
 Workloads consume Resources via `Workload.spec.dependencies.resources[]`; the ReleaseBinding render waits for each
 referenced ResourceReleaseBinding to be Ready before producing its RenderedRelease.
+
+### Endpoint Flow
+
+```text
+Project
+  └── Endpoint (references EndpointType, routes to Component workload endpoints with weights)
+       └── EndpointRelease (immutable snapshot of Endpoint.spec + EndpointType.spec)
+            └── EndpointReleaseBinding (pins release to Environment, resolves backends)
+                 └── RenderedRelease (routing manifests → applied to DataPlane)
+```
+
+An Endpoint owns a workload endpoint's network exposure: who can reach it (`visibility`) and which backends
+serve it. The compute side (port, protocol) stays on `Workload.spec.endpoints`. Each EndpointReleaseBinding
+resolves the Endpoint's backends through their ReleaseBindings in its environment.
 
 ### Platform Infrastructure
 
@@ -327,7 +352,9 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `owner.projectName` | string | Yes | Parent Project |
-| `owner.componentName` | string | Yes | Parent Component |
+| `owner.componentName` | string | No | Parent Component, when produced by a ReleaseBinding |
+| `owner.resourceName` | string | No | Parent Resource, when produced by a ResourceReleaseBinding |
+| `owner.endpointName` | string | No | Parent Endpoint, when produced by an EndpointReleaseBinding |
 | `environmentName` | string | Yes | Target environment |
 | `resources[]` | Resource[] | No | Rendered K8s resources (id + raw object) |
 | `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
@@ -343,8 +370,11 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 
 **Resource Health States:** Unknown, Progressing, Healthy, Suspended, Degraded
 
+At most one of `owner.componentName`, `owner.resourceName` and `owner.endpointName` may be set. With none
+set, the RenderedRelease holds project-level infrastructure.
+
 **Relationships:**
-- Created by: ReleaseBinding controller
+- Created by: ReleaseBinding, ResourceReleaseBinding or EndpointReleaseBinding controller
 - Deployed to: DataPlane or ObservabilityPlane
 
 For detailed design documentation, see [RenderedRelease CRD Design](crds/renderedrelease.md).
@@ -452,6 +482,126 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 **Retention:** `retainPolicy: Retain` holds the binding's finalizer on deletion. The binding stays in `Terminating` with `Finalizing` reason `RetainHold` and the data-plane state persists until the policy is flipped back to `Delete`.
 
 **Authoring:** ResourceReleaseBindings are authored by platform engineers or GitOps tooling. The Resource controller never fans them out automatically.
+
+[Back to Top](#overview)
+
+---
+
+#### Endpoint
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | none (`endpoints` and `ep` belong to core v1 Endpoints; use `endpoints.openchoreo.dev`) |
+| **Purpose** | Routes traffic for a workload endpoint across one or more weighted backends, rendered through an EndpointType |
+
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project |
+| `type` | EndpointTypeRef | Yes | No | References EndpointType (`kind` + `name`); `kind` defaults to `EndpointType` |
+| `visibility[]` | []EndpointVisibility | Yes (min 1) | Yes | Scopes the backends are exposed to: `namespace`, `internal`, `external`. `project` is implicit for every workload endpoint and rejected here |
+| `backendRefs[]` | EndpointBackendRef[] | Yes (1–16) | Yes | Weighted backends, keyed by `name` |
+| `schema` | Schema | No | Yes | API definition exposed. Unset: resolved from the backend's Workload endpoint schema at render time |
+| `autoDeploy` | bool | No | Yes | Bind each new EndpointRelease to the first environment of the project's deployment pipeline |
+| `parameters` | RawExtension | No | Yes | Values for the EndpointType's parameters schema |
+
+**EndpointBackendRef Fields:** a discriminated union on `kind`; the payload matching `kind` must be set.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Identifies the backend within the Endpoint (DNS-1123 label); status reports resolution against it |
+| `kind` | string | No | `Component` (default; the only kind today) |
+| `component.name` | string | When `kind: Component` | Component in the Endpoint's project |
+| `component.endpoint` | string | When `kind: Component` | Workload endpoint name in the component's `Workload.spec.endpoints`; determines port and protocol |
+| `component.releaseLine` | string | No | Release line to route to; empty routes to the main line |
+| `weight` | int32 | No | Relative traffic share (default 1, 0–1000000). Gateway API semantics: 0 sends no traffic |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Last observed generation |
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `latestRelease` | LatestEndpointRelease | Name and hash of the latest EndpointRelease cut from this Endpoint |
+
+**Relationships:**
+- Owner: Project (via `spec.owner.projectName`)
+- References: EndpointType or ClusterEndpointType, Component workload endpoints (does not own them)
+- Creates: EndpointRelease (when spec or referenced EndpointType spec changes)
+
+[Back to Top](#overview)
+
+---
+
+#### EndpointRelease
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | `epr`, `eprs` |
+| **Purpose** | Immutable snapshot of an Endpoint and its referenced (Cluster)EndpointType at release time |
+
+All spec fields are **immutable** after creation (enforced via `XValidation:rule="self == oldSelf"`).
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `owner.projectName` | string | Yes | Parent Project |
+| `owner.endpointName` | string | Yes | Parent Endpoint |
+| `endpointType.kind` | string | Yes | `EndpointType` or `ClusterEndpointType` (source kind at snapshot time) |
+| `endpointType.name` | string | Yes | Name of the source (Cluster)EndpointType |
+| `endpointType.spec` | EndpointTypeSpec | Yes | Frozen spec of the (Cluster)EndpointType at release time |
+| `visibility[]` | []EndpointVisibility | Yes | Frozen `Endpoint.spec.visibility` |
+| `backendRefs[]` | EndpointBackendRef[] | Yes | Frozen `Endpoint.spec.backendRefs` |
+| `schema` | Schema | No | Frozen `Endpoint.spec.schema`; unset when resolved from the backend |
+| `parameters` | RawExtension | No | Frozen `Endpoint.spec.parameters` |
+
+**Naming:** EndpointReleases are named `{endpoint}-{hash}`, where the hash covers `Endpoint.spec` + `(Cluster)EndpointType.spec` at the moment the release was cut.
+
+**Relationships:**
+- Owner: Endpoint; created exclusively by the Endpoint controller
+- Referenced by: EndpointReleaseBinding (via `spec.endpointRelease`)
+
+[Back to Top](#overview)
+
+---
+
+#### EndpointReleaseBinding
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | `eprb`, `eprbs` |
+| **Purpose** | Binds an EndpointRelease to an Environment, resolves its backends there, and renders the EndpointType's routing resources |
+
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project |
+| `owner.endpointName` | string | Yes | No | Parent Endpoint |
+| `environment` | string | Yes | No | Target environment name |
+| `endpointRelease` | string | No | Yes | EndpointRelease name to pin. The binding stays pending until set |
+| `endpointTypeEnvironmentConfigs` | RawExtension | No | Yes | Per-environment values validated against `(Cluster)EndpointType.spec.environmentConfigs` |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | `BackendsResolved`, `Synced`, `ResourcesReady`, `URLsResolved`, `Ready` (aggregate) |
+| `backends[]` | ResolvedEndpointBackend[] | Per-backend resolution: `resolved`, effective `weight`, in-cluster `serviceURL`, or `reason` + `message` when unresolved |
+| `urls` | EndpointReleaseBindingURLs | Resolved URL (scheme, host, port, path) and security per visibility (`project`, `namespace`, `internal`, `external`). Updated with the RenderedRelease, so it always describes what is deployed |
+| `lastSpecUpdateTime` | Time | When the current spec generation was first observed; moves on every deploy |
+
+**Relationships:**
+- Owner: Endpoint (via `spec.owner.endpointName`)
+- References: EndpointRelease, Environment, and each backend's ReleaseBinding in the environment
+- Creates: RenderedRelease (routing manifests applied to the target DataPlane, with `owner.endpointName` set)
+
+**Authoring:** EndpointReleaseBindings are authored externally (kubectl, GitOps, the API server), except the first-environment binding of an Endpoint with `autoDeploy`, which the Endpoint controller creates and advances.
 
 [Back to Top](#overview)
 
@@ -576,6 +726,44 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 **CEL Surface:** Templates have access to `metadata.*`, `parameters.*`, `environmentConfigs.*`, `dataplane.*`, and `gateway.*`. `outputs[]` and `readyWhen` additionally see `applied.<id>.status.*` once the manifest has been applied. `includeWhen` is evaluated at render time and does **not** see `applied.<id>.*`.
 
 **Cluster-scoped variant** (`ClusterResourceType`) shares the same spec shape. Example ClusterResourceTypes (`postgres`, `valkey`, `nats`) ship under `samples/getting-started/cluster-resource-types/` to demonstrate the pattern; these use in-cluster StatefulSets and are intended for local development, not production use.
+
+[Back to Top](#overview)
+
+---
+
+#### EndpointType / ClusterEndpointType
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`EndpointType`) / Cluster (`ClusterEndpointType`) |
+| **Short Names** | `ept`, `epts` / `cept`, `cepts` |
+| **Purpose** | Platform engineer's routing template: the manifests (e.g. HTTPRoute) an Endpoint renders per environment, and the URLs clients reach it on |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `parameters` | SchemaSection | No | Schema for `Endpoint.spec.parameters` |
+| `environmentConfigs` | SchemaSection | No | Schema for `EndpointReleaseBinding.spec.endpointTypeEnvironmentConfigs` |
+| `validations[]` | ValidationRule[] | No | CEL rules that must all hold before rendering |
+| `urls` | EndpointTypeURLs | No | One optional URL template per visibility: `project`, `namespace`, `internal`, `external` |
+| `resources[]` | ResourceTemplate[] | Yes (min 1) | Routing manifest templates (same shape as ComponentType resources) |
+
+**EndpointURLTemplate Fields:** every string field takes a literal or a `${...}` CEL expression.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `includeWhen` | string | No | `${...}` CEL boolean, ANDed with the visibility gate (the Endpoint must request the visibility; `project` is always requested) |
+| `scheme` | string | Yes | Resolves to http, https, ws, wss, grpc, grpcs, tcp or tls |
+| `host` | string | Yes | Hostname or IP clients connect to |
+| `port` | string | No | Resolves to 1–65535; omit for the scheme's default port |
+| `path` | string | No | Path the endpoint is served under |
+| `security.scheme` | string | Yes (when set) | Resolves to none, apiKey, oauth2 or basicAuth. A declaration by the type's author; not verified against the data plane |
+| `security.apiKey.in` / `.name` | string | When scheme is apiKey | Where the key is sent (header or query) and under which name. Ignored when a templated scheme resolves to anything else |
+
+**CEL Surface:** `resources[]` and `urls` see `metadata.*`, `parameters.*`, `environmentConfigs.*`, `visibility`, `backends[]` (resolved for the binding's environment), `dataplane.*`, and `environment.*` (aliased `gateway.*`). Resources may only target the data plane.
+
+**Cluster-scoped variant** (`ClusterEndpointType`) shares the same spec shape. EndpointReleases snapshot either kind under `endpointType.kind`.
 
 [Back to Top](#overview)
 
