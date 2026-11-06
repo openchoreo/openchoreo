@@ -187,7 +187,7 @@ Install [OpenBao](https://openbao.org/) as the secret backend and create a `Clus
 install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets
 ```
 
-This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth with reader/writer policies, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
+This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth for the `ClusterSecretStore`, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
 
 To use a different secret backend (Vault, AWS Secrets Manager, etc.), skip this step and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/api/clustersecretstore/).
 
