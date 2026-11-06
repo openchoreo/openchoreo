@@ -50,16 +50,53 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 	return true, nil
 }
 
+// resourceKey names an object on a plane as it was read: the GVK, namespace and name.
+type resourceKey struct {
+	gvk             schema.GroupVersionKind
+	namespace, name string
+}
+
+// keyOf returns the key obj is indexed and looked up under.
+func keyOf(obj *unstructured.Unstructured) resourceKey {
+	return resourceKey{gvk: obj.GroupVersionKind(), namespace: obj.GetNamespace(), name: obj.GetName()}
+}
+
+// liveResourceIndex pairs desired resources with the live objects they were applied as.
+//
+// It matches by object, not by resource ID. The resource ID is a label, and
+// operators that copy labels onto the objects they create hand it to objects that
+// are not ours: ESO copies an ExternalSecret's labels onto its Secret when the
+// ExternalSecret has no target template, so both are listed under one resource ID.
+// listLiveResourcesByGVKs stamps every live item with the GVK it was listed under,
+// which is where the GVK in the key comes from.
+//
+// The version is part of the key. The same object is listed once per version the
+// controller knows for its kind (the spec's and the one in the previous status),
+// each copy in that version's shape, and status has to be read in the version the
+// spec asks for. Every desired GVK is listed (findAllKnownGVKs), so a desired
+// resource that exists is found.
+type liveResourceIndex map[resourceKey]*unstructured.Unstructured
+
+// indexLiveResources indexes live resources by the GVK they were listed under,
+// their namespace and name.
+func indexLiveResources(liveResources []*unstructured.Unstructured) liveResourceIndex {
+	index := make(liveResourceIndex, len(liveResources))
+	for _, live := range liveResources {
+		index[keyOf(live)] = live
+	}
+	return index
+}
+
+// lookup returns the live object desired was applied as, read in desired's version.
+func (idx liveResourceIndex) lookup(desired *unstructured.Unstructured) (*unstructured.Unstructured, bool) {
+	live, found := idx[keyOf(desired)]
+	return live, found
+}
+
 // buildResourceStatus converts applied unstructured objects to ResourceStatus entries using live resources
 func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.RenderedRelease, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.RenderedManifestStatus {
 	logger := log.FromContext(ctx)
-	// Build a map of live resources for quick lookup by resource ID
-	liveResourceMap := make(map[string]*unstructured.Unstructured)
-	for _, liveObj := range liveResources {
-		if resourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]; resourceID != "" {
-			liveResourceMap[resourceID] = liveObj
-		}
-	}
+	liveIndex := indexLiveResources(liveResources)
 
 	// Build a map of old resource statuses for quick lookup by resource ID
 	oldResourceMap := make(map[string]openchoreov1alpha1.RenderedManifestStatus)
@@ -77,8 +114,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 		var lastObservedTime *metav1.Time
 		healthStatus := openchoreov1alpha1.HealthStatusUnknown
 
-		// Look up the live resource by ID
-		if liveResource, found := liveResourceMap[resourceID]; found {
+		if liveResource, found := liveIndex.lookup(desiredObj); found {
 			// Extract status field if it exists
 			if statusField, found, _ := unstructured.NestedFieldCopy(liveResource.Object, "status"); found && statusField != nil {
 				// Convert status to RawExtension
@@ -194,22 +230,17 @@ func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.Re
 // zero without being paused, so an autoscaler (HPA/KEDA scale-from-zero) could bring it back
 // up at any time. Replicas are read from the live object, not the rendered spec: the control
 // plane strips spec.replicas from autoscaled workloads, so only the live object reflects what
-// the autoscaler set. Live items carry no GVK, so workloads are matched by the desired GVK and
-// paired to the live object by resource ID.
+// the autoscaler set. Workloads are picked by the desired GVK and paired to their live object
+// by GVK, namespace and name (see liveResourceIndex).
 func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Unstructured) bool {
-	liveByID := make(map[string]*unstructured.Unstructured, len(liveResources))
-	for _, live := range liveResources {
-		if id := live.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]; id != "" {
-			liveByID[id] = live
-		}
-	}
+	liveIndex := indexLiveResources(liveResources)
 
 	for _, desired := range desiredResources {
 		gvk := desired.GroupVersionKind()
 		if gvk.Group != appsAPIGroup || (gvk.Kind != deploymentKind && gvk.Kind != statefulSetKind) {
 			continue
 		}
-		live, ok := liveByID[desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]]
+		live, ok := liveIndex.lookup(desired)
 		if !ok {
 			continue
 		}

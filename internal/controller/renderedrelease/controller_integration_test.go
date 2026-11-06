@@ -170,8 +170,10 @@ func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler
 	}
 }
 
-// makeLabeledUnstructured creates an unstructured resource with the tracking labels
-// that listLiveResourcesByGVKs uses to find managed resources.
+// makeLabeledUnstructured creates an unstructured resource as this controller
+// leaves it on a plane: carrying the tracking labels that listLiveResourcesByGVKs
+// selects on, and the managedFields entry its server-side apply records. A fake
+// client only hands managedFields back when built WithReturnManagedFields.
 func makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID string, release *openchoreov1alpha1.RenderedRelease) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{}
 	obj.SetAPIVersion(apiVersion)
@@ -185,6 +187,16 @@ func makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID strin
 		labels.LabelKeyRenderedReleaseName:       release.Name,
 		labels.LabelKeyRenderedReleaseNamespace:  release.Namespace,
 	})
+	markAppliedByController(obj)
+	return obj
+}
+
+// makeLabelCopiedUnstructured creates an object that carries a release's tracking
+// labels without this controller having applied it, the way ESO leaves the Secret
+// it creates for an ExternalSecret that has no target template.
+func makeLabelCopiedUnstructured(apiVersion, kind, namespace, name, resourceID string, release *openchoreov1alpha1.RenderedRelease) *unstructured.Unstructured {
+	obj := makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID, release)
+	setManagedBy(obj, esoFieldManager, metav1.ManagedFieldsOperationUpdate)
 	return obj
 }
 
@@ -895,6 +907,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			liveConfigMap := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "my-config", "res-cm-1", fetched)
 			dpClient := fake.NewClientBuilder().
 				WithObjects(liveConfigMap).
+				WithReturnManagedFields().
 				Build()
 			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
 
@@ -928,6 +941,85 @@ var _ = Describe("RenderedRelease Controller", func() {
 				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
 				return apierrors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: objects carrying our labels that we did not apply
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with a label-copied object in data plane", func() {
+		const (
+			releaseName = "release-finalize-copied"
+			envName     = "env-finalize-copied"
+			cdpName     = "cdp-finalize-copied"
+			planeID     = "plane-finalize-copied"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+		secretKey := client.ObjectKey{Namespace: "dp-ns", Name: "app-secrets"}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		// ESO copies an untemplated ExternalSecret's labels onto the Secret it
+		// creates. That Secret is ESO's: it is garbage collected with the
+		// ExternalSecret under creationPolicy Owner, must outlive it under Orphan,
+		// and predates it under Merge. Finalize must neither delete it nor wait for
+		// it to disappear.
+		It("deletes only what it applied and removes the finalizer while the copy remains", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with the finalizer pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(releaseName)
+
+			By("Seeding the data plane with an applied ConfigMap and an ESO-created Secret carrying the same labels")
+			applied := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "my-config", "res-cm-1", fetched)
+			copied := makeLabelCopiedUnstructured("v1", "Secret", "dp-ns", "app-secrets", "es", fetched)
+			dpClient := fake.NewClientBuilder().
+				WithObjects(applied, copied).
+				WithReturnManagedFields().
+				Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: deletes the applied ConfigMap and requeues")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+			Expect(apierrors.IsNotFound(dpClient.Get(ctx, client.ObjectKey{Namespace: "dp-ns", Name: "my-config"}, &corev1.ConfigMap{}))).
+				To(BeTrue(), "the applied ConfigMap should have been deleted")
+			Expect(dpClient.Get(ctx, secretKey, &corev1.Secret{})).To(Succeed(),
+				"the ESO-created Secret must not be deleted")
+
+			By("Third finalize reconcile: only the copy is left → removes the finalizer")
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeZero(), "finalize must not wait on an object it did not apply")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			Expect(dpClient.Get(ctx, secretKey, &corev1.Secret{})).To(Succeed(),
+				"the ESO-created Secret must survive release deletion")
 		})
 	})
 
@@ -1653,6 +1745,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			opClient := fake.NewClientBuilder().
 				WithScheme(k8sClient.Scheme()).
 				WithObjects(liveAlertRule).
+				WithReturnManagedFields().
 				Build()
 			r := testReconcilerWithDPClient(opClient, planeID, cdpName)
 
@@ -1686,6 +1779,89 @@ var _ = Describe("RenderedRelease Controller", func() {
 				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
 				return apierrors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: obs-plane object carrying our labels that we did not apply
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with a label-copied ObservabilityAlertRule in obs plane", func() {
+		const (
+			releaseName = "release-finalize-op-copied"
+			envName     = "env-finalize-op-copied"
+			cdpName     = "cdp-finalize-op-copied"
+			copName     = "cop-finalize-op-copied"
+			planeID     = "plane-finalize-op-copied"
+			opPlaneID   = "obs-plane-finalize-op-copied"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+		ruleKey := client.ObjectKey{Name: "my-alert-rule"}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("leaves the object and removes the finalizer without waiting for it", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating an obs-plane RenderedRelease whose status lists an ObservabilityAlertRule")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(releaseName)
+			fetched.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
+				ID: "alert-rule-1", Group: "openchoreo.dev", Version: "v1alpha1",
+				Kind: "ObservabilityAlertRule", Name: "my-alert-rule",
+			}}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+			fetched = fetchRelease(releaseName)
+
+			By("Seeding the obs plane with a rule that carries the labels but was written by another manager")
+			copied := makeLabelCopiedUnstructured(
+				"openchoreo.dev/v1alpha1", "ObservabilityAlertRule",
+				"", "my-alert-rule", "alert-rule-1", fetched)
+			opClient := fake.NewClientBuilder().
+				WithScheme(k8sClient.Scheme()).
+				WithObjects(copied).
+				WithReturnManagedFields().
+				Build()
+			r := testReconcilerWithDPClient(opClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: nothing of ours is left → removes the finalizer")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeZero(), "finalize must not wait on an object it did not apply")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			rule := &unstructured.Unstructured{}
+			rule.SetAPIVersion("openchoreo.dev/v1alpha1")
+			rule.SetKind("ObservabilityAlertRule")
+			Expect(opClient.Get(ctx, ruleKey, rule)).To(Succeed(),
+				"an object this controller did not apply must not be deleted")
 		})
 	})
 })
