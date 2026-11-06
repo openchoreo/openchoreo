@@ -768,7 +768,7 @@ test.describe('component config edits through Backstage UI', () => {
 
   // ─── 14. Cleanup ──────────────────────────────────────────────────────
   test('cleans up component and project via UI', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
     const component = new ComponentPO(page);
     const del = new DeletePO(page);
     const catalog = new CatalogTablePO(page);
@@ -787,7 +787,8 @@ test.describe('component config edits through Backstage UI', () => {
     await del.confirm();
     await expect
       .poll(() => kNotFound('project', PROJECT_NAME, NS), {
-        timeout: 60_000,
+        // Finalization cascades through several stages on a 5s requeue; observed up to ~120s.
+        timeout: 150_000,
       })
       .toBe(true);
   });
