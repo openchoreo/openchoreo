@@ -111,6 +111,7 @@ func TestExchangeAuthCode(t *testing.T) {
 			assert.Equal(t, "auth-code-123", params.Get("code"))
 			assert.Equal(t, "http://localhost/callback", params.Get("redirect_uri"))
 			assert.Equal(t, "test-verifier", params.Get("code_verifier"))
+			assert.Equal(t, "openid offline_access api://x/access", params.Get("scope"))
 
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(PKCETokenResponse{
@@ -127,6 +128,7 @@ func TestExchangeAuthCode(t *testing.T) {
 			ClientID:      "test-client",
 			RedirectURI:   "http://localhost/callback",
 			CodeVerifier:  "test-verifier",
+			Scopes:        []string{"openid", "offline_access", "api://x/access"},
 		}
 
 		resp, err := p.ExchangeAuthCode("auth-code-123")
