@@ -1257,7 +1257,7 @@ openchoreoApi:
           # description: Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.
           # default: registry.k8s.io/kubectl:v1.36.0
           # @schema
-          image: registry.k8s.io/kubectl:v1.36.0
+          image: registry.k8s.io/kubectl:v1.37.2
           # @schema
           # type: array
           # description: Default authorization roles to create at installation
