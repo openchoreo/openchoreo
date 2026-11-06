@@ -1619,7 +1619,7 @@ func TestRoute_UnknownTargetSentinel(t *testing.T) {
 		"k8s": newMockRoute("k8s", "https://k8s.svc", nil),
 	})
 
-	resp := router.Route(&messaging.HTTPTunnelRequest{
+	resp := router.Route(context.Background(), &messaging.HTTPTunnelRequest{
 		RequestID: "req-1",
 		Target:    protocol.Target,
 		Method:    http.MethodPost,

@@ -4,6 +4,7 @@
 package clusteragent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -68,7 +69,7 @@ func TestRoute_Success(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "req-1", resp.RequestID)
@@ -88,7 +89,7 @@ func TestRoute_UnknownTarget(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	require.NotNil(t, resp.Error)
@@ -109,7 +110,7 @@ func TestRoute_BackendError(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 	require.NotNil(t, resp.Error)
@@ -136,7 +137,7 @@ func TestRoute_WithQueryParams(t *testing.T) {
 		Query:     "namespace=default&limit=10",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Contains(t, capturedURL, "namespace=default&limit=10")
@@ -167,7 +168,7 @@ func TestRoute_WithRequestBody(t *testing.T) {
 		Body:      body,
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	assert.Equal(t, body, capturedBody)
@@ -197,7 +198,7 @@ func TestRoute_WithHeaders(t *testing.T) {
 		Headers:   headers,
 	}
 
-	_ = router.Route(req)
+	_ = router.Route(context.Background(), req)
 
 	assert.Equal(t, "application/json", capturedHeaders.Get("Content-Type"))
 	assert.Equal(t, "custom-value", capturedHeaders.Get("X-Custom"))
@@ -224,7 +225,7 @@ func TestRoute_ResponseHeaders(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, []string{"application/json"}, resp.Headers["Content-Type"])
 	assert.Equal(t, []string{"test-value"}, resp.Headers["X-Response-Info"])
@@ -258,7 +259,7 @@ func TestRoute_MultipleRoutes(t *testing.T) {
 		Path:      "/api/v1/query",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "monitoring-response", string(resp.Body))
@@ -282,7 +283,7 @@ func TestRoute_WithGatewayRequestID(t *testing.T) {
 		Path:             "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -441,7 +442,7 @@ func TestRoute_ReadBodyError(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 	require.NotNil(t, resp.Error)
@@ -460,7 +461,7 @@ func TestRoute_InvalidMethod(t *testing.T) {
 		Path:      "/api/v1/pods",
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	require.NotNil(t, resp.Error)
@@ -491,7 +492,7 @@ func TestRoute_StripsAuthorizationForK8sBackend(t *testing.T) {
 		},
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Empty(t, capturedAuth, "client-supplied Authorization header must be stripped for k8s backend")
@@ -519,7 +520,7 @@ func TestRoute_PreservesAuthorizationForHTTPBackend(t *testing.T) {
 		},
 	}
 
-	resp := router.Route(req)
+	resp := router.Route(context.Background(), req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "Bearer client-supplied-token", capturedAuth,
