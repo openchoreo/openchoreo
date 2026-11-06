@@ -35,23 +35,14 @@ func NewExportCmd(newClient client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export declarative configuration as YAML",
-		Long: `Export supported resources from every namespace into a GitOps-oriented directory tree.
+		Long: `Export supported cluster-scoped and namespaced resources as YAML into a GitOps-oriented directory tree.
 
-Exports cluster-scoped and namespace platform configuration, Namespaces,
-Projects, Components, Workloads, Resources, and their releases and release
-bindings. By default, releases from the last three calendar months and any older
-releases referenced by exported bindings are included. This applies to
-ComponentRelease, ProjectRelease, and ResourceRelease. Use --all-releases to
-include the entire release history. Releases without creation timestamps are
-retained.
+Includes releases from the last three calendar months, older binding-referenced
+releases, and releases without timestamps. Use --all-releases for full history.
 
-The summary shows total resources, file changes, release selection, and plaintext
-credential totals. Use --show-counts to include resource counts by kind and
---show-credential-details to include the resource, file, field, and action for
-each credential decision. These flags can be combined.
+Use --show-counts for counts by kind and --show-credential-details for credential decisions.
 
-It writes resource manifests and does not create or modify Kustomize or Flux configuration.
-Existing files outside the selected export are not removed.`,
+Does not modify Kustomize or Flux configuration or remove files outside the selected export.`,
 		Example: `  # Export configuration, releases from the last three months, and older referenced releases
   occ export -o <output-path>
 
