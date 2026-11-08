@@ -43,7 +43,8 @@ var RESTExemptions = map[string]string{
 		"which is audited and is where the disclosure is recorded. Gated on " +
 		"auditlogs:view all the same.",
 
-	// The log and span reads are absent too, defined under CategoryAccess.
+	// The log and span reads are absent too, defined under CategoryAccess, and so
+	// is QueryRawTraces, which reads traces outside any scope.
 	// QueryTraces is exempt below: a trace summary carries no span attributes.
 
 	// Public spec — reads expressed as POST, to carry a query body.

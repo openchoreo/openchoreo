@@ -69,11 +69,11 @@ Single install, watches Gateway resources across all namespaces.
 ```bash
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-control-plane \
-  --version v2.3.1
+  --version v2.3.11
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-control-plane --create-namespace \
-  --version v2.3.1
+  --version v2.3.11
 ```
 
 ## 3. Setup Control Plane
@@ -187,7 +187,7 @@ Install [OpenBao](https://openbao.org/) as the secret backend and create a `Clus
 install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets
 ```
 
-This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth with reader/writer policies, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
+This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth for the `ClusterSecretStore`, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
 
 To use a different secret backend (Vault, AWS Secrets Manager, etc.), skip this step and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/api/clustersecretstore/).
 

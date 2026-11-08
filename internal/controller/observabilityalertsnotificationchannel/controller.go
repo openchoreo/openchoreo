@@ -44,9 +44,9 @@ const (
 	externalSecretPollInterval = 30 * time.Second
 
 	// planeConfigPollInterval is how often a channel is reconciled while its secret references fail
-	// on the observability plane's configuration or contents (no secretStoreRef, a SecretReference that
-	// targets another plane, or an ExternalSecret this controller didn't create in the way). Neither
-	// planes nor the resources on them are watched, so a fix is only noticed by polling.
+	// on the observability plane's configuration or contents (no secretStoreRef, or an ExternalSecret
+	// this controller didn't create in the way). Neither planes nor the resources on them are
+	// watched, so a fix is only noticed by polling.
 	planeConfigPollInterval = 2 * time.Minute
 
 	// externalSecretRecheckInterval is how often a channel whose ExternalSecret has synced is reconciled
@@ -90,6 +90,8 @@ type Reconciler struct {
 // When the channel's secret references name SecretReferences, the Secret is produced by an ExternalSecret
 // that syncs the values from the observability plane's secret store. When they name Kubernetes Secrets
 // (deprecated), the values are copied into the Secret.
+// The resources are applied in the channel's namespace, which is created on the observability plane
+// if it doesn't exist there.
 // Owner references are not set on the ConfigMap and Secret as they are applied to a separate cluster.
 //
 // For more details, check Reconcile and its Result here:
@@ -164,6 +166,14 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 		return ctrl.Result{}, err
 	}
 
+	// The ConfigMap, Secret and ExternalSecret are applied in the channel's namespace, which may exist
+	// only on the control plane when the observability plane runs on a separate cluster.
+	if err := ensureNamespace(ctx, opClient, channel.Namespace); err != nil {
+		logger.Error(err, "Failed to ensure namespace on observability plane")
+		controller.MarkFalseCondition(channel, ConditionReady, ReasonApplyFailed, err.Error())
+		return ctrl.Result{}, err
+	}
+
 	// Create ConfigMap with the same name as the channel
 	configMap := r.createConfigMap(channel)
 	if err := r.applyConfigMap(ctx, opClient, configMap); err != nil {
@@ -192,8 +202,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 			logger.Error(err, "Failed to delete the ExternalSecret of a channel with invalid secret references")
 			return ctrl.Result{}, err
 		}
-		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonSecretStoreUnreachable ||
-			invalid.reason == ReasonExternalSecretConflict {
+		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonExternalSecretConflict {
 			// These depend on the observability plane, which is not watched, so poll for a fix.
 			return ctrl.Result{RequeueAfter: planeConfigPollInterval}, nil
 		}
@@ -292,25 +301,13 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, channel *openchoreod
 }
 
 // getObservabilityPlaneClient gets the observability plane and a client for it by deriving it from the environment.
-// It follows the chain: Channel.Environment -> Environment.DataPlaneRef -> DataPlane.ObservabilityPlaneRef -> ObservabilityPlane
 func (r *Reconciler) getObservabilityPlaneClient(
 	ctx context.Context,
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 ) (*controller.ObservabilityPlaneResult, client.Client, error) {
-	// Get the Environment
-	env := &openchoreodevv1alpha1.Environment{}
-	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
-		return nil, nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
-	}
-
-	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
+	obsResult, err := r.resolveObservabilityPlane(ctx, channel)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
-	}
-
-	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
+		return nil, nil, err
 	}
 
 	opClient, err := obsResult.GetK8sClient(r.PlaneClientProvider)
@@ -319,6 +316,31 @@ func (r *Reconciler) getObservabilityPlaneClient(
 	}
 
 	return obsResult, opClient, nil
+}
+
+// resolveObservabilityPlane follows the chain: Channel.Environment -> Environment.DataPlaneRef ->
+// DataPlane.ObservabilityPlaneRef -> ObservabilityPlane. The error is a NotFound error when an
+// object in the chain doesn't exist.
+func (r *Reconciler) resolveObservabilityPlane(
+	ctx context.Context,
+	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
+) (*controller.ObservabilityPlaneResult, error) {
+	env := &openchoreodevv1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
+		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
+	}
+
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
+	}
+
+	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
+	}
+
+	return obsResult, nil
 }
 
 // channelResourceLabels returns the labels of the resources applied to the observability plane for the channel.
@@ -348,6 +370,9 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 	// Add email-specific config if type is email
 	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeEmail && channel.Spec.EmailConfig != nil {
 		configMap.Data["from"] = channel.Spec.EmailConfig.From
+		if channel.Spec.EmailConfig.FromName != "" {
+			configMap.Data["fromName"] = channel.Spec.EmailConfig.FromName
+		}
 		configMap.Data["to"] = fmt.Sprintf("%v", channel.Spec.EmailConfig.To)
 		configMap.Data["smtp.host"] = channel.Spec.EmailConfig.SMTP.Host
 		configMap.Data["smtp.port"] = fmt.Sprintf("%d", channel.Spec.EmailConfig.SMTP.Port)
@@ -487,6 +512,28 @@ func (r *Reconciler) resolveSecretKeyRef(ctx context.Context, namespace string, 
 	return strings.TrimSpace(string(value)), nil
 }
 
+// ensureNamespace creates the namespace on the observability plane if it doesn't exist. An existing
+// namespace is left as it is. The namespace is not deleted with the channel, as other channels or
+// resources may live in it.
+func ensureNamespace(ctx context.Context, opClient client.Client, name string) error {
+	if err := opClient.Get(ctx, client.ObjectKey{Name: name}, &corev1.Namespace{}); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get namespace %s on the observability plane: %w", name, err)
+	}
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{labels.LabelKeyCreatedBy: managedByLabelValue},
+		},
+	}
+	if err := opClient.Create(ctx, namespace); err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create namespace %s on the observability plane: %w", name, err)
+	}
+	return nil
+}
+
 // applyConfigMap applies the ConfigMap to the observability plane cluster
 func (r *Reconciler) applyConfigMap(ctx context.Context, opClient client.Client, configMap *corev1.ConfigMap) error {
 	// Set GroupVersionKind explicitly for server-side apply
@@ -543,11 +590,27 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 		return ctrl.Result{}, nil
 	}
 
-	// Get ObservabilityPlane client
-	_, opClient, err := r.getObservabilityPlaneClient(ctx, channel)
+	// The Environment finalizer waits for the environment's channels, so the plane normally
+	// resolves. If an object in the chain is gone anyway (the environment never existed or was
+	// removed without waiting, or the plane was deleted), there is no plane left to reach.
+	obsPlane, err := r.resolveObservabilityPlane(ctx, channel)
+	if apierrors.IsNotFound(err) {
+		message := fmt.Sprintf("skipping cleanup on the observability plane, which can no longer be resolved: %v. "+
+			"ConfigMap, Secret and ExternalSecret %s/%s may remain there", err, channel.Namespace, channel.Name)
+		logger.Info("Observability plane not found during finalization, skipping cleanup", "reason", err.Error())
+		if r.Recorder != nil {
+			r.Recorder.Event(channel, corev1.EventTypeWarning, string(ReasonObservabilityPlaneUnavailable), message)
+		}
+		return r.removeFinalizer(ctx, channel)
+	}
+	if err != nil {
+		logger.Error(err, "Failed to resolve observability plane during finalization")
+		return ctrl.Result{}, err
+	}
+	opClient, err := obsPlane.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client during finalization")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to create observability plane client for %s: %w", obsPlane.GetName(), err)
 	}
 
 	// Delete ConfigMap from observability plane
@@ -568,14 +631,18 @@ func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha
 		return ctrl.Result{}, err
 	}
 
-	// Remove the finalizer once cleanup is done
+	return r.removeFinalizer(ctx, channel)
+}
+
+// removeFinalizer removes the cleanup finalizer from the notification channel.
+func (r *Reconciler) removeFinalizer(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (ctrl.Result, error) {
 	if controllerutil.RemoveFinalizer(channel, NotificationChannelCleanupFinalizer) {
 		if err := r.Update(ctx, channel); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
 
-	logger.Info("Successfully finalized notification channel")
+	log.FromContext(ctx).Info("Successfully finalized notification channel")
 	return ctrl.Result{}, nil
 }
 

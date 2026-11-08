@@ -155,7 +155,7 @@ security:
 
 # @schema
 # type: object
-# description: Feature flags shared across the control plane (API server and Backstage).
+# description: Feature flags shared across the control plane (controller, API server and Backstage).
 # @schema
 features:
   # @schema
@@ -183,6 +183,18 @@ features:
     # default: "/"
     # @schema
     remoteKeySeparator: "/"
+
+  # @schema
+  # type: object
+  # description: Referenced-config rollout. Controls which changes to a component restart its pods.
+  # @schema
+  referencedConfigRollout:
+    # @schema
+    # type: boolean
+    # description: Limit the configuration changes that restart a component's pods to the ConfigMaps, Secrets and ExternalSecrets their pod template references, instead of any change to the component's rendered resources, such as a Service, HTTPRoute or HorizontalPodAutoscaler. Also enables the openchoreo.dev/restart-on-change annotation, which lets ComponentType and Trait authors include or exclude a resource. Changes to the pod template itself, such as a new image, still roll out the pods. Turning it on does not restart pods by itself.
+    # default: false
+    # @schema
+    enabled: false
 
 # @schema
 # type: object
@@ -777,6 +789,25 @@ controllerManager:
     # default: 1
     # @schema
     maxConcurrentReconciles: 1
+    # @schema
+    # type: object
+    # description: RenderedRelease controller settings
+    # @schema
+    renderedRelease:
+      # @schema
+      # type: string
+      # description: How long a RenderedRelease whose resources are all stable waits before the controller checks it again (Go duration, e.g. "1m"), unless the release sets spec.interval. 20% jitter is added. Every stable release costs one reconcile per interval, so the controller needs about releases x reconcile time / interval workers; with hundreds of releases on a remote data plane raise it (e.g. "5m"). Longer intervals also delay noticing drift and health changes on stable releases, including ResourceReleaseBinding readyWhen on custom resources. Must be greater than 0. Empty uses the controller's built-in default (1m).
+      # default: "1m"
+      # pattern: ^((([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)?$
+      # @schema
+      stableInterval: "1m"
+      # @schema
+      # type: string
+      # description: How long a RenderedRelease with transitioning resources (Progressing, Unknown or Degraded) waits before the controller checks it again (Go duration, e.g. "10s"), unless the release sets spec.progressingInterval. 20% jitter is added. Must be greater than 0. Empty uses the controller's built-in default (10s).
+      # default: "10s"
+      # pattern: ^((([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)?$
+      # @schema
+      progressingInterval: "10s"
     # @schema
     # description: |
     #   Log verbosity level for the controller-manager, passed as --zap-log-level.
@@ -1643,6 +1674,7 @@ openchoreoApi:
                 - "events:view"
                 - "metrics:view"
                 - "traces:view"
+                - "traces:rawquery"
                 - "alerts:view"
                 - "incidents:view"
                 - "rcareport:view"

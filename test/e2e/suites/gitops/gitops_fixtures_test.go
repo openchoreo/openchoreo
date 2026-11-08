@@ -179,7 +179,7 @@ func componentWithImageYAML(name, image, echoText string) string {
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointType("HTTP"),
+						Type:       openchoreov1alpha1.EndpointProtocol("HTTP"),
 						Port:       8080,
 						Visibility: []openchoreov1alpha1.EndpointVisibility{"project"},
 					},

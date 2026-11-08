@@ -288,7 +288,7 @@ func componentYAML(cpNamespace, project, name, componentType, image string, args
 				visibility = append(visibility, openchoreov1alpha1.EndpointVisibility(v))
 			}
 			workload.Spec.Endpoints[epName] = openchoreov1alpha1.WorkloadEndpoint{
-				Type:       openchoreov1alpha1.EndpointType(ep.epType),
+				Type:       openchoreov1alpha1.EndpointProtocol(ep.epType),
 				Port:       int32(ep.port),
 				Visibility: visibility,
 			}

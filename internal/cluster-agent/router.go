@@ -5,6 +5,7 @@ package clusteragent
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -88,8 +89,9 @@ func NewRouter(k8sConfig *rest.Config, routeConfigs []RouteConfig, logger *slog.
 	return router, nil
 }
 
-// Route routes an HTTP tunnel request to the appropriate backend service
-func (r *Router) Route(req *messaging.HTTPTunnelRequest) *messaging.HTTPTunnelResponse {
+// Route routes an HTTP tunnel request to the appropriate backend service.
+// ctx bounds the whole backend exchange, including reading the response body.
+func (r *Router) Route(ctx context.Context, req *messaging.HTTPTunnelRequest) *messaging.HTTPTunnelResponse {
 	logger := r.logger
 	if req.GatewayRequestID != "" {
 		logger = r.logger.With("requestId", req.GatewayRequestID)
@@ -120,7 +122,7 @@ func (r *Router) Route(req *messaging.HTTPTunnelRequest) *messaging.HTTPTunnelRe
 	)
 
 	// Create HTTP request
-	httpReq, err := http.NewRequest(req.Method, targetURL, bytes.NewReader(req.Body))
+	httpReq, err := http.NewRequestWithContext(ctx, req.Method, targetURL, bytes.NewReader(req.Body))
 	if err != nil {
 		return messaging.NewHTTPTunnelErrorResponse(req, http.StatusInternalServerError,
 			fmt.Sprintf("failed to create request: %v", err))

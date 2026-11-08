@@ -24,7 +24,9 @@ import (
 //     Each is a json.RawMessage passed straight through from the metrics or
 //     finops adapter (service/metrics_adapter.go, service/finops_adapter.go);
 //     observer never inspects the payload, so typing them would mean decoding
-//     bodies it currently proxies untouched.
+//     bodies it currently proxies untouched. (QueryRawTraces passes the tracing
+//     backend's result through byte for byte, so it writes its 200 with
+//     rawJSONResponse instead; only its errors come through here.)
 //   - QueryLogs, QueryEvents, QueryRuntimeTopology, QueryTraces,
 //     QuerySpansForTrace, GetSpanDetailsForTrace, GetPlatformLogs,
 //     QueryAuditLogs, QueryAuditLogFilterValues, Health and
@@ -55,6 +57,21 @@ func errorResponse(status int, title gen.ErrorResponseTitle, errorCode, message 
 
 func (resp apiResponse) write(w http.ResponseWriter) error {
 	return httputil.WriteJSON(w, resp.status, resp.body)
+}
+
+// rawJSONResponse writes a JSON body exactly as given, with 200. Writing it
+// through httputil.WriteJSON would re-encode it: compacted, with <, > and &
+// escaped, and a second pass over the whole body.
+type rawJSONResponse []byte
+
+func (resp rawJSONResponse) VisitQueryRawTracesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	if w.Header().Get("Cache-Control") == "" {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write(resp)
+	return err
 }
 
 // One method per operation still routed through apiResponse. Each generated
@@ -94,6 +111,10 @@ func (resp apiResponse) VisitQuerySpansForTraceResponse(w http.ResponseWriter) e
 }
 
 func (resp apiResponse) VisitGetSpanDetailsForTraceResponse(w http.ResponseWriter) error {
+	return resp.write(w)
+}
+
+func (resp apiResponse) VisitQueryRawTracesResponse(w http.ResponseWriter) error {
 	return resp.write(w)
 }
 

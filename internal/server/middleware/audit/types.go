@@ -294,10 +294,7 @@ func (e Event) resolvedResource() *resourceJSON {
 
 // AuditData is a mutable container for audit information set by handlers.
 //
-// Metadata has no writer today, so it is always nil and never appears in a
-// published event. It is still plumbed through end-to-end (EmitFromContext →
-// Envelope → Event → Logger renders it as a "metadata" group), so a future
-// setter can be wired in without touching the pipeline.
+// Metadata's only writer is SetMCPClient, so it is nil on every REST event.
 //
 // Result overrides the status-code-derived Result the REST middleware would
 // otherwise compute (see determineResult in middleware.go). nil everywhere

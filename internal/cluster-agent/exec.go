@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gorilla/websocket"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -315,7 +314,7 @@ func (a *Agent) sendStreamChunk(chunk *messaging.HTTPTunnelStreamChunk) error {
 	if a.conn == nil {
 		return messaging.ErrNotConnected
 	}
-	return a.conn.WriteMessage(websocket.TextMessage, data)
+	return a.writeMessageLocked(data)
 }
 
 func (a *Agent) sendStreamChunkRaw(requestID string, data []byte, streamID int) {

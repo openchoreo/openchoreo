@@ -111,3 +111,24 @@ func resourceAttrString(attrs map[string]interface{}, key string) string {
 	}
 	return ""
 }
+
+// QueryRawTraces authorizes a raw trace query at cluster scope. A raw query is
+// not limited to a namespace, project or component, so the hierarchy is empty:
+// resourceHierarchyToPath maps it to "*", which only a cluster-scoped binding
+// can satisfy.
+func (s *tracesServiceWithAuthz) QueryRawTraces(
+	ctx context.Context,
+	req *types.RawTracesQueryRequest,
+) (*types.RawTracesQueryResponse, error) {
+	// Recorded before the check, so a denied raw query is audited with its query.
+	audit.SetRequest(ctx, rawTracesQueryParameters(req))
+	if err := observerAuthz.CheckAuthorization(
+		ctx, s.logger, s.pdp,
+		observerAuthz.ActionRawQueryTraces,
+		observerAuthz.ResourceTypePlatform, "", authzcore.ResourceHierarchy{},
+		authzcore.Context{},
+	); err != nil {
+		return nil, err
+	}
+	return s.internal.QueryRawTraces(ctx, req)
+}

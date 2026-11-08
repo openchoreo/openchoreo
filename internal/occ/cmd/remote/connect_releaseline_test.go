@@ -22,7 +22,7 @@ func lineWorkload(component, line string, deps ...v1alpha1.WorkloadConnection) *
 		Spec: v1alpha1.WorkloadSpec{
 			Owner: v1alpha1.WorkloadOwner{ProjectName: "default", ComponentName: component, ReleaseLine: line},
 			WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-				Endpoints:    map[string]v1alpha1.WorkloadEndpoint{"http": {Type: v1alpha1.EndpointTypeHTTP, Port: 9090}},
+				Endpoints:    map[string]v1alpha1.WorkloadEndpoint{"http": {Type: v1alpha1.EndpointProtocolHTTP, Port: 9090}},
 				Dependencies: &v1alpha1.WorkloadDependencies{Endpoints: deps},
 			},
 		},

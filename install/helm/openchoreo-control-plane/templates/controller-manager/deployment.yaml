@@ -74,6 +74,14 @@ spec:
         {{- if .Values.controllerManager.manager.maxConcurrentReconciles }}
         - --max-concurrent-reconciles={{ .Values.controllerManager.manager.maxConcurrentReconciles }}
         {{- end }}
+        {{- /* Omitted when empty, so the controller's built-in default applies. dig: an upgrade
+               with --reuse-values from a chart without these values has no key. */}}
+        {{- with dig "renderedRelease" "stableInterval" "" .Values.controllerManager.manager }}
+        - --renderedrelease-stable-interval={{ . }}
+        {{- end }}
+        {{- with dig "renderedRelease" "progressingInterval" "" .Values.controllerManager.manager }}
+        - --renderedrelease-progressing-interval={{ . }}
+        {{- end }}
         {{- if .Values.controllerManager.manager.logLevel }}
         - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
         {{- end }}
@@ -89,6 +97,9 @@ spec:
                so the controller needs the same key layout as the secret API. */}}
         - --secret-remote-key-prefix={{ .Values.features.secretManagement.remoteKeyPrefix }}
         - --secret-remote-key-separator={{ .Values.features.secretManagement.remoteKeySeparator }}
+        {{- /* Always passed, so the chart value wins over the controller's built-in default.
+               dig: an upgrade with --reuse-values from a chart without this value has no key. */}}
+        - --referenced-config-rollout={{ dig "referencedConfigRollout" "enabled" false .Values.features }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}

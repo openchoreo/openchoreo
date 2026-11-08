@@ -150,6 +150,10 @@ func TestNilRequestBodyGuards(t *testing.T) {
 			resp, err := h.QuerySpansForTrace(ctx, gen.QuerySpansForTraceRequestObject{})
 			return recordStatus(t, resp.VisitQuerySpansForTraceResponse), err
 		}},
+		{"QueryRawTraces", func() (int, error) {
+			resp, err := h.QueryRawTraces(ctx, gen.QueryRawTracesRequestObject{})
+			return recordStatus(t, resp.VisitQueryRawTracesResponse), err
+		}},
 		{"QueryAlerts", func() (int, error) {
 			resp, err := h.QueryAlerts(ctx, gen.QueryAlertsRequestObject{})
 			return recordStatus(t, resp.VisitQueryAlertsResponse), err

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -169,8 +170,10 @@ func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler
 	}
 }
 
-// makeLabeledUnstructured creates an unstructured resource with the tracking labels
-// that listLiveResourcesByGVKs uses to find managed resources.
+// makeLabeledUnstructured creates an unstructured resource as this controller
+// leaves it on a plane: carrying the tracking labels that listLiveResourcesByGVKs
+// selects on, and the managedFields entry its server-side apply records. A fake
+// client only hands managedFields back when built WithReturnManagedFields.
 func makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID string, release *openchoreov1alpha1.RenderedRelease) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{}
 	obj.SetAPIVersion(apiVersion)
@@ -184,6 +187,16 @@ func makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID strin
 		labels.LabelKeyRenderedReleaseName:       release.Name,
 		labels.LabelKeyRenderedReleaseNamespace:  release.Namespace,
 	})
+	markAppliedByController(obj)
+	return obj
+}
+
+// makeLabelCopiedUnstructured creates an object that carries a release's tracking
+// labels without this controller having applied it, the way ESO leaves the Secret
+// it creates for an ExternalSecret that has no target template.
+func makeLabelCopiedUnstructured(apiVersion, kind, namespace, name, resourceID string, release *openchoreov1alpha1.RenderedRelease) *unstructured.Unstructured {
+	obj := makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID, release)
+	setManagedBy(obj, esoFieldManager, metav1.ManagedFieldsOperationUpdate)
 	return obj
 }
 
@@ -294,8 +307,9 @@ var _ = Describe("RenderedRelease Controller", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			// Condition is set and status updated; returns empty Result (no requeue)
-			Expect(result.Requeue).To(BeFalse())
+			// Condition is set and status updated. The watch ignores that status write,
+			// so the reconcile requeues itself to start the cleanup.
+			Expect(result.RequeueAfter).To(Equal(finalizeRetryInterval))
 
 			got := &openchoreov1alpha1.RenderedRelease{}
 			Expect(k8sClient.Get(ctx, nn, got)).To(Succeed())
@@ -520,12 +534,16 @@ var _ = Describe("RenderedRelease Controller", func() {
 			updated := fetchRelease(releaseName)
 			Expect(controllerutil.ContainsFinalizer(updated, DataPlaneCleanupFinalizer)).To(BeTrue())
 
-			By("Second reconcile: applies resources and persists status")
-			mustReconcile(r, reconcileRequest(releaseName))
-
-			By("Third reconcile: status already persisted, reaches requeue logic")
+			By("Second reconcile: applies resources, persists status, and schedules the next poll itself")
 			result := mustReconcile(r, reconcileRequest(releaseName))
-			Expect(result.RequeueAfter).NotTo(BeZero(), "should requeue for status polling")
+			Expect(result.RequeueAfter).To(BeNumerically(">=", time.Minute),
+				"a status write must not end the reconcile: the watch ignores it, so only this requeue brings the release back")
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)), "a stable release polls at low priority")
+
+			By("Third reconcile: nothing changed, same stable poll")
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", time.Minute))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)))
 
 			By("Verifying the ConfigMap was applied to the data plane")
 			cm := &corev1.ConfigMap{}
@@ -620,20 +638,165 @@ var _ = Describe("RenderedRelease Controller", func() {
 			By("First reconcile: adds finalizer")
 			mustReconcile(r, reconcileRequest(releaseName))
 
-			By("Second reconcile: applies Deployment and persists status")
-			mustReconcile(r, reconcileRequest(releaseName))
-
-			By("Third reconcile: detects transitioning resource, requeues with progressing interval")
+			By("Second reconcile: applies Deployment, persists status, requeues with progressing interval")
 			result := mustReconcile(r, reconcileRequest(releaseName))
 			// Default progressing interval is 10s with up to 20% jitter → [10s, 12s)
 			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
 			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityActive)), "a rollout in progress keeps priority 0")
+
+			By("Third reconcile: still transitioning, same interval and priority")
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityActive)))
 
 			By("Verifying the Deployment resource has Progressing health in status")
 			updated := fetchRelease(releaseName)
 			Expect(updated.Status.Resources).To(HaveLen(1))
 			Expect(updated.Status.Resources[0].ID).To(Equal("deploy-trans-1"))
 			Expect(updated.Status.Resources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusProgressing))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: a live resource's status changes on its own
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when a live resource's status changes between reconciles", func() {
+		const (
+			releaseName = "release-status-churn"
+			envName     = "env-status-churn"
+			cdpName     = "cdp-status-churn"
+			planeID     = "plane-status-churn"
+			svcName     = "test-svc-churn"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			_ = k8sClient.Delete(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: svcName, Namespace: testNs}})
+		})
+
+		// Models an ExternalSecret whose status.refreshTime moves on every sync: each
+		// reconcile sees a changed live status and writes it. Before the watch filter,
+		// that write re-enqueued the release at once, so such releases reconciled back
+		// to back and starved the rest of the queue.
+		It("writes the new status and still schedules a low-priority poll", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with a Service resource")
+			release := makeMinimalRelease(releaseName, envName)
+			svcJSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "Service",
+				"metadata": {"name": "` + svcName + `", "namespace": "default"},
+				"spec": {"ports": [{"name": "http", "port": 80}]}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
+				{ID: "svc-churn-1", Object: &runtime.RawExtension{Raw: svcJSON}},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile adds the finalizer; second applies and writes status")
+			mustReconcile(r, reconcileRequest(releaseName))
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", time.Minute))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)))
+			before := fetchRelease(releaseName)
+
+			By("Changing the live Service's status, as a controller on the plane would")
+			svc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs}, svc)).To(Succeed())
+			svc.Status.Conditions = []metav1.Condition{{
+				Type: "Synced", Status: metav1.ConditionTrue, Reason: "Refreshed", Message: "refreshed",
+				LastTransitionTime: metav1.Now(),
+			}}
+			Expect(k8sClient.Status().Update(ctx, svc)).To(Succeed())
+
+			By("Reconciling: the changed status is written and the release still polls at low priority")
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", time.Minute))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)))
+			after := fetchRelease(releaseName)
+			Expect(after.ResourceVersion).NotTo(Equal(before.ResourceVersion), "the changed live status must be persisted")
+			Expect(after.Status.Resources).To(HaveLen(1))
+			Expect(string(after.Status.Resources[0].Status.Raw)).To(ContainSubstring("Refreshed"))
+
+			By("The write itself does not trigger a reconcile: the watch filter drops it")
+			Expect(ignoreStatusOnlyUpdates().Update(event.UpdateEvent{ObjectOld: before, ObjectNew: after})).To(BeFalse())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: a pass that gets through after an earlier failure
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization after a failed cleanup pass", func() {
+		const (
+			releaseName = "release-finalize-recover"
+			envName     = "env-finalize-recover"
+			cdpName     = "cdp-finalize-recover"
+			planeID     = "plane-finalize-recover"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("goes back to CleanupInProgress once a pass gets through its deletes", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a release with the finalizer and a CleanupFailed condition from an earlier pass")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(releaseName)
+			fetched.Status.Conditions = []metav1.Condition{
+				NewRenderedReleaseCleanupFailedCondition(fetched.Generation, fmt.Errorf("plane unreachable")),
+			}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+
+			liveConfigMap := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "recover-config", "res-cm-1", fetched)
+			dpClient := fake.NewClientBuilder().WithObjects(liveConfigMap).WithReturnManagedFields().Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, fetched)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Reconcile: the condition is already present, so cleanup runs at once and the reason is reset")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(Equal(finalizeRetryInterval))
+			updated := fetchRelease(releaseName)
+			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Reason).To(Equal(string(ReasonCleanupInProgress)))
+			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer))
+
+			By("Next reconcile: nothing left on the plane, finalizer removed")
+			mustReconcile(r, reconcileRequest(releaseName))
+			Eventually(func() bool {
+				return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{}))
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
 
@@ -744,6 +907,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			liveConfigMap := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "my-config", "res-cm-1", fetched)
 			dpClient := fake.NewClientBuilder().
 				WithObjects(liveConfigMap).
+				WithReturnManagedFields().
 				Build()
 			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
 
@@ -777,6 +941,85 @@ var _ = Describe("RenderedRelease Controller", func() {
 				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
 				return apierrors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: objects carrying our labels that we did not apply
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with a label-copied object in data plane", func() {
+		const (
+			releaseName = "release-finalize-copied"
+			envName     = "env-finalize-copied"
+			cdpName     = "cdp-finalize-copied"
+			planeID     = "plane-finalize-copied"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+		secretKey := client.ObjectKey{Namespace: "dp-ns", Name: "app-secrets"}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		// ESO copies an untemplated ExternalSecret's labels onto the Secret it
+		// creates. That Secret is ESO's: it is garbage collected with the
+		// ExternalSecret under creationPolicy Owner, must outlive it under Orphan,
+		// and predates it under Merge. Finalize must neither delete it nor wait for
+		// it to disappear.
+		It("deletes only what it applied and removes the finalizer while the copy remains", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with the finalizer pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(releaseName)
+
+			By("Seeding the data plane with an applied ConfigMap and an ESO-created Secret carrying the same labels")
+			applied := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "my-config", "res-cm-1", fetched)
+			copied := makeLabelCopiedUnstructured("v1", "Secret", "dp-ns", "app-secrets", "es", fetched)
+			dpClient := fake.NewClientBuilder().
+				WithObjects(applied, copied).
+				WithReturnManagedFields().
+				Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: deletes the applied ConfigMap and requeues")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+			Expect(apierrors.IsNotFound(dpClient.Get(ctx, client.ObjectKey{Namespace: "dp-ns", Name: "my-config"}, &corev1.ConfigMap{}))).
+				To(BeTrue(), "the applied ConfigMap should have been deleted")
+			Expect(dpClient.Get(ctx, secretKey, &corev1.Secret{})).To(Succeed(),
+				"the ESO-created Secret must not be deleted")
+
+			By("Third finalize reconcile: only the copy is left → removes the finalizer")
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeZero(), "finalize must not wait on an object it did not apply")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			Expect(dpClient.Get(ctx, secretKey, &corev1.Secret{})).To(Succeed(),
+				"the ESO-created Secret must survive release deletion")
 		})
 	})
 
@@ -828,6 +1071,16 @@ var _ = Describe("RenderedRelease Controller", func() {
 
 			By("Verifying the finalizer is still present (cleanup did not complete)")
 			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer))
+
+			By("Third reconcile: still failing, condition stays CleanupFailed and status is not rewritten")
+			_, err = r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred(), "the error return is what makes the retries back off")
+			again := fetchRelease(releaseName)
+			cond = apimeta.FindStatusCondition(again.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Reason).To(Equal(string(ReasonCleanupFailed)))
+			Expect(again.ResourceVersion).To(Equal(updated.ResourceVersion),
+				"the retry must not flip the condition back to CleanupInProgress and write status")
 		})
 	})
 
@@ -1492,6 +1745,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			opClient := fake.NewClientBuilder().
 				WithScheme(k8sClient.Scheme()).
 				WithObjects(liveAlertRule).
+				WithReturnManagedFields().
 				Build()
 			r := testReconcilerWithDPClient(opClient, planeID, cdpName)
 
@@ -1525,6 +1779,89 @@ var _ = Describe("RenderedRelease Controller", func() {
 				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
 				return apierrors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: obs-plane object carrying our labels that we did not apply
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with a label-copied ObservabilityAlertRule in obs plane", func() {
+		const (
+			releaseName = "release-finalize-op-copied"
+			envName     = "env-finalize-op-copied"
+			cdpName     = "cdp-finalize-op-copied"
+			copName     = "cop-finalize-op-copied"
+			planeID     = "plane-finalize-op-copied"
+			opPlaneID   = "obs-plane-finalize-op-copied"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+		ruleKey := client.ObjectKey{Name: "my-alert-rule"}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("leaves the object and removes the finalizer without waiting for it", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating an obs-plane RenderedRelease whose status lists an ObservabilityAlertRule")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(releaseName)
+			fetched.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
+				ID: "alert-rule-1", Group: "openchoreo.dev", Version: "v1alpha1",
+				Kind: "ObservabilityAlertRule", Name: "my-alert-rule",
+			}}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+			fetched = fetchRelease(releaseName)
+
+			By("Seeding the obs plane with a rule that carries the labels but was written by another manager")
+			copied := makeLabelCopiedUnstructured(
+				"openchoreo.dev/v1alpha1", "ObservabilityAlertRule",
+				"", "my-alert-rule", "alert-rule-1", fetched)
+			opClient := fake.NewClientBuilder().
+				WithScheme(k8sClient.Scheme()).
+				WithObjects(copied).
+				WithReturnManagedFields().
+				Build()
+			r := testReconcilerWithDPClient(opClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: nothing of ours is left → removes the finalizer")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeZero(), "finalize must not wait on an object it did not apply")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			rule := &unstructured.Unstructured{}
+			rule.SetAPIVersion("openchoreo.dev/v1alpha1")
+			rule.SetKind("ObservabilityAlertRule")
+			Expect(opClient.Get(ctx, ruleKey, rule)).To(Succeed(),
+				"an object this controller did not apply must not be deleted")
 		})
 	})
 })

@@ -26,6 +26,7 @@ import (
 	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/planenamespace"
 )
 
 const (
@@ -199,8 +200,8 @@ func TestValidateSecretName(t *testing.T) {
 // --- helpers ---
 
 func TestKvNamespace(t *testing.T) {
-	if got := kvNamespace("foo"); got != "openchoreo-kv-foo" {
-		t.Errorf("kvNamespace(foo) = %q, want openchoreo-kv-foo", got)
+	if got := planenamespace.KV.Name("foo"); got != "openchoreo-kv-foo" {
+		t.Errorf("planenamespace.KV.Name(foo) = %q, want openchoreo-kv-foo", got)
 	}
 }
 
@@ -241,12 +242,12 @@ func TestSortedKeys(t *testing.T) {
 // --- builders ---
 
 func TestBuildK8sSecret(t *testing.T) {
-	s := buildK8sSecret(testSecretName, kvNamespace(testNamespace), corev1.SecretTypeBasicAuth,
+	s := buildK8sSecret(testSecretName, planenamespace.KV.Name(testNamespace), corev1.SecretTypeBasicAuth,
 		map[string]string{"password": "p"})
 	if s.Name != testSecretName {
 		t.Errorf("Name = %q", s.Name)
 	}
-	if s.Namespace != kvNamespace(testNamespace) {
+	if s.Namespace != planenamespace.KV.Name(testNamespace) {
 		t.Errorf("Namespace = %q", s.Namespace)
 	}
 	if s.Type != corev1.SecretTypeBasicAuth {
@@ -261,7 +262,7 @@ func TestBuildK8sSecret(t *testing.T) {
 }
 
 func TestBuildPushSecret(t *testing.T) {
-	ps := buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store", corev1.SecretTypeOpaque)
+	ps := buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace, planenamespace.KV.Name(testNamespace), "vault-store", corev1.SecretTypeOpaque)
 
 	if ps.GetAPIVersion() != pushSecretAPIVersion {
 		t.Errorf("apiVersion = %q", ps.GetAPIVersion())
@@ -272,7 +273,7 @@ func TestBuildPushSecret(t *testing.T) {
 	if ps.GetName() != testSecretName {
 		t.Errorf("name = %q", ps.GetName())
 	}
-	if ps.GetNamespace() != kvNamespace(testNamespace) {
+	if ps.GetNamespace() != planenamespace.KV.Name(testNamespace) {
 		t.Errorf("namespace = %q", ps.GetNamespace())
 	}
 	if ann := ps.GetAnnotations()[syncTriggerAnnotation]; ann == "" {
@@ -507,33 +508,6 @@ func TestResolvePlane_InvalidKind(t *testing.T) {
 	_, err := svc.resolvePlane(context.Background(), testNamespace, "Bogus", "x")
 	if !isValidationError(err) {
 		t.Errorf("expected validation error, got %v", err)
-	}
-}
-
-// --- ensureNamespaceExists ---
-
-func TestEnsureNamespaceExists_AlreadyExists(t *testing.T) {
-	scheme := newTestScheme(t)
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "openchoreo-kv-ns1"}}
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ns).Build()
-	svc := &secretService{logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
-
-	if err := svc.ensureNamespaceExists(context.Background(), k8sClient, "openchoreo-kv-ns1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestEnsureNamespaceExists_CreatesNew(t *testing.T) {
-	scheme := newTestScheme(t)
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := &secretService{logger: newTestLogger(), remoteKeys: defaultRemoteKeys}
-
-	if err := svc.ensureNamespaceExists(context.Background(), k8sClient, "openchoreo-kv-ns1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	got := &corev1.Namespace{}
-	if err := k8sClient.Get(context.Background(), client.ObjectKey{Name: "openchoreo-kv-ns1"}, got); err != nil {
-		t.Fatalf("namespace not created: %v", err)
 	}
 }
 
@@ -772,11 +746,16 @@ func TestCreateSecret_Success(t *testing.T) {
 		t.Errorf("spec.targetPlane = %+v", got.Spec.TargetPlane)
 	}
 
-	// Target plane namespace must have been created.
+	// Target plane namespace must have been created with the labels that delete it with its namespace.
 	ns := &corev1.Namespace{}
 	if err := targetClient.Get(context.Background(),
-		client.ObjectKey{Name: kvNamespace(testNamespace)}, ns); err != nil {
-		t.Errorf("kv namespace not created: %v", err)
+		client.ObjectKey{Name: planenamespace.KV.Name(testNamespace)}, ns); err != nil {
+		t.Fatalf("kv namespace not created: %v", err)
+	}
+	for k, v := range planenamespace.KV.Labels(testNamespace) {
+		if ns.Labels[k] != v {
+			t.Errorf("kv namespace label %s = %q, want %q", k, ns.Labels[k], v)
+		}
 	}
 }
 
@@ -807,7 +786,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
 
 	targetSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: kvNamespace(testNamespace)},
+		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: planenamespace.KV.Name(testNamespace)},
 	}
 	targetClient := newTargetPlaneClient(t, scheme, []client.Object{targetSecret}, nil)
 
@@ -827,7 +806,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 	}
 	gotSecret := &corev1.Secret{}
 	if err := targetClient.Get(context.Background(),
-		client.ObjectKey{Name: testSecretName, Namespace: kvNamespace(testNamespace)}, gotSecret); err == nil {
+		client.ObjectKey{Name: testSecretName, Namespace: planenamespace.KV.Name(testNamespace)}, gotSecret); err == nil {
 		t.Error("expected target plane Secret to be deleted")
 	}
 }
@@ -874,7 +853,7 @@ func TestGetSecret_Success(t *testing.T) {
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
 
 	planeSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: kvNamespace(testNamespace)},
+		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: planenamespace.KV.Name(testNamespace)},
 		Type:       corev1.SecretTypeBasicAuth,
 		Data: map[string][]byte{
 			"username": []byte("alice"),
@@ -969,7 +948,7 @@ func TestListSecrets_FiltersManagedByLabel(t *testing.T) {
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, managed, unmanaged).Build()
 
 	managedSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: kvNamespace(testNamespace)},
+		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: planenamespace.KV.Name(testNamespace)},
 		Data:       map[string][]byte{"k": []byte("v")},
 	}
 	targetClient := newTargetPlaneClient(t, scheme, []client.Object{managedSecret}, nil)
@@ -1156,7 +1135,7 @@ func servedPushSecret(t *testing.T, ps *unstructured.Unstructured) *unstructured
 func perKeyPushSecret(t *testing.T, keys ...string) *unstructured.Unstructured {
 	t.Helper()
 	ps := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
-		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+		planenamespace.KV.Name(testNamespace), "store", corev1.SecretTypeOpaque))
 	entries := make([]any, 0, len(keys))
 	for _, k := range keys {
 		entries = append(entries, map[string]any{"match": map[string]any{
@@ -1285,7 +1264,7 @@ func TestUpdateSecret_KeepsWholeSecretPushSecret(t *testing.T) {
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
 
 	existing := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
-		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+		planenamespace.KV.Name(testNamespace), "store", corev1.SecretTypeOpaque))
 	var calls []string
 	targetClient := newRecordingPlaneClient(t, scheme, existing, false, &calls)
 	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
@@ -1306,7 +1285,7 @@ func TestUpdateSecret_KeepsWholeSecretPushSecret(t *testing.T) {
 
 func TestHasPerKeyEntries(t *testing.T) {
 	whole := servedPushSecret(t, buildPushSecret(defaultRemoteKeys, testSecretName, testNamespace,
-		kvNamespace(testNamespace), "store", corev1.SecretTypeOpaque))
+		planenamespace.KV.Name(testNamespace), "store", corev1.SecretTypeOpaque))
 	propertyOnly := perKeyPushSecret(t, "a")
 	unstructured.RemoveNestedField(propertyOnly.Object, "spec", "data")
 	if err := unstructured.SetNestedSlice(propertyOnly.Object, []any{map[string]any{"match": map[string]any{
@@ -1569,7 +1548,7 @@ func TestBuildersHonorDashSeparator(t *testing.T) {
 func assertBuildersAgreeOnKey(t *testing.T, format remoteKeyFormat, wantKey string) {
 	t.Helper()
 
-	ps := buildPushSecret(format, testSecretName, testNamespace, kvNamespace(testNamespace), "vault-store", corev1.SecretTypeOpaque)
+	ps := buildPushSecret(format, testSecretName, testNamespace, planenamespace.KV.Name(testNamespace), "vault-store", corev1.SecretTypeOpaque)
 	spec, ok := ps.Object["spec"].(map[string]any)
 	if !ok {
 		t.Fatal("spec is not a map")

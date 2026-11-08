@@ -100,6 +100,21 @@
           "title": "fullnameOverride",
           "type": "string"
         },
+        "images": {
+          "additionalProperties": true,
+          "description": "Argo Workflows image configuration",
+          "properties": {
+            "tag": {
+              "default": "v4.0.15",
+              "description": "Tag for all Argo Workflows images. Pinned ahead of the subchart's appVersion (v4.0.8), whose images trust the compromised eMudhra intermediate CAs.",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "images",
+          "type": "object"
+        },
         "server": {
           "additionalProperties": true,
           "description": "Argo Workflows server (UI) configuration",

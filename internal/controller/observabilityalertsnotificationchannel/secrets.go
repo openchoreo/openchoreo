@@ -192,12 +192,16 @@ func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string)
 }
 
 // validateSecretReferences checks that every SecretReference can be synced into the observability
-// plane for the channel: the plane has a secret store, the value was pushed to that plane's store,
-// and the remote key is the channel's namespace's own. Webhook channels send header values to a
-// URL of the user's choosing, so a channel may only read the one key that the secret API writes for
-// the SecretReference: "<prefix><sep><namespace><sep><type><sep><name>", built from the channel's
-// namespace and the SecretReference's type and name. Both names are validated Kubernetes names, so
-// this rules out keys of other namespaces or of the platform, and path segments such as "..".
+// plane for the channel: the plane has a secret store, and the remote key is the channel's
+// namespace's own. Webhook channels send header values to a URL of the user's choosing, so a
+// channel may only read the one key that the secret API writes for the SecretReference:
+// "<prefix><sep><namespace><sep><type><sep><name>", built from the channel's namespace and the
+// SecretReference's type and name. Both names are validated Kubernetes names, so this rules out
+// keys of other namespaces or of the platform, and path segments such as "..".
+//
+// targetPlane is not checked: whoever writes the SecretReference sets it, and planes can share a
+// store. A value the observability plane's store can't read shows up as the ExternalSecret failing
+// to sync.
 func (r *Reconciler) validateSecretReferences(
 	channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel,
 	obsPlane *controller.ObservabilityPlaneResult,
@@ -208,14 +212,7 @@ func (r *Reconciler) validateSecretReferences(
 			"observability plane %q has no secretStoreRef, so SecretReferences cannot be synced to it", obsPlane.GetName())
 	}
 
-	planeKind := observabilityPlaneKind(obsPlane)
 	for _, ref := range resolved.refs {
-		if target := ref.secretReference.Spec.TargetPlane; target != nil &&
-			(target.Kind != planeKind || target.Name != obsPlane.GetName()) {
-			return newInvalidSecretsError(ReasonSecretStoreUnreachable,
-				"SecretReference %q targets %s %q, not the channel's observability plane %s %q",
-				ref.ref.Name, target.Kind, target.Name, planeKind, obsPlane.GetName())
-		}
 		want := r.RemoteKeys.secretKey(channel.Namespace, ref.secretReference.Spec.Template.Type, ref.secretReference.Name)
 		if ref.remoteRef.Key != want {
 			return newInvalidSecretsError(ReasonRemoteKeyNotAllowed,
@@ -231,13 +228,6 @@ func (r *Reconciler) validateSecretReferences(
 		}
 	}
 	return nil
-}
-
-func observabilityPlaneKind(obsPlane *controller.ObservabilityPlaneResult) string {
-	if obsPlane.ClusterObservabilityPlane != nil {
-		return "ClusterObservabilityPlane"
-	}
-	return "ObservabilityPlane"
 }
 
 // RemoteKeyFormat describes how the secret API lays out keys in the external secret store, as

@@ -53,22 +53,22 @@ const (
 // is exposed by at most one route kind per visibility — the TLS trait swaps an
 // HTTPRoute/GRPCRoute for a TLSRoute when application-level TLS termination is
 // required.
-var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
+var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointProtocol]bool{
 	httpRouteKind: {
-		openchoreov1alpha1.EndpointTypeHTTP:      true,
-		openchoreov1alpha1.EndpointTypeGraphQL:   true,
-		openchoreov1alpha1.EndpointTypeWebsocket: true,
-		openchoreov1alpha1.EndpointTypeGRPC:      true,
+		openchoreov1alpha1.EndpointProtocolHTTP:      true,
+		openchoreov1alpha1.EndpointProtocolGraphQL:   true,
+		openchoreov1alpha1.EndpointProtocolWebsocket: true,
+		openchoreov1alpha1.EndpointProtocolGRPC:      true,
 	},
 	grpcRouteKind: {
-		openchoreov1alpha1.EndpointTypeGRPC: true,
+		openchoreov1alpha1.EndpointProtocolGRPC: true,
 	},
 	tlsRouteKind: {
-		openchoreov1alpha1.EndpointTypeHTTP:      true,
-		openchoreov1alpha1.EndpointTypeGraphQL:   true,
-		openchoreov1alpha1.EndpointTypeWebsocket: true,
-		openchoreov1alpha1.EndpointTypeGRPC:      true,
-		openchoreov1alpha1.EndpointTypeTCP:       true,
+		openchoreov1alpha1.EndpointProtocolHTTP:      true,
+		openchoreov1alpha1.EndpointProtocolGraphQL:   true,
+		openchoreov1alpha1.EndpointProtocolWebsocket: true,
+		openchoreov1alpha1.EndpointProtocolGRPC:      true,
+		openchoreov1alpha1.EndpointProtocolTCP:       true,
 	},
 }
 
@@ -94,6 +94,10 @@ type Reconciler struct {
 	// timeout again at each step. Zero disables the deadline. It is handed to the
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
+
+	// ReferencedConfigRollout limits the configuration changes that restart a component's pods
+	// to what their pod template references, instead of any change to the rendered resources.
+	ReferencedConfigRollout bool
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -572,6 +576,20 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
 	}
 
+	// With referenced-config rollout, the pipeline keeps the pods' dp-resource-hash from the
+	// existing dataplane Release while the configuration they use is unchanged. Only Deployments
+	// and StatefulSets carry the hash.
+	var previousDataPlaneResources []map[string]any
+	wt := WorkloadType(snapshotComponentType.Spec.WorkloadType)
+	if r.ReferencedConfigRollout && (wt == WorkloadTypeDeployment || wt == WorkloadTypeStatefulSet) {
+		previousDataPlaneResources, err = r.previousDataPlaneResources(ctx, releaseBinding,
+			makeDataPlaneReleaseName(componentRelease, releaseBinding))
+		if err != nil {
+			logger.Error(err, "Failed to get the existing dataplane Release")
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -586,6 +604,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
 		ResourceDependencyItems:    resourceDepItems,
+		PreviousDataPlaneResources: previousDataPlaneResources,
 	}
 
 	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
@@ -1171,6 +1190,45 @@ func releaseName(componentRelease *openchoreov1alpha1.ComponentRelease, environm
 	return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, environment)
 }
 
+// previousDataPlaneResources returns the resources of the existing dataplane Release of the
+// ReleaseBinding. It returns nil if the Release does not exist yet or is not controlled by the
+// ReleaseBinding, and skips resources that cannot be decoded. The Release is replaced after
+// rendering, so the render then goes ahead with what is available.
+func (r *Reconciler) previousDataPlaneResources(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	releaseName string,
+) ([]map[string]any, error) {
+	release := &openchoreov1alpha1.RenderedRelease{}
+	key := client.ObjectKey{Namespace: releaseBinding.Namespace, Name: releaseName}
+	if err := r.Get(ctx, key, release); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get dataplane Release %q: %w", releaseName, err)
+	}
+	if !metav1.IsControlledBy(release, releaseBinding) {
+		return nil, nil
+	}
+
+	resources := make([]map[string]any, 0, len(release.Spec.Resources))
+	for _, resource := range release.Spec.Resources {
+		if resource.Object == nil || len(resource.Object.Raw) == 0 {
+			continue
+		}
+		// Decode with encoding/json rather than unstructured, which turns whole numbers into int64.
+		// The pipeline compares against a JSON copy of the current render, which has float64 numbers.
+		var obj map[string]any
+		if err := json.Unmarshal(resource.Object.Raw, &obj); err != nil {
+			continue
+		}
+		if obj != nil {
+			resources = append(resources, obj)
+		}
+	}
+	return resources, nil
+}
+
 // Helper functions to build snapshot structures from ComponentRelease
 
 func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.Component {
@@ -1299,7 +1357,7 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 
 // endpointMeta holds the type and visibility configuration of a workload endpoint.
 type endpointMeta struct {
-	endpointType openchoreov1alpha1.EndpointType
+	endpointType openchoreov1alpha1.EndpointProtocol
 	visibility   []openchoreov1alpha1.EndpointVisibility
 }
 
@@ -1477,7 +1535,7 @@ func resolveEndpointURLStatuses(
 }
 
 // isRoutableEndpointType reports whether any route kind can expose this endpoint type.
-func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
+func isRoutableEndpointType(t openchoreov1alpha1.EndpointProtocol) bool {
 	for _, compat := range routeKindCompat {
 		if compat[t] {
 			return true
@@ -1512,7 +1570,7 @@ func routePath(r *indexedRoute) string {
 // field name reflects the gateway listener, not the scheme.
 func buildRouteURLs(
 	routeKind string,
-	epType openchoreov1alpha1.EndpointType,
+	epType openchoreov1alpha1.EndpointProtocol,
 	hostname, path string,
 	ep *openchoreov1alpha1.GatewayEndpointSpec,
 ) *openchoreov1alpha1.EndpointGatewayURLs {
@@ -1544,24 +1602,24 @@ func buildRouteURLs(
 // the TLS form (over the https or tls listener). Returns "" for endpoint types
 // that don't have a meaningful URL scheme for the requested TLS variant
 // (e.g. TCP without TLS).
-func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
+func schemeFor(t openchoreov1alpha1.EndpointProtocol, tls bool) string {
 	switch t {
-	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
+	case openchoreov1alpha1.EndpointProtocolHTTP, openchoreov1alpha1.EndpointProtocolGraphQL:
 		if tls {
 			return schemeHTTPS
 		}
 		return schemeHTTP
-	case openchoreov1alpha1.EndpointTypeWebsocket:
+	case openchoreov1alpha1.EndpointProtocolWebsocket:
 		if tls {
 			return schemeWSS
 		}
 		return schemeWS
-	case openchoreov1alpha1.EndpointTypeGRPC:
+	case openchoreov1alpha1.EndpointProtocolGRPC:
 		if tls {
 			return schemeGRPCS
 		}
 		return schemeGRPC
-	case openchoreov1alpha1.EndpointTypeTCP:
+	case openchoreov1alpha1.EndpointProtocolTCP:
 		if tls {
 			return schemeTLS
 		}
@@ -1669,6 +1727,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Pipeline = componentpipeline.NewPipeline(
 			componentpipeline.WithCostLimit(r.CELCostLimit),
 			componentpipeline.WithRenderTimeout(r.RenderTimeout),
+			componentpipeline.WithReferencedConfigRollout(r.ReferencedConfigRollout),
 		)
 	}
 

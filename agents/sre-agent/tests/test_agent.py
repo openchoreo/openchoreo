@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from langchain_core.messages import AIMessageChunk, ToolMessage
 
 import src.agent.agent as agent_module
 from src.agent.agent import Agent, RCA_AGENT, REMED_AGENT, run_analysis, stream_chat
@@ -268,5 +269,28 @@ async def test_stream_chat_streams_message_and_done():
 
     types = [e["type"] for e in events]
     assert "message_chunk" in types
+    assert events[-1]["type"] == "done"
+    assert events[-1]["message"] == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_streams_list_content_and_skips_tool_messages():
+    payload = '{"message": "Hello"}'
+
+    async def fake_astream(*args, **kwargs):
+        yield (ToolMessage(content='{"message": "tool output"}', tool_call_id="call-1"), {})
+        yield (AIMessageChunk(content=[{"type": "text", "text": payload, "index": 0}]), {})
+
+    fake_agent = MagicMock()
+    fake_agent.astream = fake_astream
+
+    with patch.object(
+        agent_module.CHAT_AGENT, "create", AsyncMock(return_value=(fake_agent, None))
+    ):
+        events = [
+            json.loads(line)
+            async for line in stream_chat(messages=[{"role": "user", "content": "hi"}], token="t")
+        ]
+
     assert events[-1]["type"] == "done"
     assert events[-1]["message"] == "Hello"

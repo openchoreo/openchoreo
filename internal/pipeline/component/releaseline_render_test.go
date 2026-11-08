@@ -51,7 +51,7 @@ spec:
 	workload := &v1alpha1.Workload{Spec: v1alpha1.WorkloadSpec{WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
 		Container: v1alpha1.Container{Image: "app:1", Env: []v1alpha1.EnvVar{{Key: "MODE", Value: "x"}}},
 		Endpoints: map[string]v1alpha1.WorkloadEndpoint{
-			"http": {Type: v1alpha1.EndpointTypeHTTP, Port: 8080, Visibility: []v1alpha1.EndpointVisibility{
+			"http": {Type: v1alpha1.EndpointProtocolHTTP, Port: 8080, Visibility: []v1alpha1.EndpointVisibility{
 				v1alpha1.EndpointVisibilityExternal, v1alpha1.EndpointVisibilityInternal,
 			}},
 		},

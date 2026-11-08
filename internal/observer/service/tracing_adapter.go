@@ -15,16 +15,36 @@ import (
 
 type TracingAdapter struct {
 	client *gen.ClientWithResponses
+
+	// rawClient serves raw queries. It has its own timeout, longer than the
+	// raw query timeout the adapter enforces, so the adapter's own 504 wins.
+	rawClient           *gen.Client
+	rawMaxResponseBytes int64
 }
 
 type TracingAdapterConfig struct {
 	BaseURL string
 	Timeout time.Duration
+
+	// RawQueryTimeout is the raw query timeout; the client waits a margin longer.
+	RawQueryTimeout time.Duration
+	// RawQueryMaxResponseBytes is the largest raw query result accepted.
+	RawQueryMaxResponseBytes int64
 }
+
+// RawQueryDeadlineMargin is how much longer than the raw query timeout the
+// Observer waits for the tracing adapter, so the adapter can answer 504 itself.
+const RawQueryDeadlineMargin = 5 * time.Second
 
 func NewTracingAdapter(config TracingAdapterConfig) (*TracingAdapter, error) {
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
+	}
+	if config.RawQueryTimeout == 0 {
+		config.RawQueryTimeout = 30 * time.Second
+	}
+	if config.RawQueryMaxResponseBytes == 0 {
+		config.RawQueryMaxResponseBytes = 10 << 20
 	}
 
 	client, err := gen.NewClientWithResponses(config.BaseURL, gen.WithHTTPClient(&http.Client{
@@ -34,8 +54,17 @@ func NewTracingAdapter(config TracingAdapterConfig) (*TracingAdapter, error) {
 		return nil, fmt.Errorf("failed to create tracing adapter client: %w", err)
 	}
 
+	rawClient, err := gen.NewClient(config.BaseURL, gen.WithHTTPClient(&http.Client{
+		Timeout: config.RawQueryTimeout + RawQueryDeadlineMargin,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tracing adapter raw query client: %w", err)
+	}
+
 	return &TracingAdapter{
-		client: client,
+		client:              client,
+		rawClient:           rawClient,
+		rawMaxResponseBytes: config.RawQueryMaxResponseBytes,
 	}, nil
 }
 

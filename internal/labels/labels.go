@@ -94,6 +94,23 @@ const (
 	// - Data plane runtime namespaces (e.g., dp-*)
 	LabelKeyControlPlaneNamespace = "openchoreo.dev/control-plane"
 
+	// LabelKeyKVNamespace marks a plane namespace that holds the K8s Secrets and PushSecrets the
+	// Secret API provisions for one control plane namespace, named by LabelKeyNamespaceName.
+	LabelKeyKVNamespace = "openchoreo.dev/kv-namespace"
+
+	// LabelKeyWorkflowNamespace marks a workflow plane namespace that runs the workflows and holds the
+	// git secrets of one control plane namespace, named by LabelKeyNamespaceName.
+	LabelKeyWorkflowNamespace = "openchoreo.dev/workflow-namespace"
+
+	// LabelKeySecretType marks the kind of secret a SecretReference stands for, such as a git secret.
+	LabelKeySecretType = "openchoreo.dev/secret-type"
+	// LabelKeyWorkflowPlaneKind is the kind of the workflow plane a git secret was pushed through.
+	LabelKeyWorkflowPlaneKind = "openchoreo.dev/workflow-plane-kind"
+	// LabelKeyWorkflowPlaneName is the name of the workflow plane a git secret was pushed through.
+	LabelKeyWorkflowPlaneName = "openchoreo.dev/workflow-plane-name"
+	// LabelValueGitCredentials is the LabelKeySecretType value of a git secret.
+	LabelValueGitCredentials = "git-credentials"
+
 	// LabelKeySystemComponent identifies platform infrastructure pods (e.g., gateway) that need
 	// network access to user workloads. Used in NetworkPolicy rules to allow ingress from system components.
 	LabelKeySystemComponent = "openchoreo.dev/system-component"
@@ -105,9 +122,21 @@ const (
 	LabelKeyPlane   = "openchoreo.dev/plane"
 	LabelKeyPlaneID = "openchoreo.dev/plane-id"
 
-	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
-	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
+	// AnnotationKeyDPResourceHash contains a hash of other dataplane resources of the component, to
+	// trigger pod rollout when they change. It covers every resource except the workload, or, when
+	// referenced-config rollout is enabled, only the ConfigMaps, Secrets and ExternalSecrets the
+	// workload's pod template references.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
+
+	// AnnotationKeyRestartOnChange lets ComponentType and Trait authors decide whether a rendered
+	// dataplane resource restarts the component's pods when it changes. "true" includes it in
+	// AnnotationKeyDPResourceHash even when the pod template does not reference it, e.g. a
+	// ConfigMap the application reads through the Kubernetes API. "false" leaves it out even
+	// when the pod template references it, e.g. a config file the application reloads by itself.
+	// Without the annotation, only the ConfigMaps, Secrets and ExternalSecrets the pod template
+	// references are included. It applies to deployment and statefulset ComponentTypes, and not
+	// on the workload itself. It is only used when referenced-config rollout is enabled.
+	AnnotationKeyRestartOnChange = "openchoreo.dev/restart-on-change"
 
 	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
 	// (e.g. HTTPRoute). The ReleaseBinding controller uses it to construct the endpoint invoke URL.
@@ -117,6 +146,8 @@ const (
 	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
 
 	LabelValueManagedBy = "openchoreo-control-plane"
+	// LabelValueOpenChoreoAPI marks resources created or managed by the openchoreo-api.
+	LabelValueOpenChoreoAPI = "openchoreo-api"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"
 )

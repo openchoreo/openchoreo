@@ -4,10 +4,24 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+// RawTracesQueryRequest represents the internal request for a raw trace query:
+// the tracing backend's native request and its media type (application/json
+// or text/plain).
+type RawTracesQueryRequest struct {
+	ContentType string
+	Body        []byte
+}
+
+// RawTracesQueryResponse carries the tracing backend's own response unchanged.
+type RawTracesQueryResponse struct {
+	Body json.RawMessage
+}
 
 // TracesQueryRequest represents the internal request for querying traces
 type TracesQueryRequest struct {

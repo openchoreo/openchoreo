@@ -74,7 +74,7 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 
 	Context("authentication", func() {
 		It("rejects unauthenticated requests with 401", func() {
-			statusCode, headers, err := framework.MCPRawPOST(mcpEndpoint)
+			statusCode, headers, _, err := framework.MCPRawPOST(mcpEndpoint, "", framework.MCPProtocolVersion)
 			Expect(err).NotTo(HaveOccurred(), "raw POST should succeed at HTTP level")
 			Expect(statusCode).To(Equal(401), "unauthenticated request should return 401")
 			Expect(headers.Get("WWW-Authenticate")).To(ContainSubstring("Bearer"),
@@ -93,6 +93,10 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 			Expect(err).NotTo(HaveOccurred(), "tools/list should succeed")
 			Expect(names).NotTo(BeEmpty(), "tool list should not be empty")
 			fmt.Fprintf(GinkgoWriter, "Connected to MCP server, %d tools available\n", len(names))
+		})
+
+		It("rejects an unsupported protocol version with -32022 through ingress and auth", func() {
+			framework.ExpectUnsupportedProtocolVersionRejected(mcpEndpoint, token)
 		})
 	})
 
@@ -432,8 +436,12 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
 			By("verifying create_namespace is now visible in tools/list")
+			// subjectSession may still hold T1's cached tools/list, so list on a new session.
 			Eventually(func(g Gomega) {
-				names, listErr := framework.ListMCPToolNames(subjectSession)
+				names, listErr := framework.ListMCPToolNamesFresh(context.Background(), framework.MCPClientConfig{
+					Endpoint: mcpEndpoint,
+					Token:    subjectToken,
+				})
 				g.Expect(listErr).NotTo(HaveOccurred())
 				g.Expect(names).To(ContainElement("create_namespace"))
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())

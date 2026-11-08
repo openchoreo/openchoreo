@@ -1559,6 +1559,8 @@ func sortAnySlicesByName() cmp.Option {
 	})
 }
 
+// TestPipeline_DPResourceHashAnnotation covers the hash with referenced-config rollout. The
+// default behavior is covered by TestDPResourceHashDefaultCoversAllResources.
 func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -1579,7 +1581,12 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 						"spec": map[string]any{
 							"template": map[string]any{
 								"metadata": map[string]any{},
-								"spec":     map[string]any{},
+								"spec": map[string]any{
+									"containers": []any{map[string]any{
+										"name":    "main",
+										"envFrom": []any{map[string]any{"configMapRef": map[string]any{"name": "config"}}},
+									}},
+								},
 							},
 						},
 					},
@@ -1610,7 +1617,12 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 						"spec": map[string]any{
 							"template": map[string]any{
 								"metadata": map[string]any{},
-								"spec":     map[string]any{},
+								"spec": map[string]any{
+									"volumes": []any{map[string]any{
+										"name":   "creds",
+										"secret": map[string]any{"secretName": "secret"},
+									}},
+								},
 							},
 						},
 					},
@@ -1696,7 +1708,12 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 						"spec": map[string]any{
 							"template": map[string]any{
 								"metadata": map[string]any{},
-								"spec":     map[string]any{},
+								"spec": map[string]any{
+									"containers": []any{map[string]any{
+										"name":    "main",
+										"envFrom": []any{map[string]any{"configMapRef": map[string]any{"name": "metrics-config"}}},
+									}},
+								},
 							},
 						},
 					},
@@ -1715,7 +1732,7 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 			wantAnnotation: false,
 		},
 		{
-			name:         "deployment with service gets hash annotation",
+			name:         "deployment with only a service has no annotation",
 			workloadType: "deployment",
 			resources: []renderer.RenderedResource{
 				{
@@ -1742,8 +1759,53 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 					TargetPlane: "dataplane",
 				},
 			},
+			wantAnnotation: false,
+		},
+		{
+			name:         "configmap the pod template does not reference is not hashed",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{Resource: hashTestDeployment(map[string]any{}), TargetPlane: "dataplane"},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata":   map[string]any{"name": "dashboards"},
+						"data":       map[string]any{"key": "value"},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation: false,
+		},
+		{
+			name:         "externalsecret is matched by its target name",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{Resource: hashTestDeployment(envFromSecretPodSpec()), TargetPlane: "dataplane"},
+				{Resource: hashTestExternalSecret("app-secrets-es", "app-secrets"), TargetPlane: "dataplane"},
+			},
 			wantAnnotation:   true,
 			wantHashNotEmpty: true,
+		},
+		{
+			name:         "externalsecret without a target name is matched by its own name",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{Resource: hashTestDeployment(envFromSecretPodSpec()), TargetPlane: "dataplane"},
+				{Resource: hashTestExternalSecret("app-secrets", ""), TargetPlane: "dataplane"},
+			},
+			wantAnnotation:   true,
+			wantHashNotEmpty: true,
+		},
+		{
+			name:         "externalsecret for a secret the pod template does not reference is not hashed",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{Resource: hashTestDeployment(envFromSecretPodSpec()), TargetPlane: "dataplane"},
+				{Resource: hashTestExternalSecret("gateway-api-key", "gateway-api-key"), TargetPlane: "dataplane"},
+			},
+			wantAnnotation: false,
 		},
 	}
 
@@ -1757,7 +1819,7 @@ func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
 				},
 			}
 
-			p := NewPipeline()
+			p := NewPipeline(WithReferencedConfigRollout(true))
 			err := p.addDPResourceHashAnnotation(tt.resources, input)
 			if err != nil {
 				t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
@@ -1869,7 +1931,15 @@ func TestHashOrderIndependence(t *testing.T) {
 			"spec": map[string]any{
 				"template": map[string]any{
 					"metadata": map[string]any{},
-					"spec":     map[string]any{},
+					"spec": map[string]any{
+						"containers": []any{map[string]any{
+							"name": "main",
+							"envFrom": []any{
+								map[string]any{"configMapRef": map[string]any{"name": "config"}},
+								map[string]any{"secretRef": map[string]any{"name": "secret"}},
+							},
+						}},
+					},
 				},
 			},
 		},
@@ -1893,30 +1963,40 @@ func TestHashOrderIndependence(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline()
-
-	// Compute hash for each order
-	if err := p.addDPResourceHashAnnotation(resources1, input); err != nil {
-		t.Fatalf("failed for order 1: %v", err)
+	pipelines := map[string]*Pipeline{
+		"default":                   NewPipeline(),
+		"referenced-config rollout": NewPipeline(WithReferencedConfigRollout(true)),
 	}
-	hash1 := getHashFromDeployment(resources1)
+	for name, p := range pipelines {
+		t.Run(name, func(t *testing.T) {
+			// Compute hash for each order
+			if err := p.addDPResourceHashAnnotation(resources1, input); err != nil {
+				t.Fatalf("failed for order 1: %v", err)
+			}
+			hash1 := getHashFromDeployment(resources1)
 
-	if err := p.addDPResourceHashAnnotation(resources2, input); err != nil {
-		t.Fatalf("failed for order 2: %v", err)
-	}
-	hash2 := getHashFromDeployment(resources2)
+			if err := p.addDPResourceHashAnnotation(resources2, input); err != nil {
+				t.Fatalf("failed for order 2: %v", err)
+			}
+			hash2 := getHashFromDeployment(resources2)
 
-	if err := p.addDPResourceHashAnnotation(resources3, input); err != nil {
-		t.Fatalf("failed for order 3: %v", err)
-	}
-	hash3 := getHashFromDeployment(resources3)
+			if err := p.addDPResourceHashAnnotation(resources3, input); err != nil {
+				t.Fatalf("failed for order 3: %v", err)
+			}
+			hash3 := getHashFromDeployment(resources3)
 
-	// All hashes should be identical regardless of resource order
-	if hash1 != hash2 {
-		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash2)
-	}
-	if hash1 != hash3 {
-		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash3)
+			if hash1 == "" {
+				t.Fatal("expected a hash annotation")
+			}
+
+			// All hashes should be identical regardless of resource order
+			if hash1 != hash2 {
+				t.Errorf("hash changed with different resource order: %s != %s", hash1, hash2)
+			}
+			if hash1 != hash3 {
+				t.Errorf("hash changed with different resource order: %s != %s", hash1, hash3)
+			}
+		})
 	}
 }
 
@@ -2018,6 +2098,12 @@ func computeTestHash(content []map[string]any) string {
 			"spec": map[string]any{
 				"template": map[string]any{
 					"metadata": map[string]any{},
+					"spec": map[string]any{
+						"containers": []any{map[string]any{
+							"name":    "main",
+							"envFrom": []any{map[string]any{"configMapRef": map[string]any{"name": "test-config"}}},
+						}},
+					},
 				},
 			},
 		},
@@ -2054,6 +2140,744 @@ func computeTestHash(content []map[string]any) string {
 	annotations := templateMeta["annotations"].(map[string]any)
 
 	return annotations["openchoreo.dev/dp-resource-hash"].(string)
+}
+
+// TestDPResourceHashDefaultCoversAllResources checks that without referenced-config rollout the
+// hash keeps the earlier behavior: every dataplane resource except the workload counts, and the
+// restart-on-change annotation and the previous render are ignored.
+func TestDPResourceHashDefaultCoversAllResources(t *testing.T) {
+	render := func(previous []map[string]any, resources ...map[string]any) string {
+		t.Helper()
+		rendered := make([]renderer.RenderedResource, 0, len(resources))
+		for _, r := range resources {
+			rendered = append(rendered, renderer.RenderedResource{Resource: r, TargetPlane: "dataplane"})
+		}
+		if err := NewPipeline().addDPResourceHashAnnotation(rendered, hashTestInput(previous)); err != nil {
+			t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
+		}
+		return podTemplateHash(resources[0])
+	}
+	service := func(port int64) map[string]any {
+		return map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata":   map[string]any{"name": "app"},
+			"spec":       map[string]any{"ports": []any{map[string]any{"port": port}}},
+		}
+	}
+
+	t.Run("a service alone gets a hash that follows its changes", func(t *testing.T) {
+		got := render(nil, hashTestDeployment(map[string]any{}), service(80))
+		if got == "" {
+			t.Fatal("expected a hash annotation")
+		}
+		if changed := render(nil, hashTestDeployment(map[string]any{}), service(8080)); changed == got {
+			t.Error("changing the Service did not change the hash")
+		}
+	})
+
+	t.Run("restart-on-change is ignored", func(t *testing.T) {
+		got := render(nil, hashTestDeployment(envFromConfigMapPodSpec()),
+			withRestartOnChange(hashTestConfigMap("info"), "false"))
+		changed := render(nil, hashTestDeployment(envFromConfigMapPodSpec()),
+			withRestartOnChange(hashTestConfigMap("debug"), "false"))
+		if got == "" || changed == got {
+			t.Errorf("hash = %q then %q, want it to follow the ConfigMap marked false", got, changed)
+		}
+		// render fails the test on an error, so an invalid value is not rejected either
+		render(nil, hashTestDeployment(envFromConfigMapPodSpec()), withRestartOnChange(hashTestConfigMap("info"), "yes"))
+	})
+
+	t.Run("the previous value is not kept", func(t *testing.T) {
+		previousWorkload := withPodTemplateHash(hashTestDeployment(envFromConfigMapPodSpec()), legacyHash)
+		previous := []map[string]any{previousWorkload, hashTestConfigMap("info")}
+		if got := render(previous, hashTestDeployment(envFromConfigMapPodSpec()), hashTestConfigMap("info")); got == "" || got == legacyHash {
+			t.Errorf("hash = %q, want a computed value", got)
+		}
+	})
+}
+
+func TestPodTemplateConfigRefs(t *testing.T) {
+	podSpec := map[string]any{
+		"initContainers": []any{map[string]any{
+			"name":          "sidecar",
+			"restartPolicy": "Always",
+			"envFrom":       []any{map[string]any{"configMapRef": map[string]any{"name": "sidecar-config"}}},
+		}},
+		"containers": []any{map[string]any{
+			"name": "main",
+			"env": []any{
+				map[string]any{"name": "LEVEL", "valueFrom": map[string]any{
+					"configMapKeyRef": map[string]any{"name": "env-config", "key": "level"},
+				}},
+				map[string]any{"name": "PASSWORD", "valueFrom": map[string]any{
+					"secretKeyRef": map[string]any{"name": "env-secret", "key": "password"},
+				}},
+				map[string]any{"name": "PLAIN", "value": "x"},
+			},
+			"envFrom": []any{
+				map[string]any{"configMapRef": map[string]any{"name": "envfrom-config"}},
+				map[string]any{"secretRef": map[string]any{"name": "envfrom-secret"}},
+			},
+		}},
+		"volumes": []any{
+			map[string]any{"name": "a", "configMap": map[string]any{"name": "volume-config"}},
+			map[string]any{"name": "b", "secret": map[string]any{"secretName": "volume-secret"}},
+			map[string]any{"name": "c", "projected": map[string]any{"sources": []any{
+				map[string]any{"configMap": map[string]any{"name": "projected-config"}},
+				map[string]any{"secret": map[string]any{"name": "projected-secret"}},
+				map[string]any{"serviceAccountToken": map[string]any{"path": "token"}},
+			}}},
+			map[string]any{"name": "d", "emptyDir": map[string]any{}},
+		},
+		// Pulling an image again does not need a restart, so image pull secrets do not count
+		"imagePullSecrets": []any{map[string]any{"name": "registry-credentials"}},
+	}
+
+	refs := podTemplateConfigRefs(hashTestDeployment(podSpec))
+
+	wantConfigMaps := map[string]bool{
+		"sidecar-config": true, "env-config": true, "envfrom-config": true,
+		"volume-config": true, "projected-config": true,
+	}
+	wantSecrets := map[string]bool{
+		"env-secret": true, "envfrom-secret": true, "volume-secret": true, "projected-secret": true,
+	}
+	if diff := cmp.Diff(wantConfigMaps, refs.configMaps); diff != "" {
+		t.Errorf("configMaps mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(wantSecrets, refs.secrets); diff != "" {
+		t.Errorf("secrets mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestDPResourceHashOnlyChangesWithReferencedConfig(t *testing.T) {
+	render := func(maxReplicas, port int64, logLevel string) string {
+		t.Helper()
+		workload := hashTestDeployment(envFromConfigMapPodSpec())
+		resources := []renderer.RenderedResource{
+			{Resource: workload, TargetPlane: "dataplane"},
+			{Resource: hashTestConfigMap(logLevel), TargetPlane: "dataplane"},
+			{
+				Resource: map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Service",
+					"metadata":   map[string]any{"name": "app"},
+					"spec":       map[string]any{"ports": []any{map[string]any{"port": port}}},
+				},
+				TargetPlane: "dataplane",
+			},
+			{
+				Resource: map[string]any{
+					"apiVersion": "autoscaling/v2",
+					"kind":       "HorizontalPodAutoscaler",
+					"metadata":   map[string]any{"name": "app"},
+					"spec":       map[string]any{"minReplicas": int64(1), "maxReplicas": maxReplicas},
+				},
+				TargetPlane: "dataplane",
+			},
+		}
+		if err := NewPipeline(WithReferencedConfigRollout(true)).addDPResourceHashAnnotation(resources, hashTestInput(nil)); err != nil {
+			t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
+		}
+		return podTemplateHash(workload)
+	}
+
+	base := render(5, 80, "info")
+	if base == "" {
+		t.Fatal("expected a hash annotation")
+	}
+	if got := render(6, 80, "info"); got != base {
+		t.Errorf("changing the HPA maxReplicas changed the hash: %s != %s", got, base)
+	}
+	if got := render(5, 8080, "info"); got != base {
+		t.Errorf("changing the Service port changed the hash: %s != %s", got, base)
+	}
+	if got := render(5, 80, "debug"); got == base {
+		t.Error("changing the referenced ConfigMap did not change the hash")
+	}
+}
+
+func TestDPResourceHashKeepsPreviousValue(t *testing.T) {
+	// previousWorkload returns a previously rendered workload carrying the given hash, or no
+	// hash when hashValue is empty.
+	previousWorkload := func(podSpec map[string]any, hashValue string) map[string]any {
+		workload := hashTestDeployment(podSpec)
+		if hashValue != "" {
+			withPodTemplateHash(workload, hashValue)
+		}
+		return workload
+	}
+	service := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Service",
+		"metadata":   map[string]any{"name": "app"},
+		"spec":       map[string]any{"ports": []any{map[string]any{"port": int64(80)}}},
+	}
+	// typedExternalSecret holds a typed slice and an int64, which decode from JSON as []any and float64
+	typedExternalSecret := func() map[string]any {
+		externalSecret := hashTestExternalSecret("app-secrets", "app-secrets")
+		spec := externalSecret["spec"].(map[string]any)
+		spec["data"] = []map[string]any{{"secretKey": "password", "remoteRef": map[string]any{"key": "db"}}}
+		spec["refreshPolicy"] = map[string]any{"periodSeconds": int64(15)}
+		return externalSecret
+	}
+	changedExternalSecret := func() map[string]any {
+		externalSecret := typedExternalSecret()
+		externalSecret["spec"].(map[string]any)["data"] = []map[string]any{
+			{"secretKey": "password", "remoteRef": map[string]any{"key": "db-rotated"}},
+		}
+		return externalSecret
+	}
+	fromJSON := func(resources []map[string]any) []map[string]any {
+		decoded, err := jsonCopy(resources)
+		if err != nil {
+			t.Fatalf("jsonCopy() error = %v", err)
+		}
+		return decoded
+	}
+	certificate := func() map[string]any {
+		return map[string]any{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata":   map[string]any{"name": "app-tls"},
+			"spec":       map[string]any{"secretName": "app-tls", "dnsNames": []any{"app.example.com"}},
+		}
+	}
+	envAndSecretsPodSpec := map[string]any{
+		"containers": []any{map[string]any{
+			"name": "main",
+			"envFrom": []any{
+				map[string]any{"configMapRef": map[string]any{"name": "app-env"}},
+				map[string]any{"secretRef": map[string]any{"name": "app-secrets"}},
+			},
+		}},
+	}
+	otherDeployment := previousWorkload(envFromConfigMapPodSpec(), "other")
+	otherDeployment["metadata"] = map[string]any{"name": "aaa"}
+
+	tests := []struct {
+		name         string
+		previous     []map[string]any
+		current      []map[string]any
+		want         string
+		wantComputed bool
+	}{
+		{
+			name: "no previous render uses the computed hash",
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+			},
+			wantComputed: true,
+		},
+		{
+			name: "unchanged config keeps the previous value",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+				service,
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+			},
+			want: legacyHash,
+		},
+		{
+			name: "changed config uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("debug"),
+			},
+			wantComputed: true,
+		},
+		{
+			name: "unchanged config keeps no annotation when the previous render had none",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), ""),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+			},
+			want: "",
+		},
+		{
+			name: "component without config keeps the previous value",
+			previous: []map[string]any{
+				previousWorkload(map[string]any{}, legacyHash),
+				service,
+			},
+			current: []map[string]any{
+				hashTestDeployment(map[string]any{}),
+				service,
+			},
+			want: legacyHash,
+		},
+		{
+			name: "previous render decoded from JSON keeps the previous value",
+			previous: fromJSON([]map[string]any{
+				previousWorkload(envFromSecretPodSpec(), legacyHash),
+				typedExternalSecret(),
+			}),
+			current: []map[string]any{
+				hashTestDeployment(envFromSecretPodSpec()),
+				typedExternalSecret(),
+			},
+			want: legacyHash,
+		},
+		{
+			name: "changed ExternalSecret content uses the computed hash",
+			previous: fromJSON([]map[string]any{
+				previousWorkload(envFromSecretPodSpec(), legacyHash),
+				typedExternalSecret(),
+			}),
+			current: []map[string]any{
+				hashTestDeployment(envFromSecretPodSpec()),
+				changedExternalSecret(),
+			},
+			wantComputed: true,
+		},
+		{
+			name:     "previous render without the workload is ignored",
+			previous: []map[string]any{hashTestConfigMap("info")},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+			},
+			wantComputed: true,
+		},
+		{
+			name: "previous workload is matched by name",
+			previous: []map[string]any{
+				otherDeployment,
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+			},
+			want: legacyHash,
+		},
+		{
+			name: "adding false to an unchanged ConfigMap keeps the previous value",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				withRestartOnChange(hashTestConfigMap("info"), "false"),
+			},
+			want: legacyHash,
+		},
+		{
+			name: "adding true to an unchanged Certificate keeps the previous value",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+				certificate(),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+				hashTestConfigMap("info"),
+				withRestartOnChange(certificate(), "true"),
+			},
+			want: legacyHash,
+		},
+		{
+			name: "a counted resource missing from the previous render uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envAndSecretsPodSpec),
+				hashTestConfigMap("info"),
+				hashTestExternalSecret("app-secrets", "app-secrets"),
+			},
+			wantComputed: true,
+		},
+		{
+			// For example an optional reference to config that a Trait renders conditionally
+			name: "a previously counted resource that is no longer rendered uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(envFromConfigMapPodSpec(), legacyHash),
+				hashTestConfigMap("info"),
+			},
+			current: []map[string]any{
+				hashTestDeployment(envFromConfigMapPodSpec()),
+			},
+			want: "",
+		},
+		{
+			name: "removing a resource marked true uses the computed hash",
+			previous: []map[string]any{
+				previousWorkload(map[string]any{}, legacyHash),
+				withRestartOnChange(certificate(), "true"),
+				service,
+			},
+			current: []map[string]any{
+				hashTestDeployment(map[string]any{}),
+				service,
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workload := tt.current[0]
+			want := tt.want
+			if tt.wantComputed {
+				want = hashResources(configResourcesToHash(workload, tt.current))
+				if want == "" {
+					t.Fatal("test setup: expected the current render to have a hash")
+				}
+			}
+
+			resources := make([]renderer.RenderedResource, 0, len(tt.current))
+			for _, r := range tt.current {
+				resources = append(resources, renderer.RenderedResource{Resource: r, TargetPlane: "dataplane"})
+			}
+			if err := NewPipeline(WithReferencedConfigRollout(true)).addDPResourceHashAnnotation(resources, hashTestInput(tt.previous)); err != nil {
+				t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
+			}
+
+			if got := podTemplateHash(workload); got != want {
+				t.Errorf("hash = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestDPResourceHashRenderRoundTrip renders the configurations fixture, decodes the result from
+// JSON as the ReleaseBinding controller does with the existing RenderedRelease, and renders again
+// with it as the previous render.
+func TestDPResourceHashRenderRoundTrip(t *testing.T) {
+	settingsYAML := loadTestDataFile(t, "configurations-and-secrets/settings.yaml")
+	render := func(settingsYAML string, previous []map[string]any) []map[string]any {
+		t.Helper()
+		snapshot := &testSnapshot{}
+		if err := yaml.Unmarshal([]byte(loadTestDataFile(t, "configurations-and-secrets/snapshot.yaml")), snapshot); err != nil {
+			t.Fatalf("Failed to parse snapshot YAML: %v", err)
+		}
+		settings := &v1alpha1.ReleaseBinding{}
+		if err := yaml.Unmarshal([]byte(settingsYAML), settings); err != nil {
+			t.Fatalf("Failed to parse settings YAML: %v", err)
+		}
+		var refs []v1alpha1.SecretReference
+		if err := yaml.Unmarshal([]byte(loadTestDataFile(t, "configurations-and-secrets/secret-references.yaml")), &refs); err != nil {
+			t.Fatalf("Failed to parse secretReferences YAML: %v", err)
+		}
+		secretReferences := make(map[string]*v1alpha1.SecretReference, len(refs))
+		for i := range refs {
+			secretReferences[refs[i].Name] = &refs[i]
+		}
+		environment := &v1alpha1.Environment{}
+		if err := yaml.Unmarshal([]byte(`
+metadata: {name: dev, namespace: test-namespace}
+spec: {dataPlaneRef: {kind: DataPlane, name: dev-dataplane}}`), environment); err != nil {
+			t.Fatalf("Failed to parse environment YAML: %v", err)
+		}
+		dataplane := &v1alpha1.DataPlane{}
+		if err := yaml.Unmarshal([]byte(`
+metadata: {name: dev-dataplane, namespace: test-namespace}
+spec: {secretStoreRef: {name: dev-vault-store}}`), dataplane); err != nil {
+			t.Fatalf("Failed to parse dataplane YAML: %v", err)
+		}
+		podSelectors := map[string]string{"openchoreo.dev/component": "test-app", "openchoreo.dev/environment": "dev"}
+
+		output, err := NewPipeline(WithReferencedConfigRollout(true)).Render(t.Context(), &RenderInput{
+			ComponentType:    &snapshot.Spec.ComponentType,
+			Component:        &snapshot.Spec.Component,
+			Workload:         &snapshot.Spec.Workload,
+			Environment:      environment,
+			DataPlane:        dataplane,
+			ReleaseBinding:   settings,
+			SecretReferences: secretReferences,
+			Metadata: context.MetadataContext{
+				Name:               "test-component-dev-12345678",
+				Namespace:          "test-namespace",
+				ComponentName:      "test-app",
+				ComponentUID:       "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+				ComponentNamespace: "test-namespace",
+				ProjectName:        "test-project",
+				ProjectUID:         "b2c3d4e5-6789-01bc-def0-234567890abc",
+				DataPlaneName:      "dev-dataplane",
+				DataPlaneUID:       "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+				EnvironmentName:    "dev",
+				EnvironmentUID:     "d4e5f6a7-8901-23de-f012-4567890abcde",
+				Labels:             podSelectors,
+				Annotations:        map[string]string{},
+				PodSelectors:       podSelectors,
+			},
+			PreviousDataPlaneResources: previous,
+		})
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		dataPlaneResources := make([]map[string]any, 0, len(output.Resources))
+		for _, rr := range output.Resources {
+			if rr.TargetPlane == v1alpha1.TargetPlaneDataPlane {
+				dataPlaneResources = append(dataPlaneResources, rr.Resource)
+			}
+		}
+		decoded, err := jsonCopy(dataPlaneResources)
+		if err != nil {
+			t.Fatalf("jsonCopy() error = %v", err)
+		}
+		return decoded
+	}
+	deploymentHash := func(resources []map[string]any) string {
+		return podTemplateHash(findMainWorkload(resources, "deployment"))
+	}
+
+	first := render(settingsYAML, nil)
+	if got := deploymentHash(first); got != "66789f766" {
+		t.Fatalf("first render hash = %q, want the golden value 66789f766", got)
+	}
+
+	withPodTemplateHash(findMainWorkload(first, "deployment"), legacyHash)
+
+	if got := deploymentHash(render(settingsYAML, first)); got != legacyHash {
+		t.Errorf("unchanged render hash = %q, want the previous value", got)
+	}
+
+	changedSettings := strings.Replace(settingsYAML, "value: error", "value: warn", 1)
+	want := deploymentHash(render(changedSettings, nil))
+	if got := deploymentHash(render(changedSettings, first)); got != want || got == legacyHash {
+		t.Errorf("changed render hash = %q, want the computed value %q", got, want)
+	}
+}
+
+func TestDPResourceHashRestartOnChange(t *testing.T) {
+	certificate := func(dnsName string) map[string]any {
+		return map[string]any{
+			"apiVersion": "cert-manager.io/v1",
+			"kind":       "Certificate",
+			"metadata":   map[string]any{"name": "app-tls"},
+			"spec":       map[string]any{"secretName": "app-tls", "dnsNames": []any{dnsName}},
+		}
+	}
+	render := func(resources ...map[string]any) string {
+		t.Helper()
+		rendered := make([]renderer.RenderedResource, 0, len(resources))
+		for _, r := range resources {
+			rendered = append(rendered, renderer.RenderedResource{Resource: r, TargetPlane: "dataplane"})
+		}
+		if err := NewPipeline(WithReferencedConfigRollout(true)).addDPResourceHashAnnotation(rendered, hashTestInput(nil)); err != nil {
+			t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
+		}
+		return podTemplateHash(resources[0])
+	}
+
+	t.Run("true includes a resource the pod template does not reference", func(t *testing.T) {
+		got := render(
+			hashTestDeployment(map[string]any{}),
+			withRestartOnChange(certificate("app.example.com"), "true"),
+		)
+		if got == "" {
+			t.Fatal("expected a hash annotation")
+		}
+		changed := render(
+			hashTestDeployment(map[string]any{}),
+			withRestartOnChange(certificate("api.example.com"), "true"),
+		)
+		if changed == got {
+			t.Error("changing the Certificate did not change the hash")
+		}
+	})
+
+	t.Run("false leaves out a referenced ConfigMap", func(t *testing.T) {
+		got := render(
+			hashTestDeployment(envFromConfigMapPodSpec()),
+			withRestartOnChange(hashTestConfigMap("info"), "false"),
+		)
+		if got != "" {
+			t.Errorf("unexpected hash annotation: %s", got)
+		}
+	})
+
+	t.Run("false leaves out only the marked resource", func(t *testing.T) {
+		podSpec := map[string]any{
+			"containers": []any{map[string]any{
+				"name": "main",
+				"envFrom": []any{
+					map[string]any{"configMapRef": map[string]any{"name": "app-env"}},
+					map[string]any{"secretRef": map[string]any{"name": "app-secrets"}},
+				},
+			}},
+		}
+		got := render(
+			hashTestDeployment(podSpec),
+			withRestartOnChange(hashTestConfigMap("info"), "false"),
+			hashTestExternalSecret("app-secrets", "app-secrets"),
+		)
+		want := render(hashTestDeployment(podSpec), hashTestExternalSecret("app-secrets", "app-secrets"))
+		if got == "" || got != want {
+			t.Errorf("hash = %q, want the hash of the ExternalSecret alone (%q)", got, want)
+		}
+	})
+
+	t.Run("the workload's own annotation does not apply", func(t *testing.T) {
+		got := render(withRestartOnChange(hashTestDeployment(map[string]any{}), "true"))
+		if got != "" {
+			t.Errorf("unexpected hash annotation: %s", got)
+		}
+		// render fails the test on an error, so an invalid value is not rejected either
+		render(withRestartOnChange(hashTestDeployment(map[string]any{}), "yes"))
+	})
+
+	t.Run("true counts on another resource of the workload's kind", func(t *testing.T) {
+		worker := withRestartOnChange(hashTestDeployment(map[string]any{}), "true")
+		worker["metadata"].(map[string]any)["name"] = "worker"
+		if got := render(hashTestDeployment(map[string]any{}), worker); got == "" {
+			t.Error("expected a hash annotation")
+		}
+	})
+}
+
+func TestDPResourceHashRestartOnChangeInvalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "unknown string", value: "yes", want: `ConfigMap "app-env": annotation openchoreo.dev/restart-on-change must be "true" or "false", got "yes"`},
+		{name: "unquoted boolean", value: true, want: `ConfigMap "app-env": annotation openchoreo.dev/restart-on-change must be the string "true" or "false", got true (bool)`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resources := []renderer.RenderedResource{
+				{Resource: hashTestDeployment(envFromConfigMapPodSpec()), TargetPlane: "dataplane"},
+				{Resource: withRestartOnChange(hashTestConfigMap("info"), tt.value), TargetPlane: "dataplane"},
+			}
+			err := NewPipeline(WithReferencedConfigRollout(true)).addDPResourceHashAnnotation(resources, hashTestInput(nil))
+			if err == nil || err.Error() != tt.want {
+				t.Errorf("error = %v, want %s", err, tt.want)
+			}
+		})
+	}
+}
+
+// withRestartOnChange sets the restart-on-change annotation on a resource and returns it.
+func withRestartOnChange(resource map[string]any, value any) map[string]any {
+	metadata := resource["metadata"].(map[string]any)
+	metadata["annotations"] = map[string]any{"openchoreo.dev/restart-on-change": value}
+	return resource
+}
+
+// legacyHash stands in for a dp-resource-hash value written by an earlier render.
+const legacyHash = "legacy"
+
+// withPodTemplateHash sets the dp-resource-hash annotation on a workload's pod template, as an
+// earlier render would have, and returns the workload.
+func withPodTemplateHash(workload map[string]any, value string) map[string]any {
+	templateMeta := nestedMap(workload, "spec", "template", "metadata")
+	annotations, _ := templateMeta["annotations"].(map[string]any)
+	if annotations == nil {
+		annotations = map[string]any{}
+		templateMeta["annotations"] = annotations
+	}
+	annotations["openchoreo.dev/dp-resource-hash"] = value
+	return workload
+}
+
+// hashTestDeployment returns a Deployment with the given pod spec.
+func hashTestDeployment(podSpec map[string]any) map[string]any {
+	return map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]any{"name": "app"},
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{},
+				"spec":     podSpec,
+			},
+		},
+	}
+}
+
+// envFromConfigMapPodSpec returns a pod spec whose only container loads env vars from the
+// app-env ConfigMap.
+func envFromConfigMapPodSpec() map[string]any {
+	return map[string]any{
+		"containers": []any{map[string]any{
+			"name":    "main",
+			"envFrom": []any{map[string]any{"configMapRef": map[string]any{"name": "app-env"}}},
+		}},
+	}
+}
+
+// envFromSecretPodSpec returns a pod spec whose only container loads env vars from the
+// app-secrets Secret.
+func envFromSecretPodSpec() map[string]any {
+	return map[string]any{
+		"containers": []any{map[string]any{
+			"name":    "main",
+			"envFrom": []any{map[string]any{"secretRef": map[string]any{"name": "app-secrets"}}},
+		}},
+	}
+}
+
+// hashTestConfigMap returns the app-env ConfigMap holding the given LOG_LEVEL value.
+func hashTestConfigMap(logLevel string) map[string]any {
+	return map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "app-env"},
+		"data":       map[string]any{"LOG_LEVEL": logLevel},
+	}
+}
+
+// hashTestExternalSecret returns an ExternalSecret that creates the given target Secret.
+// An empty targetName leaves spec.target.name unset.
+func hashTestExternalSecret(name, targetName string) map[string]any {
+	target := map[string]any{"creationPolicy": "Owner"}
+	if targetName != "" {
+		target["name"] = targetName
+	}
+	return map[string]any{
+		"apiVersion": "external-secrets.io/v1",
+		"kind":       "ExternalSecret",
+		"metadata":   map[string]any{"name": name},
+		"spec": map[string]any{
+			"secretStoreRef": map[string]any{"name": "default", "kind": "ClusterSecretStore"},
+			"target":         target,
+			"data": []any{map[string]any{
+				"secretKey": "password",
+				"remoteRef": map[string]any{"key": "db"},
+			}},
+		},
+	}
+}
+
+// hashTestInput returns a RenderInput for a deployment ComponentType with the given previous render.
+func hashTestInput(previous []map[string]any) *RenderInput {
+	return &RenderInput{
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+			},
+		},
+		PreviousDataPlaneResources: previous,
+	}
+}
+
+// podTemplateHash returns the dp-resource-hash annotation on the workload's pod template, or "".
+func podTemplateHash(workload map[string]any) string {
+	value, _ := podTemplateAnnotation(workload, "openchoreo.dev/dp-resource-hash")
+	return value
 }
 
 func TestUsesEndpointResources(t *testing.T) {

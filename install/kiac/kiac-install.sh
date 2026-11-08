@@ -8,7 +8,7 @@
 #
 # Mirrors OpenChoreo's install/k3d/k3d-install.sh, adapted for kiac:
 #   * cluster via `kiac create cluster` (VM-isolated nodes), context kiac-<name>
-#   * Gateway API EXPERIMENTAL channel (kgateway v2.3.1 watches TLSRoute)
+#   * Gateway API EXPERIMENTAL channel (kgateway v2.3.11 watches TLSRoute)
 #   * reachability via kiac-lb's real LoadBalancer IP (no host.k3d.internal,
 #     no host port-maps)
 #
@@ -22,7 +22,7 @@ set -euo pipefail
 GATEWAY_API_VERSION="v1.5.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"
-KGATEWAY_VERSION="v2.3.1"
+KGATEWAY_VERSION="v2.3.11"
 OPENBAO_CHART_VERSION="0.25.6"
 THUNDER_VERSION="1.0.1"
 HELM3_FALLBACK="v3.16.4"

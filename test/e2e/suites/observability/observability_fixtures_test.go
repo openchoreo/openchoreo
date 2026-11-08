@@ -182,7 +182,7 @@ func greeterComponentYAML() string {
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointType("HTTP"),
+						Type:       openchoreov1alpha1.EndpointProtocol("HTTP"),
 						Port:       int32(servicePort),
 						Visibility: []openchoreov1alpha1.EndpointVisibility{"project"},
 					},

@@ -150,6 +150,36 @@ func SetReturned(ctx context.Context, returned Returned) {
 	data.Returned = &returned
 }
 
+// MetadataKeyMCPClient is the metadata key SetMCPClient records under.
+const MetadataKeyMCPClient = "mcp_client"
+
+// SetMCPClient records the MCP client's self-reported clientInfo name and
+// version as metadata.mcp_client. Like UserAgent, nothing verifies it. Each
+// value is capped at MaxParameterLength runes; empty values are omitted, and
+// a call with both empty records nothing.
+func SetMCPClient(ctx context.Context, name, version string) {
+	data := getAuditData(ctx)
+	if data == nil {
+		return
+	}
+	client := map[string]any{}
+	if name != "" {
+		client["name"] = capString(name)
+	}
+	if version != "" {
+		client["version"] = capString(version)
+	}
+	if len(client) == 0 {
+		return
+	}
+	data.mu.Lock()
+	defer data.mu.Unlock()
+	if data.Metadata == nil {
+		data.Metadata = map[string]any{}
+	}
+	data.Metadata[MetadataKeyMCPClient] = client
+}
+
 // capParameters copies params, so the caller's map can't change the record
 // after the call.
 func capParameters(params map[string]any) map[string]any {
@@ -186,9 +216,19 @@ func capValue(v any) any {
 	}
 }
 
+// capString keeps the first MaxParameterLength runes of s. It walks only that
+// prefix, so a long value costs no more than a short one.
 func capString(s string) string {
-	if utf8.RuneCountInString(s) <= MaxParameterLength {
+	end := 0
+	for n := 0; n < MaxParameterLength; n++ {
+		if end >= len(s) {
+			return s
+		}
+		_, size := utf8.DecodeRuneInString(s[end:])
+		end += size
+	}
+	if end >= len(s) {
 		return s
 	}
-	return string([]rune(s)[:MaxParameterLength])
+	return s[:end]
 }

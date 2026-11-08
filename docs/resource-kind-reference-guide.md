@@ -331,8 +331,8 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `environmentName` | string | Yes | Target environment |
 | `resources[]` | Resource[] | No | Rendered K8s resources (id + raw object) |
 | `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
-| `interval` | Duration | No | Stable-state watch interval (default 5m) |
-| `progressingInterval` | Duration | No | Transitioning watch interval (default 10s) |
+| `interval` | Duration | No | Stable-state watch interval (default: controller flag `--renderedrelease-stable-interval`, 1m) |
+| `progressingInterval` | Duration | No | Transitioning watch interval (default: controller flag `--renderedrelease-progressing-interval`, 10s) |
 
 **Status:**
 
@@ -919,10 +919,12 @@ gateway:
 | `environment` | string | Yes | Environment the channel belongs to (immutable) |
 | `isEnvDefault` | bool | No | Whether this is the environment's default channel |
 | `type` | NotificationChannelType | Yes | `email` or `webhook` |
-| `emailConfig` | EmailConfig | Conditional | Email configuration (from, to, SMTP, template) — required when type=email |
+| `emailConfig` | EmailConfig | Conditional | Email configuration (from, fromName, to, SMTP, template) — required when type=email |
 | `webhookConfig` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
 
-SMTP `auth.username` / `auth.password` and webhook header `valueFrom` take a `secretKeyRef` (`name`, `key`). The `name` refers to a SecretReference in the channel's namespace and the `key` to one of its `data[].secretKey` entries, as in a Workload. The controller applies an ExternalSecret to the environment's observability plane that syncs the values from that plane's secret store, so the observability plane needs a `secretStoreRef`. A SecretReference must either have no `targetPlane` or target the channel's observability plane, and its remote keys must be the key the secret API writes for it (`<remoteKeyPrefix>/<namespace>/<type>/<name>`, from the channel's namespace and the SecretReference's type and name).
+`emailConfig.from` must be a bare address because it is also the SMTP envelope sender. To show a sender display name, set `emailConfig.fromName`; alert emails then carry `From: "<fromName>" <from>`.
+
+SMTP `auth.username` / `auth.password` and webhook header `valueFrom` take a `secretKeyRef` (`name`, `key`). The `name` refers to a SecretReference in the channel's namespace and the `key` to one of its `data[].secretKey` entries, as in a Workload. The controller applies an ExternalSecret to the environment's observability plane that syncs the values from that plane's secret store, so the observability plane needs a `secretStoreRef`. A SecretReference's remote keys must be the key the secret API writes for it (`<remoteKeyPrefix>/<namespace>/<type>/<name>`, from the channel's namespace and the SecretReference's type and name). If the observability plane's secret store can't read a value, the ExternalSecret fails to sync and `SecretsReady` reports why.
 
 If no SecretReference has the referenced name, a Kubernetes Secret with that name is copied to the observability plane instead. This fallback is deprecated. All references of a channel must resolve the same way.
 

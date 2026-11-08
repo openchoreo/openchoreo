@@ -101,7 +101,7 @@ var _ = Describe("ComponentRelease Controller", func() {
 							},
 							Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 								"http": {
-									Type: openchoreov1alpha1.EndpointTypeHTTP,
+									Type: openchoreov1alpha1.EndpointProtocolHTTP,
 									Port: 8080,
 								},
 							},

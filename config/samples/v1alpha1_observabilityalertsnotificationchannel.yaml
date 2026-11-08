@@ -10,6 +10,7 @@ spec:
   type: email
   emailConfig:
     from: test@example.com
+    fromName: OpenChoreo Alerts
     to:
       - test@example.com
     smtp:

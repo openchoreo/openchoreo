@@ -44,6 +44,14 @@ const (
 	// Not internal errors: the tracing adapter cannot filter by release line.
 	ErrorCodeV1TracesReleaseLineNotSupported = "OBS-V1-T-08"
 
+	// Raw trace query error codes.
+	ErrorCodeV1TracesRawQueryNotSupported    = "OBS-V1-T-09"
+	ErrorCodeV1TracesRawQueryTimeout         = "OBS-V1-T-10"
+	ErrorCodeV1TracesRawQueryResultTooLarge  = "OBS-V1-T-11"
+	ErrorCodeV1TracesRawQueryRejected        = "OBS-V1-T-12"
+	ErrorCodeV1TracesRawQueryRequestTooLarge = "OBS-V1-T-13"
+	ErrorCodeV1TracesRawQueryMediaType       = "OBS-V1-T-14"
+
 	// Runtime topology API (v1alpha1) internal server error codes.
 	ErrorCodeV1RuntimeTopologyInternalGeneric = "OBS-V1-RG-01"
 	ErrorCodeV1RuntimeTopologyAuthzInternal   = "OBS-V1-RG-02"

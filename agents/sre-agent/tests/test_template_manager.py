@@ -178,3 +178,25 @@ def test_remed_prompt_targets_the_alerted_line_binding():
     )
     assert "`canary` for <comp:greeter>, the line the alert fired on" in rendered
     assert "Never patch another line's binding." in rendered
+
+
+def test_rca_prompt_matches_the_main_line_binding_without_a_release_line():
+    rendered = tm.render(
+        "prompts/rca_agent_prompt.j2",
+        {
+            "openchoreo_tools": [_make_tool("list_release_bindings")],
+            "observability_tools": [],
+            "scope": _make_scope("dev", "main"),
+        },
+    )
+    assert "none for <comp:greeter>, whose alert fired on its main line" in rendered
+    assert "`main` for <comp:greeter>" not in rendered
+
+
+def test_remed_prompt_matches_the_main_line_binding_without_a_release_line():
+    rendered = tm.render(
+        "prompts/remed_agent_prompt.j2",
+        {"tools": [], "scope": _make_scope("dev", "main")},
+    )
+    assert "none for <comp:greeter>, whose alert fired on its main line" in rendered
+    assert "`main` for <comp:greeter>" not in rendered

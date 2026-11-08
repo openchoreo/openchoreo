@@ -29,63 +29,63 @@ paths:
 func TestExtract(t *testing.T) {
 	tests := []struct {
 		name    string
-		epType  v1alpha1.EndpointType
+		epType  v1alpha1.EndpointProtocol
 		schema  *v1alpha1.Schema
 		want    []EndpointResource
 		wantErr bool
 	}{
 		{
 			name:   "nil schema returns empty non-nil",
-			epType: v1alpha1.EndpointTypeGRPC,
+			epType: v1alpha1.EndpointProtocolGRPC,
 			schema: nil,
 			want:   []EndpointResource{},
 		},
 		{
 			name:   "blank content returns empty",
-			epType: v1alpha1.EndpointTypeGRPC,
+			epType: v1alpha1.EndpointProtocolGRPC,
 			schema: &v1alpha1.Schema{Type: "proto", Content: "   "},
 			want:   []EndpointResource{},
 		},
 		{
 			name:   "gRPC infers proto parser",
-			epType: v1alpha1.EndpointTypeGRPC,
+			epType: v1alpha1.EndpointProtocolGRPC,
 			schema: &v1alpha1.Schema{Content: sampleProto},
 			want:   []EndpointResource{{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"}},
 		},
 		{
 			name:   "HTTP infers openapi parser",
-			epType: v1alpha1.EndpointTypeHTTP,
+			epType: v1alpha1.EndpointProtocolHTTP,
 			schema: &v1alpha1.Schema{Content: sampleOpenAPI},
 			want:   []EndpointResource{{Kind: "HTTP", Method: "GET", Path: "/ping"}},
 		},
 		{
 			name:   "explicit Schema.Type override (protobuf) wins",
-			epType: v1alpha1.EndpointTypeHTTP, // would infer openapi, but override forces proto
+			epType: v1alpha1.EndpointProtocolHTTP, // would infer openapi, but override forces proto
 			schema: &v1alpha1.Schema{Type: "protobuf", Content: sampleProto},
 			want:   []EndpointResource{{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"}},
 		},
 		{
 			name:   "swagger normalizes to openapi",
-			epType: v1alpha1.EndpointTypeHTTP,
+			epType: v1alpha1.EndpointProtocolHTTP,
 			schema: &v1alpha1.Schema{Type: "swagger", Content: sampleOpenAPI},
 			want:   []EndpointResource{{Kind: "HTTP", Method: "GET", Path: "/ping"}},
 		},
 		{
 			name:   "TCP endpoint without override returns empty (no inference)",
-			epType: v1alpha1.EndpointTypeTCP,
+			epType: v1alpha1.EndpointProtocolTCP,
 			schema: &v1alpha1.Schema{Content: sampleProto},
 			want:   []EndpointResource{},
 		},
 		{
 			name:    "deferred graphql type returns empty with warning",
-			epType:  v1alpha1.EndpointTypeGraphQL,
+			epType:  v1alpha1.EndpointProtocolGraphQL,
 			schema:  &v1alpha1.Schema{Content: "type Query { hello: String }"},
 			want:    []EndpointResource{},
 			wantErr: true,
 		},
 		{
 			name:    "malformed proto returns empty with warning",
-			epType:  v1alpha1.EndpointTypeGRPC,
+			epType:  v1alpha1.EndpointProtocolGRPC,
 			schema:  &v1alpha1.Schema{Content: "not a proto"},
 			want:    []EndpointResource{},
 			wantErr: true,

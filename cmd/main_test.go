@@ -60,6 +60,31 @@ func TestGetEnvUint(t *testing.T) {
 	})
 }
 
+func TestGetEnvBoolStrict(t *testing.T) {
+	t.Run("unset uses default", func(t *testing.T) {
+		t.Setenv("TEST_REFERENCED_CONFIG_ROLLOUT", "")
+		got, err := getEnvBoolStrict("TEST_REFERENCED_CONFIG_ROLLOUT", true)
+		if err != nil || !got {
+			t.Fatalf("getEnvBoolStrict() = %t, %v; want true, nil", got, err)
+		}
+	})
+
+	t.Run("valid value", func(t *testing.T) {
+		t.Setenv("TEST_REFERENCED_CONFIG_ROLLOUT", "true")
+		got, err := getEnvBoolStrict("TEST_REFERENCED_CONFIG_ROLLOUT", false)
+		if err != nil || !got {
+			t.Fatalf("getEnvBoolStrict() = %t, %v; want true, nil", got, err)
+		}
+	})
+
+	t.Run("malformed value is rejected", func(t *testing.T) {
+		t.Setenv("TEST_REFERENCED_CONFIG_ROLLOUT", "ture")
+		if _, err := getEnvBoolStrict("TEST_REFERENCED_CONFIG_ROLLOUT", false); err == nil {
+			t.Fatal("getEnvBoolStrict() accepted a malformed value")
+		}
+	})
+}
+
 func TestValidateRenderTimeout(t *testing.T) {
 	for _, timeout := range []time.Duration{0, time.Nanosecond, time.Minute} {
 		if err := validateRenderTimeout(timeout); err != nil {
@@ -68,5 +93,20 @@ func TestValidateRenderTimeout(t *testing.T) {
 	}
 	if err := validateRenderTimeout(-time.Second); err == nil {
 		t.Fatal("validateRenderTimeout() accepted a negative duration")
+	}
+}
+
+func TestValidateRequeueInterval(t *testing.T) {
+	for _, interval := range []time.Duration{time.Nanosecond, 10 * time.Second, 5 * time.Minute} {
+		if err := validateRequeueInterval(interval); err != nil {
+			t.Fatalf("validateRequeueInterval(%s) returned %v", interval, err)
+		}
+	}
+	// spec.interval: 0 turns the requeue off for one release; a zero controller default
+	// would do that for every release that does not set it, so it is rejected.
+	for _, interval := range []time.Duration{0, -time.Second} {
+		if err := validateRequeueInterval(interval); err == nil {
+			t.Fatalf("validateRequeueInterval(%s) accepted a non-positive interval", interval)
+		}
 	}
 }

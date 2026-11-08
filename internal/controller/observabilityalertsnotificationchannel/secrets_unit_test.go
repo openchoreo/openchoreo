@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -411,11 +412,28 @@ func TestValidateSecretReferences(t *testing.T) {
 		requireInvalidSecrets(t, err, ReasonSecretStoreNotConfigured)
 	})
 
-	t.Run("SecretReference pushed to another plane", func(t *testing.T) {
+	t.Run("valid with another plane as targetPlane", func(t *testing.T) {
+		// Planes can share one secret store, so a value pushed to another plane's store may be
+		// readable through the observability plane's store too.
+		for _, target := range []openchoreov1alpha1.TargetPlaneRef{
+			{Kind: "DataPlane", Name: "default"},
+			{Kind: "ClusterWorkflowPlane", Name: "shared"},
+			{Kind: "ObservabilityPlane", Name: "other"},
+		} {
+			sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
+			sr.Spec.TargetPlane = &target
+			if err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr)); err != nil {
+				t.Errorf("targetPlane %s/%s: unexpected error: %v", target.Kind, target.Name, err)
+			}
+		}
+	})
+
+	t.Run("another plane as targetPlane does not lift the remote key check", func(t *testing.T) {
 		sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
 		sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
+		sr.Spec.Data[0].RemoteRef.Key = "secret/other/generic/webhook-auth"
 		err := r.validateSecretReferences(channel, newObservabilityPlaneResult(testStore), resolvedFor(sr))
-		requireInvalidSecrets(t, err, ReasonSecretStoreUnreachable)
+		requireInvalidSecrets(t, err, ReasonRemoteKeyNotAllowed)
 	})
 
 	dashed := &Reconciler{RemoteKeys: RemoteKeyFormat{Prefix: "secret", Separator: "-"}}
@@ -908,14 +926,43 @@ func TestReconcile_InvalidReferenceIsReportedNotRetried(t *testing.T) {
 func TestReconcile_PlaneConfigurationProblemsArePolled(t *testing.T) {
 	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
 	sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
-	sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
 	f := newReconcileFixture(t, []client.Object{channel, sr})
+	op := &openchoreov1alpha1.ObservabilityPlane{}
+	if err := f.cp.Get(context.Background(), types.NamespacedName{Name: "default", Namespace: testNamespace}, op); err != nil {
+		t.Fatalf("get ObservabilityPlane: %v", err)
+	}
+	op.Spec.SecretStoreRef = nil
+	if err := f.cp.Update(context.Background(), op); err != nil {
+		t.Fatalf("update ObservabilityPlane: %v", err)
+	}
 
 	// The observability plane is not watched, so a fix to it is only noticed by polling.
 	if result := f.reconcile(t); result.RequeueAfter != planeConfigPollInterval {
 		t.Errorf("RequeueAfter = %v, want %v", result.RequeueAfter, planeConfigPollInterval)
 	}
-	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonSecretStoreUnreachable)
+	if _, ok := f.externalSecret(t); ok {
+		t.Error("no ExternalSecret should be applied while the observability plane has no secret store")
+	}
+	got := f.channel(t)
+	requireCondition(t, got, ConditionSecretsReady, metav1.ConditionFalse, ReasonSecretStoreNotConfigured)
+	requireCondition(t, got, ConditionReady, metav1.ConditionFalse, ReasonSecretStoreNotConfigured)
+}
+
+func TestReconcile_SecretReferenceOfAnotherPlaneIsSyncedThroughTheObservabilityPlaneStore(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef(testChannel, "webhook-auth")
+	sr := newSecretReference("webhook-auth", map[string]string{testHeaderKey: testHeaderKey})
+	sr.Spec.TargetPlane = &openchoreov1alpha1.TargetPlaneRef{Kind: "DataPlane", Name: "default"}
+	f := newReconcileFixture(t, []client.Object{channel, sr})
+
+	f.reconcile(t)
+	es, ok := f.externalSecret(t)
+	if !ok {
+		t.Fatal("ExternalSecret was not applied to the observability plane")
+	}
+	if store, _, _ := unstructured.NestedString(es.Object, "spec", "secretStoreRef", "name"); store != testStore {
+		t.Errorf("secretStoreRef.name = %q, want the observability plane's store %q", store, testStore)
+	}
+	requireCondition(t, f.channel(t), ConditionSecretsReady, metav1.ConditionUnknown, ReasonExternalSecretPending)
 }
 
 func TestReconcile_RemoteKeyOutsideNamespaceIsRejected(t *testing.T) {
@@ -1018,6 +1065,65 @@ func TestReconcile_KubernetesSecretFallbackLeavesAForeignExternalSecret(t *testi
 		t.Error("the foreign ExternalSecret must not be deleted")
 	}
 	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonExternalSecretConflict)
+}
+
+func TestReconcile_CreatesTheChannelNamespaceOnTheObservabilityPlane(t *testing.T) {
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")})
+
+	f.reconcile(t)
+	ns := &corev1.Namespace{}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testNamespace}, ns); err != nil {
+		t.Fatalf("the channel's namespace must be created on the observability plane: %v", err)
+	}
+	if got := ns.Labels[labels.LabelKeyCreatedBy]; got != managedByLabelValue {
+		t.Errorf("namespace label %s = %q, want %q", labels.LabelKeyCreatedBy, got, managedByLabelValue)
+	}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testChannel, Namespace: testNamespace}, &corev1.ConfigMap{}); err != nil {
+		t.Errorf("get ConfigMap: %v", err)
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionTrue, ReasonReconciled)
+}
+
+func TestReconcile_LeavesAnExistingNamespaceAsItIs(t *testing.T) {
+	existing := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace, Labels: map[string]string{"team": "obs"}}}
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")}, existing)
+
+	f.reconcile(t)
+	ns := &corev1.Namespace{}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: testNamespace}, ns); err != nil {
+		t.Fatalf("get namespace: %v", err)
+	}
+	if want := map[string]string{"team": "obs"}; !equality.Semantic.DeepEqual(ns.Labels, want) {
+		t.Errorf("namespace labels = %v, want %v", ns.Labels, want)
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionTrue, ReasonReconciled)
+}
+
+func TestReconcile_NamespaceCreationFailureIsReported(t *testing.T) {
+	f := newReconcileFixture(t, []client.Object{newWebhookChannel(testChannel, "dev")})
+	failing := fake.NewClientBuilder().WithScheme(newOPScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*corev1.Namespace); ok {
+					return apierrors.NewForbidden(corev1.Resource("namespaces"), obj.GetName(), fmt.Errorf("denied"))
+				}
+				return c.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	provider := k8sMocks.NewMockObservabilityPlaneClientProvider(t)
+	provider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(failing, nil)
+	f.r.PlaneClientProvider = provider
+
+	_, err := f.r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: testChannel, Namespace: testNamespace}})
+	if err == nil {
+		t.Fatal("Reconcile must return the namespace creation error so it is retried")
+	}
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonApplyFailed)
+	err = failing.Get(context.Background(), types.NamespacedName{Name: testChannel, Namespace: testNamespace}, &corev1.ConfigMap{})
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("the ConfigMap must not be applied without the namespace; get ConfigMap: %v", err)
+	}
 }
 
 func TestFinalize_LeavesAForeignExternalSecret(t *testing.T) {

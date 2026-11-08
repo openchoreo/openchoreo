@@ -97,12 +97,13 @@ func mustTime(t *testing.T, s string) *time.Time {
 // satisfies almost any schema, so a zero value would report conformance that the real
 // service does not have.
 //
-// Three operations are absent by design — queryMetrics, getComponentCosts and
-// getRecommendations. Those services return json.RawMessage straight from the metrics
-// and finops adapters (service/metrics_adapter.go, service/finops_adapter.go);
-// observer never inspects the payload, so any body asserted here would be an invention
-// of this test rather than something observer produces. Their conformance can only be
-// established against a live adapter.
+// Four operations are absent by design — queryMetrics, getComponentCosts,
+// getRecommendations and queryRawTraces. Those services return json.RawMessage straight
+// from the metrics, finops and tracing adapters (service/metrics_adapter.go,
+// service/finops_adapter.go, service/tracing_adapter_raw.go); observer never inspects
+// the payload, so any body asserted here would be an invention of this test rather than
+// something observer produces. Their conformance can only be established against a live
+// adapter.
 func TestResponsesConformToSpec(t *testing.T) {
 	t.Parallel()
 

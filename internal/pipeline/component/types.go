@@ -26,6 +26,10 @@ type Pipeline struct {
 	// pipeline. The deadline is derived per call, so a caller that renders more than once
 	// gets a fresh one each time. Zero or negative means no deadline.
 	renderTimeout time.Duration
+
+	// referencedConfigRollout limits the pod-template hash to the configuration the pods
+	// reference, instead of every rendered dataplane resource.
+	referencedConfigRollout bool
 }
 
 // RenderInput contains all inputs needed to render a component's resources.
@@ -78,6 +82,14 @@ type RenderInput struct {
 	// vars, volume mounts, and volumes per resource. Optional - if nil, dependencies.resources
 	// (and the merged volumeMounts/volumes lists) will be empty.
 	ResourceDependencyItems []pipelinecontext.ResourceDependencyItem
+
+	// PreviousDataPlaneResources contains the dataplane resources of the previous render, as
+	// stored in the existing dataplane RenderedRelease. When the configuration the pod template
+	// references has not changed since, the previous dp-resource-hash value is kept, so a change
+	// to how the hash is computed does not restart the pods.
+	// Optional - if nil, the hash is always computed from the current render. Only used with
+	// WithReferencedConfigRollout.
+	PreviousDataPlaneResources []map[string]any
 }
 
 // ApplyTargetPlaneDefaults normalizes empty targetPlane fields to "dataplane".

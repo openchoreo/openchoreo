@@ -282,7 +282,7 @@ type EndpointURLStatus struct {
 
 	// Type is the endpoint type (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
 	// +optional
-	Type EndpointType `json:"type,omitempty"`
+	Type EndpointProtocol `json:"type,omitempty"`
 
 	// ServiceURL is the in-cluster service URL for this endpoint.
 	// +optional

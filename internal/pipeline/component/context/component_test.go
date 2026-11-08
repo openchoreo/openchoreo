@@ -705,7 +705,7 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
 					"http-ep": {
 						DisplayName: "HTTP Endpoint",
-						Type:        v1alpha1.EndpointTypeHTTP,
+						Type:        v1alpha1.EndpointProtocolHTTP,
 						Port:        8080,
 						TargetPort:  9090,
 						BasePath:    "/api",
@@ -716,7 +716,7 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 						},
 					},
 					"grpc-ep": {
-						Type:       v1alpha1.EndpointTypeGRPC,
+						Type:       v1alpha1.EndpointProtocolGRPC,
 						Port:       9090,
 						Visibility: []v1alpha1.EndpointVisibility{v1alpha1.EndpointVisibilityNamespace},
 					},
@@ -779,7 +779,7 @@ func TestExtractEndpointResources(t *testing.T) {
 				Container: v1alpha1.Container{Image: "myapp:v1"},
 				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
 					"grpc": {
-						Type: v1alpha1.EndpointTypeGRPC,
+						Type: v1alpha1.EndpointProtocolGRPC,
 						Port: 9090,
 						Schema: &v1alpha1.Schema{
 							Type: "proto",
@@ -790,11 +790,11 @@ message Req { string name = 1; }`,
 						},
 					},
 					"no-schema": {
-						Type: v1alpha1.EndpointTypeGRPC,
+						Type: v1alpha1.EndpointProtocolGRPC,
 						Port: 9091,
 					},
 					"bad-schema": {
-						Type:   v1alpha1.EndpointTypeGRPC,
+						Type:   v1alpha1.EndpointProtocolGRPC,
 						Port:   9092,
 						Schema: &v1alpha1.Schema{Type: "proto", Content: "not a proto"},
 					},

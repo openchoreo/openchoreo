@@ -125,6 +125,9 @@ type ObserverMiddlewareOptions struct {
 	// policy applies across every surface. Must not be nil.
 	AuditEmitter *audit.Emitter
 	AuditConfig  audit.MiddlewareConfig
+	// RawQueryMaxRequestBytes caps the body of a raw trace query; zero uses
+	// DefaultRawQueryMaxRequestBytes.
+	RawQueryMaxRequestBytes int64
 }
 
 // ObserverMiddlewares returns the ordered middleware chain for the generated
@@ -132,7 +135,7 @@ type ObserverMiddlewareOptions struct {
 //
 // oapi-codegen applies these last-to-first, so the last entry is outermost:
 //
-//	logger → recovery → auth → audit → contentType → handler
+//	logger → recovery → auth → audit → contentType → rawQueryGuard → handler
 //
 // audit sits inside auth so SubjectContext is already populated for it: it
 // captures its context before calling next, and the JWT middleware populates a
@@ -140,8 +143,9 @@ type ObserverMiddlewareOptions struct {
 // emit as anonymous with nothing failing.
 //
 // A request auth rejects never reaches audit; the access log is its only
-// record. contentType stays innermost so an unauthenticated caller cannot
-// probe it.
+// record. contentType and rawQueryGuard stay innermost so an unauthenticated
+// caller cannot probe them. rawQueryGuard checks only the raw trace query
+// route, whose body may be text; contentType checks every other route.
 //
 // Auth wraps every generated route; auth.OpenAPIAuth decides per request from
 // the scopes context key the generated wrapper sets, so which routes are
@@ -165,6 +169,7 @@ func ObserverMiddlewares(opts ObserverMiddlewareOptions) ([]gen.MiddlewareFunc, 
 	}
 
 	return []gen.MiddlewareFunc{
+		rawTracesQueryGuard(opts.Logger, opts.RawQueryMaxRequestBytes),
 		RequireJSONContentType(opts.Logger),
 		auditMw.Handler,
 		opts.AuthMiddleware,
