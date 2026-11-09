@@ -160,6 +160,10 @@ func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messagin
 		a.sendStreamClose(init.RequestID, "environment and namespace query params are required")
 		return
 	}
+	if scope.releaseLine != "" && scope.allReleaseLines {
+		a.sendStreamClose(init.RequestID, "set releaseLine or allReleaseLines, not both")
+		return
+	}
 
 	ctx, cancel := context.WithCancel(parentCtx)
 	session := &hubbleSession{

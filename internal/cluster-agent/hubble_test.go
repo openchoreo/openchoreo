@@ -292,6 +292,23 @@ func TestAgent_HandleHubbleStreamInit_MissingRequiredParams(t *testing.T) {
 	assert.Contains(t, string(chunks[0].Data), "namespace")
 }
 
+func TestAgent_HandleHubbleStreamInit_ReleaseLineWithAllReleaseLinesRejected(t *testing.T) {
+	agent, mock := newHubbleTestAgent(t)
+
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
+		RequestID: "req-conflict",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1&component=checkout&releaseLine=canary&allReleaseLines=true",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1)
+	assert.True(t, chunks[0].IsClose)
+	assert.Empty(t, chunks[0].Applied)
+	assert.Contains(t, string(chunks[0].Data), "not both")
+	assert.Empty(t, agent.hubbleStreams)
+}
+
 func TestAgent_HandleHubbleStreamInit_RelayAddrUnset(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "")
 	agent, mock := newHubbleTestAgent(t)
