@@ -37,7 +37,7 @@ func TestCORS(t *testing.T) {
 			headers:        map[string]string{"Origin": "http://example.com"},
 			expectNext:     true,
 			expectStatus:   http.StatusOK,
-			rejectHeaders:  []string{"Access-Control-Allow-Origin", "Vary"},
+			rejectHeaders:  []string{"Access-Control-Allow-Origin", "Access-Control-Expose-Headers", "Vary"},
 		},
 		{
 			name:           "allowed origin sets CORS headers and calls next",
@@ -52,6 +52,7 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
 				"Access-Control-Max-Age":           "3600",
 				"Access-Control-Allow-Credentials": "true",
+				"Access-Control-Expose-Headers":    "Retry-After",
 				"Vary":                             "Origin",
 			},
 		},
@@ -62,7 +63,7 @@ func TestCORS(t *testing.T) {
 			headers:        map[string]string{"Origin": "http://evil.com"},
 			expectNext:     true,
 			expectStatus:   http.StatusOK,
-			rejectHeaders:  []string{"Access-Control-Allow-Origin", "Vary"},
+			rejectHeaders:  []string{"Access-Control-Allow-Origin", "Access-Control-Expose-Headers", "Vary"},
 		},
 		{
 			name:           "CORS preflight returns 204 and does not call next",

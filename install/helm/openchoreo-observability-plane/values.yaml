@@ -640,7 +640,7 @@ observer:
       requestsPerMinute: 10
       # @schema
       # type: integer
-      # description: Raw trace queries a caller may start at once before requestsPerMinute applies. At least 1 when requestsPerMinute is set
+      # description: Raw trace queries a caller may start at once before requestsPerMinute applies. Ignored when requestsPerMinute is 0; at least 1 otherwise
       # minimum: 0
       # default: 5
       # @schema

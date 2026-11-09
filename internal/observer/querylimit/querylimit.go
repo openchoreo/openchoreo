@@ -146,11 +146,13 @@ func (l *Limiter) Acquire(callerKey string) (release func(), err error) {
 // allow takes a token from callerKey's bucket. When the bucket is empty it
 // takes nothing and returns how long until a token is available.
 func (l *Limiter) allow(callerKey string) (time.Duration, bool) {
-	now := l.now()
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Read under the lock, so a bucket never sees time go backwards: the rate
+	// limiter takes an earlier time as its new last update and would count the
+	// time between the two again.
+	now := l.now()
 	l.sweep(now)
 	c, ok := l.callers[callerKey]
 	if !ok {

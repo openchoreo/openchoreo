@@ -57,9 +57,14 @@ data:
   TRACING_RAW_QUERY_TIMEOUT: {{ $rawQuery.timeout | default "30s" | quote }}
   TRACING_RAW_QUERY_MAX_REQUEST_BYTES: {{ $rawQuery.maxRequestBytes | default 1048576 | int64 | quote }}
   TRACING_RAW_QUERY_MAX_RESPONSE_BYTES: {{ $rawQuery.maxResponseBytes | default 10485760 | int64 | quote }}
+  {{- $rawQueryRequestsPerMinute := ternary $rawQuery.requestsPerMinute 10 (hasKey $rawQuery "requestsPerMinute") | int }}
+  {{- $rawQueryBurst := ternary $rawQuery.burst 5 (hasKey $rawQuery "burst") | int }}
+  {{- if and (gt $rawQueryRequestsPerMinute 0) (lt $rawQueryBurst 1) }}
+  {{- fail "observer.tracingAdapter.rawQuery.burst must be at least 1 when requestsPerMinute is set. Set requestsPerMinute to 0 to turn the rate limit off." }}
+  {{- end }}
   TRACING_RAW_QUERY_MAX_CONCURRENT: {{ ternary $rawQuery.maxConcurrent 4 (hasKey $rawQuery "maxConcurrent") | int | quote }}
-  TRACING_RAW_QUERY_REQUESTS_PER_MINUTE: {{ ternary $rawQuery.requestsPerMinute 10 (hasKey $rawQuery "requestsPerMinute") | int | quote }}
-  TRACING_RAW_QUERY_BURST: {{ ternary $rawQuery.burst 5 (hasKey $rawQuery "burst") | int | quote }}
+  TRACING_RAW_QUERY_REQUESTS_PER_MINUTE: {{ $rawQueryRequestsPerMinute | quote }}
+  TRACING_RAW_QUERY_BURST: {{ $rawQueryBurst | quote }}
   FINOPS_ADAPTER_URL: {{ .Values.observer.finOpsAdapter.url | default "http://finops-adapter:9101" | quote }}
   FINOPS_ADAPTER_TIMEOUT: {{ .Values.observer.finOpsAdapter.timeout | default "30s" | quote }}
   FINOPS_AGENT_ENABLED: {{ .Values.finOpsAgent.enabled | default false | quote }}

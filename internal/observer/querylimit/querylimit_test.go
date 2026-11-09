@@ -109,6 +109,25 @@ func TestAcquire_RatePerCaller(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAcquire_ReadsTheClockUnderTheLock(t *testing.T) {
+	// Read outside the lock, a request could reach a bucket with an earlier
+	// time than the last one and rewind it, so the refill since then would be
+	// counted twice.
+	clock := newFakeClock()
+	var l *Limiter
+	l = newWithClock(Config{RequestsPerMinute: 10, Burst: 2}, func() time.Time {
+		if l != nil && l.mu.TryLock() {
+			l.mu.Unlock()
+			t.Error("the clock was read without holding the lock")
+		}
+		return clock.now()
+	})
+
+	release, err := l.Acquire("alice")
+	require.NoError(t, err)
+	release()
+}
+
 func TestAcquire_RateBurstFloor(t *testing.T) {
 	l := newWithClock(Config{RequestsPerMinute: 60}, newFakeClock().now)
 
