@@ -42,6 +42,9 @@ const (
 	batchAPIGroup = "batch"
 	cronJobKind   = "CronJob"
 
+	fluxHelmAPIGroup = "helm.toolkit.fluxcd.io"
+	helmReleaseKind  = "HelmRelease"
+
 	// reasonProgressDeadlineExceeded is the Deployment Progressing condition reason
 	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
 	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
