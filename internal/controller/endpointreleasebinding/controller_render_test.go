@@ -19,6 +19,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 )
 
@@ -126,9 +127,41 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}}
 		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
 
+		// Healthy entries alone are not enough: they may describe the previous
+		// routes until the RenderedRelease reports its current generation applied.
 		updated := reconcileBinding(r, cli, b)
+		Expect(condition(updated, ConditionResourcesReady).Reason).To(Equal(string(ReasonResourcesProgressing)))
+		Expect(condition(updated, ConditionReady).Status).To(Equal(metav1.ConditionFalse))
+
+		Expect(cli.Get(fctx, client.ObjectKeyFromObject(rr), rr)).To(Succeed())
+		meta.SetStatusCondition(&rr.Status.Conditions, metav1.Condition{
+			Type: renderedrelease.ConditionResourcesApplied, Status: metav1.ConditionTrue,
+			Reason: "Applied", ObservedGeneration: rr.Generation,
+		})
+		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
+
+		updated = reconcileBinding(r, cli, b)
 		Expect(condition(updated, ConditionResourcesReady).Status).To(Equal(metav1.ConditionTrue))
 		Expect(condition(updated, ConditionReady).Status).To(Equal(metav1.ConditionTrue))
+	})
+
+	It("refuses to render when the Endpoint belongs to another project", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+		b := newBinding("foreign", testRelease)
+		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+		ep := &openchoreov1alpha1.Endpoint{}
+		Expect(cli.Get(fctx, client.ObjectKey{Namespace: testNamespace, Name: testEndpoint}, ep)).To(Succeed())
+		ep.Spec.Owner.ProjectName = "billing"
+		Expect(cli.Update(fctx, ep)).To(Succeed())
+
+		updated := reconcileBinding(r, cli, b)
+
+		synced := condition(updated, ConditionSynced)
+		Expect(synced.Status).To(Equal(metav1.ConditionFalse))
+		Expect(synced.Reason).To(Equal(string(ReasonInvalidReleaseConfiguration)))
+		Expect(synced.Message).To(ContainSubstring(`project "billing" of Endpoint`))
+		_, err := renderedRelease(cli, updated)
+		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "nothing should be rendered for a foreign Endpoint")
 	})
 
 	It("blocks rendering with a readable reason when a weighted backend is not deployed", func() {
@@ -262,6 +295,35 @@ var _ = Describe("Backend resolution and rendering", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		err = cli.Get(fctx, req.NamespacedName, &openchoreov1alpha1.EndpointReleaseBinding{})
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	It("leaves another binding's RenderedRelease in place when a duplicate binding is deleted", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+		active := newBinding("active", testRelease)
+		// Same Endpoint and environment, so it resolves to the same RenderedRelease name.
+		duplicate := newBinding("duplicate", testRelease)
+		duplicate.Finalizers = []string{EndpointReleaseBindingFinalizer}
+		r, cli := build(release, active, duplicate, deployedComponent("greeter", dpNS))
+		reconcileBinding(r, cli, active)
+		_, err := renderedRelease(cli, active)
+		Expect(err).NotTo(HaveOccurred())
+
+		live := &openchoreov1alpha1.EndpointReleaseBinding{}
+		Expect(cli.Get(fctx, client.ObjectKeyFromObject(duplicate), live)).To(Succeed())
+		Expect(cli.Delete(fctx, live)).To(Succeed())
+
+		req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)}
+		// 1st: Finalizing condition. 2nd: finds a RenderedRelease it does not own and releases the finalizer.
+		for range 2 {
+			_, err := r.Reconcile(fctx, req)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		err = cli.Get(fctx, req.NamespacedName, &openchoreov1alpha1.EndpointReleaseBinding{})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "the duplicate binding is released")
+		rr, err := renderedRelease(cli, active)
+		Expect(err).NotTo(HaveOccurred(), "the active binding's RenderedRelease must survive")
+		Expect(rr.DeletionTimestamp.IsZero()).To(BeTrue())
 	})
 
 	It("maps a component's ReleaseBinding only to bindings routing to it in that environment", func() {

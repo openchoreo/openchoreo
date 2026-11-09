@@ -65,6 +65,17 @@ func (r *Reconciler) finalize(ctx context.Context, old, binding *openchoreov1alp
 	err := r.Get(ctx, types.NamespacedName{Name: rrName, Namespace: binding.Namespace}, rr)
 	switch {
 	case err == nil:
+		// The name is derived from the Endpoint and environment, so a second
+		// binding for the same pair finds the first one's RenderedRelease. Leave
+		// it alone: deleting it would take down routes another binding serves.
+		owned, ownerErr := controllerutil.HasOwnerReference(rr.GetOwnerReferences(), binding, r.Scheme)
+		if ownerErr != nil {
+			return ctrl.Result{}, fmt.Errorf("check owner of RenderedRelease %q: %w", rrName, ownerErr)
+		}
+		if !owned {
+			logger.Info("RenderedRelease belongs to another binding; leaving it in place", "renderedRelease", rrName)
+			break
+		}
 		if rr.DeletionTimestamp.IsZero() {
 			if delErr := r.Delete(ctx, rr); delErr != nil && !apierrors.IsNotFound(delErr) {
 				return ctrl.Result{}, fmt.Errorf("delete RenderedRelease %q: %w", rrName, delErr)

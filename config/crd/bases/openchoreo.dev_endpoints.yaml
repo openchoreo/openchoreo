@@ -38,6 +38,8 @@ spec:
           Workload.spec.endpoints.
           The plural "endpoints" and the short name "ep" are taken by core v1 Endpoints
           in kubectl, so this kind has no short name; use "endpoints.openchoreo.dev".
+          The name is at most 63 characters because it is carried as a label value on
+          what the Endpoint renders.
         properties:
           apiVersion:
             description: |-
@@ -307,6 +309,9 @@ spec:
                 type: integer
             type: object
         type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be at most 63 characters
+          rule: size(self.metadata.name) <= 63
     served: true
     storage: true
     subresources:

@@ -282,6 +282,7 @@ spec:
                 properties:
                   endpointName:
                     description: EndpointName is the name of the Endpoint.
+                    maxLength: 63
                     minLength: 1
                     type: string
                   projectName:

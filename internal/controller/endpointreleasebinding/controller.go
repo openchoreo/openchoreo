@@ -206,6 +206,14 @@ func (r *Reconciler) loadInputs(ctx context.Context, binding *openchoreov1alpha1
 		in.endpoint, ReasonEndpointNotFound, "Endpoint"); !found || err != nil {
 		return nil, err
 	}
+	// The release and binding owners agree with each other, but both are
+	// authored; the Endpoint itself says which project it belongs to.
+	if in.endpoint.Spec.Owner.ProjectName != binding.Spec.Owner.ProjectName {
+		markSyncedFalse(binding, ReasonInvalidReleaseConfiguration, fmt.Sprintf(
+			"binding project %q does not match the project %q of Endpoint %q",
+			binding.Spec.Owner.ProjectName, in.endpoint.Spec.Owner.ProjectName, in.endpoint.Name))
+		return nil, nil
+	}
 
 	in.project = &openchoreov1alpha1.Project{}
 	if found, err := r.getOrMark(ctx, binding, types.NamespacedName{Name: binding.Spec.Owner.ProjectName, Namespace: ns},

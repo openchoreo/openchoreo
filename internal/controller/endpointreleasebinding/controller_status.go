@@ -16,11 +16,17 @@ import (
 
 // evaluateResourcesReady derives ResourcesReady from the owned RenderedRelease's
 // observed status. An apply-level failure for the current generation wins over
-// per-entry health. Mirrors the ProjectReleaseBinding's readiness evaluation.
+// per-entry health, and per-entry health counts only once the current generation
+// has been applied: until then it describes the previous routes.
 func evaluateResourcesReady(binding *openchoreov1alpha1.EndpointReleaseBinding, rr *openchoreov1alpha1.RenderedRelease) {
-	if cond := meta.FindStatusCondition(rr.Status.Conditions, renderedrelease.ConditionResourcesApplied); cond != nil &&
-		cond.Status == metav1.ConditionFalse && cond.ObservedGeneration == rr.Generation {
-		controller.MarkFalseCondition(binding, ConditionResourcesReady, ReasonResourceApplyFailed, cond.Message)
+	applied := meta.FindStatusCondition(rr.Status.Conditions, renderedrelease.ConditionResourcesApplied)
+	if applied != nil && applied.Status == metav1.ConditionFalse && applied.ObservedGeneration == rr.Generation {
+		controller.MarkFalseCondition(binding, ConditionResourcesReady, ReasonResourceApplyFailed, applied.Message)
+		return
+	}
+	if applied == nil || applied.Status != metav1.ConditionTrue || applied.ObservedGeneration != rr.Generation {
+		controller.MarkFalseCondition(binding, ConditionResourcesReady, ReasonResourcesProgressing,
+			fmt.Sprintf("RenderedRelease %q has not applied its current resources yet", rr.Name))
 		return
 	}
 
@@ -61,14 +67,23 @@ func markSyncedFalse(binding *openchoreov1alpha1.EndpointReleaseBinding,
 }
 
 // setReadyCondition aggregates BackendsResolved, Synced, and ResourcesReady
-// into Ready. Ready=True only when all three are True; otherwise Ready=False
-// inherits the first failing sub-condition's reason and message, with
-// BackendsResolved first because an unresolved backend is the most actionable
-// explanation.
+// into Ready. Ready=True only when all three are True for the binding's current
+// generation; otherwise Ready=False inherits the first failing sub-condition's
+// reason and message, with BackendsResolved first because an unresolved backend
+// is the most actionable explanation. A sub-condition left over from an earlier
+// generation, such as when a reconcile of a repinned binding fails before
+// reaching it, describes the previous spec and counts as not yet evaluated.
 func setReadyCondition(binding *openchoreov1alpha1.EndpointReleaseBinding) {
-	backends := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionBackendsResolved))
-	synced := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionSynced))
-	resources := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionResourcesReady))
+	current := func(ct controller.ConditionType) *metav1.Condition {
+		c := meta.FindStatusCondition(binding.Status.Conditions, string(ct))
+		if c == nil || c.ObservedGeneration != binding.Generation {
+			return nil
+		}
+		return c
+	}
+	backends := current(ConditionBackendsResolved)
+	synced := current(ConditionSynced)
+	resources := current(ConditionResourcesReady)
 
 	if isTrue(backends) && isTrue(synced) && isTrue(resources) {
 		controller.MarkTrueCondition(binding, ConditionReady, ReasonReady, "EndpointReleaseBinding is ready")

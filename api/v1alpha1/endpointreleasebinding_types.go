@@ -52,6 +52,7 @@ type EndpointReleaseBindingOwner struct {
 	// EndpointName is the name of the Endpoint.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
 	EndpointName string `json:"endpointName"`
 }
 

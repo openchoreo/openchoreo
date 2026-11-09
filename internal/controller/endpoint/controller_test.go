@@ -4,6 +4,8 @@
 package endpoint
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -125,6 +127,20 @@ var _ = Describe("Endpoint Controller", func() {
 		Expect(cond.Reason).To(Equal(reason))
 		return cond
 	}
+
+	It("rejects an Endpoint name longer than 63 characters", func() {
+		// The name is carried as a label value on what the Endpoint renders.
+		name := strings.Repeat("a", 64)
+		ep := newEndpoint(name, "shop", clusterTypeRef("any"), componentBackend("stable", "greeter", "http", 1))
+		err := k8sClient.Create(ctx, ep)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("metadata.name must be at most 63 characters"))
+
+		ep = newEndpoint(name[:63], "shop", clusterTypeRef("any"), componentBackend("stable", "greeter", "http", 1))
+		ep.Finalizers = nil
+		Expect(k8sClient.Create(ctx, ep)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, ep)).To(Succeed())
+	})
 
 	It("sets Ready=False, Reason=EndpointTypeNotFound when the referenced type does not exist", func() {
 		ep := newEndpoint("ep-missing-type", "p-missing-type", clusterTypeRef("does-not-exist"),

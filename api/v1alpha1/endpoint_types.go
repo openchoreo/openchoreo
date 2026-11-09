@@ -157,6 +157,7 @@ type LatestEndpointRelease struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be at most 63 characters"
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.latestRelease.name`
@@ -169,6 +170,8 @@ type LatestEndpointRelease struct {
 // Workload.spec.endpoints.
 // The plural "endpoints" and the short name "ep" are taken by core v1 Endpoints
 // in kubectl, so this kind has no short name; use "endpoints.openchoreo.dev".
+// The name is at most 63 characters because it is carried as a label value on
+// what the Endpoint renders.
 type Endpoint struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
