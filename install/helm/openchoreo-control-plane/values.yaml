@@ -1307,6 +1307,7 @@ openchoreoApi:
               actions:
                 - "component:view"
                 - "releaseline:view"
+                - "releasebinding:view"
                 - "componenttype:view"
                 - "resource:view"
                 - "resourcerelease:view"
@@ -1683,6 +1684,8 @@ openchoreoApi:
                 - "finopsreport:update"
                 - "finops:view"
                 - "deliveryinsights:view"
+                - "scorecards:view"
+                - "scorecards:manage"
                 - "portal-assistant:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"

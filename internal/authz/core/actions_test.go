@@ -271,6 +271,39 @@ func TestActionInvokePortalAssistantRegistered(t *testing.T) {
 		"%s is granted to roles, so it must not be internal-only", ActionInvokePortalAssistant)
 }
 
+// TestScorecardsActionsRegistered pins the Scorecards actions and their metadata. The
+// portal checks them against the caller's authz profile under these exact names, and
+// evaluates them cluster-wide because the Scorecards overview spans every namespace.
+func TestScorecardsActionsRegistered(t *testing.T) {
+	cases := []struct {
+		constant string
+		name     string
+	}{
+		{ActionViewScorecards, "scorecards:view"},
+		{ActionManageScorecards, "scorecards:manage"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var found *Action
+			for i := range PublicActions() {
+				if PublicActions()[i].Name == tc.constant {
+					found = &PublicActions()[i]
+					break
+				}
+			}
+
+			require.NotNil(t, found, "%s must be registered as a public action", tc.constant)
+			require.Equal(t, tc.name, tc.constant,
+				"the action name is referenced by role grants in values.yaml and the portal permission policy, and must not drift")
+			require.Equal(t, ScopeCluster, found.LowestScope,
+				"scorecards are evaluated at cluster scope")
+			require.False(t, found.IsInternal,
+				"%s is granted to roles, so it must not be internal-only", tc.constant)
+		})
+	}
+}
+
 type chartValues struct {
 	OpenchoreoAPI struct {
 		Config struct {
