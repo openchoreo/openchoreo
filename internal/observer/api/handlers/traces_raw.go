@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	"github.com/openchoreo/openchoreo/internal/observer/querylimit"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -55,10 +57,30 @@ func (h *Handler) QueryRawTraces(
 	// Authorization is enforced by the service layer.
 	result, err := h.tracesService.QueryRawTraces(ctx, &req)
 	if err != nil {
+		var limited *querylimit.LimitedError
+		if errors.As(err, &limited) {
+			return rawTracesLimitedResponse(limited), nil
+		}
 		return h.rawTracesErrorResponse(err), nil
 	}
 
 	return rawJSONResponse(result.Body), nil
+}
+
+// rawTracesLimitedResponse answers a raw query over a limit with 429 and a
+// Retry-After header, in whole seconds.
+func rawTracesLimitedResponse(limited *querylimit.LimitedError) gen.QueryRawTraces429JSONResponse {
+	code := types.ErrorCodeV1TracesRawQueryRateLimited
+	message := "Too many raw trace queries from this caller; retry later"
+	if limited.Reason == querylimit.ReasonConcurrency {
+		code = types.ErrorCodeV1TracesRawQueryConcurrencyLimited
+		message = "Too many raw trace queries are running; retry later"
+	}
+	retryAfter := int(math.Ceil(limited.RetryAfter.Seconds()))
+	return gen.QueryRawTraces429JSONResponse{
+		Body:    errorPayload(gen.TooManyRequests, code, message),
+		Headers: gen.QueryRawTraces429ResponseHeaders{RetryAfter: max(retryAfter, 1)},
+	}
 }
 
 func (h *Handler) rawTracesErrorResponse(err error) apiResponse {
