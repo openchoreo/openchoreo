@@ -1098,6 +1098,42 @@
           "title": "serviceAccount",
           "type": "object"
         },
+        "startupProbe": {
+          "additionalProperties": false,
+          "description": "Startup probe for the Backstage container. Backstage can take minutes to load its plugins on a slow or busy machine; until this probe succeeds, the liveness and readiness probes are not run, so a slow start is not killed as a hung container. It gives Backstage up to periodSeconds x failureThreshold to start.",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable the startup probe",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "failureThreshold": {
+              "default": 30,
+              "description": "Consecutive failures before the container is restarted. With the defaults, Backstage has up to 5 minutes to start.",
+              "minimum": 1,
+              "title": "failureThreshold",
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "default": 10,
+              "description": "How often the startup probe is run, in seconds",
+              "minimum": 1,
+              "title": "periodSeconds",
+              "type": "integer"
+            },
+            "timeoutSeconds": {
+              "default": 10,
+              "description": "Timeout of each startup probe check, in seconds",
+              "minimum": 1,
+              "title": "timeoutSeconds",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "startupProbe",
+          "type": "object"
+        },
         "tls": {
           "additionalProperties": false,
           "description": "TLS configuration for Backstage. When disabled, a CSP config is mounted to prevent upgrade-insecure-requests.",

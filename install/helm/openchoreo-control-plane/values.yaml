@@ -2958,6 +2958,40 @@ backstage:
 
   # @schema
   # type: object
+  # additionalProperties: false
+  # description: Startup probe for the Backstage container. Backstage can take minutes to load its plugins on a slow or busy machine; until this probe succeeds, the liveness and readiness probes are not run, so a slow start is not killed as a hung container. It gives Backstage up to periodSeconds x failureThreshold to start.
+  # @schema
+  startupProbe:
+    # @schema
+    # type: boolean
+    # description: Enable the startup probe
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
+    # type: integer
+    # description: How often the startup probe is run, in seconds
+    # minimum: 1
+    # default: 10
+    # @schema
+    periodSeconds: 10
+    # @schema
+    # type: integer
+    # description: Timeout of each startup probe check, in seconds
+    # minimum: 1
+    # default: 10
+    # @schema
+    timeoutSeconds: 10
+    # @schema
+    # type: integer
+    # description: Consecutive failures before the container is restarted. With the defaults, Backstage has up to 5 minutes to start.
+    # minimum: 1
+    # default: 30
+    # @schema
+    failureThreshold: 30
+
+  # @schema
+  # type: object
   # description: Service account configuration
   # @schema
   serviceAccount:
