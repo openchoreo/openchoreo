@@ -1474,7 +1474,6 @@ openchoreoApi:
                 - "finopsreport:view"
                 - "finops:view"
                 - "deliveryinsights:view"
-                - "scorecards:view"
                 - "portal-assistant:invoke"
 
             # SRE role - operations engineers focused on reliability and incident response.
