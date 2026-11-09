@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +28,7 @@ var getAgentConnectionForWirelogs = func(s *Server, planeIdentifier, crKey strin
 }
 
 // handleWirelogs handles the wirelogs (Cilium Hubble flow) Server-Sent Events endpoint.
-// URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?environment=...&namespace=...[&project=...][&component=...]
+// URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?environment=...&namespace=...[&project=...][&component=...][&releaseLine=...|&allReleaseLines=true]
 // project and component are optional Hubble flow filters; when both are omitted
 // the stream covers the entire environment.
 func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +52,8 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	namespace := query.Get("namespace")
 	project := query.Get("project")
 	component := query.Get("component")
+	releaseLine := query.Get("releaseLine")
+	allReleaseLines, _ := strconv.ParseBool(query.Get("allReleaseLines"))
 	if environment == "" || namespace == "" {
 		http.Error(w, "environment and namespace query parameters are required", http.StatusBadRequest)
 		return
@@ -68,6 +72,8 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 		"environment", environment,
 		"project", project,
 		"component", component,
+		"releaseLine", releaseLine,
+		"allReleaseLines", allReleaseLines,
 	)
 
 	flusher, ok := w.(http.Flusher)
@@ -101,15 +107,7 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	s.registerStreamSession(requestID, session)
 	defer s.unregisterStreamSession(requestID)
 
-	agentQuery := url.Values{}
-	agentQuery.Set("namespace", namespace)
-	agentQuery.Set("environment", environment)
-	if project != "" {
-		agentQuery.Set("project", project)
-	}
-	if component != "" {
-		agentQuery.Set("component", component)
-	}
+	agentQuery := wirelogsAgentQuery(namespace, environment, project, component, releaseLine, allReleaseLines)
 
 	streamInit := &messaging.HTTPTunnelStreamInit{
 		RequestID:    requestID,
@@ -149,6 +147,13 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("agent rejected stream: %s", string(chunk.Data)), http.StatusBadGateway)
 			return
 		}
+		// An agent without release line support ignores releaseLine and would stream every line.
+		if releaseLine != "" && !slices.Contains(chunk.Applied, messaging.AppliedReleaseLine) {
+			logger.Warn("Agent did not apply the release line filter; closing stream")
+			closeAgentStream(conn, requestID)
+			http.Error(w, "the data plane's cluster agent does not support filtering wirelogs by release line; upgrade the data plane", http.StatusNotImplemented)
+			return
+		}
 		// Commit to SSE: write headers + flush before any data frames.
 		writeSSEHeaders(w)
 		flusher.Flush()
@@ -173,11 +178,7 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	// so it can cancel the upstream gRPC stream against hubble-relay.
 	go func() {
 		<-r.Context().Done()
-		closeChunk, _ := json.Marshal(&messaging.HTTPTunnelStreamChunk{
-			RequestID: requestID,
-			IsClose:   true,
-		})
-		_ = conn.SendRawMessage(closeChunk)
+		closeAgentStream(conn, requestID)
 		session.close()
 	}()
 
@@ -202,6 +203,31 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// wirelogsAgentQuery builds the query of a hubble stream init.
+func wirelogsAgentQuery(namespace, environment, project, component, releaseLine string, allReleaseLines bool) url.Values {
+	q := url.Values{}
+	q.Set("namespace", namespace)
+	q.Set("environment", environment)
+	for key, value := range map[string]string{"project": project, "component": component, "releaseLine": releaseLine} {
+		if value != "" {
+			q.Set(key, value)
+		}
+	}
+	if allReleaseLines {
+		q.Set("allReleaseLines", strconv.FormatBool(allReleaseLines))
+	}
+	return q
+}
+
+// closeAgentStream asks the agent to end the hubble stream.
+func closeAgentStream(conn wirelogsAgentConn, requestID string) {
+	closeChunk, _ := json.Marshal(&messaging.HTTPTunnelStreamChunk{
+		RequestID: requestID,
+		IsClose:   true,
+	})
+	_ = conn.SendRawMessage(closeChunk)
 }
 
 // writeSSEHeaders sets the response headers required for a Server-Sent Events

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,13 +81,13 @@ func inScopeFlow(t *testing.T) *observer.GetFlowsResponse {
 }
 
 func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
-	filters := buildHubbleFlowFilters("checkout", "shopfront", "development", "my-team")
+	filters := buildHubbleFlowFilters(wirelogsScope{component: "checkout", project: "shopfront", environment: "development", namespace: "my-team"})
 
 	// Two filters (source-only, destination-only) so flows match when the
 	// component is EITHER side. Labels within a filter are comma-joined into one
 	// selector so they AND together — separate entries would OR.
 	require.Len(t, filters, 2)
-	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/component=checkout"
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/component=checkout,!k8s:openchoreo.dev/release-line"
 
 	require.Len(t, filters[0].GetSourceLabel(), 1, "must be a single comma-joined selector (AND), not multiple OR'd entries")
 	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
@@ -98,7 +99,7 @@ func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
 }
 
 func TestBuildHubbleFlowFilters_EnvironmentWide(t *testing.T) {
-	filters := buildHubbleFlowFilters("", "", "development", "my-team")
+	filters := buildHubbleFlowFilters(wirelogsScope{environment: "development", namespace: "my-team"})
 
 	require.Len(t, filters, 2)
 	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development"
@@ -112,7 +113,7 @@ func TestBuildHubbleFlowFilters_EnvironmentWide(t *testing.T) {
 }
 
 func TestBuildHubbleFlowFilters_ProjectOnly(t *testing.T) {
-	filters := buildHubbleFlowFilters("", "shopfront", "development", "my-team")
+	filters := buildHubbleFlowFilters(wirelogsScope{project: "shopfront", environment: "development", namespace: "my-team"})
 
 	require.Len(t, filters, 2)
 	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront"
@@ -121,16 +122,38 @@ func TestBuildHubbleFlowFilters_ProjectOnly(t *testing.T) {
 }
 
 func TestBuildHubbleFlowFilters_ComponentWithoutProject(t *testing.T) {
-	filters := buildHubbleFlowFilters("checkout", "", "development", "my-team")
+	filters := buildHubbleFlowFilters(wirelogsScope{component: "checkout", environment: "development", namespace: "my-team"})
 
 	require.Len(t, filters, 2)
-	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/component=checkout"
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/component=checkout,!k8s:openchoreo.dev/release-line"
+	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
+	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
+}
+
+func TestBuildHubbleFlowFilters_ReleaseLine(t *testing.T) {
+	filters := buildHubbleFlowFilters(wirelogsScope{
+		component: "checkout", project: "shopfront", environment: "development", namespace: "my-team", releaseLine: "canary",
+	})
+
+	require.Len(t, filters, 2)
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/component=checkout,k8s:openchoreo.dev/release-line=canary"
+	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
+	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
+}
+
+func TestBuildHubbleFlowFilters_AllReleaseLines(t *testing.T) {
+	filters := buildHubbleFlowFilters(wirelogsScope{
+		component: "checkout", project: "shopfront", environment: "development", namespace: "my-team", allReleaseLines: true,
+	})
+
+	require.Len(t, filters, 2)
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/component=checkout"
 	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
 	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
 }
 
 func TestNewGetFlowsRequest_LiveTail(t *testing.T) {
-	req := newGetFlowsRequest("checkout", "shopfront", "development", "my-team")
+	req := newGetFlowsRequest(wirelogsScope{component: "checkout", project: "shopfront", environment: "development", namespace: "my-team"})
 
 	assert.True(t, req.GetFollow(), "wirelogs is a live tail; Follow must be true")
 	assert.Zero(t, req.GetNumber(), "v1 does not replay history; Number must be 0")
@@ -269,6 +292,23 @@ func TestAgent_HandleHubbleStreamInit_MissingRequiredParams(t *testing.T) {
 	assert.Contains(t, string(chunks[0].Data), "namespace")
 }
 
+func TestAgent_HandleHubbleStreamInit_ReleaseLineWithAllReleaseLinesRejected(t *testing.T) {
+	agent, mock := newHubbleTestAgent(t)
+
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
+		RequestID: "req-conflict",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1&component=checkout&releaseLine=canary&allReleaseLines=true",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1)
+	assert.True(t, chunks[0].IsClose)
+	assert.Empty(t, chunks[0].Applied)
+	assert.Contains(t, string(chunks[0].Data), "not both")
+	assert.Empty(t, agent.hubbleStreams)
+}
+
 func TestAgent_HandleHubbleStreamInit_RelayAddrUnset(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "")
 	agent, mock := newHubbleTestAgent(t)
@@ -327,6 +367,7 @@ func TestAgent_HandleHubbleStreamInit_HappyPath(t *testing.T) {
 
 	assert.False(t, chunks[0].IsClose)
 	assert.Empty(t, chunks[0].Data, "first frame is the activation sentinel")
+	assert.Empty(t, chunks[0].Applied, "a stream without a release line confirms no filter")
 
 	for i, c := range chunks[1:3] {
 		assert.False(t, c.IsClose, "flow chunk %d must not be a close", i)
@@ -339,6 +380,58 @@ func TestAgent_HandleHubbleStreamInit_HappyPath(t *testing.T) {
 	assert.Empty(t, chunks[3].Data, "clean EOF close carries no error message")
 
 	assert.Empty(t, agent.hubbleStreams, "session must be deregistered on stream completion")
+}
+
+func TestAgent_HandleHubbleStreamInit_ReleaseLineConfirmedOnSentinel(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+
+	var captured *observer.GetFlowsRequest
+	prev := openHubbleFlowStream
+	openHubbleFlowStream = func(_ context.Context, _ string, req *observer.GetFlowsRequest) (hubbleFlowStream, func(), error) {
+		captured = req
+		return &fakeFlowStream{}, func() {}, nil
+	}
+	t.Cleanup(func() { openHubbleFlowStream = prev })
+
+	agent, mock := newHubbleTestAgent(t)
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
+		RequestID: "req-line",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1&project=shop&component=checkout&releaseLine=canary",
+	})
+
+	require.NotNil(t, captured)
+	assert.Contains(t, captured.GetWhitelist()[0].GetSourceLabel()[0], "k8s:openchoreo.dev/release-line=canary")
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.NotEmpty(t, chunks)
+	assert.Equal(t, []string{messaging.AppliedReleaseLine}, chunks[0].Applied)
+}
+
+func TestAgent_HandleHubbleStreamInit_ComponentDefaultsToMainLine(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+
+	var captured *observer.GetFlowsRequest
+	prev := openHubbleFlowStream
+	openHubbleFlowStream = func(_ context.Context, _ string, req *observer.GetFlowsRequest) (hubbleFlowStream, func(), error) {
+		captured = req
+		return &fakeFlowStream{}, func() {}, nil
+	}
+	t.Cleanup(func() { openHubbleFlowStream = prev })
+
+	agent, mock := newHubbleTestAgent(t)
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
+		RequestID: "req-main",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1&project=shop&component=checkout",
+	})
+
+	require.NotNil(t, captured)
+	assert.True(t, strings.HasSuffix(captured.GetWhitelist()[0].GetSourceLabel()[0], ",!k8s:openchoreo.dev/release-line"))
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.NotEmpty(t, chunks)
+	assert.Empty(t, chunks[0].Applied)
 }
 
 // ctxBlockingFlowStream blocks Recv until its ctx is cancelled, then returns

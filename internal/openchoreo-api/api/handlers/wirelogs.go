@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
@@ -56,6 +58,16 @@ func findFlusher(w http.ResponseWriter) (http.Flusher, bool) {
 var wirelogsNameRE = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 const wirelogsMaxNameLen = 63
+
+var errWirelogsReleaseLineNotFound = errors.New("release line not found")
+
+// wirelogsFilter holds the optional filters of a wirelogs request.
+type wirelogsFilter struct {
+	project         string
+	component       string
+	releaseLine     string
+	allReleaseLines bool
+}
 
 // WirelogsHandler streams Cilium Hubble flow events for an environment (optionally filtered by project/component)
 // as a Server-Sent Events response.
@@ -100,7 +112,7 @@ func NewWirelogsHandler(k8sClient client.Client, gwClient *gatewayClient.Client,
 
 // ServeHTTP authorizes the caller, resolves the target data plane, and proxies
 // the gateway's SSE stream to the client.
-// URL: /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs?project=&component=
+// URL: /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs?project=&component=&releaseLine=&allReleaseLines=
 func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace, environment, ok := parseWirelogsPath(r)
 	if !ok {
@@ -108,32 +120,22 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project := r.URL.Query().Get("project")
-	component := r.URL.Query().Get("component")
-
-	if component != "" && project == "" {
-		http.Error(w, "component filter requires project filter", http.StatusBadRequest)
+	filter, err := parseWirelogsFilter(r.URL.Query())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	if len(namespace) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(namespace) {
+	if !isWirelogsName(namespace) {
 		http.Error(w, "invalid namespace parameter", http.StatusBadRequest)
 		return
 	}
-	if len(environment) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(environment) {
+	if !isWirelogsName(environment) {
 		http.Error(w, "invalid environment parameter", http.StatusBadRequest)
 		return
 	}
-	if project != "" && (len(project) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(project)) {
-		http.Error(w, "invalid project parameter", http.StatusBadRequest)
-		return
-	}
-	if component != "" && (len(component) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(component)) {
-		http.Error(w, "invalid component parameter", http.StatusBadRequest)
-		return
-	}
+	project, component, releaseLine := filter.project, filter.component, filter.releaseLine
 
-	checkReq := wirelogsCheckRequest(namespace, environment, project, component)
+	checkReq := wirelogsCheckRequest(namespace, environment, project, component, releaseLine)
 
 	// The middleware's pre-handler seed can't fill resource.namespace for
 	// this route (its path parameter isn't "namespaceName"), so set it here
@@ -147,6 +149,7 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	audit.SetHierarchy(r.Context(), audit.Hierarchy{
 		Namespace:   namespace,
 		Environment: checkReq.Context.Resource.Environment,
+		ReleaseLine: checkReq.Context.Resource.ReleaseLine,
 	})
 
 	ctx := r.Context()
@@ -155,6 +158,8 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"environment", environment,
 		"project", project,
 		"component", component,
+		"releaseLine", releaseLine,
+		"allReleaseLines", filter.allReleaseLines,
 	)
 
 	if h.authzChecker == nil {
@@ -190,12 +195,64 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.proxyWirelogsStream(ctx, w, logger, namespace, environment, project, component)
+	// After authz, so unauthorized callers can't probe which lines exist.
+	if releaseLine != "" {
+		if err := h.checkReleaseLine(ctx, namespace, project, component, releaseLine); err != nil {
+			if errors.Is(err, errWirelogsReleaseLineNotFound) {
+				http.Error(w, fmt.Sprintf("release line %q not found for component %q", releaseLine, component), http.StatusNotFound)
+				return
+			}
+			logger.Error("Failed to look up release line for wirelogs", "error", err)
+			http.Error(w, "failed to look up release line", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	h.proxyWirelogsStream(ctx, w, logger, namespace, environment, filter)
+}
+
+// parseWirelogsFilter reads and validates the filters of a wirelogs request.
+func parseWirelogsFilter(query url.Values) (wirelogsFilter, error) {
+	filter := wirelogsFilter{project: query.Get("project"), component: query.Get("component")}
+	rawReleaseLine := query.Get("releaseLine")
+	if v := query.Get("allReleaseLines"); v != "" {
+		all, err := strconv.ParseBool(v)
+		if err != nil {
+			return filter, errors.New("invalid allReleaseLines parameter")
+		}
+		filter.allReleaseLines = all
+	}
+
+	switch {
+	case filter.component != "" && filter.project == "":
+		return filter, errors.New("component filter requires project filter")
+	case (rawReleaseLine != "" || filter.allReleaseLines) && filter.component == "":
+		return filter, errors.New("releaseLine and allReleaseLines require component filter")
+	case rawReleaseLine != "" && filter.allReleaseLines:
+		return filter, errors.New("set releaseLine or allReleaseLines, not both")
+	}
+	filter.releaseLine = releaseline.Normalize(rawReleaseLine)
+
+	for _, p := range []struct{ name, value string }{
+		{"project", filter.project},
+		{"component", filter.component},
+		{"releaseLine", filter.releaseLine},
+	} {
+		if p.value != "" && !isWirelogsName(p.value) {
+			return filter, fmt.Errorf("invalid %s parameter", p.name)
+		}
+	}
+	return filter, nil
+}
+
+// isWirelogsName reports whether s is a k8s name the gateway accepts.
+func isWirelogsName(s string) bool {
+	return len(s) <= wirelogsMaxNameLen && wirelogsNameRE.MatchString(s)
 }
 
 // proxyWirelogsStream resolves the target data plane and proxies the gateway's
 // SSE stream to the client.
-func (h *WirelogsHandler) proxyWirelogsStream(ctx context.Context, w http.ResponseWriter, logger *slog.Logger, namespace, environment, project, component string) {
+func (h *WirelogsHandler) proxyWirelogsStream(ctx context.Context, w http.ResponseWriter, logger *slog.Logger, namespace, environment string, filter wirelogsFilter) {
 	plane, err := h.resolvePlane(ctx, namespace, environment)
 	if err != nil {
 		logger.Error("Failed to resolve data plane for wirelogs", "error", err)
@@ -220,7 +277,7 @@ func (h *WirelogsHandler) proxyWirelogsStream(ctx context.Context, w http.Respon
 		logger.Warn("Failed to disable write deadline for SSE stream", "error", err)
 	}
 
-	gwURL, err := h.buildGatewayWirelogsURL(plane, namespace, environment, project, component)
+	gwURL, err := h.buildGatewayWirelogsURL(plane, namespace, environment, filter)
 	if err != nil {
 		logger.Error("Failed to build gateway wirelogs URL", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -289,9 +346,9 @@ func (fw *sseFlushingWriter) Write(p []byte) (int, error) {
 
 // wirelogsCheckRequest derives the most-specific authz scope from the supplied filters. The environment
 // is always exposed via Context so CEL policies can scope per-environment.
-func wirelogsCheckRequest(namespace, environment, project, component string) svcpkg.CheckRequest {
+func wirelogsCheckRequest(namespace, environment, project, component, releaseLine string) svcpkg.CheckRequest {
 	envAttr := svcpkg.FormatDualScopedResourceName(namespace, environment, false)
-	authzCtx := authz.Context{Resource: authz.ResourceAttribute{Environment: envAttr}}
+	authzCtx := authz.Context{Resource: authz.ResourceAttribute{Environment: envAttr, ReleaseLine: releaseLine}}
 
 	switch {
 	case component != "":
@@ -343,6 +400,21 @@ func (h *WirelogsHandler) resolveComponentProject(ctx context.Context, namespace
 	return comp.Spec.Owner.ProjectName, nil
 }
 
+// checkReleaseLine returns errWirelogsReleaseLineNotFound unless releaseLine is a line of the component.
+func (h *WirelogsHandler) checkReleaseLine(ctx context.Context, namespace, project, component, releaseLine string) error {
+	rl := &openchoreov1alpha1.ReleaseLine{}
+	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: releaseLine}, rl); err != nil {
+		if apierrors.IsNotFound(err) {
+			return errWirelogsReleaseLineNotFound
+		}
+		return fmt.Errorf("failed to look up release line %q: %w", releaseLine, err)
+	}
+	if rl.Spec.Owner.ProjectName != project || rl.Spec.Owner.ComponentName != component {
+		return errWirelogsReleaseLineNotFound
+	}
+	return nil
+}
+
 // resolvePlane resolves the data plane for an environment.
 func (h *WirelogsHandler) resolvePlane(ctx context.Context, namespace, environment string) (execPlaneInfo, error) {
 	env := &openchoreov1alpha1.Environment{}
@@ -366,7 +438,7 @@ func (h *WirelogsHandler) resolvePlane(ctx context.Context, namespace, environme
 }
 
 // buildGatewayWirelogsURL constructs the HTTPS URL for the gateway wirelogs SSE endpoint.
-func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, namespace, environment, project, component string) (string, error) {
+func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, namespace, environment string, filter wirelogsFilter) (string, error) {
 	u, err := url.Parse(h.gatewayURL)
 	if err != nil {
 		return "", err
@@ -387,11 +459,17 @@ func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, namespace
 	q := u.Query()
 	q.Set("namespace", namespace)
 	q.Set("environment", environment)
-	if project != "" {
-		q.Set("project", project)
+	if filter.project != "" {
+		q.Set("project", filter.project)
 	}
-	if component != "" {
-		q.Set("component", component)
+	if filter.component != "" {
+		q.Set("component", filter.component)
+	}
+	if filter.releaseLine != "" {
+		q.Set("releaseLine", filter.releaseLine)
+	}
+	if filter.allReleaseLines {
+		q.Set("allReleaseLines", "true")
 	}
 	u.RawQuery = q.Encode()
 

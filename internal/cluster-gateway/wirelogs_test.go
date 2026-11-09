@@ -303,3 +303,100 @@ func TestHandleWirelogs_HappyPath(t *testing.T) {
 
 	assert.Empty(t, s.pendingStreamSessions, "session must be deregistered after stream ends")
 }
+
+// runWirelogs serves one request against an agent that answers with chunks.
+func runWirelogs(t *testing.T, query string, chunks ...*messaging.HTTPTunnelStreamChunk) (*flushingRecorder, [][]byte) {
+	t.Helper()
+	s := newWirelogsTestServer()
+	fake := &fakeAgentConn{
+		onInit: func(_ []byte) {
+			go func() {
+				for _, c := range chunks {
+					c.RequestID = "test-wirelogs-req"
+					s.handleStreamChunk(c)
+				}
+			}()
+		},
+	}
+	stubGetAgentConnectionForWirelogs(t, fake, nil)
+
+	req, cancel := newWirelogsRequest(t, "/api/wirelogs/dataplane/p1/ns1/cr1", query)
+	defer cancel()
+	rec := newFlushingRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		s.handleWirelogs(rec, req)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handler did not exit")
+	}
+	return rec, fake.sentMessages()
+}
+
+func decodeInit(t *testing.T, sent [][]byte) messaging.HTTPTunnelStreamInit {
+	t.Helper()
+	require.NotEmpty(t, sent)
+	var init messaging.HTTPTunnelStreamInit
+	require.NoError(t, json.Unmarshal(sent[0], &init))
+	return init
+}
+
+func TestHandleWirelogs_ReleaseLineNotAppliedByAgent(t *testing.T) {
+	rec, sent := runWirelogs(t, "environment=dev&namespace=ns&project=shopfront&component=checkout&releaseLine=canary",
+		&messaging.HTTPTunnelStreamChunk{},
+		&messaging.HTTPTunnelStreamChunk{Data: []byte(`{"flow":"a"}`)},
+	)
+
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Contains(t, rec.Body.String(), "does not support filtering wirelogs by release line")
+	assert.NotContains(t, rec.Body.String(), `{"flow":"a"}`)
+
+	require.Len(t, sent, 2, "init, then a close for the stream the gateway gave up on")
+	var closeChunk messaging.HTTPTunnelStreamChunk
+	require.NoError(t, json.Unmarshal(sent[1], &closeChunk))
+	assert.True(t, closeChunk.IsClose)
+	assert.Equal(t, "test-wirelogs-req", closeChunk.RequestID)
+}
+
+func TestHandleWirelogs_ReleaseLineAppliedByAgent(t *testing.T) {
+	rec, sent := runWirelogs(t, "environment=dev&namespace=ns&project=shopfront&component=checkout&releaseLine=canary",
+		&messaging.HTTPTunnelStreamChunk{Applied: []string{messaging.AppliedReleaseLine}},
+		&messaging.HTTPTunnelStreamChunk{Data: []byte(`{"flow":"a"}`)},
+		&messaging.HTTPTunnelStreamChunk{IsClose: true},
+	)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "data: {\"flow\":\"a\"}\n\n", rec.Body.String())
+	assert.Contains(t, decodeInit(t, sent).Query, "releaseLine=canary")
+}
+
+func TestHandleWirelogs_LineScopesWithoutConfirmation(t *testing.T) {
+	tests := []struct {
+		name      string
+		query     string
+		wantQuery string
+		denyQuery string
+	}{
+		{"all lines", "environment=dev&namespace=ns&project=shopfront&component=checkout&allReleaseLines=true", "allReleaseLines=true", "releaseLine="},
+		{"main line", "environment=dev&namespace=ns&project=shopfront&component=checkout", "component=checkout", "releaseLine"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, sent := runWirelogs(t, tt.query,
+				&messaging.HTTPTunnelStreamChunk{},
+				&messaging.HTTPTunnelStreamChunk{Data: []byte(`{"flow":"a"}`)},
+				&messaging.HTTPTunnelStreamChunk{IsClose: true},
+			)
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			assert.Equal(t, "data: {\"flow\":\"a\"}\n\n", rec.Body.String())
+			query := decodeInit(t, sent).Query
+			assert.Contains(t, query, tt.wantQuery)
+			assert.NotContains(t, query, tt.denyQuery)
+		})
+	}
+}

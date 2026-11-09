@@ -17,10 +17,12 @@ import (
 // out-of-scope (peers — typically platform infra such as the otel-collector,
 // control-plane services, or sidecars in other tenants' namespaces).
 type wirelogsScope struct {
-	environment string
-	namespace   string
-	project     string
-	component   string
+	environment     string
+	namespace       string
+	project         string
+	component       string
+	releaseLine     string
+	allReleaseLines bool
 }
 
 const k8sLabelPrefix = "k8s:"
@@ -75,9 +77,10 @@ func redactEndpoint(ep *flow.Endpoint, scope wirelogsScope) {
 }
 
 // endpointInScope returns true when the endpoint carries every openchoreo label
-// the caller requested. We match by label (not by k8s namespace) because the
-// hubble whitelist already does, and DP-side pods live in derived
-// `dp-<...>` namespaces that don't match the openchoreo namespace name.
+// the caller requested, and for a component, is on the line the caller follows.
+// We match by label (not by k8s namespace) because the hubble whitelist already
+// does, and DP-side pods live in derived `dp-<...>` namespaces that don't match
+// the openchoreo namespace name.
 func endpointInScope(ep *flow.Endpoint, scope wirelogsScope) bool {
 	if ep == nil {
 		return false
@@ -93,16 +96,26 @@ func endpointInScope(ep *flow.Endpoint, scope wirelogsScope) bool {
 		want[labels.LabelKeyComponentName] = scope.component
 	}
 	matchedKeys := make(map[string]struct{}, len(want))
+	line := ""
 	for _, l := range ep.Labels {
 		k, v, ok := parseLabel(l)
 		if !ok {
 			continue
 		}
+		if k == labels.LabelKeyReleaseLine {
+			line = v
+		}
 		if w, needs := want[k]; needs && w == v {
 			matchedKeys[k] = struct{}{}
 		}
 	}
-	return len(matchedKeys) == len(want)
+	if len(matchedKeys) != len(want) {
+		return false
+	}
+	if scope.component == "" || scope.allReleaseLines {
+		return true
+	}
+	return line == scope.releaseLine
 }
 
 func filterLabels(in []string, inScope bool) []string {

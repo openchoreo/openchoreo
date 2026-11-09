@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -26,16 +27,24 @@ import (
 // buildHubbleFlowFilters returns the OR'd whitelist of FlowFilters used to follow
 // Hubble flows for components in the specified environment. The list contains two filters
 // so flows match when the matching pods are EITHER source OR destination.
-func buildHubbleFlowFilters(component, project, environment, namespace string) []*flow.FlowFilter {
+func buildHubbleFlowFilters(scope wirelogsScope) []*flow.FlowFilter {
 	parts := []string{
-		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyNamespaceName, namespace),
-		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyEnvironmentName, environment),
+		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyNamespaceName, scope.namespace),
+		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyEnvironmentName, scope.environment),
 	}
-	if project != "" {
-		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyProjectName, project))
+	if scope.project != "" {
+		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyProjectName, scope.project))
 	}
-	if component != "" {
-		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyComponentName, component))
+	if scope.component != "" {
+		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyComponentName, scope.component))
+		// The main line's pods carry no release line label.
+		if !scope.allReleaseLines {
+			if scope.releaseLine != "" {
+				parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyReleaseLine, scope.releaseLine))
+			} else {
+				parts = append(parts, "!k8s:"+labels.LabelKeyReleaseLine)
+			}
+		}
 	}
 	selector := strings.Join(parts, ",")
 	return []*flow.FlowFilter{
@@ -45,10 +54,10 @@ func buildHubbleFlowFilters(component, project, environment, namespace string) [
 }
 
 // newGetFlowsRequest assembles the live-tail flow request for the specified filters.
-func newGetFlowsRequest(component, project, environment, namespace string) *observer.GetFlowsRequest {
+func newGetFlowsRequest(scope wirelogsScope) *observer.GetFlowsRequest {
 	return &observer.GetFlowsRequest{
 		Follow:    true,
-		Whitelist: buildHubbleFlowFilters(component, project, environment, namespace),
+		Whitelist: buildHubbleFlowFilters(scope),
 	}
 }
 
@@ -138,12 +147,21 @@ func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messagin
 		a.sendStreamClose(init.RequestID, fmt.Sprintf("invalid hubble query: %v", err))
 		return
 	}
-	environment := params.Get("environment")
-	namespace := params.Get("namespace")
-	project := params.Get("project")
-	component := params.Get("component")
-	if environment == "" || namespace == "" {
+	allReleaseLines, _ := strconv.ParseBool(params.Get("allReleaseLines"))
+	scope := wirelogsScope{
+		environment:     params.Get("environment"),
+		namespace:       params.Get("namespace"),
+		project:         params.Get("project"),
+		component:       params.Get("component"),
+		releaseLine:     params.Get("releaseLine"),
+		allReleaseLines: allReleaseLines,
+	}
+	if scope.environment == "" || scope.namespace == "" {
 		a.sendStreamClose(init.RequestID, "environment and namespace query params are required")
+		return
+	}
+	if scope.releaseLine != "" && scope.allReleaseLines {
+		a.sendStreamClose(init.RequestID, "set releaseLine or allReleaseLines, not both")
 		return
 	}
 
@@ -180,10 +198,11 @@ func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messagin
 	}
 	logger = logger.With(
 		"hubbleRelay", relayAddr,
-		"component", component, "project", project, "environment", environment, "namespace", namespace,
+		"component", scope.component, "project", scope.project, "environment", scope.environment, "namespace", scope.namespace,
+		"releaseLine", scope.releaseLine, "allReleaseLines", scope.allReleaseLines,
 	)
 
-	stream, closer, err := openHubbleFlowStream(ctx, relayAddr, newGetFlowsRequest(component, project, environment, namespace))
+	stream, closer, err := openHubbleFlowStream(ctx, relayAddr, newGetFlowsRequest(scope))
 	if err != nil {
 		logger.Error("failed to open hubble flow stream", "error", err)
 		a.sendStreamClose(init.RequestID, err.Error())
@@ -192,19 +211,17 @@ func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messagin
 	defer closer()
 
 	// Sentinel chunk so the gateway knows the stream is active
-	a.sendStreamChunkRaw(init.RequestID, []byte{}, 0)
+	sentinel := &messaging.HTTPTunnelStreamChunk{RequestID: init.RequestID, Data: []byte{}}
+	if scope.component != "" && scope.releaseLine != "" {
+		sentinel.Applied = []string{messaging.AppliedReleaseLine}
+	}
+	_ = a.sendStreamChunk(sentinel)
 
 	logger.Info("Hubble flow stream started")
 
 	marshalOpts := protojson.MarshalOptions{
 		UseProtoNames:   true,
 		EmitUnpopulated: false,
-	}
-	scope := wirelogsScope{
-		environment: environment,
-		namespace:   namespace,
-		project:     project,
-		component:   component,
 	}
 
 	for {

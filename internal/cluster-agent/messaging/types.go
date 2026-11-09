@@ -111,11 +111,14 @@ type HTTPTunnelStreamInit struct {
 }
 
 type HTTPTunnelStreamChunk struct {
-	RequestID string `json:"requestID"`
-	Data      []byte `json:"data"`
-	StreamID  int    `json:"streamId,omitempty"` // For multiplexed streams (SPDY)
-	IsClose   bool   `json:"isClose,omitempty"`  // True when stream ends
+	RequestID string   `json:"requestID"`
+	Data      []byte   `json:"data"`
+	StreamID  int      `json:"streamId,omitempty"` // For multiplexed streams (SPDY)
+	IsClose   bool     `json:"isClose,omitempty"`  // True when stream ends
+	Applied   []string `json:"applied,omitempty"`  // Init params the agent applied, on the first chunk
 }
+
+const AppliedReleaseLine = "releaseLine"
 
 type HTTPTunnelStreamResponse struct {
 	RequestID  string              `json:"requestID"`
