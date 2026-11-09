@@ -249,6 +249,15 @@ spec:
           value: "require"
         {{- end }}
         {{- end }}
+        {{- if and .Values.backstage.startupProbe .Values.backstage.startupProbe.enabled }}
+        startupProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          periodSeconds: {{ .Values.backstage.startupProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.backstage.startupProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.backstage.startupProbe.failureThreshold }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthcheck
