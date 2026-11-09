@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -103,7 +104,7 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 		Return(&authz.Decision{Decision: false, Context: &authz.DecisionContext{Reason: "no wirelogs:view"}}, nil)
 
 	h := &WirelogsHandler{
-		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("ns-a", "checkout", "demo")),
+		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("checkout", "demo")),
 		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
 		logger:       slog.Default(),
 	}
@@ -116,9 +117,9 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 
 // wirelogsComponent builds a minimal Component owned by the given project, enough
 // for the handler to resolve the component's owning project before authorizing.
-func wirelogsComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+func wirelogsComponent(name, project string) *openchoreov1alpha1.Component {
 	return &openchoreov1alpha1.Component{
-		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-a", Name: name},
 		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
 		},
@@ -157,7 +158,7 @@ func captureAuthzRequest(t *testing.T, path string, objs ...client.Object) *auth
 func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
 	req := captureAuthzRequest(t,
 		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout",
-		wirelogsComponent("ns-a", "checkout", "demo"))
+		wirelogsComponent("checkout", "demo"))
 
 	assert.Equal(t, authz.ActionViewWirelogs, req.Action, "wirelogs must check its own action, not logs:view")
 	assert.Equal(t, "component", req.Resource.Type)
@@ -176,7 +177,7 @@ func TestWirelogsHandler_DeniesComponentProjectMismatch(t *testing.T) {
 	// No Evaluate expectation → the mock fails the test if authz is reached.
 	pdp := authzmocks.NewMockPDP(t)
 	h := &WirelogsHandler{
-		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("ns-a", "checkout", "team-b")),
+		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("checkout", "team-b")),
 		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
 		logger:       slog.Default(),
 	}
@@ -249,7 +250,7 @@ func TestBuildGatewayWirelogsURL_AllFilters(t *testing.T) {
 		planeID:     "prod-cluster",
 		crNamespace: "team-a",
 		crName:      "prod-dp",
-	}, "ns-a", "development", "shopfront", "checkout")
+	}, "ns-a", "development", wirelogsFilter{project: "shopfront", component: "checkout", releaseLine: "canary"})
 	require.NoError(t, err)
 
 	assert.Contains(t, got, "https://gw.example.com:8443/api/wirelogs/dataplane/prod-cluster/team-a/prod-dp")
@@ -257,6 +258,23 @@ func TestBuildGatewayWirelogsURL_AllFilters(t *testing.T) {
 	assert.Contains(t, got, "environment=development")
 	assert.Contains(t, got, "project=shopfront")
 	assert.Contains(t, got, "component=checkout")
+	assert.Contains(t, got, "releaseLine=canary")
+	assert.NotContains(t, got, "allReleaseLines")
+}
+
+func TestBuildGatewayWirelogsURL_AllReleaseLines(t *testing.T) {
+	h := &WirelogsHandler{gatewayURL: "https://gw.example.com:8443"}
+
+	got, err := h.buildGatewayWirelogsURL(execPlaneInfo{
+		planeType:   "dataplane",
+		planeID:     "prod-cluster",
+		crNamespace: "team-a",
+		crName:      "prod-dp",
+	}, "ns-a", "development", wirelogsFilter{project: "shopfront", component: "checkout", allReleaseLines: true})
+	require.NoError(t, err)
+
+	assert.Contains(t, got, "allReleaseLines=true")
+	assert.NotContains(t, got, "releaseLine=")
 }
 
 func TestBuildGatewayWirelogsURL_OmitsBlankFilters(t *testing.T) {
@@ -267,13 +285,14 @@ func TestBuildGatewayWirelogsURL_OmitsBlankFilters(t *testing.T) {
 		planeID:     "prod-cluster",
 		crNamespace: "team-a",
 		crName:      "prod-dp",
-	}, "ns-a", "development", "", "")
+	}, "ns-a", "development", wirelogsFilter{})
 	require.NoError(t, err)
 
 	assert.Contains(t, got, "namespace=ns-a")
 	assert.Contains(t, got, "environment=development")
 	assert.NotContains(t, got, "project=")
 	assert.NotContains(t, got, "component=")
+	assert.NotContains(t, got, "eleaseLine")
 }
 
 // --- ServeHTTP path coverage with a fake k8s client ----------------------
@@ -330,6 +349,7 @@ func TestWirelogsHandler_RejectsInvalidNameParams(t *testing.T) {
 		{"environment uppercase", "/api/v1/namespaces/ns-a/environments/DEV/wirelogs", "invalid environment parameter"},
 		{"project uppercase", "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=DEMO", "invalid project parameter"},
 		{"component uppercase", "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=Checkout", "invalid component parameter"},
+		{"release line uppercase", "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout&releaseLine=Canary", "invalid releaseLine parameter"},
 	}
 
 	for _, tc := range cases {
@@ -556,4 +576,151 @@ func TestNewWirelogsHandler_InitialisesHTTPClient(t *testing.T) {
 	assert.NotZero(t, tr.TLSHandshakeTimeout, "TLSHandshakeTimeout must be set to bound the handshake")
 	assert.NotZero(t, tr.ResponseHeaderTimeout, "ResponseHeaderTimeout must be set so a stuck gateway can't block before the stream starts")
 	assert.NotNil(t, tr.DialContext, "DialContext must be set to bound TCP connect")
+}
+
+// wirelogsReleaseLine builds a ReleaseLine owned by the given component.
+func wirelogsReleaseLine(name, project, component string) *openchoreov1alpha1.ReleaseLine {
+	return &openchoreov1alpha1.ReleaseLine{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-a", Name: name},
+		Spec: openchoreov1alpha1.ReleaseLineSpec{
+			Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: project, ComponentName: component},
+		},
+	}
+}
+
+func TestWirelogsHandler_RejectsInvalidReleaseLineParams(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"release line without component", "project=demo&releaseLine=canary", "require component filter"},
+		{"all lines without component", "project=demo&allReleaseLines=true", "require component filter"},
+		{"release line and all lines", "project=demo&component=checkout&releaseLine=canary&allReleaseLines=true", "not both"},
+		{"main and all lines", "project=demo&component=checkout&releaseLine=main&allReleaseLines=true", "not both"},
+		{"allReleaseLines not a bool", "project=demo&component=checkout&allReleaseLines=yes", "invalid allReleaseLines parameter"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := &WirelogsHandler{
+				authzChecker: svcpkg.NewAuthzChecker(authzmocks.NewMockPDP(t), slog.Default()),
+				logger:       slog.Default(),
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?"+tc.query))
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Contains(t, rec.Body.String(), tc.want)
+		})
+	}
+}
+
+func TestWirelogsHandler_AuthzScope_ReleaseLine(t *testing.T) {
+	req := captureAuthzRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout&releaseLine=canary",
+		wirelogsComponent("checkout", "demo"))
+
+	assert.Equal(t, "component", req.Resource.Type)
+	assert.Equal(t, "canary", req.Context.Resource.ReleaseLine)
+}
+
+func TestWirelogsHandler_AuthzScope_MainLineIsNoReleaseLine(t *testing.T) {
+	req := captureAuthzRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout&releaseLine=main",
+		wirelogsComponent("checkout", "demo"))
+
+	assert.Empty(t, req.Context.Resource.ReleaseLine)
+}
+
+func TestWirelogsHandler_ReleaseLineNotFound(t *testing.T) {
+	cases := []struct {
+		name string
+		objs []client.Object
+	}{
+		{"no such line", nil},
+		{"line of another component", []client.Object{wirelogsComponent("payments", "demo"), wirelogsReleaseLine("canary", "demo", "payments")}},
+		{"line of another project", []client.Object{wirelogsReleaseLine("canary", "other", "checkout")}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			objs := append([]client.Object{wirelogsComponent("checkout", "demo")}, tc.objs...)
+			h := &WirelogsHandler{
+				k8sClient:    newWirelogsK8sClient(t, objs...),
+				authzChecker: allowingAuthz(t),
+				logger:       slog.Default(),
+			}
+
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, wirelogsRequest(t,
+				"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout&releaseLine=canary"))
+
+			assert.Equal(t, http.StatusNotFound, rec.Code)
+			assert.Contains(t, rec.Body.String(), `release line "canary" not found for component "checkout"`)
+		})
+	}
+}
+
+func TestWirelogsHandler_ReleaseLineCheckedAfterAuthz(t *testing.T) {
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authz.Decision{Decision: false, Context: &authz.DecisionContext{}}, nil)
+	h := &WirelogsHandler{
+		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("checkout", "demo")),
+		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
+		logger:       slog.Default(),
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, wirelogsRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout&releaseLine=ghost"))
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestWirelogsHandler_ForwardsReleaseScope(t *testing.T) {
+	cases := []struct {
+		name     string
+		query    string
+		wantLine string
+		wantAll  string
+	}{
+		{"release line", "&releaseLine=canary", "canary", ""},
+		{"main line by name", "&releaseLine=main", "", ""},
+		{"main line by default", "", "", ""},
+		{"all lines", "&allReleaseLines=true", "", "true"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.URL.Query()
+				w.Header().Set("Content-Type", "text/event-stream")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer srv.Close()
+
+			objs := append(seedEnvAndDP(),
+				wirelogsComponent("checkout", "demo"),
+				wirelogsReleaseLine("canary", "demo", "checkout"))
+			h := &WirelogsHandler{
+				k8sClient:    newWirelogsK8sClient(t, objs...),
+				authzChecker: allowingAuthz(t),
+				logger:       slog.Default(),
+				gatewayURL:   srv.URL,
+				httpClient:   srv.Client(),
+			}
+
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, wirelogsRequest(t,
+				"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout"+tc.query))
+
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			require.NotNil(t, got)
+			assert.Equal(t, "checkout", got.Get("component"))
+			assert.Equal(t, tc.wantLine, got.Get("releaseLine"))
+			assert.Equal(t, tc.wantAll, got.Get("allReleaseLines"))
+		})
+	}
 }

@@ -206,6 +206,50 @@ func TestEndpointInScope_DuplicateLabelsDoNotInflateMatch(t *testing.T) {
 		"missing project+component must still mark endpoint out-of-scope despite duplicate matches on namespace/environment")
 }
 
+// lineEndpoint is a pod of tenantScope's component on the given release line; empty is the main line.
+func lineEndpoint(line string) *flow.Endpoint {
+	ls := []string{
+		"k8s:openchoreo.dev/namespace=default",
+		"k8s:openchoreo.dev/environment=development",
+		"k8s:openchoreo.dev/project=url-shortener",
+		"k8s:openchoreo.dev/component=snip-api-service",
+	}
+	if line != "" {
+		ls = append(ls, "k8s:openchoreo.dev/release-line="+line)
+	}
+	return &flow.Endpoint{Labels: ls}
+}
+
+func TestEndpointInScope_ReleaseLines(t *testing.T) {
+	mainLine := tenantScope()
+	canary := tenantScope()
+	canary.releaseLine = "canary"
+	all := tenantScope()
+	all.allReleaseLines = true
+	project := wirelogsScope{environment: "development", namespace: "default", project: "url-shortener"}
+
+	tests := []struct {
+		name  string
+		scope wirelogsScope
+		line  string
+		want  bool
+	}{
+		{"main line follows its own pods", mainLine, "", true},
+		{"main line treats a release line's pods as peers", mainLine, "canary", false},
+		{"release line follows its own pods", canary, "canary", true},
+		{"release line treats the main line's pods as peers", canary, "", false},
+		{"release line treats another line's pods as peers", canary, "next", false},
+		{"all lines follow a release line's pods", all, "canary", true},
+		{"all lines follow the main line's pods", all, "", true},
+		{"a project scope follows every line", project, "canary", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, endpointInScope(lineEndpoint(tt.line), tt.scope))
+		})
+	}
+}
+
 func TestFilterLabels_DropsCiliumAndUIDsForInScope(t *testing.T) {
 	got := filterLabels([]string{
 		"k8s:io.cilium.k8s.policy.cluster=default",
