@@ -2972,6 +2972,7 @@ backstage:
     # type: integer
     # description: How often the startup probe is run, in seconds
     # minimum: 1
+    # maximum: 2147483647
     # default: 10
     # @schema
     periodSeconds: 10
@@ -2979,6 +2980,7 @@ backstage:
     # type: integer
     # description: Timeout of each startup probe check, in seconds
     # minimum: 1
+    # maximum: 2147483647
     # default: 10
     # @schema
     timeoutSeconds: 10
@@ -2986,6 +2988,7 @@ backstage:
     # type: integer
     # description: Consecutive failures before the container is restarted. With the defaults, Backstage has up to 5 minutes to start.
     # minimum: 1
+    # maximum: 2147483647
     # default: 30
     # @schema
     failureThreshold: 30

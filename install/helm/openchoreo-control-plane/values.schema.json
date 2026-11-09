@@ -1111,6 +1111,7 @@
             "failureThreshold": {
               "default": 30,
               "description": "Consecutive failures before the container is restarted. With the defaults, Backstage has up to 5 minutes to start.",
+              "maximum": 2147483647,
               "minimum": 1,
               "title": "failureThreshold",
               "type": "integer"
@@ -1118,6 +1119,7 @@
             "periodSeconds": {
               "default": 10,
               "description": "How often the startup probe is run, in seconds",
+              "maximum": 2147483647,
               "minimum": 1,
               "title": "periodSeconds",
               "type": "integer"
@@ -1125,6 +1127,7 @@
             "timeoutSeconds": {
               "default": 10,
               "description": "Timeout of each startup probe check, in seconds",
+              "maximum": 2147483647,
               "minimum": 1,
               "title": "timeoutSeconds",
               "type": "integer"

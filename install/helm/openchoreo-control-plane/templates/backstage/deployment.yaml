@@ -249,7 +249,7 @@ spec:
           value: "require"
         {{- end }}
         {{- end }}
-        {{- if .Values.backstage.startupProbe.enabled }}
+        {{- if and .Values.backstage.startupProbe .Values.backstage.startupProbe.enabled }}
         startupProbe:
           httpGet:
             path: /healthcheck

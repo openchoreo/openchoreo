@@ -140,3 +140,53 @@ func TestBackstageDeployment_StartupProbeDisabled(t *testing.T) {
 		t.Error("the liveness and readiness probes must still be rendered")
 	}
 }
+
+// TestBackstageDeployment_StartupProbeNull checks that clearing the whole
+// startupProbe object with null renders the Deployment without the probe
+// instead of failing on a nil value.
+func TestBackstageDeployment_StartupProbeNull(t *testing.T) {
+	c := renderBackstageContainer(t, "--set", "backstage.startupProbe=null")
+
+	if c.StartupProbe != nil {
+		t.Errorf("backstage.startupProbe=null must not render a startup probe, got %+v", *c.StartupProbe)
+	}
+	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
+		t.Error("the liveness and readiness probes must still be rendered")
+	}
+}
+
+// TestBackstageSchema_StartupProbeFitsInt32 checks that the schema rejects
+// startup probe values Kubernetes cannot store (probe fields are int32), so
+// they fail at render time instead of when the Deployment is applied.
+func TestBackstageSchema_StartupProbeFitsInt32(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed; skipping the startup probe schema check")
+	}
+
+	for _, field := range []string{"periodSeconds", "timeoutSeconds", "failureThreshold"} {
+		t.Run(field, func(t *testing.T) {
+			args := append([]string{
+				"template", "openchoreo", controlPlaneChart,
+				"--namespace", "openchoreo-control-plane",
+				"--show-only", "templates/backstage/deployment.yaml",
+			}, backstageGuardOverrides...)
+
+			ok := exec.CommandContext(t.Context(), helm,
+				append(args, "--set", "backstage.startupProbe."+field+"=2147483647")...)
+			if out, err := ok.CombinedOutput(); err != nil {
+				t.Fatalf("%s=2147483647 must be accepted: %v\n%s", field, err, out)
+			}
+
+			tooBig := exec.CommandContext(t.Context(), helm,
+				append(args, "--set", "backstage.startupProbe."+field+"=2147483648")...)
+			out, err := tooBig.CombinedOutput()
+			if err == nil {
+				t.Fatalf("%s=2147483648 must be rejected by the schema, got:\n%s", field, out)
+			}
+			if !bytes.Contains(out, []byte("maximum")) {
+				t.Errorf("%s=2147483648 must fail on the schema maximum, got:\n%s", field, out)
+			}
+		})
+	}
+}
