@@ -186,3 +186,104 @@ func TestIndexProjectReleaseOwner(t *testing.T) {
 		assert.Nil(t, idxFunc(pr))
 	})
 }
+
+func TestIndexReleaseBindingOwnerEnv(t *testing.T) {
+	mgr := &mockManager{indexer: &mockIndexer{}}
+	require.NoError(t, SetupSharedIndexes(context.Background(), mgr))
+
+	idxFunc := mgr.indexer.indexFuncs[IndexKeyReleaseBindingOwnerEnv]
+	require.NotNil(t, idxFunc)
+
+	t.Run("returns_composite_key_when_all_fields_set", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ReleaseBinding{
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "shop", ComponentName: "greeter"},
+				Environment: "dev",
+			},
+		}
+		got := idxFunc(rb)
+		require.Len(t, got, 1)
+		assert.Equal(t, MakeReleaseBindingOwnerEnvKey("shop", "greeter", "dev"), got[0])
+	})
+
+	cases := []struct {
+		name string
+		spec openchoreov1alpha1.ReleaseBindingSpec
+	}{
+		{
+			name: "empty_project_returns_nil",
+			spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ComponentName: "greeter"},
+				Environment: "dev",
+			},
+		},
+		{
+			name: "empty_component_returns_nil",
+			spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "shop"},
+				Environment: "dev",
+			},
+		},
+		{
+			name: "empty_environment_returns_nil",
+			spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "shop", ComponentName: "greeter"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Nil(t, idxFunc(&openchoreov1alpha1.ReleaseBinding{Spec: tc.spec}),
+				"expected nil index key when a required field is empty")
+		})
+	}
+}
+
+func TestIndexEndpointReleaseOwner(t *testing.T) {
+	mgr := &mockManager{indexer: &mockIndexer{}}
+	require.NoError(t, SetupSharedIndexes(context.Background(), mgr))
+
+	idxFunc := mgr.indexer.indexFuncs[IndexKeyEndpointReleaseOwnerEndpointName]
+	require.NotNil(t, idxFunc)
+
+	t.Run("with_owner_endpoint_name", func(t *testing.T) {
+		er := &openchoreov1alpha1.EndpointRelease{
+			Spec: openchoreov1alpha1.EndpointReleaseSpec{
+				Owner: openchoreov1alpha1.EndpointReleaseOwner{ProjectName: "shop", EndpointName: "greeter-api"},
+			},
+		}
+		got := idxFunc(er)
+		require.Len(t, got, 1)
+		assert.Equal(t, "greeter-api", got[0])
+	})
+
+	t.Run("empty_owner_returns_nil", func(t *testing.T) {
+		assert.Nil(t, idxFunc(&openchoreov1alpha1.EndpointRelease{}))
+	})
+}
+
+func TestIndexEndpointReleaseBindingOwner(t *testing.T) {
+	mgr := &mockManager{indexer: &mockIndexer{}}
+	require.NoError(t, SetupSharedIndexes(context.Background(), mgr))
+
+	idxFunc := mgr.indexer.indexFuncs[IndexKeyEndpointReleaseBindingOwnerEndpointName]
+	require.NotNil(t, idxFunc)
+
+	t.Run("with_owner_endpoint_name", func(t *testing.T) {
+		erb := &openchoreov1alpha1.EndpointReleaseBinding{
+			Spec: openchoreov1alpha1.EndpointReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.EndpointReleaseBindingOwner{ProjectName: "shop", EndpointName: "greeter-api"},
+				Environment: "dev",
+			},
+		}
+		got := idxFunc(erb)
+		require.Len(t, got, 1)
+		assert.Equal(t, "greeter-api", got[0])
+	})
+
+	t.Run("empty_owner_returns_nil", func(t *testing.T) {
+		assert.Nil(t, idxFunc(&openchoreov1alpha1.EndpointReleaseBinding{
+			Spec: openchoreov1alpha1.EndpointReleaseBindingSpec{Environment: "dev"},
+		}))
+	})
+}

@@ -19,6 +19,8 @@ const (
 	ComponentTypeResource ResourceType = iota
 	// TraitResource indicates validation for Trait resources
 	TraitResource
+	// EndpointTypeResource indicates validation for (Cluster)EndpointType resources
+	EndpointTypeResource
 )
 
 // CELValidator provides comprehensive CEL expression validation with AST analysis
@@ -41,6 +43,8 @@ func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidat
 		env, provider, err = buildComponentCELEnv(opts)
 	case TraitResource:
 		env, provider, err = buildTraitCELEnv(opts)
+	case EndpointTypeResource:
+		env, provider, err = buildEndpointCELEnv(opts)
 	default:
 		return nil, fmt.Errorf("unknown resource type: %v", resourceType)
 	}

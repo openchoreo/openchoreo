@@ -73,6 +73,7 @@ rules:
   resources:
     - clustercomponenttypes
     - clusterdataplanes
+    - clusterendpointtypes
     - clusterobservabilityplanes
     - clusterprojecttypes
     - clusterresourcetypes
@@ -84,6 +85,10 @@ rules:
     - componenttypes
     - dataplanes
     - deploymentpipelines
+    - endpointreleasebindings
+    - endpointreleases
+    - endpoints
+    - endpointtypes
     - environments
     - observabilityalertsnotificationchannels
     - observabilityplanes
@@ -115,6 +120,7 @@ rules:
   resources:
     - clustercomponenttypes/finalizers
     - clusterdataplanes/finalizers
+    - clusterendpointtypes/finalizers
     - clusterobservabilityplanes/finalizers
     - clusterprojecttypes/finalizers
     - clusterresourcetypes/finalizers
@@ -126,6 +132,10 @@ rules:
     - componenttypes/finalizers
     - dataplanes/finalizers
     - deploymentpipelines/finalizers
+    - endpointreleasebindings/finalizers
+    - endpointreleases/finalizers
+    - endpoints/finalizers
+    - endpointtypes/finalizers
     - environments/finalizers
     - observabilityalertsnotificationchannels/finalizers
     - observabilityplanes/finalizers
@@ -153,6 +163,7 @@ rules:
   resources:
     - clustercomponenttypes/status
     - clusterdataplanes/status
+    - clusterendpointtypes/status
     - clusterobservabilityplanes/status
     - clusterprojecttypes/status
     - clusterresourcetypes/status
@@ -164,6 +175,10 @@ rules:
     - componenttypes/status
     - dataplanes/status
     - deploymentpipelines/status
+    - endpointreleasebindings/status
+    - endpointreleases/status
+    - endpoints/status
+    - endpointtypes/status
     - environments/status
     - observabilityalertsnotificationchannels/status
     - observabilityplanes/status

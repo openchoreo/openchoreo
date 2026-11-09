@@ -54,15 +54,22 @@ spec:
                   is always required. The optional name fields disambiguate the binding kind:
                     - ComponentName set: produced by a ReleaseBinding (component)
                     - ResourceName set:  produced by a ResourceReleaseBinding
-                    - Both unset:        produced by a ProjectReleaseBinding (project-level
+                    - EndpointName set:  produced by an EndpointReleaseBinding
+                    - All unset:         produced by a ProjectReleaseBinding (project-level
                       infra including the cell namespace)
 
-                  At most one of ComponentName or ResourceName may be set.
+                  At most one of ComponentName, ResourceName or EndpointName may be set.
                 properties:
                   componentName:
                     description: |-
                       ComponentName is set when the RenderedRelease is owned by a Component
                       (via ReleaseBinding). Mutually exclusive with ResourceName.
+                    type: string
+                  endpointName:
+                    description: |-
+                      EndpointName is set when the RenderedRelease is owned by an Endpoint
+                      (via EndpointReleaseBinding). Mutually exclusive with ComponentName and
+                      ResourceName.
                     type: string
                   projectName:
                     description: ProjectName is the name of the Project the owner
@@ -82,6 +89,9 @@ spec:
                   rule: self == oldSelf
                 - message: componentName and resourceName both cannot be set
                   rule: '!(has(self.componentName) && has(self.resourceName))'
+                - message: endpointName cannot be set together with componentName
+                    or resourceName
+                  rule: '!has(self.endpointName) || !(has(self.componentName) || has(self.resourceName))'
               progressingInterval:
                 description: |-
                   ProgressingInterval watch interval for the release resources when transitioning.

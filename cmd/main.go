@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterendpointtype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterresourcetype"
@@ -42,6 +43,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointreleasebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointtype"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
@@ -71,12 +76,15 @@ import (
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clusterendpointtypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterendpointtype"
 	clusterresourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterresourcetype"
 	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
 	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
+	endpointreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/endpointrelease"
+	endpointtypewebhook "github.com/openchoreo/openchoreo/internal/webhook/endpointtype"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
 	resourcereleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcerelease"
@@ -210,6 +218,18 @@ func setupControlPlaneControllers(
 		&resource.Reconciler{Client: c, Scheme: s},
 		&resourcerelease.Reconciler{Client: c, Scheme: s},
 		&resourcereleasebinding.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			CELCostLimit:  celCostLimit,
+			RenderTimeout: renderTimeout,
+		},
+		// Endpoint family — templates (cluster-scoped before namespaced),
+		// then instance, immutable release snapshot, per-env binding.
+		&clusterendpointtype.Reconciler{Client: c, Scheme: s},
+		&endpointtype.Reconciler{Client: c, Scheme: s},
+		&endpoint.Reconciler{Client: c, Scheme: s},
+		&endpointrelease.Reconciler{Client: c, Scheme: s},
+		&endpointreleasebinding.Reconciler{
 			Client:        c,
 			Scheme:        s,
 			CELCostLimit:  celCostLimit,
@@ -594,6 +614,9 @@ func main() {
 			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},
 			{"ClusterResourceType", clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager},
 			{"ResourceRelease", resourcereleasewebhook.SetupResourceReleaseWebhookWithManager},
+			{"EndpointType", endpointtypewebhook.SetupEndpointTypeWebhookWithManager},
+			{"ClusterEndpointType", clusterendpointtypewebhook.SetupClusterEndpointTypeWebhookWithManager},
+			{"EndpointRelease", endpointreleasewebhook.SetupEndpointReleaseWebhookWithManager},
 			{"Workflow", workflowwebhook.SetupWorkflowWebhookWithManager},
 			{"ClusterWorkflow", clusterworkflowwebhook.SetupClusterWorkflowWebhookWithManager},
 			{"AuthzRoleBinding", authzrolebindingwebhook.SetupAuthzRoleBindingWebhookWithManager},

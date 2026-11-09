@@ -1,0 +1,40 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: clusterendpointtype-sample
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        pathPrefix:
+          type: string
+          default: /
+  resources:
+    - id: httproute-external
+      includeWhen: ${"external" in visibility}
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "external")}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.endpointName + "." + h)}
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: ${parameters.pathPrefix}
+              backendRefs: |
+                ${backends.map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})}
