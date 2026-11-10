@@ -6466,6 +6466,171 @@ paths:
   # EndpointRelease API
   # =============================================================================
 
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}/rollout:
+    get:
+      operationId: getEndpointRollout
+      summary: Get endpoint rollout
+      description: Returns the Endpoint's rollout plan, its stages and where each environment stands.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      responses:
+        '200':
+          description: The Endpoint's rollout after the call
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRolloutStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}/rollout/start:
+    post:
+      operationId: startEndpointRollout
+      summary: Start endpoint rollout
+      description: Writes the rollout plan, adding or replacing the backends it names in the same update. Refused while a plan is already set.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointRolloutStartRequest'
+      responses:
+        '200':
+          description: The Endpoint's rollout after the call
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRolloutStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}/rollout/step:
+    post:
+      operationId: stepEndpointRollout
+      summary: Step endpoint rollout
+      description: Moves an environment to the next stage, or to the stage given in to, by writing its backendOverrides. expectedStep refuses the change unless the environment is at that stage.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointRolloutStepRequest'
+      responses:
+        '200':
+          description: The Endpoint's rollout after the call
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRolloutStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}/rollout/abort:
+    post:
+      operationId: abortEndpointRollout
+      summary: Abort endpoint rollout
+      description: Moves an environment back to step 0. Weighted traffic goes to the stable backend; requests a candidate's match selects still reach it.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointRolloutAbortRequest'
+      responses:
+        '200':
+          description: The Endpoint's rollout after the call
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRolloutStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpoints/{endpointName}/rollout/finish:
+    post:
+      operationId: finishEndpointRollout
+      summary: Finish endpoint rollout
+      description: Ends the rollout keeping one backend and clears the plan. Refused while a backend that leaves still gets traffic in an environment, except for an abTest.
+      tags: [Endpoints]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndpointRolloutFinishRequest'
+      responses:
+        '200':
+          description: The Endpoint's rollout after the call
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndpointRolloutStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/endpointreleases:
     get:
       operationId: listEndpointReleases
@@ -12594,9 +12759,10 @@ components:
       properties:
         name:
           type: string
-          description: Header name, case-insensitive.
+          description: Header name, case-insensitive. An HTTP token, as the Endpoint CRD requires.
           minLength: 1
           maxLength: 256
+          pattern: '^[A-Za-z0-9!#$%&''*+\-.^_\x60|~]+$'
           example: x-canary
         type:
           type: string
@@ -12728,6 +12894,180 @@ components:
                 minimum: 0
                 maximum: 100
                 example: 25
+
+    EndpointRolloutStartRequest:
+      type: object
+      required:
+        - rollout
+      properties:
+        rollout:
+          $ref: '#/components/schemas/EndpointRollout'
+        backends:
+          type: array
+          description: >-
+            Backends to add, or to replace by name, in the same update. One that
+            names a backend the Endpoint has, without a component, keeps what that
+            backend routes to.
+          items:
+            $ref: '#/components/schemas/EndpointBackendRef'
+        dryRun:
+          type: boolean
+          description: Return the change without writing it.
+
+    EndpointRolloutStepRequest:
+      type: object
+      required:
+        - environment
+      properties:
+        environment:
+          type: string
+          minLength: 1
+          example: dev
+        to:
+          type: integer
+          description: The stage to move to. Defaults to the next one.
+          minimum: 0
+        expectedStep:
+          type: integer
+          description: Refuse the change unless the environment is at this stage, so a retried call can't skip a step. -1 is weights set by hand.
+          minimum: -1
+        dryRun:
+          type: boolean
+          description: Return the change without writing it.
+
+    EndpointRolloutAbortRequest:
+      type: object
+      required:
+        - environment
+      properties:
+        environment:
+          type: string
+          minLength: 1
+          example: dev
+        dryRun:
+          type: boolean
+          description: Return the change without writing it.
+
+    EndpointRolloutFinishRequest:
+      type: object
+      required:
+        - keep
+      properties:
+        keep:
+          type: string
+          description: The backend to keep, stable or a candidate. A mirror rollout finishes keeping stable.
+          minLength: 1
+          example: v2
+        dryRun:
+          type: boolean
+          description: Return the change without writing it.
+
+    EndpointRolloutStage:
+      type: object
+      required:
+        - index
+        - backends
+      properties:
+        index:
+          type: integer
+          description: Stage 0 has every candidate at 0.
+        backends:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - percent
+            properties:
+              name:
+                type: string
+              percent:
+                type: integer
+                format: int32
+
+    EndpointRolloutEnvironment:
+      type: object
+      required:
+        - environment
+        - bindingName
+        - overrides
+        - backends
+        - ready
+      properties:
+        environment:
+          type: string
+        bindingName:
+          type: string
+        endpointRelease:
+          type: string
+        step:
+          type: integer
+          description: The stage the environment's weights match, or -1 when set by hand.
+        percents:
+          type: object
+          description: Each candidate's current share, as a step states it.
+          additionalProperties:
+            type: integer
+            format: int32
+        missing:
+          type: array
+          description: Rollout backends the environment's release doesn't have yet.
+          items:
+            type: string
+        overrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointBackendOverride'
+        backends:
+          type: array
+          description: What the environment serves.
+          items:
+            $ref: '#/components/schemas/ResolvedEndpointBackend'
+        ready:
+          type: boolean
+          description: Whether the environment serves its latest change.
+        message:
+          type: string
+
+    EndpointRolloutChange:
+      type: object
+      description: What the call wrote, or would write on a dry run.
+      properties:
+        environment:
+          type: string
+        before:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointBackendOverride'
+        after:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointBackendOverride'
+        endpoint:
+          $ref: '#/components/schemas/EndpointSpec'
+
+    EndpointRolloutStatus:
+      type: object
+      required:
+        - endpoint
+        - environments
+      properties:
+        endpoint:
+          type: string
+        latestRelease:
+          type: string
+        rollout:
+          $ref: '#/components/schemas/EndpointRollout'
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointRolloutStage'
+        environments:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointRolloutEnvironment'
+        change:
+          $ref: '#/components/schemas/EndpointRolloutChange'
 
     EndpointComponentBackend:
       type: object

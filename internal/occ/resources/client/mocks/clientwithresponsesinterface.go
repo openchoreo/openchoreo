@@ -24,6 +24,159 @@ func (_m *MockClientWithResponsesInterface) EXPECT() *MockClientWithResponsesInt
 	return &MockClientWithResponsesInterface_Expecter{mock: &_m.Mock}
 }
 
+// AbortEndpointRolloutWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) AbortEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AbortEndpointRolloutWithBodyWithResponse")
+	}
+
+	var r0 *gen.AbortEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.AbortEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.AbortEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AbortEndpointRolloutWithBodyWithResponse'
+type MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// AbortEndpointRolloutWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) AbortEndpointRolloutWithBodyWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call{Call: _e.mock.On("AbortEndpointRolloutWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call) Return(_a0 *gen.AbortEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error)) *MockClientWithResponsesInterface_AbortEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AbortEndpointRolloutWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) AbortEndpointRolloutWithResponse(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutAbortRequest, reqEditors ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AbortEndpointRolloutWithResponse")
+	}
+
+	var r0 *gen.AbortEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest, ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest, ...gen.RequestEditorFn) *gen.AbortEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.AbortEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AbortEndpointRolloutWithResponse'
+type MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call struct {
+	*mock.Call
+}
+
+// AbortEndpointRolloutWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - body gen.EndpointRolloutAbortRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) AbortEndpointRolloutWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call {
+	return &MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call{Call: _e.mock.On("AbortEndpointRolloutWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutAbortRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutAbortRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call) Return(_a0 *gen.AbortEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutAbortRequest, ...gen.RequestEditorFn) (*gen.AbortEndpointRolloutResp, error)) *MockClientWithResponsesInterface_AbortEndpointRolloutWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterComponentTypeWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateClusterComponentTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterComponentTypeResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -10086,6 +10239,159 @@ func (_c *MockClientWithResponsesInterface_EvaluatesWithResponse_Call) RunAndRet
 	return _c
 }
 
+// FinishEndpointRolloutWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) FinishEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinishEndpointRolloutWithBodyWithResponse")
+	}
+
+	var r0 *gen.FinishEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.FinishEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.FinishEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinishEndpointRolloutWithBodyWithResponse'
+type MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// FinishEndpointRolloutWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) FinishEndpointRolloutWithBodyWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call{Call: _e.mock.On("FinishEndpointRolloutWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call) Return(_a0 *gen.FinishEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error)) *MockClientWithResponsesInterface_FinishEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FinishEndpointRolloutWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) FinishEndpointRolloutWithResponse(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutFinishRequest, reqEditors ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinishEndpointRolloutWithResponse")
+	}
+
+	var r0 *gen.FinishEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest, ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest, ...gen.RequestEditorFn) *gen.FinishEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.FinishEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinishEndpointRolloutWithResponse'
+type MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call struct {
+	*mock.Call
+}
+
+// FinishEndpointRolloutWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - body gen.EndpointRolloutFinishRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) FinishEndpointRolloutWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call {
+	return &MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call{Call: _e.mock.On("FinishEndpointRolloutWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutFinishRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutFinishRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call) Return(_a0 *gen.FinishEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutFinishRequest, ...gen.RequestEditorFn) (*gen.FinishEndpointRolloutResp, error)) *MockClientWithResponsesInterface_FinishEndpointRolloutWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GenerateReleaseWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, componentName, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) GenerateReleaseWithBodyWithResponse(ctx context.Context, namespaceName string, componentName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.GenerateReleaseResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -12244,6 +12550,81 @@ func (_c *MockClientWithResponsesInterface_GetEndpointReleaseWithResponse_Call) 
 }
 
 func (_c *MockClientWithResponsesInterface_GetEndpointReleaseWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetEndpointReleaseResp, error)) *MockClientWithResponsesInterface_GetEndpointReleaseWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointRolloutWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetEndpointRolloutWithResponse(ctx context.Context, namespaceName string, endpointName string, reqEditors ...gen.RequestEditorFn) (*gen.GetEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointRolloutWithResponse")
+	}
+
+	var r0 *gen.GetEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointRolloutWithResponse'
+type MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetEndpointRolloutWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetEndpointRolloutWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call{Call: _e.mock.On("GetEndpointRolloutWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call) Return(_a0 *gen.GetEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetEndpointRolloutResp, error)) *MockClientWithResponsesInterface_GetEndpointRolloutWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -18969,6 +19350,312 @@ func (_c *MockClientWithResponsesInterface_ListWorkloadsWithResponse_Call) Retur
 }
 
 func (_c *MockClientWithResponsesInterface_ListWorkloadsWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListWorkloadsParams, ...gen.RequestEditorFn) (*gen.ListWorkloadsResp, error)) *MockClientWithResponsesInterface_ListWorkloadsWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartEndpointRolloutWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StartEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartEndpointRolloutWithBodyWithResponse")
+	}
+
+	var r0 *gen.StartEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.StartEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StartEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartEndpointRolloutWithBodyWithResponse'
+type MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// StartEndpointRolloutWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StartEndpointRolloutWithBodyWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call{Call: _e.mock.On("StartEndpointRolloutWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call) Return(_a0 *gen.StartEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error)) *MockClientWithResponsesInterface_StartEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartEndpointRolloutWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StartEndpointRolloutWithResponse(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutStartRequest, reqEditors ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartEndpointRolloutWithResponse")
+	}
+
+	var r0 *gen.StartEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStartRequest, ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStartRequest, ...gen.RequestEditorFn) *gen.StartEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StartEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutStartRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartEndpointRolloutWithResponse'
+type MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call struct {
+	*mock.Call
+}
+
+// StartEndpointRolloutWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - body gen.EndpointRolloutStartRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StartEndpointRolloutWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call {
+	return &MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call{Call: _e.mock.On("StartEndpointRolloutWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutStartRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutStartRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call) Return(_a0 *gen.StartEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutStartRequest, ...gen.RequestEditorFn) (*gen.StartEndpointRolloutResp, error)) *MockClientWithResponsesInterface_StartEndpointRolloutWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StepEndpointRolloutWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StepEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StepEndpointRolloutWithBodyWithResponse")
+	}
+
+	var r0 *gen.StepEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.StepEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StepEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StepEndpointRolloutWithBodyWithResponse'
+type MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// StepEndpointRolloutWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StepEndpointRolloutWithBodyWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call{Call: _e.mock.On("StepEndpointRolloutWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call) Return(_a0 *gen.StepEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error)) *MockClientWithResponsesInterface_StepEndpointRolloutWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StepEndpointRolloutWithResponse provides a mock function with given fields: ctx, namespaceName, endpointName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) StepEndpointRolloutWithResponse(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutStepRequest, reqEditors ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StepEndpointRolloutWithResponse")
+	}
+
+	var r0 *gen.StepEndpointRolloutResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStepRequest, ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error)); ok {
+		return rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStepRequest, ...gen.RequestEditorFn) *gen.StepEndpointRolloutResp); ok {
+		r0 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.StepEndpointRolloutResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutStepRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StepEndpointRolloutWithResponse'
+type MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call struct {
+	*mock.Call
+}
+
+// StepEndpointRolloutWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - body gen.EndpointRolloutStepRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) StepEndpointRolloutWithResponse(ctx interface{}, namespaceName interface{}, endpointName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call {
+	return &MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call{Call: _e.mock.On("StepEndpointRolloutWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, body gen.EndpointRolloutStepRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutStepRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call) Return(_a0 *gen.StepEndpointRolloutResp, _a1 error) *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutStepRequest, ...gen.RequestEditorFn) (*gen.StepEndpointRolloutResp, error)) *MockClientWithResponsesInterface_StepEndpointRolloutWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

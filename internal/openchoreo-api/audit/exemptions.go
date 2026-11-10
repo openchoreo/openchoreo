@@ -55,6 +55,7 @@ var RESTExemptions = map[string]string{
 	"GetDataPlane":                                reasonRead,
 	"GetDeploymentPipeline":                       reasonRead,
 	"GetEndpoint":                                 reasonRead,
+	"GetEndpointRollout":                          reasonRead,
 	"GetEndpointRelease":                          reasonRead,
 	"GetEndpointReleaseBinding":                   reasonRead,
 	"GetEndpointType":                             reasonRead,

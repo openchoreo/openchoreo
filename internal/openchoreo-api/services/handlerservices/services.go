@@ -31,6 +31,7 @@ import (
 	endpointsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpoint"
 	endpointreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointrelease"
 	endpointreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointreleasebinding"
+	endpointrolloutsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointrollout"
 	endpointtypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointtype"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
@@ -85,6 +86,7 @@ type Services struct {
 	EndpointService                               endpointsvc.Service
 	EndpointReleaseService                        endpointreleasesvc.Service
 	EndpointReleaseBindingService                 endpointreleasebindingsvc.Service
+	EndpointRolloutService                        endpointrolloutsvc.Service
 	EndpointTypeService                           endpointtypesvc.Service
 	EnvironmentService                            environmentsvc.Service
 	GitSecretService                              gitsecretsvc.Service
@@ -108,7 +110,7 @@ type Services struct {
 
 // NewServices creates all K8s-native API services with authorization wrappers.
 func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, planeClientProvider kubernetesClient.PlaneClientProvider, secretCfg config.SecretManagementConfig, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor, resourceTree config.ResourceTreeConfig, auditCfg config.AuditConfig) *Services {
-	return &Services{
+	svcs := &Services{
 		AutoBuildService:                              autobuildsvc.NewService(k8sClient, webhookProcessor, logger.With("component", "autobuild-service")),
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, logger.With("component", "authz-service")),
 		ProjectService:                                projectsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "project-service")),
@@ -154,4 +156,9 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, gwClient, pdp, logger.With("component", "workflowrun-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),
 	}
+	svcs.EndpointRolloutService = endpointrolloutsvc.NewService(svcs.EndpointService, svcs.EndpointReleaseService,
+		svcs.EndpointReleaseBindingService, endpointreleasebindingsvc.NewService(k8sClient, logger),
+		endpointtypesvc.NewService(k8sClient, logger),
+		clusterendpointtypesvc.NewService(k8sClient, logger), logger.With("component", "endpointrollout-service"))
+	return svcs
 }

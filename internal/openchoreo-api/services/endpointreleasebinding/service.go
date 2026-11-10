@@ -109,6 +109,11 @@ func (s *endpointReleaseBindingService) UpdateEndpointReleaseBinding(ctx context
 	existing.Spec = rb.Spec
 	existing.Labels = rb.Labels
 	existing.Annotations = rb.Annotations
+	// A caller that read the object can save over only that version, so a
+	// change made since is refused as a conflict instead of overwritten.
+	if rb.ResourceVersion != "" {
+		existing.ResourceVersion = rb.ResourceVersion
+	}
 
 	// Preserve special labels
 	if existing.Labels == nil {
