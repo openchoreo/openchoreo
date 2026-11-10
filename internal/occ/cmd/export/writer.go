@@ -141,7 +141,7 @@ func writeExportFiles(ctx context.Context, output string, resources []resource, 
 	for kind, count := range report.ExportedByKind {
 		pending.ExportedByKind[kind] = count
 	}
-	if err := prepareExportFiles(ctx, snapshot.staging, resources, rendered, &pending); err != nil {
+	if err := prepareExportFiles(ctx, snapshot, resources, rendered, &pending); err != nil {
 		return err
 	}
 	if err := snapshot.publish(ctx); err != nil {
@@ -151,10 +151,20 @@ func writeExportFiles(ctx context.Context, output string, resources []resource, 
 	return nil
 }
 
-func prepareExportFiles(ctx context.Context, root *os.Root, resources []resource, rendered [][]byte, report *Report) error {
-	inventory, err := readManagedFiles(root)
-	if err != nil {
-		return fmt.Errorf("read export inventory: %w", err)
+// Prepare only generated manifests, obsolete managed files, and the inventory.
+// Unrelated repository content is never traversed or copied.
+func prepareExportFiles(ctx context.Context, snapshot *exportSnapshot, resources []resource, rendered [][]byte, report *Report) error {
+	inventory := &managedFiles{Version: 1, Files: map[string]string{}}
+	if snapshot.existing {
+		state, err := readExportFileState(snapshot.parent, managedFilesName)
+		if err != nil {
+			return fmt.Errorf("read export inventory: %w", err)
+		}
+		snapshot.observed[managedFilesName] = state
+		inventory, err = readManagedFiles(snapshot.parent)
+		if err != nil {
+			return fmt.Errorf("read export inventory: %w", err)
+		}
 	}
 	current := make(map[string]bool, len(resources))
 	for i, item := range resources {
@@ -165,9 +175,10 @@ func prepareExportFiles(ctx context.Context, root *os.Root, resources []resource
 		if item.retainsPlaintext {
 			mode = 0o600
 		}
-		outcome, err := writeFileWithMode(root, item.path, rendered[i], mode)
+		description := fmt.Sprintf("write %s %q", item.kind, item.name)
+		outcome, err := snapshot.prepareFile(item.path, rendered[i], mode, description)
 		if err != nil {
-			return fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
+			return fmt.Errorf("%s: %w", description, err)
 		}
 		switch outcome {
 		case outcomeCreated:
@@ -182,10 +193,105 @@ func prepareExportFiles(ctx context.Context, root *os.Root, resources []resource
 		current[item.path] = true
 		inventory.Files[item.path] = manifestDigest(rendered[i])
 	}
-	if err := reconcileManagedFiles(ctx, root, inventory, current); err != nil {
-		return err
+	stale := make([]string, 0, len(inventory.Files))
+	for name := range inventory.Files {
+		if !current[name] {
+			stale = append(stale, name)
+		}
 	}
-	return saveManagedFiles(root, inventory)
+	sort.Strings(stale)
+	for _, name := range stale {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if snapshot.existing {
+			matches, err := managedFileMatches(snapshot.parent, name, inventory.Files[name])
+			if err != nil {
+				return fmt.Errorf("remove stale export file %q: %w", name, err)
+			}
+			if matches {
+				state, err := readExportFileState(snapshot.parent, name)
+				if err != nil {
+					return err
+				}
+				// Recheck the digest in case the file changed during inspection.
+				if state.info != nil && state.info.Mode().IsRegular() && state.digest == inventory.Files[name] {
+					snapshot.observed[name] = state
+					snapshot.changes = append(snapshot.changes, &exportFileChange{
+						name: name, before: state, remove: true,
+						description: fmt.Sprintf("remove stale export file %q", name),
+					})
+				}
+			}
+		}
+		delete(inventory.Files, name)
+	}
+	data, err := json.MarshalIndent(inventory, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode export inventory: %w", err)
+	}
+	_, err = snapshot.prepareFile(managedFilesName, append(data, '\n'), 0o644, "write export inventory")
+	if err != nil {
+		return fmt.Errorf("write export inventory: %w", err)
+	}
+	return nil
+}
+
+type exportFileState struct {
+	info   fs.FileInfo
+	digest string
+	link   string
+}
+
+// Lstat records the directory entry that publication will replace. ReadFile
+// follows only links contained by os.Root, including for unchanged detection.
+func readExportFileState(root *os.Root, name string) (exportFileState, error) {
+	info, err := root.Lstat(name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return exportFileState{}, nil
+	}
+	if err != nil {
+		return exportFileState{}, err
+	}
+	state := exportFileState{info: info}
+	if info.Mode()&os.ModeSymlink != 0 {
+		state.link, err = root.Readlink(name)
+		if err != nil {
+			return state, err
+		}
+		info, err = root.Stat(name)
+		if errors.Is(err, fs.ErrNotExist) {
+			return state, nil
+		}
+		if err != nil {
+			return state, err
+		}
+	}
+	if !info.Mode().IsRegular() {
+		return state, fmt.Errorf("output file %q is not a regular file", name)
+	}
+	data, err := root.ReadFile(name)
+	if err != nil {
+		return state, err
+	}
+	state.digest = manifestDigest(data)
+	return state, nil
+}
+
+func (s exportFileState) equal(other exportFileState) bool {
+	if s.info == nil || other.info == nil {
+		return s.info == nil && other.info == nil
+	}
+	return os.SameFile(s.info, other.info) && s.info.Mode() == other.info.Mode() &&
+		s.digest == other.digest && s.link == other.link
+}
+
+type exportFileChange struct {
+	name, description string
+	before, after     exportFileState
+	remove            bool
+	parent            *os.Root
+	temporary, backup string
 }
 
 type exportSnapshot struct {
@@ -194,52 +300,81 @@ type exportSnapshot struct {
 	stagingName string
 	outputName  string
 	existing    bool
+	observed    map[string]exportFileState
+	changes     []*exportFileChange
+	directories []string
+	published   bool
+	retain      bool
 }
 
-func (s *exportSnapshot) publish(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
+func (s *exportSnapshot) prepareFile(name string, data []byte, mode fs.FileMode, description string) (writeOutcome, error) {
+	if !filepath.IsLocal(filepath.FromSlash(name)) {
+		return 0, fmt.Errorf("refusing to write outside the output directory: %q", name)
 	}
-	return publishExportSnapshot(s.parent, s.stagingName, s.outputName, s.existing, s.parent.Rename)
+	before := exportFileState{}
+	if s.existing {
+		var err error
+		before, err = readExportFileState(s.parent, name)
+		if err != nil {
+			return 0, err
+		}
+		if expected, ok := s.observed[name]; ok && !expected.equal(before) {
+			return 0, fmt.Errorf("output file %q changed during export; retry the export", name)
+		}
+		s.observed[name] = before
+	}
+	outcome := outcomeCreated
+	if before.info != nil {
+		outcome = outcomeUpdated
+		if before.digest == manifestDigest(data) {
+			outcome = outcomeUnchanged
+			if mode != 0o600 || before.info.Mode().Perm() == mode {
+				return outcome, nil
+			}
+			// Preserve owner-only permissions even when contents are unchanged.
+			// Replacing a contained symlink avoids chmod of its unrelated target.
+		}
+	}
+	if _, err := writeFileWithMode(s.staging, name, data, mode); err != nil {
+		return 0, err
+	}
+	s.changes = append(s.changes, &exportFileChange{name: name, description: description, before: before})
+	return outcome, nil
 }
 
 func prepareExportSnapshot(ctx context.Context, output string) (*exportSnapshot, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	output, err := filepath.Abs(output)
 	if err != nil {
 		return nil, err
 	}
-	_, err = os.Lstat(output)
+	info, err := os.Stat(output)
 	existing := err == nil
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
-	if existing {
-		output, err = filepath.EvalSymlinks(output)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(output)
-		if err != nil {
-			return nil, err
-		}
-		if !info.IsDir() {
-			return nil, fmt.Errorf("output path %q exists and is not a directory", output)
-		}
-		if err := checkExportSnapshotLocation(output); err != nil {
+	if existing && !info.IsDir() {
+		return nil, fmt.Errorf("output path %q exists and is not a directory", output)
+	}
+	// Existing repositories keep their root, including when it is the cwd or
+	// a mount point. Staging inside it also needs no write access to its parent.
+	location := output
+	if !existing {
+		location = filepath.Dir(output)
+		if err := os.MkdirAll(location, 0o750); err != nil {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(filepath.Dir(output), 0o750); err != nil {
-		return nil, err
-	}
-	parent, err := os.OpenRoot(filepath.Dir(output))
+	parent, err := os.OpenRoot(location)
 	if err != nil {
 		return nil, err
 	}
 	stagingName := ".occ-export-staging-" + rand.Text()
 	if err := parent.Mkdir(stagingName, 0o700); err != nil {
 		_ = parent.Close()
-		return nil, err
+		return nil, fmt.Errorf("prepare export staging directory: %w", err)
 	}
 	staging, err := parent.OpenRoot(stagingName)
 	if err != nil {
@@ -247,96 +382,169 @@ func prepareExportSnapshot(ctx context.Context, output string) (*exportSnapshot,
 		_ = parent.Close()
 		return nil, err
 	}
-	snapshot := &exportSnapshot{parent: parent, staging: staging, stagingName: stagingName, outputName: filepath.Base(output), existing: existing}
-	if existing {
-		var source *os.Root
-		source, err = parent.OpenRoot(snapshot.outputName)
-		if err == nil {
-			err = copyExportSnapshot(ctx, source, staging)
-			_ = source.Close()
-		}
-	} else {
-		err = staging.Chmod(".", 0o750)
-	}
-	if err != nil {
-		snapshot.cleanup()
-		return nil, fmt.Errorf("prepare export snapshot: %w", err)
-	}
-	return snapshot, nil
+	return &exportSnapshot{
+		parent: parent, staging: staging, stagingName: stagingName, outputName: filepath.Base(output),
+		existing: existing, observed: map[string]exportFileState{},
+	}, nil
 }
 
-// Moving an ancestor of the working directory would detach the caller's cwd.
-func checkExportSnapshotLocation(output string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	cwd, err = filepath.EvalSymlinks(cwd)
-	if err != nil {
-		return err
-	}
-	relative, err := filepath.Rel(output, cwd)
-	if err != nil {
-		return err
-	}
-	if relative == "." || filepath.IsLocal(relative) {
-		return fmt.Errorf("output directory %q contains the working directory; run export from outside it", output)
-	}
-	return nil
+func (s *exportSnapshot) publish(ctx context.Context) error {
+	return s.publishWithRename(ctx, func(root *os.Root, oldName, newName string) error {
+		return root.Rename(oldName, newName)
+	})
 }
 
-func copyExportSnapshot(ctx context.Context, source, destination *os.Root) error {
-	type directory struct {
-		name string
-		mode fs.FileMode
+// Every file is prepared before publication starts. Renames are atomic for
+// individual manifests; a multi-file export is not a filesystem transaction.
+// Backups allow failed publication to restore only the paths it changed.
+func (s *exportSnapshot) publishWithRename(ctx context.Context, rename func(*os.Root, string, string) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	var directories []directory
-	err := fs.WalkDir(source.FS(), ".", func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	if !s.existing {
+		if _, err := s.parent.Lstat(s.outputName); !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("output directory appeared during export: %q", s.outputName)
 		}
+		if err := chmodExportPath(s.staging, ".", 0o750); err != nil {
+			return err
+		}
+		if err := rename(s.parent, s.stagingName, s.outputName); err != nil {
+			return fmt.Errorf("publish export snapshot: %w", err)
+		}
+		s.published = true
+		return nil
+	}
+	for name, expected := range s.observed {
+		if err := checkExportFileState(s.parent, name, expected); err != nil {
+			return err
+		}
+	}
+	// Create destination temporaries and backups before any manifest changes.
+	// Each pinned parent keeps renames contained despite symlink replacement.
+	for _, change := range s.changes {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
+		if err := s.preparePublication(change); err != nil {
+			return fmt.Errorf("%s: %w", change.description, err)
 		}
-		switch {
-		case entry.IsDir():
-			directories = append(directories, directory{name: name, mode: info.Mode().Perm()})
-			return destination.MkdirAll(name, 0o700)
-		case info.Mode()&os.ModeSymlink != 0:
-			target, err := source.Readlink(name)
-			if err != nil {
-				return err
+	}
+	for i, change := range s.changes {
+		err := ctx.Err()
+		if err == nil {
+			err = checkExportFileState(change.parent, filepath.Base(change.name), change.before)
+		}
+		if err == nil {
+			if change.remove {
+				err = change.parent.Remove(filepath.Base(change.name))
+			} else {
+				err = rename(change.parent, change.temporary, filepath.Base(change.name))
 			}
-			return destination.Symlink(target, name)
-		case info.Mode().IsRegular():
-			return copyExportFile(source, destination, name, info.Mode().Perm())
-		default:
-			return fmt.Errorf("cannot copy non-regular output file %q", name)
 		}
-	})
+		if err != nil {
+			return errors.Join(fmt.Errorf("%s: %w", change.description, err), s.rollback(i))
+		}
+	}
+	s.published = true
+	return nil
+}
+
+func checkExportFileState(root *os.Root, name string, expected exportFileState) error {
+	actual, err := readExportFileState(root, name)
 	if err != nil {
 		return err
 	}
-	for i := len(directories) - 1; i >= 0; i-- {
-		dir := directories[i]
-		if err := chmodExportPath(destination, dir.name, dir.mode); err != nil {
+	if !expected.equal(actual) {
+		return fmt.Errorf("output file %q changed during export; retry the export", name)
+	}
+	return nil
+}
+
+func (s *exportSnapshot) preparePublication(change *exportFileChange) error {
+	directory := filepath.Dir(change.name)
+	if err := s.makeDirectories(directory); err != nil {
+		return err
+	}
+	parent, err := s.parent.OpenRoot(directory)
+	if err != nil {
+		return err
+	}
+	change.parent = parent
+	base := filepath.Base(change.name)
+	if err := checkExportFileState(parent, base, change.before); err != nil {
+		return err
+	}
+	if !change.remove {
+		change.temporary = ".occ-export-" + rand.Text()
+		info, err := s.staging.Stat(change.name)
+		if err != nil {
+			return err
+		}
+		if err := copyExportFile(s.staging, parent, change.name, change.temporary, info.Mode().Perm()); err != nil {
+			return err
+		}
+		change.after, err = readExportFileState(parent, change.temporary)
+		if err != nil {
+			return err
+		}
+	}
+	if change.before.info != nil {
+		change.backup = ".occ-export-backup-" + rand.Text()
+		// Hard links retain the original inode and its metadata without making
+		// the published file disappear before its replacement is ready.
+		if err := parent.Link(base, change.backup); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func copyExportFile(source, destination *os.Root, name string, mode fs.FileMode) error {
+func (s *exportSnapshot) makeDirectories(directory string) error {
+	if directory == "." {
+		return nil
+	}
+	if err := s.makeDirectories(filepath.Dir(directory)); err != nil {
+		return err
+	}
+	err := s.parent.Mkdir(directory, 0o750)
+	if errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	if err == nil {
+		s.directories = append(s.directories, directory)
+	}
+	return err
+}
+
+func (s *exportSnapshot) rollback(count int) error {
+	var result error
+	for i := count - 1; i >= 0; i-- {
+		change := s.changes[i]
+		base := filepath.Base(change.name)
+		err := checkExportFileState(change.parent, base, change.after)
+		if err == nil {
+			if change.backup == "" {
+				err = change.parent.Remove(base)
+			} else {
+				err = change.parent.Rename(change.backup, base)
+			}
+		}
+		if err != nil {
+			s.retain = true
+			result = errors.Join(result, fmt.Errorf("restore %q (backup retained at %q): %w", change.name,
+				filepath.Join(change.parent.Name(), change.backup), err))
+		}
+	}
+	return result
+}
+
+func copyExportFile(source, destination *os.Root, name, target string, mode fs.FileMode) error {
 	input, err := source.Open(name)
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	output, err := destination.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	output, err := destination.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -354,51 +562,26 @@ func chmodExportPath(root *os.Root, name string, mode fs.FileMode) error {
 	return file.Chmod(mode)
 }
 
-// All manifest and inventory writes precede this handoff. A failed publication
-// restores the original directory; a failed restoration retains the backup.
-// The output path is briefly absent between the backup and publication renames.
-func publishExportSnapshot(parent *os.Root, staging, output string, existing bool, rename func(string, string) error) error {
-	if !existing {
-		if err := rename(staging, output); err != nil {
-			return fmt.Errorf("publish export snapshot: %w", err)
-		}
-		return nil
-	}
-	backup := ".occ-export-backup-" + rand.Text()
-	if err := rename(output, backup); err != nil {
-		return fmt.Errorf("back up previous export: %w", err)
-	}
-	if err := rename(staging, output); err != nil {
-		if restoreErr := rename(backup, output); restoreErr != nil {
-			return errors.Join(fmt.Errorf("publish export snapshot: %w", err),
-				fmt.Errorf("restore previous export (backup retained at %q): %w", filepath.Join(parent.Name(), backup), restoreErr))
-		}
-		return fmt.Errorf("publish export snapshot: %w", err)
-	}
-	removeExportSnapshot(parent, backup)
-	return nil
-}
-
-func removeExportSnapshot(parent *os.Root, name string) {
-	root, err := parent.OpenRoot(name)
-	if err != nil {
-		return
-	}
-	// Read-only copied directories still need to be removed after failure, and
-	// the previous snapshot may have read-only directories after publication.
-	_ = fs.WalkDir(root.FS(), ".", func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr == nil && entry.IsDir() {
-			return chmodExportPath(root, name, 0o700)
-		}
-		return walkErr
-	})
-	_ = root.Close()
-	_ = parent.RemoveAll(name)
-}
-
 func (s *exportSnapshot) cleanup() {
+	for _, change := range s.changes {
+		if change.parent != nil {
+			if change.temporary != "" {
+				_ = change.parent.Remove(change.temporary)
+			}
+			if change.backup != "" && !s.retain {
+				_ = change.parent.Remove(change.backup)
+			}
+			_ = change.parent.Close()
+		}
+	}
+	if !s.published {
+		for i := len(s.directories) - 1; i >= 0; i-- {
+			// Remove only empty directories created by this attempt.
+			_ = s.parent.Remove(s.directories[i])
+		}
+	}
 	_ = s.staging.Close()
-	removeExportSnapshot(s.parent, s.stagingName)
+	_ = s.parent.RemoveAll(s.stagingName)
 	_ = s.parent.Close()
 }
 
@@ -469,6 +652,18 @@ func reconcileManagedFiles(ctx context.Context, root *os.Root, inventory *manage
 }
 
 func removeManagedFile(root *os.Root, name, digest string) error {
+	matches, err := managedFileMatches(root, name, digest)
+	if err != nil || !matches {
+		return err
+	}
+	err = root.Remove(filepath.FromSlash(name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func managedFileMatches(root *os.Root, name, digest string) (bool, error) {
 	// Do not follow symlinks, including symlinked parent directories. Ownership
 	// applies to the previously written regular file, not a replacement or target.
 	parts := strings.Split(name, "/")
@@ -476,30 +671,23 @@ func removeManagedFile(root *os.Root, name, digest string) error {
 		part := path.Join(parts[:i+1]...)
 		info, err := root.Lstat(filepath.FromSlash(part))
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil
+			return false, nil
 		}
 		if err != nil {
-			return err
+			return false, err
 		}
 		if info.Mode()&os.ModeSymlink != 0 || (part == name && !info.Mode().IsRegular()) {
-			return nil
+			return false, nil
 		}
 	}
 	data, err := root.ReadFile(filepath.FromSlash(name))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
-	if manifestDigest(data) != digest {
-		return nil
-	}
-	err = root.Remove(filepath.FromSlash(name))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	return err
+	return manifestDigest(data) == digest, nil
 }
 
 func manifestDigest(data []byte) string {
