@@ -57,6 +57,17 @@ func GetResource(cmd *cobra.Command) string {
 	return val
 }
 
+// --- Endpoint ---
+
+func AddEndpoint(cmd *cobra.Command) {
+	cmd.Flags().String("endpoint", "", "Name of the endpoint (e.g., orders-api)")
+}
+
+func GetEndpoint(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("endpoint")
+	return val
+}
+
 // --- Environment ---
 
 func AddEnvironment(cmd *cobra.Command) {

@@ -35,6 +35,7 @@ func TestMCPBindings_MatchRegisteredTools(t *testing.T) {
 		BuildToolset:      handler,
 		PEToolset:         handler,
 		ResourceToolset:   handler,
+		EndpointToolset:   handler,
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)

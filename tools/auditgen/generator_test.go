@@ -113,7 +113,7 @@ func TestBuildDefinitions_AgainstLiveSpec(t *testing.T) {
 		t.Fatalf("BuildDefinitions failed: %v", err)
 	}
 
-	const wantTotal = 120
+	const wantTotal = 133
 	if len(defs) != wantTotal {
 		t.Errorf("len(defs) = %d, want %d", len(defs), wantTotal)
 	}
@@ -140,13 +140,13 @@ func TestBuildDefinitions_AgainstLiveSpec(t *testing.T) {
 	}
 
 	// access: the reads in apiAccessReadOverrides.
-	if mgmt != 104 || authz != 12 || access != 4 {
-		t.Errorf("category split = %d management / %d authorization / %d access, want 104/12/4",
+	if mgmt != 117 || authz != 12 || access != 4 {
+		t.Errorf("category split = %d management / %d authorization / %d access, want 117/12/4",
 			mgmt, authz, access)
 	}
-	if verbCount["create"] != 40 || verbCount["update"] != 35 || verbCount["delete"] != 39 ||
+	if verbCount["create"] != 44 || verbCount["update"] != 39 || verbCount["delete"] != 44 ||
 		verbCount["trigger"] != 1 || verbCount["generate"] != 1 {
-		t.Errorf("verb split = %+v, want create:40 update:35 delete:39 trigger:1 generate:1", verbCount)
+		t.Errorf("verb split = %+v, want create:44 update:39 delete:44 trigger:1 generate:1", verbCount)
 	}
 
 	for _, excluded := range []string{"Evaluates", "HandleAutoBuild"} {

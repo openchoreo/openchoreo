@@ -2115,6 +2115,327 @@ func (c *Client) DeleteResourceReleaseBinding(ctx context.Context, namespaceName
 	return nil
 }
 
+// ListEndpointTypes retrieves all endpoint types for a namespace
+func (c *Client) ListEndpointTypes(ctx context.Context, namespaceName string, params *gen.ListEndpointTypesParams) (*gen.EndpointTypeList, error) {
+	if params == nil {
+		params = &gen.ListEndpointTypesParams{}
+	}
+	resp, err := c.client.ListEndpointTypesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoint types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetEndpointType retrieves a specific endpoint type
+func (c *Client) GetEndpointType(ctx context.Context, namespaceName, etName string) (*gen.EndpointType, error) {
+	resp, err := c.client.GetEndpointTypeWithResponse(ctx, namespaceName, etName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateEndpointType creates a new endpoint type
+func (c *Client) CreateEndpointType(ctx context.Context, namespaceName string, et gen.EndpointType) (*gen.EndpointType, error) {
+	resp, err := c.client.CreateEndpointTypeWithResponse(ctx, namespaceName, et)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create endpoint type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateEndpointType updates an existing endpoint type
+func (c *Client) UpdateEndpointType(ctx context.Context, namespaceName, etName string, et gen.EndpointType) (*gen.EndpointType, error) {
+	resp, err := c.client.UpdateEndpointTypeWithResponse(ctx, namespaceName, etName, et)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update endpoint type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteEndpointType deletes a endpoint type
+func (c *Client) DeleteEndpointType(ctx context.Context, namespaceName, etName string) error {
+	resp, err := c.client.DeleteEndpointTypeWithResponse(ctx, namespaceName, etName)
+	if err != nil {
+		return fmt.Errorf("failed to delete endpoint type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetEndpointTypeSchema retrieves the parameter schema for a endpoint type
+func (c *Client) GetEndpointTypeSchema(ctx context.Context, namespaceName, etName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetEndpointTypeSchemaWithResponse(ctx, namespaceName, etName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("endpoint type %q not found", etName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListClusterEndpointTypes retrieves all cluster-scoped endpoint types
+func (c *Client) ListClusterEndpointTypes(ctx context.Context, params *gen.ListClusterEndpointTypesParams) (*gen.ClusterEndpointTypeList, error) {
+	if params == nil {
+		params = &gen.ListClusterEndpointTypesParams{}
+	}
+	resp, err := c.client.ListClusterEndpointTypesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster endpoint types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterEndpointType retrieves a specific cluster endpoint type
+func (c *Client) GetClusterEndpointType(ctx context.Context, cetName string) (*gen.ClusterEndpointType, error) {
+	resp, err := c.client.GetClusterEndpointTypeWithResponse(ctx, cetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster endpoint type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateClusterEndpointType creates a new cluster endpoint type
+func (c *Client) CreateClusterEndpointType(ctx context.Context, cet gen.ClusterEndpointType) (*gen.ClusterEndpointType, error) {
+	resp, err := c.client.CreateClusterEndpointTypeWithResponse(ctx, cet)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cluster endpoint type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateClusterEndpointType updates an existing cluster endpoint type
+func (c *Client) UpdateClusterEndpointType(ctx context.Context, cetName string, cet gen.ClusterEndpointType) (*gen.ClusterEndpointType, error) {
+	resp, err := c.client.UpdateClusterEndpointTypeWithResponse(ctx, cetName, cet)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster endpoint type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterEndpointType deletes a cluster endpoint type
+func (c *Client) DeleteClusterEndpointType(ctx context.Context, cetName string) error {
+	resp, err := c.client.DeleteClusterEndpointTypeWithResponse(ctx, cetName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster endpoint type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetClusterEndpointTypeSchema retrieves the parameter schema for a cluster-scoped endpoint type
+func (c *Client) GetClusterEndpointTypeSchema(ctx context.Context, cetName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterEndpointTypeSchemaWithResponse(ctx, cetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster endpoint type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster endpoint type %q not found", cetName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListEndpoints retrieves all endpoints for a namespace
+func (c *Client) ListEndpoints(ctx context.Context, namespaceName string, params *gen.ListEndpointsParams) (*gen.EndpointList, error) {
+	if params == nil {
+		params = &gen.ListEndpointsParams{}
+	}
+	resp, err := c.client.ListEndpointsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoints: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetEndpoint retrieves a specific endpoint
+func (c *Client) GetEndpoint(ctx context.Context, namespaceName, endpointName string) (*gen.Endpoint, error) {
+	resp, err := c.client.GetEndpointWithResponse(ctx, namespaceName, endpointName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateEndpoint creates a new endpoint
+func (c *Client) CreateEndpoint(ctx context.Context, namespaceName string, e gen.Endpoint) (*gen.Endpoint, error) {
+	resp, err := c.client.CreateEndpointWithResponse(ctx, namespaceName, e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create endpoint: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateEndpoint updates an existing endpoint
+func (c *Client) UpdateEndpoint(ctx context.Context, namespaceName, endpointName string, e gen.Endpoint) (*gen.Endpoint, error) {
+	resp, err := c.client.UpdateEndpointWithResponse(ctx, namespaceName, endpointName, e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update endpoint: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteEndpoint deletes a endpoint
+func (c *Client) DeleteEndpoint(ctx context.Context, namespaceName, endpointName string) error {
+	resp, err := c.client.DeleteEndpointWithResponse(ctx, namespaceName, endpointName)
+	if err != nil {
+		return fmt.Errorf("failed to delete endpoint: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListEndpointReleases retrieves all endpoint releases for a namespace
+func (c *Client) ListEndpointReleases(ctx context.Context, namespaceName string, params *gen.ListEndpointReleasesParams) (*gen.EndpointReleaseList, error) {
+	if params == nil {
+		params = &gen.ListEndpointReleasesParams{}
+	}
+	resp, err := c.client.ListEndpointReleasesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoint releases: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetEndpointRelease retrieves a specific endpoint release
+func (c *Client) GetEndpointRelease(ctx context.Context, namespaceName, endpointReleaseName string) (*gen.EndpointRelease, error) {
+	resp, err := c.client.GetEndpointReleaseWithResponse(ctx, namespaceName, endpointReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint release: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteEndpointRelease deletes a endpoint release
+func (c *Client) DeleteEndpointRelease(ctx context.Context, namespaceName, endpointReleaseName string) error {
+	resp, err := c.client.DeleteEndpointReleaseWithResponse(ctx, namespaceName, endpointReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to delete endpoint release: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListEndpointReleaseBindings retrieves all endpoint release bindings for a namespace
+func (c *Client) ListEndpointReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListEndpointReleaseBindingsParams) (*gen.EndpointReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListEndpointReleaseBindingsParams{}
+	}
+	resp, err := c.client.ListEndpointReleaseBindingsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoint release bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetEndpointReleaseBinding retrieves a specific endpoint release binding
+func (c *Client) GetEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.EndpointReleaseBinding, error) {
+	resp, err := c.client.GetEndpointReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateEndpointReleaseBinding creates a new endpoint release binding
+func (c *Client) CreateEndpointReleaseBinding(ctx context.Context, namespaceName string, erb gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error) {
+	resp, err := c.client.CreateEndpointReleaseBindingWithResponse(ctx, namespaceName, erb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create endpoint release binding: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateEndpointReleaseBinding updates an existing endpoint release binding
+func (c *Client) UpdateEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string, erb gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error) {
+	resp, err := c.client.UpdateEndpointReleaseBindingWithResponse(ctx, namespaceName, bindingName, erb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update endpoint release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteEndpointReleaseBinding deletes a endpoint release binding
+func (c *Client) DeleteEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string) error {
+	resp, err := c.client.DeleteEndpointReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete endpoint release binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {
 	data, err := json.Marshal(schema)
 	if err != nil {

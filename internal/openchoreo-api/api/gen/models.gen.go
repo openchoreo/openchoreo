@@ -188,6 +188,42 @@ const (
 	CreateGitSecretRequestWorkflowPlaneKindWorkflowPlane        CreateGitSecretRequestWorkflowPlaneKind = "WorkflowPlane"
 )
 
+// Defines values for EndpointBackendRefKind.
+const (
+	EndpointBackendRefKindComponent EndpointBackendRefKind = "Component"
+)
+
+// Defines values for EndpointReleaseSpecEndpointTypeKind.
+const (
+	EndpointReleaseSpecEndpointTypeKindClusterEndpointType EndpointReleaseSpecEndpointTypeKind = "ClusterEndpointType"
+	EndpointReleaseSpecEndpointTypeKindEndpointType        EndpointReleaseSpecEndpointTypeKind = "EndpointType"
+)
+
+// Defines values for EndpointReleaseSpecVisibility.
+const (
+	EndpointReleaseSpecVisibilityExternal  EndpointReleaseSpecVisibility = "external"
+	EndpointReleaseSpecVisibilityInternal  EndpointReleaseSpecVisibility = "internal"
+	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
+)
+
+// Defines values for EndpointSpecVisibility.
+const (
+	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
+	EndpointSpecVisibilityInternal  EndpointSpecVisibility = "internal"
+	EndpointSpecVisibilityNamespace EndpointSpecVisibility = "namespace"
+)
+
+// Defines values for EndpointTypeRefKind.
+const (
+	EndpointTypeRefKindClusterEndpointType EndpointTypeRefKind = "ClusterEndpointType"
+	EndpointTypeRefKindEndpointType        EndpointTypeRefKind = "EndpointType"
+)
+
+// Defines values for EndpointTypeSpecResourcesTargetPlane.
+const (
+	EndpointTypeSpecResourcesTargetPlaneDataplane EndpointTypeSpecResourcesTargetPlane = "dataplane"
+)
+
 // Defines values for EndpointURLStatusType.
 const (
 	EndpointURLStatusTypeGRPC      EndpointURLStatusType = "gRPC"
@@ -315,6 +351,11 @@ const (
 	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
 )
 
+// Defines values for ResolvedEndpointBackendKind.
+const (
+	ResolvedEndpointBackendKindComponent ResolvedEndpointBackendKind = "Component"
+)
+
 // Defines values for ResourceReleaseBindingSpecRetainPolicy.
 const (
 	ResourceReleaseBindingSpecRetainPolicyDelete ResourceReleaseBindingSpecRetainPolicy = "Delete"
@@ -401,8 +442,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for WorkflowPlaneRefKind.
@@ -992,6 +1033,35 @@ type ClusterDataPlaneStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed ClusterDataPlane
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// ClusterEndpointType ClusterEndpointType resource.
+// Cluster-scoped sibling of EndpointType. Endpoints in any namespace can reference it.
+type ClusterEndpointType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)EndpointType.
+	Spec *EndpointTypeSpec `json:"spec,omitempty"`
+
+	// Status ClusterEndpointType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ClusterEndpointTypeList Paginated list of cluster endpoint types
+type ClusterEndpointTypeList struct {
+	Items []ClusterEndpointType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterObservabilityPlane ClusterObservabilityPlane resource.
@@ -1980,6 +2050,52 @@ type DeploymentPipelineStatus struct {
 	Conditions *[]Condition `json:"conditions,omitempty"`
 }
 
+// Endpoint Endpoint resource.
+// Routes traffic across one or more backends using weights, rendered through an
+// EndpointType or ClusterEndpointType.
+type Endpoint struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+	Spec   *EndpointSpec   `json:"spec,omitempty"`
+	Status *EndpointStatus `json:"status,omitempty"`
+}
+
+// EndpointBackendRef One traffic backend of an Endpoint. A discriminated union on kind; exactly the payload matching kind must be set.
+type EndpointBackendRef struct {
+	// Component References a named workload endpoint of a Component in the Endpoint's project.
+	Component *EndpointComponentBackend `json:"component,omitempty"`
+
+	// Kind Kind of backend. Defaults to Component.
+	Kind *EndpointBackendRefKind `json:"kind,omitempty"`
+
+	// Name Identifies this backend within the Endpoint.
+	Name string `json:"name"`
+
+	// Weight Relative share of traffic. Gateway API semantics; 0 sends no traffic.
+	Weight *int32 `json:"weight,omitempty"`
+}
+
+// EndpointBackendRefKind Kind of backend. Defaults to Component.
+type EndpointBackendRefKind string
+
+// EndpointComponentBackend References a named workload endpoint of a Component in the Endpoint's project.
+type EndpointComponentBackend struct {
+	// Endpoint Name of the endpoint in the component's Workload.spec.endpoints.
+	Endpoint string `json:"endpoint"`
+
+	// Name Component name.
+	Name string `json:"name"`
+}
+
 // EndpointGatewayURLs Resolved gateway URLs for an endpoint
 type EndpointGatewayURLs struct {
 	// Http Structured URL with its components
@@ -1991,6 +2107,278 @@ type EndpointGatewayURLs struct {
 	// Tls Structured URL with its components
 	Tls *EndpointURL `json:"tls,omitempty"`
 }
+
+// EndpointList Paginated list of endpoints
+type EndpointList struct {
+	Items []Endpoint `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// EndpointRelease EndpointRelease resource.
+// Immutable snapshot of Endpoint.spec and the referenced (Cluster)EndpointType.spec
+// at the time it was cut. Created by the Endpoint controller; spec is immutable.
+type EndpointRelease struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of an EndpointRelease. Immutable after creation.
+	Spec *EndpointReleaseSpec `json:"spec,omitempty"`
+
+	// Status EndpointRelease status (currently empty, immutable after creation)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// EndpointReleaseBinding EndpointReleaseBinding resource.
+// Pins an EndpointRelease to an Environment, resolves its backends there, and
+// renders its routes. Authored externally; not managed by the Endpoint controller.
+type EndpointReleaseBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of an EndpointReleaseBinding. spec.owner and spec.environment
+	// are immutable after creation. spec.endpointRelease is the promote pin.
+	Spec   *EndpointReleaseBindingSpec   `json:"spec,omitempty"`
+	Status *EndpointReleaseBindingStatus `json:"status,omitempty"`
+}
+
+// EndpointReleaseBindingList Paginated list of endpoint release bindings
+type EndpointReleaseBindingList struct {
+	Items []EndpointReleaseBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// EndpointReleaseBindingSpec Desired state of an EndpointReleaseBinding. spec.owner and spec.environment
+// are immutable after creation. spec.endpointRelease is the promote pin.
+type EndpointReleaseBindingSpec struct {
+	// EndpointRelease Pinned EndpointRelease name.
+	EndpointRelease *string `json:"endpointRelease,omitempty"`
+
+	// EndpointTypeEnvironmentConfigs Per-environment values for EndpointType.spec.environmentConfigs.
+	EndpointTypeEnvironmentConfigs *map[string]interface{} `json:"endpointTypeEnvironmentConfigs,omitempty"`
+
+	// Environment Target environment name. Immutable after creation.
+	Environment string `json:"environment"`
+
+	// Owner Identifies the endpoint and project this binding belongs to.
+	Owner struct {
+		// EndpointName Parent endpoint name
+		EndpointName string `json:"endpointName"`
+
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+}
+
+// EndpointReleaseBindingStatus Observed state of an EndpointReleaseBinding.
+type EndpointReleaseBindingStatus struct {
+	// Backends Resolution of each backendRef in this binding's environment.
+	Backends *[]ResolvedEndpointBackend `json:"backends,omitempty"`
+
+	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+}
+
+// EndpointReleaseList Paginated list of endpoint releases
+type EndpointReleaseList struct {
+	Items []EndpointRelease `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// EndpointReleaseSpec Desired state of an EndpointRelease. Immutable after creation.
+type EndpointReleaseSpec struct {
+	// BackendRefs Snapshot of the backend references and weights from the Endpoint.
+	BackendRefs []EndpointBackendRef `json:"backendRefs"`
+
+	// EndpointType Frozen snapshot of the referenced (Cluster)EndpointType.
+	EndpointType struct {
+		// Kind Source kind (EndpointType or ClusterEndpointType)
+		Kind EndpointReleaseSpecEndpointTypeKind `json:"kind"`
+
+		// Name Source endpoint type name
+		Name string `json:"name"`
+
+		// Spec Desired state of a (Cluster)EndpointType.
+		Spec EndpointTypeSpec `json:"spec"`
+	} `json:"endpointType"`
+
+	// Owner Identifies the endpoint and project this EndpointRelease belongs to.
+	Owner struct {
+		// EndpointName Parent endpoint name
+		EndpointName string `json:"endpointName"`
+
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Snapshot of parameter values from Endpoint.spec at release time.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Schema Snapshot of the explicit schema override, if any.
+	Schema *struct {
+		Content *string `json:"content,omitempty"`
+		Type    *string `json:"type,omitempty"`
+	} `json:"schema,omitempty"`
+
+	// Visibility Snapshot of the visibilities requested by the Endpoint.
+	Visibility []EndpointReleaseSpecVisibility `json:"visibility"`
+}
+
+// EndpointReleaseSpecEndpointTypeKind Source kind (EndpointType or ClusterEndpointType)
+type EndpointReleaseSpecEndpointTypeKind string
+
+// EndpointReleaseSpecVisibility defines model for EndpointReleaseSpec.Visibility.
+type EndpointReleaseSpecVisibility string
+
+// EndpointSpec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+type EndpointSpec struct {
+	// BackendRefs Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
+	BackendRefs []EndpointBackendRef `json:"backendRefs"`
+
+	// Owner Identifies the project that owns this Endpoint.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Values for the parameter schema declared on the referenced (Cluster)EndpointType. Validated by the controller.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Schema API definition this Endpoint exposes. When unset it resolves from the backend's workload endpoint schema.
+	Schema *struct {
+		Content *string `json:"content,omitempty"`
+		Type    *string `json:"type,omitempty"`
+	} `json:"schema,omitempty"`
+
+	// Type Reference to an EndpointType or ClusterEndpointType template.
+	Type EndpointTypeRef `json:"type"`
+
+	// Visibility Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+	Visibility []EndpointSpecVisibility `json:"visibility"`
+}
+
+// EndpointSpecVisibility defines model for EndpointSpec.Visibility.
+type EndpointSpecVisibility string
+
+// EndpointStatus Observed state of an Endpoint.
+type EndpointStatus struct {
+	// Conditions Latest available observations of the Endpoint's state. Includes Ready and Finalizing.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LatestRelease Most recent EndpointRelease for this Endpoint. Used as the promote source for EndpointReleaseBinding pin advance.
+	LatestRelease *struct {
+		// Hash Content hash of Endpoint.spec + (Cluster)EndpointType.spec captured at release time
+		Hash string `json:"hash"`
+
+		// Name Name of the EndpointRelease resource
+		Name string `json:"name"`
+	} `json:"latestRelease,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// EndpointType EndpointType resource.
+// PE-published routing template scoped to a namespace. Endpoints reference it from Endpoint.spec.type.
+type EndpointType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)EndpointType.
+	Spec *EndpointTypeSpec `json:"spec,omitempty"`
+
+	// Status EndpointType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// EndpointTypeList Paginated list of endpoint types
+type EndpointTypeList struct {
+	Items []EndpointType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// EndpointTypeRef Reference to an EndpointType or ClusterEndpointType template.
+type EndpointTypeRef struct {
+	// Kind Endpoint type kind. Defaults to EndpointType (namespaced).
+	Kind *EndpointTypeRefKind `json:"kind,omitempty"`
+
+	// Name Template name.
+	Name string `json:"name"`
+}
+
+// EndpointTypeRefKind Endpoint type kind. Defaults to EndpointType (namespaced).
+type EndpointTypeRefKind string
+
+// EndpointTypeSpec Desired state of a (Cluster)EndpointType.
+type EndpointTypeSpec struct {
+	// EnvironmentConfigs Schema section using openAPIV3Schema format
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
+
+	// Parameters Schema section using openAPIV3Schema format
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// Resources Routing manifests (e.g. HTTPRoute, Ingress) emitted on the data plane for each
+	// EndpointReleaseBinding. Templates see metadata.*, parameters.*,
+	// environmentConfigs.*, visibility, backends[], dataplane.*, environment.*,
+	// and gateway.*.
+	Resources []struct {
+		// ForEach CEL expression for generating multiple resources from a list.
+		ForEach *string `json:"forEach,omitempty"`
+
+		// Id Unique identifier for this resource within the endpoint type.
+		Id string `json:"id"`
+
+		// IncludeWhen CEL expression determining if this resource should be created.
+		IncludeWhen *string `json:"includeWhen,omitempty"`
+
+		// TargetPlane Target plane for deployment. Endpoint types may only target the data plane.
+		TargetPlane *EndpointTypeSpecResourcesTargetPlane `json:"targetPlane,omitempty"`
+
+		// Template Kubernetes resource template with CEL expressions.
+		Template map[string]interface{} `json:"template"`
+
+		// Var Loop variable name when using forEach.
+		Var *string `json:"var,omitempty"`
+	} `json:"resources"`
+
+	// Validations CEL-based validation rules evaluated before rendering.
+	Validations *[]ValidationRule `json:"validations,omitempty"`
+}
+
+// EndpointTypeSpecResourcesTargetPlane Target plane for deployment. Endpoint types may only target the data plane.
+type EndpointTypeSpecResourcesTargetPlane string
 
 // EndpointURL Structured URL with its components
 type EndpointURL struct {
@@ -3413,6 +3801,33 @@ type ResolvedConnection struct {
 // ResolvedConnectionVisibility Visibility level at which the endpoint was resolved
 type ResolvedConnectionVisibility string
 
+// ResolvedEndpointBackend Resolution of one backendRef in the binding's environment, populated by the binding controller.
+type ResolvedEndpointBackend struct {
+	// Kind Kind of the resolved backend.
+	Kind ResolvedEndpointBackendKind `json:"kind"`
+
+	// Message Human-readable explanation accompanying reason.
+	Message *string `json:"message,omitempty"`
+
+	// Name Name of the backendRef this entry resolves.
+	Name string `json:"name"`
+
+	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+	Reason *string `json:"reason,omitempty"`
+
+	// Resolved Whether the backend was found and can receive traffic in this environment.
+	Resolved bool `json:"resolved"`
+
+	// ServiceURL Structured URL with its components
+	ServiceURL *EndpointURL `json:"serviceURL,omitempty"`
+
+	// Weight Effective weight applied to this backend.
+	Weight *int32 `json:"weight,omitempty"`
+}
+
+// ResolvedEndpointBackendKind Kind of the resolved backend.
+type ResolvedEndpointBackendKind string
+
 // ResolvedResourceOutput Resolved output value populated by the binding controller after evaluating
 // the ResourceType output CEL against the applied DP-side objects. Exactly one
 // of value, secretKeyRef, or configMapKeyRef is set, matching the source
@@ -4775,6 +5190,9 @@ type ClusterComponentTypeNameParam = string
 // ClusterDataPlaneNameParam defines model for ClusterDataPlaneNameParam.
 type ClusterDataPlaneNameParam = string
 
+// ClusterEndpointTypeNameParam defines model for ClusterEndpointTypeNameParam.
+type ClusterEndpointTypeNameParam = string
+
 // ClusterObservabilityPlaneNameParam defines model for ClusterObservabilityPlaneNameParam.
 type ClusterObservabilityPlaneNameParam = string
 
@@ -4810,6 +5228,21 @@ type DataPlaneNameParam = string
 
 // DeploymentPipelineNameParam defines model for DeploymentPipelineNameParam.
 type DeploymentPipelineNameParam = string
+
+// EndpointNameParam defines model for EndpointNameParam.
+type EndpointNameParam = string
+
+// EndpointQueryParam defines model for EndpointQueryParam.
+type EndpointQueryParam = string
+
+// EndpointReleaseBindingNameParam defines model for EndpointReleaseBindingNameParam.
+type EndpointReleaseBindingNameParam = string
+
+// EndpointReleaseNameParam defines model for EndpointReleaseNameParam.
+type EndpointReleaseNameParam = string
+
+// EndpointTypeNameParam defines model for EndpointTypeNameParam.
+type EndpointTypeNameParam = string
 
 // EnvironmentNameParam defines model for EnvironmentNameParam.
 type EnvironmentNameParam = string
@@ -4996,6 +5429,23 @@ type ListClusterComponentTypesParams struct {
 
 // ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.
 type ListClusterDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterEndpointTypesParams defines parameters for ListClusterEndpointTypes.
+type ListClusterEndpointTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5257,6 +5707,83 @@ type ListDataPlanesParams struct {
 
 // ListDeploymentPipelinesParams defines parameters for ListDeploymentPipelines.
 type ListDeploymentPipelinesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListEndpointReleaseBindingsParams defines parameters for ListEndpointReleaseBindings.
+type ListEndpointReleaseBindingsParams struct {
+	// Endpoint Filter by endpoint name (matches spec.owner.endpointName)
+	Endpoint *EndpointQueryParam `form:"endpoint,omitempty" json:"endpoint,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListEndpointReleasesParams defines parameters for ListEndpointReleases.
+type ListEndpointReleasesParams struct {
+	// Endpoint Filter by endpoint name (matches spec.owner.endpointName)
+	Endpoint *EndpointQueryParam `form:"endpoint,omitempty" json:"endpoint,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListEndpointsParams defines parameters for ListEndpoints.
+type ListEndpointsParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListEndpointTypesParams defines parameters for ListEndpointTypes.
+type ListEndpointTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5699,6 +6226,12 @@ type CreateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 // UpdateClusterDataPlaneJSONRequestBody defines body for UpdateClusterDataPlane for application/json ContentType.
 type UpdateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 
+// CreateClusterEndpointTypeJSONRequestBody defines body for CreateClusterEndpointType for application/json ContentType.
+type CreateClusterEndpointTypeJSONRequestBody = ClusterEndpointType
+
+// UpdateClusterEndpointTypeJSONRequestBody defines body for UpdateClusterEndpointType for application/json ContentType.
+type UpdateClusterEndpointTypeJSONRequestBody = ClusterEndpointType
+
 // CreateClusterObservabilityPlaneJSONRequestBody defines body for CreateClusterObservabilityPlane for application/json ContentType.
 type CreateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
 
@@ -5791,6 +6324,24 @@ type CreateDeploymentPipelineJSONRequestBody = DeploymentPipeline
 
 // UpdateDeploymentPipelineJSONRequestBody defines body for UpdateDeploymentPipeline for application/json ContentType.
 type UpdateDeploymentPipelineJSONRequestBody = DeploymentPipeline
+
+// CreateEndpointReleaseBindingJSONRequestBody defines body for CreateEndpointReleaseBinding for application/json ContentType.
+type CreateEndpointReleaseBindingJSONRequestBody = EndpointReleaseBinding
+
+// UpdateEndpointReleaseBindingJSONRequestBody defines body for UpdateEndpointReleaseBinding for application/json ContentType.
+type UpdateEndpointReleaseBindingJSONRequestBody = EndpointReleaseBinding
+
+// CreateEndpointJSONRequestBody defines body for CreateEndpoint for application/json ContentType.
+type CreateEndpointJSONRequestBody = Endpoint
+
+// UpdateEndpointJSONRequestBody defines body for UpdateEndpoint for application/json ContentType.
+type UpdateEndpointJSONRequestBody = Endpoint
+
+// CreateEndpointTypeJSONRequestBody defines body for CreateEndpointType for application/json ContentType.
+type CreateEndpointTypeJSONRequestBody = EndpointType
+
+// UpdateEndpointTypeJSONRequestBody defines body for UpdateEndpointType for application/json ContentType.
+type UpdateEndpointTypeJSONRequestBody = EndpointType
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = Environment

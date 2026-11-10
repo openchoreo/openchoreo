@@ -1173,6 +1173,183 @@ func (m *MockCoreToolsetHandler) DeleteResourceReleaseBinding(
 	return deletedResponse, nil
 }
 
+// Endpoint methods
+
+func (m *MockCoreToolsetHandler) CreateEndpoint(
+	ctx context.Context, namespaceName, projectName string, req *gen.CreateEndpointJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateEndpoint", namespaceName, projectName, req)
+	return `{"name":"new-endpoint","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListEndpoints(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListEndpoints", namespaceName, projectName, opts)
+	return `[{"name":"endpoint-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpoint(
+	ctx context.Context, namespaceName, endpointName string,
+) (any, error) {
+	m.recordCall("GetEndpoint", namespaceName, endpointName)
+	return `{"name":"endpoint-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateEndpoint(
+	ctx context.Context, namespaceName string, req *gen.UpdateEndpointJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateEndpoint", namespaceName, req)
+	return `{"name":"updated-endpoint","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteEndpoint(
+	ctx context.Context, namespaceName, endpointName string,
+) (any, error) {
+	m.recordCall("DeleteEndpoint", namespaceName, endpointName)
+	return deletedResponse, nil
+}
+
+// Endpoint type methods (namespace-scoped)
+
+func (m *MockCoreToolsetHandler) ListEndpointTypes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListEndpointTypes", namespaceName, opts)
+	return `[{"name":"endpoint-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpointType(
+	ctx context.Context, namespaceName, etName string,
+) (any, error) {
+	m.recordCall("GetEndpointType", namespaceName, etName)
+	return `{"name":"endpoint-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpointTypeSchema(
+	ctx context.Context, namespaceName, etName string,
+) (any, error) {
+	m.recordCall("GetEndpointTypeSchema", namespaceName, etName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateEndpointType(
+	ctx context.Context, namespaceName string, req *gen.CreateEndpointTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateEndpointType", namespaceName, req)
+	return `{"name":"new-endpoint-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateEndpointType(
+	ctx context.Context, namespaceName string, req *gen.UpdateEndpointTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateEndpointType", namespaceName, req)
+	return `{"name":"updated-endpoint-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteEndpointType(
+	ctx context.Context, namespaceName, etName string,
+) (any, error) {
+	m.recordCall("DeleteEndpointType", namespaceName, etName)
+	return deletedResponse, nil
+}
+
+// Endpoint type methods (cluster-scoped)
+
+func (m *MockCoreToolsetHandler) ListClusterEndpointTypes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterEndpointTypes", opts)
+	return `[{"name":"cluster-endpoint-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterEndpointType(ctx context.Context, cetName string) (any, error) {
+	m.recordCall("GetClusterEndpointType", cetName)
+	return `{"name":"cluster-endpoint-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterEndpointTypeSchema(ctx context.Context, cetName string) (any, error) {
+	m.recordCall("GetClusterEndpointTypeSchema", cetName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterEndpointType(
+	ctx context.Context, req *gen.CreateClusterEndpointTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterEndpointType", req)
+	return `{"name":"new-cluster-endpoint-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterEndpointType(
+	ctx context.Context, req *gen.UpdateClusterEndpointTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterEndpointType", req)
+	return `{"name":"updated-cluster-endpoint-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterEndpointType(ctx context.Context, cetName string) (any, error) {
+	m.recordCall("DeleteClusterEndpointType", cetName)
+	return deletedResponse, nil
+}
+
+// EndpointRelease methods
+
+func (m *MockCoreToolsetHandler) ListEndpointReleases(
+	ctx context.Context, namespaceName, endpointName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListEndpointReleases", namespaceName, endpointName, opts)
+	return `[{"name":"endpoint-release-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpointRelease(
+	ctx context.Context, namespaceName, releaseName string,
+) (any, error) {
+	m.recordCall("GetEndpointRelease", namespaceName, releaseName)
+	return `{"name":"endpoint-release-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteEndpointRelease(
+	ctx context.Context, namespaceName, endpointReleaseName string,
+) (any, error) {
+	m.recordCall("DeleteEndpointRelease", namespaceName, endpointReleaseName)
+	return deletedResponse, nil
+}
+
+// EndpointReleaseBinding methods
+
+func (m *MockCoreToolsetHandler) ListEndpointReleaseBindings(
+	ctx context.Context, namespaceName, endpointName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListEndpointReleaseBindings", namespaceName, endpointName, opts)
+	return `[{"name":"endpoint-release-binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpointReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("GetEndpointReleaseBinding", namespaceName, bindingName)
+	return `{"name":"endpoint-release-binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateEndpointReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.CreateEndpointReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateEndpointReleaseBinding", namespaceName, req)
+	return `{"name":"new-endpoint-release-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateEndpointReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.UpdateEndpointReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateEndpointReleaseBinding", namespaceName, req)
+	return `{"name":"updated-endpoint-release-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteEndpointReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteEndpointReleaseBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}
+
 // ProjectReleaseBinding methods
 
 func (m *MockCoreToolsetHandler) ListProjectReleaseBindings(

@@ -45,7 +45,7 @@ func TestIsReadOnly(t *testing.T) {
 func TestAllToolsetTypes(t *testing.T) {
 	want := []ToolsetType{
 		ToolsetNamespace, ToolsetProject, ToolsetComponent, ToolsetDeployment,
-		ToolsetBuild, ToolsetPE, ToolsetResource,
+		ToolsetBuild, ToolsetPE, ToolsetResource, ToolsetEndpoint,
 	}
 	got := AllToolsetTypes()
 

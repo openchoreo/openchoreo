@@ -24,6 +24,65 @@ func (_m *MockInterface) EXPECT() *MockInterface_Expecter {
 	return &MockInterface_Expecter{mock: &_m.Mock}
 }
 
+// CreateClusterEndpointType provides a mock function with given fields: ctx, cet
+func (_m *MockInterface) CreateClusterEndpointType(ctx context.Context, cet gen.ClusterEndpointType) (*gen.ClusterEndpointType, error) {
+	ret := _m.Called(ctx, cet)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterEndpointType")
+	}
+
+	var r0 *gen.ClusterEndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterEndpointType) (*gen.ClusterEndpointType, error)); ok {
+		return rf(ctx, cet)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterEndpointType) *gen.ClusterEndpointType); ok {
+		r0 = rf(ctx, cet)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterEndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterEndpointType) error); ok {
+		r1 = rf(ctx, cet)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateClusterEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterEndpointType'
+type MockInterface_CreateClusterEndpointType_Call struct {
+	*mock.Call
+}
+
+// CreateClusterEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cet gen.ClusterEndpointType
+func (_e *MockInterface_Expecter) CreateClusterEndpointType(ctx interface{}, cet interface{}) *MockInterface_CreateClusterEndpointType_Call {
+	return &MockInterface_CreateClusterEndpointType_Call{Call: _e.mock.On("CreateClusterEndpointType", ctx, cet)}
+}
+
+func (_c *MockInterface_CreateClusterEndpointType_Call) Run(run func(ctx context.Context, cet gen.ClusterEndpointType)) *MockInterface_CreateClusterEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(gen.ClusterEndpointType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterEndpointType_Call) Return(_a0 *gen.ClusterEndpointType, _a1 error) *MockInterface_CreateClusterEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterEndpointType_Call) RunAndReturn(run func(context.Context, gen.ClusterEndpointType) (*gen.ClusterEndpointType, error)) *MockInterface_CreateClusterEndpointType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterProjectType provides a mock function with given fields: ctx, cpt
 func (_m *MockInterface) CreateClusterProjectType(ctx context.Context, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
 	ret := _m.Called(ctx, cpt)
@@ -319,6 +378,186 @@ func (_c *MockInterface_CreateComponentWorkflowRun_Call) Return(_a0 *gen.Workflo
 }
 
 func (_c *MockInterface_CreateComponentWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string, gen.CreateComponentWorkflowRunRequest) (*gen.WorkflowRun, error)) *MockInterface_CreateComponentWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateEndpoint provides a mock function with given fields: ctx, namespaceName, e
+func (_m *MockInterface) CreateEndpoint(ctx context.Context, namespaceName string, e gen.Endpoint) (*gen.Endpoint, error) {
+	ret := _m.Called(ctx, namespaceName, e)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateEndpoint")
+	}
+
+	var r0 *gen.Endpoint
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.Endpoint) (*gen.Endpoint, error)); ok {
+		return rf(ctx, namespaceName, e)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.Endpoint) *gen.Endpoint); ok {
+		r0 = rf(ctx, namespaceName, e)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Endpoint)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.Endpoint) error); ok {
+		r1 = rf(ctx, namespaceName, e)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateEndpoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateEndpoint'
+type MockInterface_CreateEndpoint_Call struct {
+	*mock.Call
+}
+
+// CreateEndpoint is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - e gen.Endpoint
+func (_e *MockInterface_Expecter) CreateEndpoint(ctx interface{}, namespaceName interface{}, e interface{}) *MockInterface_CreateEndpoint_Call {
+	return &MockInterface_CreateEndpoint_Call{Call: _e.mock.On("CreateEndpoint", ctx, namespaceName, e)}
+}
+
+func (_c *MockInterface_CreateEndpoint_Call) Run(run func(ctx context.Context, namespaceName string, e gen.Endpoint)) *MockInterface_CreateEndpoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.Endpoint))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpoint_Call) Return(_a0 *gen.Endpoint, _a1 error) *MockInterface_CreateEndpoint_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpoint_Call) RunAndReturn(run func(context.Context, string, gen.Endpoint) (*gen.Endpoint, error)) *MockInterface_CreateEndpoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateEndpointReleaseBinding provides a mock function with given fields: ctx, namespaceName, erb
+func (_m *MockInterface) CreateEndpointReleaseBinding(ctx context.Context, namespaceName string, erb gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, erb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateEndpointReleaseBinding")
+	}
+
+	var r0 *gen.EndpointReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, erb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.EndpointReleaseBinding) *gen.EndpointReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, erb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.EndpointReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, erb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateEndpointReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateEndpointReleaseBinding'
+type MockInterface_CreateEndpointReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// CreateEndpointReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - erb gen.EndpointReleaseBinding
+func (_e *MockInterface_Expecter) CreateEndpointReleaseBinding(ctx interface{}, namespaceName interface{}, erb interface{}) *MockInterface_CreateEndpointReleaseBinding_Call {
+	return &MockInterface_CreateEndpointReleaseBinding_Call{Call: _e.mock.On("CreateEndpointReleaseBinding", ctx, namespaceName, erb)}
+}
+
+func (_c *MockInterface_CreateEndpointReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, erb gen.EndpointReleaseBinding)) *MockInterface_CreateEndpointReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.EndpointReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpointReleaseBinding_Call) Return(_a0 *gen.EndpointReleaseBinding, _a1 error) *MockInterface_CreateEndpointReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpointReleaseBinding_Call) RunAndReturn(run func(context.Context, string, gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error)) *MockInterface_CreateEndpointReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateEndpointType provides a mock function with given fields: ctx, namespaceName, et
+func (_m *MockInterface) CreateEndpointType(ctx context.Context, namespaceName string, et gen.EndpointType) (*gen.EndpointType, error) {
+	ret := _m.Called(ctx, namespaceName, et)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateEndpointType")
+	}
+
+	var r0 *gen.EndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.EndpointType) (*gen.EndpointType, error)); ok {
+		return rf(ctx, namespaceName, et)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.EndpointType) *gen.EndpointType); ok {
+		r0 = rf(ctx, namespaceName, et)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.EndpointType) error); ok {
+		r1 = rf(ctx, namespaceName, et)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateEndpointType'
+type MockInterface_CreateEndpointType_Call struct {
+	*mock.Call
+}
+
+// CreateEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - et gen.EndpointType
+func (_e *MockInterface_Expecter) CreateEndpointType(ctx interface{}, namespaceName interface{}, et interface{}) *MockInterface_CreateEndpointType_Call {
+	return &MockInterface_CreateEndpointType_Call{Call: _e.mock.On("CreateEndpointType", ctx, namespaceName, et)}
+}
+
+func (_c *MockInterface_CreateEndpointType_Call) Run(run func(ctx context.Context, namespaceName string, et gen.EndpointType)) *MockInterface_CreateEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.EndpointType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpointType_Call) Return(_a0 *gen.EndpointType, _a1 error) *MockInterface_CreateEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateEndpointType_Call) RunAndReturn(run func(context.Context, string, gen.EndpointType) (*gen.EndpointType, error)) *MockInterface_CreateEndpointType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1077,6 +1316,53 @@ func (_c *MockInterface_DeleteClusterDataPlane_Call) RunAndReturn(run func(conte
 	return _c
 }
 
+// DeleteClusterEndpointType provides a mock function with given fields: ctx, cetName
+func (_m *MockInterface) DeleteClusterEndpointType(ctx context.Context, cetName string) error {
+	ret := _m.Called(ctx, cetName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterEndpointType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, cetName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteClusterEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterEndpointType'
+type MockInterface_DeleteClusterEndpointType_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cetName string
+func (_e *MockInterface_Expecter) DeleteClusterEndpointType(ctx interface{}, cetName interface{}) *MockInterface_DeleteClusterEndpointType_Call {
+	return &MockInterface_DeleteClusterEndpointType_Call{Call: _e.mock.On("DeleteClusterEndpointType", ctx, cetName)}
+}
+
+func (_c *MockInterface_DeleteClusterEndpointType_Call) Run(run func(ctx context.Context, cetName string)) *MockInterface_DeleteClusterEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterEndpointType_Call) Return(_a0 error) *MockInterface_DeleteClusterEndpointType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterEndpointType_Call) RunAndReturn(run func(context.Context, string) error) *MockInterface_DeleteClusterEndpointType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteClusterObservabilityPlane provides a mock function with given fields: ctx, clusterObservabilityPlaneName
 func (_m *MockInterface) DeleteClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) error {
 	ret := _m.Called(ctx, clusterObservabilityPlaneName)
@@ -1738,6 +2024,198 @@ func (_c *MockInterface_DeleteDeploymentPipeline_Call) Return(_a0 error) *MockIn
 }
 
 func (_c *MockInterface_DeleteDeploymentPipeline_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteDeploymentPipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteEndpoint provides a mock function with given fields: ctx, namespaceName, endpointName
+func (_m *MockInterface) DeleteEndpoint(ctx context.Context, namespaceName string, endpointName string) error {
+	ret := _m.Called(ctx, namespaceName, endpointName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteEndpoint")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, endpointName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteEndpoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteEndpoint'
+type MockInterface_DeleteEndpoint_Call struct {
+	*mock.Call
+}
+
+// DeleteEndpoint is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+func (_e *MockInterface_Expecter) DeleteEndpoint(ctx interface{}, namespaceName interface{}, endpointName interface{}) *MockInterface_DeleteEndpoint_Call {
+	return &MockInterface_DeleteEndpoint_Call{Call: _e.mock.On("DeleteEndpoint", ctx, namespaceName, endpointName)}
+}
+
+func (_c *MockInterface_DeleteEndpoint_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string)) *MockInterface_DeleteEndpoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpoint_Call) Return(_a0 error) *MockInterface_DeleteEndpoint_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpoint_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteEndpoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteEndpointRelease provides a mock function with given fields: ctx, namespaceName, endpointReleaseName
+func (_m *MockInterface) DeleteEndpointRelease(ctx context.Context, namespaceName string, endpointReleaseName string) error {
+	ret := _m.Called(ctx, namespaceName, endpointReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteEndpointRelease")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, endpointReleaseName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteEndpointRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteEndpointRelease'
+type MockInterface_DeleteEndpointRelease_Call struct {
+	*mock.Call
+}
+
+// DeleteEndpointRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointReleaseName string
+func (_e *MockInterface_Expecter) DeleteEndpointRelease(ctx interface{}, namespaceName interface{}, endpointReleaseName interface{}) *MockInterface_DeleteEndpointRelease_Call {
+	return &MockInterface_DeleteEndpointRelease_Call{Call: _e.mock.On("DeleteEndpointRelease", ctx, namespaceName, endpointReleaseName)}
+}
+
+func (_c *MockInterface_DeleteEndpointRelease_Call) Run(run func(ctx context.Context, namespaceName string, endpointReleaseName string)) *MockInterface_DeleteEndpointRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointRelease_Call) Return(_a0 error) *MockInterface_DeleteEndpointRelease_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointRelease_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteEndpointRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteEndpointReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) DeleteEndpointReleaseBinding(ctx context.Context, namespaceName string, bindingName string) error {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteEndpointReleaseBinding")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteEndpointReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteEndpointReleaseBinding'
+type MockInterface_DeleteEndpointReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// DeleteEndpointReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) DeleteEndpointReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_DeleteEndpointReleaseBinding_Call {
+	return &MockInterface_DeleteEndpointReleaseBinding_Call{Call: _e.mock.On("DeleteEndpointReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_DeleteEndpointReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_DeleteEndpointReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointReleaseBinding_Call) Return(_a0 error) *MockInterface_DeleteEndpointReleaseBinding_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteEndpointReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteEndpointType provides a mock function with given fields: ctx, namespaceName, etName
+func (_m *MockInterface) DeleteEndpointType(ctx context.Context, namespaceName string, etName string) error {
+	ret := _m.Called(ctx, namespaceName, etName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteEndpointType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, etName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteEndpointType'
+type MockInterface_DeleteEndpointType_Call struct {
+	*mock.Call
+}
+
+// DeleteEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - etName string
+func (_e *MockInterface_Expecter) DeleteEndpointType(ctx interface{}, namespaceName interface{}, etName interface{}) *MockInterface_DeleteEndpointType_Call {
+	return &MockInterface_DeleteEndpointType_Call{Call: _e.mock.On("DeleteEndpointType", ctx, namespaceName, etName)}
+}
+
+func (_c *MockInterface_DeleteEndpointType_Call) Run(run func(ctx context.Context, namespaceName string, etName string)) *MockInterface_DeleteEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointType_Call) Return(_a0 error) *MockInterface_DeleteEndpointType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteEndpointType_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteEndpointType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2987,6 +3465,124 @@ func (_c *MockInterface_GetClusterDataPlane_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// GetClusterEndpointType provides a mock function with given fields: ctx, cetName
+func (_m *MockInterface) GetClusterEndpointType(ctx context.Context, cetName string) (*gen.ClusterEndpointType, error) {
+	ret := _m.Called(ctx, cetName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterEndpointType")
+	}
+
+	var r0 *gen.ClusterEndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterEndpointType, error)); ok {
+		return rf(ctx, cetName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterEndpointType); ok {
+		r0 = rf(ctx, cetName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterEndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cetName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterEndpointType'
+type MockInterface_GetClusterEndpointType_Call struct {
+	*mock.Call
+}
+
+// GetClusterEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cetName string
+func (_e *MockInterface_Expecter) GetClusterEndpointType(ctx interface{}, cetName interface{}) *MockInterface_GetClusterEndpointType_Call {
+	return &MockInterface_GetClusterEndpointType_Call{Call: _e.mock.On("GetClusterEndpointType", ctx, cetName)}
+}
+
+func (_c *MockInterface_GetClusterEndpointType_Call) Run(run func(ctx context.Context, cetName string)) *MockInterface_GetClusterEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterEndpointType_Call) Return(_a0 *gen.ClusterEndpointType, _a1 error) *MockInterface_GetClusterEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterEndpointType_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterEndpointType, error)) *MockInterface_GetClusterEndpointType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterEndpointTypeSchema provides a mock function with given fields: ctx, cetName
+func (_m *MockInterface) GetClusterEndpointTypeSchema(ctx context.Context, cetName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, cetName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterEndpointTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, cetName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *json.RawMessage); ok {
+		r0 = rf(ctx, cetName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cetName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterEndpointTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterEndpointTypeSchema'
+type MockInterface_GetClusterEndpointTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetClusterEndpointTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cetName string
+func (_e *MockInterface_Expecter) GetClusterEndpointTypeSchema(ctx interface{}, cetName interface{}) *MockInterface_GetClusterEndpointTypeSchema_Call {
+	return &MockInterface_GetClusterEndpointTypeSchema_Call{Call: _e.mock.On("GetClusterEndpointTypeSchema", ctx, cetName)}
+}
+
+func (_c *MockInterface_GetClusterEndpointTypeSchema_Call) Run(run func(ctx context.Context, cetName string)) *MockInterface_GetClusterEndpointTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterEndpointTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetClusterEndpointTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterEndpointTypeSchema_Call) RunAndReturn(run func(context.Context, string) (*json.RawMessage, error)) *MockInterface_GetClusterEndpointTypeSchema_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetClusterObservabilityPlane provides a mock function with given fields: ctx, clusterObservabilityPlaneName
 func (_m *MockInterface) GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error) {
 	ret := _m.Called(ctx, clusterObservabilityPlaneName)
@@ -4112,6 +4708,306 @@ func (_c *MockInterface_GetDeploymentPipeline_Call) Return(_a0 *gen.DeploymentPi
 }
 
 func (_c *MockInterface_GetDeploymentPipeline_Call) RunAndReturn(run func(context.Context, string, string) (*gen.DeploymentPipeline, error)) *MockInterface_GetDeploymentPipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpoint provides a mock function with given fields: ctx, namespaceName, endpointName
+func (_m *MockInterface) GetEndpoint(ctx context.Context, namespaceName string, endpointName string) (*gen.Endpoint, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpoint")
+	}
+
+	var r0 *gen.Endpoint
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.Endpoint, error)); ok {
+		return rf(ctx, namespaceName, endpointName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.Endpoint); ok {
+		r0 = rf(ctx, namespaceName, endpointName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Endpoint)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpoint'
+type MockInterface_GetEndpoint_Call struct {
+	*mock.Call
+}
+
+// GetEndpoint is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+func (_e *MockInterface_Expecter) GetEndpoint(ctx interface{}, namespaceName interface{}, endpointName interface{}) *MockInterface_GetEndpoint_Call {
+	return &MockInterface_GetEndpoint_Call{Call: _e.mock.On("GetEndpoint", ctx, namespaceName, endpointName)}
+}
+
+func (_c *MockInterface_GetEndpoint_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string)) *MockInterface_GetEndpoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpoint_Call) Return(_a0 *gen.Endpoint, _a1 error) *MockInterface_GetEndpoint_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpoint_Call) RunAndReturn(run func(context.Context, string, string) (*gen.Endpoint, error)) *MockInterface_GetEndpoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointRelease provides a mock function with given fields: ctx, namespaceName, endpointReleaseName
+func (_m *MockInterface) GetEndpointRelease(ctx context.Context, namespaceName string, endpointReleaseName string) (*gen.EndpointRelease, error) {
+	ret := _m.Called(ctx, namespaceName, endpointReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointRelease")
+	}
+
+	var r0 *gen.EndpointRelease
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.EndpointRelease, error)); ok {
+		return rf(ctx, namespaceName, endpointReleaseName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.EndpointRelease); ok {
+		r0 = rf(ctx, namespaceName, endpointReleaseName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRelease)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, endpointReleaseName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpointRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointRelease'
+type MockInterface_GetEndpointRelease_Call struct {
+	*mock.Call
+}
+
+// GetEndpointRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointReleaseName string
+func (_e *MockInterface_Expecter) GetEndpointRelease(ctx interface{}, namespaceName interface{}, endpointReleaseName interface{}) *MockInterface_GetEndpointRelease_Call {
+	return &MockInterface_GetEndpointRelease_Call{Call: _e.mock.On("GetEndpointRelease", ctx, namespaceName, endpointReleaseName)}
+}
+
+func (_c *MockInterface_GetEndpointRelease_Call) Run(run func(ctx context.Context, namespaceName string, endpointReleaseName string)) *MockInterface_GetEndpointRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointRelease_Call) Return(_a0 *gen.EndpointRelease, _a1 error) *MockInterface_GetEndpointRelease_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointRelease_Call) RunAndReturn(run func(context.Context, string, string) (*gen.EndpointRelease, error)) *MockInterface_GetEndpointRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) GetEndpointReleaseBinding(ctx context.Context, namespaceName string, bindingName string) (*gen.EndpointReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointReleaseBinding")
+	}
+
+	var r0 *gen.EndpointReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.EndpointReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.EndpointReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpointReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointReleaseBinding'
+type MockInterface_GetEndpointReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// GetEndpointReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) GetEndpointReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_GetEndpointReleaseBinding_Call {
+	return &MockInterface_GetEndpointReleaseBinding_Call{Call: _e.mock.On("GetEndpointReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_GetEndpointReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_GetEndpointReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointReleaseBinding_Call) Return(_a0 *gen.EndpointReleaseBinding, _a1 error) *MockInterface_GetEndpointReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) (*gen.EndpointReleaseBinding, error)) *MockInterface_GetEndpointReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointType provides a mock function with given fields: ctx, namespaceName, etName
+func (_m *MockInterface) GetEndpointType(ctx context.Context, namespaceName string, etName string) (*gen.EndpointType, error) {
+	ret := _m.Called(ctx, namespaceName, etName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointType")
+	}
+
+	var r0 *gen.EndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.EndpointType, error)); ok {
+		return rf(ctx, namespaceName, etName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.EndpointType); ok {
+		r0 = rf(ctx, namespaceName, etName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, etName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointType'
+type MockInterface_GetEndpointType_Call struct {
+	*mock.Call
+}
+
+// GetEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - etName string
+func (_e *MockInterface_Expecter) GetEndpointType(ctx interface{}, namespaceName interface{}, etName interface{}) *MockInterface_GetEndpointType_Call {
+	return &MockInterface_GetEndpointType_Call{Call: _e.mock.On("GetEndpointType", ctx, namespaceName, etName)}
+}
+
+func (_c *MockInterface_GetEndpointType_Call) Run(run func(ctx context.Context, namespaceName string, etName string)) *MockInterface_GetEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointType_Call) Return(_a0 *gen.EndpointType, _a1 error) *MockInterface_GetEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointType_Call) RunAndReturn(run func(context.Context, string, string) (*gen.EndpointType, error)) *MockInterface_GetEndpointType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointTypeSchema provides a mock function with given fields: ctx, namespaceName, etName
+func (_m *MockInterface) GetEndpointTypeSchema(ctx context.Context, namespaceName string, etName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, namespaceName, etName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, namespaceName, etName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *json.RawMessage); ok {
+		r0 = rf(ctx, namespaceName, etName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, etName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpointTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointTypeSchema'
+type MockInterface_GetEndpointTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetEndpointTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - etName string
+func (_e *MockInterface_Expecter) GetEndpointTypeSchema(ctx interface{}, namespaceName interface{}, etName interface{}) *MockInterface_GetEndpointTypeSchema_Call {
+	return &MockInterface_GetEndpointTypeSchema_Call{Call: _e.mock.On("GetEndpointTypeSchema", ctx, namespaceName, etName)}
+}
+
+func (_c *MockInterface_GetEndpointTypeSchema_Call) Run(run func(ctx context.Context, namespaceName string, etName string)) *MockInterface_GetEndpointTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetEndpointTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointTypeSchema_Call) RunAndReturn(run func(context.Context, string, string) (*json.RawMessage, error)) *MockInterface_GetEndpointTypeSchema_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -6092,6 +6988,65 @@ func (_c *MockInterface_ListClusterDataPlanes_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// ListClusterEndpointTypes provides a mock function with given fields: ctx, params
+func (_m *MockInterface) ListClusterEndpointTypes(ctx context.Context, params *gen.ListClusterEndpointTypesParams) (*gen.ClusterEndpointTypeList, error) {
+	ret := _m.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterEndpointTypes")
+	}
+
+	var r0 *gen.ClusterEndpointTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterEndpointTypesParams) (*gen.ClusterEndpointTypeList, error)); ok {
+		return rf(ctx, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterEndpointTypesParams) *gen.ClusterEndpointTypeList); ok {
+		r0 = rf(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterEndpointTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterEndpointTypesParams) error); ok {
+		r1 = rf(ctx, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListClusterEndpointTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterEndpointTypes'
+type MockInterface_ListClusterEndpointTypes_Call struct {
+	*mock.Call
+}
+
+// ListClusterEndpointTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterEndpointTypesParams
+func (_e *MockInterface_Expecter) ListClusterEndpointTypes(ctx interface{}, params interface{}) *MockInterface_ListClusterEndpointTypes_Call {
+	return &MockInterface_ListClusterEndpointTypes_Call{Call: _e.mock.On("ListClusterEndpointTypes", ctx, params)}
+}
+
+func (_c *MockInterface_ListClusterEndpointTypes_Call) Run(run func(ctx context.Context, params *gen.ListClusterEndpointTypesParams)) *MockInterface_ListClusterEndpointTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*gen.ListClusterEndpointTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListClusterEndpointTypes_Call) Return(_a0 *gen.ClusterEndpointTypeList, _a1 error) *MockInterface_ListClusterEndpointTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListClusterEndpointTypes_Call) RunAndReturn(run func(context.Context, *gen.ListClusterEndpointTypesParams) (*gen.ClusterEndpointTypeList, error)) *MockInterface_ListClusterEndpointTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListClusterObservabilityPlanes provides a mock function with given fields: ctx, params
 func (_m *MockInterface) ListClusterObservabilityPlanes(ctx context.Context, params *gen.ListClusterObservabilityPlanesParams) (*gen.ClusterObservabilityPlaneList, error) {
 	ret := _m.Called(ctx, params)
@@ -6922,6 +7877,246 @@ func (_c *MockInterface_ListDeploymentPipelines_Call) Return(_a0 *gen.Deployment
 }
 
 func (_c *MockInterface_ListDeploymentPipelines_Call) RunAndReturn(run func(context.Context, string, *gen.ListDeploymentPipelinesParams) (*gen.DeploymentPipelineList, error)) *MockInterface_ListDeploymentPipelines_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListEndpointReleaseBindings provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListEndpointReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListEndpointReleaseBindingsParams) (*gen.EndpointReleaseBindingList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListEndpointReleaseBindings")
+	}
+
+	var r0 *gen.EndpointReleaseBindingList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointReleaseBindingsParams) (*gen.EndpointReleaseBindingList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointReleaseBindingsParams) *gen.EndpointReleaseBindingList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointReleaseBindingList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListEndpointReleaseBindingsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListEndpointReleaseBindings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListEndpointReleaseBindings'
+type MockInterface_ListEndpointReleaseBindings_Call struct {
+	*mock.Call
+}
+
+// ListEndpointReleaseBindings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListEndpointReleaseBindingsParams
+func (_e *MockInterface_Expecter) ListEndpointReleaseBindings(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListEndpointReleaseBindings_Call {
+	return &MockInterface_ListEndpointReleaseBindings_Call{Call: _e.mock.On("ListEndpointReleaseBindings", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListEndpointReleaseBindings_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListEndpointReleaseBindingsParams)) *MockInterface_ListEndpointReleaseBindings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListEndpointReleaseBindingsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointReleaseBindings_Call) Return(_a0 *gen.EndpointReleaseBindingList, _a1 error) *MockInterface_ListEndpointReleaseBindings_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointReleaseBindings_Call) RunAndReturn(run func(context.Context, string, *gen.ListEndpointReleaseBindingsParams) (*gen.EndpointReleaseBindingList, error)) *MockInterface_ListEndpointReleaseBindings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListEndpointReleases provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListEndpointReleases(ctx context.Context, namespaceName string, params *gen.ListEndpointReleasesParams) (*gen.EndpointReleaseList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListEndpointReleases")
+	}
+
+	var r0 *gen.EndpointReleaseList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointReleasesParams) (*gen.EndpointReleaseList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointReleasesParams) *gen.EndpointReleaseList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointReleaseList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListEndpointReleasesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListEndpointReleases_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListEndpointReleases'
+type MockInterface_ListEndpointReleases_Call struct {
+	*mock.Call
+}
+
+// ListEndpointReleases is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListEndpointReleasesParams
+func (_e *MockInterface_Expecter) ListEndpointReleases(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListEndpointReleases_Call {
+	return &MockInterface_ListEndpointReleases_Call{Call: _e.mock.On("ListEndpointReleases", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListEndpointReleases_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListEndpointReleasesParams)) *MockInterface_ListEndpointReleases_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListEndpointReleasesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointReleases_Call) Return(_a0 *gen.EndpointReleaseList, _a1 error) *MockInterface_ListEndpointReleases_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointReleases_Call) RunAndReturn(run func(context.Context, string, *gen.ListEndpointReleasesParams) (*gen.EndpointReleaseList, error)) *MockInterface_ListEndpointReleases_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListEndpointTypes provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListEndpointTypes(ctx context.Context, namespaceName string, params *gen.ListEndpointTypesParams) (*gen.EndpointTypeList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListEndpointTypes")
+	}
+
+	var r0 *gen.EndpointTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointTypesParams) (*gen.EndpointTypeList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointTypesParams) *gen.EndpointTypeList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListEndpointTypesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListEndpointTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListEndpointTypes'
+type MockInterface_ListEndpointTypes_Call struct {
+	*mock.Call
+}
+
+// ListEndpointTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListEndpointTypesParams
+func (_e *MockInterface_Expecter) ListEndpointTypes(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListEndpointTypes_Call {
+	return &MockInterface_ListEndpointTypes_Call{Call: _e.mock.On("ListEndpointTypes", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListEndpointTypes_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListEndpointTypesParams)) *MockInterface_ListEndpointTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListEndpointTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointTypes_Call) Return(_a0 *gen.EndpointTypeList, _a1 error) *MockInterface_ListEndpointTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListEndpointTypes_Call) RunAndReturn(run func(context.Context, string, *gen.ListEndpointTypesParams) (*gen.EndpointTypeList, error)) *MockInterface_ListEndpointTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListEndpoints provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListEndpoints(ctx context.Context, namespaceName string, params *gen.ListEndpointsParams) (*gen.EndpointList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListEndpoints")
+	}
+
+	var r0 *gen.EndpointList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointsParams) (*gen.EndpointList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListEndpointsParams) *gen.EndpointList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListEndpointsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListEndpoints_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListEndpoints'
+type MockInterface_ListEndpoints_Call struct {
+	*mock.Call
+}
+
+// ListEndpoints is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListEndpointsParams
+func (_e *MockInterface_Expecter) ListEndpoints(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListEndpoints_Call {
+	return &MockInterface_ListEndpoints_Call{Call: _e.mock.On("ListEndpoints", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListEndpoints_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListEndpointsParams)) *MockInterface_ListEndpoints_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListEndpointsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListEndpoints_Call) Return(_a0 *gen.EndpointList, _a1 error) *MockInterface_ListEndpoints_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListEndpoints_Call) RunAndReturn(run func(context.Context, string, *gen.ListEndpointsParams) (*gen.EndpointList, error)) *MockInterface_ListEndpoints_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -8245,6 +9440,66 @@ func (_c *MockInterface_ListWorkloads_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// UpdateClusterEndpointType provides a mock function with given fields: ctx, cetName, cet
+func (_m *MockInterface) UpdateClusterEndpointType(ctx context.Context, cetName string, cet gen.ClusterEndpointType) (*gen.ClusterEndpointType, error) {
+	ret := _m.Called(ctx, cetName, cet)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterEndpointType")
+	}
+
+	var r0 *gen.ClusterEndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterEndpointType) (*gen.ClusterEndpointType, error)); ok {
+		return rf(ctx, cetName, cet)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterEndpointType) *gen.ClusterEndpointType); ok {
+		r0 = rf(ctx, cetName, cet)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterEndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterEndpointType) error); ok {
+		r1 = rf(ctx, cetName, cet)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateClusterEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterEndpointType'
+type MockInterface_UpdateClusterEndpointType_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cetName string
+//   - cet gen.ClusterEndpointType
+func (_e *MockInterface_Expecter) UpdateClusterEndpointType(ctx interface{}, cetName interface{}, cet interface{}) *MockInterface_UpdateClusterEndpointType_Call {
+	return &MockInterface_UpdateClusterEndpointType_Call{Call: _e.mock.On("UpdateClusterEndpointType", ctx, cetName, cet)}
+}
+
+func (_c *MockInterface_UpdateClusterEndpointType_Call) Run(run func(ctx context.Context, cetName string, cet gen.ClusterEndpointType)) *MockInterface_UpdateClusterEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterEndpointType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterEndpointType_Call) Return(_a0 *gen.ClusterEndpointType, _a1 error) *MockInterface_UpdateClusterEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterEndpointType_Call) RunAndReturn(run func(context.Context, string, gen.ClusterEndpointType) (*gen.ClusterEndpointType, error)) *MockInterface_UpdateClusterEndpointType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateClusterProjectType provides a mock function with given fields: ctx, cptName, cpt
 func (_m *MockInterface) UpdateClusterProjectType(ctx context.Context, cptName string, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
 	ret := _m.Called(ctx, cptName, cpt)
@@ -8422,6 +9677,189 @@ func (_c *MockInterface_UpdateComponentType_Call) Return(_a0 *gen.ComponentType,
 }
 
 func (_c *MockInterface_UpdateComponentType_Call) RunAndReturn(run func(context.Context, string, string, gen.ComponentType) (*gen.ComponentType, error)) *MockInterface_UpdateComponentType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateEndpoint provides a mock function with given fields: ctx, namespaceName, endpointName, e
+func (_m *MockInterface) UpdateEndpoint(ctx context.Context, namespaceName string, endpointName string, e gen.Endpoint) (*gen.Endpoint, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName, e)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateEndpoint")
+	}
+
+	var r0 *gen.Endpoint
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.Endpoint) (*gen.Endpoint, error)); ok {
+		return rf(ctx, namespaceName, endpointName, e)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.Endpoint) *gen.Endpoint); ok {
+		r0 = rf(ctx, namespaceName, endpointName, e)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Endpoint)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.Endpoint) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, e)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateEndpoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateEndpoint'
+type MockInterface_UpdateEndpoint_Call struct {
+	*mock.Call
+}
+
+// UpdateEndpoint is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - e gen.Endpoint
+func (_e *MockInterface_Expecter) UpdateEndpoint(ctx interface{}, namespaceName interface{}, endpointName interface{}, e interface{}) *MockInterface_UpdateEndpoint_Call {
+	return &MockInterface_UpdateEndpoint_Call{Call: _e.mock.On("UpdateEndpoint", ctx, namespaceName, endpointName, e)}
+}
+
+func (_c *MockInterface_UpdateEndpoint_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, e gen.Endpoint)) *MockInterface_UpdateEndpoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.Endpoint))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpoint_Call) Return(_a0 *gen.Endpoint, _a1 error) *MockInterface_UpdateEndpoint_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpoint_Call) RunAndReturn(run func(context.Context, string, string, gen.Endpoint) (*gen.Endpoint, error)) *MockInterface_UpdateEndpoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateEndpointReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName, erb
+func (_m *MockInterface) UpdateEndpointReleaseBinding(ctx context.Context, namespaceName string, bindingName string, erb gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName, erb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateEndpointReleaseBinding")
+	}
+
+	var r0 *gen.EndpointReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName, erb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointReleaseBinding) *gen.EndpointReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName, erb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName, erb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateEndpointReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateEndpointReleaseBinding'
+type MockInterface_UpdateEndpointReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// UpdateEndpointReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+//   - erb gen.EndpointReleaseBinding
+func (_e *MockInterface_Expecter) UpdateEndpointReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}, erb interface{}) *MockInterface_UpdateEndpointReleaseBinding_Call {
+	return &MockInterface_UpdateEndpointReleaseBinding_Call{Call: _e.mock.On("UpdateEndpointReleaseBinding", ctx, namespaceName, bindingName, erb)}
+}
+
+func (_c *MockInterface_UpdateEndpointReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string, erb gen.EndpointReleaseBinding)) *MockInterface_UpdateEndpointReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpointReleaseBinding_Call) Return(_a0 *gen.EndpointReleaseBinding, _a1 error) *MockInterface_UpdateEndpointReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpointReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error)) *MockInterface_UpdateEndpointReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateEndpointType provides a mock function with given fields: ctx, namespaceName, etName, et
+func (_m *MockInterface) UpdateEndpointType(ctx context.Context, namespaceName string, etName string, et gen.EndpointType) (*gen.EndpointType, error) {
+	ret := _m.Called(ctx, namespaceName, etName, et)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateEndpointType")
+	}
+
+	var r0 *gen.EndpointType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointType) (*gen.EndpointType, error)); ok {
+		return rf(ctx, namespaceName, etName, et)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointType) *gen.EndpointType); ok {
+		r0 = rf(ctx, namespaceName, etName, et)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointType) error); ok {
+		r1 = rf(ctx, namespaceName, etName, et)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateEndpointType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateEndpointType'
+type MockInterface_UpdateEndpointType_Call struct {
+	*mock.Call
+}
+
+// UpdateEndpointType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - etName string
+//   - et gen.EndpointType
+func (_e *MockInterface_Expecter) UpdateEndpointType(ctx interface{}, namespaceName interface{}, etName interface{}, et interface{}) *MockInterface_UpdateEndpointType_Call {
+	return &MockInterface_UpdateEndpointType_Call{Call: _e.mock.On("UpdateEndpointType", ctx, namespaceName, etName, et)}
+}
+
+func (_c *MockInterface_UpdateEndpointType_Call) Run(run func(ctx context.Context, namespaceName string, etName string, et gen.EndpointType)) *MockInterface_UpdateEndpointType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpointType_Call) Return(_a0 *gen.EndpointType, _a1 error) *MockInterface_UpdateEndpointType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateEndpointType_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointType) (*gen.EndpointType, error)) *MockInterface_UpdateEndpointType_Call {
 	_c.Call.Return(run)
 	return _c
 }

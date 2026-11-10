@@ -111,6 +111,7 @@ func (t *Toolsets) RegisterCreateProjectReleaseBinding(s *mcp.Server, perms map[
 	})
 }
 
+//nolint:dupl // binding update handlers share similar structure
 func (t *Toolsets) RegisterUpdateProjectReleaseBinding(s *mcp.Server, perms map[string]ToolPermission) {
 	const name = "update_project_release_binding"
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateProjectReleaseBinding}

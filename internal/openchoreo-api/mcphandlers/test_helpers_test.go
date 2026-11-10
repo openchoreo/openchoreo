@@ -5,12 +5,17 @@ package mcphandlers
 
 import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	clusterendpointtypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterendpointtype"
 	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
+	endpointsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpoint"
+	endpointreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointrelease"
+	endpointreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointreleasebinding"
+	endpointtypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/endpointtype"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
@@ -124,4 +129,24 @@ func withResourceReleaseService(s resourcereleasesvc.Service) func(*handlerservi
 
 func withResourceReleaseBindingService(s resourcereleasebindingsvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.ResourceReleaseBindingService = s }
+}
+
+func withEndpointService(s endpointsvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.EndpointService = s }
+}
+
+func withEndpointTypeService(s endpointtypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.EndpointTypeService = s }
+}
+
+func withClusterEndpointTypeService(s clusterendpointtypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ClusterEndpointTypeService = s }
+}
+
+func withEndpointReleaseService(s endpointreleasesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.EndpointReleaseService = s }
+}
+
+func withEndpointReleaseBindingService(s endpointreleasebindingsvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.EndpointReleaseBindingService = s }
 }

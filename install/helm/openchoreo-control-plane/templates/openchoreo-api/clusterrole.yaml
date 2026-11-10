@@ -21,6 +21,7 @@ rules:
   - clusterworkflowplanes
   - clustercomponenttypes
   - clusterdataplanes
+  - clusterendpointtypes
   - clusterprojecttypes
   - clusterresourcetypes
   - clustertraits
@@ -34,7 +35,10 @@ rules:
   - deployableartifacts
   - deploymentpipelines
   - deployments
+  - endpointreleasebindings
+  - endpointreleases
   - endpoints
+  - endpointtypes
   - environments
   - gitrepositorywebhooks
   - observabilityalertsnotificationchannels
@@ -94,6 +98,7 @@ rules:
   - clusterworkflowplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
+  - clusterendpointtypes/status
   - clustertraits/status
   - clusterobservabilityplanes/status
   - clustertraits/status
@@ -105,7 +110,10 @@ rules:
   - deployableartifacts/status
   - deploymentpipelines/status
   - deployments/status
+  - endpointreleasebindings/status
+  - endpointreleases/status
   - endpoints/status
+  - endpointtypes/status
   - environments/status
   - gitrepositorywebhooks/status
   - observabilityalertsnotificationchannels/status

@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterendpointtype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterresourcetype"
@@ -26,6 +27,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/dataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/deploymentpipeline"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpoint"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpointreleasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpointtype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/environment"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
@@ -73,23 +78,28 @@ func BuildRootCmd() *cobra.Command {
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
 		resourcerelease.NewResourceReleaseCmd(f),
+		endpointrelease.NewEndpointReleaseCmd(f),
 		projectrelease.NewProjectReleaseCmd(f),
 		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
+		endpointreleasebinding.NewEndpointReleaseBindingCmd(f),
 		projectreleasebinding.NewProjectReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
 		component.NewComponentCmd(f),
 		resource.NewResourceCmd(f),
+		endpoint.NewEndpointCmd(f),
 		environment.NewEnvironmentCmd(f),
 		dataplane.NewDataPlaneCmd(f),
 		workflowplane.NewWorkflowPlaneCmd(f),
 		observabilityplane.NewObservabilityPlaneCmd(f),
 		componenttype.NewComponentTypeCmd(f),
 		resourcetype.NewResourceTypeCmd(f),
+		endpointtype.NewEndpointTypeCmd(f),
 		projecttype.NewProjectTypeCmd(f),
 		clustercomponenttype.NewClusterComponentTypeCmd(f),
 		clusterresourcetype.NewClusterResourceTypeCmd(f),
+		clusterendpointtype.NewClusterEndpointTypeCmd(f),
 		clusterprojecttype.NewClusterProjectTypeCmd(f),
 		clusterdataplane.NewClusterDataPlaneCmd(f),
 		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(f),
