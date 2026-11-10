@@ -8,6 +8,9 @@ global:
 observer:
   secretName: observer-secret
   controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
+  cors:
+    allowedOrigins:
+    - "http://openchoreo.localhost:8080"
   http:
     hostnames:
     - host.k3d.internal
