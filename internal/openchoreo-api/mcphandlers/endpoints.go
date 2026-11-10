@@ -91,9 +91,10 @@ func (h *MCPHandler) CreateEndpoint(
 	}), nil
 }
 
-// UpdateEndpoint applies the provided fields onto the stored Endpoint, so the
-// immutable spec.owner and spec.type, and anything the caller did not send,
-// are preserved.
+// UpdateEndpoint applies the provided fields onto the stored Endpoint, so
+// spec.owner, the immutable spec.type, and anything the caller did not send
+// are preserved. The endpoint service moves a component-owned Endpoint to its
+// project when the new backends route to another component.
 func (h *MCPHandler) UpdateEndpoint(
 	ctx context.Context, namespaceName string, req *gen.UpdateEndpointJSONRequestBody,
 ) (any, error) {

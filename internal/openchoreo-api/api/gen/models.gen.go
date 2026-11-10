@@ -2109,7 +2109,7 @@ type Endpoint struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+	// Spec Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after creation.
 	Spec   *EndpointSpec   `json:"spec,omitempty"`
 	Status *EndpointStatus `json:"status,omitempty"`
 }
@@ -2348,7 +2348,7 @@ type EndpointSecurityTemplate struct {
 	Scheme string `json:"scheme"`
 }
 
-// EndpointSpec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+// EndpointSpec Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after creation.
 type EndpointSpec struct {
 	// AutoDeploy Deploys the Endpoint to the first environment of its project's deployment pipeline. The controller creates that environment's EndpointReleaseBinding and advances it to each new EndpointRelease; later environments are promoted explicitly. Defaults to false.
 	AutoDeploy *bool `json:"autoDeploy,omitempty"`
@@ -2356,9 +2356,12 @@ type EndpointSpec struct {
 	// BackendRefs Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
 	BackendRefs []EndpointBackendRef `json:"backendRefs"`
 
-	// Owner Identifies the project that owns this Endpoint.
+	// Owner Identifies what owns this Endpoint, and so what deleting removes it: the component when componentName is set, otherwise the project.
 	Owner struct {
-		// ProjectName Parent project name
+		// ComponentName Component that owns this Endpoint. Every backend must route to it. When an update makes a backend route to another component, the API drops this field so the project owns the Endpoint.
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ProjectName Parent project name. Immutable.
 		ProjectName string `json:"projectName"`
 	} `json:"owner"`
 

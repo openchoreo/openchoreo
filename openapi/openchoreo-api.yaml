@@ -12414,7 +12414,9 @@ components:
 
     EndpointSpec:
       type: object
-      description: Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+      description: >-
+        Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after
+        creation.
       required:
         - owner
         - type
@@ -12423,15 +12425,26 @@ components:
       properties:
         owner:
           type: object
-          description: Identifies the project that owns this Endpoint.
+          description: >-
+            Identifies what owns this Endpoint, and so what deleting removes it: the component
+            when componentName is set, otherwise the project.
           required:
             - projectName
           properties:
             projectName:
               type: string
-              description: Parent project name
+              description: Parent project name. Immutable.
               minLength: 1
               example: shop
+            componentName:
+              type: string
+              description: >-
+                Component that owns this Endpoint. Every backend must route to it. When an
+                update makes a backend route to another component, the API drops this field so
+                the project owns the Endpoint.
+              minLength: 1
+              maxLength: 63
+              example: orders
         type:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:

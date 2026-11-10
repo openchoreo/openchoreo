@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -347,6 +348,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForClusterEndpointType)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForWorkload)).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForComponent),
+			builder.WithPredicates(componentCreated())).
 		Named("endpoint").
 		Complete(r)
 }

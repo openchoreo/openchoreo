@@ -65,6 +65,7 @@ func endpointTypeResourceIDs(resources []openchoreov1alpha1.ResourceTemplate) []
 func endpointSummary(ep openchoreov1alpha1.Endpoint) map[string]any {
 	m := extractCommonMeta(&ep)
 	m["projectName"] = ep.Spec.Owner.ProjectName
+	setIfNotEmpty(m, "componentName", ep.Spec.Owner.ComponentName)
 	m["type"] = endpointTypeRef(ep.Spec.Type)
 	m["visibility"] = endpointVisibilities(ep.Spec.Visibility)
 	m["backends"] = endpointBackends(ep.Spec.BackendRefs)
@@ -78,6 +79,7 @@ func endpointSummary(ep openchoreov1alpha1.Endpoint) map[string]any {
 func endpointDetail(ep *openchoreov1alpha1.Endpoint) map[string]any {
 	m := extractCommonMeta(ep)
 	m["projectName"] = ep.Spec.Owner.ProjectName
+	setIfNotEmpty(m, "componentName", ep.Spec.Owner.ComponentName)
 	m["type"] = endpointTypeRef(ep.Spec.Type)
 	m["visibility"] = endpointVisibilities(ep.Spec.Visibility)
 	m["backends"] = endpointBackends(ep.Spec.BackendRefs)

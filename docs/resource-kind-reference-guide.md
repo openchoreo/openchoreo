@@ -497,8 +497,11 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `default` | bool | No | Automatic choice for its protocols. At most one default per protocol, enforced by the webhook |
 
 Clients that create a Component (portal, occ, GitOps tooling) create one `Endpoint` per workload
-endpoint the developer exposes, from the chosen or default entry, labeled
-`openchoreo.dev/source-component` and `openchoreo.dev/source-endpoint`. The developer picks the
+endpoint the developer exposes, from the chosen or default entry, with `spec.owner.componentName`
+set to the component. The Endpoint controller makes that Component the Endpoint's owner, so
+deleting the component deletes its Endpoints. `componentName` is accepted only while every backend
+routes to that component; an Endpoint routing to several components is owned by its Project, and
+the OpenChoreo API drops `componentName` when an update adds such a backend. The developer picks the
 visibility on the `Endpoint`; the EndpointType renders what each requested visibility needs (for
 example `includeWhen: '${"internal" in visibility && ...}'`) and rejects any it does not support
 through its `validations`. A PE opting a type in should drop the type's own route resources for

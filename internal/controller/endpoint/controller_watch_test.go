@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -83,5 +84,26 @@ var _ = Describe("Watch mappers", func() {
 		w := newWorkload("p", "greeter", "http")
 		w.Namespace = "ns1"
 		Expect(r.listEndpointsForWorkload(watchCtx, w)).To(ConsistOf(request("ns1", "routes")))
+	})
+
+	It("maps a Component to the Endpoints routing to it, which include the ones it owns", func() {
+		r := buildReconciler(
+			inNamespace(ownedByComponent(newEndpoint("owned", "p", clusterTypeRef("t"),
+				componentBackend("s", "greeter", "http", 1)), "greeter"), "ns1"),
+			inNamespace(newEndpoint("other-project", "q", clusterTypeRef("t"), componentBackend("s", "greeter", "http", 1)), "ns1"),
+			inNamespace(newEndpoint("other-namespace", "p", clusterTypeRef("t"), componentBackend("s", "greeter", "http", 1)), "ns2"),
+		)
+		comp := newComponent("p", "greeter")
+		comp.Namespace = "ns1"
+		Expect(r.listEndpointsForComponent(watchCtx, comp)).To(ConsistOf(request("ns1", "owned")))
+	})
+
+	It("passes only Component creation to the Component watch", func() {
+		p := componentCreated()
+		comp := newComponent("p", "greeter")
+		Expect(p.Create(event.CreateEvent{Object: comp})).To(BeTrue())
+		Expect(p.Update(event.UpdateEvent{ObjectOld: comp, ObjectNew: comp})).To(BeFalse())
+		Expect(p.Delete(event.DeleteEvent{Object: comp})).To(BeFalse())
+		Expect(p.Generic(event.GenericEvent{Object: comp})).To(BeFalse())
 	})
 })
