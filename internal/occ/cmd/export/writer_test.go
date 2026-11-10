@@ -29,6 +29,145 @@ func emptyExportClient(t *testing.T) *mocks.MockInterface {
 	return c
 }
 
+func TestWriteFile_RejectsNonLocalPaths(t *testing.T) {
+	for _, relative := range []string{"", "../escape.yaml", "/absolute.yaml"} {
+		t.Run(relative, func(t *testing.T) {
+			output := filepath.Join(t.TempDir(), "output")
+			_, err := writeFile(output, relative, []byte("manifest\n"))
+			require.ErrorContains(t, err, "refusing to write outside the output directory")
+			assert.NoDirExists(t, output)
+			root, err := os.OpenRoot(t.TempDir())
+			require.NoError(t, err)
+			defer root.Close()
+			_, err = writeFileInRoot(root, relative, []byte("manifest\n"))
+			require.ErrorContains(t, err, "refusing to write outside the output directory")
+		})
+	}
+}
+
+func TestWriteFile_RejectsEscapingParentSymlinks(t *testing.T) {
+	tests := []struct {
+		name     string
+		relative bool
+		existing bool
+	}{
+		{name: "absolute link with existing file", existing: true},
+		{name: "absolute link with missing directories"},
+		{name: "relative link with existing file", relative: true, existing: true},
+		{name: "relative link with missing directories", relative: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, outside := t.TempDir(), t.TempDir()
+			target := filepath.Join(outside, "nested", "manifest.yaml")
+			if tt.existing {
+				require.NoError(t, os.Mkdir(filepath.Dir(target), 0o750))
+				require.NoError(t, os.WriteFile(target, []byte("original\n"), 0o600))
+			}
+			linkTarget := outside
+			if tt.relative {
+				var err error
+				linkTarget, err = filepath.Rel(output, outside)
+				require.NoError(t, err)
+			}
+			require.NoError(t, os.Symlink(linkTarget, filepath.Join(output, "namespaces")))
+			_, err := writeFile(output, "namespaces/nested/manifest.yaml", []byte("replacement\n"))
+			require.Error(t, err)
+			if tt.existing {
+				data, err := os.ReadFile(target)
+				require.NoError(t, err)
+				assert.Equal(t, "original\n", string(data))
+				entries, err := os.ReadDir(filepath.Dir(target))
+				require.NoError(t, err)
+				require.Len(t, entries, 1, "no temporary files should be created outside the output")
+			} else {
+				entries, err := os.ReadDir(outside)
+				require.NoError(t, err)
+				assert.Empty(t, entries, "no directories should be created outside the output")
+			}
+		})
+	}
+}
+
+func TestWriteFile_RejectsEscapingFileSymlinks(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "dangling target"
+		if existing {
+			name = "existing target with identical content"
+		}
+		t.Run(name, func(t *testing.T) {
+			output := t.TempDir()
+			target := filepath.Join(t.TempDir(), "manifest.yaml")
+			data := []byte("original\n")
+			if existing {
+				require.NoError(t, os.WriteFile(target, data, 0o600))
+			}
+			link := filepath.Join(output, "manifest.yaml")
+			require.NoError(t, os.Symlink(target, link))
+			_, err := writeFile(output, "manifest.yaml", data)
+			require.Error(t, err, "outside targets must not be read even for unchanged detection")
+			gotTarget, err := os.Readlink(link)
+			require.NoError(t, err)
+			assert.Equal(t, target, gotTarget)
+			if existing {
+				got, err := os.ReadFile(target)
+				require.NoError(t, err)
+				assert.Equal(t, data, got)
+			} else {
+				assert.NoFileExists(t, target)
+			}
+		})
+	}
+}
+
+func TestWriteFile_AllowsContainedSymlinksAndPreservesOutcomes(t *testing.T) {
+	output := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(output, "real"), 0o750))
+	require.NoError(t, os.Symlink("real", filepath.Join(output, "linked")))
+	for _, tt := range []struct {
+		data string
+		want writeOutcome
+	}{
+		{data: "first\n", want: outcomeCreated},
+		{data: "first\n", want: outcomeUnchanged},
+		{data: "second\n", want: outcomeUpdated},
+	} {
+		outcome, err := writeFile(output, "linked/manifest.yaml", []byte(tt.data))
+		require.NoError(t, err)
+		assert.Equal(t, tt.want, outcome)
+		data, err := os.ReadFile(filepath.Join(output, "real", "manifest.yaml"))
+		require.NoError(t, err)
+		assert.Equal(t, tt.data, string(data))
+	}
+	info, err := os.Stat(filepath.Join(output, "real", "manifest.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+	entries, err := os.ReadDir(filepath.Join(output, "real"))
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "temporary files should be cleaned up")
+}
+
+func TestWriteFileInRoot_KeepsOpenedOutputWhenPathIsReplaced(t *testing.T) {
+	parent := t.TempDir()
+	output := filepath.Join(parent, "output")
+	require.NoError(t, os.Mkdir(output, 0o750))
+	root, err := os.OpenRoot(output)
+	require.NoError(t, err)
+	defer root.Close()
+	moved := filepath.Join(parent, "moved")
+	require.NoError(t, os.Rename(output, moved))
+	outside := t.TempDir()
+	require.NoError(t, os.Symlink(outside, output))
+	_, err = writeFileInRoot(root, "manifest.yaml", []byte("contained\n"))
+	require.NoError(t, err)
+	require.NoError(t, saveManagedFiles(root, &managedFiles{Version: 1, Files: map[string]string{}}))
+	assert.FileExists(t, filepath.Join(moved, "manifest.yaml"))
+	assert.FileExists(t, filepath.Join(moved, managedFilesName))
+	entries, err := os.ReadDir(outside)
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+}
+
 func TestRun_RemovesOnlyUnmodifiedPreviouslyManagedFiles(t *testing.T) {
 	root := t.TempDir()
 	first, err := runEngine(t.Context(), mockComponentClient(t, "", ""), Options{OutputDir: root})

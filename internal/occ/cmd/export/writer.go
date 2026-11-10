@@ -6,6 +6,7 @@ package export
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -47,14 +48,27 @@ func prepareOutputDir(root string) error {
 
 // writeFile atomically writes a manifest and reports whether its contents changed.
 func writeFile(root, relativePath string, data []byte) (writeOutcome, error) {
+	if !filepath.IsLocal(filepath.FromSlash(relativePath)) {
+		return 0, fmt.Errorf("refusing to write outside the output directory: %q", relativePath)
+	}
+	if err := prepareOutputDir(root); err != nil {
+		return 0, err
+	}
+	output, err := os.OpenRoot(root)
+	if err != nil {
+		return 0, err
+	}
+	defer output.Close()
+	return writeFileInRoot(output, relativePath, data)
+}
+
+func writeFileInRoot(root *os.Root, relativePath string, data []byte) (writeOutcome, error) {
 	localPath := filepath.FromSlash(relativePath)
 	if !filepath.IsLocal(localPath) {
 		return 0, fmt.Errorf("refusing to write outside the output directory: %q", relativePath)
 	}
-	fullPath := filepath.Join(root, localPath)
-
 	outcome := outcomeCreated
-	oldData, err := os.ReadFile(fullPath)
+	oldData, err := root.ReadFile(localPath)
 	switch {
 	case err == nil:
 		if bytes.Equal(oldData, data) {
@@ -62,33 +76,38 @@ func writeFile(root, relativePath string, data []byte) (writeOutcome, error) {
 		}
 		outcome = outcomeUpdated
 	case !errors.Is(err, os.ErrNotExist):
-		return 0, fmt.Errorf("read existing file %q: %w", fullPath, err)
+		return 0, fmt.Errorf("read existing file %q: %w", relativePath, err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
+	if err := root.MkdirAll(filepath.Dir(localPath), 0o750); err != nil {
 		return 0, fmt.Errorf("create output directory: %w", err)
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(fullPath), ".occ-export-*")
+	// Pin the contained parent so changing a symlink cannot redirect later
+	// temporary-file, rename, or cleanup operations to a different directory.
+	parent, err := root.OpenRoot(filepath.Dir(localPath))
+	if err != nil {
+		return 0, fmt.Errorf("open output directory: %w", err)
+	}
+	defer parent.Close()
+	temporaryName := ".occ-export-" + rand.Text()
+	temporary, err := parent.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return 0, fmt.Errorf("create temporary output file: %w", err)
 	}
-	temporaryPath := temporary.Name()
+	defer func() { _ = parent.Remove(temporaryName) }()
 	if _, err := temporary.Write(data); err != nil {
 		_ = temporary.Close()
-		_ = os.Remove(temporaryPath)
 		return 0, fmt.Errorf("write temporary output file: %w", err)
 	}
-	if err := temporary.Close(); err != nil {
-		_ = os.Remove(temporaryPath)
-		return 0, fmt.Errorf("close temporary output file: %w", err)
-	}
-	if err := os.Chmod(temporaryPath, 0o644); err != nil {
-		_ = os.Remove(temporaryPath)
+	if err := temporary.Chmod(0o644); err != nil {
+		_ = temporary.Close()
 		return 0, fmt.Errorf("set output permissions: %w", err)
 	}
-	if err := os.Rename(temporaryPath, fullPath); err != nil {
-		_ = os.Remove(temporaryPath)
-		return 0, fmt.Errorf("replace output file %q: %w", fullPath, err)
+	if err := temporary.Close(); err != nil {
+		return 0, fmt.Errorf("close temporary output file: %w", err)
+	}
+	if err := parent.Rename(temporaryName, filepath.Base(localPath)); err != nil {
+		return 0, fmt.Errorf("replace output file %q: %w", relativePath, err)
 	}
 	return outcome, nil
 }
@@ -116,7 +135,7 @@ func writeExportFiles(ctx context.Context, output string, resources []resource, 
 	dirty := false
 	defer func() {
 		if dirty {
-			resultErr = errors.Join(resultErr, saveManagedFiles(output, inventory))
+			resultErr = errors.Join(resultErr, saveManagedFiles(root, inventory))
 		}
 	}()
 	current := make(map[string]bool, len(resources))
@@ -124,7 +143,7 @@ func writeExportFiles(ctx context.Context, output string, resources []resource, 
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		outcome, err := writeFile(output, item.path, rendered[i])
+		outcome, err := writeFileInRoot(root, item.path, rendered[i])
 		if err != nil {
 			return fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
 		}
@@ -185,12 +204,12 @@ func readManagedFiles(root *os.Root) (*managedFiles, error) {
 	return &inventory, nil
 }
 
-func saveManagedFiles(output string, inventory *managedFiles) error {
+func saveManagedFiles(root *os.Root, inventory *managedFiles) error {
 	data, err := json.MarshalIndent(inventory, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode export inventory: %w", err)
 	}
-	if _, err := writeFile(output, managedFilesName, append(data, '\n')); err != nil {
+	if _, err := writeFileInRoot(root, managedFilesName, append(data, '\n')); err != nil {
 		return fmt.Errorf("write export inventory: %w", err)
 	}
 	return nil
