@@ -61,6 +61,9 @@ func normalizeObject(value any, kind, namespace string) (map[string]any, error) 
 	if namespace == "" {
 		delete(metadata, "namespace")
 	} else {
+		if metadataNamespace, ok := metadata["namespace"].(string); ok && metadataNamespace != "" && metadataNamespace != namespace {
+			return nil, fmt.Errorf("metadata.namespace %q does not match requested namespace %q", metadataNamespace, namespace)
+		}
 		metadata["namespace"] = namespace
 	}
 	if annotations, ok := metadata["annotations"].(map[string]any); ok {
