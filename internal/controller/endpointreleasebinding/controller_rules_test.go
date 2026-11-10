@@ -101,6 +101,25 @@ var _ = Describe("buildRules", func() {
 		Expect(rules[len(rules)-1].Mirrors).To(BeEmpty(), "the stale mirror share is ignored")
 	})
 
+	It("refuses an override mirror share the type doesn't declare", func() {
+		shadow := componentBackend("shadow", "greeter-v2", 0)
+		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 0}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), shadow)
+		release.Spec.EndpointType.Spec.Capabilities = []openchoreov1alpha1.EndpointCapability{
+			openchoreov1alpha1.EndpointCapabilityMirror,
+		}
+		b := newBinding("rules", testRelease)
+		Expect(overridesUnsupported(b, release)).To(BeEmpty(), "the release copies nothing")
+
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "shadow", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 10}},
+		}
+		Expect(overridesUnsupported(b, release)).To(ConsistOf(ContainSubstring("MirrorPercent")))
+
+		b.Spec.BackendOverrides[0].Mirror.Percent = 100
+		Expect(overridesUnsupported(b, release)).To(BeEmpty(), "copying every request needs only Mirror")
+	})
+
 	It("keeps a mirror backend at weight 0 whatever an override says", func() {
 		shadow := componentBackend("shadow", "greeter-v2", 0)
 		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 20}

@@ -88,6 +88,12 @@ const (
 	// in this environment, so rendering would route traffic nowhere.
 	ReasonNoWeightedBackend controller.ConditionReason = "NoWeightedBackend"
 
+	// ReasonOverrideUnsupportedByType indicates spec.backendOverrides make a
+	// backend use a routing feature the pinned release's EndpointType does not
+	// declare, such as a mirror share without MirrorPercent, so the binding
+	// does not render.
+	ReasonOverrideUnsupportedByType controller.ConditionReason = "OverrideUnsupportedByType"
+
 	// ReasonBackendOverridesApplied indicates every spec.backendOverrides
 	// entry applies to a backend of the pinned release.
 	ReasonBackendOverridesApplied controller.ConditionReason = "BackendOverridesApplied"

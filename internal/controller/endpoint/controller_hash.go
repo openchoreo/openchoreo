@@ -38,6 +38,8 @@ func computeReleaseHash(spec ReleaseSpec) string {
 var hashCompatible = strings.NewReplacer(
 	// A Component backend without a release line.
 	" ReleaseLine:(string)} Weight:", "} Weight:",
+	// An EndpointType that declares no capabilities.
+	" Capabilities:([]v1alpha1.EndpointCapability)<nil> Resources:", " Resources:",
 	// A backend without a match or a mirror.
 	" Match:(*v1alpha1.EndpointMatch)<nil> Mirror:(*v1alpha1.EndpointMirror)<nil>}", "}",
 )
