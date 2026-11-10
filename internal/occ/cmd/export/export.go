@@ -178,10 +178,16 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 		rendered = append(rendered, data)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := prepareOutputDir(opts.OutputDir); err != nil {
 		return nil, err
 	}
 	for i, item := range safe {
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
 		outcome, err := writeFile(opts.OutputDir, item.path, rendered[i])
 		if err != nil {
 			return report, fmt.Errorf("write %s %q: %w", item.kind, item.name, err)

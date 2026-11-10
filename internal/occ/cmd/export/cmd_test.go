@@ -6,13 +6,16 @@ package export
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"testing/iotest"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -139,7 +142,7 @@ func TestPromptKeepPlaintext(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			got, err := promptKeepPlaintext(bufio.NewReader(strings.NewReader(test.input)), &output, finding)
+			got, err := promptKeepPlaintext(t.Context(), bufio.NewReader(strings.NewReader(test.input)), &output, finding)
 			if test.err != nil {
 				require.ErrorIs(t, err, test.err)
 			} else {
@@ -155,7 +158,7 @@ func TestPromptKeepPlaintext(t *testing.T) {
 
 func TestPromptKeepPlaintext_ClusterResourceName(t *testing.T) {
 	var output bytes.Buffer
-	_, err := promptKeepPlaintext(bufio.NewReader(strings.NewReader("n\n")), &output, Withheld{
+	_, err := promptKeepPlaintext(t.Context(), bufio.NewReader(strings.NewReader("n\n")), &output, Withheld{
 		Kind: KindClusterResourceType, Name: "nats", File: "platform-shared/resource-types/nats.yaml",
 		Reasons: []string{".spec.password"},
 	})
@@ -166,7 +169,7 @@ func TestPromptKeepPlaintext_ClusterResourceName(t *testing.T) {
 func TestPromptKeepPlaintext_ReadError(t *testing.T) {
 	readErr := errors.New("input failed")
 	var output bytes.Buffer
-	_, err := promptKeepPlaintext(bufio.NewReader(iotest.ErrReader(readErr)), &output, Withheld{})
+	_, err := promptKeepPlaintext(t.Context(), bufio.NewReader(iotest.ErrReader(readErr)), &output, Withheld{})
 	require.ErrorIs(t, err, readErr)
 }
 
@@ -274,6 +277,98 @@ func TestNewExportCmd_CancelWritesNothing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewExportCmd_ContextCancellationDuringPrompt(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "new output directory"
+		if existing {
+			name = "existing export"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "export")
+			const relativePath = "namespaces/acme/projects/shop/components/api/component.yaml"
+			if existing {
+				_, err := writeFile(root, relativePath, []byte("existing manifest\n"))
+				require.NoError(t, err)
+			}
+			c := mockCredentialPromptClient(t)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			readStarted := make(chan struct{})
+			readFinished := make(chan struct{})
+			releaseInput := make(chan struct{})
+			release := sync.OnceFunc(func() { close(releaseInput) })
+			var readOnce sync.Once
+			lateChoice := strings.NewReader("a\n")
+			input := promptReaderFunc(func(p []byte) (int, error) {
+				readOnce.Do(func() { close(readStarted) })
+				<-releaseInput
+				n, err := lateChoice.Read(p)
+				close(readFinished)
+				return n, err
+			})
+			var output bytes.Buffer
+			cmd := NewExportCmd(func() (client.Interface, error) { return c, nil })
+			cmd.PreRunE = nil
+			cmd.SilenceErrors = true
+			cmd.SilenceUsage = true
+			cmd.SetIn(input)
+			cmd.SetOut(&output)
+			cmd.SetArgs([]string{"-o", root})
+			finished := make(chan struct{})
+			var executeErr error
+			go func() {
+				executeErr = cmd.ExecuteContext(ctx)
+				close(finished)
+			}()
+			t.Cleanup(func() {
+				cancel()
+				release()
+				select {
+				case <-finished:
+				case <-time.After(5 * time.Second):
+					t.Error("export did not finish after releasing input")
+				}
+			})
+			select {
+			case <-readStarted:
+			case <-time.After(5 * time.Second):
+				t.Fatal("export did not reach the credential input read")
+			}
+			cancel()
+			select {
+			case <-finished:
+			case <-time.After(5 * time.Second):
+				t.Fatal("context cancellation did not interrupt the credential prompt")
+			}
+			require.ErrorIs(t, executeErr, context.Canceled)
+			release() // Supply a late keep-all response after the command has returned.
+			select {
+			case <-readFinished:
+			case <-time.After(5 * time.Second):
+				t.Fatal("pending read did not finish after supplying the late response")
+			}
+			assert.NotContains(t, output.String(), "Export completed")
+			if existing {
+				raw, err := os.ReadFile(filepath.Join(root, relativePath))
+				require.NoError(t, err)
+				assert.Equal(t, "existing manifest\n", string(raw))
+				entries, err := os.ReadDir(root)
+				require.NoError(t, err)
+				assert.Len(t, entries, 1)
+				assert.NoFileExists(t, filepath.Join(root, "namespaces", "acme", "namespace.yaml"))
+			} else {
+				assert.NoDirExists(t, root)
+			}
+		})
+	}
+}
+
+type promptReaderFunc func([]byte) (int, error)
+
+func (read promptReaderFunc) Read(p []byte) (int, error) {
+	return read(p)
 }
 
 func mockCredentialPromptClient(t *testing.T) *mocks.MockInterface {

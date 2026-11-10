@@ -5,6 +5,7 @@ package export
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -77,7 +78,7 @@ Does not modify Kustomize or Flux configuration or remove files outside the sele
 				OutputDir: outputDir, AllReleases: all, ShowCounts: showCounts,
 				ShowCredentialDetails: showCredentialDetails,
 			},
-				newPlaintextDecision(reader, cmd.OutOrStdout()))
+				newPlaintextDecision(cmd.Context(), reader, cmd.OutOrStdout()))
 		},
 	}
 	cmd.Flags().StringP("output", "o", "", "Root directory of the output repository (required; created if missing)")
@@ -89,13 +90,16 @@ Does not modify Kustomize or Flux configuration or remove files outside the sele
 }
 
 // newPlaintextDecision prompts for credentials and remembers choices for remaining findings.
-func newPlaintextDecision(reader *bufio.Reader, out io.Writer) func(Withheld) (bool, error) {
+func newPlaintextDecision(ctx context.Context, reader *bufio.Reader, out io.Writer) func(Withheld) (bool, error) {
 	var remaining plaintextChoice
 	return func(finding Withheld) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
 		if remaining != "" {
 			return remaining == plaintextKeepAll, nil
 		}
-		choice, err := promptKeepPlaintext(reader, out, finding)
+		choice, err := promptKeepPlaintext(ctx, reader, out, finding)
 		if err != nil {
 			return false, err
 		}
@@ -107,12 +111,15 @@ func newPlaintextDecision(reader *bufio.Reader, out io.Writer) func(Withheld) (b
 }
 
 // promptKeepPlaintext asks how to handle a credential without displaying its value.
-func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) (plaintextChoice, error) {
+func promptKeepPlaintext(ctx context.Context, reader *bufio.Reader, out io.Writer, finding Withheld) (plaintextChoice, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	fmt.Fprintf(out, "\nPossible plaintext credential\n  Resource: %s\n  File: %s\n  Field: %s\n  Reason: Literal value in a sensitive field\n\n",
 		resourceDisplayName(finding), finding.File, strings.Join(finding.Reasons, ", "))
 	fmt.Fprint(out, "Keep this value in the exported YAML?\n[y] Keep this\n[n] Remove this\n[a] Keep this and all remaining findings\n[r] Remove this and all remaining findings\n[q] Cancel export\nChoice [y/n/a/r/q]: ")
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := readPlaintextLine(ctx, reader)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				return "", fmt.Errorf("read plaintext credential choice: %w", err)
@@ -136,6 +143,36 @@ func promptKeepPlaintext(reader *bufio.Reader, out io.Writer, finding Withheld) 
 		default:
 			fmt.Fprint(out, "Invalid choice. Enter y, n, a, r, or q.\nChoice [y/n/a/r/q]: ")
 		}
+	}
+}
+
+// readPlaintextLine lets cancellation stop the prompt without closing caller-owned input.
+func readPlaintextLine(ctx context.Context, reader *bufio.Reader) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if ctx.Done() == nil {
+		return reader.ReadString('\n')
+	}
+	type result struct {
+		line string
+		err  error
+	}
+	read := make(chan result, 1)
+	// Only the read runs in the background. If input cannot be interrupted, it
+	// may finish later, but cannot resume the export or write prompt output.
+	go func() {
+		line, err := reader.ReadString('\n')
+		read <- result{line: line, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case response := <-read:
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		return response.line, response.err
 	}
 }
 
