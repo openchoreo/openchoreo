@@ -1,0 +1,146 @@
+# An EndpointType for an Istio (sidecar) data plane that serves both
+# directions with the same split: an HTTPRoute on the external gateway for
+# external callers, and a VirtualService for in-cluster callers (namespace and
+# internal visibility). There is a VirtualService for each backend component's
+# own Service, so callers keep calling the address they already use and their
+# sidecars apply ${rules}. The gateway is expected outside the mesh, as the
+# default data plane runs it, so each request is split once: by the gateway or
+# by the caller's sidecar. Callers that reach internal visibility through the
+# internal gateway need http-progressive instead.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  name: istio-http
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        pathPrefix:
+          type: string
+          default: /
+  capabilities: [Match, RegularExpression, Mirror, MirrorPercent]
+  validations:
+    - rule: ${backends.all(b, b.protocol in ["HTTP", "GraphQL", "Websocket"])}
+      message: istio-http only routes HTTP, GraphQL and Websocket endpoints
+    - rule: ${!("external" in visibility) || gateway.?ingress.?external.hasValue()}
+      message: the environment has no external gateway for external visibility
+    # Routes go to each backend component's own Service.
+    - rule: ${backends.all(b, b.serviceName != "")}
+      message: istio-http routes to each backend component's Service; its ComponentType renders none
+    # Gateway API allows at most 16 rules in one HTTPRoute.
+    - rule: ${!("external" in visibility) || size(rules) <= 16}
+      message: istio-http renders an HTTPRoute, which holds at most 16 rules; give at most 15 backends a match
+    # Every backend serves under one base path: a rule rewrites to, and a mesh
+    # match is joined to, its first backend's.
+    - rule: ${backends.all(b, b.basePath == backends[0].basePath)}
+      message: istio-http needs every backend to serve under the same base path
+  urls:
+    external:
+      includeWhen: ${gateway.?ingress.?external.?http.hasValue()}
+      scheme: http
+      host: ${metadata.environmentName}-${metadata.endpointNamespace}.${gateway.ingress.external.http.host}
+      port: ${gateway.ingress.external.http.port}
+      path: '${("/" + metadata.endpointName + (parameters.pathPrefix == "/" ? "" : (parameters.pathPrefix.endsWith("/") ? parameters.pathPrefix.substring(0, size(parameters.pathPrefix) - 1) : parameters.pathPrefix)))}'
+      security:
+        scheme: none
+    # In-cluster callers keep the address they already call, the first
+    # backend's Service, and their sidecars apply the split.
+    namespace:
+      includeWhen: ${"namespace" in visibility}
+      scheme: http
+      host: ${backends[0].serviceName}.${backends[0].namespace}.svc.cluster.local
+      port: ${backends[0].port}
+      path: ${backends[0].basePath}
+  resources:
+    - id: httproute
+      includeWhen: ${"external" in visibility}
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "external")}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          # One host per environment and namespace, as component routes use;
+          # each Endpoint serves under /<endpoint name>.
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.endpointNamespace + "." + h)}
+          # One rule per entry in ${rules}: matched backends first, then the
+          # weighted default, as in http-progressive.
+          rules: |
+            ${rules.map(r, {
+                "matches": (size(r.matches) > 0 ? dyn(r.matches) : dyn([{"conditions": []}])).map(m, {
+                  "path": has(m.path)
+                    ? {"type": m.path.type, "value": ("/" + metadata.endpointName + (parameters.pathPrefix == "/" ? "" : (parameters.pathPrefix.endsWith("/") ? parameters.pathPrefix.substring(0, size(parameters.pathPrefix) - 1) : parameters.pathPrefix))) + m.path.value}
+                    : {"type": "PathPrefix", "value": ("/" + metadata.endpointName + (parameters.pathPrefix == "/" ? "" : (parameters.pathPrefix.endsWith("/") ? parameters.pathPrefix.substring(0, size(parameters.pathPrefix) - 1) : parameters.pathPrefix)))},
+                  "headers": size(m.conditions) > 0
+                    ? m.conditions.map(h, {"type": h.type, "name": h.name, "value": h.value})
+                    : oc_omit()
+                }),
+                "filters": [size(r.matches) > 0 && has(r.matches[0].path) && r.matches[0].path.type == "Exact"
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplaceFullPath",
+                        "replaceFullPath": (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : size(r.matches) > 0 && has(r.matches[0].path)
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": r.backends[0].basePath}}}] +
+                  r.mirrors.map(mi, {"type": "RequestMirror", "requestMirror": {
+                    "backendRef": {"name": mi.backend.serviceName, "port": mi.backend.port}, "percent": mi.percent}}),
+                "backendRefs": r.backends.filter(b, b.weight > 0)
+                  .map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})
+              })}
+    # One VirtualService per backend Service: Istio applies a route's port
+    # matches to every host it lists, so each Service gets its own and
+    # matches only the ports its backends use.
+    - id: virtual-service
+      forEach: ${backends.map(b, b.namespace + "/" + b.serviceName).distinct()}
+      var: svc
+      includeWhen: ${visibility.exists(v, v in ["namespace", "internal"])}
+      template:
+        apiVersion: networking.istio.io/v1
+        kind: VirtualService
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "mesh", svc.split("/")[1])}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          hosts:
+            - ${svc.split("/")[1] + "." + svc.split("/")[0] + ".svc.cluster.local"}
+          # One route per rule, first match wins, each match on a backend port,
+          # as in istio-virtualservice.
+          http: |
+            ${rules.map(r, {
+                "name": r.name,
+                "match": size(r.matches) > 0
+                  ? r.matches.map(m, backends.filter(b, b.namespace + "/" + b.serviceName == svc).map(b, b.port).distinct().map(port, {
+                      "port": port,
+                      "uri": has(m.path) ? {"regex": (r.backends[0].basePath == "/" ? m.path.regex : (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath).replace("\\", "\\\\").replace(".", "\\.").replace("+", "\\+").replace("*", "\\*").replace("?", "\\?").replace("(", "\\(").replace(")", "\\)").replace("|", "\\|").replace("[", "\\[").replace("]", "\\]").replace("{", "\\{").replace("}", "\\}").replace("^", "\\^").replace("$", "\\$") + (m.path.regex == "/.*" ? "(/.*)?" : m.path.regex))} : oc_omit(),
+                      "authority": m.conditions.exists(h, h.name == "host")
+                        ? m.conditions.filter(h, h.name == "host")
+                            .map(h, h.type == "Exact" ? {"exact": h.value} : {"regex": h.value})[0]
+                        : oc_omit(),
+                      "headers": m.conditions.exists(h, h.name != "host")
+                        ? m.conditions.filter(h, h.name != "host").transformMapEntry(i, h,
+                            {h.name: h.type == "Exact" ? {"exact": h.value} : {"regex": h.value}})
+                        : oc_omit()
+                    })).flatten()
+                  : backends.filter(b, b.namespace + "/" + b.serviceName == svc).map(b, b.port).distinct().map(port, {"port": port}),
+                "route": r.backends.filter(b, b.weight > 0).map(b, {
+                  "destination": {"host": b.serviceName + "." + b.namespace + ".svc.cluster.local",
+                                  "port": {"number": b.port}},
+                  "weight": b.weight}),
+                "mirrors": size(r.mirrors) > 0
+                  ? r.mirrors.map(mi, {
+                      "destination": {"host": mi.backend.serviceName + "." + mi.backend.namespace + ".svc.cluster.local",
+                                      "port": {"number": mi.backend.port}},
+                      "percentage": {"value": double(mi.percent)}})
+                  : oc_omit()
+              })}

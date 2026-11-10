@@ -1,0 +1,104 @@
+# A Gateway API EndpointType that renders the backends' weights, matches and
+# mirrors from ${rules}. It routes to each backend component's own Service
+# (b.serviceName), so it needs nothing beyond what the Endpoint already
+# resolves. Compared with an EndpointType that only reads ${backends}:
+#   - each matched backend gets its own HTTPRoute rule (testers, preview
+#     paths, A/B cookie groups), ahead of the weighted default rule;
+#   - mirrors render as RequestMirror filters on the default rule;
+#   - a path match is joined to the Endpoint's path prefix;
+#   - each rule rewrites the path prefix to its backend's base path.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  name: http-progressive
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        pathPrefix:
+          type: string
+          default: /
+  capabilities: [Match, RegularExpression, Mirror, MirrorPercent]
+  validations:
+    - rule: ${backends.all(b, b.protocol in ["HTTP", "GraphQL", "Websocket"])}
+      message: http-progressive only routes HTTP, GraphQL and Websocket endpoints
+    - rule: >-
+        ${visibility.all(v, v == "namespace" ||
+          (v == "external" && gateway.?ingress.?external.hasValue()) ||
+          (v == "internal" && gateway.?ingress.?internal.hasValue()))}
+      message: the environment has no gateway for one of the Endpoint's visibilities
+    # Routes go to each backend component's own Service.
+    - rule: ${backends.all(b, b.serviceName != "")}
+      message: http-progressive routes to each backend component's Service; its ComponentType renders none
+    # Gateway API allows at most 16 rules in one HTTPRoute.
+    - rule: ${!visibility.exists(v, v in ["external", "internal"]) || size(rules) <= 16}
+      message: http-progressive renders an HTTPRoute, which holds at most 16 rules; give at most 15 backends a match
+    # Every backend serves under one base path: a rule rewrites to, and a mesh
+    # match is joined to, its first backend's.
+    - rule: ${backends.all(b, b.basePath == backends[0].basePath)}
+      message: http-progressive needs every backend to serve under the same base path
+  urls:
+    external:
+      includeWhen: ${gateway.?ingress.?external.?http.hasValue()}
+      scheme: http
+      host: ${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.external.http.host}
+      port: ${gateway.ingress.external.http.port}
+      path: ${parameters.pathPrefix}
+      security:
+        scheme: none
+    internal:
+      includeWhen: ${gateway.?ingress.?internal.?http.hasValue()}
+      scheme: http
+      host: ${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.internal.http.host}
+      port: ${gateway.ingress.internal.http.port}
+      path: ${parameters.pathPrefix}
+      security:
+        scheme: none
+  resources:
+    - id: httproute
+      forEach: ${visibility.filter(v, v in ["external", "internal"])}
+      var: vis
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, vis)}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: '${vis == "external" ? gateway.ingress.external.name : gateway.ingress.internal.name}'
+              namespace: '${vis == "external" ? gateway.ingress.external.namespace : gateway.ingress.internal.namespace}'
+          hostnames: |
+            ${(vis == "external"
+                ? [gateway.ingress.external.?http, gateway.ingress.external.?https]
+                : [gateway.ingress.internal.?http, gateway.ingress.internal.?https])
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.endpointName + "." + h)}
+          # One rule per entry in ${rules}: matched backends first, then the
+          # weighted default. Header conditions arrive normalized (names
+          # lowercased, the cookie as a regex on the Cookie header).
+          rules: |
+            ${rules.map(r, {
+                "matches": (size(r.matches) > 0 ? dyn(r.matches) : dyn([{"conditions": []}])).map(m, {
+                  "path": has(m.path)
+                    ? {"type": m.path.type, "value": (parameters.pathPrefix.endsWith("/") ? parameters.pathPrefix.substring(0, size(parameters.pathPrefix) - 1) : parameters.pathPrefix) + m.path.value}
+                    : {"type": "PathPrefix", "value": parameters.pathPrefix},
+                  "headers": size(m.conditions) > 0
+                    ? m.conditions.map(h, {"type": h.type, "name": h.name, "value": h.value})
+                    : oc_omit()
+                }),
+                "filters": [size(r.matches) > 0 && has(r.matches[0].path) && r.matches[0].path.type == "Exact"
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplaceFullPath",
+                        "replaceFullPath": (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : size(r.matches) > 0 && has(r.matches[0].path)
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": r.backends[0].basePath}}}] +
+                  r.mirrors.map(mi, {"type": "RequestMirror", "requestMirror": {
+                    "backendRef": {"name": mi.backend.serviceName, "port": mi.backend.port}, "percent": mi.percent}}),
+                "backendRefs": r.backends.filter(b, b.weight > 0)
+                  .map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})
+              })}

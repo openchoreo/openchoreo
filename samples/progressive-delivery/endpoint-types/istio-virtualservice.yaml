@@ -1,0 +1,75 @@
+# An Istio (sidecar) EndpointType for in-cluster, east-west callers. It renders
+# a VirtualService for each backend component's own Service, so callers keep
+# calling the address they already use, and their sidecars apply
+# the Endpoint's matches, weighted split and mirrors from ${rules}. Install it
+# only on data planes running Istio with sidecars on the callers.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  name: istio-virtualservice
+spec:
+  capabilities: [Match, RegularExpression, Mirror, MirrorPercent]
+  validations:
+    - rule: ${visibility == ["namespace"]}
+      message: istio-virtualservice serves in-cluster callers only; set spec.visibility to [namespace], or use istio-http to serve the external gateway as well
+    - rule: ${backends.all(b, b.protocol in ["HTTP", "GraphQL", "Websocket"])}
+      message: istio-virtualservice only routes HTTP, GraphQL and Websocket endpoints
+    # Routes go to each backend component's own Service.
+    - rule: ${backends.all(b, b.serviceName != "")}
+      message: istio-virtualservice routes to each backend component's Service; its ComponentType renders none
+    # Every backend serves under one base path: a rule rewrites to, and a mesh
+    # match is joined to, its first backend's.
+    - rule: ${backends.all(b, b.basePath == backends[0].basePath)}
+      message: istio-virtualservice needs every backend to serve under the same base path
+  resources:
+    # One VirtualService per backend Service: Istio applies a route's port
+    # matches to every host it lists, so each Service gets its own and
+    # matches only the ports its backends use.
+    - id: virtual-service
+      forEach: ${backends.map(b, b.namespace + "/" + b.serviceName).distinct()}
+      var: svc
+      template:
+        apiVersion: networking.istio.io/v1
+        kind: VirtualService
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "mesh", svc.split("/")[1])}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          hosts:
+            - ${svc.split("/")[1] + "." + svc.split("/")[0] + ".svc.cluster.local"}
+          # One route per rule, first match wins. A path is matched with its
+          # regex, because Istio's prefix is a plain string prefix and /next
+          # would also match /nextpage. Header names arrive lowercased, as
+          # Istio requires, and each header at most once; Host is matched as
+          # the authority, since a header named host never matches.
+          # Every match names a backend port: the hosts are the backends' own
+          # Services, so a route must leave their other ports alone.
+          http: |
+            ${rules.map(r, {
+                "name": r.name,
+                "match": size(r.matches) > 0
+                  ? r.matches.map(m, backends.filter(b, b.namespace + "/" + b.serviceName == svc).map(b, b.port).distinct().map(port, {
+                      "port": port,
+                      "uri": has(m.path) ? {"regex": (r.backends[0].basePath == "/" ? m.path.regex : (r.backends[0].basePath.endsWith("/") ? r.backends[0].basePath.substring(0, size(r.backends[0].basePath) - 1) : r.backends[0].basePath).replace("\\", "\\\\").replace(".", "\\.").replace("+", "\\+").replace("*", "\\*").replace("?", "\\?").replace("(", "\\(").replace(")", "\\)").replace("|", "\\|").replace("[", "\\[").replace("]", "\\]").replace("{", "\\{").replace("}", "\\}").replace("^", "\\^").replace("$", "\\$") + (m.path.regex == "/.*" ? "(/.*)?" : m.path.regex))} : oc_omit(),
+                      "authority": m.conditions.exists(h, h.name == "host")
+                        ? m.conditions.filter(h, h.name == "host")
+                            .map(h, h.type == "Exact" ? {"exact": h.value} : {"regex": h.value})[0]
+                        : oc_omit(),
+                      "headers": m.conditions.exists(h, h.name != "host")
+                        ? m.conditions.filter(h, h.name != "host").transformMapEntry(i, h,
+                            {h.name: h.type == "Exact" ? {"exact": h.value} : {"regex": h.value}})
+                        : oc_omit()
+                    })).flatten()
+                  : backends.filter(b, b.namespace + "/" + b.serviceName == svc).map(b, b.port).distinct().map(port, {"port": port}),
+                "route": r.backends.filter(b, b.weight > 0).map(b, {
+                  "destination": {"host": b.serviceName + "." + b.namespace + ".svc.cluster.local",
+                                  "port": {"number": b.port}},
+                  "weight": b.weight}),
+                "mirrors": size(r.mirrors) > 0
+                  ? r.mirrors.map(mi, {
+                      "destination": {"host": mi.backend.serviceName + "." + mi.backend.namespace + ".svc.cluster.local",
+                                      "port": {"number": mi.backend.port}},
+                      "percentage": {"value": double(mi.percent)}})
+                  : oc_omit()
+              })}
