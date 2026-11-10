@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -592,7 +594,7 @@ func TestRun_PrintsSummary(t *testing.T) {
 }
 
 func TestRun_PrintsIncompleteSummaryOnWriteFailure(t *testing.T) {
-	root := t.TempDir()
+	root := filepath.Join(t.TempDir(), "permission denied")
 	// A directory at a manifest path prevents export from writing that file.
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "namespaces", "acme", "namespace.yaml"), 0o750))
 	var output bytes.Buffer
@@ -601,6 +603,57 @@ func TestRun_PrintsIncompleteSummaryOnWriteFailure(t *testing.T) {
 	assert.Contains(t, output.String(), "Export incomplete")
 	assert.NotContains(t, output.String(), "Export completed")
 	assert.Contains(t, output.String(), "0 resource(s)")
+}
+
+func TestRun_PrintsPartialSummaryOnFilesystemPermissionDenied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory write permissions")
+	}
+	root := t.TempDir()
+	projects := filepath.Join(root, "namespaces", "acme", "projects")
+	require.NoError(t, os.MkdirAll(projects, 0o750))
+	require.NoError(t, os.Chmod(projects, 0o500))
+	t.Cleanup(func() { require.NoError(t, os.Chmod(projects, 0o750)) })
+
+	var output bytes.Buffer
+	err := Run(t.Context(), mockComponentClient(t, "", ""), &output, Params{OutputDir: root})
+	require.ErrorIs(t, err, fs.ErrPermission)
+	var pathErr *os.PathError
+	require.ErrorAs(t, err, &pathErr)
+	assert.NotContains(t, err.Error(), "your role")
+	assert.Contains(t, output.String(), "Export incomplete")
+	assert.NotContains(t, output.String(), "Export completed")
+	assert.Contains(t, output.String(), "1 resource(s)")
+	assert.FileExists(t, filepath.Join(root, "namespaces", "acme", "namespace.yaml"))
+}
+
+func TestIsExportPermissionError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil"},
+		{name: "wrapped API denial", err: fmt.Errorf("list resources: %w", &exportAPIError{
+			err: errors.New("You do not have permission to perform this operation"),
+		}), want: true},
+		{name: "API denial", err: &exportAPIError{err: errors.New("forbidden")}, want: true},
+		{name: "API transport filesystem denial", err: &exportAPIError{err: &os.PathError{
+			Op: "open", Path: "credentials", Err: fs.ErrPermission,
+		}}},
+		{name: "unrelated API error", err: fmt.Errorf("namespace forbidden: %w", &exportAPIError{
+			err: errors.New("server unavailable"),
+		})},
+		{name: "filesystem denial", err: fmt.Errorf("write manifest: %w", &os.PathError{
+			Op: "open", Path: "manifest.yaml", Err: fs.ErrPermission,
+		})},
+		{name: "unconfirmed denial", err: errors.New("forbidden")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isExportPermissionError(tt.err))
+		})
+	}
 }
 
 func TestRun_HidesDeniedResourceKind(t *testing.T) {

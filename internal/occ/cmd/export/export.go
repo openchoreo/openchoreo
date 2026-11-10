@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -117,7 +117,13 @@ func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer,
 }
 
 func isExportPermissionError(err error) bool {
-	message := strings.ToLower(err.Error())
+	var apiErr *exportAPIError
+	if !errors.As(err, &apiErr) || errors.Is(apiErr.err, fs.ErrPermission) {
+		return false
+	}
+	// The client exposes API failures as text; inspect only the original API
+	// error, never resource names, output paths, or filesystem write failures.
+	message := strings.ToLower(apiErr.err.Error())
 	return strings.Contains(message, "do not have permission") ||
 		strings.Contains(message, "permission denied") ||
 		strings.Contains(message, "forbidden")
@@ -208,7 +214,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 
 // collectExportResources traverses namespaces and projects before any files are written.
 func collectExportResources(ctx context.Context, c client.Interface, filter *releaseFilter) ([]resource, error) {
-	namespaces, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Namespace, string, error) {
+	namespaces, err := fetchResourcePages(func(limit int, cursor string) ([]gen.Namespace, string, error) {
 		params := &gen.ListNamespacesParams{Limit: &limit}
 		if cursor != "" {
 			params.Cursor = &cursor
@@ -247,7 +253,7 @@ func collectExportResources(ctx context.Context, c client.Interface, filter *rel
 		}
 		resources = append(resources, platformResources...)
 
-		projects, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Project, string, error) {
+		projects, err := fetchResourcePages(func(limit int, cursor string) ([]gen.Project, string, error) {
 			params := &gen.ListProjectsParams{Limit: &limit}
 			if cursor != "" {
 				params.Cursor = &cursor
@@ -296,7 +302,7 @@ func collectExportResources(ctx context.Context, c client.Interface, filter *rel
 // collectProjectComponents collects components, their workloads, and selected releases.
 func collectProjectComponents(ctx context.Context, c client.Interface, namespaceName, projectName, projectDir string, filter *releaseFilter) ([]resource, error) {
 	var out []resource
-	components, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
+	components, err := fetchResourcePages(func(limit int, cursor string) ([]gen.Component, string, error) {
 		params := &gen.ListComponentsParams{Limit: &limit, Project: &projectName}
 		if cursor != "" {
 			params.Cursor = &cursor
@@ -329,7 +335,7 @@ func collectProjectComponents(ctx context.Context, c client.Interface, namespace
 			path: path.Join(componentDir, "component.yaml"), object: componentObject,
 		})
 
-		workloads, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workload, string, error) {
+		workloads, err := fetchResourcePages(func(limit int, cursor string) ([]gen.Workload, string, error) {
 			params := &gen.ListWorkloadsParams{Limit: &limit, Component: &componentName}
 			if cursor != "" {
 				params.Cursor = &cursor

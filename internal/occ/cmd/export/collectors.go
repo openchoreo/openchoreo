@@ -16,9 +16,27 @@ import (
 
 type resourcePage[T any] func(limit int, cursor string) ([]T, string, error)
 
+// exportAPIError identifies errors returned by API list calls.
+type exportAPIError struct {
+	err error
+}
+
+func (e *exportAPIError) Error() string { return e.err.Error() }
+func (e *exportAPIError) Unwrap() error { return e.err }
+
+func fetchResourcePages[T any](fetch resourcePage[T]) ([]T, error) {
+	return pagination.FetchAll(func(limit int, cursor string) ([]T, string, error) {
+		items, next, err := fetch(limit, cursor)
+		if err != nil {
+			return nil, "", &exportAPIError{err: err}
+		}
+		return items, next, nil
+	})
+}
+
 // collectResources fetches and normalizes resources for export.
 func collectResources[T any](kind, namespace, project string, fetch resourcePage[T], nameOf func(T) string, pathOf func(string) string) ([]resource, error) {
-	items, err := pagination.FetchAll[T](pagination.FetchPage[T](fetch))
+	items, err := fetchResourcePages(fetch)
 	if err != nil {
 		return nil, fmt.Errorf("list %s: %w", kind, err)
 	}
