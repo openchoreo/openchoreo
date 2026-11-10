@@ -51,6 +51,23 @@ spec:
               ClusterEndpointTypeSpec defines the desired state of ClusterEndpointType.
               Currently mirrors EndpointTypeSpec; may diverge as cluster-scoped concerns emerge.
             properties:
+              capabilities:
+                description: |-
+                  Capabilities lists the routing features this type renders beyond
+                  weighted backends. An Endpoint that uses one the type doesn't list is not
+                  released, and clients offer only the strategies it supports. Unset means
+                  the type doesn't declare them, and nothing is checked.
+                items:
+                  description: EndpointCapability is a routing feature an EndpointType
+                    can render.
+                  enum:
+                  - Match
+                  - RegularExpression
+                  - Mirror
+                  - MirrorPercent
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               environmentConfigs:
                 description: |-
                   EnvironmentConfigs defines the per-env schema.

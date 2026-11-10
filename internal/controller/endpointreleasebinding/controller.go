@@ -160,6 +160,16 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		markSyncedFalse(binding, ReasonNoWeightedBackend, "RenderedRelease not updated until a backend has a weight above 0")
 		return ctrl.Result{}, nil
 	}
+	if problems := overridesUnsupported(binding, in.release); len(problems) > 0 {
+		// Same as an unresolved backend: keep the current RenderedRelease
+		// rather than render what the type does not declare it can.
+		msg := fmt.Sprintf("spec.backendOverrides need what %s %q does not declare: %s",
+			in.release.Spec.EndpointType.Kind, in.release.Spec.EndpointType.Name, strings.Join(problems, "; "))
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideUnsupportedByType, msg)
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideUnsupportedByType, msg)
+		markSyncedFalse(binding, ReasonOverrideUnsupportedByType, "RenderedRelease not updated until the overrides fit the type")
+		return ctrl.Result{}, nil
+	}
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,
 		fmt.Sprintf("%d backend(s) resolved", len(resolved.backends)))
 

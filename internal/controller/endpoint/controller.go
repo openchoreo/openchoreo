@@ -23,6 +23,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 	endpointvalidation "github.com/openchoreo/openchoreo/internal/validation/endpoint"
 )
 
@@ -105,6 +106,11 @@ func (r *Reconciler) reconcile(ctx context.Context, old, ep *openchoreov1alpha1.
 	if err := endpointvalidation.ValidateValues(snapshot.Spec.Parameters, ep.Spec.Parameters); err != nil {
 		msg := fmt.Sprintf("spec.parameters do not match %s %q: %v", snapshot.Kind, snapshot.Name, err)
 		controller.MarkFalseCondition(ep, ConditionReady, ReasonInvalidParameters, msg)
+		return ctrl.Result{}, nil
+	}
+
+	if problems := endpointpipeline.CapabilityProblems(snapshot.Spec.Capabilities, ep.Spec.BackendRefs); len(problems) > 0 {
+		controller.MarkFalseCondition(ep, ConditionReady, ReasonUnsupportedByType, strings.Join(problems, "; "))
 		return ctrl.Result{}, nil
 	}
 

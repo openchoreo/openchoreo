@@ -48,6 +48,10 @@ const (
 	// cannot all express the same way.
 	ReasonInvalidMatch controller.ConditionReason = "InvalidMatch"
 
+	// ReasonUnsupportedByType indicates the Endpoint uses a routing feature its
+	// EndpointType does not declare in its capabilities.
+	ReasonUnsupportedByType controller.ConditionReason = "UnsupportedByType"
+
 	// ReasonFinalizing indicates the Endpoint is being finalized.
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )

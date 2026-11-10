@@ -227,6 +227,22 @@ func effectiveMirror(binding *openchoreov1alpha1.EndpointReleaseBinding, ref ope
 	return ref.Mirror.DeepCopy()
 }
 
+// overridesUnsupported lists the routing features the binding's overrides
+// make the release's backends use that the release's EndpointType snapshot
+// does not declare. The release itself was checked when it was cut, so only
+// an override, such as a mirror share below 100, can add one.
+func overridesUnsupported(binding *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease) []string {
+	if len(binding.Spec.BackendOverrides) == 0 {
+		return nil
+	}
+	refs := make([]openchoreov1alpha1.EndpointBackendRef, 0, len(release.Spec.BackendRefs))
+	for _, ref := range release.Spec.BackendRefs {
+		ref.Mirror = effectiveMirror(binding, ref)
+		refs = append(refs, ref)
+	}
+	return endpointpipeline.CapabilityProblems(release.Spec.EndpointType.Spec.Capabilities, refs)
+}
+
 // hasWeight reports whether any resolved backend receives traffic.
 func hasWeight(backends []endpointpipeline.Backend) bool {
 	for _, b := range backends {
