@@ -670,6 +670,11 @@ _e2e.install-op:
 		--from-literal=username="admin" \
 		--from-literal=password="ThisIsTheOpenSearchPassword1" \
 		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
+	@$(E2E_KUBECTL) create secret generic opensearch-traces-users \
+		-n $(E2E_OP_NS) \
+		--from-literal=rawQueryUsername="openchoreo-traces-reader" \
+		--from-literal=rawQueryPassword="ThisIsTheTracesReaderPassword1" \
+		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
 		$(HELM_OCI_REGISTRY)/observability-logs-opensearch \
 		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
@@ -1100,10 +1105,13 @@ _e2e.mc.install-op:
 	@$(call log_info, Creating ClusterSecretStore and ExternalSecrets for opensearch/openobserve-admin-credentials)
 	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openbao-secretstore.yaml
 	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/opensearch-admin-externalsecret.yaml
+	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/opensearch-traces-users-externalsecret.yaml
 	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openobserve-admin-externalsecret.yaml
 	@$(call log_info, Waiting for opensearch/openobserve-admin-credentials secrets to be ready)
 	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=Ready externalsecret/opensearch-admin-credentials --timeout=60s
+	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
+		--for=condition=Ready externalsecret/opensearch-traces-users --timeout=60s
 	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=Ready externalsecret/openobserve-admin-credentials --timeout=60s
 	$(call e2e_pull_secret,$(E2E_MC_OP_KUBECTL),$(E2E_OP_NS))
