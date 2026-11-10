@@ -11,6 +11,11 @@ import (
 // EndpointSpec defines the desired state of Endpoint.
 // +kubebuilder:validation:XValidation:rule="!has(self.owner.componentName) || self.backendRefs.all(b, has(b.component) && b.component.name == self.owner.componentName)",message="spec.owner.componentName must be the component every backend routes to; an Endpoint routing to several components is owned by its project"
 // +kubebuilder:validation:XValidation:rule="!has(self.owner.releaseLineName) || self.backendRefs.all(b, has(b.component) && has(b.component.releaseLine) && b.component.releaseLine == self.owner.releaseLineName)",message="spec.owner.releaseLineName must be the release line every backend routes to; an Endpoint routing to several lines is owned by its component"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.backendRefs.exists(b, b.name == self.rollout.stable)",message="rollout.stable must name a backend in backendRefs"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.rollout.candidates.all(c, self.backendRefs.exists(b, b.name == c.name))",message="every rollout candidate must name a backend in backendRefs"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.rollout.candidates.all(c, self.backendRefs.all(b, b.name != c.name || has(b.mirror) == (self.rollout.strategy == 'mirror')))",message="a mirror rollout needs a mirror on every candidate, and only a mirror rollout can have a candidate with a mirror"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.rollout.strategy != 'abTest' || self.rollout.candidates.all(c, self.backendRefs.all(b, b.name != c.name || (has(b.match) && has(b.match.cookies))))",message="an abTest rollout needs a cookie match on every candidate"
+// +kubebuilder:validation:XValidation:rule="!has(self.rollout) || self.backendRefs.all(b, b.name != self.rollout.stable || !has(b.mirror))",message="rollout.stable can't be a mirror backend: a mirror only receives copies"
 type EndpointSpec struct {
 	// Owner identifies what this Endpoint belongs to, and so what deleting
 	// removes it. Its project is fixed; its component and release line are set
@@ -68,6 +73,108 @@ type EndpointSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+
+	// Rollout is the plan for moving traffic from one backend to others. The
+	// portal, occ and openchoreo-api read it to turn each step into the weights
+	// on an environment's EndpointReleaseBinding. The controller doesn't read
+	// it, and it isn't part of a release, so editing the plan never cuts one.
+	// +optional
+	Rollout *EndpointRollout `json:"rollout,omitempty"`
+}
+
+// EndpointRolloutStrategy is how a rollout moves traffic.
+// +kubebuilder:validation:Enum=canary;blueGreen;abTest;mirror
+type EndpointRolloutStrategy string
+
+const (
+	// EndpointRolloutCanary shifts a growing share of traffic to the candidates.
+	EndpointRolloutCanary EndpointRolloutStrategy = "canary"
+	// EndpointRolloutBlueGreen previews one candidate by its match, then switches all traffic to it.
+	EndpointRolloutBlueGreen EndpointRolloutStrategy = "blueGreen"
+	// EndpointRolloutABTest sends each candidate the requests that carry its cookie.
+	EndpointRolloutABTest EndpointRolloutStrategy = "abTest"
+	// EndpointRolloutMirror copies a growing share of requests to the candidates.
+	EndpointRolloutMirror EndpointRolloutStrategy = "mirror"
+)
+
+// EndpointRollout is the plan for rolling out candidate backends in place of
+// a stable one.
+// +structType=atomic
+// +kubebuilder:validation:XValidation:rule="!self.candidates.exists(c, c.name == self.stable)",message="a rollout candidate can't also be stable"
+// +kubebuilder:validation:XValidation:rule="has(self.canary) == (self.strategy == 'canary')",message="set canary for a canary rollout only"
+// +kubebuilder:validation:XValidation:rule="has(self.mirror) == (self.strategy == 'mirror')",message="set mirror for a mirror rollout only"
+// +kubebuilder:validation:XValidation:rule="(!has(self.canary) || self.canary.steps.all(s, s.backends.all(b, self.candidates.exists(c, c.name == b.name)))) && (!has(self.mirror) || self.mirror.steps.all(s, s.backends.all(b, self.candidates.exists(c, c.name == b.name))))",message="a rollout step can only name candidates"
+type EndpointRollout struct {
+	// Strategy is how traffic moves. It selects which of canary and mirror is set.
+	// +kubebuilder:validation:Required
+	Strategy EndpointRolloutStrategy `json:"strategy"`
+
+	// Stable is the backend serving now. It keeps the rest of its share at
+	// every step, and aborting the rollout returns its traffic to it.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Stable string `json:"stable"`
+
+	// Candidates is the backend being rolled out. It is a list so a rollout
+	// can later take several, such as an A/B test with more than two groups.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
+	// +listType=map
+	// +listMapKey=name
+	Candidates []EndpointRolloutCandidate `json:"candidates"`
+
+	// Canary lists the steps of a canary rollout.
+	// +optional
+	Canary *EndpointRolloutSteps `json:"canary,omitempty"`
+
+	// Mirror lists the steps of a mirror rollout.
+	// +optional
+	Mirror *EndpointRolloutSteps `json:"mirror,omitempty"`
+}
+
+// EndpointRolloutCandidate is a backend being rolled out.
+type EndpointRolloutCandidate struct {
+	// Name of the backend in backendRefs.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+}
+
+// EndpointRolloutSteps is the ordered list of steps of a rollout.
+type EndpointRolloutSteps struct {
+	// Steps in the order they are taken.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	Steps []EndpointRolloutStep `json:"steps"`
+}
+
+// EndpointRolloutStep is the share each candidate gets at one step.
+// +kubebuilder:validation:XValidation:rule="self.backends.map(b, b.percent).sum() <= 100",message="a rollout step's shares add up to at most 100"
+type EndpointRolloutStep struct {
+	// Backends lists each candidate's share at this step.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	// +listType=map
+	// +listMapKey=name
+	Backends []EndpointRolloutStepBackend `json:"backends"`
+}
+
+// EndpointRolloutStepBackend is one candidate's share at a step.
+type EndpointRolloutStepBackend struct {
+	// Name of the candidate.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+
+	// Percent is the candidate's share of the traffic stable had when the
+	// rollout started, from 0 to 100; for a mirror rollout, the share of
+	// requests copied to it. Backends outside the rollout keep their weights.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	Percent int32 `json:"percent"`
 }
 
 // EndpointOwner identifies what owns an Endpoint. The Endpoint controller
@@ -331,6 +438,7 @@ type LatestEndpointRelease struct {
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Release Line",type=string,JSONPath=`.spec.owner.releaseLineName`,priority=1
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`
+// +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=`.spec.rollout.strategy`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.latestRelease.name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

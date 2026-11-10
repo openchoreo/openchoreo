@@ -27,6 +27,9 @@ spec:
     - jsonPath: .spec.type.name
       name: Type
       type: string
+    - jsonPath: .spec.rollout.strategy
+      name: Strategy
+      type: string
     - jsonPath: .status.latestRelease.name
       name: Release
       type: string
@@ -326,6 +329,173 @@ spec:
                   EndpointType (or ClusterEndpointType). Validated against the schema by the
                   Endpoint controller; failures surface via status.conditions.
                 x-kubernetes-preserve-unknown-fields: true
+              rollout:
+                description: |-
+                  Rollout is the plan for moving traffic from one backend to others. The
+                  portal, occ and openchoreo-api read it to turn each step into the weights
+                  on an environment's EndpointReleaseBinding. The controller doesn't read
+                  it, and it isn't part of a release, so editing the plan never cuts one.
+                properties:
+                  canary:
+                    description: Canary lists the steps of a canary rollout.
+                    properties:
+                      steps:
+                        description: Steps in the order they are taken.
+                        items:
+                          description: EndpointRolloutStep is the share each candidate
+                            gets at one step.
+                          properties:
+                            backends:
+                              description: Backends lists each candidate's share at
+                                this step.
+                              items:
+                                description: EndpointRolloutStepBackend is one candidate's
+                                  share at a step.
+                                properties:
+                                  name:
+                                    description: Name of the candidate.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                  percent:
+                                    description: |-
+                                      Percent is the candidate's share of the traffic stable had when the
+                                      rollout started, from 0 to 100; for a mirror rollout, the share of
+                                      requests copied to it. Backends outside the rollout keep their weights.
+                                    format: int32
+                                    maximum: 100
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - name
+                                - percent
+                                type: object
+                              maxItems: 8
+                              minItems: 1
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
+                          required:
+                          - backends
+                          type: object
+                          x-kubernetes-validations:
+                          - message: a rollout step's shares add up to at most 100
+                            rule: self.backends.map(b, b.percent).sum() <= 100
+                        maxItems: 16
+                        minItems: 1
+                        type: array
+                    required:
+                    - steps
+                    type: object
+                  candidates:
+                    description: |-
+                      Candidates is the backend being rolled out. It is a list so a rollout
+                      can later take several, such as an A/B test with more than two groups.
+                    items:
+                      description: EndpointRolloutCandidate is a backend being rolled
+                        out.
+                      properties:
+                        name:
+                          description: Name of the backend in backendRefs.
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    maxItems: 1
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  mirror:
+                    description: Mirror lists the steps of a mirror rollout.
+                    properties:
+                      steps:
+                        description: Steps in the order they are taken.
+                        items:
+                          description: EndpointRolloutStep is the share each candidate
+                            gets at one step.
+                          properties:
+                            backends:
+                              description: Backends lists each candidate's share at
+                                this step.
+                              items:
+                                description: EndpointRolloutStepBackend is one candidate's
+                                  share at a step.
+                                properties:
+                                  name:
+                                    description: Name of the candidate.
+                                    maxLength: 63
+                                    minLength: 1
+                                    type: string
+                                  percent:
+                                    description: |-
+                                      Percent is the candidate's share of the traffic stable had when the
+                                      rollout started, from 0 to 100; for a mirror rollout, the share of
+                                      requests copied to it. Backends outside the rollout keep their weights.
+                                    format: int32
+                                    maximum: 100
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - name
+                                - percent
+                                type: object
+                              maxItems: 8
+                              minItems: 1
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
+                          required:
+                          - backends
+                          type: object
+                          x-kubernetes-validations:
+                          - message: a rollout step's shares add up to at most 100
+                            rule: self.backends.map(b, b.percent).sum() <= 100
+                        maxItems: 16
+                        minItems: 1
+                        type: array
+                    required:
+                    - steps
+                    type: object
+                  stable:
+                    description: |-
+                      Stable is the backend serving now. It keeps the rest of its share at
+                      every step, and aborting the rollout returns its traffic to it.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                  strategy:
+                    description: Strategy is how traffic moves. It selects which of
+                      canary and mirror is set.
+                    enum:
+                    - canary
+                    - blueGreen
+                    - abTest
+                    - mirror
+                    type: string
+                required:
+                - candidates
+                - stable
+                - strategy
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - message: a rollout candidate can't also be stable
+                  rule: '!self.candidates.exists(c, c.name == self.stable)'
+                - message: set canary for a canary rollout only
+                  rule: has(self.canary) == (self.strategy == 'canary')
+                - message: set mirror for a mirror rollout only
+                  rule: has(self.mirror) == (self.strategy == 'mirror')
+                - message: a rollout step can only name candidates
+                  rule: (!has(self.canary) || self.canary.steps.all(s, s.backends.all(b,
+                    self.candidates.exists(c, c.name == b.name)))) && (!has(self.mirror)
+                    || self.mirror.steps.all(s, s.backends.all(b, self.candidates.exists(c,
+                    c.name == b.name))))
               schema:
                 description: |-
                   Schema is the API definition this Endpoint exposes. When unset it resolves
@@ -406,6 +576,23 @@ spec:
                 routes to; an Endpoint routing to several lines is owned by its component
               rule: '!has(self.owner.releaseLineName) || self.backendRefs.all(b, has(b.component)
                 && has(b.component.releaseLine) && b.component.releaseLine == self.owner.releaseLineName)'
+            - message: rollout.stable must name a backend in backendRefs
+              rule: '!has(self.rollout) || self.backendRefs.exists(b, b.name == self.rollout.stable)'
+            - message: every rollout candidate must name a backend in backendRefs
+              rule: '!has(self.rollout) || self.rollout.candidates.all(c, self.backendRefs.exists(b,
+                b.name == c.name))'
+            - message: a mirror rollout needs a mirror on every candidate, and only
+                a mirror rollout can have a candidate with a mirror
+              rule: '!has(self.rollout) || self.rollout.candidates.all(c, self.backendRefs.all(b,
+                b.name != c.name || has(b.mirror) == (self.rollout.strategy == ''mirror'')))'
+            - message: an abTest rollout needs a cookie match on every candidate
+              rule: '!has(self.rollout) || self.rollout.strategy != ''abTest'' ||
+                self.rollout.candidates.all(c, self.backendRefs.all(b, b.name != c.name
+                || (has(b.match) && has(b.match.cookies))))'
+            - message: 'rollout.stable can''t be a mirror backend: a mirror only receives
+                copies'
+              rule: '!has(self.rollout) || self.backendRefs.all(b, b.name != self.rollout.stable
+                || !has(b.mirror))'
           status:
             description: EndpointStatus defines the observed state of Endpoint.
             properties:
