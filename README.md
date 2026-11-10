@@ -137,7 +137,7 @@ This allows contributors, adopters, and maintainers to understand what’s comin
 - Each card links to a GitHub issue with context and discussion.
 - We continuously update the roadmap as priorities evolve, and completed features may remain in their quarter for historical visibility.
 
-[OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/4/views/2)
+[OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/5)
 
 ## License
 
