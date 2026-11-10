@@ -166,6 +166,41 @@ func TestAcquire_ConcurrencyRefusalTakesNoToken(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAcquire_RateRefusalWhileSlotsAreFull(t *testing.T) {
+	// A caller over its rate gets its real wait, not the concurrency hint, so
+	// it doesn't retry every second while the slots are full.
+	l := newWithClock(Config{MaxConcurrent: 1, RequestsPerMinute: 10, Burst: 1}, newFakeClock().now)
+
+	_, err := l.Acquire("alice")
+	require.NoError(t, err)
+
+	_, err = l.Acquire("alice")
+	assert.Equal(t, 6*time.Second, requireLimited(t, err, ReasonRate))
+}
+
+func TestAcquire_RateRefusalNeverHoldsASlot(t *testing.T) {
+	// The rate is checked before a slot is taken, so a caller over its rate
+	// can't hold the last free slot for a moment and get another caller's
+	// query refused for concurrency.
+	clock := newFakeClock()
+	var l *Limiter
+	var slotsHeldAtRateCheck []int
+	l = newWithClock(Config{MaxConcurrent: 2, RequestsPerMinute: 10, Burst: 1}, func() time.Time {
+		if l != nil {
+			slotsHeldAtRateCheck = append(slotsHeldAtRateCheck, len(l.slots))
+		}
+		return clock.now()
+	})
+
+	release, err := l.Acquire("alice")
+	require.NoError(t, err)
+	release()
+
+	_, err = l.Acquire("alice")
+	_ = requireLimited(t, err, ReasonRate)
+	assert.Equal(t, []int{0, 0}, slotsHeldAtRateCheck)
+}
+
 func TestAcquire_DropsIdleCallers(t *testing.T) {
 	clock := newFakeClock()
 	// A full refill takes burst / rate = 2 / (1 per 6s) = 12s.

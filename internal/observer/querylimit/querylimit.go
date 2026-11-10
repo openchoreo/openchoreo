@@ -122,30 +122,17 @@ func (l *Limiter) Acquire(callerKey string) (release func(), err error) {
 	if l == nil {
 		return func() {}, nil
 	}
-
-	release = func() {}
-	if l.slots != nil {
-		select {
-		case l.slots <- struct{}{}:
-		default:
+	if l.limit <= 0 {
+		if !l.takeSlot() {
 			return nil, &LimitedError{Reason: ReasonConcurrency, RetryAfter: concurrencyRetryAfter}
 		}
-		var once sync.Once
-		release = func() { once.Do(func() { <-l.slots }) }
+		return l.releaser(), nil
 	}
 
-	if l.limit > 0 {
-		if wait, ok := l.allow(callerKey); !ok {
-			release()
-			return nil, &LimitedError{Reason: ReasonRate, RetryAfter: wait}
-		}
-	}
-	return release, nil
-}
-
-// allow takes a token from callerKey's bucket. When the bucket is empty it
-// takes nothing and returns how long until a token is available.
-func (l *Limiter) allow(callerKey string) (time.Duration, bool) {
+	// With a rate set, both limits are checked under one lock and at one time.
+	// A query over its caller's rate is refused before it takes a slot, so it
+	// never holds one, even for a moment, and gets its real wait; a query
+	// refused for concurrency uses no token.
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -154,20 +141,65 @@ func (l *Limiter) allow(callerKey string) (time.Duration, bool) {
 	// time between the two again.
 	now := l.now()
 	l.sweep(now)
+	c := l.callerAt(callerKey, now)
+	if tokens := c.limiter.TokensAt(now); tokens < 1 {
+		return nil, &LimitedError{Reason: ReasonRate, RetryAfter: l.rateRetryAfter(tokens)}
+	}
+	if !l.takeSlot() {
+		return nil, &LimitedError{Reason: ReasonConcurrency, RetryAfter: concurrencyRetryAfter}
+	}
+	release = l.releaser()
+	// The bucket had a token at this time and the lock is still held, so this
+	// does not fail; if it ever did, the query is refused for its rate.
+	if !c.limiter.AllowN(now, 1) {
+		release()
+		return nil, &LimitedError{Reason: ReasonRate, RetryAfter: l.rateRetryAfter(c.limiter.TokensAt(now))}
+	}
+	return release, nil
+}
+
+// takeSlot takes a concurrency slot without waiting and reports whether it
+// got one. It always succeeds when concurrency is not limited.
+func (l *Limiter) takeSlot() bool {
+	if l.slots == nil {
+		return true
+	}
+	select {
+	case l.slots <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+// releaser returns the function that gives back a slot taken by takeSlot. It
+// frees the slot once, however often it is called.
+func (l *Limiter) releaser() func() {
+	if l.slots == nil {
+		return func() {}
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-l.slots }) }
+}
+
+// callerAt returns callerKey's bucket, adding a full one for a new caller, and
+// marks it seen at now. l.mu must be held.
+func (l *Limiter) callerAt(callerKey string, now time.Time) *caller {
 	c, ok := l.callers[callerKey]
 	if !ok {
 		c = &caller{limiter: rate.NewLimiter(l.limit, l.burst)}
 		l.callers[callerKey] = c
 	}
 	c.lastSeen = now
-	if c.limiter.AllowN(now, 1) {
-		return 0, true
-	}
-	// Whole seconds, as Retry-After carries. The tolerance keeps float error
-	// in the token count from adding a second.
-	missing := 1 - c.limiter.TokensAt(now)
-	seconds := math.Ceil(missing/float64(l.limit) - 1e-6)
-	return time.Duration(max(seconds, 1)) * time.Second, false
+	return c
+}
+
+// rateRetryAfter is how long until a bucket holding tokens has one, in whole
+// seconds as Retry-After carries, at least one. The tolerance keeps float
+// error in the token count from adding a second.
+func (l *Limiter) rateRetryAfter(tokens float64) time.Duration {
+	seconds := math.Ceil((1-tokens)/float64(l.limit) - 1e-6)
+	return time.Duration(max(seconds, 1)) * time.Second
 }
 
 // sweep drops callers whose bucket has refilled, at most once per
