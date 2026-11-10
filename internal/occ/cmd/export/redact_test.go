@@ -13,6 +13,140 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	testCredentialURL            = "postgres://demo-user:demo-password@db.example:5432/members?sslmode=require#section"
+	testRedactedURL              = "postgres://db.example:5432/members?sslmode=require#section"
+	testEnvValueField            = "value"
+	testConnectionString         = "Server=db.example;Database=members;User Id=demo-user;Password=demo-password;"
+	testRedactedConnectionString = "Server=db.example;Database=members;User Id=demo-user;Password=;"
+)
+
+func TestRedactConnectionString(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "password", value: testConnectionString, want: testRedactedConnectionString},
+		{name: "case insensitive pwd", value: "Server=db;pWd=demo-password;Pooling=true", want: "Server=db;pWd=;Pooling=true"},
+		{name: "passwd alias", value: "Host=db;Passwd=demo-password", want: "Host=db;Passwd="},
+		{name: "single quoted semicolon", value: "Server=db;Password='first;second';Pooling=true", want: "Server=db;Password=;Pooling=true"},
+		{name: "double quoted semicolon", value: `Server=db;Password="first;second";Pooling=true`, want: "Server=db;Password=;Pooling=true"},
+		{name: "escaped quote", value: `Server=db;Password='first'';second';Pooling=true`, want: "Server=db;Password=;Pooling=true"},
+		{name: "ODBC braces", value: "Server=db;Pwd={first;second}}third};Pooling=true", want: "Server=db;Pwd=;Pooling=true"},
+		{name: "quoted unrelated value", value: `Server="first;second";Password=demo-password;`, want: `Server="first;second";Password=;`},
+		{name: "duplicate attributes", value: "Password=first;Server=db;Password=second;", want: "Password=;Server=db;Password=;"},
+		{name: "whitespace and empty attributes", value: " Server = db ; ; Password = demo-password ; Pooling=true ", want: " Server = db ; ; Password =; Pooling=true "},
+		{name: "mixed reference and literal", value: "Server=db;Password=${parameters.password};Pwd=demo-password", want: "Server=db;Password=${parameters.password};Pwd="},
+		{name: "unterminated quoted password", value: "Server=db;Password='first;second", want: "Server=db;Password="},
+		{name: "empty password", value: "Server=db;Password=;Pwd='';"},
+		{name: "reference", value: "Server=db;Password=${parameters.password};"},
+		{name: "ESO reference", value: "Server=db;Password={{ .password }};"},
+		{name: "quoted reference", value: `Server=db;Password="${parameters.password}";`},
+		{name: "no password", value: "Server=db;Database=members;Integrated Security=true;"},
+		{name: "URL", value: "https://host.example/path?x=y;Password=demo-password"},
+		{name: "non connection string", value: "ordinary text"},
+		{name: "non string", value: 123},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := redactConnectionString(tt.value)
+			assert.Equal(t, tt.want != "", ok)
+			assert.Equal(t, tt.want, got)
+			if ok {
+				_, detected := redactConnectionString(got)
+				assert.False(t, detected, "redacted strings must not prompt again")
+			}
+		})
+	}
+}
+
+func TestPlaintextCredentials_ConnectionString(t *testing.T) {
+	const envName = "Default_ConnectionString"
+	for _, paired := range []bool{false, true} {
+		name := "parameter"
+		if paired {
+			name = "environment variable"
+		}
+		t.Run(name, func(t *testing.T) {
+			object := map[string]any{envName: testConnectionString}
+			field := envName
+			fieldPath := "." + envName
+			if paired {
+				object = map[string]any{"key": envName, testEnvValueField: testConnectionString}
+				field = testEnvValueField
+				fieldPath = `.value (key "Default_ConnectionString")`
+			}
+			assert.Equal(t, []string{fieldPath}, findPlaintextSecrets(object))
+			assert.Equal(t, testConnectionString, object[field])
+			assert.Equal(t, 1, stripPlaintextSecrets(object))
+			assert.Equal(t, testRedactedConnectionString, object[field])
+			assert.Empty(t, findPlaintextSecrets(object))
+		})
+	}
+	object := map[string]any{"connections": []any{testConnectionString}}
+	assert.Equal(t, 1, stripPlaintextSecrets(object))
+	assert.Equal(t, []any{testRedactedConnectionString}, object["connections"])
+}
+
+func TestRedactURLUserinfo(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "database URL", value: testCredentialURL, want: testRedactedURL},
+		{name: "username only", value: "https://access-token@host.example/api", want: "https://host.example/api"},
+		{name: "password only", value: "redis://:demo-password@cache.example/0", want: "redis://cache.example/0"},
+		{name: "escaped credentials and IPv6", value: "postgres://demo%40user:p%40ss@[::1]:5432/db", want: "postgres://[::1]:5432/db"},
+		{name: "preserve URL bytes", value: " HTTP://user:pass@HOST.example/%2f?next=a%2Fb#user@other ", want: " HTTP://HOST.example/%2f?next=a%2Fb#user@other "},
+		{name: "scheme relative URL", value: "//user:pass@host.example/path", want: "//host.example/path"},
+		{name: "no userinfo", value: testRedactedURL},
+		{name: "at sign outside authority", value: "https://host.example/path?email=user@example.com#user@other"},
+		{name: "reference", value: "${parameters.databaseURL}"},
+		{name: "malformed URL", value: "https://user:pass%zz@host.example/path"},
+		{name: "non URL", value: "user@example.com"},
+		{name: "non string", value: 123},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := redactURLUserinfo(tt.value)
+			assert.Equal(t, tt.want != "", ok)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestPlaintextCredentials_URLUserinfo(t *testing.T) {
+	for _, paired := range []bool{false, true} {
+		name := "parameter"
+		if paired {
+			name = "environment variable"
+		}
+		t.Run(name, func(t *testing.T) {
+			object := map[string]any{"DATABASE_URL": testCredentialURL}
+			field := "DATABASE_URL"
+			fieldPath := ".DATABASE_URL"
+			if paired {
+				object = map[string]any{"key": "DATABASE_URL", testEnvValueField: testCredentialURL}
+				field = testEnvValueField
+				fieldPath = `.value (key "DATABASE_URL")`
+			}
+			assert.Equal(t, []string{fieldPath}, findPlaintextSecrets(object))
+			assert.Equal(t, testCredentialURL, object[field], "detection must not mutate the URL")
+			assert.Equal(t, 1, stripPlaintextSecrets(object))
+			assert.Equal(t, testRedactedURL, object[field])
+			assert.Empty(t, findPlaintextSecrets(object))
+		})
+	}
+
+	object := map[string]any{"endpoints": []any{testCredentialURL, testRedactedURL}, "key": testCredentialURL}
+	assert.Equal(t, []string{".endpoints[0]", ".key"}, findPlaintextSecrets(object))
+	assert.Equal(t, 2, stripPlaintextSecrets(object))
+	assert.Equal(t, []any{testRedactedURL, testRedactedURL}, object["endpoints"])
+	assert.Equal(t, testRedactedURL, object["key"])
+}
+
 func TestPlaintextCredentials(t *testing.T) {
 	tests := []struct {
 		name  string

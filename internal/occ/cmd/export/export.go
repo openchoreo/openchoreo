@@ -172,7 +172,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 			if keep {
 				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "kept"})
 			} else {
-				delete(credential.parent, credential.key)
+				credential.redact()
 				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "stripped 1 value(s)"})
 			}
 		}

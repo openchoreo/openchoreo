@@ -135,6 +135,53 @@ func TestRun_RepeatIsByteIdenticalAndPreservesOtherFiles(t *testing.T) {
 	assert.FileExists(t, unrelated)
 }
 
+func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
+	tests := []struct {
+		parameter string
+		value     string
+		redacted  string
+	}{
+		{parameter: "DATABASE_URL", value: testCredentialURL, redacted: testRedactedURL},
+		{parameter: "Default_ConnectionString", value: testConnectionString, redacted: testRedactedConnectionString},
+	}
+	for _, tt := range tests {
+		t.Run(tt.parameter, func(t *testing.T) {
+			for _, keep := range []bool{false, true} {
+				name := "redact"
+				if keep {
+					name = "explicitly keep"
+				}
+				t.Run(name, func(t *testing.T) {
+					root := t.TempDir()
+					opts := Options{OutputDir: root}
+					if keep {
+						opts.KeepPlaintext = func(Withheld) (bool, error) { return true, nil }
+					}
+					report, err := runEngine(t.Context(), mockComponentClient(t, tt.parameter, tt.value), opts)
+					require.NoError(t, err)
+					require.Len(t, report.SecretDecisions, 1)
+					assert.Equal(t, ".spec.parameters."+tt.parameter, report.SecretDecisions[0].Reasons[0])
+					object := readManifest(t, root, "namespaces/acme/projects/shop/components/api/component.yaml")
+					parameters := object["spec"].(map[string]any)["parameters"].(map[string]any)
+					want := tt.redacted
+					if keep {
+						want = tt.value
+					}
+					assert.Equal(t, want, parameters[tt.parameter])
+					if !keep {
+						data, err := os.ReadFile(filepath.Join(root, "namespaces", "acme", "projects", testProjectName, "components", "api", "component.yaml"))
+						require.NoError(t, err)
+						assert.NotContains(t, string(data), "demo-password")
+						if tt.parameter == "DATABASE_URL" {
+							assert.NotContains(t, string(data), "demo-user")
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRun_UpdatesExistingComponentFile(t *testing.T) {
 	root := t.TempDir()
 	first, err := runEngine(context.Background(), mockComponentClient(t, "tier", "one"), Options{OutputDir: root})

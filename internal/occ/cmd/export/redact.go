@@ -5,6 +5,7 @@ package export
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -12,8 +13,7 @@ import (
 
 type plaintextCredential struct {
 	path   string
-	parent map[string]any
-	key    string
+	redact func()
 }
 
 var sensitiveName = regexp.MustCompile(
@@ -26,10 +26,149 @@ var credentialReference = regexp.MustCompile(
 
 var resourceBindingPath = regexp.MustCompile(`^\.dependencies\.resources\[[0-9]+\]\.(envBindings|fileBindings)$`)
 
+var connectionAttributeName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9 _.-]*$`)
+
 func isPlaintextCredential(name string, value any) bool {
 	text, ok := value.(string)
-	return ok && text != "" && sensitiveName.MatchString(name) &&
-		!credentialReference.MatchString(strings.TrimSpace(text))
+	if !ok || text == "" || credentialReference.MatchString(strings.TrimSpace(text)) {
+		return false
+	}
+	_, hasEmbeddedCredentials := redactEmbeddedCredentials(text)
+	return sensitiveName.MatchString(name) || hasEmbeddedCredentials
+}
+
+func redactEmbeddedCredentials(value any) (string, bool) {
+	if redacted, ok := redactURLUserinfo(value); ok {
+		return redacted, true
+	}
+	return redactConnectionString(value)
+}
+
+// redactConnectionString clears literal credential attributes while retaining
+// the other attributes and delimiters, including quoted semicolons.
+func redactConnectionString(value any) (string, bool) {
+	text, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+	var redacted strings.Builder
+	last := 0
+	changed := false
+	for start := 0; start < len(text); {
+		remaining := text[start:]
+		if strings.TrimSpace(remaining) == "" {
+			break
+		}
+		separator := strings.IndexByte(remaining, ';')
+		if separator >= 0 && strings.TrimSpace(remaining[:separator]) == "" {
+			start += separator + 1
+			continue
+		}
+		equals := strings.IndexByte(remaining, '=')
+		if equals < 0 || (separator >= 0 && separator < equals) {
+			return "", false
+		}
+		key := strings.TrimSpace(remaining[:equals])
+		if !connectionAttributeName.MatchString(key) {
+			return "", false
+		}
+		valueStart := start + equals + 1
+		end := connectionValueEnd(text, valueStart)
+		if (sensitiveName.MatchString(key) || strings.EqualFold(key, "pwd")) && literalConnectionValue(text[valueStart:end]) {
+			redacted.WriteString(text[last:valueStart])
+			last = end
+			changed = true
+		}
+		start = end + 1
+	}
+	if !changed {
+		return "", false
+	}
+	redacted.WriteString(text[last:])
+	return redacted.String(), true
+}
+
+func connectionValueEnd(text string, start int) int {
+	value := strings.TrimLeft(text[start:], " \t\r\n")
+	position := len(text) - len(value)
+	if position == len(text) {
+		return position
+	}
+	var closing byte
+	switch value[0] {
+	case '\'', '"':
+		closing = value[0]
+	case '{':
+		if !strings.HasPrefix(value, "{{") {
+			closing = '}'
+		}
+	}
+	if closing != 0 {
+		position++
+		for position < len(text) {
+			if text[position] != closing {
+				position++
+				continue
+			}
+			position++
+			if position < len(text) && text[position] == closing {
+				position++
+				continue
+			}
+			break
+		}
+	}
+	if end := strings.IndexByte(text[position:], ';'); end >= 0 {
+		return position + end
+	}
+	return len(text)
+}
+
+func literalConnectionValue(value string) bool {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		first, last := value[0], value[len(value)-1]
+		if (first == last && (first == '\'' || first == '"')) ||
+			(first == '{' && last == '}' && !strings.HasPrefix(value, "{{")) {
+			value = strings.TrimSpace(value[1 : len(value)-1])
+		}
+	}
+	return value != "" && !credentialReference.MatchString(value)
+}
+
+// redactURLUserinfo removes credentials without rewriting the rest of the URL.
+func redactURLUserinfo(value any) (string, bool) {
+	text, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+	trimmed := strings.TrimSpace(text)
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Host == "" || parsed.User == nil || parsed.User.String() == "" {
+		return "", false
+	}
+	start := strings.Index(trimmed, "//") + 2
+	end := len(trimmed)
+	if i := strings.IndexAny(trimmed[start:], "/?#"); i >= 0 {
+		end = start + i
+	}
+	lastAt := strings.LastIndex(trimmed[start:end], "@")
+	if lastAt < 0 {
+		return "", false
+	}
+	start += strings.Index(text, trimmed)
+	return text[:start] + text[start+lastAt+1:], true
+}
+
+func mapCredential(fieldPath string, parent map[string]any, key string) plaintextCredential {
+	redacted, hasEmbeddedCredentials := redactEmbeddedCredentials(parent[key])
+	return plaintextCredential{path: fieldPath, redact: func() {
+		if hasEmbeddedCredentials {
+			parent[key] = redacted
+		} else {
+			delete(parent, key)
+		}
+	}}
 }
 
 // findPlaintextSecrets returns sorted locations of possible plaintext credentials.
@@ -42,11 +181,11 @@ func findPlaintextSecrets(object map[string]any) []string {
 	return findings
 }
 
-// stripPlaintextSecrets removes detected credential values and returns the count.
+// stripPlaintextSecrets redacts detected credentials and returns the count.
 func stripPlaintextSecrets(object map[string]any) int {
 	credentials := plaintextCredentials(object)
 	for _, credential := range credentials {
-		delete(credential.parent, credential.key)
+		credential.redact()
 	}
 	return len(credentials)
 }
@@ -81,22 +220,30 @@ func walk(node any, kind, currentPath string, findings *[]plaintextCredential) {
 	}
 	switch value := node.(type) {
 	case map[string]any:
+		paired := false
 		if key, ok := value["key"].(string); ok && isPlaintextCredential(key, value["value"]) {
-			*findings = append(*findings, plaintextCredential{
-				path: fmt.Sprintf("%s.value (key %q)", currentPath, key), parent: value, key: "value",
-			})
+			*findings = append(*findings, mapCredential(fmt.Sprintf("%s.value (key %q)", currentPath, key), value, "value"))
+			paired = true
 		}
 		for key, child := range value {
+			if paired && key == "value" {
+				continue
+			}
 			childPath := currentPath + "." + key
-			if key != "key" && isPlaintextCredential(key, child) {
-				*findings = append(*findings, plaintextCredential{path: childPath, parent: value, key: key})
+			if isPlaintextCredential(key, child) {
+				*findings = append(*findings, mapCredential(childPath, value, key))
 				continue
 			}
 			walk(child, kind, childPath, findings)
 		}
 	case []any:
 		for i, child := range value {
-			walk(child, kind, fmt.Sprintf("%s[%d]", currentPath, i), findings)
+			childPath := fmt.Sprintf("%s[%d]", currentPath, i)
+			if redacted, ok := redactEmbeddedCredentials(child); ok {
+				*findings = append(*findings, plaintextCredential{path: childPath, redact: func() { value[i] = redacted }})
+				continue
+			}
+			walk(child, kind, childPath, findings)
 		}
 	}
 }
