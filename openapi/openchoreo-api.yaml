@@ -12206,6 +12206,16 @@ components:
             $ref: '#/components/schemas/ValidationRule'
         urls:
           $ref: '#/components/schemas/EndpointTypeURLs'
+        capabilities:
+          type: array
+          description: |
+            Routing features this type renders beyond weighted backends. An Endpoint
+            that uses one the type doesn't list is not released. Unset means the
+            type doesn't declare them, and nothing is checked.
+          uniqueItems: true
+          items:
+            type: string
+            enum: [Match, RegularExpression, Mirror, MirrorPercent]
         resources:
           type: array
           description: |
@@ -12497,6 +12507,8 @@ components:
           type: object
           description: Values for the parameter schema declared on the referenced (Cluster)EndpointType. Validated by the controller.
           additionalProperties: true
+        rollout:
+          $ref: '#/components/schemas/EndpointRollout'
 
     EndpointBackendRef:
       type: object
@@ -12526,6 +12538,196 @@ components:
           maximum: 1000000
           default: 1
           example: 90
+        match:
+          $ref: '#/components/schemas/EndpointMatch'
+        mirror:
+          $ref: '#/components/schemas/EndpointMirror'
+
+    EndpointMatch:
+      type: object
+      description: |
+        Conditions a request must meet to go to this backend before any weighted
+        split. All set conditions must hold. A backend with a match gets the
+        requests that meet it in addition to its weighted share.
+      properties:
+        path:
+          $ref: '#/components/schemas/EndpointPathMatch'
+        headers:
+          type: array
+          description: Headers the request must carry.
+          minItems: 1
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/EndpointHeaderMatch'
+        cookies:
+          type: array
+          description: Cookies the request must carry, by exact value.
+          minItems: 1
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/EndpointCookieMatch'
+
+    EndpointPathMatch:
+      type: object
+      description: A path condition, relative to where the Endpoint is served.
+      required:
+        - value
+      properties:
+        type:
+          type: string
+          description: How the path is compared.
+          enum: [PathPrefix, Exact]
+          default: PathPrefix
+        value:
+          type: string
+          description: The path, relative to where the Endpoint is served.
+          maxLength: 1024
+          pattern: '^/[^?#]*$'
+          example: /next
+
+    EndpointHeaderMatch:
+      type: object
+      description: A header condition.
+      required:
+        - name
+        - value
+      properties:
+        name:
+          type: string
+          description: Header name, case-insensitive.
+          minLength: 1
+          maxLength: 256
+          example: x-canary
+        type:
+          type: string
+          description: How the value is compared.
+          enum: [Exact, RegularExpression]
+          default: Exact
+        value:
+          type: string
+          description: The expected value, or an RE2 regular expression.
+          maxLength: 4096
+          example: "true"
+
+    EndpointCookieMatch:
+      type: object
+      description: A cookie condition, by exact value.
+      required:
+        - name
+        - value
+      properties:
+        name:
+          type: string
+          description: Cookie name.
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: group
+        value:
+          type: string
+          description: Exact cookie value.
+          pattern: '^[A-Za-z0-9_.-]{1,128}$'
+          example: b
+
+    EndpointMirror:
+      type: object
+      description: |
+        Copies a share of the requests to this backend. Its answers are discarded.
+        A mirror backend has weight 0 and no match.
+      required:
+        - percent
+      properties:
+        percent:
+          type: integer
+          format: int32
+          description: Percent of the requests to copy, from 0 to 100.
+          minimum: 0
+          maximum: 100
+          example: 10
+
+    EndpointRollout:
+      type: object
+      description: |
+        The plan for moving traffic from a stable backend to candidate backends.
+        Clients turn each step into an environment's backendOverrides. The
+        controller doesn't read it, and it isn't part of a release.
+      required:
+        - strategy
+        - stable
+        - candidates
+      properties:
+        strategy:
+          type: string
+          description: How traffic moves. canary and mirror carry their steps in the block of the same name.
+          enum: [canary, blueGreen, abTest, mirror]
+          example: canary
+        stable:
+          type: string
+          description: The backend serving now. Aborting returns its traffic to it.
+          minLength: 1
+          maxLength: 63
+          example: stable
+        candidates:
+          type: array
+          description: The backend being rolled out. A list so a rollout can later take several.
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+                description: Name of the backend in backendRefs.
+                minLength: 1
+                maxLength: 63
+                example: canary
+        canary:
+          $ref: '#/components/schemas/EndpointRolloutSteps'
+        mirror:
+          $ref: '#/components/schemas/EndpointRolloutSteps'
+
+    EndpointRolloutSteps:
+      type: object
+      description: The steps of a rollout, in order.
+      required:
+        - steps
+      properties:
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/EndpointRolloutStep'
+
+    EndpointRolloutStep:
+      type: object
+      description: The share each candidate gets at one step. Shares add up to at most 100.
+      required:
+        - backends
+      properties:
+        backends:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            type: object
+            required:
+              - name
+              - percent
+            properties:
+              name:
+                type: string
+                description: Name of the candidate.
+                minLength: 1
+                maxLength: 63
+                example: canary
+              percent:
+                type: integer
+                format: int32
+                description: The candidate's share of the traffic stable had, or for a mirror rollout the share of requests copied to it.
+                minimum: 0
+                maximum: 100
+                example: 25
 
     EndpointComponentBackend:
       type: object
@@ -12784,6 +12986,35 @@ components:
           type: object
           description: Per-environment values for EndpointType.spec.environmentConfigs.
           additionalProperties: true
+        backendOverrides:
+          type: array
+          description: |
+            Environment-specific weight and mirror share for the release's backends,
+            matched by name. Entries for a backend the pinned release does not have
+            are ignored and reported in the BackendOverridesApplied condition.
+          items:
+            $ref: '#/components/schemas/EndpointBackendOverride'
+
+    EndpointBackendOverride:
+      type: object
+      description: Environment-specific values for one backend.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the backend in the release.
+          minLength: 1
+          example: canary
+        weight:
+          type: integer
+          format: int32
+          description: Replaces the release's weight for this backend in this environment.
+          minimum: 0
+          maximum: 1000000
+          example: 25
+        mirror:
+          $ref: '#/components/schemas/EndpointMirror'
 
     EndpointTypeURLs:
       type: object
@@ -12951,6 +13182,8 @@ components:
           format: int32
           description: Effective weight applied to this backend.
           example: 90
+        mirror:
+          $ref: '#/components/schemas/EndpointMirror'
         resolved:
           type: boolean
           description: Whether the backend was found and can receive traffic in this environment.
@@ -12974,7 +13207,7 @@ components:
           description: When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
         conditions:
           type: array
-          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
+          description: Latest available observations of the binding's state. Includes BackendsResolved, BackendOverridesApplied, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
           items:
             $ref: '#/components/schemas/Condition'
         backends:
