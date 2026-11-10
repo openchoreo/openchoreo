@@ -652,7 +652,7 @@ func TestRun_PrintsIncompleteSummaryOnWriteFailure(t *testing.T) {
 	assert.Contains(t, output.String(), "0 resource(s)")
 }
 
-func TestRun_PrintsPartialSummaryOnFilesystemPermissionDenied(t *testing.T) {
+func TestRun_PreservesPublishedFilesOnFilesystemPermissionDenied(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses directory write permissions")
 	}
@@ -670,8 +670,8 @@ func TestRun_PrintsPartialSummaryOnFilesystemPermissionDenied(t *testing.T) {
 	assert.NotContains(t, err.Error(), "your role")
 	assert.Contains(t, output.String(), "Export incomplete")
 	assert.NotContains(t, output.String(), "Export completed")
-	assert.Contains(t, output.String(), "1 resource(s)")
-	assert.FileExists(t, filepath.Join(root, "namespaces", "acme", "namespace.yaml"))
+	assert.Contains(t, output.String(), "0 resource(s)")
+	assert.NoFileExists(t, filepath.Join(root, "namespaces", "acme", "namespace.yaml"))
 }
 
 func TestIsExportPermissionError(t *testing.T) {

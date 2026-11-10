@@ -187,9 +187,6 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := prepareOutputDir(opts.OutputDir); err != nil {
-		return nil, err
-	}
 	return report, writeExportFiles(ctx, opts.OutputDir, safe, rendered, report)
 }
 

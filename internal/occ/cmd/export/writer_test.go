@@ -5,7 +5,9 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -220,25 +222,28 @@ func TestRun_PreservesExportsWithoutInventory(t *testing.T) {
 	assert.FileExists(t, filepath.Join(root, filepath.FromSlash(managedComponentPath)))
 }
 
-func TestWriteExportFiles_FailureDoesNotPruneAndTracksPartialWrites(t *testing.T) {
+func TestWriteExportFiles_FailurePreservesPreviousSnapshot(t *testing.T) {
 	root := t.TempDir()
 	_, err := runEngine(t.Context(), mockComponentClient(t, "", ""), Options{OutputDir: root})
 	require.NoError(t, err)
 	const added = "namespaces/acme/added.yaml"
 	const blocked = "namespaces/acme/blocked.yaml"
 	require.NoError(t, os.Mkdir(filepath.Join(root, filepath.FromSlash(blocked)), 0o750))
+	before := exportTreeContents(t, root)
 	report := &Report{ExportedByKind: map[string]int{}}
 	err = writeExportFiles(t.Context(), root, []resource{
+		{kind: "Namespace", name: "acme", path: "namespaces/acme/namespace.yaml"},
 		{kind: "Namespace", name: "added", path: added},
 		{kind: "Namespace", name: "blocked", path: blocked},
-	}, [][]byte{[]byte("new manifest\n"), []byte("blocked\n")}, report)
+	}, [][]byte{[]byte("replacement namespace\n"), []byte("new manifest\n"), []byte("blocked\n")}, report)
 	require.ErrorContains(t, err, "write Namespace")
-	assert.Equal(t, 1, report.Created)
-	assert.Equal(t, 1, report.Exported)
+	assert.Zero(t, report.Created)
+	assert.Zero(t, report.Exported)
 	assert.FileExists(t, filepath.Join(root, filepath.FromSlash(managedComponentPath)))
-	assert.FileExists(t, filepath.Join(root, filepath.FromSlash(added)))
+	assert.NoFileExists(t, filepath.Join(root, filepath.FromSlash(added)))
+	assert.Equal(t, before, exportTreeContents(t, root), "failed staging must preserve manifests, inventory, and unrelated files")
 
-	// A later successful export can also clean up the partial run's managed file.
+	// Failed preparation leaves the previous ownership inventory intact.
 	_, err = runEngine(t.Context(), emptyExportClient(t), Options{OutputDir: root})
 	require.NoError(t, err)
 	assert.NoFileExists(t, filepath.Join(root, filepath.FromSlash(added)))
@@ -312,6 +317,7 @@ func TestRun_CleanupFailurePreservesFilesystemErrorAndIncompleteReport(t *testin
 	projectDir := filepath.Join(root, "namespaces", "acme", "projects", testProjectName)
 	require.NoError(t, os.Chmod(projectDir, 0o500))
 	t.Cleanup(func() { require.NoError(t, os.Chmod(projectDir, 0o750)) })
+	before := exportTreeContents(t, root)
 	var output bytes.Buffer
 	err = Run(t.Context(), emptyExportClient(t), &output, Params{OutputDir: root})
 	require.ErrorIs(t, err, fs.ErrPermission)
@@ -320,10 +326,156 @@ func TestRun_CleanupFailurePreservesFilesystemErrorAndIncompleteReport(t *testin
 	assert.Contains(t, output.String(), "Export incomplete")
 	assert.Contains(t, output.String(), "0 resource(s)")
 	assert.FileExists(t, filepath.Join(projectDir, "project.yaml"))
+	assert.Equal(t, before, exportTreeContents(t, root), "failed stale-file cleanup must not affect the published export")
 
 	// After permissions are restored, a subsequent export retries the stale file.
 	require.NoError(t, os.Chmod(projectDir, 0o750))
 	_, err = runEngine(t.Context(), emptyExportClient(t), Options{OutputDir: root})
 	require.NoError(t, err)
 	assert.NoFileExists(t, filepath.Join(projectDir, "project.yaml"))
+}
+
+func exportTreeContents(t *testing.T, root string) map[string]string {
+	t.Helper()
+	contents := map[string]string{}
+	require.NoError(t, filepath.WalkDir(root, func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, name)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		value := info.Mode().String()
+		if info.Mode()&os.ModeSymlink != 0 {
+			target, err := os.Readlink(name)
+			if err != nil {
+				return err
+			}
+			value += target
+		} else if info.Mode().IsRegular() {
+			data, err := os.ReadFile(name)
+			if err != nil {
+				return err
+			}
+			value += string(data)
+		}
+		contents[relative] = value
+		return nil
+	}))
+	return contents
+}
+
+func TestExportSnapshot_PreparedChangesAreInvisibleAndCancellationPreservesOutput(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "new output"
+		if existing {
+			name = "existing output"
+		}
+		t.Run(name, func(t *testing.T) {
+			output := filepath.Join(t.TempDir(), "output")
+			before := map[string]string{}
+			if existing {
+				_, err := runEngine(t.Context(), mockComponentClient(t, "tier", "old"), Options{OutputDir: output})
+				require.NoError(t, err)
+				before = exportTreeContents(t, output)
+			}
+			snapshot, err := prepareExportSnapshot(t.Context(), output)
+			require.NoError(t, err)
+			defer snapshot.cleanup()
+			report := &Report{ExportedByKind: map[string]int{}}
+			require.NoError(t, prepareExportFiles(t.Context(), snapshot.staging, nil, nil, report))
+			if existing {
+				assert.Equal(t, before, exportTreeContents(t, output))
+			} else {
+				assert.NoDirExists(t, output)
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+			require.ErrorIs(t, snapshot.publish(ctx), context.Canceled)
+			if existing {
+				assert.Equal(t, before, exportTreeContents(t, output))
+			} else {
+				assert.NoDirExists(t, output)
+			}
+		})
+	}
+}
+
+func TestExportSnapshot_PublicationFailureRestoresPreviousOutput(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "output")
+	_, err := runEngine(t.Context(), mockComponentClient(t, "", ""), Options{OutputDir: output})
+	require.NoError(t, err)
+	before := exportTreeContents(t, output)
+	snapshot, err := prepareExportSnapshot(t.Context(), output)
+	require.NoError(t, err)
+	defer snapshot.cleanup()
+	require.NoError(t, prepareExportFiles(t.Context(), snapshot.staging, nil, nil, &Report{ExportedByKind: map[string]int{}}))
+	publicationErr := errors.New("injected publication failure")
+	rename := func(oldName, newName string) error {
+		if oldName == snapshot.stagingName {
+			return publicationErr
+		}
+		return snapshot.parent.Rename(oldName, newName)
+	}
+	err = publishExportSnapshot(snapshot.parent, snapshot.stagingName, snapshot.outputName, true, rename)
+	require.ErrorIs(t, err, publicationErr)
+	assert.Equal(t, before, exportTreeContents(t, output))
+	backups, err := filepath.Glob(filepath.Join(filepath.Dir(output), ".occ-export-backup-*"))
+	require.NoError(t, err)
+	assert.Empty(t, backups)
+}
+
+func TestRun_SnapshotPreservesUnrelatedFilesPermissionsAndSymlinks(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "output")
+	require.NoError(t, os.Mkdir(output, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(output, "notes.txt"), []byte("private notes\n"), 0o600))
+	require.NoError(t, os.Symlink("notes.txt", filepath.Join(output, "notes-link")))
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	require.NoError(t, os.WriteFile(outside, []byte("outside\n"), 0o600))
+	require.NoError(t, os.Symlink(outside, filepath.Join(output, "outside-link")))
+	before := exportTreeContents(t, output)
+	report, err := runEngine(t.Context(), mockComponentClient(t, "", ""), Options{OutputDir: output})
+	require.NoError(t, err)
+	assert.Equal(t, 3, report.Created)
+	after := exportTreeContents(t, output)
+	for name, content := range before {
+		assert.Equal(t, content, after[name], name)
+	}
+	data, err := os.ReadFile(outside)
+	require.NoError(t, err)
+	assert.Equal(t, "outside\n", string(data))
+}
+
+func TestWriteExportFiles_RejectsWorkingDirectoryAncestor(t *testing.T) {
+	output := t.TempDir()
+	child := filepath.Join(output, "child")
+	require.NoError(t, os.Mkdir(child, 0o750))
+	t.Chdir(child)
+	before := exportTreeContents(t, output)
+	err := writeExportFiles(t.Context(), output, nil, nil, &Report{})
+	require.ErrorContains(t, err, "contains the working directory")
+	assert.Equal(t, before, exportTreeContents(t, output))
+}
+
+func TestWriteExportFiles_InventoryFailureDiscardsPreparedManifests(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory write permissions")
+	}
+	output := filepath.Join(t.TempDir(), "output")
+	_, err := runEngine(t.Context(), mockComponentClient(t, "tier", "old"), Options{OutputDir: output})
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(output, 0o500))
+	t.Cleanup(func() { require.NoError(t, os.Chmod(output, 0o750)) })
+	before := exportTreeContents(t, output)
+	report, err := runEngine(t.Context(), mockComponentClient(t, "tier", "new"), Options{OutputDir: output})
+	require.ErrorIs(t, err, fs.ErrPermission)
+	assert.Contains(t, err.Error(), "write export inventory")
+	assert.Zero(t, report.Exported)
+	assert.Zero(t, report.Updated)
+	assert.Equal(t, before, exportTreeContents(t, output))
 }
