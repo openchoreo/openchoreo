@@ -90,11 +90,15 @@ func (r *Reconciler) populateResourceDependencyStatus(
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	deps []openchoreov1alpha1.WorkloadResourceDependency,
 ) ([]pipelinecontext.ResourceDependencyItem, error) {
-	releaseBinding.Status.ResourceDependencyTargets = buildResourceDependencyTargets(releaseBinding, deps)
+	// Resolve before writing the status: the resolver reads which dependencies the previous
+	// reconcile resolved (see wasResourceDependencyResolved). On error, write neither field:
+	// the status is persisted even when the reconcile fails, and new targets next to the old
+	// pending list would record a dependency that was never resolved as resolved.
 	items, pending, err := r.resolveResourceDependencies(ctx, releaseBinding, deps)
 	if err != nil {
 		return nil, err
 	}
+	releaseBinding.Status.ResourceDependencyTargets = buildResourceDependencyTargets(releaseBinding, deps)
 	releaseBinding.Status.PendingResourceDependencies = pending
 	return items, nil
 }
@@ -180,7 +184,11 @@ func (r *Reconciler) resolveResourceDependency(
 
 	rrb := &rrbList.Items[0]
 
-	if !isResourceReleaseBindingReady(rrb) {
+	// A provider that is only failing to apply keeps serving a dependency this binding already
+	// uses. A dependency it has never resolved still waits for the provider to be Ready, since
+	// outputs can resolve before anything they name exists on the data plane.
+	keepUsing := isResourceReleaseBindingOnlyApplyFailing(rrb) && wasResourceDependencyResolved(releaseBinding, dep.Ref)
+	if !isResourceReleaseBindingReady(rrb) && !keepUsing {
 		return nil, &openchoreov1alpha1.PendingResourceDependency{
 			Namespace:    releaseBinding.Namespace,
 			Project:      releaseBinding.Spec.Owner.ProjectName,
@@ -221,4 +229,40 @@ func isResourceReleaseBindingReady(rrb *openchoreov1alpha1.ResourceReleaseBindin
 		return false
 	}
 	return cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == rrb.Generation
+}
+
+// wasResourceDependencyResolved reports whether the previous reconcile resolved the dependency
+// on resourceName, which happens only once its provider has been Ready. It must be read before
+// populateResourceDependencyStatus overwrites the status.
+func wasResourceDependencyResolved(releaseBinding *openchoreov1alpha1.ReleaseBinding, resourceName string) bool {
+	for _, p := range releaseBinding.Status.PendingResourceDependencies {
+		if p.ResourceName == resourceName {
+			return false
+		}
+	}
+	for _, t := range releaseBinding.Status.ResourceDependencyTargets {
+		if t.ResourceName == resourceName {
+			return true
+		}
+	}
+	return false
+}
+
+// isResourceReleaseBindingOnlyApplyFailing reports whether the binding's outputs are resolved
+// for the current generation while applying its resources to the data plane fails. That
+// happens whenever the control plane briefly cannot reach the data plane: Ready turns False,
+// but what the provider applied and the outputs resolved from it stay in place. Consumers
+// that already use the dependency keep those outputs, or every data plane disconnect would
+// roll their workloads out without the dependency's values.
+func isResourceReleaseBindingOnlyApplyFailing(rrb *openchoreov1alpha1.ResourceReleaseBinding) bool {
+	resources := meta.FindStatusCondition(rrb.Status.Conditions, string(resourcereleasebinding.ConditionResourcesReady))
+	outputs := meta.FindStatusCondition(rrb.Status.Conditions, string(resourcereleasebinding.ConditionOutputsResolved))
+	if resources == nil || outputs == nil {
+		return false
+	}
+	return resources.Status == metav1.ConditionFalse &&
+		resources.Reason == string(resourcereleasebinding.ReasonResourceApplyFailed) &&
+		resources.ObservedGeneration == rrb.Generation &&
+		outputs.Status == metav1.ConditionTrue &&
+		outputs.ObservedGeneration == rrb.Generation
 }
