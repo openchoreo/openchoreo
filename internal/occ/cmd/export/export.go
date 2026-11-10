@@ -190,26 +190,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 	if err := prepareOutputDir(opts.OutputDir); err != nil {
 		return nil, err
 	}
-	for i, item := range safe {
-		if err := ctx.Err(); err != nil {
-			return report, err
-		}
-		outcome, err := writeFile(opts.OutputDir, item.path, rendered[i])
-		if err != nil {
-			return report, fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
-		}
-		switch outcome {
-		case outcomeCreated:
-			report.Created++
-		case outcomeUpdated:
-			report.Updated++
-		case outcomeUnchanged:
-			report.Unchanged++
-		}
-		report.Exported++
-		report.ExportedByKind[item.kind]++
-	}
-	return report, nil
+	return report, writeExportFiles(ctx, opts.OutputDir, safe, rendered, report)
 }
 
 // collectExportResources traverses namespaces and projects before any files are written.
