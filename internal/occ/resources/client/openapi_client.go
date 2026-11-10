@@ -2436,6 +2436,66 @@ func (c *Client) DeleteEndpointReleaseBinding(ctx context.Context, namespaceName
 	return nil
 }
 
+// GetEndpointRollout returns an endpoint's rollout plan and where each environment stands
+func (c *Client) GetEndpointRollout(ctx context.Context, namespaceName, endpointName string) (*gen.EndpointRolloutStatus, error) {
+	resp, err := c.client.GetEndpointRolloutWithResponse(ctx, namespaceName, endpointName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint rollout: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// StartEndpointRollout writes an endpoint's rollout plan
+func (c *Client) StartEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutStartRequest) (*gen.EndpointRolloutStatus, error) {
+	resp, err := c.client.StartEndpointRolloutWithResponse(ctx, namespaceName, endpointName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start endpoint rollout: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// StepEndpointRollout moves an environment to the next stage of an endpoint's rollout
+func (c *Client) StepEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutStepRequest) (*gen.EndpointRolloutStatus, error) {
+	resp, err := c.client.StepEndpointRolloutWithResponse(ctx, namespaceName, endpointName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to step endpoint rollout: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// AbortEndpointRollout moves an environment back to step 0
+func (c *Client) AbortEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutAbortRequest) (*gen.EndpointRolloutStatus, error) {
+	resp, err := c.client.AbortEndpointRolloutWithResponse(ctx, namespaceName, endpointName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abort endpoint rollout: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// FinishEndpointRollout ends an endpoint's rollout keeping one backend
+func (c *Client) FinishEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutFinishRequest) (*gen.EndpointRolloutStatus, error) {
+	resp, err := c.client.FinishEndpointRolloutWithResponse(ctx, namespaceName, endpointName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to finish endpoint rollout: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
 func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {
 	data, err := json.Marshal(schema)
 	if err != nil {

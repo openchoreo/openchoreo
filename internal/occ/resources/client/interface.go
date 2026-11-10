@@ -199,6 +199,12 @@ type Interface interface {
 	UpdateEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string, erb gen.EndpointReleaseBinding) (*gen.EndpointReleaseBinding, error)
 	DeleteEndpointReleaseBinding(ctx context.Context, namespaceName, bindingName string) error
 
+	GetEndpointRollout(ctx context.Context, namespaceName, endpointName string) (*gen.EndpointRolloutStatus, error)
+	StartEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutStartRequest) (*gen.EndpointRolloutStatus, error)
+	StepEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutStepRequest) (*gen.EndpointRolloutStatus, error)
+	AbortEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutAbortRequest) (*gen.EndpointRolloutStatus, error)
+	FinishEndpointRollout(ctx context.Context, namespaceName, endpointName string, req gen.EndpointRolloutFinishRequest) (*gen.EndpointRolloutStatus, error)
+
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, params *gen.ListDeploymentPipelinesParams) (*gen.DeploymentPipelineList, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) (*gen.DeploymentPipeline, error)
 	DeleteDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) error
