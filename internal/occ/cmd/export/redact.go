@@ -28,6 +28,8 @@ var resourceBindingPath = regexp.MustCompile(`^\.dependencies\.resources\[[0-9]+
 
 var connectionAttributeName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9 _.-]*$`)
 
+var keywordDSNName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 func isPlaintextCredential(name string, value any) bool {
 	text, ok := value.(string)
 	if !ok || text == "" || credentialReference.MatchString(strings.TrimSpace(text)) {
@@ -45,11 +47,14 @@ func redactEmbeddedCredentials(value any) (string, bool) {
 }
 
 // redactConnectionString clears literal credential attributes while retaining
-// the other attributes and delimiters, including quoted semicolons.
+// the other attributes and delimiters in semicolon and keyword/value formats.
 func redactConnectionString(value any) (string, bool) {
 	text, ok := value.(string)
 	if !ok {
 		return "", false
+	}
+	if redacted, found, valid := redactKeywordDSN(text); valid {
+		return redacted, found
 	}
 	var redacted strings.Builder
 	last := 0
@@ -86,6 +91,84 @@ func redactConnectionString(value any) (string, bool) {
 	}
 	redacted.WriteString(text[last:])
 	return redacted.String(), true
+}
+
+// The third result distinguishes a recognized DSN without literal credentials
+// from other formats, so reference-only DSNs do not fall back to semicolon parsing.
+func redactKeywordDSN(text string) (string, bool, bool) {
+	var redacted strings.Builder
+	last := 0
+	found := false
+	attributes := 0
+	for start := 0; start < len(text); {
+		start = skipDSNSpace(text, start)
+		if start == len(text) {
+			break
+		}
+		equals := strings.IndexByte(text[start:], '=')
+		if equals < 0 {
+			return "", false, false
+		}
+		key := strings.TrimSpace(text[start : start+equals])
+		if !keywordDSNName.MatchString(key) {
+			return "", false, false
+		}
+		valueStart := skipDSNSpace(text, start+equals+1)
+		end, valid := keywordDSNValueEnd(text, valueStart)
+		if !valid {
+			return "", false, false
+		}
+		attributes++
+		if (sensitiveName.MatchString(key) || strings.EqualFold(key, "pwd")) && literalConnectionValue(text[valueStart:end]) {
+			redacted.WriteString(text[last:valueStart])
+			redacted.WriteString("''")
+			last = end
+			found = true
+		}
+		start = end
+	}
+	if !found {
+		// A single non-sensitive value can also be an entire semicolon string
+		// whose separators were consumed as libpq backslash escapes.
+		return "", false, attributes > 1
+	}
+	redacted.WriteString(text[last:])
+	return redacted.String(), true, true
+}
+
+func skipDSNSpace(text string, position int) int {
+	for position < len(text) && strings.ContainsRune(" \t\r\n\v\f", rune(text[position])) {
+		position++
+	}
+	return position
+}
+
+func keywordDSNValueEnd(text string, start int) (int, bool) {
+	position := start
+	quoted := position < len(text) && text[position] == '\''
+	if quoted {
+		position++
+	}
+	for position < len(text) {
+		switch {
+		case text[position] == '\\':
+			if position+1 == len(text) {
+				return 0, false
+			}
+			position += 2
+		case quoted && text[position] == '\'':
+			position++
+			return position, position == len(text) || skipDSNSpace(text, position) > position
+		case !quoted && skipDSNSpace(text, position) > position:
+			return position, true
+		case !quoted && text[position] == ';':
+			// Leave unquoted semicolon separators to the existing parser.
+			return 0, false
+		default:
+			position++
+		}
+	}
+	return position, !quoted
 }
 
 func connectionValueEnd(text string, start int) int {

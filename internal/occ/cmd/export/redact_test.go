@@ -20,6 +20,8 @@ const (
 	testEnvValueField            = "value"
 	testConnectionString         = "Server=db.example;Database=members;User Id=demo-user;Password=demo-password;"
 	testRedactedConnectionString = "Server=db.example;Database=members;User Id=demo-user;Password=;"
+	testKeywordDSN               = "host=db user=app password=demo-password dbname=app"
+	testRedactedKeywordDSN       = "host=db user=app password='' dbname=app"
 )
 
 func TestRedactConnectionString(t *testing.T) {
@@ -36,6 +38,7 @@ func TestRedactConnectionString(t *testing.T) {
 		{name: "escaped quote", value: `Server=db;Password='first'';second';Pooling=true`, want: "Server=db;Password=;Pooling=true"},
 		{name: "ODBC braces", value: "Server=db;Pwd={first;second}}third};Pooling=true", want: "Server=db;Pwd=;Pooling=true"},
 		{name: "quoted unrelated value", value: `Server="first;second";Password=demo-password;`, want: `Server="first;second";Password=;`},
+		{name: "semicolon after Windows path", value: `Server=C:\db\;Password=demo-password`, want: `Server=C:\db\;Password=`},
 		{name: "duplicate attributes", value: "Password=first;Server=db;Password=second;", want: "Password=;Server=db;Password=;"},
 		{name: "whitespace and empty attributes", value: " Server = db ; ; Password = demo-password ; Pooling=true ", want: " Server = db ; ; Password =; Pooling=true "},
 		{name: "mixed reference and literal", value: "Server=db;Password=${parameters.password};Pwd=demo-password", want: "Server=db;Password=${parameters.password};Pwd="},
@@ -58,6 +61,70 @@ func TestRedactConnectionString(t *testing.T) {
 				_, detected := redactConnectionString(got)
 				assert.False(t, detected, "redacted strings must not prompt again")
 			}
+		})
+	}
+}
+
+func TestRedactConnectionString_KeywordDSN(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "literal password", value: testKeywordDSN, want: testRedactedKeywordDSN},
+		{name: "password first", value: "password=secret host=db user=app", want: "password='' host=db user=app"},
+		{name: "single quoted spaces", value: "host=db password='first second' dbname=app", want: "host=db password='' dbname=app"},
+		{name: "preserve whitespace", value: " host = db\tpassword = 'first second'\n dbname=app ", want: " host = db\tpassword = ''\n dbname=app "},
+		{name: "escaped quote", value: `host=db password='first\' second' dbname=app`, want: "host=db password='' dbname=app"},
+		{name: "escaped backslash", value: `host=db password='first\\ second' dbname=app`, want: "host=db password='' dbname=app"},
+		{name: "escaped unquoted space", value: `host=db password=first\ second dbname=app`, want: "host=db password='' dbname=app"},
+		{name: "quoted semicolon", value: "host=db password='first; second' dbname=app", want: "host=db password='' dbname=app"},
+		{name: "escaped unquoted semicolon", value: `host=db password=first\;second dbname=app`, want: "host=db password='' dbname=app"},
+		{name: "quoted options preserved", value: "options='-c search_path=first, second' password=secret host=db", want: "options='-c search_path=first, second' password='' host=db"},
+		{name: "pwd alias", value: "host=db PWD='first second' user=app", want: "host=db PWD='' user=app"},
+		{name: "multiple credential values", value: "host=db password=first pwd='second secret' dbname=app", want: "host=db password='' pwd='' dbname=app"},
+		{name: "reference and literal", value: "password=${parameters.password} host=db pwd=secret", want: "password=${parameters.password} host=db pwd=''"},
+		{name: "quoted literal fallback", value: `host=db password='{{ .password | default "literal" }}' dbname=app`, want: "host=db password='' dbname=app"},
+		{name: "reference only", value: "host=db password=${parameters.password} dbname=app"},
+		{name: "reference first", value: "password=${parameters.password} host=db dbname=app"},
+		{name: "quoted reference first", value: "password='{{ .password }}' host=db dbname=app"},
+		{name: "empty password", value: "host=db password='' dbname=app"},
+		{name: "no credentials", value: "host=db user=app dbname=app"},
+		{name: "invalid attribute", value: "host=db bareword password=secret"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, found := redactConnectionString(tt.value)
+			assert.Equal(t, tt.want != "", found)
+			assert.Equal(t, tt.want, got)
+			if found {
+				_, detected := redactConnectionString(got)
+				assert.False(t, detected, "redacted DSNs must not prompt again")
+			}
+		})
+	}
+}
+
+func TestPlaintextCredentials_KeywordDSN(t *testing.T) {
+	for _, paired := range []bool{false, true} {
+		name := "DSN parameter"
+		if paired {
+			name = "DSN environment variable"
+		}
+		t.Run(name, func(t *testing.T) {
+			object := map[string]any{"DATABASE_DSN": testKeywordDSN}
+			field := "DATABASE_DSN"
+			fieldPath := ".DATABASE_DSN"
+			if paired {
+				object = map[string]any{"key": "DATABASE_DSN", testEnvValueField: testKeywordDSN}
+				field = testEnvValueField
+				fieldPath = `.value (key "DATABASE_DSN")`
+			}
+			assert.Equal(t, []string{fieldPath}, findPlaintextSecrets(object))
+			assert.Equal(t, testKeywordDSN, object[field], "detection must not mutate the DSN")
+			assert.Equal(t, 1, stripPlaintextSecrets(object))
+			assert.Equal(t, testRedactedKeywordDSN, object[field])
+			assert.Empty(t, findPlaintextSecrets(object))
 		})
 	}
 }

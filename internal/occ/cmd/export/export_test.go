@@ -143,6 +143,7 @@ func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
 	}{
 		{parameter: "DATABASE_URL", value: testCredentialURL, redacted: testRedactedURL},
 		{parameter: "Default_ConnectionString", value: testConnectionString, redacted: testRedactedConnectionString},
+		{parameter: "DATABASE_DSN", value: testKeywordDSN, redacted: testRedactedKeywordDSN},
 	}
 	for _, tt := range tests {
 		t.Run(tt.parameter, func(t *testing.T) {
