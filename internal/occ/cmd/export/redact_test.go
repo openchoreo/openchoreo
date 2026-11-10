@@ -22,6 +22,7 @@ const (
 	testRedactedConnectionString = "Server=db.example;Database=members;User Id=demo-user;Password=;"
 	testKeywordDSN               = "host=db user=app password=demo-password dbname=app"
 	testRedactedKeywordDSN       = "host=db user=app password='' dbname=app"
+	testMalformedCredentialURL   = "https://user:pass%zz@host.example/path"
 )
 
 func TestRedactConnectionString(t *testing.T) {
@@ -172,7 +173,21 @@ func TestRedactURLUserinfo(t *testing.T) {
 		{name: "no userinfo", value: testRedactedURL},
 		{name: "at sign outside authority", value: "https://host.example/path?email=user@example.com#user@other"},
 		{name: "reference", value: "${parameters.databaseURL}"},
-		{name: "malformed URL", value: "https://user:pass%zz@host.example/path"},
+		{name: "malformed URL", value: testMalformedCredentialURL, want: "https://host.example/path"},
+		{name: "unescaped fragment in password", value: "postgres://user:p#ss@db/app", want: "postgres://db/app"},
+		{name: "unescaped query in password", value: "postgres://user:p?ss@db/app", want: "postgres://db/app"},
+		{name: "unescaped slash in password", value: "postgres://user:p/ss@db/app", want: "postgres://db/app"},
+		{name: "multiple at signs in malformed userinfo", value: "postgres://user:p#ss@word@db/app", want: "postgres://db/app"},
+		{name: "malformed URL preserves whitespace", value: " \thttps://user:pass%zz@host.example/path \n", want: " \thttps://host.example/path \n"},
+		{name: "custom scheme", value: "custom+db-v1.0://user:pass%zz@host.example/path", want: "custom+db-v1.0://host.example/path"},
+		{name: "userinfo reference", value: "nats://{{ .password }}@${metadata.name}:4222"},
+		{name: "password reference", value: "postgres://app:{{ .password }}@${metadata.name}:5432/app"},
+		{name: "CEL password reference", value: "redis://:${parameters.password}@host.example/0"},
+		{name: "literal password with username reference", value: "https://{{ .username }}:pass%zz@host.example/path", want: "https://host.example/path"},
+		{name: "literal mixed with password reference", value: "https://user:prefix-{{ .password }}@host.example/path", want: "https://host.example/path"},
+		{name: "password reference with literal default", value: `https://user:{{ .password | default "hardcoded" }}@host.example/path`, want: "https://host.example/path"},
+		{name: "invalid URL without at sign", value: "https://host.example/path%zz"},
+		{name: "invalid URL without scheme prefix", value: "user:pass%zz@host.example/path"},
 		{name: "non URL", value: "user@example.com"},
 		{name: "non string", value: 123},
 	}

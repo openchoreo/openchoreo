@@ -30,6 +30,8 @@ var connectionAttributeName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9 _.-]*$`)
 
 var keywordDSNName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+var credentialURLPrefix = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
+
 func isPlaintextCredential(name string, value any) bool {
 	text, ok := value.(string)
 	if !ok || text == "" || credentialReference.MatchString(strings.TrimSpace(text)) {
@@ -227,7 +229,25 @@ func redactURLUserinfo(value any) (string, bool) {
 	}
 	trimmed := strings.TrimSpace(text)
 	parsed, err := url.Parse(trimmed)
-	if err != nil || parsed.Host == "" || parsed.User == nil || parsed.User.String() == "" {
+	if err != nil {
+		prefix := credentialURLPrefix.FindStringIndex(trimmed)
+		lastAt := strings.LastIndex(trimmed, "@")
+		if len(prefix) != 2 || lastAt < prefix[1] {
+			return "", false
+		}
+		userinfo := trimmed[prefix[1]:lastAt]
+		if _, password, hasPassword := strings.Cut(userinfo, ":"); hasPassword {
+			userinfo = password
+		}
+		if credentialReference.MatchString(strings.TrimSpace(userinfo)) {
+			return "", false
+		}
+		// Malformed URLs are ambiguous. Remove through the last @ rather than
+		// risk leaving password text containing URL delimiters behind.
+		offset := strings.Index(text, trimmed)
+		return text[:offset+prefix[1]] + text[offset+lastAt+1:], true
+	}
+	if parsed.Host == "" || parsed.User == nil || parsed.User.String() == "" {
 		return "", false
 	}
 	start := strings.Index(trimmed, "//") + 2

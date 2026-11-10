@@ -142,6 +142,7 @@ func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
 		redacted  string
 	}{
 		{parameter: "DATABASE_URL", value: testCredentialURL, redacted: testRedactedURL},
+		{parameter: "DATABASE_URL", value: testMalformedCredentialURL, redacted: "https://host.example/path"},
 		{parameter: "Default_ConnectionString", value: testConnectionString, redacted: testRedactedConnectionString},
 		{parameter: "DATABASE_DSN", value: testKeywordDSN, redacted: testRedactedKeywordDSN},
 	}
