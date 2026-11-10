@@ -3081,7 +3081,7 @@ backstage:
     scorecards:
       # @schema
       # type: boolean
-      # description: Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container.
+      # description: Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container. Checks authored in the portal are stored in the Backstage database, which is SQLite on an emptyDir by default, so they are lost when the pod restarts. Set backstage.database.type to postgresql or enable backstage.database.sqlite.persistence to keep them.
       # default: true
       # @schema
       enabled: true
