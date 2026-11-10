@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,13 +24,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// updateStatus updates the Release status with applied resources
+// updateStatus updates the Release status with applied and observed resources
 // Returns true if the status was updated, false if unchanged
-func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease, resourceStatuses []openchoreov1alpha1.RenderedManifestStatus) (bool, error) {
+func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease,
+	resourceStatuses, observedStatuses []openchoreov1alpha1.RenderedManifestStatus) (bool, error) {
 	logger := log.FromContext(ctx)
 
 	// Update the status
 	release.Status.Resources = resourceStatuses
+	release.Status.ObservedResources = observedStatuses
 
 	// Conditions are deliberately part of the comparison. The apply-success
 	// condition is no longer persisted mid-reconcile, so this update is what
@@ -115,40 +118,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 		healthStatus := openchoreov1alpha1.HealthStatusUnknown
 
 		if liveResource, found := liveIndex.lookup(desiredObj); found {
-			// Extract status field if it exists
-			if statusField, found, _ := unstructured.NestedFieldCopy(liveResource.Object, "status"); found && statusField != nil {
-				// Convert status to RawExtension
-				statusBytes, err := json.Marshal(statusField)
-				if err == nil {
-					resourceStatus = &runtime.RawExtension{Raw: statusBytes}
-				} else {
-					// Log marshaling error but continue
-					logger.Error(err, "Failed to marshal resource status",
-						"resourceID", resourceID,
-						"gvk", gvk.String(),
-						"namespace", liveResource.GetNamespace(),
-						"name", liveResource.GetName())
-				}
-			}
-
-			// Get health check function for this resource type
-			healthCheckFunc := GetHealthCheckFunc(gvk)
-			if healthCheckFunc != nil {
-				health, err := healthCheckFunc(liveResource)
-				if err != nil {
-					logger.Error(err, "Failed to check resource health",
-						"resourceID", resourceID,
-						"gvk", gvk.String(),
-						"namespace", liveResource.GetNamespace(),
-						"name", liveResource.GetName())
-					healthStatus = openchoreov1alpha1.HealthStatusUnknown
-				} else {
-					healthStatus = health
-				}
-			} else {
-				// No health check function available, default to Unknown
-				healthStatus = openchoreov1alpha1.HealthStatusUnknown
-			}
+			resourceStatus, healthStatus = liveStatusAndHealth(logger, resourceID, gvk, liveResource)
 
 			// The live snapshot can predate the apply this reconcile just made:
 			// server-side apply is a quorum write, while List is served from the
@@ -162,21 +132,11 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 				healthStatus = openchoreov1alpha1.HealthStatusProgressing
 			}
 
-			// Check if this resource existed before and if its status changed
-			if oldResource, exists := oldResourceMap[resourceID]; exists {
-				// Check if the resource status has actually changed
-				if apiequality.Semantic.DeepEqual(oldResource.Status, resourceStatus) && oldResource.HealthStatus == healthStatus {
-					// Status and health haven't changed, preserve the existing timestamp
-					lastObservedTime = oldResource.LastObservedTime
-				}
+			var oldResource *openchoreov1alpha1.RenderedManifestStatus
+			if prev, exists := oldResourceMap[resourceID]; exists {
+				oldResource = &prev
 			}
-
-			// Set current time if:
-			// 1. This is a new resource (not in oldResourceMap), or
-			// 2. The status or health changed (lastObservedTime is still nil)
-			if lastObservedTime == nil {
-				lastObservedTime = ptr.To(metav1.Now())
-			}
+			lastObservedTime = nextLastObservedTime(oldResource, resourceStatus, healthStatus)
 		}
 
 		status := openchoreov1alpha1.RenderedManifestStatus{
@@ -195,6 +155,51 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 	}
 
 	return resourceStatuses
+}
+
+// liveStatusAndHealth returns a live object's .status and its health from the
+// health check for gvk. A status that cannot be marshaled is left out and a
+// failed health check reads as Unknown; both are logged.
+func liveStatusAndHealth(logger logr.Logger, resourceID string, gvk schema.GroupVersionKind,
+	live *unstructured.Unstructured) (*runtime.RawExtension, openchoreov1alpha1.HealthStatus) {
+	var resourceStatus *runtime.RawExtension
+	if statusField, found, _ := unstructured.NestedFieldCopy(live.Object, "status"); found && statusField != nil {
+		statusBytes, err := json.Marshal(statusField)
+		if err == nil {
+			resourceStatus = &runtime.RawExtension{Raw: statusBytes}
+		} else {
+			logger.Error(err, "Failed to marshal resource status",
+				"resourceID", resourceID,
+				"gvk", gvk.String(),
+				"namespace", live.GetNamespace(),
+				"name", live.GetName())
+		}
+	}
+
+	// Kinds without a check of their own get the presence-only check, which
+	// reports Healthy for any object that exists.
+	health, err := GetHealthCheckFunc(gvk)(live)
+	if err != nil {
+		logger.Error(err, "Failed to check resource health",
+			"resourceID", resourceID,
+			"gvk", gvk.String(),
+			"namespace", live.GetNamespace(),
+			"name", live.GetName())
+		return resourceStatus, openchoreov1alpha1.HealthStatusUnknown
+	}
+	return resourceStatus, health
+}
+
+// nextLastObservedTime keeps prev's LastObservedTime while the status and health
+// are unchanged from prev, so an unchanged resource does not rewrite the release
+// status. Otherwise, or when there is no previous entry, it is now.
+func nextLastObservedTime(prev *openchoreov1alpha1.RenderedManifestStatus, status *runtime.RawExtension,
+	health openchoreov1alpha1.HealthStatus) *metav1.Time {
+	if prev != nil && prev.LastObservedTime != nil &&
+		apiequality.Semantic.DeepEqual(prev.Status, status) && prev.HealthStatus == health {
+		return prev.LastObservedTime
+	}
+	return ptr.To(metav1.Now())
 }
 
 // snapshotPrecedesApply reports whether live was read before the spec that
@@ -240,18 +245,31 @@ func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Un
 		if gvk.Group != appsAPIGroup || (gvk.Kind != deploymentKind && gvk.Kind != statefulSetKind) {
 			continue
 		}
+		// isResurrectable checks the kind again on the live object, which carries
+		// the GVK it was listed under, the same as desired's.
 		live, ok := liveIndex.lookup(desired)
 		if !ok {
 			continue
 		}
-		if paused, _, _ := unstructured.NestedBool(live.Object, "spec", "paused"); paused {
-			continue
-		}
-		if replicas, found, err := unstructured.NestedInt64(live.Object, "spec", "replicas"); err == nil && found && replicas == 0 {
+		if isResurrectable(live) {
 			return true
 		}
 	}
 	return false
+}
+
+// isResurrectable reports whether a live Deployment or StatefulSet is scaled to
+// zero without being paused. It is false for every other kind.
+func isResurrectable(live *unstructured.Unstructured) bool {
+	gvk := live.GroupVersionKind()
+	if gvk.Group != appsAPIGroup || (gvk.Kind != deploymentKind && gvk.Kind != statefulSetKind) {
+		return false
+	}
+	if paused, _, _ := unstructured.NestedBool(live.Object, "spec", "paused"); paused {
+		return false
+	}
+	replicas, found, err := unstructured.NestedInt64(live.Object, "spec", "replicas")
+	return err == nil && found && replicas == 0
 }
 
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {

@@ -14,6 +14,15 @@ import (
 const (
 	// ConditionFinalizing represents whether the RenderedRelease is being finalized
 	ConditionFinalizing controller.ConditionType = "Finalizing"
+
+	// ConditionObservedResourcesRead reports whether every observed resource could be
+	// read from the target plane. Present only while spec.observedResources is set.
+	ConditionObservedResourcesRead controller.ConditionType = "ObservedResourcesRead"
+
+	// ConditionObservedResourceIDsUnique reports whether every observed resource has
+	// an id of its own once unset ids are generated. Present only while
+	// spec.observedResources is set.
+	ConditionObservedResourceIDsUnique controller.ConditionType = "ObservedResourceIDsUnique"
 )
 
 // Constants for condition reasons
@@ -25,6 +34,28 @@ const (
 	ReasonCleanupInProgress controller.ConditionReason = "CleanupInProgress"
 	// ReasonCleanupFailed cleanup of dataplane resources failed
 	ReasonCleanupFailed controller.ConditionReason = "CleanupFailed"
+
+	// Reasons for ObservedResourcesRead condition type. When the resources that could
+	// not be read failed for different reasons, the condition uses ReadFailed and its
+	// message gives each one's.
+
+	// ReasonObservedReadSucceeded every observed resource was read
+	ReasonObservedReadSucceeded controller.ConditionReason = "ReadSucceeded"
+	// ReasonObservedResourceNotFound an observed resource does not exist
+	ReasonObservedResourceNotFound controller.ConditionReason = "ResourceNotFound"
+	// ReasonObservedKindNotFound the plane does not serve an observed resource's API version and kind
+	ReasonObservedKindNotFound controller.ConditionReason = "KindNotFound"
+	// ReasonObservedReadForbidden the plane agent's RBAC does not allow reading an observed resource
+	ReasonObservedReadForbidden controller.ConditionReason = "ReadForbidden"
+	// ReasonObservedReadFailed reading an observed resource failed for another reason, or for more than one
+	ReasonObservedReadFailed controller.ConditionReason = "ReadFailed"
+
+	// Reasons for ObservedResourceIDsUnique condition type
+
+	// ReasonObservedIDsUnique every observed resource has its own id
+	ReasonObservedIDsUnique controller.ConditionReason = "IDsUnique"
+	// ReasonObservedIDConflict more than one observed resource has the same id
+	ReasonObservedIDConflict controller.ConditionReason = "IDConflict"
 )
 
 func NewRenderedReleaseFinalizingCondition(generation int64) metav1.Condition {

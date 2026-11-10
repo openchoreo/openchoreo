@@ -54,6 +54,9 @@ const (
 	ReasonApplySucceeded = "ApplySucceeded"
 	// ReasonApplyFailed indicates one or more resources failed to apply
 	ReasonApplyFailed = "ApplyFailed"
+	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
+	// are not applied
+	ReasonObserveMode = "ObserveMode"
 
 	// DefaultStableInterval is the stable requeue interval when neither the release nor
 	// the controller sets one. Every stable release costs one reconcile per interval, so
@@ -150,55 +153,68 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	// Get desired resources from spec
-	desiredResources, err := r.makeDesiredResources(release)
-	if err != nil {
-		logger.Error(err, "Failed to make desired resources")
-		return ctrl.Result{}, err
-	}
+	// Observed resources are read in both modes and never written. Resolving them
+	// here gives every unset id its generated one before anything uses them.
+	observedEntries, observedIDConflicts := resolveObservedResources(release.Spec.ObservedResources)
 
-	// Ensure namespaces exist before applying resources on the observability plane only.
-	// The data plane's cell namespace is owned by the ProjectReleaseBinding, so the DP
-	// apply path must not regain implicit namespace creation. On the observability plane
-	// nothing else creates the target namespace, so we create it here.
-	if targetPlane == targetPlaneObservabilityPlane {
-		desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
-		if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
-			logger.Error(err, "Failed to ensure namespaces on observability plane")
+	// The mode only decides what happens to spec.resources. In Observe mode nothing
+	// is desired, so the cleanup below removes whatever this release applied
+	// earlier: that is the rollback when a binding moves back to observing.
+	var desiredResources []*unstructured.Unstructured
+	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
+		desiredResources, err = r.makeDesiredResources(release)
+		if err != nil {
+			logger.Error(err, "Failed to make desired resources")
 			return ctrl.Result{}, err
 		}
-	}
 
-	// PHASE 1: Apply desired resources to the target plane
-	// This ensures all resources in the spec are created/updated with proper tracking labels
-	if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
-		logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
-		// Persist the apply error in Release status so upstream controllers (e.g., ReleaseBinding) can surface it
-		changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
-			controller.ConditionReason(ReasonApplyFailed),
-			fmt.Sprintf("Failed to apply resources to target plane: %v", err))
-		if changed {
-			if statusErr := r.Status().Update(ctx, release); statusErr != nil {
-				logger.Error(statusErr, "Failed to update Release status with apply error")
+		// An object that is both rendered and observed would be written by the apply.
+		if err := checkObservedOverlap(desiredResources, observedEntries); err != nil {
+			logger.Error(err, "Rendered resources overlap observed resources")
+			return r.markApplyFailed(ctx, release, err)
+		}
+
+		// Ensure namespaces exist before applying resources on the observability plane only.
+		// The data plane's cell namespace is owned by the ProjectReleaseBinding, so the DP
+		// apply path must not regain implicit namespace creation. On the observability plane
+		// nothing else creates the target namespace, so we create it here.
+		if targetPlane == targetPlaneObservabilityPlane {
+			desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
+			if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
+				logger.Error(err, "Failed to ensure namespaces on observability plane")
+				return ctrl.Result{}, err
 			}
 		}
-		return ctrl.Result{}, err
-	}
 
-	// Mark resources as successfully applied, but leave persisting it to the status
-	// update at the end of this reconcile.
-	// Writing it here would publish a state that contradicts itself: the condition
-	// would report this generation as applied while Status.Resources still holds
-	// the health of the generation being replaced. A consumer that reads the
-	// condition to decide whether the health beside it is current -- which is the
-	// only signal available for that -- would act on the previous revision's
-	// health. The delivery events built on it reported a rollout as succeeded
-	// before its pods existed.
-	//
-	// The apply-failure branch above still persists immediately, because there the
-	// point is to surface the error before returning.
-	controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
-		controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully")
+		// PHASE 1: Apply desired resources to the target plane
+		// This ensures all resources in the spec are created/updated with proper tracking labels
+		if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
+			logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
+			return r.markApplyFailed(ctx, release, err)
+		}
+
+		// Mark resources as successfully applied, but leave persisting it to the status
+		// update at the end of this reconcile.
+		// Writing it here would publish a state that contradicts itself: the condition
+		// would report this generation as applied while Status.Resources still holds
+		// the health of the generation being replaced. A consumer that reads the
+		// condition to decide whether the health beside it is current -- which is the
+		// only signal available for that -- would act on the previous revision's
+		// health. The delivery events built on it reported a rollout as succeeded
+		// before its pods existed.
+		//
+		// The apply-failure branch above still persists immediately, because there the
+		// point is to surface the error before returning.
+		controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
+			controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully")
+	} else {
+		// Nothing is applied in Observe mode. The condition stays True, with its own
+		// reason, so its observed generation still tells consumers which spec the
+		// status beside it reflects. Like the apply success above, it is persisted
+		// with the status at the end.
+		controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
+			controller.ConditionReason(ReasonObserveMode), "Observe mode: spec.resources are not applied")
+	}
 
 	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)
@@ -213,7 +229,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 3: Find and delete stale resources (cleanup orphaned resources)
 	// Stale = live resources that are no longer in the desired spec (e.g., user removed a ConfigMap)
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
-	staleResources := r.findStaleResources(liveResources, desiredResources)
+	// An observed object is never deleted, even one this release applied before it
+	// was listed as observed.
+	staleResources := excludeObserved(r.findStaleResources(liveResources, desiredResources), observedEntries)
 	if err := r.deleteResources(ctx, planeClient, staleResources); err != nil {
 		logger.Error(err, "Failed to delete stale resources")
 		return ctrl.Result{}, err
@@ -223,6 +241,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// share one health evaluation
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
+	// Read the observed resources. Each one is a Get through the plane client.
+	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
+	setObservedConditions(release, observedEntries, observed.failures, observedIDConflicts)
+
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations.
 	//
@@ -231,7 +253,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// below is what brings this release back. Re-queuing on the write instead
 	// loops forever when a live object's status changes on its own, such as an
 	// ExternalSecret's refreshTime.
-	if _, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil {
+	if _, err := r.updateStatus(ctx, old, release, resourceStatuses, observed.statuses); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -240,9 +262,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// rather than whatever priority the request happened to be dequeued with.
 	// Polls run at low priority so that real changes (spec, restart annotation,
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
-	if r.hasTransitioningResources(release.Status.Resources) {
+	// Observed resources count the same as applied ones.
+	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(release.Status.ObservedResources) {
 		requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
-		priority := transitioningRequeuePriority(release.Status.Resources)
+		priority := transitioningRequeuePriority(release.Status.Resources, release.Status.ObservedResources)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
 			"requeueAfter", requeueAfter, "priority", priority)
 		// A zero progressingInterval disables the requeue: RequeueAfter 0 means
@@ -252,7 +275,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Poll workloads scaled to zero faster so an autoscaler-driven scale-up is noticed promptly.
-	if hasResurrectableWorkload(desiredResources, liveResources) {
+	if hasResurrectableWorkload(desiredResources, liveResources) || hasResurrectableLiveWorkload(observed.live) {
 		requeueAfter := getResurrectableRequeueInterval()
 		logger.Info("Workload is scaled to zero, requeuing to detect autoscaler-driven scale-up",
 			"requeueAfter", requeueAfter)
@@ -263,6 +286,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Successfully applied the Release resources to the target plane",
 		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
 	return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
+}
+
+// markApplyFailed persists ResourcesApplied=False with err and returns err. It is
+// written at once, so upstream controllers (e.g., ReleaseBinding) can surface the
+// error before the reconcile returns.
+func (r *Reconciler) markApplyFailed(ctx context.Context, release *openchoreov1alpha1.RenderedRelease, err error) (ctrl.Result, error) {
+	changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+		controller.ConditionReason(ReasonApplyFailed),
+		fmt.Sprintf("Failed to apply resources to target plane: %v", err))
+	if changed {
+		if statusErr := r.Status().Update(ctx, release); statusErr != nil {
+			log.FromContext(ctx).Error(statusErr, "Failed to update Release status with apply error")
+		}
+	}
+	return ctrl.Result{}, err
 }
 
 // getDPClient gets the dataplane client for the specified environment
