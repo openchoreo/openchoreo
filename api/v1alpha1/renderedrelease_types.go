@@ -48,6 +48,68 @@ type RenderedReleaseSpec struct {
 	// +kubebuilder:validation:Enum=dataplane;observabilityplane
 	// +kubebuilder:default=dataplane
 	TargetPlane string `json:"targetPlane,omitempty"`
+
+	// Mode decides whether the manifests in spec.resources are applied.
+	// Manage applies them. Observe does not, and removes whatever this release
+	// applied earlier. Observed resources are read in both modes.
+	// Unset means Manage. There is no API server default: the binding controllers
+	// write the whole spec without this field, and a defaulted value would read as
+	// a change on every reconcile.
+	// +kubebuilder:validation:Enum=Manage;Observe
+	// +optional
+	Mode RenderedReleaseMode `json:"mode,omitempty"`
+
+	// ObservedResources lists existing objects on the target plane that this
+	// release reads and reports in status.observedResources. They are never
+	// created, updated, labeled or deleted, in either mode.
+	// +kubebuilder:validation:MaxItems=256
+	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.id) || self.exists_one(y, has(y.id) && y.id == x.id))",message="observedResources ids must be unique"
+	// +optional
+	ObservedResources []ObservedResource `json:"observedResources,omitempty"`
+}
+
+// RenderedReleaseMode decides whether a RenderedRelease applies spec.resources.
+type RenderedReleaseMode string
+
+const (
+	// RenderedReleaseModeManage applies spec.resources to the target plane.
+	RenderedReleaseModeManage RenderedReleaseMode = "Manage"
+	// RenderedReleaseModeObserve does not apply spec.resources. Anything the release
+	// applied earlier is removed.
+	RenderedReleaseModeObserve RenderedReleaseMode = "Observe"
+)
+
+// ObservedResource names an existing object on the target plane for a
+// RenderedRelease to read.
+type ObservedResource struct {
+	// ID identifies the entry in status.observedResources. It must be unique within
+	// observedResources. When unset, the controller generates one from the group,
+	// kind, namespace and name.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// APIVersion is the object's API version, such as "apps/v1" or "v1".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^([^/]+/)?[^/]+$`
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the object's kind, such as "Deployment".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Kind string `json:"kind"`
+
+	// Name is the object's name.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+
+	// Namespace is the object's namespace. Empty for cluster-scoped kinds.
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // RenderedReleaseStatus defines the observed state of RenderedRelease.
@@ -55,6 +117,11 @@ type RenderedReleaseStatus struct {
 	// Resources contain the list of resources that have been successfully applied to the data plane
 	// +optional
 	Resources []RenderedManifestStatus `json:"resources,omitempty"`
+
+	// ObservedResources reports the objects listed in spec.observedResources, as
+	// read from the target plane.
+	// +optional
+	ObservedResources []RenderedManifestStatus `json:"observedResources,omitempty"`
 
 	// Conditions represent the latest available observations of the RenderedRelease's current state.
 	// +optional
@@ -124,9 +191,10 @@ type RenderedManifest struct {
 	Object *runtime.RawExtension `json:"object"`
 }
 
-// RenderedManifestStatus tracks a resource that was applied to the data plane.
+// RenderedManifestStatus tracks a resource that was applied to, or observed on, the target plane.
 type RenderedManifestStatus struct {
-	// ID corresponds to the resource ID in spec.resources
+	// ID corresponds to the resource ID in spec.resources, or to the observed
+	// resource's ID (set or generated) for entries in status.observedResources.
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
 
