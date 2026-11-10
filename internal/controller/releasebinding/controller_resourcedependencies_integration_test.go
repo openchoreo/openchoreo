@@ -322,6 +322,142 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 		})
 	})
 
+	Context("when a deployed provider ResourceReleaseBinding fails to apply", func() {
+		const (
+			rbName     = "rb-rd-applyfail"
+			crName     = "cr-rd-applyfail"
+			envName    = "env-rd-applyfail"
+			dpName     = "dp-rd-applyfail"
+			compName   = "comp-rd-applyfail"
+			projName   = "proj-rd-applyfail"
+			depRef     = "applyfail-db"
+			rrbName    = "applyfail-db-env-rd-applyfail"
+			outputHost = "10.0.0.7"
+		)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(compName + "-" + envName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ResourceReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: rrbName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: projName},
+			})
+		})
+
+		// A brief loss of the data plane makes every provider's apply fail while its values
+		// stay in place. Re-rendering without the provider would roll the workload out
+		// without DB_HOST until the provider recovers, so its outputs must still be used.
+		It("keeps rendering the dependency from the provider's outputs", func() {
+			By("Creating fixtures (project, component, env, dp)")
+			Expect(k8sClient.Create(ctx, projectFixture(projName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, projName))).To(Succeed())
+
+			By("Creating a Ready provider RRB with status.outputs[host]=" + outputHost)
+			rrb := &openchoreov1alpha1.ResourceReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: rrbName, Namespace: ns},
+				Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+					Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+						ProjectName:  projName,
+						ResourceName: depRef,
+					},
+					Environment:     envName,
+					ResourceRelease: "irrelevant-for-this-test",
+				},
+			}
+			Expect(k8sClient.Create(ctx, rrb)).To(Succeed())
+			rrb.Status.Outputs = []openchoreov1alpha1.ResolvedResourceOutput{
+				{Name: "host", Value: outputHost},
+			}
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionReady),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             "Ready",
+				Message:            "test fixture",
+			})
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             string(resourcereleasebinding.ReasonOutputsResolved),
+				Message:            "test fixture",
+			})
+			Expect(k8sClient.Status().Update(ctx, rrb)).To(Succeed())
+
+			By("Deploying a component that depends on " + depRef)
+			cr := crFixture(crName, projName, compName)
+			cr.Spec.ComponentType.Spec.Resources[0].Template = depEnvTemplate
+			cr.Spec.Workload.Dependencies = &openchoreov1alpha1.WorkloadDependencies{
+				Resources: []openchoreov1alpha1.WorkloadResourceDependency{
+					{Ref: depRef, EnvBindings: map[string]string{"host": "DB_HOST"}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, projName, compName, envName, crName, true),
+			)).To(Succeed())
+			r := testReconcilerWithCachedClient()
+			reconcileUntil(r, rbName, func(rb *openchoreov1alpha1.ReleaseBinding) bool {
+				cond := conditionFor(rb, string(ConditionReleaseSynced))
+				return cond != nil && cond.Status == metav1.ConditionTrue
+			})
+			releaseKey := types.NamespacedName{Namespace: ns, Name: compName + "-" + envName}
+			deployed := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx, releaseKey, deployed)).To(Succeed())
+
+			By("Failing the provider's apply, as a data plane disconnect does")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rrbName}, rrb)).To(Succeed())
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionResourcesReady),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rrb.Generation,
+				Reason:             string(resourcereleasebinding.ReasonResourceApplyFailed),
+				Message:            "proxy request failed with status 502: no agents found",
+			})
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionReady),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rrb.Generation,
+				Reason:             string(resourcereleasebinding.ReasonResourceApplyFailed),
+				Message:            "proxy request failed with status 502: no agents found",
+			})
+			Expect(k8sClient.Status().Update(ctx, rrb)).To(Succeed())
+
+			By("Reconciling: the provider's outputs still resolve the dependency")
+			rb := reconcileUntil(r, rbName, func(rb *openchoreov1alpha1.ReleaseBinding) bool {
+				cond := conditionFor(rb, string(ConditionResourceDependenciesReady))
+				return cond != nil && cond.Status == metav1.ConditionTrue
+			})
+			Expect(rb.Status.PendingResourceDependencies).To(BeEmpty())
+
+			By("The deployed release is untouched and still carries DB_HOST=" + outputHost)
+			current := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx, releaseKey, current)).To(Succeed())
+			Expect(current.ResourceVersion).To(Equal(deployed.ResourceVersion))
+			deploy := findDeploymentManifest(current)
+			Expect(deploy.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+				Name:  "DB_HOST",
+				Value: outputHost,
+			}))
+		})
+	})
+
 	Context("when configurations and dependencies both contribute volumes", func() {
 		const (
 			rbName       = "rb-rd-concat"

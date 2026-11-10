@@ -197,6 +197,121 @@ func TestIsResourceReleaseBindingReady(t *testing.T) {
 	})
 }
 
+func TestIsResourceReleaseBindingOnlyApplyFailing(t *testing.T) {
+	makeRRB := func(generation int64, resources, outputs *metav1.Condition) *openchoreov1alpha1.ResourceReleaseBinding {
+		rrb := &openchoreov1alpha1.ResourceReleaseBinding{ObjectMeta: metav1.ObjectMeta{Generation: generation}}
+		for _, c := range []*metav1.Condition{resources, outputs} {
+			if c != nil {
+				rrb.Status.Conditions = append(rrb.Status.Conditions, *c)
+			}
+		}
+		return rrb
+	}
+	resourcesCond := func(status metav1.ConditionStatus, reason string, observedGen int64) *metav1.Condition {
+		return &metav1.Condition{
+			Type: string(resourcereleasebinding.ConditionResourcesReady), Status: status,
+			Reason: reason, ObservedGeneration: observedGen, LastTransitionTime: metav1.Now(),
+		}
+	}
+	outputsCond := func(status metav1.ConditionStatus, observedGen int64) *metav1.Condition {
+		return &metav1.Condition{
+			Type: string(resourcereleasebinding.ConditionOutputsResolved), Status: status,
+			Reason: "OutputsResolved", ObservedGeneration: observedGen, LastTransitionTime: metav1.Now(),
+		}
+	}
+	applyFailed := string(resourcereleasebinding.ReasonResourceApplyFailed)
+
+	t.Run("apply_failed_with_resolved_outputs", func(t *testing.T) {
+		// A data plane disconnect: the provider's values are still valid, so consumers keep them.
+		assert.True(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(2,
+			resourcesCond(metav1.ConditionFalse, applyFailed, 2), outputsCond(metav1.ConditionTrue, 2))))
+	})
+	t.Run("apply_failed_without_resolved_outputs", func(t *testing.T) {
+		// A provider whose first apply fails has nothing for consumers to use yet.
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(2,
+			resourcesCond(metav1.ConditionFalse, applyFailed, 2), outputsCond(metav1.ConditionFalse, 2))))
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(2,
+			resourcesCond(metav1.ConditionFalse, applyFailed, 2), nil)))
+	})
+	t.Run("resources_not_ready_for_another_reason", func(t *testing.T) {
+		// Applied but unhealthy is a real readiness problem, not a disconnect.
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(2,
+			resourcesCond(metav1.ConditionFalse, "ResourcesNotReady", 2), outputsCond(metav1.ConditionTrue, 2))))
+	})
+	t.Run("stale_generation", func(t *testing.T) {
+		// Provider spec advanced to gen 3; status from gen 2 says nothing about the new spec.
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(3,
+			resourcesCond(metav1.ConditionFalse, applyFailed, 2), outputsCond(metav1.ConditionTrue, 3))))
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(3,
+			resourcesCond(metav1.ConditionFalse, applyFailed, 3), outputsCond(metav1.ConditionTrue, 2))))
+	})
+	t.Run("missing_conditions", func(t *testing.T) {
+		assert.False(t, isResourceReleaseBindingOnlyApplyFailing(makeRRB(1, nil, nil)))
+	})
+}
+
+func TestWasResourceDependencyResolved(t *testing.T) {
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	rb.Status.ResourceDependencyTargets = buildResourceDependencyTargets(rb,
+		[]openchoreov1alpha1.WorkloadResourceDependency{{Ref: "db"}, {Ref: "cache"}})
+	rb.Status.PendingResourceDependencies = []openchoreov1alpha1.PendingResourceDependency{{ResourceName: "cache"}}
+
+	assert.True(t, wasResourceDependencyResolved(rb, "db"), "declared and not pending")
+	assert.False(t, wasResourceDependencyResolved(rb, "cache"), "declared but pending")
+	assert.False(t, wasResourceDependencyResolved(rb, "queue"), "not declared")
+}
+
+func TestPopulateResourceDependencyStatus_ResolverErrorLeavesStatusUntouched(t *testing.T) {
+	// The status is persisted even when the reconcile fails. Recording a newly added dependency
+	// in the targets while the pending list is left from the previous reconcile would make the
+	// next reconcile treat it as already resolved, and wire it to a provider whose first apply
+	// is failing.
+	listErr := errors.New("etcd unavailable")
+	r := newResourceDepReconciler(t)
+	r.Client = fake.NewClientBuilder().
+		WithScheme(r.Scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				return listErr
+			},
+		}).
+		Build()
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	deps := []openchoreov1alpha1.WorkloadResourceDependency{{Ref: "orders-db"}}
+
+	items, err := r.populateResourceDependencyStatus(context.Background(), rb, deps)
+	require.ErrorIs(t, err, listErr)
+	assert.Nil(t, items)
+	assert.Empty(t, rb.Status.ResourceDependencyTargets)
+	assert.False(t, wasResourceDependencyResolved(rb, "orders-db"))
+}
+
+func TestPopulateResourceDependencyStatus_ReadsPreviousResultBeforeOverwriting(t *testing.T) {
+	// The resolver decides whether an apply-failing provider may keep serving a dependency from
+	// the previous reconcile's status. Writing the new targets first would make a dependency
+	// added in this reconcile look as if it had been resolved before.
+	rrb := newApplyFailedProviderRRB(true,
+		[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "10.0.0.5"}})
+	r := newResourceDepReconciler(t, rrb)
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	deps := []openchoreov1alpha1.WorkloadResourceDependency{
+		{Ref: "orders-db", EnvBindings: map[string]string{"host": "DB_HOST"}},
+	}
+
+	items, err := r.populateResourceDependencyStatus(context.Background(), rb, deps)
+	require.NoError(t, err)
+	assert.Empty(t, items)
+	require.Len(t, rb.Status.PendingResourceDependencies, 1)
+	require.Len(t, rb.Status.ResourceDependencyTargets, 1, "targets are still written for the reverse watch")
+
+	// Once recorded as resolved (the provider was Ready), the next reconcile keeps using it.
+	rb.Status.PendingResourceDependencies = nil
+	items, err = r.populateResourceDependencyStatus(context.Background(), rb, deps)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Empty(t, rb.Status.PendingResourceDependencies)
+}
+
 // Locks the load-bearing invariant for the reverse-watch lookup: a target derived from a
 // consumer ReleaseBinding's workload deps must produce the same key that the index extracts
 // from a provider ResourceReleaseBinding for the same (project, resource, env) tuple. If a
@@ -260,6 +375,78 @@ func TestResolveResourceDependency(t *testing.T) {
 		r := newResourceDepReconciler(t, rrb)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
 		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, item)
+		require.NotNil(t, pending)
+		assert.Contains(t, pending.Reason, "not ready")
+	})
+
+	t.Run("provider_apply_failed_for_dependency_in_use_returns_item", func(t *testing.T) {
+		// The data plane disconnect case: rendering the dependency out here would roll the
+		// consumer out without DB_HOST until the provider's next successful apply.
+		rrb := newApplyFailedProviderRRB(true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "10.0.0.5"}})
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		rb.Status.ResourceDependencyTargets = buildResourceDependencyTargets(rb,
+			[]openchoreov1alpha1.WorkloadResourceDependency{{Ref: "orders-db"}})
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"host": "DB_HOST"},
+		}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, pending)
+		require.NotNil(t, item)
+		require.Len(t, item.EnvVars, 1)
+		assert.Equal(t, "DB_HOST", item.EnvVars[0].Name)
+		assert.Equal(t, "10.0.0.5", item.EnvVars[0].Value)
+	})
+
+	t.Run("provider_apply_failed_for_new_dependency_returns_pending", func(t *testing.T) {
+		// Outputs computed from the provider's spec resolve before its first apply succeeds.
+		// A consumer that never used the dependency must not wire against resources that may
+		// not exist on the data plane yet: it waits for Ready, as for any new provider.
+		rrb := newApplyFailedProviderRRB(true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "10.0.0.5"}})
+		r := newResourceDepReconciler(t, rrb)
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"host": "DB_HOST"},
+		}
+
+		t.Run("not_declared_before", func(t *testing.T) {
+			rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+			item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+			require.NoError(t, err)
+			assert.Nil(t, item)
+			require.NotNil(t, pending)
+		})
+		t.Run("pending_before", func(t *testing.T) {
+			rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+			rb.Status.ResourceDependencyTargets = buildResourceDependencyTargets(rb,
+				[]openchoreov1alpha1.WorkloadResourceDependency{dep})
+			rb.Status.PendingResourceDependencies = []openchoreov1alpha1.PendingResourceDependency{{ResourceName: "orders-db"}}
+			item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+			require.NoError(t, err)
+			assert.Nil(t, item)
+			require.NotNil(t, pending)
+		})
+	})
+
+	t.Run("provider_first_apply_failed_returns_pending", func(t *testing.T) {
+		// Never applied, so outputs are not resolved: the consumer renders without it, as for
+		// any provider that is not ready, rather than waiting on it.
+		rrb := newApplyFailedProviderRRB(false, nil)
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"host": "DB_HOST"},
+		}
 
 		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
 		require.NoError(t, err)
@@ -812,6 +999,35 @@ func newProviderRRB(resource, name string, ready bool,
 			Outputs:    outputs,
 		},
 	}
+}
+
+// newApplyFailedProviderRRB returns the orders-db provider with its apply to the data plane
+// failing for its current generation, as the provider controller reports a data plane
+// disconnect, and OutputsResolved set to outputsResolved.
+func newApplyFailedProviderRRB(outputsResolved bool,
+	outputs []openchoreov1alpha1.ResolvedResourceOutput) *openchoreov1alpha1.ResourceReleaseBinding {
+	rrb := newProviderRRB("orders-db", "rrb1", false, outputs)
+	applyFailed := string(resourcereleasebinding.ReasonResourceApplyFailed)
+	rrb.Status.Conditions[0].Reason = applyFailed
+	outputsStatus := metav1.ConditionFalse
+	if outputsResolved {
+		outputsStatus = metav1.ConditionTrue
+	}
+	rrb.Status.Conditions = append(rrb.Status.Conditions,
+		metav1.Condition{
+			Type:               string(resourcereleasebinding.ConditionResourcesReady),
+			Status:             metav1.ConditionFalse,
+			Reason:             applyFailed,
+			Message:            "proxy request failed with status 502: no agents found",
+			LastTransitionTime: metav1.Now(),
+		},
+		metav1.Condition{
+			Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+			Status:             outputsStatus,
+			Reason:             "OutputsResolved",
+			LastTransitionTime: metav1.Now(),
+		})
+	return rrb
 }
 
 func newRBForResourceDeps(namespace, project, component, environment string) *openchoreov1alpha1.ReleaseBinding {
