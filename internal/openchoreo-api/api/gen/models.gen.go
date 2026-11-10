@@ -193,6 +193,18 @@ const (
 	EndpointBackendRefKindComponent EndpointBackendRefKind = "Component"
 )
 
+// Defines values for EndpointHeaderMatchType.
+const (
+	EndpointHeaderMatchTypeExact             EndpointHeaderMatchType = "Exact"
+	EndpointHeaderMatchTypeRegularExpression EndpointHeaderMatchType = "RegularExpression"
+)
+
+// Defines values for EndpointPathMatchType.
+const (
+	EndpointPathMatchTypeExact      EndpointPathMatchType = "Exact"
+	EndpointPathMatchTypePathPrefix EndpointPathMatchType = "PathPrefix"
+)
+
 // Defines values for EndpointReleaseSpecEndpointTypeKind.
 const (
 	EndpointReleaseSpecEndpointTypeKindClusterEndpointType EndpointReleaseSpecEndpointTypeKind = "ClusterEndpointType"
@@ -233,6 +245,14 @@ const (
 const (
 	EndpointTypeRefKindClusterEndpointType EndpointTypeRefKind = "ClusterEndpointType"
 	EndpointTypeRefKindEndpointType        EndpointTypeRefKind = "EndpointType"
+)
+
+// Defines values for EndpointTypeSpecCapabilities.
+const (
+	Match             EndpointTypeSpecCapabilities = "Match"
+	Mirror            EndpointTypeSpecCapabilities = "Mirror"
+	MirrorPercent     EndpointTypeSpecCapabilities = "MirrorPercent"
+	RegularExpression EndpointTypeSpecCapabilities = "RegularExpression"
 )
 
 // Defines values for EndpointTypeSpecResourcesTargetPlane.
@@ -2116,6 +2136,24 @@ type Endpoint struct {
 	Status *EndpointStatus `json:"status,omitempty"`
 }
 
+// EndpointBackendOverride Environment-specific values for one backend. A mirror only receives copies, so set weight or mirror, not both, and match or mirror, not both.
+type EndpointBackendOverride struct {
+	// Match Conditions a request must meet to go to this backend before any weighted
+	// split. All set conditions must hold. A backend with a match gets the
+	// requests that meet it in addition to its weighted share.
+	Match *EndpointMatch `json:"match,omitempty"`
+
+	// Mirror Copies a share of the requests to this backend. Its answers are discarded.
+	// A mirror backend has weight 0 and no match.
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
+
+	// Name Name of the backend in the release.
+	Name string `json:"name"`
+
+	// Weight Replaces the release's weight for this backend in this environment. When any backend has a weight override, a backend without one gets 0 there.
+	Weight *int32 `json:"weight,omitempty"`
+}
+
 // EndpointBackendRef One traffic backend of an Endpoint. A discriminated union on kind; exactly the payload matching kind must be set.
 type EndpointBackendRef struct {
 	// Component References a named workload endpoint of a Component in the Endpoint's project.
@@ -2123,6 +2161,15 @@ type EndpointBackendRef struct {
 
 	// Kind Kind of backend. Defaults to Component.
 	Kind *EndpointBackendRefKind `json:"kind,omitempty"`
+
+	// Match Conditions a request must meet to go to this backend before any weighted
+	// split. All set conditions must hold. A backend with a match gets the
+	// requests that meet it in addition to its weighted share.
+	Match *EndpointMatch `json:"match,omitempty"`
+
+	// Mirror Copies a share of the requests to this backend. Its answers are discarded.
+	// A mirror backend has weight 0 and no match.
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
 
 	// Name Identifies this backend within the Endpoint.
 	Name string `json:"name"`
@@ -2146,6 +2193,15 @@ type EndpointComponentBackend struct {
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
+// EndpointCookieMatch A cookie condition, by exact value.
+type EndpointCookieMatch struct {
+	// Name Cookie name.
+	Name string `json:"name"`
+
+	// Value Exact cookie value.
+	Value string `json:"value"`
+}
+
 // EndpointGatewayURLs Resolved gateway URLs for an endpoint
 type EndpointGatewayURLs struct {
 	// Http Structured URL with its components
@@ -2158,6 +2214,21 @@ type EndpointGatewayURLs struct {
 	Tls *EndpointURL `json:"tls,omitempty"`
 }
 
+// EndpointHeaderMatch A header condition.
+type EndpointHeaderMatch struct {
+	// Name Header name, case-insensitive. An HTTP token, as the Endpoint CRD requires.
+	Name string `json:"name"`
+
+	// Type How the value is compared.
+	Type *EndpointHeaderMatchType `json:"type,omitempty"`
+
+	// Value The expected value, or an RE2 regular expression.
+	Value string `json:"value"`
+}
+
+// EndpointHeaderMatchType How the value is compared.
+type EndpointHeaderMatchType string
+
 // EndpointList Paginated list of endpoints
 type EndpointList struct {
 	Items []Endpoint `json:"items"`
@@ -2166,6 +2237,39 @@ type EndpointList struct {
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
 }
+
+// EndpointMatch Conditions a request must meet to go to this backend before any weighted
+// split. All set conditions must hold. A backend with a match gets the
+// requests that meet it in addition to its weighted share.
+type EndpointMatch struct {
+	// Cookies Cookies the request must carry, by exact value.
+	Cookies *[]EndpointCookieMatch `json:"cookies,omitempty"`
+
+	// Headers Headers the request must carry.
+	Headers *[]EndpointHeaderMatch `json:"headers,omitempty"`
+
+	// Path A path condition, relative to where the Endpoint is served.
+	Path *EndpointPathMatch `json:"path,omitempty"`
+}
+
+// EndpointMirror Copies a share of the requests to this backend. Its answers are discarded.
+// A mirror backend has weight 0 and no match.
+type EndpointMirror struct {
+	// Percent Percent of the requests to copy, from 0 to 100.
+	Percent int32 `json:"percent"`
+}
+
+// EndpointPathMatch A path condition, relative to where the Endpoint is served.
+type EndpointPathMatch struct {
+	// Type How the path is compared.
+	Type *EndpointPathMatchType `json:"type,omitempty"`
+
+	// Value The path, relative to where the Endpoint is served.
+	Value string `json:"value"`
+}
+
+// EndpointPathMatchType How the path is compared.
+type EndpointPathMatchType string
 
 // EndpointRelease EndpointRelease resource.
 // Immutable snapshot of Endpoint.spec and the referenced (Cluster)EndpointType.spec
@@ -2222,6 +2326,11 @@ type EndpointReleaseBindingList struct {
 // EndpointReleaseBindingSpec Desired state of an EndpointReleaseBinding. spec.owner and spec.environment
 // are immutable after creation. spec.endpointRelease is the promote pin.
 type EndpointReleaseBindingSpec struct {
+	// BackendOverrides Environment-specific weight and mirror share for the release's backends,
+	// matched by name. Entries for a backend the pinned release does not have
+	// are ignored and reported in the BackendOverridesApplied condition.
+	BackendOverrides *[]EndpointBackendOverride `json:"backendOverrides,omitempty"`
+
 	// EndpointRelease Pinned EndpointRelease name.
 	EndpointRelease *string `json:"endpointRelease,omitempty"`
 
@@ -2246,7 +2355,7 @@ type EndpointReleaseBindingStatus struct {
 	// Backends Resolution of each backendRef in this binding's environment.
 	Backends *[]ResolvedEndpointBackend `json:"backends,omitempty"`
 
-	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
+	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, BackendOverridesApplied, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
 	// LastSpecUpdateTime When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
@@ -2455,6 +2564,11 @@ type EndpointTypeRefKind string
 
 // EndpointTypeSpec Desired state of a (Cluster)EndpointType.
 type EndpointTypeSpec struct {
+	// Capabilities Routing features this type renders beyond weighted backends. An Endpoint
+	// that uses one the type doesn't list is not released. Unset means the
+	// type doesn't declare them, and nothing is checked.
+	Capabilities *[]EndpointTypeSpecCapabilities `json:"capabilities,omitempty"`
+
 	// EnvironmentConfigs Schema section using openAPIV3Schema format
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
@@ -2493,6 +2607,9 @@ type EndpointTypeSpec struct {
 	// Validations CEL-based validation rules evaluated before rendering.
 	Validations *[]ValidationRule `json:"validations,omitempty"`
 }
+
+// EndpointTypeSpecCapabilities defines model for EndpointTypeSpec.Capabilities.
+type EndpointTypeSpecCapabilities string
 
 // EndpointTypeSpecResourcesTargetPlane Target plane for deployment. Endpoint types may only target the data plane.
 type EndpointTypeSpecResourcesTargetPlane string
@@ -3998,6 +4115,10 @@ type ResolvedEndpointBackend struct {
 
 	// Message Human-readable explanation accompanying reason.
 	Message *string `json:"message,omitempty"`
+
+	// Mirror Copies a share of the requests to this backend. Its answers are discarded.
+	// A mirror backend has weight 0 and no match.
+	Mirror *EndpointMirror `json:"mirror,omitempty"`
 
 	// Name Name of the backendRef this entry resolves.
 	Name string `json:"name"`
