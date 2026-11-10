@@ -78,6 +78,8 @@ type backendComponentLogMetadata struct {
 	ProjectUID      string `json:"projectUid"`
 	ProjectName     string `json:"projectName"`
 	NamespaceName   string `json:"namespaceName"`
+	ReleaseLineUID  string `json:"releaseLineUid"`
+	ReleaseLineName string `json:"releaseLineName"`
 	PodName         string `json:"podName"`
 	PodNamespace    string `json:"podNamespace"`
 	ContainerName   string `json:"containerName"`
@@ -184,6 +186,8 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 			PodName:         l.Metadata.PodName,
 			PodNamespace:    l.Metadata.PodNamespace,
 			ContainerName:   l.Metadata.ContainerName,
+			ReleaseLineName: l.Metadata.ReleaseLineName,
+			ReleaseLineID:   l.Metadata.ReleaseLineUID,
 		})
 	}
 

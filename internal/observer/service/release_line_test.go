@@ -174,6 +174,43 @@ func TestLogsAdapter_ReleaseLineHeader(t *testing.T) {
 	}
 }
 
+func TestLogsAdapter_EntryReleaseLine(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set(observability.ReleaseLineAppliedHeader, "true")
+		_, _ = w.Write([]byte(`{"logs":[
+			{"log":"from next","metadata":{"componentUid":"` + sampleComponentUID + `","releaseLineName":"next","releaseLineUid":"` + sampleReleaseLineUID + `"}},
+			{"log":"from main","metadata":{"componentUid":"` + sampleComponentUID + `"}}
+		],"total":2,"tookMs":1}`))
+	}))
+	defer server.Close()
+	adapter, err := NewLogsAdapter(LogsAdapterConfig{BaseURL: server.URL, Timeout: 5 * time.Second})
+	require.NoError(t, err)
+	result, err := adapter.GetComponentApplicationLogs(context.Background(), observability.ComponentApplicationLogsParams{
+		Namespace: "ns", ComponentID: sampleComponentUID, AllReleaseLines: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, result.Logs, 2)
+	assert.Equal(t, "next", result.Logs[0].ReleaseLineName)
+	assert.Equal(t, sampleReleaseLineUID, result.Logs[0].ReleaseLineID)
+	assert.Empty(t, result.Logs[1].ReleaseLineName)
+	assert.Empty(t, result.Logs[1].ReleaseLineID)
+
+	svc := newLogsServiceForTest(t, &fakeLogsAdapter{})
+	body, err := json.Marshal(svc.convertComponentLogsToResponse(result))
+	require.NoError(t, err)
+	var resp struct {
+		Logs []struct {
+			Metadata map[string]any `json:"metadata"`
+		} `json:"logs"`
+	}
+	require.NoError(t, json.Unmarshal(body, &resp))
+	require.Len(t, resp.Logs, 2)
+	assert.Equal(t, "next", resp.Logs[0].Metadata["releaseLineName"])
+	assert.Equal(t, sampleReleaseLineUID, resp.Logs[0].Metadata["releaseLineUid"])
+	assert.NotContains(t, resp.Logs[1].Metadata, "releaseLineName", "the main line has no release line fields")
+	assert.NotContains(t, resp.Logs[1].Metadata, "releaseLineUid")
+}
+
 func TestMetricsAdapter_ReleaseLine(t *testing.T) {
 	for name, tc := range map[string]struct {
 		applied bool

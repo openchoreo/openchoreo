@@ -211,6 +211,8 @@ func (s *LogsService) convertComponentLogsToResponse(
 				ComponentUID:    log.ComponentID,
 				ProjectUID:      log.ProjectID,
 				EnvironmentUID:  log.EnvironmentID,
+				ReleaseLineName: log.ReleaseLineName,
+				ReleaseLineUID:  log.ReleaseLineID,
 				ContainerName:   log.ContainerName,
 				PodName:         log.PodName,
 				PodNamespace:    log.PodNamespace,
