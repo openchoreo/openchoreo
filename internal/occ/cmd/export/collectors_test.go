@@ -15,6 +15,13 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const (
+	testProjectName      = "shop"
+	testResourceName     = "database"
+	testOtherProjectName = "other-project"
+	testMissingRelease   = "missing release"
+)
+
 func TestCollectClusterResources_UsesExportPaths(t *testing.T) {
 	c := mocks.NewMockInterface(t)
 	c.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(&gen.ClusterProjectTypeList{
@@ -96,29 +103,29 @@ func TestCollectNamespacePlatformResources_UsesExportPaths(t *testing.T) {
 }
 
 func TestCollectResourceReleases_RejectsInvalidBinding(t *testing.T) {
-	for _, failure := range []string{"wrong project", "wrong resource", "missing spec", "unsafe reference", "missing release"} {
+	for _, failure := range []string{"wrong project", "wrong resource", "missing spec", "unsafe reference", testMissingRelease} {
 		t.Run(failure, func(t *testing.T) {
 			c := mocks.NewMockInterface(t)
 			c.EXPECT().ListResourceReleases(mock.Anything, "acme", mock.Anything).Return(&gen.ResourceReleaseList{}, nil).Maybe()
 			spec := &gen.ResourceReleaseBindingSpec{}
-			spec.Owner.ProjectName = "shop"
-			spec.Owner.ResourceName = "database"
+			spec.Owner.ProjectName = testProjectName
+			spec.Owner.ResourceName = testResourceName
 			switch failure {
 			case "wrong project":
-				spec.Owner.ProjectName = "other-project"
+				spec.Owner.ProjectName = testOtherProjectName
 			case "wrong resource":
 				spec.Owner.ResourceName = "other-resource"
 			case "missing spec":
 				spec = nil
 			case "unsafe reference":
 				spec.ResourceRelease = stringPointer("../escape")
-			case "missing release":
+			case testMissingRelease:
 				spec.ResourceRelease = stringPointer("missing")
 			}
 			c.EXPECT().ListResourceReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ResourceReleaseBindingList{
 				Items: []gen.ResourceReleaseBinding{{Metadata: gen.ObjectMeta{Name: "database-dev"}, Spec: spec}},
 			}, nil)
-			_, err := collectResourceReleases(t.Context(), c, "acme", "shop", "database", "resources/database", &releaseFilter{})
+			_, err := collectResourceReleases(t.Context(), c, "acme", testProjectName, testResourceName, "resources/database", &releaseFilter{})
 			require.Error(t, err)
 		})
 	}
@@ -130,17 +137,17 @@ func TestCollectResourceReleases_RejectsInvalidOwner(t *testing.T) {
 			c := mocks.NewMockInterface(t)
 			c.EXPECT().ListResourceReleaseBindings(mock.Anything, "acme", mock.Anything).Return(&gen.ResourceReleaseBindingList{}, nil)
 			spec := &gen.ResourceReleaseSpec{}
-			spec.Owner.ProjectName = "shop"
-			spec.Owner.ResourceName = "database"
+			spec.Owner.ProjectName = testProjectName
+			spec.Owner.ResourceName = testResourceName
 			if field == "project" {
-				spec.Owner.ProjectName = "other-project"
+				spec.Owner.ProjectName = testOtherProjectName
 			} else {
 				spec.Owner.ResourceName = "other-resource"
 			}
 			c.EXPECT().ListResourceReleases(mock.Anything, "acme", mock.Anything).Return(&gen.ResourceReleaseList{
 				Items: []gen.ResourceRelease{{Metadata: gen.ObjectMeta{Name: "database-release"}, Spec: spec}},
 			}, nil)
-			_, err := collectResourceReleases(t.Context(), c, "acme", "shop", "database", "resources/database", &releaseFilter{})
+			_, err := collectResourceReleases(t.Context(), c, "acme", testProjectName, testResourceName, "resources/database", &releaseFilter{})
 			require.ErrorContains(t, err, "invalid owner")
 		})
 	}

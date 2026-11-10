@@ -114,7 +114,7 @@ func TestNewExportCmd_RejectsInvalidReleaseHistoryBeforeFetching(t *testing.T) {
 
 func TestPromptKeepPlaintext(t *testing.T) {
 	finding := Withheld{
-		Kind: "Component", Namespace: "acme", Project: "shop", Name: "api",
+		Kind: "Component", Namespace: "acme", Project: testProjectName, Name: "api",
 		File:    "namespaces/acme/projects/shop/components/api/component.yaml",
 		Reasons: []string{".spec.parameters.dbPassword"},
 	}
@@ -268,7 +268,7 @@ func TestNewExportCmd_CancelWritesNothing(t *testing.T) {
 				raw, err := os.ReadFile(filepath.Join(root, relativePath))
 				require.NoError(t, err)
 				assert.Equal(t, "existing manifest\n", string(raw))
-				assert.NoFileExists(t, filepath.Join(root, "namespaces/acme/namespace.yaml"))
+				assert.NoFileExists(t, filepath.Join(root, "namespaces", "acme", "namespace.yaml"))
 			} else {
 				assert.NoDirExists(t, root)
 			}
@@ -287,9 +287,9 @@ func mockCredentialPromptClient(t *testing.T) *mocks.MockInterface {
 		Items: []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "acme", Annotations: &annotations}}},
 	}, nil)
 	c.EXPECT().ListProjects(mock.Anything, "acme", mock.Anything).Return(&gen.ProjectList{
-		Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: "shop"}}},
+		Items: []gen.Project{{Metadata: gen.ObjectMeta{Name: testProjectName}}},
 	}, nil)
-	spec := componentSpec("shop")
+	spec := componentSpec(testProjectName)
 	parameters := map[string]any{
 		"dbPassword": "component-secret-value",
 		"password":   "{{ .password }}",
@@ -298,7 +298,7 @@ func mockCredentialPromptClient(t *testing.T) *mocks.MockInterface {
 		}},
 	}
 	spec.Parameters = &parameters
-	c.EXPECT().ListComponents(mock.Anything, "acme", "shop", mock.Anything).Return(&gen.ComponentList{
+	c.EXPECT().ListComponents(mock.Anything, "acme", testProjectName, mock.Anything).Return(&gen.ComponentList{
 		Items: []gen.Component{{Metadata: gen.ObjectMeta{Name: "api"}, Spec: spec}},
 	}, nil)
 	c.EXPECT().ListWorkloads(mock.Anything, "acme", mock.Anything).Return(&gen.WorkloadList{}, nil)

@@ -106,7 +106,7 @@ func runWithSecretDecision(ctx context.Context, c client.Interface, w io.Writer,
 		AllReleases: params.AllReleases,
 	})
 	if err != nil && isExportPermissionError(err) {
-		return errors.New("your role does not have permission to perform this export operation!")
+		return errors.New("your role does not have permission to perform this export operation")
 	}
 	if report != nil {
 		if printErr := printReport(w, report, params, err == nil); printErr != nil {
@@ -130,6 +130,78 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 	}
 	releaseFilter := newReleaseFilter(opts.AllReleases, time.Now())
 
+	resources, err := collectExportResources(ctx, c, releaseFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(resources, func(i, j int) bool { return resources[i].path < resources[j].path })
+	report := &Report{
+		ExportedByKind:          map[string]int{},
+		ReleaseCutoff:           releaseFilter.since,
+		ReleasesSkipped:         releaseFilter.skipped,
+		OlderReferencedReleases: releaseFilter.olderReferenced,
+		UndatedReleases:         releaseFilter.undated,
+	}
+	var safe []resource
+	var rendered [][]byte
+	for _, item := range resources {
+		for _, credential := range plaintextCredentials(item.object) {
+			finding := Withheld{
+				Kind:      item.kind,
+				Namespace: item.namespace,
+				Project:   item.project,
+				Name:      item.name,
+				File:      item.path,
+				Reasons:   []string{credential.path},
+			}
+			keep := false
+			if opts.KeepPlaintext != nil {
+				var err error
+				keep, err = opts.KeepPlaintext(finding)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if keep {
+				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "kept"})
+			} else {
+				delete(credential.parent, credential.key)
+				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "stripped 1 value(s)"})
+			}
+		}
+		data, err := serialize(item.object)
+		if err != nil {
+			return nil, fmt.Errorf("serialize %s %q: %w", item.kind, item.name, err)
+		}
+		safe = append(safe, item)
+		rendered = append(rendered, data)
+	}
+
+	if err := prepareOutputDir(opts.OutputDir); err != nil {
+		return nil, err
+	}
+	for i, item := range safe {
+		outcome, err := writeFile(opts.OutputDir, item.path, rendered[i])
+		if err != nil {
+			return report, fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
+		}
+		switch outcome {
+		case outcomeCreated:
+			report.Created++
+		case outcomeUpdated:
+			report.Updated++
+		case outcomeUnchanged:
+			report.Unchanged++
+		}
+		report.Exported++
+		report.ExportedByKind[item.kind]++
+	}
+	return report, nil
+}
+
+// collectExportResources traverses namespaces and projects before any files are written.
+func collectExportResources(ctx context.Context, c client.Interface, filter *releaseFilter) ([]resource, error) {
 	namespaces, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Namespace, string, error) {
 		params := &gen.ListNamespacesParams{Limit: &limit}
 		if cursor != "" {
@@ -198,152 +270,101 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 				kind: "Project", name: projectName, namespace: namespaceName, project: projectName,
 				path: path.Join(projectDir, "project.yaml"), object: projectObject,
 			})
-			projectResources, err := collectProjectResources(ctx, c, namespaceName, projectName, projectDir, releaseFilter)
+			projectResources, err := collectProjectResources(ctx, c, namespaceName, projectName, projectDir, filter)
 			if err != nil {
 				return nil, fmt.Errorf("project %q in namespace %q (nothing was written): %w", projectName, namespaceName, err)
 			}
 			resources = append(resources, projectResources...)
 
-			components, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
-				params := &gen.ListComponentsParams{Limit: &limit, Project: &projectName}
-				if cursor != "" {
-					params.Cursor = &cursor
-				}
-				result, err := c.ListComponents(ctx, namespaceName, projectName, params)
-				if err != nil {
-					return nil, "", err
-				}
-				return result.Items, nextCursor(result.Pagination), nil
-			})
+			components, err := collectProjectComponents(ctx, c, namespaceName, projectName, projectDir, filter)
 			if err != nil {
-				return nil, fmt.Errorf("project %q in namespace %q: list components (nothing was written): %w", projectName, namespaceName, err)
+				return nil, err
 			}
-
-			for _, component := range components {
-				componentName := component.Metadata.Name
-				if err := validName("component", componentName); err != nil {
-					return nil, err
-				}
-				if component.Spec == nil || component.Spec.Owner.ProjectName != projectName {
-					return nil, fmt.Errorf("component %q in namespace %q has an invalid project owner; expected %q", componentName, namespaceName, projectName)
-				}
-				componentObject, err := normalizeObject(component, "Component", namespaceName)
-				if err != nil {
-					return nil, fmt.Errorf("component %q in namespace %q: %w", componentName, namespaceName, err)
-				}
-				componentDir := path.Join(projectDir, "components", componentName)
-				resources = append(resources, resource{
-					kind: "Component", name: componentName, namespace: namespaceName, project: projectName,
-					path: path.Join(componentDir, "component.yaml"), object: componentObject,
-				})
-
-				workloads, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workload, string, error) {
-					params := &gen.ListWorkloadsParams{Limit: &limit, Component: &componentName}
-					if cursor != "" {
-						params.Cursor = &cursor
-					}
-					result, err := c.ListWorkloads(ctx, namespaceName, params)
-					if err != nil {
-						return nil, "", err
-					}
-					return result.Items, nextCursor(result.Pagination), nil
-				})
-				if err != nil {
-					return nil, fmt.Errorf("component %q in namespace %q: list workloads (nothing was written): %w", componentName, namespaceName, err)
-				}
-				if len(workloads) > 1 {
-					return nil, fmt.Errorf("component %q in namespace %q has %d workloads; expected at most one", componentName, namespaceName, len(workloads))
-				}
-				for _, workload := range workloads {
-					workloadName := workload.Metadata.Name
-					if err := validName("workload", workloadName); err != nil {
-						return nil, err
-					}
-					if workload.Spec == nil || workload.Spec.Owner == nil || workload.Spec.Owner.ComponentName != componentName || workload.Spec.Owner.ProjectName != projectName {
-						return nil, fmt.Errorf("workload %q in namespace %q has an invalid owner; expected component %q in project %q", workloadName, namespaceName, componentName, projectName)
-					}
-					workloadObject, err := normalizeObject(workload, "Workload", namespaceName)
-					if err != nil {
-						return nil, fmt.Errorf("workload %q in namespace %q: %w", workloadName, namespaceName, err)
-					}
-					resources = append(resources, resource{
-						kind: "Workload", name: workloadName, namespace: namespaceName, project: projectName,
-						path: path.Join(componentDir, "workload.yaml"), object: workloadObject,
-					})
-				}
-
-				releases, err := collectComponentReleases(ctx, c, namespaceName, projectName, componentName, componentDir, releaseFilter)
-				if err != nil {
-					return nil, fmt.Errorf("component %q in namespace %q (nothing was written): %w", componentName, namespaceName, err)
-				}
-				resources = append(resources, releases...)
-			}
+			resources = append(resources, components...)
 		}
 	}
 
-	sort.Slice(resources, func(i, j int) bool { return resources[i].path < resources[j].path })
-	report := &Report{
-		ExportedByKind:          map[string]int{},
-		ReleaseCutoff:           releaseFilter.since,
-		ReleasesSkipped:         releaseFilter.skipped,
-		OlderReferencedReleases: releaseFilter.olderReferenced,
-		UndatedReleases:         releaseFilter.undated,
-	}
-	var safe []resource
-	var rendered [][]byte
-	for _, item := range resources {
-		for _, credential := range plaintextCredentials(item.object) {
-			finding := Withheld{
-				Kind:      item.kind,
-				Namespace: item.namespace,
-				Project:   item.project,
-				Name:      item.name,
-				File:      item.path,
-				Reasons:   []string{credential.path},
-			}
-			keep := false
-			if opts.KeepPlaintext != nil {
-				var err error
-				keep, err = opts.KeepPlaintext(finding)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if keep {
-				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "kept"})
-			} else {
-				delete(credential.parent, credential.key)
-				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "stripped 1 value(s)"})
-			}
+	return resources, nil
+}
+
+// collectProjectComponents collects components, their workloads, and selected releases.
+func collectProjectComponents(ctx context.Context, c client.Interface, namespaceName, projectName, projectDir string, filter *releaseFilter) ([]resource, error) {
+	var out []resource
+	components, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
+		params := &gen.ListComponentsParams{Limit: &limit, Project: &projectName}
+		if cursor != "" {
+			params.Cursor = &cursor
 		}
-		data, err := serialize(item.object)
+		result, err := c.ListComponents(ctx, namespaceName, projectName, params)
 		if err != nil {
-			return nil, fmt.Errorf("serialize %s %q: %w", item.kind, item.name, err)
+			return nil, "", err
 		}
-		safe = append(safe, item)
-		rendered = append(rendered, data)
+		return result.Items, nextCursor(result.Pagination), nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("project %q in namespace %q: list components (nothing was written): %w", projectName, namespaceName, err)
 	}
 
-	if err := prepareOutputDir(opts.OutputDir); err != nil {
-		return nil, err
-	}
-	for i, item := range safe {
-		outcome, err := writeFile(opts.OutputDir, item.path, rendered[i])
+	for _, component := range components {
+		componentName := component.Metadata.Name
+		if err := validName("component", componentName); err != nil {
+			return nil, err
+		}
+		if component.Spec == nil || component.Spec.Owner.ProjectName != projectName {
+			return nil, fmt.Errorf("component %q in namespace %q has an invalid project owner; expected %q", componentName, namespaceName, projectName)
+		}
+		componentObject, err := normalizeObject(component, "Component", namespaceName)
 		if err != nil {
-			return report, fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
+			return nil, fmt.Errorf("component %q in namespace %q: %w", componentName, namespaceName, err)
 		}
-		switch outcome {
-		case outcomeCreated:
-			report.Created++
-		case outcomeUpdated:
-			report.Updated++
-		case outcomeUnchanged:
-			report.Unchanged++
+		componentDir := path.Join(projectDir, "components", componentName)
+		out = append(out, resource{
+			kind: "Component", name: componentName, namespace: namespaceName, project: projectName,
+			path: path.Join(componentDir, "component.yaml"), object: componentObject,
+		})
+
+		workloads, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workload, string, error) {
+			params := &gen.ListWorkloadsParams{Limit: &limit, Component: &componentName}
+			if cursor != "" {
+				params.Cursor = &cursor
+			}
+			result, err := c.ListWorkloads(ctx, namespaceName, params)
+			if err != nil {
+				return nil, "", err
+			}
+			return result.Items, nextCursor(result.Pagination), nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("component %q in namespace %q: list workloads (nothing was written): %w", componentName, namespaceName, err)
 		}
-		report.Exported++
-		report.ExportedByKind[item.kind]++
+		if len(workloads) > 1 {
+			return nil, fmt.Errorf("component %q in namespace %q has %d workloads; expected at most one", componentName, namespaceName, len(workloads))
+		}
+		for _, workload := range workloads {
+			workloadName := workload.Metadata.Name
+			if err := validName("workload", workloadName); err != nil {
+				return nil, err
+			}
+			if workload.Spec == nil || workload.Spec.Owner == nil || workload.Spec.Owner.ComponentName != componentName || workload.Spec.Owner.ProjectName != projectName {
+				return nil, fmt.Errorf("workload %q in namespace %q has an invalid owner; expected component %q in project %q", workloadName, namespaceName, componentName, projectName)
+			}
+			workloadObject, err := normalizeObject(workload, "Workload", namespaceName)
+			if err != nil {
+				return nil, fmt.Errorf("workload %q in namespace %q: %w", workloadName, namespaceName, err)
+			}
+			out = append(out, resource{
+				kind: "Workload", name: workloadName, namespace: namespaceName, project: projectName,
+				path: path.Join(componentDir, "workload.yaml"), object: workloadObject,
+			})
+		}
+
+		releases, err := collectComponentReleases(ctx, c, namespaceName, projectName, componentName, componentDir, filter)
+		if err != nil {
+			return nil, fmt.Errorf("component %q in namespace %q (nothing was written): %w", componentName, namespaceName, err)
+		}
+		out = append(out, releases...)
 	}
-	return report, nil
+	return out, nil
 }
 
 func nextCursor(p gen.Pagination) string {

@@ -62,7 +62,7 @@ func TestCollectReleases_FiltersPagesAndPreservesReferences(t *testing.T) {
 				filter.since = nil
 			}
 			spec := &gen.ProjectReleaseSpec{}
-			spec.Owner.ProjectName = "shop"
+			spec.Owner.ProjectName = testProjectName
 			var cursors []string
 			fetch := func(limit int, cursor string) ([]gen.ProjectRelease, string, error) {
 				require.Positive(t, limit)
@@ -90,12 +90,12 @@ func TestCollectReleases_FiltersPagesAndPreservesReferences(t *testing.T) {
 				object: map[string]any{"spec": map[string]any{"projectRelease": "old-bound"}},
 			}
 			bindings := []resource{binding, binding, {object: map[string]any{"spec": map[string]any{}}}}
-			releases, err := collectReleases(KindProjectRelease, "acme", "shop", map[string]string{"projectName": "shop"},
+			releases, err := collectReleases(KindProjectRelease, "acme", testProjectName, map[string]string{"projectName": testProjectName},
 				bindings, "projectRelease", filter, fetch, func(v gen.ProjectRelease) gen.ObjectMeta { return v.Metadata },
 				func(name string) string { return path.Join("releases", name+".yaml") })
 			require.NoError(t, err)
 			assert.Equal(t, []string{"", "empty", "remaining"}, cursors)
-			var names []string
+			names := make([]string, 0, len(releases))
 			for _, item := range releases {
 				names = append(names, item.name)
 				assert.Equal(t, path.Join("releases", item.name+".yaml"), item.path)

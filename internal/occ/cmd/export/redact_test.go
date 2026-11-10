@@ -110,7 +110,7 @@ func TestPlaintextCredentialsPreservesWorkloadBindings(t *testing.T) {
 			}
 			workload := map[string]any{
 				"dependencies": map[string]any{
-					"resources": []any{map[string]any{"ref": "database"}, bindings},
+					"resources": []any{map[string]any{"ref": testResourceName}, bindings},
 				},
 				"container": map[string]any{
 					"env": []any{map[string]any{"key": "DB_PASSWORD", "value": "literal-password"}},

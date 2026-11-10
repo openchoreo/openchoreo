@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var labelsToDrop = map[string]bool{

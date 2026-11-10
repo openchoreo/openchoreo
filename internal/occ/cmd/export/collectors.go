@@ -70,7 +70,7 @@ func collectClusterResources(ctx context.Context, c client.Interface) ([]resourc
 		return nil
 	}
 	clusterPath := func(category string) func(string) string {
-		return func(name string) string { return path.Join("platform-shared", category, name+".yaml") }
+		return func(name string) string { return clusterResourcePath(category, name) }
 	}
 
 	if err := add(collectResources(KindClusterProjectType, "", "", func(limit int, cursor string) ([]gen.ClusterProjectType, string, error) {
@@ -177,6 +177,28 @@ func collectClusterResources(ctx context.Context, c client.Interface) ([]resourc
 	}, func(v gen.ClusterObservabilityPlane) string { return v.Metadata.Name }, clusterPath("infra/observability-planes"))); err != nil {
 		return nil, err
 	}
+	authz, err := collectClusterAuthzResources(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, authz...)
+	return out, nil
+}
+
+// collectClusterAuthzResources collects cluster-scoped roles and role bindings.
+func collectClusterAuthzResources(ctx context.Context, c client.Interface) ([]resource, error) {
+	var out []resource
+	add := func(items []resource, err error) error {
+		if err != nil {
+			return err
+		}
+		out = append(out, items...)
+		return nil
+	}
+	clusterPath := func(category string) func(string) string {
+		return func(name string) string { return clusterResourcePath(category, name) }
+	}
+
 	if err := add(collectResources(KindClusterAuthzRole, "", "", func(limit int, cursor string) ([]gen.ClusterAuthzRole, string, error) {
 		p := &gen.ListClusterRolesParams{Limit: &limit}
 		if cursor != "" {
@@ -208,7 +230,10 @@ func collectClusterResources(ctx context.Context, c client.Interface) ([]resourc
 
 // collectNamespacePlatformResources collects platform configuration for a namespace.
 func collectNamespacePlatformResources(ctx context.Context, c client.Interface, namespace string) ([]resource, error) {
-	var out []resource
+	out, err := collectNamespaceInfrastructureResources(ctx, c, namespace)
+	if err != nil {
+		return nil, err
+	}
 	add := func(items []resource, err error) error {
 		if err != nil {
 			return err
@@ -218,80 +243,10 @@ func collectNamespacePlatformResources(ctx context.Context, c client.Interface, 
 	}
 	platformPath := func(category string) func(string) string {
 		return func(name string) string {
-			return path.Join("namespaces", namespace, "platform", category, name+".yaml")
-		}
-	}
-	infraPath := func(category string) func(string) string {
-		return func(name string) string {
-			return path.Join("namespaces", namespace, "platform", "infra", category, name+".yaml")
+			return namespacedResourcePath(namespace, category, name)
 		}
 	}
 
-	if err := add(collectResources(KindEnvironment, namespace, "", func(limit int, cursor string) ([]gen.Environment, string, error) {
-		p := &gen.ListEnvironmentsParams{Limit: &limit}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListEnvironments(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.Environment) string { return v.Metadata.Name }, infraPath("environments"))); err != nil {
-		return nil, err
-	}
-	if err := add(collectResources(KindDeploymentPipeline, namespace, "", func(limit int, cursor string) ([]gen.DeploymentPipeline, string, error) {
-		p := &gen.ListDeploymentPipelinesParams{Limit: &limit}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListDeploymentPipelines(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.DeploymentPipeline) string { return v.Metadata.Name }, infraPath("deployment-pipelines"))); err != nil {
-		return nil, err
-	}
-	if err := add(collectResources(KindDataPlane, namespace, "", func(limit int, cursor string) ([]gen.DataPlane, string, error) {
-		p := &gen.ListDataPlanesParams{Limit: &limit}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListDataPlanes(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.DataPlane) string { return v.Metadata.Name }, infraPath("data-planes"))); err != nil {
-		return nil, err
-	}
-	if err := add(collectResources(KindWorkflowPlane, namespace, "", func(limit int, cursor string) ([]gen.WorkflowPlane, string, error) {
-		p := &gen.ListWorkflowPlanesParams{Limit: &limit}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListWorkflowPlanes(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.WorkflowPlane) string { return v.Metadata.Name }, infraPath("workflow-planes"))); err != nil {
-		return nil, err
-	}
-	if err := add(collectResources(KindObservabilityPlane, namespace, "", func(limit int, cursor string) ([]gen.ObservabilityPlane, string, error) {
-		p := &gen.ListObservabilityPlanesParams{Limit: &limit}
-		if cursor != "" {
-			p.Cursor = &cursor
-		}
-		r, err := c.ListObservabilityPlanes(ctx, namespace, p)
-		if err != nil {
-			return nil, "", err
-		}
-		return r.Items, nextCursor(r.Pagination), nil
-	}, func(v gen.ObservabilityPlane) string { return v.Metadata.Name }, infraPath("observability-planes"))); err != nil {
-		return nil, err
-	}
 	if err := add(collectResources(KindProjectType, namespace, "", func(limit int, cursor string) ([]gen.ProjectType, string, error) {
 		p := &gen.ListProjectTypesParams{Limit: &limit}
 		if cursor != "" {
@@ -408,6 +363,90 @@ func collectNamespacePlatformResources(ctx context.Context, c client.Interface, 
 	return out, nil
 }
 
+// collectNamespaceInfrastructureResources collects environments, pipelines, and planes.
+func collectNamespaceInfrastructureResources(ctx context.Context, c client.Interface, namespace string) ([]resource, error) {
+	var out []resource
+	add := func(items []resource, err error) error {
+		if err != nil {
+			return err
+		}
+		out = append(out, items...)
+		return nil
+	}
+	infraPath := func(category string) func(string) string {
+		return func(name string) string {
+			return namespacedResourcePath(namespace, path.Join("infra", category), name)
+		}
+	}
+
+	if err := add(collectResources(KindEnvironment, namespace, "", func(limit int, cursor string) ([]gen.Environment, string, error) {
+		p := &gen.ListEnvironmentsParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListEnvironments(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.Environment) string { return v.Metadata.Name }, infraPath("environments"))); err != nil {
+		return nil, err
+	}
+	if err := add(collectResources(KindDeploymentPipeline, namespace, "", func(limit int, cursor string) ([]gen.DeploymentPipeline, string, error) {
+		p := &gen.ListDeploymentPipelinesParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListDeploymentPipelines(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.DeploymentPipeline) string { return v.Metadata.Name }, infraPath("deployment-pipelines"))); err != nil {
+		return nil, err
+	}
+	if err := add(collectResources(KindDataPlane, namespace, "", func(limit int, cursor string) ([]gen.DataPlane, string, error) {
+		p := &gen.ListDataPlanesParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListDataPlanes(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.DataPlane) string { return v.Metadata.Name }, infraPath("data-planes"))); err != nil {
+		return nil, err
+	}
+	if err := add(collectResources(KindWorkflowPlane, namespace, "", func(limit int, cursor string) ([]gen.WorkflowPlane, string, error) {
+		p := &gen.ListWorkflowPlanesParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListWorkflowPlanes(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.WorkflowPlane) string { return v.Metadata.Name }, infraPath("workflow-planes"))); err != nil {
+		return nil, err
+	}
+	if err := add(collectResources(KindObservabilityPlane, namespace, "", func(limit int, cursor string) ([]gen.ObservabilityPlane, string, error) {
+		p := &gen.ListObservabilityPlanesParams{Limit: &limit}
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		r, err := c.ListObservabilityPlanes(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		return r.Items, nextCursor(r.Pagination), nil
+	}, func(v gen.ObservabilityPlane) string { return v.Metadata.Name }, infraPath("observability-planes"))); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func isComponentWorkflowObject(object map[string]any) bool {
 	metadata, ok := object["metadata"].(map[string]any)
 	if !ok {
@@ -479,7 +518,9 @@ func collectProjectResources(ctx context.Context, c client.Interface, namespace,
 	if err != nil {
 		return nil, err
 	}
-	out := append(releases, bindings...)
+	out := make([]resource, 0, len(releases)+len(bindings)+len(instances))
+	out = append(out, releases...)
+	out = append(out, bindings...)
 	out = append(out, instances...)
 	for _, instance := range instances {
 		resourceDir := path.Join(projectDir, "resources", instance.name)

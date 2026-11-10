@@ -35,7 +35,7 @@ func isPlaintextCredential(name string, value any) bool {
 // findPlaintextSecrets returns sorted locations of possible plaintext credentials.
 func findPlaintextSecrets(object map[string]any) []string {
 	credentials := plaintextCredentials(object)
-	var findings []string
+	findings := make([]string, 0, len(credentials))
 	for _, credential := range credentials {
 		findings = append(findings, credential.path)
 	}
