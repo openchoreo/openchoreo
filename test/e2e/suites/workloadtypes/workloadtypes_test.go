@@ -70,7 +70,7 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			return err
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-		By("patching scheduled-task ReleaseBinding for a 1-minute schedule")
+		By("patching scheduled-task ReleaseBinding for a 1-minute schedule and an image pull secret")
 		output, err = framework.Kubectl(kubeContext, "patch", "releasebinding", scheduledRBName,
 			"-n", cpNs, "--type=merge", "-p", scheduleOverridePatch)
 		Expect(err).NotTo(HaveOccurred(), "failed to patch schedule on ReleaseBinding %s: %s", scheduledRBName, output)
@@ -121,6 +121,16 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 					"openchoreo.dev/component="+componentService)
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
 
+			By("workload pod runs as its own ServiceAccount without an API token")
+			Eventually(func(g Gomega) {
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
+					"openchoreo.dev/component="+componentService, ".spec")
+				pullSecrets, err := framework.KubectlGetJsonpath(kubeContext, dpNs, "serviceaccount", saName,
+					"{.imagePullSecrets}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(pullSecrets).To(BeEmpty(), "ServiceAccount %s should have no imagePullSecrets by default", saName)
+			}, 1*time.Minute, 2*time.Second).Should(Succeed())
+
 			By("TCP port is reachable from tester pod")
 			host, port := endpointHostPort(componentService, "http")
 			Eventually(func() error {
@@ -143,6 +153,21 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				framework.AssertPodsRunning(g, kubeContext, dpNs,
 					"openchoreo.dev/component="+componentWebApp)
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("workload pod runs as its own ServiceAccount without an API token")
+			Eventually(func(g Gomega) {
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "pod",
+					"openchoreo.dev/component="+componentWebApp, ".spec")
+				serviceSAName, err := framework.Kubectl(kubeContext,
+					"get", "pod",
+					"-n", dpNs,
+					"-l", "openchoreo.dev/component="+componentService,
+					"-o", "jsonpath={.items[0].spec.serviceAccountName}",
+				)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(saName).NotTo(Equal(serviceSAName),
+					"%s and %s should not share a ServiceAccount", componentWebApp, componentService)
+			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("TCP port is reachable from tester pod")
 			host, port := endpointHostPort(componentWebApp, "http")
@@ -172,6 +197,16 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(out).NotTo(BeEmpty(), "no CronJob found for component %s in %s", componentScheduled, dpNs)
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("CronJob pods run as their own ServiceAccount without an API token, with the ReleaseBinding's image pull secrets")
+			Eventually(func(g Gomega) {
+				saName := framework.AssertDedicatedServiceAccount(g, kubeContext, dpNs, "cronjob",
+					"openchoreo.dev/component="+componentScheduled, ".spec.jobTemplate.spec.template.spec")
+				pullSecrets, err := framework.KubectlGetJsonpath(kubeContext, dpNs, "serviceaccount", saName,
+					"{.imagePullSecrets[*].name}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(pullSecrets).To(Equal(imagePullSecretName))
+			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("CronJob status.lastScheduleTime is populated (Job was scheduled)")
 			// Schedule is * * * * * so the kube-controller-manager should fire
@@ -251,6 +286,19 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(out).To(BeEmpty(),
 					"Deployment for deleted component %s still present: %s", componentWebApp, out)
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("no ServiceAccount for the deleted component remains in DP namespace")
+			Eventually(func(g Gomega) {
+				out, err := framework.Kubectl(kubeContext,
+					"get", "serviceaccount",
+					"-n", dpNs,
+					"-l", "openchoreo.dev/component="+componentWebApp,
+					"-o", "jsonpath={.items[*].metadata.name}",
+				)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(BeEmpty(),
+					"ServiceAccount for deleted component %s still present: %s", componentWebApp, out)
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("the service component is untouched")
