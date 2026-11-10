@@ -4,6 +4,7 @@
 package export
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -150,10 +151,27 @@ func TestPlaintextCredentials_URLUserinfo(t *testing.T) {
 func TestPlaintextCredentials(t *testing.T) {
 	tests := []struct {
 		name  string
+		field string
 		value any
 		want  bool
 	}{
 		{name: "literal", value: "foo123", want: true},
+		{name: "database pass", field: "DB_PASS", value: "demo-value", want: true},
+		{name: "redis pass", field: "REDIS_PASS", value: "demo-value", want: true},
+		{name: "SMTP pass", field: "SMTP_PASS", value: "demo-value", want: true},
+		{name: "short pwd", field: "pwd", value: "demo-value", want: true},
+		{name: "passphrase", field: "passphrase", value: "demo-value", want: true},
+		{name: "camel case passphrase", field: "sshPassphrase", value: "demo-value", want: true},
+		{name: "access key", field: "ACCESS_KEY", value: "demo-value", want: true},
+		{name: "camel case access key", field: "accessKey", value: "demo-value", want: true},
+		{name: "signing key", field: "SIGNING_KEY", value: "demo-value", want: true},
+		{name: "camel case signing key", field: "signingKey", value: "demo-value", want: true},
+		{name: "Docker auth config", field: "DOCKER_AUTH_CONFIG", value: `{"auths":{"registry.example":{"auth":"demo-value"}}}`, want: true},
+		{name: "access key ID conservative detection", field: "AWS_ACCESS_KEY_ID", value: "demo-value", want: true},
+		{name: "new credential reference", field: "SIGNING_KEY", value: "${parameters.signingKey}"},
+		{name: "auth config reference", field: "DOCKER_AUTH_CONFIG", value: "{{ .authConfig }}"},
+		{name: "pass inside compass", field: "compass", value: "demo-value"},
+		{name: "pass inside bypass", field: "bypass", value: "demo-value"},
 		{name: "empty", value: ""},
 		{name: "number", value: 123},
 		{name: "structured reference", value: map[string]any{"secretKeyRef": map[string]any{"name": "db", "key": "password"}}},
@@ -175,13 +193,20 @@ func TestPlaintextCredentials(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, paired := range []bool{false, true} {
-				object := map[string]any{"password": tt.value}
-				field := "password"
-				path := ".password"
+				field := tt.field
+				if field == "" {
+					field = "password"
+				}
+				object := map[string]any{field: tt.value}
+				path := "." + field
 				if paired {
-					object = map[string]any{"key": "DB_PASSWORD", "value": tt.value}
-					field = "value"
-					path = `.value (key "DB_PASSWORD")`
+					key := tt.field
+					if key == "" {
+						key = "DB_PASSWORD"
+					}
+					object = map[string]any{"key": key, testEnvValueField: tt.value}
+					field = testEnvValueField
+					path = fmt.Sprintf(".value (key %q)", key)
 				}
 				if tt.want {
 					assert.Equal(t, []string{path}, findPlaintextSecrets(object))

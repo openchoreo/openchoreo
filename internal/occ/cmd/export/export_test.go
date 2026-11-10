@@ -189,6 +189,38 @@ func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
 	}
 }
 
+func TestRun_CommonCredentialNameUsesRedactionAndPrivatePermissions(t *testing.T) {
+	for _, keep := range []bool{false, true} {
+		name := "redact"
+		if keep {
+			name = "explicitly keep"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "output")
+			opts := Options{OutputDir: root}
+			if keep {
+				opts.KeepPlaintext = func(Withheld) (bool, error) { return true, nil }
+			}
+			report, err := runEngine(t.Context(), mockComponentClient(t, "DB_PASS", "demo-value"), opts)
+			require.NoError(t, err)
+			require.Len(t, report.SecretDecisions, 1)
+			assert.Equal(t, ".spec.parameters.DB_PASS", report.SecretDecisions[0].Reasons[0])
+			object := readManifest(t, root, managedComponentPath)
+			parameters := object["spec"].(map[string]any)["parameters"].(map[string]any)
+			wantMode := os.FileMode(0o644)
+			if keep {
+				assert.Equal(t, "demo-value", parameters["DB_PASS"])
+				wantMode = 0o600
+			} else {
+				assert.NotContains(t, parameters, "DB_PASS")
+			}
+			info, err := os.Stat(filepath.Join(root, filepath.FromSlash(managedComponentPath)))
+			require.NoError(t, err)
+			assert.Equal(t, wantMode, info.Mode().Perm())
+		})
+	}
+}
+
 func TestRun_UpdatesExistingComponentFile(t *testing.T) {
 	root := t.TempDir()
 	first, err := runEngine(context.Background(), mockComponentClient(t, "tier", "one"), Options{OutputDir: root})

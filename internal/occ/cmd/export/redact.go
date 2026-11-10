@@ -17,7 +17,7 @@ type plaintextCredential struct {
 }
 
 var sensitiveName = regexp.MustCompile(
-	`(?i)(^|[-_.])(password|passwd|secret|token|api[-_]?key|private[-_]?key|client[-_]?secret|credentials?)([-_.]|$)|(password|passwd|secret|token|api[-_]?key|private[-_]?key|client[-_]?secret|credentials?)$`)
+	`(?i)(^|[-_.])(password|passwd|pass|pwd|passphrase|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|signing[-_]?key|client[-_]?secret|credentials?|auth[-_]?config)([-_.]|$)|(password|passwd|passphrase|secret|token|api[-_]?key|access[-_]?key|private[-_]?key|signing[-_]?key|client[-_]?secret|credentials?)$`)
 
 // credentialReference matches direct template references without literal defaults or surrounding text.
 var credentialReference = regexp.MustCompile(
