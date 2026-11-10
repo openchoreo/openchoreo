@@ -149,6 +149,36 @@ func TestWriteFile_AllowsContainedSymlinksAndPreservesOutcomes(t *testing.T) {
 	assert.Len(t, entries, 1, "temporary files should be cleaned up")
 }
 
+func TestWriteFileInRoot_UnchangedOrdinaryFilePreservesPermissions(t *testing.T) {
+	output := t.TempDir()
+	data := []byte("ordinary manifest\n")
+	name := filepath.Join(output, "manifest.yaml")
+	require.NoError(t, os.WriteFile(name, data, 0o600))
+	outcome, err := writeFile(output, "manifest.yaml", data)
+	require.NoError(t, err)
+	assert.Equal(t, outcomeUnchanged, outcome)
+	info, err := os.Stat(name)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestWriteFileWithMode_DoesNotChmodEscapingSymlinkTargets(t *testing.T) {
+	output := t.TempDir()
+	target := filepath.Join(t.TempDir(), "manifest.yaml")
+	data := []byte("unchanged contents\n")
+	require.NoError(t, os.WriteFile(target, data, 0o600))
+	require.NoError(t, os.Chmod(target, 0o644))
+	require.NoError(t, os.Symlink(target, filepath.Join(output, "manifest.yaml")))
+	root, err := os.OpenRoot(output)
+	require.NoError(t, err)
+	defer root.Close()
+	_, err = writeFileWithMode(root, "manifest.yaml", data, 0o600)
+	require.Error(t, err)
+	info, err := os.Stat(target)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+}
+
 func TestWriteFileInRoot_KeepsOpenedOutputWhenPathIsReplaced(t *testing.T) {
 	parent := t.TempDir()
 	output := filepath.Join(parent, "output")

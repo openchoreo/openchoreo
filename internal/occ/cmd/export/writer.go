@@ -64,6 +64,10 @@ func writeFile(root, relativePath string, data []byte) (writeOutcome, error) {
 }
 
 func writeFileInRoot(root *os.Root, relativePath string, data []byte) (writeOutcome, error) {
+	return writeFileWithMode(root, relativePath, data, 0o644)
+}
+
+func writeFileWithMode(root *os.Root, relativePath string, data []byte, mode fs.FileMode) (writeOutcome, error) {
 	localPath := filepath.FromSlash(relativePath)
 	if !filepath.IsLocal(localPath) {
 		return 0, fmt.Errorf("refusing to write outside the output directory: %q", relativePath)
@@ -73,6 +77,11 @@ func writeFileInRoot(root *os.Root, relativePath string, data []byte) (writeOutc
 	switch {
 	case err == nil:
 		if bytes.Equal(oldData, data) {
+			if mode == 0o600 {
+				if err := chmodExportPath(root, localPath, mode); err != nil {
+					return 0, fmt.Errorf("set output permissions: %w", err)
+				}
+			}
 			return outcomeUnchanged, nil
 		}
 		outcome = outcomeUpdated
@@ -100,7 +109,7 @@ func writeFileInRoot(root *os.Root, relativePath string, data []byte) (writeOutc
 		_ = temporary.Close()
 		return 0, fmt.Errorf("write temporary output file: %w", err)
 	}
-	if err := temporary.Chmod(0o644); err != nil {
+	if err := temporary.Chmod(mode); err != nil {
 		_ = temporary.Close()
 		return 0, fmt.Errorf("set output permissions: %w", err)
 	}
@@ -152,7 +161,11 @@ func prepareExportFiles(ctx context.Context, root *os.Root, resources []resource
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		outcome, err := writeFileInRoot(root, item.path, rendered[i])
+		mode := fs.FileMode(0o644)
+		if item.retainsPlaintext {
+			mode = 0o600
+		}
+		outcome, err := writeFileWithMode(root, item.path, rendered[i], mode)
 		if err != nil {
 			return fmt.Errorf("write %s %q: %w", item.kind, item.name, err)
 		}
@@ -310,7 +323,7 @@ func copyExportSnapshot(ctx context.Context, source, destination *os.Root) error
 	}
 	for i := len(directories) - 1; i >= 0; i-- {
 		dir := directories[i]
-		if err := chmodExportDirectory(destination, dir.name, dir.mode); err != nil {
+		if err := chmodExportPath(destination, dir.name, dir.mode); err != nil {
 			return err
 		}
 	}
@@ -332,13 +345,13 @@ func copyExportFile(source, destination *os.Root, name string, mode fs.FileMode)
 	return errors.Join(copyErr, modeErr, output.Close())
 }
 
-func chmodExportDirectory(root *os.Root, name string, mode fs.FileMode) error {
-	directory, err := root.Open(name)
+func chmodExportPath(root *os.Root, name string, mode fs.FileMode) error {
+	file, err := root.Open(name)
 	if err != nil {
 		return err
 	}
-	defer directory.Close()
-	return directory.Chmod(mode)
+	defer file.Close()
+	return file.Chmod(mode)
 }
 
 // All manifest and inventory writes precede this handoff. A failed publication
@@ -375,7 +388,7 @@ func removeExportSnapshot(parent *os.Root, name string) {
 	// the previous snapshot may have read-only directories after publication.
 	_ = fs.WalkDir(root.FS(), ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr == nil && entry.IsDir() {
-			return chmodExportDirectory(root, name, 0o700)
+			return chmodExportPath(root, name, 0o700)
 		}
 		return walkErr
 	})

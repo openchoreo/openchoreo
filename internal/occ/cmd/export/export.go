@@ -86,12 +86,13 @@ type SecretDecision struct {
 
 // resource holds a normalized manifest and its destination path.
 type resource struct {
-	kind      string
-	name      string
-	namespace string
-	project   string
-	path      string
-	object    map[string]any
+	kind             string
+	name             string
+	namespace        string
+	project          string
+	path             string
+	object           map[string]any
+	retainsPlaintext bool
 }
 
 // Run exports resources and writes a summary.
@@ -170,6 +171,7 @@ func runEngine(ctx context.Context, c client.Interface, opts Options) (*Report, 
 				}
 			}
 			if keep {
+				item.retainsPlaintext = true
 				report.SecretDecisions = append(report.SecretDecisions, SecretDecision{Withheld: finding, Action: "kept"})
 			} else {
 				credential.redact()

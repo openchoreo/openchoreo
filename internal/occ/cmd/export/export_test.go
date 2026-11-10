@@ -168,6 +168,13 @@ func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
 						want = tt.value
 					}
 					assert.Equal(t, want, parameters[tt.parameter])
+					info, err := os.Stat(filepath.Join(root, "namespaces", "acme", "projects", testProjectName, "components", "api", "component.yaml"))
+					require.NoError(t, err)
+					wantMode := os.FileMode(0o644)
+					if keep {
+						wantMode = 0o600
+					}
+					assert.Equal(t, wantMode, info.Mode().Perm())
 					if !keep {
 						data, err := os.ReadFile(filepath.Join(root, "namespaces", "acme", "projects", testProjectName, "components", "api", "component.yaml"))
 						require.NoError(t, err)
@@ -295,6 +302,49 @@ func TestRun_KeepsPlaintextWhenDecisionAllows(t *testing.T) {
 	data, err := os.ReadFile(componentPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), secretValue)
+}
+
+func TestRun_KeptCredentialsHaveOwnerOnlyPermissions(t *testing.T) {
+	const secret = "retained-demo-password"
+	for _, scenario := range []string{"created", "updated", "unchanged"} {
+		t.Run(scenario, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "output")
+			opts := Options{OutputDir: root, KeepPlaintext: func(Withheld) (bool, error) { return true, nil }}
+			component := filepath.Join(root, "namespaces", "acme", "projects", testProjectName, "components", "api", "component.yaml")
+			if scenario != "created" {
+				previous := secret
+				if scenario == "updated" {
+					previous = "previous-demo-password"
+				}
+				_, err := runEngine(t.Context(), mockComponentClient(t, "dbPassword", previous), opts)
+				require.NoError(t, err)
+				// Simulate a manifest written by an older exporter with broad permissions.
+				require.NoError(t, os.Chmod(component, 0o644))
+			}
+			report, err := runEngine(t.Context(), mockComponentClient(t, "dbPassword", secret), opts)
+			require.NoError(t, err)
+			info, err := os.Stat(component)
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+			data, err := os.ReadFile(component)
+			require.NoError(t, err)
+			assert.Contains(t, string(data), secret)
+			switch scenario {
+			case "created":
+				assert.Equal(t, 3, report.Created)
+			case "updated":
+				assert.Equal(t, 1, report.Updated)
+			case "unchanged":
+				assert.Equal(t, 3, report.Unchanged)
+				assert.Zero(t, report.Updated, "permission correction must preserve content-based reporting")
+			}
+			for _, relative := range []string{"namespaces/acme/namespace.yaml", "namespaces/acme/projects/shop/project.yaml", managedFilesName} {
+				info, err := os.Stat(filepath.Join(root, filepath.FromSlash(relative)))
+				require.NoError(t, err)
+				assert.Equal(t, os.FileMode(0o644), info.Mode().Perm(), relative)
+			}
+		})
+	}
 }
 
 func TestRun_FetchFailureDoesNotWriteFiles(t *testing.T) {
