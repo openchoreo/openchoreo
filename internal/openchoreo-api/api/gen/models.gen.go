@@ -922,7 +922,7 @@ type ClusterComponentTypeList struct {
 
 // ClusterComponentTypeSpec Desired state of a ClusterComponentType
 type ClusterComponentTypeSpec struct {
-	// AllowedEndpoints Declares which ClusterEndpointType exposes a workload endpoint of a Component of this type, keyed on the endpoint's protocol and requested visibility. Only ClusterEndpointType references are allowed. Clients creating a Component generate one Endpoint per workload endpoint from the default entry matching it. If empty or omitted, no Endpoints are generated and the type keeps rendering its own routes. At most one default entry may match any (protocol, visibility) pair.
+	// AllowedEndpoints Declares which ClusterEndpointType may expose a workload endpoint of a Component of this type, keyed on the endpoint's protocol. Only ClusterEndpointType references are allowed. Clients creating a Component create one Endpoint per workload endpoint the developer exposes, from the entry they choose or the default entry for its protocol. If empty or omitted, no Endpoints are created for Components of this type. At most one default entry may match a protocol.
 	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
 
 	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (always ClusterTrait) and "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
@@ -1683,7 +1683,7 @@ type ComponentTypeList struct {
 
 // ComponentTypeSpec Desired state of a ComponentType
 type ComponentTypeSpec struct {
-	// AllowedEndpoints Declares which EndpointType or ClusterEndpointType exposes a workload endpoint of a Component of this type, keyed on the endpoint's protocol and requested visibility. Clients creating a Component generate one Endpoint per workload endpoint from the default entry matching it. If empty or omitted, no Endpoints are generated and the type keeps rendering its own routes. At most one default entry may match any (protocol, visibility) pair.
+	// AllowedEndpoints Declares which EndpointType or ClusterEndpointType may expose a workload endpoint of a Component of this type, keyed on the endpoint's protocol. Clients creating a Component create one Endpoint per workload endpoint the developer exposes, from the entry they choose or the default entry for its protocol. If empty or omitted, no Endpoints are created for Components of this type. At most one default entry may match a protocol.
 	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
 
 	// AllowedTraits Restricts which Trait or ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (Trait or ClusterTrait, defaults to Trait) and "name". For example: {"kind": "Trait", "name": "my-trait"} or {"kind": "ClusterTrait", "name": "my-cluster-trait"}. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
@@ -2185,7 +2185,9 @@ type EndpointRelease struct {
 
 // EndpointReleaseBinding EndpointReleaseBinding resource.
 // Pins an EndpointRelease to an Environment, resolves its backends there, and
-// renders its routes. Authored externally; not managed by the Endpoint controller.
+// renders its routes. Authored externally, except the first-environment binding of an
+// Endpoint with spec.autoDeploy, which the Endpoint controller creates and advances to
+// each new EndpointRelease.
 type EndpointReleaseBinding struct {
 	// ApiVersion API version of the resource
 	ApiVersion *string `json:"apiVersion,omitempty"`

@@ -226,7 +226,7 @@ func (p *Pipeline) renderPort(ctx context.Context, expr string, celContext map[s
 	case float64:
 		port = v
 	case string:
-		n, err := strconv.Atoi(v)
+		n, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
 			return 0, fmt.Errorf("port resolved to %q, which is not an integer", v)
 		}

@@ -204,7 +204,9 @@ type EndpointAPIKey struct {
 // EndpointReleaseBinding is the Schema for the endpointreleasebindings API.
 // Pins an EndpointRelease to an Environment, resolves its backends to the
 // environment's component services, and renders the EndpointType's routing
-// resources. Authored externally; not managed by the Endpoint controller.
+// resources. Authored externally (kubectl, GitOps, API server), except the
+// first-environment binding of an Endpoint with spec.autoDeploy, which the
+// Endpoint controller creates and advances to each new EndpointRelease.
 type EndpointReleaseBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
