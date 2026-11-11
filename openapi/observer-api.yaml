@@ -1062,7 +1062,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
-          description: Too many raw queries; retry later
+          description: |
+            Too many raw queries: the maximum number of raw trace queries are
+            already running, or the caller has run more than its rate allows.
+            Both limits are configured on the observability plane, per Observer
+            replica. Retry after the time in the Retry-After header.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+                minimum: 1
           content:
             application/json:
               schema:

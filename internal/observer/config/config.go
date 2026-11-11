@@ -68,6 +68,11 @@ type AdaptersConfig struct {
 	TracingRawQueryTimeout          time.Duration `koanf:"tracing.rawquery.timeout"`
 	TracingRawQueryMaxRequestBytes  int64         `koanf:"tracing.rawquery.max.request.bytes"`
 	TracingRawQueryMaxResponseBytes int64         `koanf:"tracing.rawquery.max.response.bytes"`
+	// Limits on how many raw trace queries run at once and how often each
+	// caller may run them, per Observer replica. Zero turns a limit off.
+	TracingRawQueryMaxConcurrent     int `koanf:"tracing.rawquery.max.concurrent"`
+	TracingRawQueryRequestsPerMinute int `koanf:"tracing.rawquery.requests.per.minute"`
+	TracingRawQueryBurst             int `koanf:"tracing.rawquery.burst"`
 
 	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
 	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
@@ -285,6 +290,9 @@ func Load() (*Config, error) {
 		"TRACING_RAW_QUERY_TIMEOUT":                 "adapters.tracing.rawquery.timeout",
 		"TRACING_RAW_QUERY_MAX_REQUEST_BYTES":       "adapters.tracing.rawquery.max.request.bytes",
 		"TRACING_RAW_QUERY_MAX_RESPONSE_BYTES":      "adapters.tracing.rawquery.max.response.bytes",
+		"TRACING_RAW_QUERY_MAX_CONCURRENT":          "adapters.tracing.rawquery.max.concurrent",
+		"TRACING_RAW_QUERY_REQUESTS_PER_MINUTE":     "adapters.tracing.rawquery.requests.per.minute",
+		"TRACING_RAW_QUERY_BURST":                   "adapters.tracing.rawquery.burst",
 		"METRICS_ADAPTER_URL":                       "adapters.metrics.adapter.url",
 		"METRICS_ADAPTER_TIMEOUT":                   "adapters.metrics.adapter.timeout",
 		"FINOPS_ADAPTER_URL":                        "adapters.finops.adapter.url",
@@ -467,6 +475,11 @@ func getDefaults() map[string]interface{} {
 			"metrics.adapter.timeout":             "30s",
 			"finops.adapter.url":                  "http://finops-adapter:9101",
 			"finops.adapter.timeout":              "30s",
+
+			// Raw trace query limits, per Observer replica; 0 turns a limit off.
+			"tracing.rawquery.max.concurrent":      4,
+			"tracing.rawquery.requests.per.minute": 10,
+			"tracing.rawquery.burst":               5,
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -603,6 +616,18 @@ func (c *Config) validateTracingRawQuery() error {
 	}
 	if c.Adapters.TracingRawQueryMaxResponseBytes <= 0 {
 		return fmt.Errorf("tracing raw query max response bytes must be positive")
+	}
+	if c.Adapters.TracingRawQueryMaxConcurrent < 0 {
+		return fmt.Errorf("tracing raw query max concurrent must not be negative")
+	}
+	if c.Adapters.TracingRawQueryRequestsPerMinute < 0 {
+		return fmt.Errorf("tracing raw query requests per minute must not be negative")
+	}
+	if c.Adapters.TracingRawQueryBurst < 0 {
+		return fmt.Errorf("tracing raw query burst must not be negative")
+	}
+	if c.Adapters.TracingRawQueryRequestsPerMinute > 0 && c.Adapters.TracingRawQueryBurst < 1 {
+		return fmt.Errorf("tracing raw query burst must be at least 1 when requests per minute is set")
 	}
 	return nil
 }

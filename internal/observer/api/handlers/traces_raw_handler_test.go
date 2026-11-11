@@ -14,12 +14,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	"github.com/openchoreo/openchoreo/internal/observer/querylimit"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
@@ -256,6 +258,54 @@ func TestQueryRawTraces_MapsServiceErrors(t *testing.T) {
 			require.Equal(t, tt.status, rr.Code, rr.Body.String())
 			body := decodeRawError(t, rr)
 			assert.Equal(t, tt.title, body.Title)
+			assert.Equal(t, tt.errorCode, body.ErrorCode)
+			assert.Equal(t, tt.message, body.Message)
+		})
+	}
+}
+
+func TestQueryRawTraces_AnswersALimitedQueryWith429(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		limited    *querylimit.LimitedError
+		errorCode  string
+		message    string
+		retryAfter string
+	}{
+		{"too many running",
+			&querylimit.LimitedError{Reason: querylimit.ReasonConcurrency, RetryAfter: time.Second},
+			types.ErrorCodeV1TracesRawQueryConcurrencyLimited,
+			"Too many raw trace queries are running; retry later", "1"},
+		{"over the caller's rate",
+			&querylimit.LimitedError{Reason: querylimit.ReasonRate, RetryAfter: 6 * time.Second},
+			types.ErrorCodeV1TracesRawQueryRateLimited,
+			"Too many raw trace queries from this caller; retry later", "6"},
+		{"retry after rounded up to whole seconds",
+			&querylimit.LimitedError{Reason: querylimit.ReasonRate, RetryAfter: 1500 * time.Millisecond},
+			types.ErrorCodeV1TracesRawQueryRateLimited,
+			"Too many raw trace queries from this caller; retry later", "2"},
+		{"retry after at least one second",
+			&querylimit.LimitedError{Reason: querylimit.ReasonRate},
+			types.ErrorCodeV1TracesRawQueryRateLimited,
+			"Too many raw trace queries from this caller; retry later", "1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc := servicemocks.NewMockTracesQuerier(t)
+			svc.On("QueryRawTraces", mock.Anything, mock.Anything).
+				Return(nil, fmt.Errorf("%w: %w", service.ErrRawTracesLimited, tt.limited))
+			h := &Handler{baseHandler: baseHandler{logger: noopLogger()}, tracesService: svc}
+
+			rr := serve(t, h, rawQueryRequest("application/json", `{"size":0}`))
+
+			require.Equal(t, http.StatusTooManyRequests, rr.Code, rr.Body.String())
+			assert.Equal(t, tt.retryAfter, rr.Header().Get("Retry-After"))
+			assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+			body := decodeRawError(t, rr)
+			assert.Equal(t, "tooManyRequests", body.Title)
 			assert.Equal(t, tt.errorCode, body.ErrorCode)
 			assert.Equal(t, tt.message, body.Message)
 		})
