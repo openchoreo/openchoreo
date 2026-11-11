@@ -5,7 +5,6 @@ package renderedrelease
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,6 +14,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -143,7 +143,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
 			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
 				{ID: "api", APIVersion: "apps/v1", Kind: "Deployment", Namespace: testNs, Name: dep.Name},
-				{APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: cm.Name},
+				{ID: "settings", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: cm.Name},
 				{ID: "missing", APIVersion: "v1", Kind: "Service", Namespace: testNs, Name: "observe-read-missing"},
 				{ID: "widget", APIVersion: "example.com/v1", Kind: "Widget", Namespace: testNs, Name: "w"},
 			}
@@ -163,7 +163,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(observed[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
 			Expect(string(observed[0].Status.Raw)).To(ContainSubstring(`"availableReplicas":1`))
 			Expect(observed[0].LastObservedTime).NotTo(BeNil())
-			Expect(observed[1].ID).To(Equal(generateObservedResourceID("", "ConfigMap", testNs, cm.Name)))
+			Expect(observed[1].ID).To(Equal("settings"))
 			Expect(observed[1].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
 
 			By("A missing object and an unknown kind are Unknown, with the reasons in the condition")
@@ -177,9 +177,6 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(read.Message).To(ContainSubstring("2 of 4"))
 			Expect(read.Message).To(ContainSubstring("missing (v1 Service default/observe-read-missing): not found"))
 			Expect(read.Message).To(ContainSubstring("widget (example.com/v1 Widget default/w): kind is not served"))
-			ids := findCondition(updated, string(ConditionObservedResourceIDsUnique))
-			Expect(ids).NotTo(BeNil())
-			Expect(ids.Status).To(Equal(metav1.ConditionTrue))
 
 			By("Nothing was applied, and the apply condition says why")
 			applied := findCondition(updated, ConditionResourcesApplied)
@@ -444,38 +441,45 @@ var _ = Describe("RenderedRelease observe mode API validation", func() {
 		return openchoreov1alpha1.ObservedResource{ID: id, APIVersion: "apps/v1", Kind: "Deployment", Namespace: testNs, Name: name}
 	}
 
-	It("rejects ids that are set twice", func() {
-		err := k8sClient.Create(ctx, newRelease("cel-dup-ids", deploy("api", "a"), deploy("api", "b")))
+	It("rejects an id used twice", func() {
+		err := k8sClient.Create(ctx, newRelease("val-dup-ids", deploy("api", "a"), deploy("api", "b")))
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
-		Expect(err.Error()).To(ContainSubstring("observedResources ids must be unique"))
+		Expect(err.Error()).To(ContainSubstring("Duplicate value"))
 	})
 
-	It("accepts distinct ids, and entries without one", func() {
-		Expect(k8sClient.Create(ctx, newRelease("cel-ids-ok",
-			deploy("api", "a"), deploy("web", "b"), deploy("", "c"), deploy("", "d")))).To(Succeed())
+	It("accepts distinct ids", func() {
+		Expect(k8sClient.Create(ctx, newRelease("val-ids-ok", deploy("api", "a"), deploy("web", "b")))).To(Succeed())
 	})
 
-	It("leaves repeated unset ids to the controller", func() {
-		// Two entries without ids for one object generate the same id. The API
-		// cannot see generated ids; the controller reports the conflict.
-		Expect(k8sClient.Create(ctx, newRelease("cel-unset-dups", deploy("", "a"), deploy("", "a")))).To(Succeed())
+	It("requires an id on every entry", func() {
+		By("an empty id")
+		err := k8sClient.Create(ctx, newRelease("val-empty-id", deploy("", "a")))
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
+
+		By("no id field at all, as a hand-written manifest would leave it")
+		raw := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "openchoreo.dev/v1alpha1",
+			"kind":       "RenderedRelease",
+			"metadata":   map[string]any{"name": "val-missing-id", "namespace": testNs},
+			"spec": map[string]any{
+				"owner":           map[string]any{"projectName": "p", "componentName": "c"},
+				"environmentName": "env-validation",
+				"observedResources": []any{map[string]any{
+					"apiVersion": "apps/v1", "kind": "Deployment", "namespace": testNs, "name": "a",
+				}},
+			},
+		}}
+		DeferCleanup(func() { forceDelete(ctx, types.NamespacedName{Name: "val-missing-id", Namespace: testNs}) })
+		err = k8sClient.Create(ctx, raw)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
+		Expect(err.Error()).To(ContainSubstring("Required value"))
 	})
 
 	It("rejects a malformed apiVersion", func() {
-		bad := deploy("", "a")
+		bad := deploy("a", "a")
 		bad.APIVersion = "apps/v1/extra"
-		err := k8sClient.Create(ctx, newRelease("cel-bad-apiversion", bad))
+		err := k8sClient.Create(ctx, newRelease("val-bad-apiversion", bad))
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
-	})
-
-	It("rejects more than 256 observed resources", func() {
-		many := make([]openchoreov1alpha1.ObservedResource, 257)
-		for i := range many {
-			many[i] = deploy("", fmt.Sprintf("d-%d", i))
-		}
-		err := k8sClient.Create(ctx, newRelease("cel-too-many", many...))
-		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
-		Expect(strings.ToLower(err.Error())).To(ContainSubstring("must have at most 256 items"))
 	})
 
 	It("leaves an unset mode unset and rejects unknown modes", func() {

@@ -18,7 +18,6 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -56,7 +55,7 @@ func identityOf(obj *unstructured.Unstructured) objectIdentity {
 	return objectIdentity{group: gvk.Group, kind: gvk.Kind, namespace: obj.GetNamespace(), name: obj.GetName()}
 }
 
-// observedEntry is a spec.observedResources entry with its effective id.
+// observedEntry is a spec.observedResources entry with its API version parsed.
 type observedEntry struct {
 	id  string
 	gvk schema.GroupVersionKind
@@ -81,56 +80,25 @@ func (e observedEntry) describe() string {
 	return fmt.Sprintf("%s (%s %s %s/%s)", e.id, apiVersion, e.gvk.Kind, e.namespace, e.name)
 }
 
-// resolveObservedResources returns the observed entries with their effective ids
-// and, in spec order, every id that more than one entry ends up with.
-//
-// Ids that are set are unique among themselves (CEL), so a repeated id involves a
-// generated one: a set id that equals the id generated for another entry, or one
-// object listed twice without ids.
-func resolveObservedResources(specs []openchoreov1alpha1.ObservedResource) ([]observedEntry, []string) {
+// resolveObservedResources returns the observed entries in spec order, with
+// each apiVersion parsed. Ids are required and unique (the list is a map keyed
+// by id), so they are taken as written.
+func resolveObservedResources(specs []openchoreov1alpha1.ObservedResource) []observedEntry {
 	entries := make([]observedEntry, 0, len(specs))
-	counts := make(map[string]int, len(specs))
 	for _, spec := range specs {
 		gv, err := schema.ParseGroupVersion(spec.APIVersion)
 		if err != nil {
 			gv = schema.GroupVersion{Version: spec.APIVersion}
 		}
-		entry := observedEntry{
+		entries = append(entries, observedEntry{
 			id:            spec.ID,
 			gvk:           gv.WithKind(spec.Kind),
 			apiVersionErr: err,
 			namespace:     spec.Namespace,
 			name:          spec.Name,
-		}
-		if entry.id == "" {
-			entry.id = generateObservedResourceID(gv.Group, spec.Kind, spec.Namespace, spec.Name)
-		}
-		counts[entry.id]++
-		entries = append(entries, entry)
+		})
 	}
-
-	var conflicts []string
-	for _, entry := range entries {
-		if counts[entry.id] > 1 {
-			conflicts = append(conflicts, entry.id)
-			counts[entry.id] = 0 // name each conflicting id once
-		}
-	}
-	return entries, conflicts
-}
-
-// generateObservedResourceID returns the id of an observed resource that has none
-// set: the lowercased kind and the name, with a short hash of the group, kind,
-// namespace and name, such as "deployment-payments-api-1a2b3c4d".
-//
-// It depends on nothing but those four values, so an entry keeps its id across
-// reconciles and across a change of API version. The kind and name alone can
-// repeat (the same name in two namespaces, or the same kind in two groups), which
-// is what the hash is for. Ids fit in a label value, like the ids of rendered
-// resources, and long kinds and names are shortened to fit.
-func generateObservedResourceID(group, kind, namespace, name string) string {
-	hashInput := strings.Join([]string{group, kind, namespace, name}, "/")
-	return dpkubernetes.GenerateK8sNameWithHashInput(dpkubernetes.MaxLabelNameLength, hashInput, kind, name)
+	return entries
 }
 
 // observedReadFailure records an observed resource that could not be read.
@@ -246,7 +214,8 @@ func namesObject(err error) bool {
 }
 
 // observedStatusKey pairs a previous status.observedResources entry with the
-// current one: ids can repeat while they conflict, so the object is part of it.
+// current one. The object is part of it: an id can be pointed at another object,
+// which must not inherit the previous object's LastObservedTime.
 type observedStatusKey struct {
 	id                             string
 	group, version, kind, ns, name string
@@ -256,14 +225,13 @@ func observedStatusKeyOf(s *openchoreov1alpha1.RenderedManifestStatus) observedS
 	return observedStatusKey{id: s.ID, group: s.Group, version: s.Version, kind: s.Kind, ns: s.Namespace, name: s.Name}
 }
 
-// setObservedConditions records how reading the observed resources went. Both
-// conditions are present only while the release lists observed resources, so
+// setObservedConditions records how reading the observed resources went. The
+// condition is present only while the release lists observed resources, so
 // releases that do not use them are unchanged.
 func setObservedConditions(release *openchoreov1alpha1.RenderedRelease, entries []observedEntry,
-	failures []observedReadFailure, idConflicts []string) {
+	failures []observedReadFailure) {
 	if len(entries) == 0 {
 		apimeta.RemoveStatusCondition(&release.Status.Conditions, string(ConditionObservedResourcesRead))
-		apimeta.RemoveStatusCondition(&release.Status.Conditions, string(ConditionObservedResourceIDsUnique))
 		return
 	}
 
@@ -273,15 +241,6 @@ func setObservedConditions(release *openchoreov1alpha1.RenderedRelease, entries 
 	} else {
 		controller.MarkFalseCondition(release, ConditionObservedResourcesRead, readFailureReason(failures),
 			readFailureMessage(len(entries), failures))
-	}
-
-	if len(idConflicts) == 0 {
-		controller.MarkTrueCondition(release, ConditionObservedResourceIDsUnique, ReasonObservedIDsUnique,
-			"Every observed resource has its own id")
-	} else {
-		controller.MarkFalseCondition(release, ConditionObservedResourceIDsUnique, ReasonObservedIDConflict,
-			fmt.Sprintf("More than one observed resource has the id %s. A set id equals one generated for "+
-				"another entry, or one object is listed twice", strings.Join(idConflicts, ", ")))
 	}
 }
 

@@ -153,9 +153,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	// Observed resources are read in both modes and never written. Resolving them
-	// here gives every unset id its generated one before anything uses them.
-	observedEntries, observedIDConflicts := resolveObservedResources(release.Spec.ObservedResources)
+	// Observed resources are read in both modes and never written.
+	observedEntries := resolveObservedResources(release.Spec.ObservedResources)
 
 	// The mode only decides what happens to spec.resources. In Observe mode nothing
 	// is desired, so the cleanup below removes whatever this release applied
@@ -243,7 +242,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Read the observed resources. Each one is a Get through the plane client.
 	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
-	setObservedConditions(release, observedEntries, observed.failures, observedIDConflicts)
+	setObservedConditions(release, observedEntries, observed.failures)
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations.

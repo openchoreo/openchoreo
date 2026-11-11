@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -77,140 +76,37 @@ func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Uns
 }
 
 // ─────────────────────────────────────────────────────────────
-// ids
+// entries
 // ─────────────────────────────────────────────────────────────
 
-func TestGenerateObservedResourceID(t *testing.T) {
-	id := generateObservedResourceID("apps", "Deployment", "payments-prod", "payments-api")
-
-	t.Run("readable kind-name prefix with a short hash", func(t *testing.T) {
-		if !regexp.MustCompile(`^deployment-payments-api-[0-9a-f]{8}$`).MatchString(id) {
-			t.Errorf("id = %q, want deployment-payments-api-<8 hex>", id)
-		}
-	})
-
-	t.Run("deterministic", func(t *testing.T) {
-		for range 3 {
-			if again := generateObservedResourceID("apps", "Deployment", "payments-prod", "payments-api"); again != id {
-				t.Fatalf("id changed between calls: %q then %q", id, again)
-			}
-		}
-	})
-
-	t.Run("each of group, kind, namespace and name changes it", func(t *testing.T) {
-		variants := map[string]string{
-			"namespace": generateObservedResourceID("apps", "Deployment", "payments-staging", "payments-api"),
-			"group":     generateObservedResourceID("example.com", "Deployment", "payments-prod", "payments-api"),
-			"kind":      generateObservedResourceID("apps", "StatefulSet", "payments-prod", "payments-api"),
-			"name":      generateObservedResourceID("apps", "Deployment", "payments-prod", "payments-web"),
-		}
-		seen := map[string]string{id: "base"}
-		for what, v := range variants {
-			if prev, dup := seen[v]; dup {
-				t.Errorf("changing the %s gave the same id as %s: %q", what, prev, v)
-			}
-			seen[v] = what
-		}
-	})
-
-	t.Run("same kind and name in two namespaces get different ids", func(t *testing.T) {
-		a := generateObservedResourceID("", "ConfigMap", "team-a", "settings")
-		b := generateObservedResourceID("", "ConfigMap", "team-b", "settings")
-		if a == b {
-			t.Errorf("ids collide: %q", a)
-		}
-		if !strings.HasPrefix(a, "configmap-settings-") || !strings.HasPrefix(b, "configmap-settings-") {
-			t.Errorf("ids %q and %q should both start with configmap-settings-", a, b)
-		}
-	})
-
-	t.Run("long kinds and names fit in a label value", func(t *testing.T) {
-		long := generateObservedResourceID("autoscaling", "HorizontalPodAutoscaler", "ns",
-			strings.Repeat("very-long-name-", 10))
-		if len(long) > 63 {
-			t.Errorf("id %q is %d characters, want at most 63", long, len(long))
-		}
-		if !strings.HasPrefix(long, "horizontalpodautoscaler-very-long") {
-			t.Errorf("id %q lost its readable prefix", long)
-		}
-	})
-}
-
 func TestResolveObservedResources(t *testing.T) {
-	t.Run("keeps set ids and generates the rest, in spec order", func(t *testing.T) {
-		entries, conflicts := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+	t.Run("keeps ids as written, in spec order, with apiVersion parsed", func(t *testing.T) {
+		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 			observedRes("api", "apps/v1", "Deployment", "prod", "api"),
-			observedRes("", "v1", "Service", "prod", "api"),
+			observedRes("api-svc", "v1", "Service", "prod", "api"),
+			observedRes("ns", "v1", "Namespace", "", "prod"),
 		})
-		if len(conflicts) != 0 {
-			t.Errorf("conflicts = %v, want none", conflicts)
+		if len(entries) != 3 {
+			t.Fatalf("got %d entries, want 3", len(entries))
 		}
-		if len(entries) != 2 {
-			t.Fatalf("got %d entries, want 2", len(entries))
-		}
-		if entries[0].id != "api" {
-			t.Errorf("set id = %q, want api", entries[0].id)
-		}
-		if want := generateObservedResourceID("", "Service", "prod", "api"); entries[1].id != want {
-			t.Errorf("generated id = %q, want %q", entries[1].id, want)
+		for i, want := range []string{"api", "api-svc", "ns"} {
+			if entries[i].id != want {
+				t.Errorf("entries[%d].id = %q, want %q", i, entries[i].id, want)
+			}
 		}
 		if got := entries[0].gvk; got != (schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}) {
 			t.Errorf("gvk = %v", got)
 		}
-	})
-
-	t.Run("generated id does not depend on the API version", func(t *testing.T) {
-		v1, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("", "autoscaling/v2", "HorizontalPodAutoscaler", "prod", "api")})
-		v1beta, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("", "autoscaling/v1", "HorizontalPodAutoscaler", "prod", "api")})
-		if v1[0].id != v1beta[0].id {
-			t.Errorf("ids differ across versions: %q and %q", v1[0].id, v1beta[0].id)
+		if got := entries[1].gvk; got != (schema.GroupVersionKind{Version: "v1", Kind: "Service"}) {
+			t.Errorf("core gvk = %v", got)
 		}
-	})
-
-	t.Run("generated ids are unique for distinct objects", func(t *testing.T) {
-		entries, conflicts := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("", "apps/v1", "Deployment", "a", "api"),
-			observedRes("", "apps/v1", "Deployment", "b", "api"),
-			observedRes("", "v1", "Service", "a", "api"),
-			observedRes("", "v1", "Namespace", "", "a"),
-		})
-		if len(conflicts) != 0 {
-			t.Errorf("conflicts = %v, want none", conflicts)
-		}
-		ids := map[string]bool{}
-		for _, e := range entries {
-			if ids[e.id] {
-				t.Errorf("id %q generated twice", e.id)
-			}
-			ids[e.id] = true
-		}
-	})
-
-	t.Run("a set id equal to a generated one is a conflict", func(t *testing.T) {
-		generated := generateObservedResourceID("apps", "Deployment", "prod", "api")
-		_, conflicts := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("", "apps/v1", "Deployment", "prod", "api"),
-			observedRes(generated, "v1", "ConfigMap", "prod", "settings"),
-		})
-		if len(conflicts) != 1 || conflicts[0] != generated {
-			t.Errorf("conflicts = %v, want [%s]", conflicts, generated)
-		}
-	})
-
-	t.Run("one object listed twice without ids is a conflict", func(t *testing.T) {
-		_, conflicts := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("", "apps/v1", "Deployment", "prod", "api"),
-			observedRes("", "apps/v1", "Deployment", "prod", "api"),
-		})
-		if len(conflicts) != 1 {
-			t.Errorf("conflicts = %v, want one", conflicts)
+		if entries[2].namespace != "" {
+			t.Errorf("cluster-scoped entry got namespace %q", entries[2].namespace)
 		}
 	})
 
 	t.Run("an unparseable apiVersion is kept for the read to report", func(t *testing.T) {
-		entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 			observedRes("bad", "a/b/c", "Thing", "prod", "x")})
 		if entries[0].apiVersionErr == nil {
 			t.Error("expected an apiVersion error on the entry")
@@ -218,7 +114,6 @@ func TestResolveObservedResources(t *testing.T) {
 	})
 }
 
-// ─────────────────────────────────────────────────────────────
 // reading
 // ─────────────────────────────────────────────────────────────
 
@@ -255,9 +150,9 @@ func TestReadObservedResources(t *testing.T) {
 	}
 	planeClient := readOnlyPlaneClient(t, getErr, deploy, settings)
 
-	entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 		observedRes("api", "apps/v1", "Deployment", "prod", "api"),
-		observedRes("", "v1", "ConfigMap", "prod", "settings"),
+		observedRes("settings", "v1", "ConfigMap", "prod", "settings"),
 		observedRes("gone", "v1", "Service", "prod", "gone"),
 		observedRes("forbidden", "example.com/v1", "Widget", "prod", "forbidden"),
 		observedRes("nomatch", "example.com/v1", "Gadget", "prod", "nomatch"),
@@ -340,7 +235,7 @@ func TestReadObservedResourcesKeepsLastObservedTime(t *testing.T) {
 	deploy.SetNamespace("prod")
 	deploy.SetName("api")
 	planeClient := readOnlyPlaneClient(t, nil, deploy)
-	entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 		observedRes("api", "apps/v1", "Deployment", "prod", "api")})
 
 	first := r.readObservedResources(ctx, planeClient, &openchoreov1alpha1.RenderedRelease{}, entries)
@@ -394,7 +289,7 @@ func TestNamesObject(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestSetObservedConditions(t *testing.T) {
-	entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 		observedRes("api", "apps/v1", "Deployment", "prod", "api"),
 		observedRes("db", "apps/v1", "StatefulSet", "prod", "db"),
 		observedRes("cfg", "v1", "ConfigMap", "prod", "cfg"),
@@ -408,17 +303,13 @@ func TestSetObservedConditions(t *testing.T) {
 
 	t.Run("all read", func(t *testing.T) {
 		rr := release()
-		setObservedConditions(rr, entries, nil, nil)
+		setObservedConditions(rr, entries, nil)
 		c := cond(rr, ConditionObservedResourcesRead)
 		if c == nil || c.Status != metav1.ConditionTrue || c.Reason != string(ReasonObservedReadSucceeded) {
 			t.Fatalf("ObservedResourcesRead = %+v", c)
 		}
 		if c.ObservedGeneration != 5 {
 			t.Errorf("observedGeneration = %d, want 5", c.ObservedGeneration)
-		}
-		ids := cond(rr, ConditionObservedResourceIDsUnique)
-		if ids == nil || ids.Status != metav1.ConditionTrue || ids.Reason != string(ReasonObservedIDsUnique) {
-			t.Errorf("ObservedResourceIDsUnique = %+v", ids)
 		}
 	})
 
@@ -427,7 +318,7 @@ func TestSetObservedConditions(t *testing.T) {
 		setObservedConditions(rr, entries, []observedReadFailure{
 			{entry: entries[0], reason: ReasonObservedResourceNotFound, detail: "not found"},
 			{entry: entries[2], reason: ReasonObservedResourceNotFound, detail: "not found"},
-		}, nil)
+		})
 		c := cond(rr, ConditionObservedResourcesRead)
 		if c.Status != metav1.ConditionFalse || c.Reason != string(ReasonObservedResourceNotFound) {
 			t.Fatalf("ObservedResourcesRead = %+v", c)
@@ -444,7 +335,7 @@ func TestSetObservedConditions(t *testing.T) {
 		setObservedConditions(rr, entries, []observedReadFailure{
 			{entry: entries[0], reason: ReasonObservedResourceNotFound, detail: "not found"},
 			{entry: entries[1], reason: ReasonObservedReadForbidden, detail: "forbidden by the plane agent's RBAC"},
-		}, nil)
+		})
 		c := cond(rr, ConditionObservedResourcesRead)
 		if c.Reason != string(ReasonObservedReadFailed) {
 			t.Errorf("reason = %q, want ReadFailed", c.Reason)
@@ -457,15 +348,16 @@ func TestSetObservedConditions(t *testing.T) {
 	t.Run("a long list of failures is capped", func(t *testing.T) {
 		many := make([]openchoreov1alpha1.ObservedResource, 15)
 		for i := range many {
-			many[i] = observedRes("", "v1", "ConfigMap", "prod", fmt.Sprintf("cm-%d", i))
+			name := fmt.Sprintf("cm-%d", i)
+			many[i] = observedRes(name, "v1", "ConfigMap", "prod", name)
 		}
-		manyEntries, _ := resolveObservedResources(many)
+		manyEntries := resolveObservedResources(many)
 		failures := make([]observedReadFailure, 0, len(manyEntries))
 		for _, e := range manyEntries {
 			failures = append(failures, observedReadFailure{entry: e, reason: ReasonObservedResourceNotFound, detail: "not found"})
 		}
 		rr := release()
-		setObservedConditions(rr, manyEntries, failures, nil)
+		setObservedConditions(rr, manyEntries, failures)
 		msg := cond(rr, ConditionObservedResourcesRead).Message
 		if !strings.Contains(msg, "15 of 15") || !strings.HasSuffix(msg, "; and 5 more") {
 			t.Errorf("message = %q", msg)
@@ -475,19 +367,10 @@ func TestSetObservedConditions(t *testing.T) {
 		}
 	})
 
-	t.Run("id conflicts", func(t *testing.T) {
+	t.Run("no observed resources removes it", func(t *testing.T) {
 		rr := release()
-		setObservedConditions(rr, entries, nil, []string{"api"})
-		c := cond(rr, ConditionObservedResourceIDsUnique)
-		if c.Status != metav1.ConditionFalse || c.Reason != string(ReasonObservedIDConflict) || !strings.Contains(c.Message, "api") {
-			t.Errorf("ObservedResourceIDsUnique = %+v", c)
-		}
-	})
-
-	t.Run("no observed resources removes both", func(t *testing.T) {
-		rr := release()
-		setObservedConditions(rr, entries, nil, nil)
-		setObservedConditions(rr, nil, nil, nil)
+		setObservedConditions(rr, entries, nil)
+		setObservedConditions(rr, nil, nil)
 		if len(rr.Status.Conditions) != 0 {
 			t.Errorf("conditions = %+v, want none", rr.Status.Conditions)
 		}
@@ -499,8 +382,8 @@ func TestSetObservedConditions(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestExcludeObserved(t *testing.T) {
-	entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-		observedRes("", "apps/v1", "Deployment", "prod", "api"),
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("api", "apps/v1", "Deployment", "prod", "api"),
 	})
 	observedDeploy := unstructuredObj("apps/v1", "Deployment", "prod", "api")
 	// The same object listed under another version is still the observed one.
@@ -518,7 +401,7 @@ func TestExcludeObserved(t *testing.T) {
 }
 
 func TestCheckObservedOverlap(t *testing.T) {
-	entries, _ := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 		observedRes("team-api", "apps/v1", "Deployment", "prod", "api"),
 	})
 	rendered := unstructuredObj("apps/v1", "Deployment", "prod", "api")

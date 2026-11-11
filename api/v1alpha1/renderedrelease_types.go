@@ -62,9 +62,10 @@ type RenderedReleaseSpec struct {
 
 	// ObservedResources lists existing objects on the target plane that this
 	// release reads and reports in status.observedResources. They are never
-	// created, updated, labeled or deleted, in either mode.
-	// +kubebuilder:validation:MaxItems=256
-	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.id) || self.exists_one(y, has(y.id) && y.id == x.id))",message="observedResources ids must be unique"
+	// created, updated, labeled or deleted, in either mode. Each entry's id is
+	// unique within the list.
+	// +listType=map
+	// +listMapKey=id
 	// +optional
 	ObservedResources []ObservedResource `json:"observedResources,omitempty"`
 }
@@ -83,13 +84,12 @@ const (
 // ObservedResource names an existing object on the target plane for a
 // RenderedRelease to read.
 type ObservedResource struct {
-	// ID identifies the entry in status.observedResources. It must be unique within
-	// observedResources. When unset, the controller generates one from the group,
-	// kind, namespace and name.
+	// ID identifies the entry in status.observedResources, as the id of a
+	// spec.resources entry does for what is applied. It is unique within
+	// observedResources, and the writer of the release chooses it.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
-	// +optional
-	ID string `json:"id,omitempty"`
+	ID string `json:"id"`
 
 	// APIVersion is the object's API version, such as "apps/v1" or "v1".
 	// +kubebuilder:validation:MinLength=1
@@ -194,8 +194,8 @@ type RenderedManifest struct {
 
 // RenderedManifestStatus tracks a resource that was applied to, or observed on, the target plane.
 type RenderedManifestStatus struct {
-	// ID corresponds to the resource ID in spec.resources, or to the observed
-	// resource's ID (set or generated) for entries in status.observedResources.
+	// ID corresponds to the resource ID in spec.resources, or to the ID in
+	// spec.observedResources for entries in status.observedResources.
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
 

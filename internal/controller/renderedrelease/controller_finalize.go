@@ -234,8 +234,7 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 // finalizeObservedEntries returns the release's observed resources, for keeping
 // them out of the finalizer's deletes.
 func finalizeObservedEntries(release *openchoreov1alpha1.RenderedRelease) []observedEntry {
-	entries, _ := resolveObservedResources(release.Spec.ObservedResources)
-	return entries
+	return resolveObservedResources(release.Spec.ObservedResources)
 }
 
 // intersectObsPlaneGVKs returns the subset of GVKs from the release status that are in

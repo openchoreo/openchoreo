@@ -18,11 +18,6 @@ const (
 	// ConditionObservedResourcesRead reports whether every observed resource could be
 	// read from the target plane. Present only while spec.observedResources is set.
 	ConditionObservedResourcesRead controller.ConditionType = "ObservedResourcesRead"
-
-	// ConditionObservedResourceIDsUnique reports whether every observed resource has
-	// an id of its own once unset ids are generated. Present only while
-	// spec.observedResources is set.
-	ConditionObservedResourceIDsUnique controller.ConditionType = "ObservedResourceIDsUnique"
 )
 
 // Constants for condition reasons
@@ -49,13 +44,6 @@ const (
 	ReasonObservedReadForbidden controller.ConditionReason = "ReadForbidden"
 	// ReasonObservedReadFailed reading an observed resource failed for another reason, or for more than one
 	ReasonObservedReadFailed controller.ConditionReason = "ReadFailed"
-
-	// Reasons for ObservedResourceIDsUnique condition type
-
-	// ReasonObservedIDsUnique every observed resource has its own id
-	ReasonObservedIDsUnique controller.ConditionReason = "IDsUnique"
-	// ReasonObservedIDConflict more than one observed resource has the same id
-	ReasonObservedIDConflict controller.ConditionReason = "IDConflict"
 )
 
 func NewRenderedReleaseFinalizingCondition(generation int64) metav1.Condition {

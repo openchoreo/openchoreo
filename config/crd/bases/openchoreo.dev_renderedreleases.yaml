@@ -65,7 +65,8 @@ spec:
                 description: |-
                   ObservedResources lists existing objects on the target plane that this
                   release reads and reports in status.observedResources. They are never
-                  created, updated, labeled or deleted, in either mode.
+                  created, updated, labeled or deleted, in either mode. Each entry's id is
+                  unique within the list.
                 items:
                   description: |-
                     ObservedResource names an existing object on the target plane for a
@@ -80,9 +81,9 @@ spec:
                       type: string
                     id:
                       description: |-
-                        ID identifies the entry in status.observedResources. It must be unique within
-                        observedResources. When unset, the controller generates one from the group,
-                        kind, namespace and name.
+                        ID identifies the entry in status.observedResources, as the id of a
+                        spec.resources entry does for what is applied. It is unique within
+                        observedResources, and the writer of the release chooses it.
                       maxLength: 63
                       minLength: 1
                       type: string
@@ -103,15 +104,14 @@ spec:
                       type: string
                   required:
                   - apiVersion
+                  - id
                   - kind
                   - name
                   type: object
-                maxItems: 256
                 type: array
-                x-kubernetes-validations:
-                - message: observedResources ids must be unique
-                  rule: self.all(x, !has(x.id) || self.exists_one(y, has(y.id) &&
-                    y.id == x.id))
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               owner:
                 description: |-
                   RenderedReleaseOwner identifies the owner of a RenderedRelease. ProjectName
@@ -278,8 +278,8 @@ spec:
                       type: string
                     id:
                       description: |-
-                        ID corresponds to the resource ID in spec.resources, or to the observed
-                        resource's ID (set or generated) for entries in status.observedResources.
+                        ID corresponds to the resource ID in spec.resources, or to the ID in
+                        spec.observedResources for entries in status.observedResources.
                       minLength: 1
                       type: string
                     kind:
@@ -335,8 +335,8 @@ spec:
                       type: string
                     id:
                       description: |-
-                        ID corresponds to the resource ID in spec.resources, or to the observed
-                        resource's ID (set or generated) for entries in status.observedResources.
+                        ID corresponds to the resource ID in spec.resources, or to the ID in
+                        spec.observedResources for entries in status.observedResources.
                       minLength: 1
                       type: string
                     kind:
