@@ -10,6 +10,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,8 +31,8 @@ var referenceFields = map[string]bool{
 // ValidateYAMLWithNames is like ValidateYAML but additionally emits
 // "location-not-found" warnings for name references that do not exist in the
 // given set of known resource names.
-func ValidateYAMLWithNames(data []byte, names map[string]bool) ([]DocumentResult, error) {
-	results, err := ValidateYAML(data)
+func ValidateYAMLWithNames(data []byte, names map[string]bool, resolvers ...targetschema.Resolver) ([]DocumentResult, error) {
+	results, err := ValidateYAML(data, resolvers...)
 	if err != nil {
 		return nil, err
 	}

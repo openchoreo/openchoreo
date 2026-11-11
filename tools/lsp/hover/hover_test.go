@@ -180,7 +180,7 @@ spec:
 		t.Fatal("expected hover to be non-nil")
 	}
 	value = h.Contents.(protocol.MarkupContent).Value
-	if !strings.Contains(value, "Metadata to add to the generated secret") {
+	if !strings.Contains(value, "Resource metadata.") {
 		t.Errorf("expected metadata hover description on metadata key, got %q", value)
 	}
 }

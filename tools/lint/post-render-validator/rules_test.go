@@ -59,7 +59,9 @@ func TestImageTagRule(t *testing.T) {
 	}{
 		{"pinned", "nginx:1.25", false},
 		{"digest", "nginx@sha256:abc", false},
-		{"latest", "nginx:latest", true},
+		{"latest", "nginx:latest", false},
+		{"empty-tag", "nginx:", true},
+		{"registry-latest", "registry:5000/nginx:latest", false},
 		{"untagged", "nginx", true},
 		{"port-not-a-tag", "registry:5000/nginx", true},
 		{"port-and-tag", "registry:5000/nginx:1.25", false},

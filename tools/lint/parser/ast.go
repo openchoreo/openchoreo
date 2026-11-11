@@ -3,7 +3,10 @@
 
 package parser
 
-import "gopkg.in/yaml.v3"
+import (
+	"context"
+	"gopkg.in/yaml.v3"
+)
 
 // Position represents a source location (1-indexed line and column).
 type Position struct {
@@ -43,8 +46,10 @@ type MetadataNode struct {
 
 // DocumentNode represents one parsed OpenChoreo YAML document.
 type DocumentNode struct {
-	APIVersion string
-	Kind       string
+	// ValidationContext carries immutable request-scoped dependencies.
+	ValidationContext context.Context `json:"-" yaml:"-"`
+	APIVersion        string
+	Kind              string
 
 	Metadata MetadataNode
 

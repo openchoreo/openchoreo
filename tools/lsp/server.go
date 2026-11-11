@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"github.com/openchoreo/openchoreo/tools/lsp/code-action"
 	"github.com/openchoreo/openchoreo/tools/lsp/code-completion"
 	"github.com/openchoreo/openchoreo/tools/lsp/code-definition"
@@ -30,16 +31,21 @@ type outboundNotification struct {
 }
 
 type Server struct {
-	server    *server.Server
-	documents map[string]*Document
-	docMu     sync.RWMutex
-	indexer   *indexer.Indexer
+	schemaMu              sync.Mutex
+	schemaScopes          map[string]schemaScopeEntry
+	schemaDependencyPaths map[string]struct{}
+	server                *server.Server
+	documents             map[string]*Document
+	docMu                 sync.RWMutex
+	indexer               *indexer.Indexer
 	// workspaceRoots are the normalized, non-overlapping working directories
 	// this server indexes and watches (from initialize workspaceFolders or,
 	// for legacy single-folder clients, rootUri).
-	workspaceRoots []string
-	preRenderRunMu sync.Mutex
-	logger         *slog.Logger
+	workspaceRootsMu  sync.RWMutex
+	workspaceChangeMu sync.Mutex
+	workspaceRoots    []string
+	preRenderRunMu    sync.Mutex
+	logger            *slog.Logger
 
 	connMu sync.RWMutex
 	conn   *jsonrpc2.Conn
@@ -51,7 +57,8 @@ type Server struct {
 
 	// Workspace scanning runs once per session in a background goroutine so
 	// initialize returns promptly on large workspaces.
-	indexOnce sync.Once
+	indexOnce           sync.Once
+	initialIndexStarted bool
 	// indexDone is closed once the initial workspace scan finishes, whether it
 	// succeeded or failed. Callers (e.g. tests) block on it to observe the scan.
 	indexDone chan struct{}
@@ -98,15 +105,17 @@ type Server struct {
 	// so a late structural publish cannot erase them. postRenderFiles records
 	// every file used by the last run, letting edits/closes invalidate the
 	// whole result even when a file had no finding of its own.
-	postRenderMu      sync.Mutex
-	postRenderByURI   map[string][]protocol.Diagnostic
-	postRenderFiles   map[string]struct{}
-	postRenderScope   string
-	postRenderRunning bool
-	postRenderEpoch   uint64
+	postRenderMu            sync.Mutex
+	postRenderByURI         map[string][]protocol.Diagnostic
+	postRenderFiles         map[string]struct{}
+	postRenderContentHashes map[string][32]byte
+	postRenderScope         string
+	postRenderRunning       bool
+	postRenderEpoch         uint64
 
 	preRenderSchemaMu    sync.Mutex
 	preRenderSchemaByURI map[string][]protocol.Diagnostic
+	workspaceStaticByURI map[string][]protocol.Diagnostic
 	preRenderSchemaFiles map[string]struct{}
 }
 
@@ -138,6 +147,7 @@ func NewServer() *Server {
 	})
 	handler.TextDocumentDidOpen = WithHandlerRecovery(s, "didOpen", s.DidOpen)
 	handler.TextDocumentDidChange = WithHandlerRecovery(s, "didChange", s.DidChange)
+	handler.WorkspaceDidChangeWorkspaceFolders = s.DidChangeWorkspaceFolders
 	handler.TextDocumentDidClose = WithHandlerRecovery(s, "didClose", s.DidClose)
 	handler.TextDocumentCompletion = WithRequestRecovery(s, "completion", s.Completion)
 	handler.TextDocumentHover = WithRequestRecovery(s, "hover", s.Hover)
@@ -314,5 +324,6 @@ func (s *Server) Hover(
 	cursorLine := int(params.Position.Line) + 1
 	cursorCol := int(params.Position.Character) + 1
 
-	return hover.Handle(doc.Text, cursorLine, cursorCol), nil
+	scope := s.targetSchemaScope(uri, map[string][]byte{fileURIToPath(uri): []byte(doc.Text)})
+	return hover.Handle(doc.Text, cursorLine, cursorCol, targetschema.WithResolver(nil, scope)), nil
 }

@@ -4,12 +4,14 @@
 package lsp
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -45,6 +47,9 @@ func (s *Server) startWatch(roots []string) {
 		return
 	}
 	s.watcher = w
+	for path := range s.schemaDependencyPaths {
+		_ = w.Add(filepath.Dir(path))
+	}
 	s.watchRoots = roots
 	s.watchMu.Unlock()
 
@@ -122,7 +127,7 @@ func (s *Server) handleWatchEvent(w *fsnotify.Watcher, event fsnotify.Event) {
 	if isDotPath(path) {
 		return
 	}
-	if !isYAMLWatchName(path) {
+	if !isYAMLWatchName(path) && !s.isSchemaDependency(path) {
 		return
 	}
 
@@ -155,8 +160,20 @@ func (s *Server) debounceWatch(path string) {
 // Documents that are themselves open are skipped: the editor's in-memory
 // buffer is the authoritative version, and it already revalidates via didChange.
 func (s *Server) processWatchChange(path string) {
+	changed := s.updateIndexedFile(path)
+	if !changed {
+		return
+	}
 	s.invalidatePostRenderForEdit(fileToURI(path))
-	if s.updateIndexedFile(path) {
+	if s.isSchemaDependency(path) {
+		s.postRenderMu.Lock()
+		scope := s.postRenderScope
+		s.postRenderMu.Unlock()
+		if scope != "" {
+			s.invalidatePostRenderForEdit(pathToDocumentURI(filepath.Join(scope, targetschema.ConfigName)))
+		}
+	}
+	if changed {
 		go s.triggerPreRenderSchemaValidationForPath(path)
 		s.revalidateOpenDocumentsAfterWatch()
 	}
@@ -170,7 +187,7 @@ func (s *Server) catchupWatchSubtree(dir string) {
 	changed := false
 
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || isDotPath(path) || !isYAMLWatchName(path) {
+		if err != nil || d.IsDir() || isDotPath(path) || (!isYAMLWatchName(path) && !s.isSchemaDependency(path)) {
 			return nil
 		}
 		if s.updateIndexedFile(path) {
@@ -210,7 +227,8 @@ func (s *Server) resyncIndexWithDisk() {
 				}
 				return nil
 			}
-			if !d.IsDir() && isYAMLWatchName(path) && s.updateIndexedFile(path) {
+			if !d.IsDir() && (isYAMLWatchName(path) || s.isSchemaDependency(path)) && s.updateIndexedFile(path) {
+				s.invalidatePostRenderForEdit(fileToURI(path))
 				changed = true
 			}
 			return nil
@@ -223,6 +241,7 @@ func (s *Server) resyncIndexWithDisk() {
 		}
 		if _, err := os.Stat(fileURIToPath(uri)); err != nil {
 			s.indexer.RemoveFile(uri)
+			s.invalidatePostRenderForEdit(uri)
 			changed = true
 		}
 	}
@@ -241,6 +260,9 @@ func (s *Server) updateIndexedFile(path string) bool {
 	// on the old name; skipping removals for open documents would keep the
 	// stale name referenceable forever.
 	if _, err := os.Stat(path); err != nil {
+		if _, known := s.indexer.SourceContent(uri); !known {
+			return false
+		}
 		s.indexer.RemoveFile(uri)
 		return true
 	}
@@ -255,6 +277,9 @@ func (s *Server) updateIndexedFile(path string) bool {
 	if err != nil {
 		s.logAt(protocol.MessageTypeWarning, "failed to read changed file",
 			[]any{"path", path, "error", err.Error()})
+		return false
+	}
+	if previous, ok := s.indexer.SourceContent(uri); ok && bytes.Equal(previous, content) {
 		return false
 	}
 	if err := s.indexer.UpdateFile(uri, content); err != nil {
@@ -293,6 +318,9 @@ func (s *Server) StopWatcher() {
 // isDotPath reports whether a path's base name starts with "." (hidden entries
 // like .git are never indexed or watched).
 func isDotPath(path string) bool {
+	if filepath.Base(path) == targetschema.ConfigName {
+		return false
+	}
 	return strings.HasPrefix(filepath.Base(path), ".")
 }
 

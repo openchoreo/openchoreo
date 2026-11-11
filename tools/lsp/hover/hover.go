@@ -4,9 +4,11 @@
 package hover
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -78,7 +80,7 @@ func parseHoverConfig(data []byte) (map[string]string, map[string]KindInfo, erro
 
 // Handle computes the hover content for the given document text at the
 // 1-indexed cursor position. Returns nil when there is nothing to show.
-func Handle(docText string, cursorLine, cursorCol int) *protocol.Hover {
+func Handle(docText string, cursorLine, cursorCol int, contexts ...context.Context) *protocol.Hover {
 	if err := load(); err != nil {
 		return nil
 	}
@@ -88,8 +90,29 @@ func Handle(docText string, cursorLine, cursorCol int) *protocol.Hover {
 		return nil
 	}
 
-	document := docs[0]
+	cursorCol = utf16ToRuneColumn(docText, cursorLine, cursorCol)
+	document := parser.DocumentForPosition(docs, cursorLine, cursorCol)
+	// Parser ranges end at the last scalar header, so a final block scalar
+	// can extend beyond that range. Use document starts for those content lines.
+	if document == nil && cursorLine > 0 && cursorLine <= len(strings.Split(docText, "\n")) {
+		for _, candidate := range docs {
+			if candidate.Range.Start.Line <= cursorLine {
+				document = candidate
+			} else {
+				break
+			}
+		}
+	}
+	if document == nil {
+		return nil
+	}
 
+	if len(contexts) > 0 {
+		document.ValidationContext = contexts[0]
+	}
+	if result := expressionHover(document, cursorLine, cursorCol); result != nil {
+		return result
+	}
 	path := lsputil.FindFieldPathAtPosition(document.Root, cursorLine, cursorCol)
 
 	if kindVal, ok := findKindValueAtPosition(document.Root, path, cursorLine, cursorCol); ok {
@@ -114,7 +137,7 @@ func Handle(docText string, cursorLine, cursorCol int) *protocol.Hover {
 		return nil
 	}
 
-	content := buildHoverContent(node, path)
+	content := buildHoverContent(node, descriptionPath(schemaRoot, path), document.APIVersion, document.Kind)
 	if content == "" {
 		return nil
 	}
@@ -127,7 +150,7 @@ func Handle(docText string, cursorLine, cursorCol int) *protocol.Hover {
 	}
 }
 
-func buildHoverContent(node *schema.FieldSchema, path string) string {
+func buildHoverContent(node *schema.FieldSchema, path string, resource ...string) string {
 	if node == nil {
 		return ""
 	}
@@ -141,7 +164,7 @@ func buildHoverContent(node *schema.FieldSchema, path string) string {
 
 	lines = append(lines, fmt.Sprintf("### `%s`", fieldName))
 
-	if desc := fieldDescription(fieldName, path); desc != "" {
+	if desc := contextDescription(fieldName, path, resource...); desc != "" {
 		lines = append(lines, desc)
 	}
 
@@ -221,7 +244,7 @@ func buildHoverContent(node *schema.FieldSchema, path string) string {
 				req = "yes"
 			}
 			childPath := path + "." + childName
-			desc := fieldDescription(childName, childPath)
+			desc := contextDescription(childName, childPath, resource...)
 			if desc == "" {
 				desc = "-"
 			}
@@ -320,4 +343,76 @@ func buildKindHoverContent(kind string, info KindInfo) string {
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("[API Reference](%s)", info.URL))
 	return strings.Join(lines, "\n")
+}
+
+//go:embed field_descriptions.json
+var descriptionData []byte
+var scopedDescriptions = func() map[string]map[string]string {
+	var out map[string]map[string]string
+	_ = json.Unmarshal(descriptionData, &out)
+	return out
+}()
+
+func contextDescription(name, path string, resource ...string) string {
+	if len(resource) < 2 {
+		return fieldDescription(name, path)
+	}
+	fields := scopedDescriptions[resource[0]+"/"+resource[1]]
+	if text := fields[path]; text != "" {
+		return text
+	}
+	// Match map-value schema paths without borrowing another field's prose.
+	parts := strings.Split(path, ".")
+	best, bestSpecific := "", -1
+	patterns := make([]string, 0, len(fields))
+	for key := range fields {
+		patterns = append(patterns, key)
+	}
+	sort.Strings(patterns)
+	for _, pattern := range patterns {
+		text := fields[pattern]
+		segments := strings.Split(pattern, ".")
+		if len(segments) != len(parts) {
+			continue
+		}
+		match, specific := true, 0
+		for i, segment := range segments {
+			if segment != "*" && segment != parts[i] {
+				match = false
+				break
+			}
+			if segment != "*" {
+				specific++
+			}
+		}
+		if match && specific > bestSpecific {
+			best, bestSpecific = text, specific
+		}
+	}
+	if best != "" {
+		return best
+	}
+	safe := map[string]string{"apiVersion": "API version of this resource.", "kind": "Resource kind.", "metadata": "Resource metadata.", "metadata.name": "Name of this resource.", "metadata.namespace": "Namespace of this resource.", "metadata.labels": "Labels attached to this resource.", "metadata.annotations": "Annotations attached to this resource."}
+	return safe[path]
+}
+
+func descriptionPath(root *schema.FieldSchema, path string) string {
+	parts := strings.Split(path, ".")
+	node := root
+	for i, part := range parts {
+		if node == nil {
+			break
+		}
+		if node.Type == "array" {
+			node = node.Items
+		}
+		if node == nil {
+			break
+		}
+		node = node.Properties[strings.TrimSuffix(part, "[]")]
+		if node != nil && node.Type == "array" && i < len(parts)-1 {
+			parts[i] = strings.TrimSuffix(part, "[]") + "[]"
+		}
+	}
+	return strings.Join(parts, ".")
 }

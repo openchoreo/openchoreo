@@ -5,6 +5,7 @@ package celvalidator
 
 import (
 	"fmt"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"sort"
 	"strings"
 
@@ -72,7 +73,13 @@ func ValidateDocument(doc *parser.DocumentNode, pair SchemaPair) ([]Finding, err
 // (forEach loop variables, applied scope, resource binding) and is threaded
 // explicitly through the walk so no call site has to restore it.
 type checker struct {
-	findings []Finding
+	targetNode *yaml.Node
+	currentEnv *cel.Env
+	inspection *inspection
+	kind       string
+	schemas    SchemaPair
+	resolver   targetschema.Resolver
+	findings   []Finding
 
 	// appliedIDs, when non-nil, enables the applied.<id> declaration check
 	// (ResourceType/ClusterResourceType only).
@@ -87,7 +94,14 @@ type checker struct {
 
 // newChecker builds a checker with the document's source lines loaded.
 func newChecker(doc *parser.DocumentNode) *checker {
-	return &checker{lines: sourceLines(doc.Source)}
+	c := &checker{lines: sourceLines(doc.Source), resolver: targetschema.FromContext(doc.ValidationContext), kind: doc.Kind}
+	if doc.ValidationContext != nil {
+		c.inspection, _ = doc.ValidationContext.Value(inspectionKey{}).(*inspection)
+	}
+	if c.inspection != nil {
+		c.schemas = c.inspection.schemas
+	}
+	return c
 }
 
 // sourceLines splits raw source bytes into lines (kept 1-indexed by slice
@@ -178,6 +192,9 @@ func (c *checker) valueOffsetToPos(node *yaml.Node, off int) parser.Position {
 
 	line := node.Line + linesBefore
 	colZero := node.Column - 1
+	if node.Style == yaml.SingleQuotedStyle || node.Style == yaml.DoubleQuotedStyle {
+		colZero++
+	}
 	if isBlockScalar(node) {
 		line = node.Line + 1 + linesBefore
 		colZero = c.lineIndent(line)
@@ -309,6 +326,8 @@ done:
 // checkCompile parses and type-checks expr against env, emitting one finding
 // on the first issue. It returns the checked AST, or nil when anything failed.
 func (c *checker) checkCompile(node *yaml.Node, env *cel.Env, expr, full string) *cel.Ast {
+	c.currentEnv = env
+	c.inspectSymbol(node, env, expr)
 	ast, issues := env.Parse(expr)
 	if issues != nil && issues.Err() != nil {
 		c.addIssues(node, CodeCELParseError, issues, full, expr)
@@ -466,6 +485,10 @@ func withResource(env *cel.Env) *cel.Env {
 // fields, `resource` is in scope and the value may legally appear without
 // ${...} wrapping (the webhook accepts both).
 func (c *checker) where(node *yaml.Node, env *cel.Env) {
+	c.whereResource(node, withResource(env))
+}
+
+func (c *checker) whereResource(node *yaml.Node, env *cel.Env) {
 	if node == nil {
 		return
 	}
@@ -473,7 +496,7 @@ func (c *checker) where(node *yaml.Node, env *cel.Env) {
 	if inner, ok := extractTemplate(node.Value); ok {
 		expr = inner
 	}
-	c.checkBoolean(node, withResource(env), expr, node.Value)
+	c.checkBoolean(node, env, expr, node.Value)
 }
 
 // forEachEnv validates a forEach field and, when it can, returns an env that
@@ -546,10 +569,14 @@ func (c *checker) postRenderValidations(seq *yaml.Node, env *cel.Env, provider *
 		if ext := c.forEachEnv(env, provider, mappingValue(entry, fieldForEach), mappingValue(entry, fieldVar)); ext != nil {
 			bodyEnv = ext
 		}
-		if target := mappingValue(entry, fieldTarget); target != nil {
-			c.where(mappingValue(target, fieldWhere), bodyEnv)
+		target := mappingValue(entry, fieldTarget)
+		c.targetNode = target
+		resourceEnv := withResolvedTargetResource(bodyEnv, target, c.resolver)
+		if target != nil {
+			c.whereResource(mappingValue(target, fieldWhere), resourceEnv)
 		}
-		c.templateBool(mappingValue(entry, fieldRule), withResource(bodyEnv), fieldRule)
+		c.templateBool(mappingValue(entry, fieldRule), resourceEnv, fieldRule)
+		c.targetNode = nil
 	}
 }
 
@@ -837,22 +864,51 @@ func (c *checker) addIssues(node *yaml.Node, code string, issues *cel.Issues, fu
 		return
 	}
 	e := errs[0]
+	message := e.Message
+	if code == CodeCELTypeError || code == CodeCELUnknownName {
+		if hint := c.targetFieldMessage(expr, e.Message, exprOffset(expr, e.Location)); hint != "" {
+			message = hint
+		} else if hint := fieldSuggestion(c.currentEnv, expr, e.Message, exprOffset(expr, e.Location)); hint != "" {
+			message = hint
+		}
 
+	}
+
+	if code != CodeCELParseError {
+		token := ""
+		if match := undefinedTargetField.FindStringSubmatch(e.Message); len(match) == 2 {
+			token = match[1]
+		}
+		if code == CodeCELUnknownName {
+			if match := undeclaredToken.FindStringSubmatch(e.Message); len(match) == 2 {
+				token = match[1]
+			}
+		}
+		if token != "" {
+			if exact, ok := c.exactScalarToken(node, token); ok {
+				c.reportAt(exact, code, fmt.Sprintf("invalid CEL expression %q: %s", expr, message))
+				return
+			}
+		}
+	}
 	rng := whole
 	if code != CodeCELParseError {
 		if innerOff := exprOffset(expr, e.Location); innerOff >= 0 {
 			startOff := innerOffset(node, expr) + innerOff
+			if startOff < len(node.Value) && node.Value[startOff] == '.' {
+				startOff++
+			}
 			start := c.valueOffsetToPos(node, startOff)
 			if tokenEnd := celdTokenEnd(node.Value, startOff); tokenEnd > startOff {
 				c.reportAt(parser.Range{Start: start, End: c.valueOffsetToPos(node, tokenEnd)}, code,
-					fmt.Sprintf("invalid CEL expression %q: %s", expr, e.Message))
+					fmt.Sprintf("invalid CEL expression %q: %s", expr, message))
 				return
 			}
 			rng = parser.Range{Start: start, End: start}
 		}
 	}
 	c.reportAt(rng, code,
-		fmt.Sprintf("invalid CEL expression %q: %s", expr, e.Message))
+		fmt.Sprintf("invalid CEL expression %q: %s", expr, message))
 }
 
 // classifyCELIssues maps the first checker message to a diagnostic code. The

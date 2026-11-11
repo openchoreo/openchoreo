@@ -146,7 +146,7 @@ func TestValidateProject_PrefersActiveComponent(t *testing.T) {
 		"backend-ct.yaml":  componentTypeYAML("ComponentType", "backend-ct"),
 		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
 		"backend.yaml":     componentYAML("backend", "default", "ComponentType", "deployment/backend-ct"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx"),
 		"backend-wl.yaml":  workloadYAML("default", "backend", "nginx:1.25"),
 	})
 	active := filepath.Join(dir, "frontend.yaml")
@@ -181,7 +181,7 @@ func TestValidateProject_ResolvesFromWorkload(t *testing.T) {
 	dir, files := writeProject(t, map[string]string{
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
 		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx"),
 	})
 	findings := ValidateProject(context.Background(), files, filepath.Join(dir, "frontend-wl.yaml"))
 	if finding := findFinding(findings, "image-latest"); finding == nil {
@@ -196,7 +196,7 @@ func TestValidateProject_ResolvesFromTrait(t *testing.T) {
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
 		"trait.yaml":       traitYAML("Trait", "storage"),
 		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct", "storage"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx"),
 	})
 	findings := ValidateProject(context.Background(), files, filepath.Join(dir, "trait.yaml"))
 	if !hasFinding(findings, "image-latest") {
@@ -237,7 +237,7 @@ func TestValidateProject_MultipleReleaseBindings(t *testing.T) {
 	base := map[string]string{
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
 		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx"),
 		"dev.yaml":         releaseBindingYAML("frontend-dev", "default", "frontend", "dev"),
 		"prod.yaml":        releaseBindingYAML("frontend-prod", "default", "frontend", "dev"),
 		"dev-env.yaml":     environmentYAML("dev", "DataPlane", "default"),
@@ -262,7 +262,7 @@ func TestValidateProject_ClusterVariants(t *testing.T) {
 		"cluster-ct.yaml":    componentTypeYAML("ClusterComponentType", "cluster-frontend-ct"),
 		"cluster-trait.yaml": traitYAML("ClusterTrait", "cluster-storage"),
 		"frontend.yaml":      componentYAML("frontend", "default", "ClusterComponentType", "deployment/cluster-frontend-ct", "ClusterTrait:cluster-storage"),
-		"frontend-wl.yaml":   workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml":   workloadYAML("default", "frontend", "nginx"),
 	})
 	findings := ValidateProject(context.Background(), files, filepath.Join(dir, "frontend.yaml"))
 	if hasFinding(findings, "post-render-error") {
@@ -326,7 +326,7 @@ func TestValidateFiles_PreservesCLIShape(t *testing.T) {
 	_, files := writeProject(t, map[string]string{
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
 		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:latest"),
+		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx"),
 	})
 	findings := ValidateFiles(context.Background(), files)
 	finding := findFinding(findings, "image-latest")

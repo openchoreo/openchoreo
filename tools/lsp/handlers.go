@@ -118,8 +118,11 @@ func (s *Server) Initialize(
 	}
 
 	roots := resolveWorkspaceRoots(params)
+	s.workspaceRootsMu.Lock()
 	s.workspaceRoots = roots
+	s.workspaceRootsMu.Unlock()
 	if len(roots) > 0 {
+		s.initialIndexStarted = true
 		s.beginIndexing(roots)
 	}
 
@@ -167,6 +170,7 @@ func (s *Server) Initialize(
 		},
 
 		Capabilities: protocol.ServerCapabilities{
+			Workspace: &protocol.ServerCapabilitiesWorkspace{WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: &openClose, ChangeNotifications: &protocol.BoolOrString{Value: true}}},
 			TextDocumentSync: protocol.TextDocumentSyncOptions{
 				OpenClose: &openClose,
 				Change:    &change,
@@ -262,10 +266,17 @@ func (s *Server) DidClose(
 ) error {
 
 	uri := string(params.TextDocument.URI)
+	closeChanged := false
+	if current := s.GetDocument(uri); current != nil {
+		saved, err := os.ReadFile(fileURIToPath(uri))
+		closeChanged = err != nil || string(saved) != current.Text
+	}
 	s.CloseDocument(uri)
 	s.cancelDiagnostics(uri)
 	s.deleteValidationEntry(uri)
-	s.invalidatePostRenderForClose(uri)
+	if closeChanged {
+		s.invalidatePostRenderForClose(uri)
+	}
 
 	// A document closed after its file was renamed or deleted must not keep
 	// its old name in the index. Files that still exist on disk are untouched.

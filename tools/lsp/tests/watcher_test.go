@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,7 +119,15 @@ func readWatchPublish(t *testing.T, client net.Conn, within time.Duration) json.
 			t.Fatalf("readWatchPublish within %v: %v", within, err)
 		}
 		if frame.Method == protocol.ServerTextDocumentPublishDiagnostics {
-			return frame.Params
+			var probe codeProbe
+			if err := json.Unmarshal(frame.Params, &probe); err != nil {
+				t.Fatal(err)
+			}
+			// Closed workspace files now publish too. These tests observe the
+			// virtual open consumer, not the resource file that changed.
+			if strings.HasPrefix(probe.URI, "file:///virtual/") {
+				return frame.Params
+			}
 		}
 	}
 }
@@ -266,9 +275,17 @@ func TestWatchRegistersNewSubdirectories(t *testing.T) {
 		t.Fatalf("write resource file: %v", err)
 	}
 
-	raw := readWatchPublish(t, client, 5*time.Second)
-	if !hasDiagCode(raw, unknownResourceFileCode) {
-		t.Errorf("file in newly created subdirectory was not indexed; codes=%v", probeCodes(raw))
+	// Directory creation and file creation can legitimately publish separate
+	// snapshots. Wait for the final indexed state, not the first notification.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		raw := readWatchPublish(t, client, time.Until(deadline))
+		if hasDiagCode(raw, unknownResourceFileCode) {
+			break
+		}
+		if !time.Now().Before(deadline) {
+			t.Fatalf("file in newly created subdirectory was not indexed; codes=%v", probeCodes(raw))
+		}
 	}
 }
 

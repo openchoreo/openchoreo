@@ -159,3 +159,79 @@ func TestRuntimeDiagnosticAlreadyReportedByPipeline(t *testing.T) {
 		t.Fatal("runtime finding was lost without a pipeline error")
 	}
 }
+
+func TestWorkspaceStaticDiagnosticsForClosedFiles(t *testing.T) {
+	root := t.TempDir()
+	s := NewServer()
+	s.workspaceRoots = []string{root}
+	path := filepath.Join(root, "nested", "environment.yml")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	invalid := "apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: dev}\nspec:\n  isProduction: wrong\n"
+	if err := os.WriteFile(path, []byte(invalid), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.indexer.IndexWorkspace(root); err != nil {
+		t.Fatal(err)
+	}
+	s.triggerPreRenderSchemaValidationForPath(path)
+	uri := pathToDocumentURI(path)
+	if len(s.workspaceStaticByURI[uri]) == 0 {
+		t.Fatal("unopened structural error missing")
+	}
+	if diagnosticVersion(s, uri, new(protocol.UInteger)) != nil {
+		t.Fatal("closed files must not publish version zero")
+	}
+	corrected := strings.Replace(invalid, "isProduction: wrong", "isProduction: false", 1)
+	if err := os.WriteFile(path, []byte(corrected), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.updateIndexedFile(path)
+	s.triggerPreRenderSchemaValidationForPath(path)
+	for _, d := range s.workspaceStaticByURI[uri] {
+		if strings.Contains(d.Message, "isProduction") {
+			t.Fatalf("stale error: %+v", d)
+		}
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	s.updateIndexedFile(path)
+	s.triggerPreRenderSchemaValidationForPath(path)
+	if len(s.workspaceStaticByURI[uri]) != 0 {
+		t.Fatal("deleted file retained diagnostics")
+	}
+}
+
+func TestWorkspaceFolderRefreshIsolatesAndClearsClosedDiagnostics(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	s := NewServer()
+	defer s.StopWatcher()
+	for _, root := range []string{first, second} {
+		if err := os.WriteFile(filepath.Join(root, "environment.yaml"), []byte("apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: dev}\nspec: {isProduction: wrong}\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.workspaceRoots = []string{first, second}
+	s.refreshWorkspaceFolders()
+	uri := pathToDocumentURI(filepath.Join(first, "environment.yaml"))
+	s.preRenderSchemaMu.Lock()
+	count := len(s.workspaceStaticByURI[uri])
+	s.preRenderSchemaMu.Unlock()
+	if count == 0 {
+		t.Fatal("unopened first workspace did not validate")
+	}
+	s.workspaceRootsMu.Lock()
+	s.workspaceRoots = []string{second}
+	s.workspaceRootsMu.Unlock()
+	s.refreshWorkspaceFolders()
+	s.preRenderSchemaMu.Lock()
+	defer s.preRenderSchemaMu.Unlock()
+	if _, exists := s.workspaceStaticByURI[uri]; exists {
+		t.Fatal("removed workspace retained automatic diagnostics")
+	}
+	if len(s.workspaceStaticByURI[pathToDocumentURI(filepath.Join(second, "environment.yaml"))]) == 0 {
+		t.Fatal("remaining workspace lost diagnostics")
+	}
+}

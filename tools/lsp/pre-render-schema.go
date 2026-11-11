@@ -80,10 +80,42 @@ func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 			}
 		}
 	}
+	// Validate unopened files through the same cached static entrypoint used by editors.
+	static := make(map[string][]protocol.Diagnostic)
+	rawSources := map[string][]byte{}
+	if len(files) > 0 {
+		rawSources = s.indexer.SchemaSources(pathToDocumentURI(files[0]))
+	}
+	for path := range seen {
+		uri := pathToDocumentURI(path)
+		text, open := overlays[path]
+		if !open {
+			data, ok := rawSources[path]
+			var err error
+			if !ok {
+				data, err = os.ReadFile(path)
+			}
+			if err != nil {
+				s.deleteValidationEntry(uri)
+				static[uri] = nil
+				continue
+			}
+			text = string(data)
+		}
+		static[uri] = s.diagnosticsForCached(uri, text)
+	}
 	findings := prerendervalidator.ValidateDocuments(context.Background(), resources)
 	if s.indexer.Version() != revision {
 		return
 	}
+	s.preRenderSchemaMu.Lock()
+	if s.workspaceStaticByURI == nil {
+		s.workspaceStaticByURI = make(map[string][]protocol.Diagnostic)
+	}
+	for uri, diags := range static {
+		s.workspaceStaticByURI[uri] = diags
+	}
+	s.preRenderSchemaMu.Unlock()
 	if len(findings) == 0 {
 		s.clearSchemaFindings(files)
 		return
@@ -105,7 +137,7 @@ func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 	}
 	for _, f := range files {
 		uri := pathToDocumentURI(f)
-		if _, ok := s.preRenderSchemaByURI[uri]; ok {
+		if _, hadSchema := s.preRenderSchemaByURI[uri]; hadSchema || s.GetDocument(uri) == nil {
 			affected[uri] = struct{}{}
 		}
 		delete(s.preRenderSchemaByURI, uri)
@@ -139,7 +171,7 @@ func (s *Server) clearSchemaFindings(files []string) {
 	affected := make(map[string]struct{})
 	for _, f := range files {
 		uri := pathToDocumentURI(f)
-		if _, ok := s.preRenderSchemaByURI[uri]; ok {
+		if _, hadSchema := s.preRenderSchemaByURI[uri]; hadSchema || s.GetDocument(uri) == nil {
 			affected[uri] = struct{}{}
 		}
 		delete(s.preRenderSchemaByURI, uri)
@@ -211,7 +243,24 @@ func (s *Server) mergeSchemaDiagnostics(uri string, diags []protocol.Diagnostic)
 
 func (s *Server) triggerPreRenderSchemaValidationForPath(path string) {
 	dir := filepath.Dir(path)
-	for _, root := range s.workspaceRoots {
+	if len(s.workspaceRootsSnapshot()) > 0 {
+		contained := false
+		for _, root := range s.workspaceRootsSnapshot() {
+			if projectContains(root, path) {
+				contained = true
+				break
+			}
+		}
+		if !contained {
+			if s.isSchemaDependency(path) {
+				for _, root := range s.workspaceRootsSnapshot() {
+					s.triggerPreRenderSchemaValidationForPath(filepath.Join(root, ".workspace-diagnostics.yaml"))
+				}
+			}
+			return
+		}
+	}
+	for _, root := range s.workspaceRootsSnapshot() {
 		if projectContains(root, path) {
 			dir = root
 			break
@@ -253,7 +302,13 @@ func (s *Server) triggerPreRenderSchemaValidationForPath(path string) {
 		}
 	}
 	s.preRenderSchemaMu.Unlock()
-	s.runPreRenderSchemaValidationFiles(files)
+	clean := files[:0]
+	for _, file := range files {
+		if filepath.Base(file) != ".workspace-diagnostics.yaml" {
+			clean = append(clean, file)
+		}
+	}
+	s.runPreRenderSchemaValidationFiles(clean)
 }
 
 func (s *Server) mergePreRenderSchemaDiagnostics(uri string, diags []protocol.Diagnostic) []protocol.Diagnostic {

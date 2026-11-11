@@ -157,7 +157,7 @@ func TestValidateFiles_ImageLatestNamesComponent(t *testing.T) {
 	if !strings.Contains(finding.Message, "Deployment/collab-svc") {
 		t.Fatalf("image-latest message should name the component, got %q", finding.Message)
 	}
-	if !strings.Contains(finding.Fix, "pin the image") || finding.FixLine == 0 {
+	if !strings.Contains(finding.Fix, "specify an image tag") || finding.FixLine == 0 {
 		t.Fatalf("image-latest should include fix guidance and a location, got %+v", finding)
 	}
 }

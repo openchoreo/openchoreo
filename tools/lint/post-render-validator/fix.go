@@ -11,7 +11,7 @@ import "strings"
 func fixForDiagnostic(code, message string) string {
 	switch code {
 	case "image-latest":
-		return "pin the image to a versioned tag or digest, for example nginx:1.27"
+		return "specify an image tag, such as a version or latest, or an image digest"
 	case "limits-required":
 		return "add resources.limits.cpu and resources.limits.memory to the container"
 	case "requests-required":

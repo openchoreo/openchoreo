@@ -5,6 +5,7 @@ package lsp
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	postrendervalidator "github.com/openchoreo/openchoreo/tools/lint/post-render-validator"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -191,18 +193,29 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 			files = ensureActiveFile(files, path)
 		}
 	}
+	schemaOverlays := map[string][]byte{}
+	for path, text := range overlays {
+		schemaOverlays[path] = []byte(text)
+	}
+	schemaScope := s.freshTargetSchemaScope(uri, schemaOverlays)
 	var parsed []postrendervalidator.SourceDocument
 	var pre []prerendervalidator.Resource
 	var findings []postrendervalidator.Finding
+	snapshotHashes := map[string][32]byte{}
 	for _, path := range files {
 		text, ok := overlays[filepath.Clean(path)]
 		if !ok {
-			data, e := os.ReadFile(path)
+			data, exists := schemaScope.Content(path)
+			var e error
+			if !exists {
+				data, e = os.ReadFile(path)
+			}
 			if e != nil {
 				continue
 			}
 			text = string(data)
 		}
+		snapshotHashes[filepath.Clean(path)] = sha256.Sum256([]byte(text))
 		if !parser.HasOpenChoreoAPIVersion([]byte(text)) {
 			continue
 		}
@@ -211,6 +224,9 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 		if e != nil {
 			diagnostics = []protocol.Diagnostic{parseErrorDiagnostic(e)}
 		} else {
+			for _, doc := range docs {
+				doc.ValidationContext = targetschema.WithResolver(doc.ValidationContext, schemaScope)
+			}
 			diagnostics = validateDocs(docs)
 		}
 		for _, d := range diagnostics {
@@ -241,7 +257,7 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 	}
 	findings = append(findings, postrendervalidator.ValidateWorkspace(ctx, parsed)...)
 
-	result := s.publishPostRenderFindings(uri, activePath, files, uniqueManualFindings(findings), &epoch)
+	result := s.publishPostRenderFindings(uri, activePath, files, uniqueManualFindings(findings), &epoch, snapshotHashes)
 	result.Root = root
 	return result
 }
@@ -251,7 +267,7 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 func (s *Server) postRenderRoot(activePath string) string {
 	activeDir := filepath.Dir(activePath)
 	workspaceRoot := ""
-	for _, root := range s.workspaceRoots {
+	for _, root := range s.workspaceRootsSnapshot() {
 		rel, err := filepath.Rel(root, activePath)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			continue
@@ -301,6 +317,7 @@ func (s *Server) publishPostRenderFindings(
 	files []string,
 	findings []postrendervalidator.Finding,
 	expectedEpoch *uint64,
+	snapshots ...map[string][32]byte,
 ) postRenderResult {
 	byURI := make(map[string][]protocol.Diagnostic)
 	for _, finding := range findings {
@@ -330,6 +347,10 @@ func (s *Server) publishPostRenderFindings(
 	oldByURI := s.postRenderByURI
 	s.postRenderByURI = byURI
 	s.postRenderFiles = fileSet
+	s.postRenderContentHashes = nil
+	if len(snapshots) > 0 {
+		s.postRenderContentHashes = snapshots[0]
+	}
 	s.postRenderMu.Unlock()
 
 	affected := make(map[string]struct{}, len(oldByURI)+len(byURI))
@@ -340,23 +361,18 @@ func (s *Server) publishPostRenderFindings(
 		affected[uri] = struct{}{}
 	}
 
-	open := make(map[string]Document)
-	for _, doc := range s.snapshotOpenDocuments() {
-		open[doc.URI] = doc
-	}
 	for uri := range affected {
-		doc, ok := open[uri]
-		if !ok {
-			// Findings may belong to a file in the bundle that is not open.
-			// Publishing them makes them visible in the Problems panel; when
-			// the file opens, DidOpen merges the cache with structural results.
-			s.publishDiagnosticsAsync(uri, 0, nil)
-			continue
-		}
-		structural := s.diagnosticsForCached(uri, doc.Text)
-		s.publishDiagnosticsAsync(uri, doc.Version, structural)
+		s.republishCurrentDiagnostics(uri)
 	}
 
+	if expectedEpoch != nil {
+		s.postRenderMu.Lock()
+		stale := *expectedEpoch != s.postRenderEpoch
+		s.postRenderMu.Unlock()
+		if stale {
+			return postRenderResult{Files: len(files), Message: "Files changed during post-render validation; run it again."}
+		}
+	}
 	errors, warnings := 0, 0
 	details := make([]string, 0, len(findings))
 	for _, finding := range findings {
@@ -503,8 +519,14 @@ func samePath(a, b string) bool {
 // documents so stale post-render findings disappear immediately.
 func (s *Server) invalidatePostRenderForEdit(uri string) {
 	path := filepath.Clean(fileURIToPath(uri))
+	current, exists := s.documentText(uri)
+	currentHash := sha256.Sum256([]byte(current))
 	s.postRenderMu.Lock()
 	if _, ok := s.postRenderFiles[path]; !ok && !projectContains(s.postRenderScope, path) {
+		s.postRenderMu.Unlock()
+		return
+	}
+	if captured, known := s.postRenderContentHashes[path]; known && exists && captured == currentHash {
 		s.postRenderMu.Unlock()
 		return
 	}
@@ -512,6 +534,7 @@ func (s *Server) invalidatePostRenderForEdit(uri string) {
 	uris := keysOfDiagnosticMap(s.postRenderByURI)
 	s.postRenderByURI = make(map[string][]protocol.Diagnostic)
 	s.postRenderFiles = make(map[string]struct{})
+	s.postRenderContentHashes = nil
 	s.postRenderMu.Unlock()
 
 	s.republishStructural(uris, "")
@@ -531,6 +554,7 @@ func (s *Server) invalidatePostRenderForClose(uri string) {
 	uris := keysOfDiagnosticMap(s.postRenderByURI)
 	s.postRenderByURI = make(map[string][]protocol.Diagnostic)
 	s.postRenderFiles = make(map[string]struct{})
+	s.postRenderContentHashes = nil
 	s.postRenderMu.Unlock()
 
 	s.republishStructural(uris, uri)
@@ -545,27 +569,16 @@ func (s *Server) clearPostRenderAll() []string {
 	uris := keysOfDiagnosticMap(s.postRenderByURI)
 	s.postRenderByURI = make(map[string][]protocol.Diagnostic)
 	s.postRenderFiles = make(map[string]struct{})
+	s.postRenderContentHashes = nil
 	s.postRenderMu.Unlock()
 	return uris
 }
 
 func (s *Server) republishStructural(uris []string, skipURI string) {
-	open := make(map[string]Document)
-	for _, doc := range s.snapshotOpenDocuments() {
-		open[doc.URI] = doc
-	}
 	for _, uri := range uris {
-		if uri == skipURI {
-			continue
+		if uri != skipURI {
+			s.republishCurrentDiagnostics(uri)
 		}
-		doc, ok := open[uri]
-		if !ok {
-			// The file no longer holds post-render findings. It may be closed;
-			// clear its published diagnostics without structural results.
-			s.publishDiagnosticsAsync(uri, 0, nil)
-			continue
-		}
-		s.publishDiagnosticsAsync(uri, doc.Version, s.diagnosticsForCached(uri, doc.Text))
 	}
 }
 

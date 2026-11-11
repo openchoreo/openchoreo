@@ -138,3 +138,36 @@ func (idx *Indexer) HasWorkspace(sourceURI string) bool {
 	}
 	return false
 }
+
+// SchemaSources returns immutable source copies for schema dependencies without
+// changing Snapshot's OpenChoreo-only navigation and reference behavior.
+func (idx *Indexer) SchemaSources(sourceURI string) map[string][]byte {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	root := ""
+	source := uriPath(sourceURI)
+	for _, candidate := range idx.rootDirs {
+		if within(candidate, source) && len(candidate) > len(root) {
+			root = candidate
+		}
+	}
+	out := map[string][]byte{}
+	if root == "" && len(idx.rootDirs) > 0 {
+		return out
+	}
+	for uri, data := range idx.contents {
+		path := uriPath(uri)
+		if root == "" || within(root, path) {
+			out[path] = append([]byte(nil), data...)
+		}
+	}
+	return out
+}
+
+// SourceContent returns a copy of the indexed source, including malformed YAML.
+func (idx *Indexer) SourceContent(uri string) ([]byte, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	data, ok := idx.contents[uri]
+	return append([]byte(nil), data...), ok
+}

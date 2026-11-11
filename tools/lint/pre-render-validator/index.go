@@ -95,27 +95,40 @@ func buildIndex(sources []sourceDoc) *index {
 				idx.clusterTraits = append(idx.clusterTraits, clusterTraitEntry{doc: obj, file: s.file, pdoc: doc})
 			}
 		case "Component":
+			// Decode only the fields this validator consumes. Unrelated invalid
+			// fields (autoDeploy, workflow, etc.) must not suppress value checks.
 			var obj v1alpha1.Component
-			if err := decodeTyped(doc, &obj); err == nil {
-				entry := componentEntry{
-					doc:        doc,
-					file:       s.file,
-					obj:        obj,
-					parameters: obj.Spec.Parameters,
-				}
-				for _, t := range obj.Spec.Traits {
-					kind := string(t.Kind)
-					if kind == "" {
-						kind = "Trait"
-					}
-					entry.traits = append(entry.traits, componentTraitEntry{
-						kind:       kind,
-						name:       t.Name,
-						parameters: t.Parameters,
-					})
-				}
-				idx.components = append(idx.components, entry)
+			obj.Name, obj.Namespace = doc.Metadata.Name, doc.Metadata.Namespace
+			reference := projectMapping(doc.Spec, "componentType")
+			view := *doc
+			view.Root = &yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{
+				{Kind: yaml.ScalarNode, Value: "spec"}, reference,
+			}}
+			var projected v1alpha1.Component
+			if err := decodeTyped(&view, &projected); err == nil {
+				obj.Spec.ComponentType = projected.Spec.ComponentType
 			}
+			params, err := rawNode(findMappingValue(doc.Spec, "parameters"))
+			if err != nil {
+				continue
+			}
+			entry := componentEntry{doc: doc, file: s.file, obj: obj, parameters: params}
+			if traits := findMappingValue(doc.Spec, "traits"); traits != nil && traits.Kind == yaml.SequenceNode {
+				for _, node := range traits.Content {
+					trait := componentTraitEntry{}
+					view.Root = projectMapping(node, "kind", "name", "parameters")
+					var decoded v1alpha1.ComponentTrait
+					if err := decodeTyped(&view, &decoded); err == nil {
+						trait.kind, trait.name, trait.parameters = string(decoded.Kind), decoded.Name, decoded.Parameters
+						if trait.kind == "" {
+							trait.kind = "Trait"
+						}
+					}
+					// Preserve sequence positions even when another reference is invalid.
+					entry.traits = append(entry.traits, trait)
+				}
+			}
+			idx.components = append(idx.components, entry)
 		}
 	}
 	return idx
@@ -221,3 +234,14 @@ func (idx *index) resolveTrait(file string, doc *parser.DocumentNode, trait comp
 }
 
 var _ runtime.RawExtension
+
+// projectMapping builds a read-only view without changing the original AST.
+func projectMapping(node *yaml.Node, fields ...string) *yaml.Node {
+	out := &yaml.Node{Kind: yaml.MappingNode}
+	for _, field := range fields {
+		if value := findMappingValue(node, field); value != nil {
+			out.Content = append(out.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: field}, value)
+		}
+	}
+	return out
+}

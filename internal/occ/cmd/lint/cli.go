@@ -30,6 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/openchoreo/openchoreo/tools/lint/suppress"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
 
 	"context"
@@ -353,6 +354,13 @@ func runValidate(f validateFlags, path string) error {
 		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", path, err)
 		return exitErrorf(1)
 	}
+	scopeRoot := path
+	if !info.IsDir() {
+		scopeRoot = filepath.Dir(path)
+	}
+	if sources, e := targetschema.ReadSources(scopeRoot, info.IsDir() && f.detect); e == nil {
+		cfg.schemaScope = targetschema.NewScope(scopeRoot, sources)
+	}
 	if info.IsDir() {
 		if !f.batch && !f.detect {
 			fmt.Fprintf(os.Stderr, "Error: %s is a folder; use -b to validate all YAML files or -detect to scan subfolders\n\n", path)
@@ -599,6 +607,7 @@ type sarifRegion struct {
 
 // fixConfig holds the -fix and -dry-run options of a validation run.
 type fixConfig struct {
+	schemaScope *targetschema.Scope
 	// enabled turns on the repair pass.
 	enabled bool
 	// dryRun computes the repairs and reports them without writing the file.
@@ -638,13 +647,13 @@ func futureTense(msg string) string {
 // names is non-nil, name references that do not resolve to a resource in the
 // workspace are reported as warnings. Diagnostics suppressed by an
 // # occ:ignore comment are dropped.
-func loadResults(path string, data []byte, names map[string]bool) ([]clivalidator.DocumentResult, error) {
+func loadResults(path string, data []byte, names map[string]bool, resolvers ...targetschema.Resolver) ([]clivalidator.DocumentResult, error) {
 	var results []clivalidator.DocumentResult
 	var err error
 	if names != nil {
-		results, err = clivalidator.ValidateYAMLWithNames(data, names)
+		results, err = clivalidator.ValidateYAMLWithNames(data, names, resolvers...)
 	} else {
-		results, err = clivalidator.ValidateYAML(data)
+		results, err = clivalidator.ValidateYAML(data, resolvers...)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
@@ -756,6 +765,11 @@ func validateFileObj(path string, names map[string]bool, cfg fixConfig) int {
 // validateFolderObj validates the YAML files under a folder and prints the
 // aggregated JSON result.
 func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig) int {
+	if cfg.schemaScope == nil {
+		if sources, e := targetschema.ReadSources(folder, recursive); e == nil {
+			cfg.schemaScope = targetschema.NewScope(folder, sources)
+		}
+	}
 	info, err := os.Stat(folder)
 	if err != nil {
 		printJSON([]diagnosticJSON{{File: folder, Severity: "error", Message: err.Error()}}, nil)
@@ -962,7 +976,14 @@ type fileOutcome struct {
 func analyzeFile(path string, names map[string]bool, cfg fixConfig) fileOutcome {
 	out := fileOutcome{path: path}
 
-	data, err := os.ReadFile(path)
+	var data []byte
+	var err error
+	if cfg.schemaScope != nil {
+		data, _ = cfg.schemaScope.Content(path)
+	}
+	if data == nil {
+		data, err = os.ReadFile(path)
+	}
 	if err != nil {
 		out.errs = 1
 		out.err = err
@@ -993,7 +1014,7 @@ func analyzeFile(path string, names map[string]bool, cfg fixConfig) fileOutcome 
 		}
 	}
 
-	results, err := loadResults(path, content, names)
+	results, err := loadResults(path, content, names, cfg.schemaScope)
 	if err != nil {
 		out.errs = 1
 		out.err = err
@@ -1007,7 +1028,7 @@ func analyzeFile(path string, names map[string]bool, cfg fixConfig) fileOutcome 
 	// would leave behind, so CI fails only on issues that survive the fix.
 	counted := results
 	if cfg.enabled && cfg.dryRun {
-		if post, perr := loadResults(path, out.fixed, names); perr == nil {
+		if post, perr := loadResults(path, out.fixed, names, cfg.schemaScope); perr == nil {
 			counted = post
 		}
 	}
@@ -1189,6 +1210,11 @@ func (p phaseTiming) breakdown() string {
 // parallel with up to workers goroutines, but reports are printed in file order.
 // It returns the process exit code.
 func validateFolder(folder string, recursive bool, workers int, quiet, verbose bool, cfg fixConfig) int {
+	if cfg.schemaScope == nil {
+		if sources, e := targetschema.ReadSources(folder, recursive); e == nil {
+			cfg.schemaScope = targetschema.NewScope(folder, sources)
+		}
+	}
 	start := time.Now()
 	info, err := os.Stat(folder)
 	if err != nil {

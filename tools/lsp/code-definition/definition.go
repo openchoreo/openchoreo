@@ -56,6 +56,15 @@ func Handle(docText string, cursorLine, cursorCol int, sourceURI string, idx Kin
 		return nil
 	}
 
+	// Embedded resource templates describe output resources, not OpenChoreo
+	// workspace references. In particular containers[].name is a local name.
+	path := lsputil.NormalizePath(lsputil.BuildPathToNode(document.Root, parentMapping))
+	for _, segment := range lsputil.SplitPath(path) {
+		if segment == "template" {
+			return nil
+		}
+	}
+
 	// Case 1: cursor is on a "kind" value → find all resources of that kind
 	if parentKey == "kind" {
 		kind := node.Value

@@ -61,7 +61,7 @@ func newDebouncedServer(t *testing.T) (*lsp.Server, net.Conn) {
 		}),
 	)
 	s.SetConnection(conn)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { serverSide.Close(); clientSide.Close(); conn.Close() })
 	return s, clientSide
 }
 

@@ -141,8 +141,7 @@ func (m missingFieldsRule) Evaluate(resources []renderer.RenderedResource) rulee
 	return diags
 }
 
-// imageTagRule reports container images that are not pinned to an immutable
-// version: the :latest tag, or no tag at all.
+// imageTagRule requires an explicit tag (including latest) or digest.
 type imageTagRule struct{}
 
 func (imageTagRule) Name() string { return "image-latest" }
@@ -167,8 +166,7 @@ func (i imageTagRule) Evaluate(resources []renderer.RenderedResource) ruleengine
 	return diags
 }
 
-// unpinnedImageReason returns why an image reference is not pinned, or an
-// empty string when it is pinned to a version or a digest.
+// unpinnedImageReason returns why an image lacks an explicit tag or digest.
 func unpinnedImageReason(image string) string {
 	// A digest reference is immutable by definition.
 	if i := strings.Index(image, "@"); i >= 0 && image[i+1:] != "" {
@@ -180,14 +178,11 @@ func unpinnedImageReason(image string) string {
 	segment := image[lastSlash+1:]
 	colon := strings.LastIndex(segment, ":")
 	if colon < 0 {
-		return "no tag"
+		return "specify an image tag, such as a version or latest, or an image digest"
 	}
 	tag := segment[colon+1:]
 	if tag == "" {
-		return "no tag"
-	}
-	if tag == "latest" {
-		return "the latest tag is not pinned"
+		return "specify an image tag, such as a version or latest, or an image digest"
 	}
 	return ""
 }

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	clivalidator "github.com/openchoreo/openchoreo/tools/lint/cli-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -42,20 +42,9 @@ func Validate(text string) []protocol.Diagnostic {
 // cache) can reuse the AST for both rule-engine and reference checks.
 func validateDocs(docs []*parser.DocumentNode) []protocol.Diagnostic {
 	var out []protocol.Diagnostic
-	for _, doc := range docs {
-		e := ruleengine.NewEngine()
-		if kindRules := template.RulesForKind(doc.Kind); len(kindRules) > 0 {
-			e.AddKindRules(doc.Kind, kindRules)
-		} else if inferred := template.InferKind(doc); inferred != "" {
-			// Unrecognized kind: still validate deeply against the closest
-			// matching schema so all issues surface, not just unknown-kind.
-			for _, r := range template.RulesForKind(inferred) {
-				e.AddRule(r)
-			}
-		}
-
-		for _, d := range e.Evaluate(doc) {
-			out = append(out, toLSPDiagnostic(d))
+	for _, result := range clivalidator.ValidateDocuments(docs) {
+		for _, finding := range result.Diagnostics {
+			out = append(out, toLSPDiagnostic(finding))
 		}
 	}
 
@@ -114,10 +103,15 @@ func toLSPPosition(p parser.Position) protocol.Position {
 
 // publishDiagnostics sends the given diagnostics for a document to the client.
 func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version int, diags []protocol.Diagnostic) {
-	if context == nil {
+	if context == nil || !s.validationSnapshotCurrent(uri, version) {
 		return
 	}
 
+	if s.GetDocument(uri) == nil {
+		s.preRenderSchemaMu.Lock()
+		diags = append(diags, s.workspaceStaticByURI[uri]...)
+		s.preRenderSchemaMu.Unlock()
+	}
 	diags = s.mergePostRenderDiagnostics(uri, diags)
 	diags = s.mergePreRenderSchemaDiagnostics(uri, diags)
 	if diags == nil {
@@ -128,7 +122,7 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 	versionUInt := protocol.UInteger(version)
 	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(uri),
-		Version:     &versionUInt,
+		Version:     diagnosticVersion(s, uri, &versionUInt),
 		Diagnostics: diags,
 	})
 }
@@ -137,6 +131,14 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 // Unlike glsp.Context.Notify, that is valid after a handler has returned,
 // which is what debounced publishes rely on.
 func (s *Server) publishDiagnosticsAsync(uri string, version int, diags []protocol.Diagnostic) {
+	if !s.validationSnapshotCurrent(uri, version) {
+		return
+	}
+	if s.GetDocument(uri) == nil {
+		s.preRenderSchemaMu.Lock()
+		diags = append(diags, s.workspaceStaticByURI[uri]...)
+		s.preRenderSchemaMu.Unlock()
+	}
 	diags = s.mergePostRenderDiagnostics(uri, diags)
 	diags = s.mergePreRenderSchemaDiagnostics(uri, diags)
 	if diags == nil {
@@ -147,7 +149,7 @@ func (s *Server) publishDiagnosticsAsync(uri string, version int, diags []protoc
 	versionUInt := protocol.UInteger(version)
 	s.SendAsync(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(uri),
-		Version:     &versionUInt,
+		Version:     diagnosticVersion(s, uri, &versionUInt),
 		Diagnostics: diags,
 	})
 }
@@ -274,7 +276,7 @@ func (s *Server) scheduleOtherDocRevalidation(editedURI string) {
 
 // revalidateOpenDocumentsExcept republishes the current diagnostics of every
 // open document except exceptURI. Metrics and cached parses are reused, so
-// only the reference checks re-run when the index moved on.
+// CEL and reference checks re-run when schema dependencies change.
 func (s *Server) revalidateOpenDocumentsExcept(exceptURI string) {
 	for _, doc := range s.snapshotOpenDocuments() {
 		if doc.URI == exceptURI {
@@ -299,4 +301,47 @@ func uniqueProjectDiagnostics(diags []protocol.Diagnostic) []protocol.Diagnostic
 		}
 	}
 	return out
+}
+
+// Schema edits do not change a consuming document's LSP version, so guard the
+// schema revision as well before publishing its cached static diagnostics.
+func (s *Server) validationSnapshotCurrent(uri string, version int) bool {
+	if current := s.GetDocument(uri); current != nil && current.Version != version {
+		return false
+	}
+	s.cacheMu.Lock()
+	entry := s.cache[uri]
+	stale := entry != nil && entry.indexVer != s.indexer.Version()
+	s.cacheMu.Unlock()
+	return !stale
+}
+
+// Closed workspace documents have no client document version.
+func diagnosticVersion(s *Server, uri string, version *protocol.UInteger) *protocol.UInteger {
+	if s.GetDocument(uri) == nil {
+		return nil
+	}
+	return version
+}
+
+// Refresh the automatic lane before merging manual findings. An unrelated index
+// revision must not suppress a closed file's Play results or leave stale markers.
+func (s *Server) republishCurrentDiagnostics(uri string) {
+	if doc := s.GetDocument(uri); doc != nil {
+		s.publishDiagnosticsAsync(uri, doc.Version, s.diagnosticsForCached(uri, doc.Text))
+		return
+	}
+	var diags []protocol.Diagnostic
+	if text, exists := s.documentText(uri); exists {
+		diags = s.diagnosticsForCached(uri, text)
+	} else {
+		s.deleteValidationEntry(uri)
+	}
+	s.preRenderSchemaMu.Lock()
+	if s.workspaceStaticByURI == nil {
+		s.workspaceStaticByURI = make(map[string][]protocol.Diagnostic)
+	}
+	s.workspaceStaticByURI[uri] = diags
+	s.preRenderSchemaMu.Unlock()
+	s.publishDiagnosticsAsync(uri, 0, nil)
 }

@@ -5,6 +5,7 @@ package lsp
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 	"time"
 
@@ -88,6 +89,11 @@ func (s *Server) runIndexing(roots []string) {
 
 		// Keep the index fresh for on-disk changes after the scan completes.
 		s.startWatch(roots)
+		go func() {
+			for _, root := range roots {
+				s.triggerPreRenderSchemaValidationForPath(filepath.Join(root, ".workspace-diagnostics.yaml"))
+			}
+		}()
 	}
 
 	if useProgress {

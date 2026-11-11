@@ -22,10 +22,10 @@ import (
 // It also pins the important contract that the rendered Deployment is still
 // returned alongside the failure, so a caller can report it.
 func TestWebappFixture_AutoscalingConflict(t *testing.T) {
-	dir := filepath.Join("..", "testData", "sample-projects", "webapp")
+	dir := filepath.Join("testdata", "webapp-conflict")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		t.Skipf("fixture dir not available (sample projects are local-only): %v", err)
+		t.Fatalf("read checked-in fixture: %v", err)
 	}
 
 	var docs []*parser.DocumentNode

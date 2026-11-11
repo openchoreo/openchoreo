@@ -97,7 +97,7 @@ func newIndexingTestServer(t *testing.T) (*lsp.Server, net.Conn) {
 		}),
 	)
 	s.SetConnection(conn)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { serverSide.Close(); clientSide.Close(); conn.Close() })
 	return s, clientSide
 }
 
@@ -217,7 +217,7 @@ func TestIndexingReportsProgressWhenClientSupportsIt(t *testing.T) {
 	}
 
 	// The end notification concludes the sequence: nothing may follow.
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
 }
 
 func TestIndexingSkipsProgressWhenClientRejectsCreate(t *testing.T) {
@@ -245,7 +245,7 @@ func TestIndexingSkipsProgressWhenClientRejectsCreate(t *testing.T) {
 
 	// Indexing still completes, and no $/progress frames may follow.
 	waitIndexed(t, s)
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
 }
 
 func TestIndexingNoProgressWithoutClientSupport(t *testing.T) {
@@ -260,7 +260,7 @@ func TestIndexingNoProgressWithoutClientSupport(t *testing.T) {
 
 	// No work-done progress frames may be sent for a client that did not
 	// declare Window.WorkDoneProgress.
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
 }
 
 func TestIndexingRunsOncePerServer(t *testing.T) {
@@ -278,7 +278,7 @@ func TestIndexingRunsOncePerServer(t *testing.T) {
 	if _, err := s.Initialize(nil, initializeIndexingParams(t, root, true)); err != nil {
 		t.Fatalf("second Initialize: %v", err)
 	}
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
 }
 
 // TestIndexingMultipleRoots drives the scan through workspaceFolders (the
@@ -314,7 +314,7 @@ func TestIndexingMultipleRoots(t *testing.T) {
 		t.Errorf("index missing resource from root B: %v", names)
 	}
 	// No $/progress frames were declared, so nothing may be sent.
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
 }
 
 // TestInitializeWithoutRootsKeepsIndexEmpty mirrors a client that sends neither
@@ -335,5 +335,22 @@ func TestInitializeWithoutRootsKeepsIndexEmpty(t *testing.T) {
 	if names := s.ResourceNames(); len(names) != 0 {
 		t.Fatalf("expected empty index, got %v", names)
 	}
-	expectNoFrame(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+}
+
+// Automatic workspace diagnostics may follow indexing; progress must still stop.
+func expectNoIndexingFrames(t *testing.T, client net.Conn, within time.Duration) {
+	t.Helper()
+	client.SetReadDeadline(time.Now().Add(within))
+	defer client.SetReadDeadline(time.Time{})
+	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
+	for {
+		var frame rxFrame
+		if err := stream.ReadObject(&frame); err != nil {
+			return
+		}
+		if frame.Method != protocol.ServerTextDocumentPublishDiagnostics {
+			t.Fatalf("unexpected post-indexing frame %q", frame.Method)
+		}
+	}
 }

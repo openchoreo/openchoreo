@@ -13,13 +13,12 @@ import (
 //
 // Validating a document is the most expensive per-edit operation: it parses
 // the YAML and runs the rule engine. The parse result and the rule-engine
-// diagnostics depend only on the text, so they are worth caching per document
-// URI. Only the reference diagnostics (FileNameRefDiagnostics) depend on the
-// indexer, which is why every entry records the index version it was computed
-// against and re-runs only that part when the index moves on.
+// diagnostics depend on the text and schema snapshot, so they are worth caching per document
+// URI. CEL and reference diagnostics both depend on the index revision, so a schema
+// edit invalidates the cached validation even when the consuming text is unchanged.
 //
-// The cache is bounded in practice: entries are created for documents that are
-// actually open and evicted on didClose.
+// Entries cover workspace YAML as well as open documents. Deleted files and
+// workspace-folder changes evict their cached state.
 
 // validationEntry caches the validation state of one document URI.
 type validationEntry struct {
@@ -29,7 +28,7 @@ type validationEntry struct {
 	// docs is the parsed AST for text; nil when parsing was skipped (no
 	// OpenChoreo apiVersion) or failed (parse error).
 	docs []*parser.DocumentNode
-	// validationDiags is the rule-engine result. It depends only on text.
+	// validationDiags depends on text, selected templates, and schema revision.
 	validationDiags []protocol.Diagnostic
 	// refDiags is the resource-file reference result. It depends on the
 	// indexer state at indexVer.
@@ -57,15 +56,18 @@ func (s *Server) diagnosticsForCached(uri, text string) []protocol.Diagnostic {
 			return entry.combined
 		}
 
-		// The text did not change but the index did: reuse the parse and the
-		// rule-engine result, recompute only the reference diagnostics.
+		// Reuse the AST on schema edits, but rebuild CEL declarations and
+		// diagnostics: the consuming text can stay unchanged as a CRD changes.
 		s.cacheHits++
 		if entry.docs != nil {
-			entry.refDiags = codeaction.FileNameRefDiagnosticsDocs(entry.docs, s.indexer.ResourceNames(), s.indexer.FileNames(), codeaction.ReferenceScope{Index: s.indexer, URI: uri})
-			entry.combined = combineDiagnostics(entry.validationDiags, entry.refDiags)
+			entry.docs = s.bindTargetSchemas(uri, text, entry.docs)
+			entry.validationDiags = validateDocs(entry.docs)
 		}
+		entry.refDiags = codeaction.FileNameRefDiagnosticsDocs(entry.docs, s.indexer.ResourceNames(), s.indexer.FileNames(), codeaction.ReferenceScope{Index: s.indexer, URI: uri})
+		entry.combined = combineDiagnostics(entry.validationDiags, entry.refDiags)
 		entry.indexVer = indexVer
 		return entry.combined
+
 	}
 
 	s.cacheMisses++
@@ -104,12 +106,14 @@ func (s *Server) computeValidation(uri, text string, indexVer uint64) *validatio
 	docs, err := parser.ParseYAML([]byte(text))
 	if err != nil {
 		return &validationEntry{
-			text:     text,
-			indexVer: indexVer,
-			combined: []protocol.Diagnostic{parseErrorDiagnostic(err)},
+			text:            text,
+			indexVer:        indexVer,
+			validationDiags: []protocol.Diagnostic{parseErrorDiagnostic(err)},
+			combined:        []protocol.Diagnostic{parseErrorDiagnostic(err)},
 		}
 	}
 
+	docs = s.bindTargetSchemas(uri, text, docs)
 	validationDiags := validateDocs(docs)
 	refDiags := codeaction.FileNameRefDiagnosticsDocs(docs, s.indexer.ResourceNames(), s.indexer.FileNames(), codeaction.ReferenceScope{Index: s.indexer, URI: uri})
 

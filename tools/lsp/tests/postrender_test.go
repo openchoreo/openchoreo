@@ -5,6 +5,7 @@ package lsp_test
 
 import (
 	"encoding/json"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -93,7 +94,7 @@ spec:
     projectName: default
     componentName: frontend
   container:
-    image: nginx:latest
+    image: nginx
 `
 
 func postRenderProject(t *testing.T) (componentPath, workloadPath string) {
@@ -180,11 +181,11 @@ func TestPostRenderPublishesFindingsForClosedBundleFile(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPublish(t, client, 2*time.Second)
+	params := readPostRenderFinding(t, client, 2*time.Second)
 	if string(params.URI) != fileURI(workloadPath) {
 		t.Fatalf("diagnostics URI = %q, want workload %q", params.URI, fileURI(workloadPath))
 	}
-	if !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+	if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("expected image-latest on workload, got %+v", params.Diagnostics)
 	}
 	summary := waitPostRender(t, done)
@@ -197,10 +198,10 @@ func TestPostRenderPublishesFindingsForClosedBundleFile(t *testing.T) {
 	}
 	detail, _ := details[0].(string)
 	if !strings.Contains(detail, "workload.yaml:11:") ||
-		!strings.Contains(detail, "latest tag is not pinned") {
+		!strings.Contains(detail, "specify an image tag") {
 		t.Fatalf("detail = %q, want file location and reason", detail)
 	}
-	if !strings.Contains(detail, "Fix at workload.yaml:11:5: pin the image") {
+	if !strings.Contains(detail, "Fix at workload.yaml:11:5: specify an image tag") {
 		t.Fatalf("detail = %q, want fix guidance at the finding location", detail)
 	}
 }
@@ -214,14 +215,14 @@ func TestPostRenderMergesWithOpenDocumentStructuralDiagnostics(t *testing.T) {
 
 	done := startPostRender(t, s, componentURI)
 
-	params := readPublish(t, client, 2*time.Second)
+	params := readPostRenderFinding(t, client, 2*time.Second)
 	if string(params.URI) != workloadURI {
 		t.Fatalf("diagnostics URI = %q, want %q", params.URI, workloadURI)
 	}
 	if params.Version == nil || *params.Version != 7 {
 		t.Fatalf("version = %v, want 7", params.Version)
 	}
-	if !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+	if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("expected merged post-render finding, got %+v", params.Diagnostics)
 	}
 	waitPostRender(t, done)
@@ -235,7 +236,7 @@ func TestPostRenderSurvivesStructuralRepublish(t *testing.T) {
 	openDoc(t, s, workloadURI, postRenderWorkload, 1)
 
 	done := startPostRender(t, s, componentURI)
-	if params := readPublish(t, client, 2*time.Second); !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+	if params := readPostRenderFinding(t, client, 2*time.Second); !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("expected initial post-render finding, got %+v", params.Diagnostics)
 	}
 	waitPostRender(t, done)
@@ -247,11 +248,11 @@ func TestPostRenderSurvivesStructuralRepublish(t *testing.T) {
 	changeDoc(t, s, otherURI, 2, protocol.TextDocumentContentChangeEventWhole{Text: "apiVersion: v1\nkind: Secret\n"})
 
 	for i := 0; i < 4; i++ {
-		params := readPublish(t, client, 2*time.Second)
+		params := readPostRenderFinding(t, client, 2*time.Second)
 		if string(params.URI) != workloadURI {
 			continue
 		}
-		if !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+		if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 			t.Fatalf("structural republish erased post-render finding: %+v", params.Diagnostics)
 		}
 		return
@@ -273,7 +274,7 @@ func TestPostRenderClearsStaleFindingsOnEdit(t *testing.T) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		params := readPublish(t, client, time.Until(deadline))
-		if hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+		if hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 			break
 		}
 	}
@@ -282,7 +283,7 @@ func TestPostRenderClearsStaleFindingsOnEdit(t *testing.T) {
 
 	changeDoc(t, s, workloadURI, 2, protocol.TextDocumentContentChangeEventWhole{Text: postRenderWorkload})
 	params := readPublish(t, client, 2*time.Second)
-	if hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+	if hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("stale post-render finding survived edit: %+v", params.Diagnostics)
 	}
 }
@@ -298,7 +299,7 @@ func TestPostRenderReportsSelectionErrorOnActiveDocument(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPublish(t, client, 2*time.Second)
+	params := readPostRenderFinding(t, client, 2*time.Second)
 	if string(params.URI) != componentURI {
 		t.Fatalf("diagnostics URI = %q, want active %q", params.URI, componentURI)
 	}
@@ -378,15 +379,29 @@ func TestPostRenderDiscoversGitOpsProjectResources(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPublish(t, client, 2*time.Second)
+	params := readPostRenderFinding(t, client, 2*time.Second)
 	if string(params.URI) != fileURI(workloadPath) {
 		t.Fatalf("diagnostics URI = %q, want workload %q", params.URI, fileURI(workloadPath))
 	}
-	if !hasPostRenderDiagnostic(params.Diagnostics, "latest tag is not pinned") {
+	if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("expected image-latest from platform ComponentType, got %+v", params.Diagnostics)
 	}
 	summary := waitPostRender(t, done)
 	if summary["errors"].(float64) == 0 {
 		t.Fatalf("expected post-render errors, got %v", summary)
+	}
+}
+
+// Static workspace notifications may arrive before manual render findings.
+func readPostRenderFinding(t *testing.T, client net.Conn, timeout time.Duration) protocol.PublishDiagnosticsParams {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		params := readPublish(t, client, time.Until(deadline))
+		for _, diagnostic := range params.Diagnostics {
+			if diagnostic.Source != nil && *diagnostic.Source == "openchoreo-post-render" {
+				return params
+			}
+		}
 	}
 }
