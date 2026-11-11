@@ -49,7 +49,7 @@ const clusterPlaneExample = `  # Control plane components over the last 10 minut
   occ cop logs default --pod-namespace openchoreo-control-plane --container manager -f
 
   # Errors from two clusters, as JSON
-  occ cop logs default --cluster clusterX,clusterY --level ERROR -o json
+  occ cop logs default --cluster clusterX,clusterY --level ERROR --log-format json
 
   # One data plane instance
   occ cop logs default -l openchoreo.dev/plane=dataplane,openchoreo.dev/plane-id=eu-1`
@@ -59,7 +59,10 @@ const namespacedPlaneExample = `  # Control plane components over the last 10 mi
     --selector openchoreo.dev/plane=controlplane --since 10m
 
   # Errors from one pod, followed
-  occ op logs primary-observabilityplane -n acme-corp --pod controller-manager-7f58b689b5-pwsb5 --level ERROR -f`
+  occ op logs primary-observabilityplane -n acme-corp --pod controller-manager-7f58b689b5-pwsb5 --level ERROR -f
+
+  # Print each log entry as JSON
+  occ op logs primary-observabilityplane -n acme-corp --log-format json`
 
 // NewClusterPlaneLogsCmd builds the `logs` subcommand of clusterobservabilityplane.
 func NewClusterPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
@@ -133,7 +136,8 @@ func addLogsFlags(cmd *cobra.Command) {
 		"Log levels to include: DEBUG, INFO, WARN, ERROR (comma-separated)")
 	cmd.Flags().String("search", "", "Only return entries whose message contains this text")
 	cmd.Flags().StringP("output", "o", outputText,
-		"Output format: 'text' or 'json' (json emits one entry per line)")
+		"Output format: text, json (one object per line), or custom-columns=FIELD,...")
+	flags.AddLogFormatAlias(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
 	flags.AddFollow(cmd)

@@ -25,6 +25,7 @@ type LogsParams struct {
 	WorkflowRunName string
 	Follow          bool
 	Since           string
+	LogFormat       string
 }
 
 func (p LogsParams) GetNamespace() string { return p.Namespace }

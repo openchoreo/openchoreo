@@ -83,6 +83,22 @@ func sampleRecord(t *testing.T, eventTime string) obsgen.AuditLogRecord {
 	}
 }
 
+func TestQuery_CustomColumns(t *testing.T) {
+	setupConfig(t)
+	mc := enabledMetadata(t)
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, obsgen.AuditLogsResponse{
+			Records: []obsgen.AuditLogRecord{sampleRecord(t, "2026-11-10T08:21:04.512Z")},
+		}), nil
+	}))
+	params := defaultParams()
+	params.Output = "custom-columns=event_time,actor.id,resource.namespace,action,result"
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Query(params))
+	})
+	assert.Equal(t, "2026-11-10T08:21:04.512Z alice@example.com acme-corp create_project success\n", out)
+}
+
 func TestQuery_SendsFiltersAndPrintsTable(t *testing.T) {
 	setupConfig(t)
 	mc := enabledMetadata(t)

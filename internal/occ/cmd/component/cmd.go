@@ -235,6 +235,12 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Get logs from a single container in a multi-container pod
   occ component logs my-component --container main
 
+  # Print each log entry as JSON, including its metadata
+  occ component logs my-component --log-format json
+
+  # Print selected log attributes in the given order
+  occ component logs my-component --log-format custom-columns=timestamp,level,metadata.podName,log
+
   # Follow logs in real-time
   occ component logs my-component --env dev -f
 
@@ -259,6 +265,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				Component:       args[0],
 				Environment:     flags.GetEnvironment(cmd),
 				Container:       container,
+				LogFormat:       flags.GetLogFormat(cmd),
 				Follow:          flags.GetFollow(cmd),
 				Since:           flags.GetSince(cmd),
 				ReleaseLine:     flags.GetReleaseLine(cmd),
@@ -272,6 +279,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddEnvironment(cmd)
 	// No short alias: `-c` denotes --component elsewhere in the CLI.
 	cmd.Flags().String("container", "", "Container name to fetch logs from (defaults to all containers)")
+	flags.AddLogFormat(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
@@ -407,7 +415,10 @@ func newWorkflowLogsCmd(f client.NewClientFunc) *cobra.Command {
 Finds the latest workflow run for the component by default.
 Use --workflowrun to specify a particular run.`,
 		Example: `  # Get logs for the latest workflow run of a component
-  occ component workflow logs my-service --namespace acme-corp`,
+  occ component workflow logs my-service --namespace acme-corp
+
+  # Print each log entry as JSON
+  occ component workflow logs my-service --namespace acme-corp --log-format json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -421,6 +432,7 @@ Use --workflowrun to specify a particular run.`,
 				RunName:       flags.GetWorkflowRun(cmd),
 				Follow:        flags.GetFollow(cmd),
 				Since:         flags.GetSince(cmd),
+				LogFormat:     flags.GetLogFormat(cmd),
 			})
 		},
 	}
@@ -428,6 +440,7 @@ Use --workflowrun to specify a particular run.`,
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddWorkflowRun(cmd)
+	flags.AddLogFormat(cmd)
 	return cmd
 }
 
@@ -566,7 +579,10 @@ func newWorkflowRunLogsCmd(f client.NewClientFunc) *cobra.Command {
 Finds the latest workflow run for the component by default.
 Use --workflowrun to specify a particular run.`,
 		Example: `  # Get logs for the latest workflow run of a component
-  occ component workflowrun logs my-service --namespace acme-corp`,
+  occ component workflowrun logs my-service --namespace acme-corp
+
+  # Print each log entry as JSON
+  occ component workflowrun logs my-service --namespace acme-corp --log-format json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -580,6 +596,7 @@ Use --workflowrun to specify a particular run.`,
 				RunName:       flags.GetWorkflowRun(cmd),
 				Follow:        flags.GetFollow(cmd),
 				Since:         flags.GetSince(cmd),
+				LogFormat:     flags.GetLogFormat(cmd),
 			})
 		},
 	}
@@ -587,6 +604,7 @@ Use --workflowrun to specify a particular run.`,
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddWorkflowRun(cmd)
+	flags.AddLogFormat(cmd)
 	return cmd
 }
 

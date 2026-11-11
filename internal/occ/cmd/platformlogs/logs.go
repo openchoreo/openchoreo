@@ -17,6 +17,7 @@ import (
 
 	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/observerclient"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
@@ -312,6 +313,13 @@ func printLogs(logs []obsgen.PlatformLog, output string) error {
 // printLog writes one entry. JSON output is one object per line so that --follow streams
 // the same shape a one-shot query prints, and so jq reads it without buffering.
 func printLog(log obsgen.PlatformLog, output string) error {
+	columns, err := logformat.ParseColumns(output)
+	if err != nil {
+		return err
+	}
+	if columns != nil {
+		return columns.Print(os.Stdout, log)
+	}
 	if output == outputJSON {
 		encoded, err := json.Marshal(log)
 		if err != nil {
@@ -432,8 +440,11 @@ func tailLimit(tail int) int {
 
 // validateOutput rejects an unknown --output rather than silently printing text.
 func validateOutput(output string) error {
-	if output != outputText && output != outputJSON {
-		return fmt.Errorf("invalid --output %q: must be %q or %q", output, outputText, outputJSON)
+	if output == "" {
+		return fmt.Errorf("invalid --output %q: must be text, json, or custom-columns=FIELD,...", output)
+	}
+	if err := logformat.Validate(output); err != nil {
+		return fmt.Errorf("invalid --output %q: %w", output, err)
 	}
 	return nil
 }

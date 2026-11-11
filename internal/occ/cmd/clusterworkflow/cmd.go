@@ -126,7 +126,10 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   occ clusterworkflow logs dockerfile-builder --namespace acme-corp
 
   # Follow logs
-  occ clusterworkflow logs dockerfile-builder --namespace acme-corp -f`,
+  occ clusterworkflow logs dockerfile-builder --namespace acme-corp -f
+
+  # Print each log entry as JSON
+  occ clusterworkflow logs dockerfile-builder --namespace acme-corp --log-format json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -140,12 +143,14 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 				RunName:      flags.GetWorkflowRun(cmd),
 				Follow:       flags.GetFollow(cmd),
 				Since:        flags.GetSince(cmd),
+				LogFormat:    flags.GetLogFormat(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
+	flags.AddLogFormat(cmd)
 	flags.AddWorkflowRun(cmd)
 	return cmd
 }

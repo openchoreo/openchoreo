@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -33,7 +34,7 @@ const example = `  # Everything in the last 24 hours
   occ auditlogs --since 7d --result denied
 
   # What one user changed in a namespace, as JSON
-  occ auditlogs --actor alice@example.com --namespace acme-corp --category management -o json
+  occ auditlogs --actor alice@example.com --namespace acme-corp --category management --log-format json
 
   # Activity in one environment over an absolute window
   occ auditlogs --env acme-corp/production --start 2026-08-01T00:00:00Z --end 2026-09-01T00:00:00Z
@@ -78,7 +79,8 @@ func addQueryFlags(cmd *cobra.Command) {
 	cmd.MarkFlagsMutuallyExclusive("since", "start")
 	fl.Int("limit", defaultLimit, "Maximum number of records to return (1-1000)")
 	fl.String("sort", sortDesc, "Order by event time: 'desc' or 'asc'")
-	fl.StringP("output", "o", outputText, "Output format: 'text' or 'json' (json emits one record per line)")
+	fl.StringP("output", "o", outputText, "Output format: text, json (one object per line), or custom-columns=FIELD,...")
+	flags.AddLogFormatAlias(cmd)
 
 	fl.StringSlice("actor", nil, "Actor IDs; the claim recorded depends on the subject's type, so pair with --actor-type (comma-separated)")
 	fl.StringSlice("actor-type", nil, "Kinds of subject, e.g. user, service_account, anonymous (comma-separated)")

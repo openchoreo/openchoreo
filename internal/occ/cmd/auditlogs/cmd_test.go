@@ -29,7 +29,7 @@ func TestNewAuditLogsCmd_Use(t *testing.T) {
 func TestAuditLogsCmd_Flags(t *testing.T) {
 	cmd := NewAuditLogsCmd(errFactory("unused"))
 	for _, name := range []string{
-		"since", "start", "end", "limit", "sort", "output",
+		"since", "start", "end", "limit", "sort", "output", "log-format",
 		"actor", "actor-type", "issuer", "session-id", "entitlement",
 		"action", "category", "result", "surface", "producer", "operation-id",
 		"request-id", "event-id", "source-ip", "user-agent",
@@ -68,6 +68,20 @@ func TestAuditLogsCmd_IgnoresContextDefaults(t *testing.T) {
 	assert.Empty(t, params.Projects)
 	assert.Empty(t, params.Components)
 	assert.Empty(t, params.Resources)
+}
+
+func TestAuditLogsCmd_LogFormatAlias(t *testing.T) {
+	for _, format := range []string{outputJSON, "custom-columns=event_time,actor.id,action"} {
+		for _, flag := range []string{"--log-format", "--output", "-o"} {
+			cmd := NewAuditLogsCmd(errFactory("unused"))
+			require.NoError(t, cmd.ParseFlags([]string{flag, format}))
+			assert.Equal(t, format, queryParams(cmd).Output)
+			require.NoError(t, cmd.ValidateFlagGroups())
+		}
+	}
+	cmd := NewAuditLogsCmd(errFactory("unused"))
+	require.NoError(t, cmd.ParseFlags([]string{"--log-format", "json", "--output", "text"}))
+	assert.Error(t, cmd.ValidateFlagGroups())
 }
 
 func TestAuditLogsCmd_RejectsArgs(t *testing.T) {

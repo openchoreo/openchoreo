@@ -5,6 +5,7 @@ package component
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/observability"
@@ -19,8 +21,14 @@ import (
 
 const defaultPlaneName = "default"
 
+const logFormatJSON = "json"
+
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
+	if err := logformat.Validate(params.LogFormat); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	apiClient := cp.client
@@ -116,9 +124,7 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	printLogs(logs, params)
-
-	return nil
+	return printLogs(logs, params)
 }
 
 // printLogEntry prints a log entry, prefixing the container name when known so logs from
@@ -142,14 +148,33 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 	return filtered
 }
 
-// printLogs prints the entries, restricting to a single container when requested.
-func printLogs(logs []client.LogEntry, params LogsParams) {
+// printLogs prints the entries in the requested format, restricting to a single container when requested.
+func printLogs(logs []client.LogEntry, params LogsParams) error {
+	columns, err := logformat.ParseColumns(params.LogFormat)
+	if err != nil {
+		return err
+	}
 	if params.Container != "" {
 		logs = filterLogsByContainer(logs, params.Container)
 	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
 	for _, log := range logs {
+		if columns != nil {
+			if err := columns.Print(os.Stdout, log); err != nil {
+				return err
+			}
+			continue
+		}
+		if params.LogFormat == logFormatJSON {
+			if err := encoder.Encode(log); err != nil {
+				return fmt.Errorf("failed to encode log entry: %w", err)
+			}
+			continue
+		}
 		printLogEntry(log)
 	}
+	return nil
 }
 
 // reverseLogs reverses a slice of log entries in place
@@ -185,7 +210,9 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	printLogs(logs, params)
+	if err := printLogs(logs, params); err != nil {
+		return err
+	}
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
@@ -206,7 +233,7 @@ func (cp *Component) followLogs(
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("\nStopping log streaming...")
+			fmt.Fprintln(os.Stderr, "\nStopping log streaming...")
 			return nil
 		case <-ticker.C:
 			endTime = time.Now()
@@ -223,7 +250,9 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			printLogs(logs, params)
+			if err := printLogs(logs, params); err != nil {
+				return err
+			}
 
 			// Update startTime
 			if len(logs) > 0 {

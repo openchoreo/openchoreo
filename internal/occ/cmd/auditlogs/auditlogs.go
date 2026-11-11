@@ -18,6 +18,7 @@ import (
 
 	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/observerclient"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
@@ -142,8 +143,11 @@ func fetch(ctx context.Context, api observerAPI, body obsgen.AuditLogsQueryReque
 func buildRequest(params QueryParams, now time.Time) (obsgen.AuditLogsQueryRequest, error) {
 	var body obsgen.AuditLogsQueryRequest
 
-	if params.Output != outputText && params.Output != outputJSON {
-		return body, fmt.Errorf("invalid --output %q: must be %q or %q", params.Output, outputText, outputJSON)
+	if params.Output == "" {
+		return body, fmt.Errorf("invalid --output %q: must be text, json, or custom-columns=FIELD,...", params.Output)
+	}
+	if err := logformat.Validate(params.Output); err != nil {
+		return body, fmt.Errorf("invalid --output %q: %w", params.Output, err)
 	}
 	if params.SortOrder != sortAsc && params.SortOrder != sortDesc {
 		return body, fmt.Errorf("invalid --sort %q: must be %q or %q", params.SortOrder, sortDesc, sortAsc)
@@ -468,6 +472,18 @@ func observerMessage(body []byte) string {
 }
 
 func printRecords(records []obsgen.AuditLogRecord, output string) error {
+	columns, err := logformat.ParseColumns(output)
+	if err != nil {
+		return err
+	}
+	if columns != nil {
+		for _, record := range records {
+			if err := columns.Print(os.Stdout, record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if output == outputJSON {
 		for _, record := range records {
 			encoded, err := json.Marshal(record)

@@ -26,6 +26,19 @@ import (
 
 const observerTestURL = "http://observer.test"
 
+func TestPrintLog_CustomColumns(t *testing.T) {
+	timestamp := time.Date(2026, 11, 10, 8, 21, 4, 512000000, time.UTC)
+	pod, level := "controller-manager-abc", "INFO"
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, printLog(obsgen.PlatformLog{
+			Timestamp: timestamp, Level: &level, PodName: &pod, Log: "request handled",
+		}, "custom-columns=timestamp,level,podName,log"))
+	})
+	assert.Equal(t, "2026-11-10T08:21:04.512Z INFO controller-manager-abc request handled\n", out)
+	assert.NoError(t, validateOutput("custom-columns=timestamp,podName,log"))
+	assert.Error(t, validateOutput("custom-columns=timestamp,,log"))
+}
+
 func setupLogsConfig(t *testing.T) {
 	t.Helper()
 	home := testutil.SetupTestHome(t)

@@ -30,8 +30,16 @@ type LogEntry struct {
 
 // LogMetadata carries per-entry metadata returned by the observer.
 type LogMetadata struct {
-	ContainerName string `json:"containerName,omitempty"`
-	PodName       string `json:"podName,omitempty"`
+	ComponentName   string `json:"componentName,omitempty"`
+	ProjectName     string `json:"projectName,omitempty"`
+	EnvironmentName string `json:"environmentName,omitempty"`
+	NamespaceName   string `json:"namespaceName,omitempty"`
+	ComponentUID    string `json:"componentUid,omitempty"`
+	ProjectUID      string `json:"projectUid,omitempty"`
+	EnvironmentUID  string `json:"environmentUid,omitempty"`
+	ContainerName   string `json:"containerName,omitempty"`
+	PodName         string `json:"podName,omitempty"`
+	PodNamespace    string `json:"podNamespace,omitempty"`
 }
 
 // ContainerName returns the container that produced the log entry, or "" if unknown.

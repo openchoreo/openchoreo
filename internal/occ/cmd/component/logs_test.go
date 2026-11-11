@@ -109,7 +109,7 @@ func TestPrintLogs_ReleaseLine(t *testing.T) {
 	// A component type may name a line's pods any way it likes.
 	logs := []client.LogEntry{{Log: "from next", Metadata: &client.LogMetadata{PodName: "hello-canary-7d9c8b6f5-abcde"}}}
 	out := testutil.CaptureStdout(t, func() {
-		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "next"})
+		require.NoError(t, printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "next"}))
 	})
 	assert.Contains(t, out, "from next", "the observer already restricted the logs to the line")
 }
@@ -117,9 +117,47 @@ func TestPrintLogs_ReleaseLine(t *testing.T) {
 func TestPrintLogs_MainLineKeyword(t *testing.T) {
 	logs := []client.LogEntry{{Log: "from main", Metadata: &client.LogMetadata{PodName: "hello-development-1a2b3c4d-6c8d7b5f4-fghij"}}}
 	out := testutil.CaptureStdout(t, func() {
-		printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "main"})
+		require.NoError(t, printLogs(logs, LogsParams{Component: "hello", Environment: "development", ReleaseLine: "main"}))
 	})
 	assert.Contains(t, out, "from main", "the observer already restricted the logs to the main line")
+}
+
+func TestPrintLogs_JSON(t *testing.T) {
+	logs := []client.LogEntry{
+		{
+			Timestamp: "2026-11-10T08:21:04.512Z", Log: "first line\nsecond line\t\"quoted\" <tag>", Level: "INFO",
+			Metadata: &client.LogMetadata{ContainerName: "main"},
+		},
+		{Timestamp: "2026-11-10T08:21:05.087Z", Log: "sidecar", Metadata: &client.LogMetadata{ContainerName: "daprd"}},
+		{Timestamp: "2026-11-10T08:21:06Z", Log: "no metadata"},
+	}
+	for _, container := range []string{"", "main", "missing"} {
+		t.Run("container="+container, func(t *testing.T) {
+			out := testutil.CaptureStdout(t, func() {
+				require.NoError(t, printLogs(logs, LogsParams{LogFormat: logFormatJSON, Container: container}))
+			})
+			want := logs
+			switch container {
+			case "main":
+				want = logs[:1]
+			case "missing":
+				require.Empty(t, out)
+				return
+			}
+			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+			require.Len(t, lines, len(want))
+			for i, line := range lines {
+				var entry client.LogEntry
+				require.NoError(t, json.Unmarshal([]byte(line), &entry))
+				assert.Equal(t, want[i], entry)
+			}
+		})
+	}
+}
+
+func TestLogs_InvalidLogFormat(t *testing.T) {
+	err := New(nil).Logs(LogsParams{LogFormat: "yaml"})
+	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or custom-columns=FIELD,...`)
 }
 
 // --- printLogEntry ---
@@ -521,6 +559,47 @@ func TestLogs_WithContainerFilter(t *testing.T) {
 }
 
 // --- followLogs ---
+
+func TestFollowLogs_Formats(t *testing.T) {
+	for _, format := range []string{logFormatJSON, "custom-columns=timestamp,level,log"} {
+		t.Run(format, func(t *testing.T) {
+			setupLogsConfig(t)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			logs := []client.LogEntry{
+				{Timestamp: "2026-11-10T08:21:04.512Z", Log: "initial log", Level: "INFO"},
+				{Timestamp: "2026-11-10T08:21:05.087Z", Log: "new log", Level: "WARN"},
+			}
+			requests := 0
+			testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				requests++
+				if requests == 2 {
+					cancel()
+				}
+				return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: logs[requests-1 : requests]}), nil
+			}))
+			out := testutil.CaptureStdout(t, func() {
+				require.NoError(t, New(nil).followLogs(ctx, observerTestURL, "token", "env-uid", LogsParams{
+					LogFormat: format,
+				}, time.Now().Add(-time.Hour), time.Now()))
+			})
+			require.Equal(t, 2, requests)
+			if format != logFormatJSON {
+				assert.Equal(t, "2026-11-10T08:21:04.512Z INFO initial log\n2026-11-10T08:21:05.087Z WARN new log\n", out)
+				return
+			}
+			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+			require.Len(t, lines, len(logs), "stdout should contain only JSON log entries")
+			for i, line := range lines {
+				var entry client.LogEntry
+				require.NoError(t, json.Unmarshal([]byte(line), &entry))
+				assert.Equal(t, logs[i], entry)
+			}
+		})
+	}
+}
 
 // TestFollowLogs_PrintsSubSecondLogOnce guards the follow poll against re-reading the
 // line it printed last: it resumes 1ms past that line, a step that is lost unless the

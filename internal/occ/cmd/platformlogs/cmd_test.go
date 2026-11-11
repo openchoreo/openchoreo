@@ -50,7 +50,7 @@ func TestLogsCmd_Flags(t *testing.T) {
 		cmd := newCmd(errFactory("unused"))
 		for _, name := range []string{
 			"cluster", "pod-namespace", "pod", "container", "selector",
-			"level", "search", "output", "since", "tail", "follow",
+			"level", "search", "output", "log-format", "since", "tail", "follow",
 		} {
 			assert.NotNil(t, cmd.Flags().Lookup(name), "missing flag --%s", name)
 		}
@@ -65,6 +65,24 @@ func TestLogsCmd_Flags(t *testing.T) {
 }
 
 // --- args ---
+
+func TestLogsCmd_LogFormatAlias(t *testing.T) {
+	for _, newCmd := range []func(client.NewClientFunc) *cobra.Command{
+		NewClusterPlaneLogsCmd, NewNamespacedPlaneLogsCmd,
+	} {
+		for _, format := range []string{outputJSON, "custom-columns=timestamp,podName,log"} {
+			for _, flag := range []string{"--log-format", "--output", "-o"} {
+				cmd := newCmd(errFactory("unused"))
+				require.NoError(t, cmd.ParseFlags([]string{flag, format}))
+				assert.Equal(t, format, logsParams(cmd).Output)
+				require.NoError(t, cmd.ValidateFlagGroups())
+			}
+		}
+		cmd := newCmd(errFactory("unused"))
+		require.NoError(t, cmd.ParseFlags([]string{"--log-format", "json", "--output", "text"}))
+		assert.Error(t, cmd.ValidateFlagGroups())
+	}
+}
 
 func TestLogsCmd_MissingArg(t *testing.T) {
 	cmd := NewClusterPlaneLogsCmd(errFactory("unused"))

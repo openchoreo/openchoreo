@@ -5,6 +5,7 @@ package workflowrun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -21,6 +23,10 @@ const defaultPlaneName = "default"
 
 // Logs fetches and displays logs for a workflow run
 func (w *WorkflowRun) Logs(params LogsParams) error {
+	if err := logformat.Validate(params.LogFormat); err != nil {
+		return err
+	}
+
 	if err := cmdutil.RequireFields("logs", "workflowrun", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
@@ -71,8 +77,7 @@ func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient client.Interf
 		return fmt.Errorf("failed to get live logs: %w", err)
 	}
 
-	printLogEntries(entries)
-	return nil
+	return printLogEntries(entries, params.LogFormat)
 }
 
 // followLiveLogs continuously polls for new live logs
@@ -90,7 +95,9 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 	if err != nil {
 		return fmt.Errorf("failed to get live logs: %w", err)
 	}
-	printLogEntries(entries)
+	if err := printLogEntries(entries, params.LogFormat); err != nil {
+		return err
+	}
 
 	// Track the last-seen timestamp to avoid printing duplicates
 	var lastSeen time.Time
@@ -109,7 +116,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("\nStopping log streaming...")
+			printLogStatus(params.LogFormat, "\nStopping log streaming...")
 			return nil
 		case <-ticker.C:
 			// Check if the run still has live observability
@@ -123,7 +130,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 			}
 
 			if !status.HasLiveObservability {
-				fmt.Println("\nWorkflow run completed. Live logs are no longer available.")
+				printLogStatus(params.LogFormat, "\nWorkflow run completed. Live logs are no longer available.")
 				return nil
 			}
 
@@ -141,7 +148,9 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 
 			// Filter out entries already printed
 			newEntries := filterNewEntries(entries, lastSeen)
-			printLogEntries(newEntries)
+			if err := printLogEntries(newEntries, params.LogFormat); err != nil {
+				return err
+			}
 
 			// Advance the cursor
 			if len(newEntries) > 0 {
@@ -223,16 +232,22 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.In
 	}
 
 	if len(logResponse.Logs) == 0 {
-		fmt.Println("No logs found for this workflow run")
+		printLogStatus(params.LogFormat, "No logs found for this workflow run")
 		return nil
 	}
 
-	for _, log := range logResponse.Logs {
-		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+	if params.LogFormat != "" && params.LogFormat != "text" {
+		if err := printFormattedLogs(logResponse.Logs, params.LogFormat); err != nil {
+			return err
+		}
+	} else {
+		for _, log := range logResponse.Logs {
+			fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+		}
 	}
 
 	if params.Follow {
-		fmt.Println("\nNote: Follow mode is not available for archived logs (workflow run has already completed)")
+		printLogStatus(params.LogFormat, "\nNote: Follow mode is not available for archived logs (workflow run has already completed)")
 	}
 
 	return nil
@@ -324,7 +339,10 @@ func resolveObserverURLFromObsRef(ctx context.Context, apiClient client.Interfac
 }
 
 // printLogEntries prints workflow run log entries to stdout
-func printLogEntries(entries []gen.WorkflowRunLogEntry) {
+func printLogEntries(entries []gen.WorkflowRunLogEntry, logFormat string) error {
+	if logFormat != "" && logFormat != "text" {
+		return printFormattedLogs(entries, logFormat)
+	}
 	for _, entry := range entries {
 		if entry.Timestamp != nil {
 			fmt.Printf("%s %s\n", entry.Timestamp.Format(time.RFC3339), entry.Log)
@@ -332,6 +350,38 @@ func printLogEntries(entries []gen.WorkflowRunLogEntry) {
 			fmt.Println(entry.Log)
 		}
 	}
+	return nil
+}
+
+// printFormattedLogs emits JSON objects or selected columns for each entry.
+func printFormattedLogs[T any](entries []T, format string) error {
+	columns, err := logformat.ParseColumns(format)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
+	for _, entry := range entries {
+		if columns != nil {
+			if err := columns.Print(os.Stdout, entry); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := encoder.Encode(entry); err != nil {
+			return fmt.Errorf("failed to encode log entry: %w", err)
+		}
+	}
+	return nil
+}
+
+// printLogStatus keeps status messages off stdout for JSON and custom columns.
+func printLogStatus(logFormat, message string) {
+	out := os.Stdout
+	if logFormat != "" && logFormat != "text" {
+		out = os.Stderr
+	}
+	fmt.Fprintln(out, message)
 }
 
 // parseSinceToSeconds converts a duration string (e.g., "5m", "1h") to seconds
