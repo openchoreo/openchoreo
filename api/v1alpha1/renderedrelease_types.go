@@ -55,6 +55,7 @@ type RenderedReleaseSpec struct {
 	// Unset means Manage. There is no API server default: the binding controllers
 	// write the whole spec without this field, and a defaulted value would read as
 	// a change on every reconcile.
+	// TODO: default to Manage once the binding controllers set mode, as for targetPlane (#5362).
 	// +kubebuilder:validation:Enum=Manage;Observe
 	// +optional
 	Mode RenderedReleaseMode `json:"mode,omitempty"`
