@@ -204,31 +204,32 @@ seed_optional_secrets() {
 
 install_control_plane() {
   step "ThunderID (identity provider) ${THUNDER_VERSION}"
-  # values-thunder-portal.yaml was split out of values-thunder.yaml. RAW pins assets
-  # to the selected release tag, and older releases still carry the portal's ThunderID
-  # application inside the base file, so only layer the overlay when that tag ships it.
+  # The portal's ThunderID application lives in its own values file, layered only
+  # when the portal is installed. Releases from before that split still carry the
+  # application in the base file, and RAW pins assets to the selected release tag,
+  # so the overlay is used only when that tag actually ships it.
   local thunder_values=(--values "${RAW}/install/k3d/common/values-thunder.yaml")
-  local portal_present
-  # A transient probe failure must not read as "absent": that would silently
-  # install the portal without its OAuth application. Only a 404 counts as an
-  # older release; anything else is fatal so the install can be re-run.
   local portal_values="${RAW}/install/k3d/common/values-thunder-portal.yaml"
-  local portal_code
+  local portal_code portal_present
   portal_code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$portal_values" 2>/dev/null) || portal_code=""
   case "$portal_code" in
     2??|3??) portal_present=true ;;
     404)     portal_present=false ;;
-    *)
+    *)       portal_present=unknown ;;
+  esac
+
+  if [[ "$WITH_PORTAL" == "true" ]]; then
+    if [[ "$portal_present" == "unknown" ]]; then
+      # Guessing "absent" here would install the portal with no OAuth
+      # application behind it, so stop instead.
       echo "ERROR: could not determine whether $portal_values exists (HTTP '${portal_code:-no response}')." >&2
       echo "       Re-run once the network is reachable." >&2
       exit 1
-      ;;
-  esac
-  if [[ "$portal_present" == "true" ]]; then
-    if [[ "$WITH_PORTAL" == "true" ]]; then
+    fi
+    if [[ "$portal_present" == "true" ]]; then
       thunder_values+=(--values "$portal_values")
     fi
-  elif [[ "$WITH_PORTAL" != "true" ]]; then
+  elif [[ "$portal_present" == "false" ]]; then
     echo "WARNING: OpenChoreo ${OPENCHOREO_VERSION} seeds the portal's ThunderID application" >&2
     echo "         from the base values file, so --without-portal cannot exclude it. The" >&2
     echo "         portal itself is not installed; its OAuth client is still registered." >&2

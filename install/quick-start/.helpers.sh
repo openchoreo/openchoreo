@@ -952,7 +952,7 @@ install_control_plane() {
     if [[ "${ENABLE_PORTAL:-true}" == "true" ]]; then
         portal_args=("--set-string" "backstage.image.tag=$BACKSTAGE_VERSION")
     else
-        # The event forwarder's only default subscriber is the portal Service.
+        # The chart drops the portal's webhook endpoint already; skip the pod too.
         portal_args=(
             "--set" "backstage.enabled=false"
             "--set" "eventForwarder.enabled=false"

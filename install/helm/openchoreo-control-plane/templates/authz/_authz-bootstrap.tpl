@@ -149,6 +149,14 @@ Roles before bindings. Consumed by the bootstrap ConfigMap.
 {{- define "openchoreo-control-plane.authz.allManifests" -}}
 {{- $root := . -}}
 {{- $bootstrap := .Values.openchoreoApi.config.security.authorization.bootstrap -}}
+{{- /*
+     requiresPortal roles are rendered only with the portal. Note this stops
+     them being *applied*, not removed: the bootstrap job only ever runs
+     `kubectl apply` (see bootstrap-job.yaml), so disabling the portal on a
+     release that already had it leaves the role and its binding in the cluster,
+     still granting the portal's client cluster-wide read. Deleting them is a
+     separate step; NOTES.txt says so after an upgrade.
+  */}}
 {{- range $r := $bootstrap.roles }}
 {{- if or (not $r.requiresPortal) $root.Values.backstage.enabled }}
 ---
@@ -163,9 +171,24 @@ Roles before bindings. Consumed by the bootstrap ConfigMap.
 The portal's role is a `requiresPortal` entry in bootstrap.roles above. Its
 binding is appended here instead, because the overlays that replace
 bootstrap.mappings would otherwise each need their own copy.
+
+A deployment that still declares the binding itself wins: the job applies this
+stream in order, so appending ours would overwrite theirs by name. That matters
+because a deployment on an external IdP binds a different claim (Dex identifies
+the client through `sub`), and replacing it with the default `client_id` binding
+breaks catalog sync with a 403 and nothing else would say why.
 */}}
 {{- if $root.Values.backstage.enabled }}
+{{- $portalBinding := include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml }}
+{{- $declaredByUser := false }}
+{{- range $m := $bootstrap.mappings }}
+{{- if eq (default "" $m.name) $portalBinding.name }}
+{{- $declaredByUser = true }}
+{{- end }}
+{{- end }}
+{{- if not $declaredByUser }}
 ---
-{{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" (include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml) "root" $root) }}
+{{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" $portalBinding "root" $root) }}
+{{- end }}
 {{- end }}
 {{- end }}

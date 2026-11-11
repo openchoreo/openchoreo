@@ -133,10 +133,12 @@ asset() {
     fi
 }
 
-# values-thunder-portal.yaml was split out of values-thunder.yaml. Older refs still
-# carry the portal's ThunderID application inside the base file, and a pinned
-# --version resolves assets at that ref, so the overlay must only be layered when
-# the selected ref actually ships it.
+# Whether an asset exists at the ref this install resolves to.
+#
+# The portal's ThunderID application is a separate values file, which releases
+# before it existed do not have — and they seed the application from the base
+# file instead. A pinned --version resolves assets at that release's ref, so the
+# overlay is layered only where it is actually published.
 #
 # Echoes "present", "absent", or exits non-zero. A transient probe failure must
 # not read as "absent": that would silently install the portal without its OAuth
@@ -268,15 +270,22 @@ install_control_plane() {
     local thunder_values=(--values "$(asset install/k3d/common/values-thunder.yaml)")
     local portal_values portal_state
     portal_values="$(asset install/k3d/common/values-thunder-portal.yaml)"
-    portal_state="$(asset_state "$portal_values")"
-    if [[ "$portal_state" == "present" ]]; then
-        if [[ "$WITH_PORTAL" == "true" ]]; then
+    if [[ "$WITH_PORTAL" == "true" ]]; then
+        # The portal needs this file, so an inconclusive answer is fatal: guessing
+        # "absent" would install the portal with no OAuth application behind it.
+        portal_state="$(asset_state "$portal_values")"
+        if [[ "$portal_state" == "present" ]]; then
             thunder_values+=(--values "$portal_values")
         fi
-    elif [[ "$WITH_PORTAL" != "true" ]]; then
-        echo "WARNING: this OpenChoreo version seeds the portal's ThunderID application from" >&2
-        echo "         the base values file, so --without-portal cannot exclude it. The portal" >&2
-        echo "         itself is not installed; its OAuth client is still registered." >&2
+    else
+        # Without the portal the answer only decides whether to warn, so a failed
+        # probe must not end the install.
+        portal_state="$(asset_state "$portal_values" 2>/dev/null || echo unknown)"
+        if [[ "$portal_state" == "absent" ]]; then
+            echo "WARNING: this OpenChoreo version seeds the portal's ThunderID application from" >&2
+            echo "         the base values file, so --without-portal cannot exclude it. The portal" >&2
+            echo "         itself is not installed; its OAuth client is still registered." >&2
+        fi
     fi
     $HELM upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
         --namespace "$THUNDER_NS" --create-namespace \
@@ -325,8 +334,8 @@ EOF
             --set openchoreoApi.config.audit.observabilityPlaneRef.name=default
         )
     fi
-    # The event forwarder's only default subscriber is the portal, so it goes
-    # with it; nothing else in a k3d install consumes those webhooks.
+    # The chart already drops the portal's webhook endpoint when the portal is
+    # off; nothing else in a k3d install subscribes, so skip the idle pod too.
     local portal_args=()
     if [[ "$WITH_PORTAL" != "true" ]]; then
         portal_args=(

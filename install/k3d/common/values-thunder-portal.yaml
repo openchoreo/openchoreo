@@ -1,9 +1,15 @@
 # ThunderID identity for the bundled Backstage portal.
 #
 # Layered AFTER install/k3d/common/values-thunder.yaml, and only when the portal
-# is installed. The installers skip it for --without-portal, so a cluster with no
-# portal carries no OAuth client for one — which matters, because this client's
-# secret is a published default.
+# is installed. The installers skip it for --without-portal, so a cluster
+# installed that way never registers an OAuth client for a portal it does not
+# run — which matters, because this client's secret is a published default.
+#
+# That applies to a FRESH install only. Disabling the portal on a cluster that
+# already had it leaves this application in ThunderID, because the bootstrap is a
+# first-install-only hook; the chart's authz role and binding survive too, since
+# the authz bootstrap job only applies and never deletes. Removing either is a
+# separate, deliberate step.
 #
 # The split is additive on purpose: ThunderID seeds bootstrap.scripts from a
 # static map applied by a pre-install hook, and Helm cannot remove a key that a

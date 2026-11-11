@@ -35,13 +35,37 @@ Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
 
-{{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
+{{- if and (not .Values.backstage.enabled) .Values.security.authz.enabled }}
 
-The event forwarder is enabled but the Backstage portal is not. Its default
-webhook endpoint is the portal's in-cluster Service, so every resource change
-will be dispatched at an address that does not exist. Either disable it:
+The portal is disabled, but this chart cannot remove authorization objects an
+earlier install already created: the authz bootstrap only ever applies. If this
+release previously ran the portal, its catalog-reader grant is still in the
+cluster and still gives the portal's OAuth client cluster-wide read access.
+Check, and drop it if you no longer want it:
+  kubectl get clusterauthzrole backstage-catalog-reader
+  kubectl delete clusterauthzrole backstage-catalog-reader
+  kubectl delete clusterauthzrolebinding backstage-catalog-reader-binding
+The matching ThunderID application outlives the chart too, and is removed
+through the ThunderID management API.
+{{- end }}
+
+{{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
+{{- $endpoints := .Values.eventForwarder.config.webhooks.endpoints | default list }}
+{{- $portalURL := printf "http://%s:%v/" (include "openchoreo-control-plane.backstage.name" .) .Values.backstage.service.port }}
+{{- $others := 0 }}
+{{- range $e := $endpoints }}
+{{- if not (hasPrefix $portalURL $e.url) }}
+{{- $others = add1 $others }}
+{{- end }}
+{{- end }}
+{{- if eq $others 0 }}
+
+The event forwarder is enabled but has no subscriber: the portal is not
+installed, and its endpoint has been dropped from the forwarder's config. The
+catalog reconciles by periodic sync instead. You can turn the forwarder off:
   --set eventForwarder.enabled=false
-or point eventForwarder.config.webhooks.endpoints at your own subscriber.
+or point eventForwarder.config.webhooks.endpoints at a subscriber of your own.
+{{- end }}
 {{- end }}
 
 {{- if .Values.clusterGateway.tls.existingSecret }}

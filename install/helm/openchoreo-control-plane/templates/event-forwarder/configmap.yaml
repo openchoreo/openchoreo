@@ -14,7 +14,26 @@ data:
 
     webhooks:
       endpoints:
-        {{- toYaml .Values.eventForwarder.config.webhooks.endpoints | nindent 8 }}
+        {{- /*
+             The portal is the default subscriber, so drop its endpoint when the
+             portal is not installed: left in, the forwarder retries every
+             resource change against a Service that does not exist. Matched on
+             the portal's own Service URL, built from backstage.name and the
+             service port rather than hardcoded, so a renamed portal still
+             matches. Any other endpoint an operator configured is untouched.
+          */}}
+        {{- $endpoints := .Values.eventForwarder.config.webhooks.endpoints | default list }}
+        {{- if not .Values.backstage.enabled }}
+        {{- $portalURL := printf "http://%s:%v/" (include "openchoreo-control-plane.backstage.name" .) .Values.backstage.service.port }}
+        {{- $kept := list }}
+        {{- range $e := $endpoints }}
+        {{- if not (hasPrefix $portalURL $e.url) }}
+        {{- $kept = append $kept $e }}
+        {{- end }}
+        {{- end }}
+        {{- $endpoints = $kept }}
+        {{- end }}
+        {{- toYaml $endpoints | nindent 8 }}
 
     logging:
       level: {{ .Values.eventForwarder.config.logging.level | quote }}

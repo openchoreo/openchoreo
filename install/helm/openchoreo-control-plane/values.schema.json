@@ -4065,6 +4065,10 @@
                                 "description": "Namespace for role (empty string for cluster-scoped)",
                                 "type": "string"
                               },
+                              "requiresPortal": {
+                                "description": "When true the role is seeded only if backstage.enabled is true. Used for the bundled portal's catalog-reader role; its binding is added by the chart separately.",
+                                "type": "boolean"
+                              },
                               "system": {
                                 "default": false,
                                 "description": "Whether this is a system-managed role (adds openchoreo.io/system label when true, omitted when false)",

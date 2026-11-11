@@ -16,24 +16,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// portalOffOverrides install the control plane without the bundled Backstage
-// portal. Unlike helmGuardOverrides they deliberately set no backstage.secretName,
-// baseUrl or http.hostnames: a portal-less install must not have to supply the
-// portal's own required values.
-var portalOffOverrides = []string{
-	"--set", "backstage.enabled=false",
-	"--set", "openchoreoApi.http.hostnames[0]=api.example.com",
-	"--set", "gateway.tls.hostname=example.com",
-	"--set", "security.oidc.issuer=https://idp.example.com",
-}
-
-// portalOnOverrides install the control plane with the portal, clearing the
-// placeholder-domain and required-value guards the portal itself adds.
-var portalOnOverrides = append(append([]string{}, portalOffOverrides[2:]...),
-	"--set", "backstage.secretName=backstage-secrets",
-	"--set", "backstage.baseUrl=https://console.example.com",
-	"--set", "backstage.http.hostnames[0]=console.example.com",
+const (
+	catalogReaderRole    = "backstage-catalog-reader"
+	catalogReaderBinding = "backstage-catalog-reader-binding"
 )
+
+// The portal-off and portal-on fixtures are the ones this package already has:
+// helmGuardOverrides (values_test.go) clears the chart's placeholder-domain
+// guards with backstage.enabled=false and nothing portal-specific, which is
+// exactly a portal-less install; backstageGuardOverrides (backstage_test.go)
+// supplies the portal's own required values.
 
 // renderControlPlane renders the control-plane chart and returns the manifests
 // it produces. The test is skipped when helm is not installed, so it adds
@@ -76,11 +68,26 @@ func tryRenderControlPlane(t *testing.T, args ...string) (string, error) {
 	return string(rendered), nil
 }
 
-// authzBootstrapNames renders the authz bootstrap hook ConfigMap and returns the
-// names of every object it seeds, keyed by name. The hook applies the ConfigMap's
-// manifests.yaml as a multi-document stream, so that payload — not the ConfigMap
-// itself — is what an install actually gets.
-func authzBootstrapNames(t *testing.T, args ...string) map[string]string {
+// authzBootstrapDoc is one document from the authz bootstrap payload: the hook
+// applies manifests.yaml as a multi-document stream, so that payload — not the
+// ConfigMap wrapping it — is what an install actually gets.
+type authzBootstrapDoc struct {
+	Kind     string `yaml:"kind"`
+	Metadata struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
+	Spec struct {
+		Actions     []string `yaml:"actions"`
+		Entitlement struct {
+			Claim string `yaml:"claim"`
+			Value string `yaml:"value"`
+		} `yaml:"entitlement"`
+	} `yaml:"spec"`
+}
+
+// authzBootstrapDocs renders the authz bootstrap hook ConfigMap and returns the
+// objects it seeds.
+func authzBootstrapDocs(t *testing.T, args ...string) []authzBootstrapDoc {
 	t.Helper()
 
 	full := append(append([]string{}, args...),
@@ -99,15 +106,10 @@ func authzBootstrapNames(t *testing.T, args ...string) map[string]string {
 		t.Fatalf("the rendered bootstrap ConfigMap carries no manifests.yaml:\n%s", rendered)
 	}
 
-	kindsByName := map[string]string{}
+	var docs []authzBootstrapDoc
 	decoder := yaml.NewDecoder(strings.NewReader(configMap.Data.Manifests))
 	for {
-		var doc struct {
-			Kind     string `yaml:"kind"`
-			Metadata struct {
-				Name string `yaml:"name"`
-			} `yaml:"metadata"`
-		}
+		var doc authzBootstrapDoc
 		err := decoder.Decode(&doc)
 		if errors.Is(err, io.EOF) {
 			break
@@ -115,9 +117,21 @@ func authzBootstrapNames(t *testing.T, args ...string) map[string]string {
 		if err != nil {
 			t.Fatalf("failed to parse a bootstrap document: %v\n%s", err, configMap.Data.Manifests)
 		}
-		if doc.Metadata.Name == "" {
-			continue
+		if doc.Metadata.Name != "" {
+			docs = append(docs, doc)
 		}
+	}
+	return docs
+}
+
+// authzBootstrapNames maps each seeded object's name to its kind, and fails if a
+// name is seeded twice: the hook applies the stream in order, so a duplicate
+// means the last copy silently wins.
+func authzBootstrapNames(t *testing.T, args ...string) map[string]string {
+	t.Helper()
+
+	kindsByName := map[string]string{}
+	for _, doc := range authzBootstrapDocs(t, args...) {
 		if existing, ok := kindsByName[doc.Metadata.Name]; ok {
 			t.Errorf("bootstrap seeds %s/%s twice; the hook applies the stream in order, so the "+
 				"last copy silently wins", existing, doc.Metadata.Name)
@@ -131,7 +145,7 @@ func authzBootstrapNames(t *testing.T, args ...string) map[string]string {
 // leaves nothing of the portal behind. The portal's own templates are each gated,
 // so this guards against a new one landing ungated.
 func TestChart_PortalDisabled_RendersNoPortalObjects(t *testing.T) {
-	rendered := renderControlPlane(t, portalOffOverrides...)
+	rendered := renderControlPlane(t, helmGuardOverrides...)
 
 	if strings.Contains(rendered, "app.kubernetes.io/component: backstage") {
 		t.Error("rendering with backstage.enabled=false still produced an object labelled " +
@@ -158,7 +172,7 @@ func TestChart_PortalDisabled_RendersNoPortalObjects(t *testing.T) {
 // asked for backstage.secretName, baseUrl or http.hostnames. Every e2e run
 // depends on this, but only implicitly through helmGuardOverrides.
 func TestChart_PortalDisabled_NeedsNoPortalValues(t *testing.T) {
-	if _, err := tryRenderControlPlane(t, portalOffOverrides...); err != nil {
+	if _, err := tryRenderControlPlane(t, helmGuardOverrides...); err != nil {
 		t.Fatalf("a portal-less install should not require the portal's own values: %v", err)
 	}
 }
@@ -168,24 +182,19 @@ func TestChart_PortalDisabled_NeedsNoPortalValues(t *testing.T) {
 // They grant read access to an OAuth client that a portal-less install never
 // registers with the IdP.
 func TestAuthzBootstrap_CatalogReaderFollowsPortalFlag(t *testing.T) {
-	const (
-		role    = "backstage-catalog-reader"
-		binding = "backstage-catalog-reader-binding"
-	)
-
 	t.Run("portal enabled", func(t *testing.T) {
-		seeded := authzBootstrapNames(t, portalOnOverrides...)
-		if got := seeded[role]; got != "ClusterAuthzRole" {
-			t.Errorf("want %s seeded as ClusterAuthzRole, got %q", role, got)
+		seeded := authzBootstrapNames(t, backstageGuardOverrides...)
+		if got := seeded[catalogReaderRole]; got != "ClusterAuthzRole" {
+			t.Errorf("want %s seeded as ClusterAuthzRole, got %q", catalogReaderRole, got)
 		}
-		if got := seeded[binding]; got != "ClusterAuthzRoleBinding" {
-			t.Errorf("want %s seeded as ClusterAuthzRoleBinding, got %q", binding, got)
+		if got := seeded[catalogReaderBinding]; got != "ClusterAuthzRoleBinding" {
+			t.Errorf("want %s seeded as ClusterAuthzRoleBinding, got %q", catalogReaderBinding, got)
 		}
 	})
 
 	t.Run("portal disabled", func(t *testing.T) {
-		seeded := authzBootstrapNames(t, portalOffOverrides...)
-		for _, name := range []string{role, binding} {
+		seeded := authzBootstrapNames(t, helmGuardOverrides...)
+		for _, name := range []string{catalogReaderRole, catalogReaderBinding} {
 			if kind, ok := seeded[name]; ok {
 				t.Errorf("a portal-less install still seeds %s/%s", kind, name)
 			}
@@ -211,14 +220,14 @@ func TestAuthzBootstrap_CatalogReaderEntitlement(t *testing.T) {
 	}
 
 	t.Run("defaults to the sign-in client", func(t *testing.T) {
-		rendered := entitlementOf(t, portalOnOverrides...)
+		rendered := entitlementOf(t, backstageGuardOverrides...)
 		if !strings.Contains(rendered, `value: "openchoreo-backstage-client"`) {
 			t.Error("the catalog reader binding does not default to backstage.auth.clientId")
 		}
 	})
 
 	t.Run("follows a dedicated service client", func(t *testing.T) {
-		args := append(append([]string{}, portalOnOverrides...),
+		args := append(append([]string{}, backstageGuardOverrides...),
 			"--set", "backstage.auth.serviceClientId=portal-catalog-provider")
 		rendered := entitlementOf(t, args...)
 		if !strings.Contains(rendered, `value: "portal-catalog-provider"`) {
@@ -228,7 +237,7 @@ func TestAuthzBootstrap_CatalogReaderEntitlement(t *testing.T) {
 	})
 
 	t.Run("honours an explicit entitlement", func(t *testing.T) {
-		args := append(append([]string{}, portalOnOverrides...),
+		args := append(append([]string{}, backstageGuardOverrides...),
 			"--set", "backstage.auth.authzEntitlement.claim=sub",
 			"--set", "backstage.auth.authzEntitlement.value=encoded-client-id")
 		rendered := entitlementOf(t, args...)
@@ -250,55 +259,25 @@ func TestAPINetworkPolicy_PortalSelectorFollowsPortalFlag(t *testing.T) {
 		return renderControlPlane(t, args...)
 	}
 
-	if got := render(t, portalOnOverrides); !strings.Contains(got, "component: backstage") {
+	if got := render(t, backstageGuardOverrides); !strings.Contains(got, "component: backstage") {
 		t.Error("with the portal installed, the API NetworkPolicy should still allow it in")
 	}
-	if got := render(t, portalOffOverrides); strings.Contains(got, "component: backstage") {
+	if got := render(t, helmGuardOverrides); strings.Contains(got, "component: backstage") {
 		t.Error("with the portal uninstalled, the API NetworkPolicy still carries its podSelector")
 	}
 }
 
-// catalogReaderActions renders the authz bootstrap and returns the action list of
-// the portal's catalog-reader role.
+// catalogReaderActions returns the action list of the portal's catalog-reader
+// role as rendered.
 func catalogReaderActions(t *testing.T, args ...string) []string {
 	t.Helper()
 
-	full := append(append([]string{}, args...),
-		"--show-only", "templates/authz/bootstrap-configmap.yaml")
-	rendered := renderControlPlane(t, full...)
-
-	var configMap struct {
-		Data struct {
-			Manifests string `yaml:"manifests.yaml"`
-		} `yaml:"data"`
-	}
-	if err := yaml.Unmarshal([]byte(rendered), &configMap); err != nil {
-		t.Fatalf("failed to parse the rendered bootstrap ConfigMap: %v", err)
-	}
-
-	decoder := yaml.NewDecoder(strings.NewReader(configMap.Data.Manifests))
-	for {
-		var doc struct {
-			Kind     string `yaml:"kind"`
-			Metadata struct {
-				Name string `yaml:"name"`
-			} `yaml:"metadata"`
-			Spec struct {
-				Actions []string `yaml:"actions"`
-			} `yaml:"spec"`
-		}
-		err := decoder.Decode(&doc)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			t.Fatalf("failed to parse a bootstrap document: %v", err)
-		}
-		if doc.Kind == "ClusterAuthzRole" && doc.Metadata.Name == "backstage-catalog-reader" {
+	for _, doc := range authzBootstrapDocs(t, args...) {
+		if doc.Kind == "ClusterAuthzRole" && doc.Metadata.Name == catalogReaderRole {
 			return doc.Spec.Actions
 		}
 	}
-	t.Fatal("the rendered bootstrap carries no backstage-catalog-reader ClusterAuthzRole")
+	t.Fatalf("the rendered bootstrap carries no %s ClusterAuthzRole", catalogReaderRole)
 	return nil
 }
 
@@ -333,11 +312,11 @@ func valuesCatalogReaderActions(t *testing.T) []string {
 	}
 
 	for _, r := range values.OpenChoreoAPI.Config.Security.Authorization.Bootstrap.Roles {
-		if r.Name == "backstage-catalog-reader" {
+		if r.Name == catalogReaderRole {
 			return r.Actions
 		}
 	}
-	t.Fatalf("%s defines no backstage-catalog-reader role", helmValuesPath)
+	t.Fatalf("%s defines no %s role", helmValuesPath, catalogReaderRole)
 	return nil
 }
 
@@ -357,7 +336,7 @@ func TestAuthzBootstrap_CatalogReaderActionsMatchValues(t *testing.T) {
 		t.Fatal("values.yaml lists no actions for backstage-catalog-reader")
 	}
 
-	got := catalogReaderActions(t, portalOnOverrides...)
+	got := catalogReaderActions(t, backstageGuardOverrides...)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("rendered catalog-reader actions differ from %s (-values +rendered):\n%s",
 			helmValuesPath, diff)

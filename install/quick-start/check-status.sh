@@ -74,7 +74,6 @@ components_dp=("cluster_agent_dp" "gateway_proxy")
 
 # Core vs optional classification
 core_components=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" "controller_manager" "api_server" "cluster_gateway" "cluster_agent_dp" "gateway_proxy")
-# backstage is optional: install.sh --without-portal is a supported install.
 optional_components=("backstage" "cluster_agent_wp" "argo_workflow_controller" "registry" "obs_controller_manager" "cluster_agent_op" "opensearch" "observer")
 
 # Component configuration: namespace and pod label selector
