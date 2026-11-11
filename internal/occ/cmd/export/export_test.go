@@ -143,6 +143,8 @@ func TestRun_EmbeddedCredentialsRedactedBeforeSerialization(t *testing.T) {
 	}{
 		{parameter: "DATABASE_URL", value: testCredentialURL, redacted: testRedactedURL},
 		{parameter: "DATABASE_URL", value: testMalformedCredentialURL, redacted: "https://host.example/path"},
+		{parameter: "CALLBACK_URL", value: "https://${metadata.name}:8080/cb?email=user@example.com", redacted: ""},
+		{parameter: "DATABASE_URL", value: "postgres://user:p?ss@db/app", redacted: ""},
 		{parameter: "Default_ConnectionString", value: testConnectionString, redacted: testRedactedConnectionString},
 		{parameter: "DATABASE_DSN", value: testKeywordDSN, redacted: testRedactedKeywordDSN},
 	}

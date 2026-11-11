@@ -163,6 +163,7 @@ func TestRedactURLUserinfo(t *testing.T) {
 		name  string
 		value any
 		want  string
+		clear bool
 	}{
 		{name: "database URL", value: testCredentialURL, want: testRedactedURL},
 		{name: "username only", value: "https://access-token@host.example/api", want: "https://host.example/api"},
@@ -174,10 +175,14 @@ func TestRedactURLUserinfo(t *testing.T) {
 		{name: "at sign outside authority", value: "https://host.example/path?email=user@example.com#user@other"},
 		{name: "reference", value: "${parameters.databaseURL}"},
 		{name: "malformed URL", value: testMalformedCredentialURL, want: "https://host.example/path"},
-		{name: "unescaped fragment in password", value: "postgres://user:p#ss@db/app", want: "postgres://db/app"},
-		{name: "unescaped query in password", value: "postgres://user:p?ss@db/app", want: "postgres://db/app"},
-		{name: "unescaped slash in password", value: "postgres://user:p/ss@db/app", want: "postgres://db/app"},
-		{name: "multiple at signs in malformed userinfo", value: "postgres://user:p#ss@word@db/app", want: "postgres://db/app"},
+		{name: "unescaped fragment in password", value: "postgres://user:p#ss@db/app", clear: true},
+		{name: "unescaped query in password", value: "postgres://user:p?ss@db/app", clear: true},
+		{name: "unescaped slash in password", value: "postgres://user:p/ss@db/app", clear: true},
+		{name: "multiple at signs in malformed userinfo", value: "postgres://user:p#ss@word@db/app", clear: true},
+		{name: "templated host with at sign in query", value: "https://${metadata.name}:8080/cb?email=user@example.com", clear: true},
+		{name: "templated host with at sign in path", value: "https://${metadata.name}:8080/user@example.com", clear: true},
+		{name: "templated host with at sign in fragment", value: "https://${metadata.name}:8080#user@example.com", clear: true},
+		{name: "malformed userinfo with at sign in query", value: "https://user:pass%zz@host.example/path?email=user@example.com", clear: true},
 		{name: "malformed URL preserves whitespace", value: " \thttps://user:pass%zz@host.example/path \n", want: " \thttps://host.example/path \n"},
 		{name: "custom scheme", value: "custom+db-v1.0://user:pass%zz@host.example/path", want: "custom+db-v1.0://host.example/path"},
 		{name: "userinfo reference", value: "nats://{{ .password }}@${metadata.name}:4222"},
@@ -194,7 +199,7 @@ func TestRedactURLUserinfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := redactURLUserinfo(tt.value)
-			assert.Equal(t, tt.want != "", ok)
+			assert.Equal(t, tt.want != "" || tt.clear, ok)
 			assert.Equal(t, tt.want, got)
 		})
 	}

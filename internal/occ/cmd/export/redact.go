@@ -221,7 +221,7 @@ func literalConnectionValue(value string) bool {
 	return value != "" && !credentialReference.MatchString(value)
 }
 
-// redactURLUserinfo removes credentials without rewriting the rest of the URL.
+// redactURLUserinfo removes userinfo, clearing URLs with ambiguous boundaries.
 func redactURLUserinfo(value any) (string, bool) {
 	text, ok := value.(string)
 	if !ok {
@@ -242,8 +242,12 @@ func redactURLUserinfo(value any) (string, bool) {
 		if credentialReference.MatchString(strings.TrimSpace(userinfo)) {
 			return "", false
 		}
-		// Malformed URLs are ambiguous. Remove through the last @ rather than
-		// risk leaving password text containing URL delimiters behind.
+		// A delimiter before @ may belong to a password or to the path, query,
+		// or fragment. Clear the value rather than expose credentials or promote
+		// text after that delimiter to a different host.
+		if strings.ContainsAny(trimmed[prefix[1]:lastAt], "/?#") {
+			return "", true
+		}
 		offset := strings.Index(text, trimmed)
 		return text[:offset+prefix[1]] + text[offset+lastAt+1:], true
 	}
