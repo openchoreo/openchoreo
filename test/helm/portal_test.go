@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -253,5 +255,111 @@ func TestAPINetworkPolicy_PortalSelectorFollowsPortalFlag(t *testing.T) {
 	}
 	if got := render(t, portalOffOverrides); strings.Contains(got, "component: backstage") {
 		t.Error("with the portal uninstalled, the API NetworkPolicy still carries its podSelector")
+	}
+}
+
+// catalogReaderActions renders the authz bootstrap and returns the action list of
+// the portal's catalog-reader role.
+func catalogReaderActions(t *testing.T, args ...string) []string {
+	t.Helper()
+
+	full := append(append([]string{}, args...),
+		"--show-only", "templates/authz/bootstrap-configmap.yaml")
+	rendered := renderControlPlane(t, full...)
+
+	var configMap struct {
+		Data struct {
+			Manifests string `yaml:"manifests.yaml"`
+		} `yaml:"data"`
+	}
+	if err := yaml.Unmarshal([]byte(rendered), &configMap); err != nil {
+		t.Fatalf("failed to parse the rendered bootstrap ConfigMap: %v", err)
+	}
+
+	decoder := yaml.NewDecoder(strings.NewReader(configMap.Data.Manifests))
+	for {
+		var doc struct {
+			Kind     string `yaml:"kind"`
+			Metadata struct {
+				Name string `yaml:"name"`
+			} `yaml:"metadata"`
+			Spec struct {
+				Actions []string `yaml:"actions"`
+			} `yaml:"spec"`
+		}
+		err := decoder.Decode(&doc)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("failed to parse a bootstrap document: %v", err)
+		}
+		if doc.Kind == "ClusterAuthzRole" && doc.Metadata.Name == "backstage-catalog-reader" {
+			return doc.Spec.Actions
+		}
+	}
+	t.Fatal("the rendered bootstrap carries no backstage-catalog-reader ClusterAuthzRole")
+	return nil
+}
+
+// valuesCatalogReaderActions reads the same role's action list straight out of
+// values.yaml, which is where the chart defines it.
+func valuesCatalogReaderActions(t *testing.T) []string {
+	t.Helper()
+
+	raw, err := os.ReadFile(helmValuesPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", helmValuesPath, err)
+	}
+
+	var values struct {
+		OpenChoreoAPI struct {
+			Config struct {
+				Security struct {
+					Authorization struct {
+						Bootstrap struct {
+							Roles []struct {
+								Name    string   `yaml:"name"`
+								Actions []string `yaml:"actions"`
+							} `yaml:"roles"`
+						} `yaml:"bootstrap"`
+					} `yaml:"authorization"`
+				} `yaml:"security"`
+			} `yaml:"config"`
+		} `yaml:"openchoreoApi"`
+	}
+	if err := yaml.Unmarshal(raw, &values); err != nil {
+		t.Fatalf("failed to parse %s: %v", helmValuesPath, err)
+	}
+
+	for _, r := range values.OpenChoreoAPI.Config.Security.Authorization.Bootstrap.Roles {
+		if r.Name == "backstage-catalog-reader" {
+			return r.Actions
+		}
+	}
+	t.Fatalf("%s defines no backstage-catalog-reader role", helmValuesPath)
+	return nil
+}
+
+// TestAuthzBootstrap_CatalogReaderActionsMatchValues pins the role's action list
+// to values.yaml.
+//
+// This guards a specific, already-observed failure: the role grants the portal's
+// catalog provider read access to every resource kind, upstream extends it
+// whenever a kind is added (releaseline, endpoint, releasebinding have all landed
+// this way), and a copy kept anywhere else silently lags. A stale copy does not
+// fail to render — catalog sync just starts failing closed on the kinds that went
+// missing. Keeping the role in values.yaml and asserting the render matches makes
+// that impossible rather than merely detectable.
+func TestAuthzBootstrap_CatalogReaderActionsMatchValues(t *testing.T) {
+	want := valuesCatalogReaderActions(t)
+	if len(want) == 0 {
+		t.Fatal("values.yaml lists no actions for backstage-catalog-reader")
+	}
+
+	got := catalogReaderActions(t, portalOnOverrides...)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("rendered catalog-reader actions differ from %s (-values +rendered):\n%s",
+			helmValuesPath, diff)
 	}
 }
