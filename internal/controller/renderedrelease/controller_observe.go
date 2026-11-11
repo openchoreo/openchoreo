@@ -185,9 +185,15 @@ func readObservedResource(ctx context.Context, planeClient client.Client, entry 
 
 	failure := &observedReadFailure{entry: entry}
 	switch {
-	case apimeta.IsNoMatchError(err) || (apierrors.IsNotFound(err) && !namesObject(err)):
+	case apimeta.IsNoMatchError(err):
 		failure.reason = ReasonObservedKindNotFound
 		failure.detail = "kind is not served by the plane"
+	case apierrors.IsNotFound(err) && !namesObject(err):
+		// The API server answers this way for a version or kind it does not serve,
+		// and for a request at the wrong scope, such as a namespaced kind without a
+		// namespace.
+		failure.reason = ReasonObservedKindNotFound
+		failure.detail = "kind is not served by the plane, or the namespace does not fit the kind's scope"
 	case apierrors.IsNotFound(err):
 		failure.reason = ReasonObservedResourceNotFound
 		failure.detail = "not found"

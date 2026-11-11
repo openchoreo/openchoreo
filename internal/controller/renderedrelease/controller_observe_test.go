@@ -192,15 +192,19 @@ func TestReadObservedResources(t *testing.T) {
 		}
 	})
 
+	// detail is checked exactly; "broken" carries the error text, checked below.
 	wantFailures := []struct {
 		id     string
 		reason controller.ConditionReason
+		detail string
 	}{
-		{"gone", ReasonObservedResourceNotFound},
-		{"forbidden", ReasonObservedReadForbidden},
-		{"nomatch", ReasonObservedKindNotFound},
-		{"unserved", ReasonObservedKindNotFound},
-		{"broken", ReasonObservedReadFailed},
+		{"gone", ReasonObservedResourceNotFound, "not found"},
+		{"forbidden", ReasonObservedReadForbidden, "forbidden by the plane agent's RBAC"},
+		{"nomatch", ReasonObservedKindNotFound, "kind is not served by the plane"},
+		// A 404 naming nothing also comes back for a request at the wrong scope.
+		{"unserved", ReasonObservedKindNotFound,
+			"kind is not served by the plane, or the namespace does not fit the kind's scope"},
+		{"broken", ReasonObservedReadFailed, ""},
 	}
 	t.Run("unreadable objects are Unknown with a reason", func(t *testing.T) {
 		if len(result.failures) != len(wantFailures) {
@@ -210,6 +214,9 @@ func TestReadObservedResources(t *testing.T) {
 			f := result.failures[i]
 			if f.entry.id != want.id || f.reason != want.reason {
 				t.Errorf("failures[%d] = %s/%s, want %s/%s", i, f.entry.id, f.reason, want.id, want.reason)
+			}
+			if want.detail != "" && f.detail != want.detail {
+				t.Errorf("failures[%d] detail = %q, want %q", i, f.detail, want.detail)
 			}
 			s := result.statuses[i+2]
 			if s.HealthStatus != openchoreov1alpha1.HealthStatusUnknown || s.Status != nil || s.LastObservedTime != nil {

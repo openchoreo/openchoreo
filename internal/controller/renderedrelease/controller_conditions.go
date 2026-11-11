@@ -38,7 +38,8 @@ const (
 	ReasonObservedReadSucceeded controller.ConditionReason = "ReadSucceeded"
 	// ReasonObservedResourceNotFound an observed resource does not exist
 	ReasonObservedResourceNotFound controller.ConditionReason = "ResourceNotFound"
-	// ReasonObservedKindNotFound the plane does not serve an observed resource's API version and kind
+	// ReasonObservedKindNotFound the plane does not serve an observed resource's API version and kind,
+	// or not at the requested scope
 	ReasonObservedKindNotFound controller.ConditionReason = "KindNotFound"
 	// ReasonObservedReadForbidden the plane agent's RBAC does not allow reading an observed resource
 	ReasonObservedReadForbidden controller.ConditionReason = "ReadForbidden"
