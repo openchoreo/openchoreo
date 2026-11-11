@@ -263,7 +263,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// rather than whatever priority the request happened to be dequeued with.
 	// Polls run at low priority so that real changes (spec, restart annotation,
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
-	// Observed resources count the same as applied ones.
+	// Observed resources count too; transitioningRequeuePriority weighs them.
 	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(release.Status.ObservedResources) {
 		requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
 		priority := transitioningRequeuePriority(release.Status.Resources, release.Status.ObservedResources)

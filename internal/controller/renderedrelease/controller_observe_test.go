@@ -104,14 +104,6 @@ func TestResolveObservedResources(t *testing.T) {
 			t.Errorf("cluster-scoped entry got namespace %q", entries[2].namespace)
 		}
 	})
-
-	t.Run("an unparseable apiVersion is kept for the read to report", func(t *testing.T) {
-		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-			observedRes("bad", "a/b/c", "Thing", "prod", "x")})
-		if entries[0].apiVersionErr == nil {
-			t.Error("expected an apiVersion error on the entry")
-		}
-	})
 }
 
 // reading

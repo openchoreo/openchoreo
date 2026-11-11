@@ -513,13 +513,13 @@ var _ = Describe("RenderedRelease observe mode API validation", func() {
 	It("leaves an unset mode unset and rejects unknown modes", func() {
 		// Binding controllers write the whole spec without a mode. A server default
 		// would differ from what they write and make every reconcile an update.
-		release := newRelease("cel-mode")
+		release := newRelease("val-mode")
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
-		stored := fetchRelease("cel-mode")
+		stored := fetchRelease("val-mode")
 		Expect(stored.Spec.Mode).To(BeEmpty())
 		Expect(effectiveMode(stored)).To(Equal(openchoreov1alpha1.RenderedReleaseModeManage))
 
-		bad := newRelease("cel-bad-mode")
+		bad := newRelease("val-bad-mode")
 		bad.Spec.Mode = "Adopt"
 		err := k8sClient.Create(ctx, bad)
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)

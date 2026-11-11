@@ -60,15 +60,10 @@ func ignoreStatusOnlyUpdates() predicate.Predicate {
 	}
 }
 
-// transitioningRequeuePriority returns the queue priority for a release that
-// hasTransitioningResources reports as transitioning, given its applied and its
-// observed resources. Progressing and Unknown applied resources (Unknown is
-// usually a resource just applied and not yet returned by the list) settle on
-// their own, so they keep priority 0, and so does a Progressing observed one. A
-// release that is only Degraded can stay that way for days (a crash-looping
-// Deployment), so its checks run at poll priority and do not compete with real
-// changes. So does an Unknown observed resource: it was read directly, so Unknown
-// means it is missing or unreadable, which does not settle on its own either.
+// transitioningRequeuePriority returns the queue priority for a transitioning
+// release. Progressing resources, and applied ones still Unknown (just applied),
+// settle on their own and keep priority 0. Degraded ones, and observed ones that
+// are Unknown (missing or unreadable), may last, so they poll at low priority.
 func transitioningRequeuePriority(applied, observed []openchoreov1alpha1.RenderedManifestStatus) int {
 	for _, res := range applied {
 		if res.HealthStatus == openchoreov1alpha1.HealthStatusProgressing ||

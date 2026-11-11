@@ -245,8 +245,6 @@ func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Un
 		if gvk.Group != appsAPIGroup || (gvk.Kind != deploymentKind && gvk.Kind != statefulSetKind) {
 			continue
 		}
-		// isResurrectable checks the kind again on the live object, which carries
-		// the GVK it was listed under, the same as desired's.
 		live, ok := liveIndex.lookup(desired)
 		if !ok {
 			continue

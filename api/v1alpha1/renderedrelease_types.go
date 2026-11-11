@@ -49,21 +49,21 @@ type RenderedReleaseSpec struct {
 	// +kubebuilder:default=dataplane
 	TargetPlane string `json:"targetPlane,omitempty"`
 
-	// Mode decides whether the manifests in spec.resources are applied.
-	// Manage applies them. Observe does not, and removes whatever this release
-	// applied earlier. Observed resources are read in both modes.
-	// Unset means Manage. There is no API server default: the binding controllers
-	// write the whole spec without this field, and a defaulted value would read as
-	// a change on every reconcile.
+	// There is no API server default: the binding controllers write the whole spec
+	// without this field, and a defaulted value would read as a change on every
+	// reconcile.
 	// TODO: default to Manage once the binding controllers set mode, as for targetPlane (#5362).
+
+	// Mode decides whether the manifests in spec.resources are applied. Manage
+	// applies them. Observe does not, and removes whatever this release applied
+	// earlier. Observed resources are read in both modes. Unset means Manage.
 	// +kubebuilder:validation:Enum=Manage;Observe
 	// +optional
 	Mode RenderedReleaseMode `json:"mode,omitempty"`
 
 	// ObservedResources lists existing objects on the target plane that this
 	// release reads and reports in status.observedResources. They are never
-	// created, updated, labeled or deleted, in either mode. Each entry's id is
-	// unique within the list.
+	// created, updated, labeled or deleted, in either mode.
 	// +listType=map
 	// +listMapKey=id
 	// +optional
@@ -84,9 +84,8 @@ const (
 // ObservedResource names an existing object on the target plane for a
 // RenderedRelease to read.
 type ObservedResource struct {
-	// ID identifies the entry in status.observedResources, as the id of a
-	// spec.resources entry does for what is applied. It is unique within
-	// observedResources, and the writer of the release chooses it.
+	// ID identifies this entry in status.observedResources. It is unique within
+	// observedResources.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	ID string `json:"id"`
@@ -222,7 +221,7 @@ type RenderedManifestStatus struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Status captures the entire .status field of the resource applied to the data plane.
+	// Status captures the entire .status field of the resource on the target plane.
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional

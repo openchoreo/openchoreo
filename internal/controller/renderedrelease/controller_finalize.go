@@ -136,7 +136,7 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 	// an object that merely carries our labels (e.g. the Secret ESO creates for an
 	// ExternalSecret) belongs to its creator and may legitimately outlive the release.
 	// Observed objects are never deleted, even one this release applied earlier.
-	liveResources = excludeObserved(appliedByController(liveResources), finalizeObservedEntries(release))
+	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
 
 	// STEP 4: Delete all live resources (since we want to delete everything, all live resources are "stale")
 	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
@@ -205,7 +205,7 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	}
 	// As on the data plane: delete, and wait for, only what this controller applied,
 	// and never an observed object.
-	liveResources = excludeObserved(appliedByController(liveResources), finalizeObservedEntries(release))
+	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
 
 	// STEP 4: Delete all live resources
 	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
@@ -229,12 +229,6 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// finalizeObservedEntries returns the release's observed resources, for keeping
-// them out of the finalizer's deletes.
-func finalizeObservedEntries(release *openchoreov1alpha1.RenderedRelease) []observedEntry {
-	return resolveObservedResources(release.Spec.ObservedResources)
 }
 
 // intersectObsPlaneGVKs returns the subset of GVKs from the release status that are in

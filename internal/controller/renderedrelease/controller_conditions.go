@@ -31,8 +31,8 @@ const (
 	ReasonCleanupFailed controller.ConditionReason = "CleanupFailed"
 
 	// Reasons for ObservedResourcesRead condition type. When the resources that could
-	// not be read failed for different reasons, the condition uses ReadFailed and its
-	// message gives each one's.
+	// not be read failed for different reasons, the condition uses ReadFailed and the
+	// message lists each failure and its cause.
 
 	// ReasonObservedReadSucceeded every observed resource was read
 	ReasonObservedReadSucceeded controller.ConditionReason = "ReadSucceeded"

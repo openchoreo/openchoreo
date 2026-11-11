@@ -57,14 +57,10 @@ func identityOf(obj *unstructured.Unstructured) objectIdentity {
 
 // observedEntry is a spec.observedResources entry with its API version parsed.
 type observedEntry struct {
-	id  string
-	gvk schema.GroupVersionKind
-	// apiVersionErr is set when the entry's apiVersion does not parse. The CRD
-	// pattern rejects such values, so this only guards against objects written
-	// before it existed.
-	apiVersionErr error
-	namespace     string
-	name          string
+	id        string
+	gvk       schema.GroupVersionKind
+	namespace string
+	name      string
 }
 
 func (e observedEntry) identity() objectIdentity {
@@ -81,21 +77,17 @@ func (e observedEntry) describe() string {
 }
 
 // resolveObservedResources returns the observed entries in spec order, with
-// each apiVersion parsed. Ids are required and unique (the list is a map keyed
-// by id), so they are taken as written.
+// each apiVersion parsed.
 func resolveObservedResources(specs []openchoreov1alpha1.ObservedResource) []observedEntry {
 	entries := make([]observedEntry, 0, len(specs))
 	for _, spec := range specs {
-		gv, err := schema.ParseGroupVersion(spec.APIVersion)
-		if err != nil {
-			gv = schema.GroupVersion{Version: spec.APIVersion}
-		}
+		// The CRD pattern admits only apiVersions that parse.
+		gv, _ := schema.ParseGroupVersion(spec.APIVersion)
 		entries = append(entries, observedEntry{
-			id:            spec.ID,
-			gvk:           gv.WithKind(spec.Kind),
-			apiVersionErr: err,
-			namespace:     spec.Namespace,
-			name:          spec.Name,
+			id:        spec.ID,
+			gvk:       gv.WithKind(spec.Kind),
+			namespace: spec.Namespace,
+			name:      spec.Name,
 		})
 	}
 	return entries
@@ -178,11 +170,6 @@ func (r *Reconciler) readObservedResources(ctx context.Context, planeClient clie
 // readObservedResource gets one observed object. It returns the object, or why it
 // could not be read.
 func readObservedResource(ctx context.Context, planeClient client.Client, entry observedEntry) (*unstructured.Unstructured, *observedReadFailure) {
-	if entry.apiVersionErr != nil {
-		return nil, &observedReadFailure{entry: entry, reason: ReasonObservedReadFailed,
-			detail: fmt.Sprintf("invalid apiVersion: %v", entry.apiVersionErr)}
-	}
-
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(entry.gvk)
 	err := planeClient.Get(ctx, client.ObjectKey{Namespace: entry.namespace, Name: entry.name}, obj)
