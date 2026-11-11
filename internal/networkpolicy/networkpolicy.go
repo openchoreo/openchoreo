@@ -38,6 +38,22 @@ type ComponentPolicyParams struct {
 	PodSelectors  map[string]string                              // platform pod selectors
 	Endpoints     map[string]openchoreov1alpha1.WorkloadEndpoint // from workload spec
 	Provider      Provider                                       // network policy provider
+
+	// Visibility is each endpoint's effective visibility: what the deprecated
+	// workload field requests together with what the Endpoints routing to it
+	// expose. When nil, the workload field alone is used.
+	Visibility map[string][]openchoreov1alpha1.EndpointVisibility
+}
+
+// endpointVisibility returns the visibilities ingress is opened for on one
+// endpoint.
+func (p ComponentPolicyParams) endpointVisibility(
+	name string, ep openchoreov1alpha1.WorkloadEndpoint,
+) []openchoreov1alpha1.EndpointVisibility {
+	if p.Visibility != nil {
+		return p.Visibility[name]
+	}
+	return ep.Visibility //nolint:staticcheck // deprecated field still supported for backward compatibility
 }
 
 // MakeComponentPolicies returns a policy for a component with ingress rules based on
@@ -102,7 +118,7 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 	entries := make([]epEntry, 0, len(params.Endpoints))
 	for name, ep := range params.Endpoints {
 		protocol := "TCP"
-		if ep.Type == openchoreov1alpha1.EndpointProtocolUDP {
+		if ep.EffectiveProtocol() == openchoreov1alpha1.EndpointProtocolUDP {
 			protocol = "UDP"
 		}
 		entries = append(entries, epEntry{
@@ -111,7 +127,7 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 				"protocol": protocol,
 				"port":     int64(ep.Port),
 			},
-			visibility: ep.Visibility,
+			visibility: params.endpointVisibility(name, ep),
 		})
 	}
 	sort.Slice(entries, func(i, j int) bool {
@@ -206,16 +222,16 @@ type ciliumPortEntry struct {
 // Non-proxied types (TCP, UDP) get L4-only rules.
 func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any {
 	entries := make([]ciliumPortEntry, 0, len(params.Endpoints))
-	for _, ep := range params.Endpoints {
+	for name, ep := range params.Endpoints {
 		proto := "TCP"
-		if ep.Type == openchoreov1alpha1.EndpointProtocolUDP {
+		if ep.EffectiveProtocol() == openchoreov1alpha1.EndpointProtocolUDP {
 			proto = "UDP"
 		}
 		entries = append(entries, ciliumPortEntry{
 			port:       strconv.Itoa(int(ep.Port)),
 			proto:      proto,
-			isL7:       isL7Proxied(ep.Type),
-			visibility: ep.Visibility,
+			isL7:       isL7Proxied(ep.EffectiveProtocol()),
+			visibility: params.endpointVisibility(name, ep),
 		})
 	}
 	// Sort by port for deterministic output.

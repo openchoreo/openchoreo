@@ -301,6 +301,18 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    protocol:
+                      description: |-
+                        Protocol is the protocol the endpoint serves. Replaces type; the admission
+                        webhook keeps the two equal, and one of them must be set.
+                      enum:
+                      - HTTP
+                      - gRPC
+                      - GraphQL
+                      - Websocket
+                      - TCP
+                      - UDP
+                      type: string
                     schema:
                       description: Schema for the endpoint API definition.
                       properties:
@@ -317,7 +329,11 @@ spec:
                       minimum: 1
                       type: integer
                     type:
-                      description: Type indicates the protocol/technology of the endpoint.
+                      description: |-
+                        Type indicates the protocol/technology of the endpoint.
+
+                        Deprecated: use protocol. The admission webhook copies one to the other, so
+                        readers of either keep working; read it through EffectiveProtocol.
                       enum:
                       - HTTP
                       - gRPC
@@ -330,6 +346,10 @@ spec:
                       description: |-
                         Visibility is an array of additional endpoint visibilities beyond the implicit project visibility.
                         Every endpoint always gets project visibility. This array adds extra scopes.
+
+                        Deprecated: expose the endpoint through an Endpoint, whose spec.visibility
+                        carries the requested visibilities. Still honored by ComponentType templates
+                        that read it; new clients do not set it.
                       items:
                         description: |-
                           EndpointVisibility defines the visibility scope for an endpoint.
@@ -344,7 +364,6 @@ spec:
                       x-kubernetes-list-type: set
                   required:
                   - port
-                  - type
                   type: object
                 description: |-
                   Endpoints define simple network endpoints for basic port exposure.

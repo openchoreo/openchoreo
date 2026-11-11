@@ -182,8 +182,18 @@ var _ = Describe("Endpoint Routing", Ordered, Label("tier2"), func() {
 			framework.AssertHTTPRouteAccepted(g, kubeContext, dpDevNs, routeName)
 		}, 2*time.Minute, pollInterval).Should(Succeed())
 
-		By("serving traffic from both backends through the gateway")
-		url := routeURL(envDev)
+		By("reporting the external URL on the binding")
+		var url string
+		Eventually(func(g Gomega) {
+			url = jsonpath(g, "endpointreleasebinding", bindingName(envDev),
+				`{.status.urls.external.scheme}://{.status.urls.external.host}:{.status.urls.external.port}{.status.urls.external.path}`)
+			g.Expect(url).To(Equal(routeURL(envDev)))
+			g.Expect(jsonpath(g, "endpointreleasebinding", bindingName(envDev),
+				`{.status.urls.external.security.scheme}`)).To(Equal("none"))
+			g.Expect(condition(g, bindingName(envDev), "URLsResolved", "status")).To(Equal("True"))
+		}, time.Minute, pollInterval).Should(Succeed())
+
+		By("serving traffic from both backends through the gateway on that URL")
 		seen := map[string]bool{}
 		Eventually(func(g Gomega) {
 			out, err := framework.KubectlExecByLabel(kubeContext, dpDevNs, testerLabel, testerContainer,

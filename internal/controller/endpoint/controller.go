@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,8 +38,11 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointtypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterendpointtypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -61,6 +65,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if added, err := r.ensureFinalizer(ctx, ep); err != nil || added {
+		return ctrl.Result{}, err
+	}
+
+	if updated, err := r.ensureOwnerReference(ctx, ep); err != nil || updated {
 		return ctrl.Result{}, err
 	}
 
@@ -128,6 +136,20 @@ func (r *Reconciler) reconcile(ctx context.Context, old, ep *openchoreov1alpha1.
 		ep.Status.LatestRelease = &openchoreov1alpha1.LatestEndpointRelease{
 			Name: releaseName,
 			Hash: releaseHash,
+		}
+	}
+
+	if ep.Spec.AutoDeploy {
+		env, problem, err := r.firstEnvironment(ctx, ep)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if problem != "" {
+			controller.MarkFalseCondition(ep, ConditionReady, ReasonAutoDeployFailed, problem)
+			return ctrl.Result{}, nil
+		}
+		if err := r.ensureAutoDeployBinding(ctx, ep, env, ep.Status.LatestRelease.Name); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -210,22 +232,13 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 				ref.Name, ref.Component.Name, ep.Spec.Owner.ProjectName)})
 			continue
 		}
-		workloadEndpoint, ok := workload.Spec.Endpoints[ref.Component.Endpoint]
-		if !ok {
+		// The workload endpoint only has to exist: what it is exposed to comes
+		// from this Endpoint's visibility, which the component's network policy
+		// follows, not from the workload.
+		if _, ok := workload.Spec.Endpoints[ref.Component.Endpoint]; !ok {
 			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
 				"backend %q: component %q has no workload endpoint %q (available: %s)",
 				ref.Name, ref.Component.Name, ref.Component.Endpoint, endpointNames(workload))})
-			continue
-		}
-		// An Endpoint routes through the gateway, and a component admits
-		// gateway traffic only on endpoints its developer made internal or
-		// external. Anything narrower would render an accepted route whose
-		// traffic the component's network policy then drops.
-		if !gatewayExposed(workloadEndpoint) {
-			problems = append(problems, backendProblem{ReasonBackendNotExposed, fmt.Sprintf(
-				"backend %q: workload endpoint %q of component %q is not exposed through the gateway "+
-					"(visibility: %s); set internal or external visibility on it",
-				ref.Name, ref.Component.Endpoint, ref.Component.Name, visibilityList(workloadEndpoint))})
 		}
 	}
 	return problems, nil
@@ -235,29 +248,6 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 type backendProblem struct {
 	reason  controller.ConditionReason
 	message string
-}
-
-// gatewayExposed reports whether a workload endpoint is reachable through the
-// gateway, which is what internal and external visibility grant.
-func gatewayExposed(ep openchoreov1alpha1.WorkloadEndpoint) bool {
-	for _, v := range ep.Visibility {
-		if v == openchoreov1alpha1.EndpointVisibilityInternal || v == openchoreov1alpha1.EndpointVisibilityExternal {
-			return true
-		}
-	}
-	return false
-}
-
-// visibilityList renders a workload endpoint's visibilities for messages. The
-// project scope is implicit for every endpoint.
-func visibilityList(ep openchoreov1alpha1.WorkloadEndpoint) string {
-	names := []string{string(openchoreov1alpha1.EndpointVisibilityProject)}
-	for _, v := range ep.Visibility {
-		if v != openchoreov1alpha1.EndpointVisibilityProject {
-			names = append(names, string(v))
-		}
-	}
-	return strings.Join(names, ", ")
 }
 
 // findWorkload returns the Workload owned by the given component, or nil.
@@ -358,6 +348,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForClusterEndpointType)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForWorkload)).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForComponent),
+			builder.WithPredicates(componentCreated())).
 		Named("endpoint").
 		Complete(r)
 }

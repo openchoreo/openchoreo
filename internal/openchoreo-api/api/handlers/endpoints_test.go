@@ -193,7 +193,8 @@ func TestCreateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "new-r"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -228,7 +229,8 @@ func TestCreateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "new-r"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: "missing-project"},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -250,7 +252,8 @@ func TestCreateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "new-r"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -271,7 +274,8 @@ func TestCreateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "new-r"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -298,7 +302,8 @@ func TestUpdateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "r-1"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -335,7 +340,8 @@ func TestUpdateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "nonexistent"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},
@@ -357,7 +363,8 @@ func TestUpdateEndpointHandler(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "different-name"},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: testEndpointProject},
 				Type: gen.EndpointTypeRef{Name: "http-gateway"},
 			},

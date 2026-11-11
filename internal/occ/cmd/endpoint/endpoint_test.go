@@ -60,6 +60,8 @@ func TestPrint_WithItems_ShowProject(t *testing.T) {
 	}
 	items[0].Metadata.CreationTimestamp = &now
 	items[1].Metadata.CreationTimestamp = &now
+	owner := "orders"
+	items[0].Spec.Owner.ComponentName = &owner
 
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items, true))
@@ -69,7 +71,9 @@ func TestPrint_WithItems_ShowProject(t *testing.T) {
 	assert.Contains(t, out, "TYPE")
 	assert.Contains(t, out, "VISIBILITY")
 	assert.Contains(t, out, "PROJECT")
+	assert.Contains(t, out, "COMPONENT")
 	assert.Contains(t, out, "AGE")
+	assert.Regexp(t, `orders-api\s+EndpointType/public-http\s+internal,external\s+online-store\s+orders\s`, out)
 	assert.Contains(t, out, "orders-api")
 	assert.Contains(t, out, "internal,external")
 	assert.Contains(t, out, "EndpointType/public-http")

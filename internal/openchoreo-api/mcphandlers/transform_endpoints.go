@@ -4,6 +4,8 @@
 package mcphandlers
 
 import (
+	"strconv"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
@@ -63,6 +65,7 @@ func endpointTypeResourceIDs(resources []openchoreov1alpha1.ResourceTemplate) []
 func endpointSummary(ep openchoreov1alpha1.Endpoint) map[string]any {
 	m := extractCommonMeta(&ep)
 	m["projectName"] = ep.Spec.Owner.ProjectName
+	setIfNotEmpty(m, "componentName", ep.Spec.Owner.ComponentName)
 	m["type"] = endpointTypeRef(ep.Spec.Type)
 	m["visibility"] = endpointVisibilities(ep.Spec.Visibility)
 	m["backends"] = endpointBackends(ep.Spec.BackendRefs)
@@ -76,6 +79,7 @@ func endpointSummary(ep openchoreov1alpha1.Endpoint) map[string]any {
 func endpointDetail(ep *openchoreov1alpha1.Endpoint) map[string]any {
 	m := extractCommonMeta(ep)
 	m["projectName"] = ep.Spec.Owner.ProjectName
+	setIfNotEmpty(m, "componentName", ep.Spec.Owner.ComponentName)
 	m["type"] = endpointTypeRef(ep.Spec.Type)
 	m["visibility"] = endpointVisibilities(ep.Spec.Visibility)
 	m["backends"] = endpointBackends(ep.Spec.BackendRefs)
@@ -84,6 +88,9 @@ func endpointDetail(ep *openchoreov1alpha1.Endpoint) map[string]any {
 	}
 	if ep.Spec.Parameters != nil {
 		m["parameters"] = rawExtensionToAny(ep.Spec.Parameters)
+	}
+	if ep.Spec.AutoDeploy {
+		m["autoDeploy"] = true
 	}
 	if ep.Status.LatestRelease != nil {
 		m["latestRelease"] = map[string]any{
@@ -186,6 +193,9 @@ func endpointReleaseBindingDetail(b *openchoreov1alpha1.EndpointReleaseBinding) 
 		m["endpointTypeEnvironmentConfigs"] = rawExtensionToAny(b.Spec.EndpointTypeEnvironmentConfigs)
 	}
 	m["backends"] = resolvedEndpointBackends(b.Status.Backends)
+	if urls := resolvedEndpointURLs(b.Status.URLs); urls != nil {
+		m["urls"] = urls
+	}
 	setIfNotEmpty(m, "status", readyStatus(b.Status.Conditions))
 	if conds := conditionsSummary(b.Status.Conditions); conds != nil {
 		m["conditions"] = conds
@@ -217,4 +227,49 @@ func resolvedEndpointBackends(backends []openchoreov1alpha1.ResolvedEndpointBack
 		out = append(out, b)
 	}
 	return out
+}
+
+// resolvedEndpointURLs reports the URL resolved for each visibility, keyed by
+// visibility, with the security clients must satisfy to call it. Returns nil
+// when there are none.
+func resolvedEndpointURLs(urls *openchoreov1alpha1.EndpointReleaseBindingURLs) map[string]any {
+	if urls == nil {
+		return nil
+	}
+	out := map[string]any{}
+	for visibility, u := range map[string]*openchoreov1alpha1.ResolvedEndpointURL{
+		"project":   urls.Project,
+		"namespace": urls.Namespace,
+		"internal":  urls.Internal,
+		"external":  urls.External,
+	} {
+		if u == nil {
+			continue
+		}
+		entry := map[string]any{"url": formatEndpointURL(u.EndpointURL)}
+		if u.Security != nil {
+			security := map[string]any{"scheme": string(u.Security.Scheme)}
+			if u.Security.APIKey != nil {
+				security["apiKey"] = map[string]any{"in": string(u.Security.APIKey.In), "name": u.Security.APIKey.Name}
+			}
+			entry["security"] = security
+		}
+		out[visibility] = entry
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// formatEndpointURL renders a structured URL as scheme://host[:port][path].
+func formatEndpointURL(u openchoreov1alpha1.EndpointURL) string {
+	s := u.Host
+	if u.Scheme != "" {
+		s = u.Scheme + "://" + s
+	}
+	if u.Port != 0 {
+		s += ":" + strconv.Itoa(int(u.Port))
+	}
+	return s + u.Path
 }

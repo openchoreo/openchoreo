@@ -17,6 +17,9 @@ spec:
     - jsonPath: .spec.owner.projectName
       name: Project
       type: string
+    - jsonPath: .spec.owner.componentName
+      name: Component
+      type: string
     - jsonPath: .spec.type.name
       name: Type
       type: string
@@ -60,6 +63,14 @@ spec:
           spec:
             description: EndpointSpec defines the desired state of Endpoint.
             properties:
+              autoDeploy:
+                description: |-
+                  AutoDeploy deploys the Endpoint to the first environment of its project's
+                  deployment pipeline: the Endpoint controller creates the EndpointReleaseBinding
+                  for that environment and advances it to each new EndpointRelease. Later
+                  environments are promoted explicitly, as with Component.spec.autoDeploy.
+                  When not specified, defaults to false (zero value).
+                type: boolean
               backendRefs:
                 description: |-
                   BackendRefs lists the backends this Endpoint routes traffic to, with
@@ -130,19 +141,34 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               owner:
-                description: Owner identifies the Project this Endpoint belongs to.
+                description: |-
+                  Owner identifies what this Endpoint belongs to, and so what deleting
+                  removes it. Its project is fixed; its component is set only while every
+                  backend routes to that component, so deleting one component never deletes
+                  a route that still serves another.
                 properties:
+                  componentName:
+                    description: |-
+                      ComponentName is the Component in the project that owns this Endpoint,
+                      for an Endpoint that exposes one component's workload endpoint. Every
+                      backend must route to it. Unlike the project it can change: an Endpoint
+                      that starts routing to another component moves to its project by
+                      dropping this field in the same update.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                   projectName:
                     description: ProjectName is the name of the Project this Endpoint
                       belongs to.
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: spec.owner.projectName is immutable
+                      rule: self == oldSelf
                 required:
                 - projectName
                 type: object
-                x-kubernetes-validations:
-                - message: spec.owner is immutable
-                  rule: self == oldSelf
               parameters:
                 description: |-
                   Parameters contains values for the parameter schema declared on the referenced
@@ -219,6 +245,12 @@ spec:
             - type
             - visibility
             type: object
+            x-kubernetes-validations:
+            - message: spec.owner.componentName must be the component every backend
+                routes to; an Endpoint routing to several components is owned by its
+                project
+              rule: '!has(self.owner.componentName) || self.backendRefs.all(b, has(b.component)
+                && b.component.name == self.owner.componentName)'
           status:
             description: EndpointStatus defines the observed state of Endpoint.
             properties:

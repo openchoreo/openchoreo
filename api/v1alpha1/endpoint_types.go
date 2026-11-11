@@ -9,10 +9,13 @@ import (
 )
 
 // EndpointSpec defines the desired state of Endpoint.
+// +kubebuilder:validation:XValidation:rule="!has(self.owner.componentName) || self.backendRefs.all(b, has(b.component) && b.component.name == self.owner.componentName)",message="spec.owner.componentName must be the component every backend routes to; an Endpoint routing to several components is owned by its project"
 type EndpointSpec struct {
-	// Owner identifies the Project this Endpoint belongs to.
+	// Owner identifies what this Endpoint belongs to, and so what deleting
+	// removes it. Its project is fixed; its component is set only while every
+	// backend routes to that component, so deleting one component never deletes
+	// a route that still serves another.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner EndpointOwner `json:"owner"`
 
 	// Type references the EndpointType or ClusterEndpointType template for this Endpoint.
@@ -49,6 +52,14 @@ type EndpointSpec struct {
 	// +optional
 	Schema *Schema `json:"schema,omitempty"`
 
+	// AutoDeploy deploys the Endpoint to the first environment of its project's
+	// deployment pipeline: the Endpoint controller creates the EndpointReleaseBinding
+	// for that environment and advances it to each new EndpointRelease. Later
+	// environments are promoted explicitly, as with Component.spec.autoDeploy.
+	// When not specified, defaults to false (zero value).
+	// +optional
+	AutoDeploy bool `json:"autoDeploy,omitempty"`
+
 	// Parameters contains values for the parameter schema declared on the referenced
 	// EndpointType (or ClusterEndpointType). Validated against the schema by the
 	// Endpoint controller; failures surface via status.conditions.
@@ -58,11 +69,26 @@ type EndpointSpec struct {
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
-// EndpointOwner identifies the project that owns an Endpoint.
+// EndpointOwner identifies what owns an Endpoint. The Endpoint controller
+// makes the narrowest owner named here the Endpoint's Kubernetes owner, so
+// garbage collection deletes the Endpoint with it: the Component when
+// componentName is set, otherwise the Project.
 type EndpointOwner struct {
 	// ProjectName is the name of the Project this Endpoint belongs to.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner.projectName is immutable"
 	ProjectName string `json:"projectName"`
+
+	// ComponentName is the Component in the project that owns this Endpoint,
+	// for an Endpoint that exposes one component's workload endpoint. Every
+	// backend must route to it. Unlike the project it can change: an Endpoint
+	// that starts routing to another component moves to its project by
+	// dropping this field in the same update.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	ComponentName string `json:"componentName,omitempty"`
 }
 
 // EndpointBackendKind identifies what an EndpointBackendRef points at.
@@ -159,6 +185,7 @@ type LatestEndpointRelease struct {
 // +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be at most 63 characters"
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
+// +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.latestRelease.name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

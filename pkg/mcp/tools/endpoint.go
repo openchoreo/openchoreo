@@ -155,6 +155,9 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			"visibility": endpointVisibilityProperty(
 				"Scopes to expose the backends to: one or more of namespace, internal, external."),
 			"backend_refs": endpointBackendRefsProperty("Backends to route traffic to, with relative weights."),
+			"component_name": stringProperty(
+				"Optional: the component that owns the endpoint, so deleting the component deletes it. Every " +
+					"backend must route to this component. Omit it to have the project own the endpoint."),
 			"display_name": stringProperty("Human-readable display name"),
 			"description":  stringProperty("Human-readable description"),
 			"parameters": map[string]any{
@@ -165,6 +168,7 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
 		ProjectName   string                 `json:"project_name"`
+		ComponentName string                 `json:"component_name"`
 		Name          string                 `json:"name"`
 		TypeName      string                 `json:"type_name"`
 		TypeKind      string                 `json:"type_kind"`
@@ -188,12 +192,16 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			Metadata: gen.ObjectMeta{Name: args.Name, Annotations: &annotations},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ProjectName string `json:"projectName"`
+					ComponentName *string `json:"componentName,omitempty"`
+					ProjectName   string  `json:"projectName"`
 				}{ProjectName: args.ProjectName},
 				Type:        typeRef,
 				Visibility:  visibility,
 				BackendRefs: toEndpointBackendRefs(args.BackendRefs),
 			},
+		}
+		if args.ComponentName != "" {
+			body.Spec.Owner.ComponentName = &args.ComponentName
 		}
 		if args.Parameters != nil {
 			body.Spec.Parameters = &args.Parameters
@@ -210,7 +218,8 @@ func (t *Toolsets) RegisterUpdateEndpoint(s *mcp.Server, perms map[string]ToolPe
 		Name: name,
 		Description: "Update an existing endpoint (partial update). Only provided fields are applied; omitted " +
 			"fields remain unchanged. backend_refs, when provided, replaces the whole backend list, so use it " +
-			"to shift traffic weights. spec.owner and spec.type are immutable. Any change cuts a new " +
+			"to shift traffic weights. The project and spec.type are immutable. A component-owned endpoint " +
+			"whose new backend_refs route to another component moves to its project. Any change cuts a new " +
 			"EndpointRelease, which bindings pick up once their pin is advanced.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),

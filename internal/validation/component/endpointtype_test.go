@@ -85,7 +85,7 @@ func TestValidateEndpointTypeResourcesWithSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateEndpointTypeResourcesWithSchema(tt.resources, tt.validations, nil, nil, field.NewPath("spec"))
+			errs := ValidateEndpointTypeResourcesWithSchema(tt.resources, tt.validations, nil, nil, nil, field.NewPath("spec"))
 			if tt.wantErr == "" {
 				if len(errs) > 0 {
 					t.Fatalf("expected no errors, got: %v", errs.ToAggregate())

@@ -56,6 +56,11 @@ func (s *endpointService) CreateEndpoint(ctx context.Context, namespaceName stri
 		return nil, err
 	}
 
+	widenOwner(endpoint)
+	if err := s.validateOwnerComponent(ctx, namespaceName, endpoint); err != nil {
+		return nil, err
+	}
+
 	exists, err := s.endpointExists(ctx, namespaceName, endpoint.Name)
 	if err != nil {
 		s.logger.Error("Failed to check endpoint existence", "error", err)
@@ -111,11 +116,18 @@ func (s *endpointService) UpdateEndpoint(ctx context.Context, namespaceName stri
 	// Clear status from user input — status is server-managed
 	endpoint.Status = openchoreov1alpha1.EndpointStatus{}
 
-	// Prevent project reassignment: spec.owner is immutable per CRD CEL,
-	// but check explicitly so we return a friendly validation error instead
+	// Prevent project reassignment: spec.owner.projectName is immutable per CRD
+	// CEL, but check explicitly so we return a friendly validation error instead
 	// of a server-side admission rejection.
 	if endpoint.Spec.Owner.ProjectName != existing.Spec.Owner.ProjectName {
 		return nil, &services.ValidationError{Msg: "spec.owner.projectName is immutable"}
+	}
+
+	widenOwner(endpoint)
+	if endpoint.Spec.Owner.ComponentName != existing.Spec.Owner.ComponentName {
+		if err := s.validateOwnerComponent(ctx, namespaceName, endpoint); err != nil {
+			return nil, err
+		}
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
@@ -236,6 +248,49 @@ func (s *endpointService) DeleteEndpoint(ctx context.Context, namespaceName, end
 	}
 
 	s.logger.Debug("Endpoint deleted successfully", "namespace", namespaceName, "endpoint", endpointName)
+	return nil
+}
+
+// widenOwner moves a component-owned Endpoint to its project when a backend
+// routes anywhere but the owning component. The owner decides what deleting
+// removes the Endpoint, so a route that serves another component must not die
+// with this one. Ownership only ever widens here; a client names a component
+// explicitly to narrow it.
+func widenOwner(ep *openchoreov1alpha1.Endpoint) {
+	name := ep.Spec.Owner.ComponentName
+	if name == "" {
+		return
+	}
+	for _, ref := range ep.Spec.BackendRefs {
+		if ref.Component == nil || ref.Component.Name != name {
+			ep.Spec.Owner.ComponentName = ""
+			return
+		}
+	}
+}
+
+// validateOwnerComponent checks that the owning component, if any, exists in
+// the Endpoint's project, so a typo is reported to the client instead of
+// leaving the Endpoint owned by the project.
+func (s *endpointService) validateOwnerComponent(
+	ctx context.Context, namespaceName string, ep *openchoreov1alpha1.Endpoint,
+) error {
+	name := ep.Spec.Owner.ComponentName
+	if name == "" {
+		return nil
+	}
+	comp := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return &services.ValidationError{Msg: fmt.Sprintf("spec.owner.componentName: component %q not found", name)}
+		}
+		return fmt.Errorf("failed to get component %q: %w", name, err)
+	}
+	if comp.Spec.Owner.ProjectName != ep.Spec.Owner.ProjectName {
+		return &services.ValidationError{Msg: fmt.Sprintf(
+			"spec.owner.componentName: component %q belongs to project %q, not %q",
+			name, comp.Spec.Owner.ProjectName, ep.Spec.Owner.ProjectName)}
+	}
 	return nil
 }
 

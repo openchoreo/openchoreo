@@ -488,7 +488,7 @@ func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, com
 	}
 
 	// Find the root environment using pure function
-	firstEnv, err := findRootEnvironment(pipeline)
+	firstEnv, err := controller.FindRootEnvironment(pipeline)
 	if err != nil {
 		// Configuration errors are non-retryable
 		msg := fmt.Sprintf("Invalid deployment pipeline configuration: %v", err)
@@ -566,42 +566,6 @@ func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.
 	}
 
 	return traits, clusterTraits, nil
-}
-
-// findRootEnvironment finds the root environment in a deployment pipeline.
-// The root environment is the source environment that never appears as a target,
-// representing the initial environment where components are first deployed.
-// This is a pure function for easier testing.
-func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (string, error) {
-	if len(pipeline.Spec.PromotionPaths) == 0 {
-		return "", fmt.Errorf("deployment pipeline %s has no promotion paths defined", pipeline.Name)
-	}
-
-	// Build a set of all target environments
-	targets := make(map[string]bool)
-	for _, path := range pipeline.Spec.PromotionPaths {
-		for _, target := range path.TargetEnvironmentRefs {
-			targets[target.Name] = true
-		}
-	}
-
-	// Find source environment that's never a target (the root)
-	var rootEnv string
-	for _, path := range pipeline.Spec.PromotionPaths {
-		if path.SourceEnvironmentRef.Name == "" {
-			continue
-		}
-		if !targets[path.SourceEnvironmentRef.Name] {
-			rootEnv = path.SourceEnvironmentRef.Name
-			break
-		}
-	}
-
-	if rootEnv == "" {
-		return "", fmt.Errorf("deployment pipeline %s has no root environment (all sources are also targets)", pipeline.Name)
-	}
-
-	return rootEnv, nil
 }
 
 // handleAutoDeploy handles automatic deployment when autoDeploy is enabled.

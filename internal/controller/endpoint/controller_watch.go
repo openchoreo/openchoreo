@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -95,6 +97,29 @@ func (r *Reconciler) listEndpointsForWorkload(ctx context.Context, obj client.Ob
 	w := obj.(*openchoreov1alpha1.Workload)
 	indexKey := backendComponentKey(w.Spec.Owner.ProjectName, w.Spec.Owner.ComponentName)
 	return r.requestsForIndex(ctx, backendComponentIndex, indexKey, client.InNamespace(w.Namespace))
+}
+
+// listEndpointsForComponent returns reconcile requests for Endpoints in the
+// Component's namespace that route to it. An Endpoint owned by a component
+// routes only to that component, so this also finds the Endpoints naming it as
+// owner: one applied before its component moves from the project to the
+// component once the component lands.
+func (r *Reconciler) listEndpointsForComponent(ctx context.Context, obj client.Object) []reconcile.Request {
+	comp := obj.(*openchoreov1alpha1.Component)
+	indexKey := backendComponentKey(comp.Spec.Owner.ProjectName, comp.Name)
+	return r.requestsForIndex(ctx, backendComponentIndex, indexKey, client.InNamespace(comp.Namespace))
+}
+
+// componentCreated passes only Component creation, the one Component event
+// that changes which owner an Endpoint gets. Deletion is left to garbage
+// collection, and updates never change ownership.
+func componentCreated() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc:  func(event.CreateEvent) bool { return true },
+		UpdateFunc:  func(event.UpdateEvent) bool { return false },
+		DeleteFunc:  func(event.DeleteEvent) bool { return false },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
 }
 
 // requestsForIndex lists Endpoints by the given field index and converts them

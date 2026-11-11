@@ -230,12 +230,16 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | EndpointType | Yes | HTTP, gRPC, GraphQL, Websocket, TCP, UDP |
+| `protocol` | EndpointProtocol | Yes* | HTTP, gRPC, GraphQL, Websocket, TCP, UDP |
+| `type` | EndpointProtocol | Yes* | **Deprecated**: use `protocol`. Kept equal to `protocol` by the admission webhook |
 | `port` | int32 | Yes | Exposed port |
 | `targetPort` | int32 | No | Container listening port (defaults to port) |
-| `visibility` | []EndpointVisibility | No | project, namespace, internal, external |
+| `visibility` | []EndpointVisibility | No | **Deprecated**: expose the endpoint through an `Endpoint` instead. project, namespace, internal, external; still honored by ComponentType templates that read it |
 | `basePath` | string | No | URL base path |
 | `schema` | EndpointSchema | No | API schema (type + content) |
+
+\* One of `protocol` or the deprecated `type` must be set; the Workload admission webhook copies
+each to the other, rejects them when they differ, and warns on any use of a deprecated field.
 
 **Relationships:**
 - Owner: Component (via `spec.owner.componentName`)
@@ -479,8 +483,29 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `traits[]` | ComponentTypeTrait[] | No | Pre-configured embedded traits with parameter/environmentConfig bindings |
 | `allowedTraits[]` | TraitRef[] | No | Additional traits developers can attach |
 | `allowedWorkflows[]` | WorkflowRef[] | No | Permitted build workflows |
+| `allowedEndpoints[]` | AllowedEndpointType[] | No | Which (Cluster)EndpointType may expose a workload endpoint, by protocol. Empty: no Endpoints are created for components of this type |
 | `validations[]` | ValidationRule[] | No | CEL validation rules |
 | `resources[]` | ResourceTemplate[] | Yes (min 1) | K8s resource templates with CEL expressions |
+
+**AllowedEndpointType Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Alias a workload endpoint can name when several entries match its protocol |
+| `protocols[]` | string[] | Yes | Workload endpoint protocols (HTTP, gRPC, GraphQL, Websocket, TCP, UDP) |
+| `ref` | EndpointTypeRef | Yes | The EndpointType or ClusterEndpointType to use |
+| `default` | bool | No | Automatic choice for its protocols. At most one default per protocol, enforced by the webhook |
+
+Clients that create a Component (portal, occ, GitOps tooling) create one `Endpoint` per workload
+endpoint the developer exposes, from the chosen or default entry, with `spec.owner.componentName`
+set to the component. The Endpoint controller makes that Component the Endpoint's owner, so
+deleting the component deletes its Endpoints. `componentName` is accepted only while every backend
+routes to that component; an Endpoint routing to several components is owned by its Project, and
+the OpenChoreo API drops `componentName` when an update adds such a backend. The developer picks the
+visibility on the `Endpoint`; the EndpointType renders what each requested visibility needs (for
+example `includeWhen: '${"internal" in visibility && ...}'`) and rejects any it does not support
+through its `validations`. A PE opting a type in should drop the type's own route resources for
+the matched endpoints, otherwise both the type's route and the Endpoint's route render.
 
 **ResourceTemplate Fields:**
 
@@ -497,7 +522,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 - `ocSchema` — OpenChoreo shorthand format (e.g., `replicas: "integer | default=1"`)
 - `openAPIV3Schema` — Standard OpenAPI v3 JSON Schema
 
-**Cluster-scoped variant** (`ClusterComponentType`) only references `ClusterTrait` and `ClusterWorkflow`.
+**Cluster-scoped variant** (`ClusterComponentType`) only references `ClusterTrait`, `ClusterWorkflow` and `ClusterEndpointType`.
 
 [Back to Top](#overview)
 

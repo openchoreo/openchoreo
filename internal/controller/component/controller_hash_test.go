@@ -410,3 +410,40 @@ func TestReleaseHash_DependencyWithoutReleaseLineKeepsItsHash(t *testing.T) {
 		t.Fatalf("expected a dependency on a release line to change the release hash")
 	}
 }
+
+func TestReleaseHash_EndpointWithoutNewFieldsKeepsItsHash(t *testing.T) {
+	withEndpoint := func(protocol openchoreov1alpha1.EndpointProtocol) *ReleaseSpec {
+		return &ReleaseSpec{
+			ComponentType: makeCTSnapshot(),
+			Workload: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+					"http": {
+						Protocol:   protocol,
+						Type:       openchoreov1alpha1.EndpointProtocolHTTP,
+						Port:       8080,
+						Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+					},
+				},
+			},
+		}
+	}
+
+	// The hash the same spec had before allowedEndpoints, the endpoint protocol field and the
+	// EndpointType to EndpointProtocol rename.
+	if got := ComputeReleaseHash(withEndpoint(""), nil); got != "6cbcd9dfb" {
+		t.Fatalf("release hash of an endpoint without the new fields = %s, want 6cbcd9dfb", got)
+	}
+	if ComputeReleaseHash(withEndpoint(openchoreov1alpha1.EndpointProtocolHTTP), nil) ==
+		ComputeReleaseHash(withEndpoint(""), nil) {
+		t.Fatalf("expected setting an endpoint protocol to change the release hash")
+	}
+
+	withAllowedEndpoints := withEndpoint("")
+	withAllowedEndpoints.ComponentType.Spec.AllowedEndpoints = []openchoreov1alpha1.AllowedEndpointType{{
+		Protocols: []openchoreov1alpha1.EndpointProtocol{openchoreov1alpha1.EndpointProtocolHTTP},
+	}}
+	if ComputeReleaseHash(withAllowedEndpoints, nil) == ComputeReleaseHash(withEndpoint(""), nil) {
+		t.Fatalf("expected the ComponentType gaining allowedEndpoints to change the release hash")
+	}
+}

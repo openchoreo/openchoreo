@@ -42,15 +42,14 @@ func newClusterEndpointType(name, paramsSchema string) *openchoreov1alpha1.Clust
 	return cet
 }
 
-// newWorkload returns a Workload whose endpoints are all exposed externally,
-// which is what an Endpoint backend requires.
+// newWorkload returns a Workload with the given HTTP endpoints. They declare no
+// visibility: an Endpoint backend needs only the endpoint to exist.
 func newWorkload(project, component string, endpoints ...string) *openchoreov1alpha1.Workload {
 	eps := map[string]openchoreov1alpha1.WorkloadEndpoint{}
 	for _, name := range endpoints {
 		eps[name] = openchoreov1alpha1.WorkloadEndpoint{
-			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
-			Port:       8080,
-			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+			Protocol: openchoreov1alpha1.EndpointProtocolHTTP,
+			Port:     8080,
 		}
 	}
 	return &openchoreov1alpha1.Workload{
@@ -299,34 +298,14 @@ var _ = Describe("Endpoint Controller", func() {
 		expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotFound))
 	})
 
-	It("sets Ready=False, Reason=BackendNotExposed and cuts no release when the workload endpoint is not gateway-visible", func() {
-		cet := newClusterEndpointType("cet-not-exposed", "")
-		ep := newEndpoint("ep-not-exposed", "p-not-exposed", clusterTypeRef(cet.Name),
+	It("accepts a backend whose workload endpoint declares no visibility", func() {
+		cet := newClusterEndpointType("cet-no-visibility", "")
+		ep := newEndpoint("ep-no-visibility", "p-no-visibility", clusterTypeRef(cet.Name),
 			componentBackend("stable", "greeter", "http", 1))
-		w := newWorkload("p-not-exposed", "greeter", "http")
+		w := newWorkload("p-no-visibility", "greeter", "http")
 		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{
-			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
-			Port:       8080,
-			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace},
-		}
-		create(cet, w, ep)
-
-		updated := reconcileAndGet(ep)
-		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotExposed))
-		Expect(cond.Message).To(Equal(`backend "stable": workload endpoint "http" of component "greeter" ` +
-			`is not exposed through the gateway (visibility: project, namespace); set internal or external visibility on it`))
-		Expect(updated.Status.LatestRelease).To(BeNil())
-	})
-
-	It("accepts a backend whose workload endpoint is internal", func() {
-		cet := newClusterEndpointType("cet-internal", "")
-		ep := newEndpoint("ep-internal", "p-internal", clusterTypeRef(cet.Name),
-			componentBackend("stable", "greeter", "http", 1))
-		w := newWorkload("p-internal", "greeter", "http")
-		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{
-			Type:       openchoreov1alpha1.EndpointProtocolHTTP,
-			Port:       8080,
-			Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityInternal},
+			Protocol: openchoreov1alpha1.EndpointProtocolHTTP,
+			Port:     8080,
 		}
 		create(cet, w, ep)
 
@@ -342,15 +321,13 @@ var _ = Describe("Endpoint Controller", func() {
 	It("reports every offending backend, taking the reason from the first", func() {
 		cet := newClusterEndpointType("cet-mixed", "")
 		ep := newEndpoint("ep-mixed", "p-mixed", clusterTypeRef(cet.Name),
-			componentBackend("stable", "greeter", "http", 1),
+			componentBackend("stable", "greeter", "grpc", 1),
 			componentBackend("canary", "missing", "http", 1))
-		w := newWorkload("p-mixed", "greeter", "http")
-		w.Spec.Endpoints["http"] = openchoreov1alpha1.WorkloadEndpoint{Type: openchoreov1alpha1.EndpointProtocolHTTP, Port: 8080}
-		create(cet, w, ep)
+		create(cet, newWorkload("p-mixed", "greeter", "http"), ep)
 
 		updated := reconcileAndGet(ep)
-		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotExposed))
-		Expect(cond.Message).To(ContainSubstring(`backend "stable": workload endpoint "http"`))
+		cond := expectReady(updated, metav1.ConditionFalse, string(ReasonBackendNotFound))
+		Expect(cond.Message).To(ContainSubstring(`backend "stable": component "greeter" has no workload endpoint "grpc"`))
 		Expect(cond.Message).To(ContainSubstring(`backend "canary": component "missing" in project "p-mixed" has no Workload`))
 	})
 

@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -130,6 +131,7 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpoints,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop
@@ -644,6 +646,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Inject per-component network policies into dataplane resources.
 	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
+	// Ingress follows each endpoint's effective visibility, including what the
+	// Endpoints routing to it expose, since a workload no longer has to declare it.
+	endpointVisibility, err := r.endpointVisibility(ctx, releaseBinding.Namespace,
+		releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Owner.ComponentName,
+		snapshotWorkload.Spec.Endpoints)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to resolve endpoint visibility: %w", err)
+	}
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -651,6 +661,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: releaseline.ComponentLineName(metadataContext.ComponentName, metadataContext.ReleaseLineName),
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
+		Visibility:    endpointVisibility,
 		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
@@ -1406,16 +1417,17 @@ func resolveEndpointURLStatuses(
 	// during the indexing pass below.
 	routableEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
-		if !isRoutableEndpointType(ep.Type) {
+		protocol := ep.EffectiveProtocol()
+		if !isRoutableEndpointType(protocol) {
 			logger.Info("Skipping endpoint type not exposed by any Gateway API route",
-				"name", name, "type", ep.Type)
+				"name", name, "protocol", protocol)
 			continue
 		}
 		routableEndpoints[name] = endpointMeta{
-			endpointType: ep.Type,
-			visibility:   ep.Visibility,
+			endpointType: protocol,
+			visibility:   ep.Visibility, //nolint:staticcheck // deprecated field still supported for backward compatibility
 		}
-		logger.Info("Registered routable endpoint", "name", name, "type", ep.Type)
+		logger.Info("Registered routable endpoint", "name", name, "protocol", protocol)
 	}
 
 	// First pass: index Gateway API routes by endpoint name into external/internal
@@ -1755,6 +1767,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
+		// An Endpoint's visibility opens its backends' network policies.
+		Watches(&openchoreov1alpha1.Endpoint{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEndpoint),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

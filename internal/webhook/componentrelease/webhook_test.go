@@ -89,6 +89,43 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should admit workload endpoints that set only protocol or only the deprecated type", func() {
+			obj = validComponentRelease()
+			obj.Spec.Workload.Endpoints = map[string]openchoreodevv1alpha1.WorkloadEndpoint{
+				"api":    {Protocol: openchoreodevv1alpha1.EndpointProtocolHTTP, Port: 8080},
+				"legacy": {Type: openchoreodevv1alpha1.EndpointProtocolGRPC, Port: 9090}, //nolint:staticcheck // the deprecated field is still accepted
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject a workload endpoint without a protocol", func() {
+			obj = validComponentRelease()
+			obj.Spec.Workload.Endpoints = map[string]openchoreodevv1alpha1.WorkloadEndpoint{
+				"api": {Port: 8080},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("spec.workload.endpoints[api].protocol"))
+		})
+
+		It("should reject a workload endpoint whose protocol and type disagree", func() {
+			obj = validComponentRelease()
+			obj.Spec.Workload.Endpoints = map[string]openchoreodevv1alpha1.WorkloadEndpoint{
+				"api": {
+					Protocol: openchoreodevv1alpha1.EndpointProtocolHTTP,
+					Type:     openchoreodevv1alpha1.EndpointProtocolGRPC, //nolint:staticcheck // conflicts with protocol on purpose
+					Port:     8080,
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("deprecated type must equal protocol"))
+		})
+
 		It("should admit valid ComponentRelease with parameters schema and values", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{

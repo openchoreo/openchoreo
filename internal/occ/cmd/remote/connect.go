@@ -468,7 +468,7 @@ func splitDependencies(wl *v1alpha1.Workload, namespace string, byIdentity map[w
 						Port:     e.EnvBindings.Port,
 						BasePath: e.EnvBindings.BasePath,
 					},
-					scheme:      schemeForEndpointType(ep.Type),
+					scheme:      schemeForEndpointType(ep.EffectiveProtocol()),
 					basePath:    ep.BasePath,
 					defaultPort: int(ep.Port),
 				})

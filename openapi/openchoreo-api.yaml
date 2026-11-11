@@ -9459,6 +9459,18 @@ components:
                 type: string
                 description: Name of the ClusterTrait resource
                 minLength: 1
+        allowedEndpoints:
+          type: array
+          description: >-
+            Declares which ClusterEndpointType may expose a workload endpoint of a Component of this
+            type, keyed on the endpoint's protocol. Only ClusterEndpointType references are allowed.
+            Clients creating a Component create one Endpoint per workload endpoint the developer
+            exposes, from the entry they choose or the default entry for its protocol. If empty or
+            omitted, no Endpoints are created for Components of this type. At most one default entry
+            may match a protocol.
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AllowedEndpointType'
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -9778,6 +9790,17 @@ components:
               name:
                 type: string
                 description: Name of the Trait or ClusterTrait resource
+        allowedEndpoints:
+          type: array
+          description: >-
+            Declares which EndpointType or ClusterEndpointType may expose a workload endpoint of a
+            Component of this type, keyed on the endpoint's protocol. Clients creating a Component
+            create one Endpoint per workload endpoint the developer exposes, from the entry they choose
+            or the default entry for its protocol. If empty or omitted, no Endpoints are created for
+            Components of this type. At most one default entry may match a protocol.
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/AllowedEndpointType'
         validations:
           type: array
           description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
@@ -12181,6 +12204,8 @@ components:
           description: CEL-based validation rules evaluated before rendering.
           items:
             $ref: '#/components/schemas/ValidationRule'
+        urls:
+          $ref: '#/components/schemas/EndpointTypeURLs'
         resources:
           type: array
           description: |
@@ -12319,6 +12344,32 @@ components:
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           example: http-gateway
 
+    AllowedEndpointType:
+      type: object
+      description: Maps workload endpoints of a given protocol to the EndpointType that may expose them. The developer chooses the visibility on the Endpoint.
+      required:
+        - protocols
+        - ref
+      properties:
+        name:
+          type: string
+          description: Optional alias a workload endpoint can name to pick this entry when several match its protocol.
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        protocols:
+          type: array
+          description: Workload endpoint protocols this entry applies to (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
+          minItems: 1
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+        ref:
+          $ref: '#/components/schemas/EndpointTypeRef'
+        default:
+          type: boolean
+          description: Marks this entry as the automatic choice for its protocols. At most one default entry may match a protocol.
+
     # -------------------------------------------------------------------------
     # Endpoints
     # -------------------------------------------------------------------------
@@ -12366,7 +12417,9 @@ components:
 
     EndpointSpec:
       type: object
-      description: Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+      description: >-
+        Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after
+        creation.
       required:
         - owner
         - type
@@ -12375,15 +12428,26 @@ components:
       properties:
         owner:
           type: object
-          description: Identifies the project that owns this Endpoint.
+          description: >-
+            Identifies what owns this Endpoint, and so what deleting removes it: the component
+            when componentName is set, otherwise the project.
           required:
             - projectName
           properties:
             projectName:
               type: string
-              description: Parent project name
+              description: Parent project name. Immutable.
               minLength: 1
               example: shop
+            componentName:
+              type: string
+              description: >-
+                Component that owns this Endpoint. Every backend must route to it. When an
+                update makes a backend route to another component, the API drops this field so
+                the project owns the Endpoint.
+              minLength: 1
+              maxLength: 63
+              example: orders
         type:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:
@@ -12409,6 +12473,12 @@ components:
               type: string
             content:
               type: string
+        autoDeploy:
+          type: boolean
+          description: >-
+            Deploys the Endpoint to the first environment of its project's deployment pipeline. The controller
+            creates that environment's EndpointReleaseBinding and advances it to each new EndpointRelease; later
+            environments are promoted explicitly. Defaults to false.
         parameters:
           type: object
           description: Values for the parameter schema declared on the referenced (Cluster)EndpointType. Validated by the controller.
@@ -12626,7 +12696,9 @@ components:
       description: |
         EndpointReleaseBinding resource.
         Pins an EndpointRelease to an Environment, resolves its backends there, and
-        renders its routes. Authored externally; not managed by the Endpoint controller.
+        renders its routes. Authored externally, except the first-environment binding of an
+        Endpoint with spec.autoDeploy, which the Endpoint controller creates and advances to
+        each new EndpointRelease.
       required:
         - metadata
       properties:
@@ -12689,6 +12761,151 @@ components:
           description: Per-environment values for EndpointType.spec.environmentConfigs.
           additionalProperties: true
 
+    EndpointTypeURLs:
+      type: object
+      description: |
+        Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+        serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+        context as resources; nothing is read back from the data plane.
+      properties:
+        project:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        namespace:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        internal:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+        external:
+          $ref: '#/components/schemas/EndpointURLTemplate'
+
+    EndpointURLTemplate:
+      type: object
+      description: |
+        Template for one URL and the security clients must satisfy to call it. Resolved only when the
+        Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+      required:
+        - scheme
+        - host
+      properties:
+        includeWhen:
+          type: string
+          description: Optional CEL expression, ANDed with the visibility gate, deciding whether the URL is resolved.
+          pattern: '^\$\{[\s\S]+\}\s*$'
+          example: '${gateway.?ingress.?external.?https.hasValue()}'
+        scheme:
+          type: string
+          description: URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+          minLength: 1
+          example: https
+        host:
+          type: string
+          description: Hostname or IP address clients connect to.
+          minLength: 1
+          example: '${metadata.endpointName}.${gateway.ingress.external.https.host}'
+        port:
+          type: string
+          description: Literal or CEL template resolving to an integer between 1 and 65535. Omit for the scheme default.
+          example: '${gateway.ingress.external.https.port}'
+        path:
+          type: string
+          description: URL path the endpoint is served under.
+          example: '${parameters.pathPrefix}'
+        security:
+          $ref: '#/components/schemas/EndpointSecurityTemplate'
+
+    EndpointSecurityTemplate:
+      type: object
+      description: Template for the security enforced at a URL, as declared by the EndpointType.
+      required:
+        - scheme
+      properties:
+        scheme:
+          type: string
+          description: Must resolve to one of none, apiKey, oauth2, basicAuth.
+          minLength: 1
+          example: apiKey
+        apiKey:
+          type: object
+          description: Where to send the key. Required when scheme resolves to apiKey; ignored when a templated scheme resolves to anything else.
+          required:
+            - in
+            - name
+          properties:
+            in:
+              type: string
+              description: Must resolve to header or query.
+              minLength: 1
+              example: header
+            name:
+              type: string
+              description: Header or query parameter name carrying the key.
+              minLength: 1
+              example: api-key
+
+    EndpointReleaseBindingURLs:
+      type: object
+      description: The URL resolved for each visibility in the binding's environment.
+      properties:
+        project:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        namespace:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        internal:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+        external:
+          $ref: '#/components/schemas/ResolvedEndpointURL'
+
+    ResolvedEndpointURL:
+      type: object
+      description: One resolved URL with the security clients must satisfy to call it.
+      required:
+        - host
+      properties:
+        scheme:
+          type: string
+          example: https
+        host:
+          type: string
+          example: greeter-api-dev-shop-org-1a2b3c4d.example.com
+        port:
+          type: integer
+          format: int32
+          example: 443
+        path:
+          type: string
+          example: /greeter
+        security:
+          $ref: '#/components/schemas/EndpointSecurity'
+
+    EndpointSecurity:
+      type: object
+      description: Security enforced at a URL, as declared by the EndpointType.
+      required:
+        - scheme
+      properties:
+        scheme:
+          type: string
+          enum: [none, apiKey, oauth2, basicAuth]
+          x-enum-varnames:
+            - EndpointSecuritySchemeNone
+            - EndpointSecuritySchemeApiKey
+            - EndpointSecuritySchemeOauth2
+            - EndpointSecuritySchemeBasicAuth
+        apiKey:
+          type: object
+          required:
+            - in
+            - name
+          properties:
+            in:
+              type: string
+              enum: [header, query]
+              x-enum-varnames:
+                - EndpointApiKeyInHeader
+                - EndpointApiKeyInQuery
+            name:
+              type: string
+              example: api-key
+
     ResolvedEndpointBackend:
       type: object
       description: Resolution of one backendRef in the binding's environment, populated by the binding controller.
@@ -12727,9 +12944,13 @@ components:
       type: object
       description: Observed state of an EndpointReleaseBinding.
       properties:
+        lastSpecUpdateTime:
+          type: string
+          format: date-time
+          description: When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
         conditions:
           type: array
-          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+          description: Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
           items:
             $ref: '#/components/schemas/Condition'
         backends:
@@ -12737,6 +12958,8 @@ components:
           description: Resolution of each backendRef in this binding's environment.
           items:
             $ref: '#/components/schemas/ResolvedEndpointBackend'
+        urls:
+          $ref: '#/components/schemas/EndpointReleaseBindingURLs'
 
     # -------------------------------------------------------------------------
     # RenderedRelease
@@ -14202,21 +14425,43 @@ components:
 
     WorkloadEndpoint:
       type: object
-      description: Network endpoint specification
+      description: Network endpoint specification. One of protocol or the deprecated type must be set; the API keeps the two equal.
       required:
-        - type
         - port
       properties:
         visibility:
           type: array
-          description: Additional endpoint visibilities beyond implicit project visibility
+          deprecated: true
+          description: >-
+            Deprecated: expose the endpoint through an Endpoint, whose visibility carries the requested
+            scopes. Additional endpoint visibilities beyond implicit project visibility; still honored by
+            component types that read it.
           items:
             type: string
             enum: [project, namespace, internal, external]
+        protocol:
+          type: string
+          description: Protocol the endpoint serves. Replaces type.
+          enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
+          x-enum-varnames:
+            - WorkloadEndpointProtocolHTTP
+            - WorkloadEndpointProtocolGRPC
+            - WorkloadEndpointProtocolGraphQL
+            - WorkloadEndpointProtocolWebsocket
+            - WorkloadEndpointProtocolTCP
+            - WorkloadEndpointProtocolUDP
         type:
           type: string
-          description: Protocol/technology of the endpoint
+          deprecated: true
+          description: 'Deprecated: use protocol. Protocol/technology of the endpoint.'
           enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
+          x-enum-varnames:
+            - WorkloadEndpointTypeHTTP
+            - WorkloadEndpointTypeGRPC
+            - WorkloadEndpointTypeGraphQL
+            - WorkloadEndpointTypeWebsocket
+            - WorkloadEndpointTypeTCP
+            - WorkloadEndpointTypeUDP
         port:
           type: integer
           description: Port exposed by the endpoint

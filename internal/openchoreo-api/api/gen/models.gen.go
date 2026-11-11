@@ -206,6 +206,20 @@ const (
 	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
 )
 
+// Defines values for EndpointSecurityApiKeyIn.
+const (
+	EndpointApiKeyInHeader EndpointSecurityApiKeyIn = "header"
+	EndpointApiKeyInQuery  EndpointSecurityApiKeyIn = "query"
+)
+
+// Defines values for EndpointSecurityScheme.
+const (
+	EndpointSecuritySchemeApiKey    EndpointSecurityScheme = "apiKey"
+	EndpointSecuritySchemeBasicAuth EndpointSecurityScheme = "basicAuth"
+	EndpointSecuritySchemeNone      EndpointSecurityScheme = "none"
+	EndpointSecuritySchemeOauth2    EndpointSecurityScheme = "oauth2"
+)
+
 // Defines values for EndpointSpecVisibility.
 const (
 	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
@@ -226,12 +240,12 @@ const (
 
 // Defines values for EndpointURLStatusType.
 const (
-	EndpointURLStatusTypeGRPC      EndpointURLStatusType = "gRPC"
-	EndpointURLStatusTypeGraphQL   EndpointURLStatusType = "GraphQL"
-	EndpointURLStatusTypeHTTP      EndpointURLStatusType = "HTTP"
-	EndpointURLStatusTypeTCP       EndpointURLStatusType = "TCP"
-	EndpointURLStatusTypeUDP       EndpointURLStatusType = "UDP"
-	EndpointURLStatusTypeWebsocket EndpointURLStatusType = "Websocket"
+	GRPC      EndpointURLStatusType = "gRPC"
+	GraphQL   EndpointURLStatusType = "GraphQL"
+	HTTP      EndpointURLStatusType = "HTTP"
+	TCP       EndpointURLStatusType = "TCP"
+	UDP       EndpointURLStatusType = "UDP"
+	Websocket EndpointURLStatusType = "Websocket"
 )
 
 // Defines values for EnvironmentSpecDataPlaneRefKind.
@@ -483,6 +497,16 @@ const (
 	WorkloadConnectionVisibilityProject   WorkloadConnectionVisibility = "project"
 )
 
+// Defines values for WorkloadEndpointProtocol.
+const (
+	WorkloadEndpointProtocolGRPC      WorkloadEndpointProtocol = "gRPC"
+	WorkloadEndpointProtocolGraphQL   WorkloadEndpointProtocol = "GraphQL"
+	WorkloadEndpointProtocolHTTP      WorkloadEndpointProtocol = "HTTP"
+	WorkloadEndpointProtocolTCP       WorkloadEndpointProtocol = "TCP"
+	WorkloadEndpointProtocolUDP       WorkloadEndpointProtocol = "UDP"
+	WorkloadEndpointProtocolWebsocket WorkloadEndpointProtocol = "Websocket"
+)
+
 // Defines values for WorkloadEndpointType.
 const (
 	WorkloadEndpointTypeGRPC      WorkloadEndpointType = "gRPC"
@@ -544,6 +568,21 @@ type AgentConnectionStatus struct {
 
 	// Message Additional information about agent connection status
 	Message *string `json:"message,omitempty"`
+}
+
+// AllowedEndpointType Maps workload endpoints of a given protocol to the EndpointType that may expose them. The developer chooses the visibility on the Endpoint.
+type AllowedEndpointType struct {
+	// Default Marks this entry as the automatic choice for its protocols. At most one default entry may match a protocol.
+	Default *bool `json:"default,omitempty"`
+
+	// Name Optional alias a workload endpoint can name to pick this entry when several match its protocol.
+	Name *string `json:"name,omitempty"`
+
+	// Protocols Workload endpoint protocols this entry applies to (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
+	Protocols []string `json:"protocols"`
+
+	// Ref Reference to an EndpointType or ClusterEndpointType template.
+	Ref EndpointTypeRef `json:"ref"`
 }
 
 // AuditLogsFeature Audit trail read path
@@ -883,6 +922,9 @@ type ClusterComponentTypeList struct {
 
 // ClusterComponentTypeSpec Desired state of a ClusterComponentType
 type ClusterComponentTypeSpec struct {
+	// AllowedEndpoints Declares which ClusterEndpointType may expose a workload endpoint of a Component of this type, keyed on the endpoint's protocol. Only ClusterEndpointType references are allowed. Clients creating a Component create one Endpoint per workload endpoint the developer exposes, from the entry they choose or the default entry for its protocol. If empty or omitted, no Endpoints are created for Components of this type. At most one default entry may match a protocol.
+	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (always ClusterTrait) and "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
 		// Kind Kind of trait reference (must be ClusterTrait)
@@ -1641,6 +1683,9 @@ type ComponentTypeList struct {
 
 // ComponentTypeSpec Desired state of a ComponentType
 type ComponentTypeSpec struct {
+	// AllowedEndpoints Declares which EndpointType or ClusterEndpointType may expose a workload endpoint of a Component of this type, keyed on the endpoint's protocol. Clients creating a Component create one Endpoint per workload endpoint the developer exposes, from the entry they choose or the default entry for its protocol. If empty or omitted, no Endpoints are created for Components of this type. At most one default entry may match a protocol.
+	AllowedEndpoints *[]AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// AllowedTraits Restricts which Trait or ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (Trait or ClusterTrait, defaults to Trait) and "name". For example: {"kind": "Trait", "name": "my-trait"} or {"kind": "ClusterTrait", "name": "my-cluster-trait"}. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
 		// Kind Kind of trait reference
@@ -2064,7 +2109,7 @@ type Endpoint struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+	// Spec Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after creation.
 	Spec   *EndpointSpec   `json:"spec,omitempty"`
 	Status *EndpointStatus `json:"status,omitempty"`
 }
@@ -2140,7 +2185,9 @@ type EndpointRelease struct {
 
 // EndpointReleaseBinding EndpointReleaseBinding resource.
 // Pins an EndpointRelease to an Environment, resolves its backends there, and
-// renders its routes. Authored externally; not managed by the Endpoint controller.
+// renders its routes. Authored externally, except the first-environment binding of an
+// Endpoint with spec.autoDeploy, which the Endpoint controller creates and advances to
+// each new EndpointRelease.
 type EndpointReleaseBinding struct {
 	// ApiVersion API version of the resource
 	ApiVersion *string `json:"apiVersion,omitempty"`
@@ -2194,8 +2241,29 @@ type EndpointReleaseBindingStatus struct {
 	// Backends Resolution of each backendRef in this binding's environment.
 	Backends *[]ResolvedEndpointBackend `json:"backends,omitempty"`
 
-	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, Ready (aggregate), and Finalizing.
+	// Conditions Latest available observations of the binding's state. Includes BackendsResolved, Synced, ResourcesReady, URLsResolved, Ready (aggregate), and Finalizing.
 	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LastSpecUpdateTime When the controller first observed the binding's current spec, such as a new endpointRelease being deployed.
+	LastSpecUpdateTime *time.Time `json:"lastSpecUpdateTime,omitempty"`
+
+	// Urls The URL resolved for each visibility in the binding's environment.
+	Urls *EndpointReleaseBindingURLs `json:"urls,omitempty"`
+}
+
+// EndpointReleaseBindingURLs The URL resolved for each visibility in the binding's environment.
+type EndpointReleaseBindingURLs struct {
+	// External One resolved URL with the security clients must satisfy to call it.
+	External *ResolvedEndpointURL `json:"external,omitempty"`
+
+	// Internal One resolved URL with the security clients must satisfy to call it.
+	Internal *ResolvedEndpointURL `json:"internal,omitempty"`
+
+	// Namespace One resolved URL with the security clients must satisfy to call it.
+	Namespace *ResolvedEndpointURL `json:"namespace,omitempty"`
+
+	// Project One resolved URL with the security clients must satisfy to call it.
+	Project *ResolvedEndpointURL `json:"project,omitempty"`
 }
 
 // EndpointReleaseList Paginated list of endpoint releases
@@ -2252,14 +2320,50 @@ type EndpointReleaseSpecEndpointTypeKind string
 // EndpointReleaseSpecVisibility defines model for EndpointReleaseSpec.Visibility.
 type EndpointReleaseSpecVisibility string
 
-// EndpointSpec Desired state of an Endpoint. spec.owner and spec.type are immutable after creation.
+// EndpointSecurity Security enforced at a URL, as declared by the EndpointType.
+type EndpointSecurity struct {
+	ApiKey *struct {
+		In   EndpointSecurityApiKeyIn `json:"in"`
+		Name string                   `json:"name"`
+	} `json:"apiKey,omitempty"`
+	Scheme EndpointSecurityScheme `json:"scheme"`
+}
+
+// EndpointSecurityApiKeyIn defines model for EndpointSecurity.ApiKey.In.
+type EndpointSecurityApiKeyIn string
+
+// EndpointSecurityScheme defines model for EndpointSecurity.Scheme.
+type EndpointSecurityScheme string
+
+// EndpointSecurityTemplate Template for the security enforced at a URL, as declared by the EndpointType.
+type EndpointSecurityTemplate struct {
+	// ApiKey Where to send the key. Required when scheme resolves to apiKey; ignored when a templated scheme resolves to anything else.
+	ApiKey *struct {
+		// In Must resolve to header or query.
+		In string `json:"in"`
+
+		// Name Header or query parameter name carrying the key.
+		Name string `json:"name"`
+	} `json:"apiKey,omitempty"`
+
+	// Scheme Must resolve to one of none, apiKey, oauth2, basicAuth.
+	Scheme string `json:"scheme"`
+}
+
+// EndpointSpec Desired state of an Endpoint. spec.owner.projectName and spec.type are immutable after creation.
 type EndpointSpec struct {
+	// AutoDeploy Deploys the Endpoint to the first environment of its project's deployment pipeline. The controller creates that environment's EndpointReleaseBinding and advances it to each new EndpointRelease; later environments are promoted explicitly. Defaults to false.
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+
 	// BackendRefs Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
 	BackendRefs []EndpointBackendRef `json:"backendRefs"`
 
-	// Owner Identifies the project that owns this Endpoint.
+	// Owner Identifies what owns this Endpoint, and so what deleting removes it: the component when componentName is set, otherwise the project.
 	Owner struct {
-		// ProjectName Parent project name
+		// ComponentName Component that owns this Endpoint. Every backend must route to it. When an update makes a backend route to another component, the API drops this field so the project owns the Endpoint.
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ProjectName Parent project name. Immutable.
 		ProjectName string `json:"projectName"`
 	} `json:"owner"`
 
@@ -2373,12 +2477,38 @@ type EndpointTypeSpec struct {
 		Var *string `json:"var,omitempty"`
 	} `json:"resources"`
 
+	// Urls Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+	// serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+	// context as resources; nothing is read back from the data plane.
+	Urls *EndpointTypeURLs `json:"urls,omitempty"`
+
 	// Validations CEL-based validation rules evaluated before rendering.
 	Validations *[]ValidationRule `json:"validations,omitempty"`
 }
 
 // EndpointTypeSpecResourcesTargetPlane Target plane for deployment. Endpoint types may only target the data plane.
 type EndpointTypeSpecResourcesTargetPlane string
+
+// EndpointTypeURLs Per-visibility URL templates. Each entry is optional; a type declares only the visibilities it
+// serves. Fields are literals or ${...} CEL templates evaluated at render time against the same
+// context as resources; nothing is read back from the data plane.
+type EndpointTypeURLs struct {
+	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	External *EndpointURLTemplate `json:"external,omitempty"`
+
+	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Internal *EndpointURLTemplate `json:"internal,omitempty"`
+
+	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
+
+	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
+	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	Project *EndpointURLTemplate `json:"project,omitempty"`
+}
 
 // EndpointURL Structured URL with its components
 type EndpointURL struct {
@@ -2418,6 +2548,28 @@ type EndpointURLStatus struct {
 
 // EndpointURLStatusType Endpoint type (HTTP, gRPC, GraphQL, Websocket, TCP, UDP)
 type EndpointURLStatusType string
+
+// EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
+// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+type EndpointURLTemplate struct {
+	// Host Hostname or IP address clients connect to.
+	Host string `json:"host"`
+
+	// IncludeWhen Optional CEL expression, ANDed with the visibility gate, deciding whether the URL is resolved.
+	IncludeWhen *string `json:"includeWhen,omitempty"`
+
+	// Path URL path the endpoint is served under.
+	Path *string `json:"path,omitempty"`
+
+	// Port Literal or CEL template resolving to an integer between 1 and 65535. Omit for the scheme default.
+	Port *string `json:"port,omitempty"`
+
+	// Scheme URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+	Scheme string `json:"scheme"`
+
+	// Security Template for the security enforced at a URL, as declared by the EndpointType.
+	Security *EndpointSecurityTemplate `json:"security,omitempty"`
+}
 
 // Entitlement Entitlement with claim and value
 type Entitlement struct {
@@ -3828,6 +3980,17 @@ type ResolvedEndpointBackend struct {
 // ResolvedEndpointBackendKind Kind of the resolved backend.
 type ResolvedEndpointBackendKind string
 
+// ResolvedEndpointURL One resolved URL with the security clients must satisfy to call it.
+type ResolvedEndpointURL struct {
+	Host   string  `json:"host"`
+	Path   *string `json:"path,omitempty"`
+	Port   *int32  `json:"port,omitempty"`
+	Scheme *string `json:"scheme,omitempty"`
+
+	// Security Security enforced at a URL, as declared by the EndpointType.
+	Security *EndpointSecurity `json:"security,omitempty"`
+}
+
 // ResolvedResourceOutput Resolved output value populated by the binding controller after evaluating
 // the ResourceType output CEL against the applied DP-side objects. Exactly one
 // of value, secretKeyRef, or configMapKeyRef is set, matching the source
@@ -5056,7 +5219,7 @@ type WorkloadContainer struct {
 	Image string `json:"image"`
 }
 
-// WorkloadEndpoint Network endpoint specification
+// WorkloadEndpoint Network endpoint specification. One of protocol or the deprecated type must be set; the API keeps the two equal.
 type WorkloadEndpoint struct {
 	// BasePath Base path of the API exposed via the endpoint
 	BasePath *string `json:"basePath,omitempty"`
@@ -5067,6 +5230,9 @@ type WorkloadEndpoint struct {
 	// Port Port exposed by the endpoint
 	Port int `json:"port"`
 
+	// Protocol Protocol the endpoint serves. Replaces type.
+	Protocol *WorkloadEndpointProtocol `json:"protocol,omitempty"`
+
 	// Schema API definition schema
 	Schema *struct {
 		Content *string `json:"content,omitempty"`
@@ -5076,14 +5242,19 @@ type WorkloadEndpoint struct {
 	// TargetPort Container listening port (defaults to port)
 	TargetPort *int `json:"targetPort,omitempty"`
 
-	// Type Protocol/technology of the endpoint
-	Type WorkloadEndpointType `json:"type"`
+	// Type Deprecated: use protocol. Protocol/technology of the endpoint.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Type *WorkloadEndpointType `json:"type,omitempty"`
 
-	// Visibility Additional endpoint visibilities beyond implicit project visibility
+	// Visibility Deprecated: expose the endpoint through an Endpoint, whose visibility carries the requested scopes. Additional endpoint visibilities beyond implicit project visibility; still honored by component types that read it.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Visibility *[]WorkloadEndpointVisibility `json:"visibility,omitempty"`
 }
 
-// WorkloadEndpointType Protocol/technology of the endpoint
+// WorkloadEndpointProtocol Protocol the endpoint serves. Replaces type.
+type WorkloadEndpointProtocol string
+
+// WorkloadEndpointType Deprecated: use protocol. Protocol/technology of the endpoint.
 type WorkloadEndpointType string
 
 // WorkloadEndpointVisibility defines model for WorkloadEndpoint.Visibility.

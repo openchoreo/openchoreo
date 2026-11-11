@@ -19,7 +19,6 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
-	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
@@ -32,25 +31,11 @@ const ownershipConflictMarker = "RenderedRelease exists but is not owned by this
 func (r *Reconciler) renderAndEmit(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
-	in *reconcileInputs,
-	md endpointpipeline.MetadataContext,
-	backends []endpointpipeline.Backend,
+	input *endpointpipeline.RenderInput,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	logger := log.FromContext(ctx)
 
-	// One cost budget per reconcile, seeded here because this is the reconcile's
-	// only render entry point.
-	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
-	output, err := r.Pipeline.Render(ctx, &endpointpipeline.RenderInput{
-		EndpointTypeSpec:   &in.release.Spec.EndpointType.Spec,
-		Parameters:         in.release.Spec.Parameters,
-		EnvironmentConfigs: binding.Spec.EndpointTypeEnvironmentConfigs,
-		Visibility:         in.release.Spec.Visibility,
-		Backends:           backends,
-		Metadata:           md,
-		DataPlane:          endpointpipeline.BuildDataPlaneContext(in.dataPlane),
-		Environment:        endpointpipeline.BuildEnvironmentContext(in.environment, in.dataPlane),
-	})
+	output, err := r.Pipeline.Render(ctx, input)
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to render manifests: %v", err))
 		logger.Info("Pipeline render failed", "error", err)
@@ -116,6 +101,48 @@ func (r *Reconciler) renderAndEmit(
 	}
 
 	return rr, nil
+}
+
+// buildRenderInput assembles the pipeline input shared by rendering and URL
+// resolution, so both see exactly the same CEL context.
+func buildRenderInput(
+	binding *openchoreov1alpha1.EndpointReleaseBinding,
+	in *reconcileInputs,
+	md endpointpipeline.MetadataContext,
+	backends []endpointpipeline.Backend,
+) *endpointpipeline.RenderInput {
+	return &endpointpipeline.RenderInput{
+		EndpointTypeSpec:   &in.release.Spec.EndpointType.Spec,
+		Parameters:         in.release.Spec.Parameters,
+		EnvironmentConfigs: binding.Spec.EndpointTypeEnvironmentConfigs,
+		Visibility:         in.release.Spec.Visibility,
+		Backends:           backends,
+		Metadata:           md,
+		DataPlane:          endpointpipeline.BuildDataPlaneContext(in.dataPlane),
+		Environment:        endpointpipeline.BuildEnvironmentContext(in.environment, in.dataPlane),
+	}
+}
+
+// resolveURLs evaluates the EndpointType's URLs against input and writes them
+// to status.urls with the URLsResolved condition. It runs only after a
+// successful render, so status.urls always describes the RenderedRelease that
+// was just emitted. A failing URL is reported but does not affect the
+// RenderedRelease: routing keeps working while the type is fixed.
+func (r *Reconciler) resolveURLs(
+	ctx context.Context,
+	binding *openchoreov1alpha1.EndpointReleaseBinding,
+	input *endpointpipeline.RenderInput,
+) {
+	urls, err := r.Pipeline.ResolveURLs(ctx, input)
+	binding.Status.URLs = urls
+
+	if err != nil {
+		controller.MarkFalseCondition(binding, ConditionURLsResolved, ReasonURLResolutionFailed,
+			fmt.Sprintf("Failed to resolve URLs: %v", err))
+		log.FromContext(ctx).Info("URL resolution failed", "error", err)
+		return
+	}
+	controller.MarkTrueCondition(binding, ConditionURLsResolved, ReasonURLsResolved, "URLs resolved")
 }
 
 // makeRenderedReleaseName returns the RenderedRelease name for a binding. The
