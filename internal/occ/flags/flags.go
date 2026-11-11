@@ -220,22 +220,15 @@ func GetWorkflowRun(cmd *cobra.Command) string {
 	return val
 }
 
-// --- LogFormat ---
+// --- Output ---
 
-func AddLogFormat(cmd *cobra.Command) {
-	cmd.Flags().String("log-format", "text",
-		"Log output format: text, json, or custom-columns=FIELD,... (dot-separated paths; missing fields print as '-')")
+func AddOutput(cmd *cobra.Command) {
+	cmd.Flags().StringP("output", "o", "text",
+		"Output format: text, json (one object per line), or custom-columns=FIELD,...")
 }
 
-// AddLogFormatAlias registers --log-format as an alternative to an existing --output flag.
-func AddLogFormatAlias(cmd *cobra.Command) {
-	cmd.Flags().Var(cmd.Flags().Lookup("output").Value, "log-format",
-		"Log output format: text, json, or custom-columns=FIELD,... (dot-separated paths; missing fields print as '-'; alternative to --output)")
-	cmd.MarkFlagsMutuallyExclusive("log-format", "output")
-}
-
-func GetLogFormat(cmd *cobra.Command) string {
-	val, _ := cmd.Flags().GetString("log-format")
+func GetOutput(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("output")
 	return val
 }
 

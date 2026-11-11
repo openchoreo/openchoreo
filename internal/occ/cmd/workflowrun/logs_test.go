@@ -118,8 +118,8 @@ func TestLogs_InvalidSince(t *testing.T) {
 	})
 }
 
-func TestLogs_InvalidLogFormat(t *testing.T) {
-	err := New(nil).Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", LogFormat: "yaml"})
+func TestLogs_InvalidOutput(t *testing.T) {
+	err := New(nil).Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Output: "yaml"})
 	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or custom-columns=FIELD,...`)
 }
 
@@ -144,7 +144,7 @@ func TestFollowLiveLogs_Formats(t *testing.T) {
 				}).Once()
 			out := testutil.CaptureStdout(t, func() {
 				require.NoError(t, New(mc).followLiveLogs(ctx, mc, LogsParams{
-					Namespace: "ns", WorkflowRunName: "run-1", LogFormat: format,
+					Namespace: "ns", WorkflowRunName: "run-1", Output: format,
 				}, 0))
 			})
 			if format != "json" {
@@ -170,7 +170,7 @@ func TestFollowLiveLogs_JSON_RunCompleted(t *testing.T) {
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil).Once()
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).followLiveLogs(context.Background(), mc, LogsParams{
-			Namespace: "ns", WorkflowRunName: "run-1", LogFormat: "json",
+			Namespace: "ns", WorkflowRunName: "run-1", Output: "json",
 		}, 0))
 	})
 	assert.Empty(t, out, "completion messages must not appear on JSON stdout")
@@ -198,7 +198,7 @@ func TestFetchArchivedLogs_Formats(t *testing.T) {
 					}))
 					out := testutil.CaptureStdout(t, func() {
 						require.NoError(t, New(mc).Logs(LogsParams{
-							Namespace: "ns", WorkflowRunName: "run-1", LogFormat: format, Follow: true,
+							Namespace: "ns", WorkflowRunName: "run-1", Output: format, Follow: true,
 						}))
 					})
 					if empty {

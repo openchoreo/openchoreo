@@ -23,7 +23,7 @@ const defaultPlaneName = "default"
 
 // Logs fetches and displays logs for a workflow run
 func (w *WorkflowRun) Logs(params LogsParams) error {
-	if err := logformat.Validate(params.LogFormat); err != nil {
+	if err := logformat.Validate(params.Output); err != nil {
 		return err
 	}
 
@@ -77,7 +77,7 @@ func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient client.Interf
 		return fmt.Errorf("failed to get live logs: %w", err)
 	}
 
-	return printLogEntries(entries, params.LogFormat)
+	return printLogEntries(entries, params.Output)
 }
 
 // followLiveLogs continuously polls for new live logs
@@ -95,7 +95,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 	if err != nil {
 		return fmt.Errorf("failed to get live logs: %w", err)
 	}
-	if err := printLogEntries(entries, params.LogFormat); err != nil {
+	if err := printLogEntries(entries, params.Output); err != nil {
 		return err
 	}
 
@@ -116,7 +116,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 	for {
 		select {
 		case <-ctx.Done():
-			printLogStatus(params.LogFormat, "\nStopping log streaming...")
+			printLogStatus(params.Output, "\nStopping log streaming...")
 			return nil
 		case <-ticker.C:
 			// Check if the run still has live observability
@@ -130,7 +130,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 			}
 
 			if !status.HasLiveObservability {
-				printLogStatus(params.LogFormat, "\nWorkflow run completed. Live logs are no longer available.")
+				printLogStatus(params.Output, "\nWorkflow run completed. Live logs are no longer available.")
 				return nil
 			}
 
@@ -148,7 +148,7 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Inter
 
 			// Filter out entries already printed
 			newEntries := filterNewEntries(entries, lastSeen)
-			if err := printLogEntries(newEntries, params.LogFormat); err != nil {
+			if err := printLogEntries(newEntries, params.Output); err != nil {
 				return err
 			}
 
@@ -232,12 +232,12 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.In
 	}
 
 	if len(logResponse.Logs) == 0 {
-		printLogStatus(params.LogFormat, "No logs found for this workflow run")
+		printLogStatus(params.Output, "No logs found for this workflow run")
 		return nil
 	}
 
-	if params.LogFormat != "" && params.LogFormat != "text" {
-		if err := printFormattedLogs(logResponse.Logs, params.LogFormat); err != nil {
+	if params.Output != "" && params.Output != "text" {
+		if err := printFormattedLogs(logResponse.Logs, params.Output); err != nil {
 			return err
 		}
 	} else {
@@ -247,7 +247,7 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.In
 	}
 
 	if params.Follow {
-		printLogStatus(params.LogFormat, "\nNote: Follow mode is not available for archived logs (workflow run has already completed)")
+		printLogStatus(params.Output, "\nNote: Follow mode is not available for archived logs (workflow run has already completed)")
 	}
 
 	return nil

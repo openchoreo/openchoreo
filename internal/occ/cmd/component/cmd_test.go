@@ -185,11 +185,11 @@ func TestLogsCmd_FactoryError(t *testing.T) {
 func TestLogsCmd_Flags(t *testing.T) {
 	cmd := newLogsCmd(errFactory("unused"))
 	for _, name := range []string{
-		"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines", "log-format",
+		"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines", "output",
 	} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected flag %q", name)
 	}
-	assert.Equal(t, "text", cmd.Flags().Lookup("log-format").DefValue)
+	assert.Equal(t, "text", cmd.Flags().Lookup("output").DefValue)
 }
 
 func TestLogsCmd_JSON(t *testing.T) {
@@ -210,7 +210,7 @@ func TestLogsCmd_JSON(t *testing.T) {
 		}, nil
 	}))
 	cmd := newLogsCmd(mockFactory(mc))
-	require.NoError(t, cmd.ParseFlags([]string{"--namespace", "ns", "--project", "my-proj", "--log-format", "json"}))
+	require.NoError(t, cmd.ParseFlags([]string{"--namespace", "ns", "--project", "my-proj", "--output", "json"}))
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
 	})
@@ -243,7 +243,7 @@ func TestLogsCmd_CustomColumns(t *testing.T) {
 	cmd := newLogsCmd(mockFactory(mc))
 	require.NoError(t, cmd.ParseFlags([]string{
 		"--namespace", "ns", "--project", "my-proj", "--tail", "3", "--container", "main",
-		"--log-format", "custom-columns=timestamp,level,metadata.podName,log",
+		"-o", "custom-columns=timestamp,level,metadata.podName,log",
 	}))
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))

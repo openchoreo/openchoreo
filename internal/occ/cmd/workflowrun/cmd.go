@@ -91,7 +91,7 @@ or archived logs from the observer for completed runs.`,
   occ workflowrun logs my-run --namespace acme-corp -f
 
   # Print each log entry as JSON
-  occ workflowrun logs my-run --namespace acme-corp --log-format json`,
+  occ workflowrun logs my-run --namespace acme-corp -o json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,13 +104,13 @@ or archived logs from the observer for completed runs.`,
 				WorkflowRunName: args[0],
 				Follow:          flags.GetFollow(cmd),
 				Since:           flags.GetSince(cmd),
-				LogFormat:       flags.GetLogFormat(cmd),
+				Output:          flags.GetOutput(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
-	flags.AddLogFormat(cmd)
+	flags.AddOutput(cmd)
 	return cmd
 }

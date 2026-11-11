@@ -27,7 +27,7 @@ type LogsParams struct {
 	RunName      string // optional --workflowrun flag; defaults to latest
 	Follow       bool
 	Since        string
-	LogFormat    string
+	Output       string
 }
 
 func (p LogsParams) GetNamespace() string    { return p.Namespace }

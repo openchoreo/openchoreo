@@ -4,6 +4,7 @@
 package workflowrun_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -13,8 +14,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/auditlogs"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
@@ -27,50 +31,95 @@ import (
 func TestWorkflowLogCommands_Formats(t *testing.T) {
 	for _, format := range []string{"json", "custom-columns=timestamp,log"} {
 		t.Run(format, func(t *testing.T) {
-			for _, tc := range []struct {
-				name   string
-				newCmd func(client.NewClientFunc) *cobra.Command
-				path   []string
-			}{
-				{"workflow", workflow.NewWorkflowCmd, []string{"logs"}},
-				{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}},
-				{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}},
-				{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}},
-				{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}},
-			} {
-				t.Run(tc.name, func(t *testing.T) {
-					timestamp := time.Date(2026, 11, 10, 8, 21, 4, 512000000, time.UTC)
-					mc := mocks.NewMockInterface(t)
-					mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
-						&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
-					mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
-						[]gen.WorkflowRunLogEntry{
-							{Timestamp: &timestamp, Log: "first\nsecond\t\"quoted\" <tag>"},
-							{Log: "no timestamp"},
-						}, nil)
-					root := tc.newCmd(func() (client.Interface, error) { return mc, nil })
-					cmd, _, err := root.Find(tc.path)
-					require.NoError(t, err)
-					require.NotNil(t, cmd.Flags().Lookup("log-format"))
-					assert.Equal(t, "text", cmd.Flags().Lookup("log-format").DefValue)
-					args := []string{"--namespace", "ns", "--log-format", format}
-					if tc.name != "workflowrun" {
-						args = append(args, "--workflowrun", "run-1")
+			for _, flag := range []string{"--output", "-o"} {
+				t.Run(flag, func(t *testing.T) {
+					for _, tc := range []struct {
+						name   string
+						newCmd func(client.NewClientFunc) *cobra.Command
+						path   []string
+					}{
+						{"workflow", workflow.NewWorkflowCmd, []string{"logs"}},
+						{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}},
+						{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}},
+						{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}},
+						{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}},
+					} {
+						t.Run(tc.name, func(t *testing.T) {
+							timestamp := time.Date(2026, 11, 10, 8, 21, 4, 512000000, time.UTC)
+							mc := mocks.NewMockInterface(t)
+							mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+								&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+							mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+								[]gen.WorkflowRunLogEntry{
+									{Timestamp: &timestamp, Log: "first\nsecond\t\"quoted\" <tag>"},
+									{Log: "no timestamp"},
+								}, nil)
+							root := tc.newCmd(func() (client.Interface, error) { return mc, nil })
+							cmd, _, err := root.Find(tc.path)
+							require.NoError(t, err)
+							require.NotNil(t, cmd.Flags().Lookup("output"))
+							assert.Equal(t, "text", cmd.Flags().Lookup("output").DefValue)
+							args := []string{"--namespace", "ns", flag, format}
+							if tc.name != "workflowrun" {
+								args = append(args, "--workflowrun", "run-1")
+							}
+							require.NoError(t, cmd.ParseFlags(args))
+							out := testutil.CaptureStdout(t, func() {
+								require.NoError(t, cmd.RunE(cmd, []string{"run-1"}))
+							})
+							if format != "json" {
+								assert.Equal(t, "2026-11-10T08:21:04.512Z first\nsecond\t\"quoted\" <tag>\n- no timestamp\n", out)
+								return
+							}
+							lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+							require.Len(t, lines, 2)
+							assert.JSONEq(t, `{"timestamp":"2026-11-10T08:21:04.512Z","log":"first\nsecond\t\"quoted\" <tag>"}`, lines[0])
+							assert.JSONEq(t, `{"log":"no timestamp"}`, lines[1])
+						})
 					}
-					require.NoError(t, cmd.ParseFlags(args))
-					out := testutil.CaptureStdout(t, func() {
-						require.NoError(t, cmd.RunE(cmd, []string{"run-1"}))
-					})
-					if format != "json" {
-						assert.Equal(t, "2026-11-10T08:21:04.512Z first\nsecond\t\"quoted\" <tag>\n- no timestamp\n", out)
-						return
-					}
-					lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-					require.Len(t, lines, 2)
-					assert.JSONEq(t, `{"timestamp":"2026-11-10T08:21:04.512Z","log":"first\nsecond\t\"quoted\" <tag>"}`, lines[0])
-					assert.JSONEq(t, `{"log":"no timestamp"}`, lines[1])
 				})
 			}
+		})
+	}
+}
+
+func TestLogCommands_OutputHelp(t *testing.T) {
+	const usage = "Output format: text, json (one object per line), or custom-columns=FIELD,..."
+	for _, tc := range []struct {
+		name   string
+		newCmd func(client.NewClientFunc) *cobra.Command
+		path   []string
+	}{
+		{"component", component.NewComponentCmd, []string{"logs"}},
+		{"workflow", workflow.NewWorkflowCmd, []string{"logs"}},
+		{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}},
+		{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}},
+		{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}},
+		{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}},
+		{"observabilityplane", observabilityplane.NewObservabilityPlaneCmd, []string{"logs"}},
+		{"clusterobservabilityplane", clusterobservabilityplane.NewClusterObservabilityPlaneCmd, []string{"logs"}},
+		{"auditlogs", auditlogs.NewAuditLogsCmd, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := tc.newCmd(func() (client.Interface, error) {
+				t.Fatal("help must not create an API client")
+				return nil, nil
+			})
+			cmd, _, err := root.Find(tc.path)
+			require.NoError(t, err)
+			output := cmd.Flags().Lookup("output")
+			require.NotNil(t, output)
+			assert.Equal(t, "o", output.Shorthand)
+			assert.Equal(t, "text", output.DefValue)
+			assert.Equal(t, usage, output.Usage)
+			assert.Nil(t, cmd.Flags().Lookup("log-format"))
+			var help bytes.Buffer
+			cmd.SetOut(&help)
+			require.NoError(t, cmd.Help())
+			assert.Contains(t, help.String(), "-o, --output string")
+			assert.Contains(t, help.String(), usage+` (default "text")`)
+			assert.NotContains(t, help.String(), "--log-format")
+			assert.ErrorContains(t, cmd.ParseFlags([]string{"--log-format", "json"}), "unknown flag: --log-format")
 		})
 	}
 }

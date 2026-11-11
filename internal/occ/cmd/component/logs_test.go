@@ -134,7 +134,7 @@ func TestPrintLogs_JSON(t *testing.T) {
 	for _, container := range []string{"", "main", "missing"} {
 		t.Run("container="+container, func(t *testing.T) {
 			out := testutil.CaptureStdout(t, func() {
-				require.NoError(t, printLogs(logs, LogsParams{LogFormat: logFormatJSON, Container: container}))
+				require.NoError(t, printLogs(logs, LogsParams{Output: logFormatJSON, Container: container}))
 			})
 			want := logs
 			switch container {
@@ -155,8 +155,8 @@ func TestPrintLogs_JSON(t *testing.T) {
 	}
 }
 
-func TestLogs_InvalidLogFormat(t *testing.T) {
-	err := New(nil).Logs(LogsParams{LogFormat: "yaml"})
+func TestLogs_InvalidOutput(t *testing.T) {
+	err := New(nil).Logs(LogsParams{Output: "yaml"})
 	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or custom-columns=FIELD,...`)
 }
 
@@ -582,7 +582,7 @@ func TestFollowLogs_Formats(t *testing.T) {
 			}))
 			out := testutil.CaptureStdout(t, func() {
 				require.NoError(t, New(nil).followLogs(ctx, observerTestURL, "token", "env-uid", LogsParams{
-					LogFormat: format,
+					Output: format,
 				}, time.Now().Add(-time.Hour), time.Now()))
 			})
 			require.Equal(t, 2, requests)

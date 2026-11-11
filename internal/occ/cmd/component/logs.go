@@ -25,7 +25,7 @@ const logFormatJSON = "json"
 
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
-	if err := logformat.Validate(params.LogFormat); err != nil {
+	if err := logformat.Validate(params.Output); err != nil {
 		return err
 	}
 
@@ -150,7 +150,7 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 
 // printLogs prints the entries in the requested format, restricting to a single container when requested.
 func printLogs(logs []client.LogEntry, params LogsParams) error {
-	columns, err := logformat.ParseColumns(params.LogFormat)
+	columns, err := logformat.ParseColumns(params.Output)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func printLogs(logs []client.LogEntry, params LogsParams) error {
 			}
 			continue
 		}
-		if params.LogFormat == logFormatJSON {
+		if params.Output == logFormatJSON {
 			if err := encoder.Encode(log); err != nil {
 				return fmt.Errorf("failed to encode log entry: %w", err)
 			}
