@@ -4,7 +4,10 @@
 package renderedrelease
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +23,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -712,6 +716,63 @@ var _ = Describe("RenderedRelease observe mode", func() {
 				To(Succeed(), "the observed rule is kept")
 		})
 	})
+	Context("when a read of an observed object fails for a passing reason", func() {
+		const releaseName = "release-observe-read-blip"
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
+		})
+
+		It("keeps the last health and re-reads on the progressing interval until it recovers", func() {
+			envName, _ := observeTestPlane("observe-read-blip")
+			cm := teamConfigMap("read-blip-settings")
+
+			// The envtest API server behind a client whose Get of the observed
+			// ConfigMap can be made to fail, as a gateway blip would.
+			var failing atomic.Bool
+			base, err := client.NewWithWatch(cfg, client.Options{Scheme: k8sClient.Scheme()})
+			Expect(err).NotTo(HaveOccurred())
+			plane := interceptor.NewClient(base, interceptor.Funcs{
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if key.Name == cm.Name && failing.Load() {
+						return errors.New("proxy request failed: 502 bad gateway")
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+			})
+			r := testReconcilerWithDPClient(plane, "", "")
+
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
+			release.Spec.Interval = &metav1.Duration{Duration: 10 * time.Minute}
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
+				{ID: "settings", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: cm.Name},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			mustReconcile(r, reconcileRequest(releaseName))
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Minute), "stable: the release's own interval")
+
+			By("A failed read keeps the last health, reports the failure, and re-reads soon")
+			failing.Store(true)
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			updated := fetchRelease(releaseName)
+			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Reason).
+				To(Equal(string(ReasonObservedReadFailed)))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)))
+
+			By("Once the read works again, the condition recovers and the stable interval returns")
+			failing.Store(false)
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(findCondition(fetchRelease(releaseName), string(ConditionObservedResourcesRead)).Status).
+				To(Equal(metav1.ConditionTrue))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Minute))
+		})
+	})
+
 })
 
 var _ = Describe("RenderedRelease observe mode API validation", func() {

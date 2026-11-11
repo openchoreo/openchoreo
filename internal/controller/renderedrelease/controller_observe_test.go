@@ -579,6 +579,15 @@ func TestExcludeObserved(t *testing.T) {
 	if got := excludeObserved([]*unstructured.Unstructured{observedDeploy}, nil); len(got) != 1 {
 		t.Error("with nothing observed, everything is kept")
 	}
+
+	// The kind is compared case-insensitively, as ProxyClient builds the request
+	// path from it: an entry spelled DEPLOYMENT reads, and protects, the Deployment.
+	upperCase := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("api", "apps/v1", "DEPLOYMENT", "prod", "api"),
+	})
+	if got := excludeObserved([]*unstructured.Unstructured{observedDeploy}, upperCase); len(got) != 0 {
+		t.Error("an entry spelled DEPLOYMENT must keep the Deployment out of the deletes")
+	}
 }
 
 func TestCheckObservedOverlap(t *testing.T) {
@@ -600,6 +609,17 @@ func TestCheckObservedOverlap(t *testing.T) {
 	}
 	if err := checkObservedOverlap([]*unstructured.Unstructured{rendered}, nil); err != nil {
 		t.Errorf("nothing observed, got %v", err)
+	}
+
+	upperCase := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("team-api", "apps/v1", "DEPLOYMENT", "prod", "api"),
+	})
+	err = checkObservedOverlap([]*unstructured.Unstructured{rendered}, upperCase)
+	if err == nil {
+		t.Fatal("an entry spelled DEPLOYMENT overlaps the rendered Deployment")
+	}
+	if !strings.Contains(err.Error(), "(Deployment.apps prod/api)") {
+		t.Errorf("err = %v, want the object named as rendered", err)
 	}
 }
 

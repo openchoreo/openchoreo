@@ -34,25 +34,29 @@ func effectiveMode(release *openchoreov1alpha1.RenderedRelease) openchoreov1alph
 }
 
 // objectIdentity names an object on a plane independently of the API version
-// it is read in.
+// it is read in. The kind is compared case-insensitively, as ProxyClient builds
+// the request path from it, so an entry spelled DEPLOYMENT still matches the
+// Deployment it reads.
 type objectIdentity struct {
 	group, kind, namespace, name string
 }
 
-func (o objectIdentity) String() string {
-	if o.namespace == "" {
-		return fmt.Sprintf("%s %s", o.groupKind(), o.name)
-	}
-	return fmt.Sprintf("%s %s/%s", o.groupKind(), o.namespace, o.name)
-}
-
-func (o objectIdentity) groupKind() string {
-	return schema.GroupKind{Group: o.group, Kind: o.kind}.String()
+func newObjectIdentity(group, kind, namespace, name string) objectIdentity {
+	return objectIdentity{group: group, kind: strings.ToLower(kind), namespace: namespace, name: name}
 }
 
 func identityOf(obj *unstructured.Unstructured) objectIdentity {
 	gvk := obj.GroupVersionKind()
-	return objectIdentity{group: gvk.Group, kind: gvk.Kind, namespace: obj.GetNamespace(), name: obj.GetName()}
+	return newObjectIdentity(gvk.Group, gvk.Kind, obj.GetNamespace(), obj.GetName())
+}
+
+// describeObject names obj in messages by its group, kind, namespace and name.
+func describeObject(obj *unstructured.Unstructured) string {
+	groupKind := obj.GroupVersionKind().GroupKind().String()
+	if obj.GetNamespace() == "" {
+		return fmt.Sprintf("%s %s", groupKind, obj.GetName())
+	}
+	return fmt.Sprintf("%s %s/%s", groupKind, obj.GetNamespace(), obj.GetName())
 }
 
 // observedEntry is a spec.observedResources entry with its API version parsed.
@@ -64,7 +68,7 @@ type observedEntry struct {
 }
 
 func (e observedEntry) identity() objectIdentity {
-	return objectIdentity{group: e.gvk.Group, kind: e.gvk.Kind, namespace: e.namespace, name: e.name}
+	return newObjectIdentity(e.gvk.Group, e.gvk.Kind, e.namespace, e.name)
 }
 
 // describe names the entry in condition messages.
@@ -312,7 +316,7 @@ func checkObservedOverlap(desired []*unstructured.Unstructured, entries []observ
 	for _, obj := range desired {
 		if id, found := observed[identityOf(obj)]; found {
 			return fmt.Errorf("resource %s (%s) is also observed resource %s, and observed resources are never written",
-				obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID], identityOf(obj), id)
+				obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID], describeObject(obj), id)
 		}
 	}
 	return nil
