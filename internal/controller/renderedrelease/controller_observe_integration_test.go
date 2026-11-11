@@ -423,12 +423,27 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
 			Expect(err).To(MatchError(ContainSubstring("never written")))
 
-			applied := findCondition(fetchRelease(releaseName), ConditionResourcesApplied)
+			updated := fetchRelease(releaseName)
+			applied := findCondition(updated, ConditionResourcesApplied)
 			Expect(applied).NotTo(BeNil())
 			Expect(applied.Status).To(Equal(metav1.ConditionFalse))
 			Expect(applied.Reason).To(Equal(ReasonApplyFailed))
 			Expect(applied.Message).To(ContainSubstring("observed resource team"))
 			expectUntouched(team)
+
+			By("The failed apply still publishes the observed reads")
+			Expect(updated.Status.ObservedResources).To(HaveLen(1))
+			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Status).To(Equal(metav1.ConditionTrue))
+
+			By("A repeat of the same failure still writes what changed on the observed side")
+			Expect(k8sClient.Delete(ctx, team)).To(Succeed())
+			_, err = r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(MatchError(ContainSubstring("never written")))
+			updated = fetchRelease(releaseName)
+			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Reason).
+				To(Equal(string(ReasonObservedResourceNotFound)))
 		})
 	})
 })
@@ -476,6 +491,16 @@ var _ = Describe("RenderedRelease observe mode API validation", func() {
 		err = k8sClient.Create(ctx, raw)
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
 		Expect(err.Error()).To(ContainSubstring("Required value"))
+	})
+
+	It("rejects a kind that does not start with an uppercase letter", func() {
+		// A lowercase kind still reads through the plane, but would not match the
+		// live object in the checks that keep observed objects from being written.
+		bad := deploy("a", "a")
+		bad.Kind = "deployment"
+		err := k8sClient.Create(ctx, newRelease("val-lowercase-kind", bad))
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
+		Expect(err.Error()).To(ContainSubstring("spec.observedResources[0].kind"))
 	})
 
 	It("rejects a malformed apiVersion", func() {

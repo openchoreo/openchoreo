@@ -100,6 +100,7 @@ type ObservedResource struct {
 	// Kind is the object's kind, such as "Deployment".
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[A-Z][A-Za-z0-9]*$`
 	Kind string `json:"kind"`
 
 	// Name is the object's name.

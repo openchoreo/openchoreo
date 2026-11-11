@@ -154,11 +154,20 @@ func (r *Reconciler) readObservedResources(ctx context.Context, planeClient clie
 				"gvk", entry.gvk.String(), "namespace", entry.namespace, "name", entry.name,
 				"reason", failure.reason, "detail", failure.detail)
 			result.failures = append(result.failures, *failure)
+			// A read that failed for some other reason than the object's absence,
+			// RBAC or an unserved kind is likely passing, such as a gateway blip.
+			// Keep the previous observation so health does not flap; the condition
+			// reports the failure.
+			if failure.reason == ReasonObservedReadFailed {
+				if p := prev[observedStatusKeyOf(&status)]; p != nil {
+					status = *p.DeepCopy()
+				}
+			}
 			result.statuses = append(result.statuses, status)
 			continue
 		}
 
-		status.Status, status.HealthStatus = liveStatusAndHealth(logger, entry.id, entry.gvk, live)
+		status.Status, status.HealthStatus = liveStatusAndHealth(logger, entry.id, live.GroupVersionKind(), live)
 		status.LastObservedTime = nextLastObservedTime(prev[observedStatusKeyOf(&status)], status.Status, status.HealthStatus)
 		result.statuses = append(result.statuses, status)
 		result.live = append(result.live, live)
@@ -178,8 +187,11 @@ func readObservedResource(ctx context.Context, planeClient client.Client, entry 
 	obj.SetGroupVersionKind(entry.gvk)
 	err := planeClient.Get(ctx, client.ObjectKey{Namespace: entry.namespace, Name: entry.name}, obj)
 	if err == nil {
-		// Some clients drop the kind when decoding; the health check is chosen by it.
-		obj.SetGroupVersionKind(entry.gvk)
+		// Health is chosen by the kind the server returned; some clients leave it
+		// empty when decoding.
+		if obj.GetKind() == "" {
+			obj.SetGroupVersionKind(entry.gvk)
+		}
 		return obj, nil
 	}
 

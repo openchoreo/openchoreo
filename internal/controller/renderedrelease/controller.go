@@ -154,8 +154,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	// Observed resources are read in both modes and never written.
+	// Observed resources are read in both modes and never written. They are read
+	// before the apply so that a failed apply still publishes them.
 	observedEntries := resolveObservedResources(release.Spec.ObservedResources)
+	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
+	setObservedConditions(release, observedEntries, observed.failures)
 
 	// The mode only decides what happens to spec.resources. In Observe mode nothing
 	// is desired, so the cleanup below removes whatever this release applied
@@ -171,7 +174,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// An object that is both rendered and observed would be written by the apply.
 		if err := checkObservedOverlap(desiredResources, observedEntries); err != nil {
 			logger.Error(err, "Rendered resources overlap observed resources")
-			return r.markApplyFailed(ctx, release, err)
+			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
 
 		// Ensure namespaces exist before applying resources on the observability plane only.
@@ -190,7 +193,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// This ensures all resources in the spec are created/updated with proper tracking labels
 		if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
 			logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
-			return r.markApplyFailed(ctx, release, err)
+			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
 
 		// Mark resources as successfully applied, but leave persisting it to the status
@@ -243,10 +246,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// share one health evaluation
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
-	// Read the observed resources. Each one is a Get through the plane client.
-	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
-	setObservedConditions(release, observedEntries, observed.failures)
-
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations.
 	//
@@ -292,15 +291,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 // markApplyFailed persists ResourcesApplied=False with err and returns err. It is
 // written at once, so upstream controllers (e.g., ReleaseBinding) can surface the
-// error before the reconcile returns.
-func (r *Reconciler) markApplyFailed(ctx context.Context, release *openchoreov1alpha1.RenderedRelease, err error) (ctrl.Result, error) {
-	changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+// error before the reconcile returns. The observed resources read in this pass are
+// written with it; the applied inventory is kept as it was, since nothing new was
+// applied.
+func (r *Reconciler) markApplyFailed(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease,
+	observedStatuses []openchoreov1alpha1.RenderedManifestStatus, err error) (ctrl.Result, error) {
+	controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
 		controller.ConditionReason(ReasonApplyFailed),
 		fmt.Sprintf("Failed to apply resources to target plane: %v", err))
-	if changed {
-		if statusErr := r.Status().Update(ctx, release); statusErr != nil {
-			log.FromContext(ctx).Error(statusErr, "Failed to update Release status with apply error")
-		}
+	if _, statusErr := r.updateStatus(ctx, old, release, release.Status.Resources, observedStatuses); statusErr != nil {
+		log.FromContext(ctx).Error(statusErr, "Failed to update Release status with apply error")
 	}
 	return ctrl.Result{}, err
 }

@@ -235,6 +235,94 @@ func TestReadObservedResources(t *testing.T) {
 	})
 }
 
+// planeServing returns a plane client whose every Get answers with served, as
+// the server would send it.
+func planeServing(served *unstructured.Unstructured) client.Client {
+	return fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+			obj.(*unstructured.Unstructured).Object = served.DeepCopy().Object
+			return nil
+		},
+	}).Build()
+}
+
+func TestReadObservedResourcesJudgesHealthByServedKind(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	// generation 3 not yet observed: the Deployment check reports Progressing,
+	// while the presence-only check would report Healthy.
+	rollingOut := healthyDeployment(3, 2)
+
+	t.Run("the kind the server returns wins over the entry's spelling", func(t *testing.T) {
+		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+			observedRes("api", "apps/v1", "DEPLOYMENT", "prod", "api")})
+		result := r.readObservedResources(ctx, planeServing(rollingOut), &openchoreov1alpha1.RenderedRelease{}, entries)
+		s := result.statuses[0]
+		if s.HealthStatus != openchoreov1alpha1.HealthStatusProgressing {
+			t.Errorf("health = %q, want Progressing from the Deployment check", s.HealthStatus)
+		}
+		if s.Kind != "DEPLOYMENT" {
+			t.Errorf("status kind = %q, want the entry's spelling", s.Kind)
+		}
+	})
+
+	t.Run("a response without a kind falls back to the entry's", func(t *testing.T) {
+		kindless := rollingOut.DeepCopy()
+		delete(kindless.Object, "kind")
+		delete(kindless.Object, "apiVersion")
+		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+			observedRes("api", "apps/v1", "Deployment", "prod", "api")})
+		result := r.readObservedResources(ctx, planeServing(kindless), &openchoreov1alpha1.RenderedRelease{}, entries)
+		if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusProgressing {
+			t.Errorf("health = %q, want Progressing from the Deployment check", got)
+		}
+	})
+}
+
+func TestReadObservedResourcesKeepsLastObservationOnPassingErrors(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	deploy := healthyDeployment(2, 2)
+	deploy.SetNamespace("prod")
+	deploy.SetName("api")
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("api", "apps/v1", "Deployment", "prod", "api")})
+
+	first := r.readObservedResources(ctx, readOnlyPlaneClient(t, nil, deploy), &openchoreov1alpha1.RenderedRelease{}, entries)
+	earlier := metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second))
+	old := &openchoreov1alpha1.RenderedRelease{}
+	old.Status.ObservedResources = first.statuses
+	old.Status.ObservedResources[0].LastObservedTime = &earlier
+
+	t.Run("a generic error keeps the previous entry", func(t *testing.T) {
+		blip := readOnlyPlaneClient(t, func(client.ObjectKey, client.Object) error {
+			return errors.New("proxy request failed: 502 bad gateway")
+		}, deploy)
+		result := r.readObservedResources(ctx, blip, old, entries)
+		if len(result.failures) != 1 || result.failures[0].reason != ReasonObservedReadFailed {
+			t.Fatalf("failures = %+v, want one ReadFailed", result.failures)
+		}
+		s := result.statuses[0]
+		if s.HealthStatus != openchoreov1alpha1.HealthStatusHealthy || s.Status == nil {
+			t.Errorf("status = %+v, want the previous Healthy entry with its status", s)
+		}
+		if s.LastObservedTime == nil || !s.LastObservedTime.Equal(&earlier) {
+			t.Errorf("LastObservedTime = %v, want the previous %v", s.LastObservedTime, earlier)
+		}
+	})
+
+	t.Run("an object that is gone is Unknown, not carried forward", func(t *testing.T) {
+		result := r.readObservedResources(ctx, readOnlyPlaneClient(t, nil), old, entries)
+		if len(result.failures) != 1 || result.failures[0].reason != ReasonObservedResourceNotFound {
+			t.Fatalf("failures = %+v, want one ResourceNotFound", result.failures)
+		}
+		s := result.statuses[0]
+		if s.HealthStatus != openchoreov1alpha1.HealthStatusUnknown || s.Status != nil || s.LastObservedTime != nil {
+			t.Errorf("status = %+v, want Unknown with no status or time", s)
+		}
+	})
+}
+
 func TestReadObservedResourcesKeepsLastObservedTime(t *testing.T) {
 	ctx := context.Background()
 	r := &Reconciler{}
