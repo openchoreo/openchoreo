@@ -39,8 +39,9 @@ type LogsQueryRequest struct {
 	EndTime   string `json:"endTime" validate:"required"`
 
 	// Optional filters
-	SearchPhrase string   `json:"searchPhrase,omitempty"`
-	LogLevels    []string `json:"logLevels,omitempty"`
+	SearchPhrase  string   `json:"searchPhrase,omitempty"`
+	LogLevels     []string `json:"logLevels,omitempty"`
+	ContainerName string   `json:"containerName,omitempty"`
 
 	// Pagination and sorting
 	Limit     int    `json:"limit,omitempty"`

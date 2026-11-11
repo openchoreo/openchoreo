@@ -183,12 +183,13 @@ func TestLogsService_QueryLogs_WorkflowScope_Success(t *testing.T) {
 				TaskName:        "task-1",
 			},
 		},
-		StartTime:    "2026-03-07T10:00:00Z",
-		EndTime:      "2026-03-07T11:00:00Z",
-		SearchPhrase: "error",
-		LogLevels:    []string{"INFO"},
-		Limit:        50,
-		SortOrder:    "asc",
+		StartTime:     "2026-03-07T10:00:00Z",
+		EndTime:       "2026-03-07T11:00:00Z",
+		SearchPhrase:  "error",
+		ContainerName: "sidecar",
+		LogLevels:     []string{"INFO"},
+		Limit:         50,
+		SortOrder:     "asc",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -199,6 +200,7 @@ func TestLogsService_QueryLogs_WorkflowScope_Success(t *testing.T) {
 	assert.Equal(t, "wf-run-1", adapter.lastWorkflow.WorkflowRunName)
 	assert.Equal(t, "task-1", adapter.lastWorkflow.TaskName)
 	assert.Equal(t, "error", adapter.lastWorkflow.SearchPhrase)
+	assert.Equal(t, "sidecar", adapter.lastWorkflow.ContainerName)
 	assert.Equal(t, []string{"INFO"}, adapter.lastWorkflow.LogLevels)
 	assert.Equal(t, 50, adapter.lastWorkflow.Limit)
 	assert.Equal(t, "asc", adapter.lastWorkflow.SortOrder)
@@ -317,9 +319,10 @@ func TestLogsService_QueryLogs_ComponentScope_Success(t *testing.T) {
 				Environment: "env",
 			},
 		},
-		StartTime: "2026-03-07T10:00:00Z",
-		EndTime:   "2026-03-07T11:00:00Z",
-		Limit:     25,
+		StartTime:     "2026-03-07T10:00:00Z",
+		EndTime:       "2026-03-07T11:00:00Z",
+		Limit:         25,
+		ContainerName: "sidecar",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -329,6 +332,7 @@ func TestLogsService_QueryLogs_ComponentScope_Success(t *testing.T) {
 	assert.Equal(t, sampleProjectUID, adapter.lastComponent.ProjectID)
 	assert.Equal(t, sampleComponentUID, adapter.lastComponent.ComponentID)
 	assert.Equal(t, sampleEnvironmentUID, adapter.lastComponent.EnvironmentID)
+	assert.Equal(t, "sidecar", adapter.lastComponent.ContainerName)
 	require.Len(t, resp.Logs, 1)
 	assert.Equal(t, "hello", resp.Logs[0].Log)
 }

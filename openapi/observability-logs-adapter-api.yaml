@@ -845,6 +845,9 @@ components:
             enum: ["DEBUG", "INFO", "WARN", "ERROR"]
         searchPhrase:
           type: string
+        containerName:
+          type: string
+          description: Filter logs to a specific container
       required: [startTime, endTime, searchScope]
 
     # Response schemas for logs

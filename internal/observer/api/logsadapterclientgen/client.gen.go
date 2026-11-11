@@ -957,6 +957,9 @@ type EventsQueryResponse struct {
 
 // LogsQueryRequest defines model for LogsQueryRequest.
 type LogsQueryRequest struct {
+	// ContainerName Filter logs to a specific container
+	ContainerName *string `json:"containerName,omitempty"`
+
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
 
