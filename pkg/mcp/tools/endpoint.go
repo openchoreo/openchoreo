@@ -165,6 +165,9 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			"component_name": stringProperty(
 				"Optional: the component that owns the endpoint, so deleting the component deletes it. Every " +
 					"backend must route to this component. Omit it to have the project own the endpoint."),
+			"release_line_name": stringProperty(
+				"Optional: the release line of component_name that owns the endpoint, so deleting the line deletes " +
+					"it. Requires component_name, and every backend must route to this line."),
 			"display_name": stringProperty("Human-readable display name"),
 			"description":  stringProperty("Human-readable description"),
 			"parameters": map[string]any{
@@ -173,17 +176,18 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			},
 		}, []string{"namespace_name", "project_name", "name", "type_name", "visibility", "backend_refs"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		ProjectName   string                 `json:"project_name"`
-		ComponentName string                 `json:"component_name"`
-		Name          string                 `json:"name"`
-		TypeName      string                 `json:"type_name"`
-		TypeKind      string                 `json:"type_kind"`
-		Visibility    []string               `json:"visibility"`
-		BackendRefs   []endpointBackendArg   `json:"backend_refs"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Parameters    map[string]interface{} `json:"parameters"`
+		NamespaceName   string                 `json:"namespace_name"`
+		ProjectName     string                 `json:"project_name"`
+		ComponentName   string                 `json:"component_name"`
+		ReleaseLineName string                 `json:"release_line_name"`
+		Name            string                 `json:"name"`
+		TypeName        string                 `json:"type_name"`
+		TypeKind        string                 `json:"type_kind"`
+		Visibility      []string               `json:"visibility"`
+		BackendRefs     []endpointBackendArg   `json:"backend_refs"`
+		DisplayName     string                 `json:"display_name"`
+		Description     string                 `json:"description"`
+		Parameters      map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
 		visibility, err := toEndpointSpecVisibility(args.Visibility)
 		if err != nil {
@@ -199,8 +203,9 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			Metadata: gen.ObjectMeta{Name: args.Name, Annotations: &annotations},
 			Spec: &gen.EndpointSpec{
 				Owner: struct {
-					ComponentName *string `json:"componentName,omitempty"`
-					ProjectName   string  `json:"projectName"`
+					ComponentName   *string `json:"componentName,omitempty"`
+					ProjectName     string  `json:"projectName"`
+					ReleaseLineName *string `json:"releaseLineName,omitempty"`
 				}{ProjectName: args.ProjectName},
 				Type:        typeRef,
 				Visibility:  visibility,
@@ -209,6 +214,9 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 		}
 		if args.ComponentName != "" {
 			body.Spec.Owner.ComponentName = &args.ComponentName
+		}
+		if args.ReleaseLineName != "" {
+			body.Spec.Owner.ReleaseLineName = &args.ReleaseLineName
 		}
 		if args.Parameters != nil {
 			body.Spec.Parameters = &args.Parameters
@@ -225,8 +233,9 @@ func (t *Toolsets) RegisterUpdateEndpoint(s *mcp.Server, perms map[string]ToolPe
 		Name: name,
 		Description: "Update an existing endpoint (partial update). Only provided fields are applied; omitted " +
 			"fields remain unchanged. backend_refs, when provided, replaces the whole backend list, so use it " +
-			"to shift traffic weights. The project and spec.type are immutable. A component-owned endpoint " +
-			"whose new backend_refs route to another component moves to its project. Any change cuts a new " +
+			"to shift traffic weights. The project and spec.type are immutable. A line-owned endpoint whose new " +
+			"backend_refs route to another line moves to its component, and a component-owned endpoint whose new " +
+			"backend_refs route to another component moves to its project. Any change cuts a new " +
 			"EndpointRelease, which bindings pick up once their pin is advanced.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),

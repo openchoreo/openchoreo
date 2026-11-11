@@ -300,8 +300,12 @@ spec:
                                 type: string
                               scheme:
                                 description: |-
-                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
-                                  grpc, grpcs, tcp, tls.
+                                  Scheme is the URL scheme, as a literal or a ${...} expression resolving to
+                                  one of http, https, ws, wss, grpc, grpcs, tcp, tls. It is a string rather
+                                  than an enum so a type can pick it per environment, for example
+                                  ${gateway.ingress.external.?https.hasValue() ? "https" : "http"}. The
+                                  admission webhook checks a literal against these values and the binding
+                                  controller checks the resolved value.
                                 minLength: 1
                                 type: string
                               security:
@@ -333,8 +337,11 @@ spec:
                                     type: object
                                   scheme:
                                     description: |-
-                                      Scheme is the authentication scheme clients must use. Must resolve to one
-                                      of none, apiKey, oauth2, basicAuth.
+                                      Scheme is the authentication scheme clients must use, as a literal or a
+                                      ${...} expression resolving to one of none, apiKey, oauth2, basicAuth, so a
+                                      parameter can switch authentication on and off. The admission webhook
+                                      checks a literal against these values and the binding controller checks
+                                      the resolved value.
                                     minLength: 1
                                     type: string
                                 required:
@@ -375,8 +382,12 @@ spec:
                                 type: string
                               scheme:
                                 description: |-
-                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
-                                  grpc, grpcs, tcp, tls.
+                                  Scheme is the URL scheme, as a literal or a ${...} expression resolving to
+                                  one of http, https, ws, wss, grpc, grpcs, tcp, tls. It is a string rather
+                                  than an enum so a type can pick it per environment, for example
+                                  ${gateway.ingress.external.?https.hasValue() ? "https" : "http"}. The
+                                  admission webhook checks a literal against these values and the binding
+                                  controller checks the resolved value.
                                 minLength: 1
                                 type: string
                               security:
@@ -408,8 +419,11 @@ spec:
                                     type: object
                                   scheme:
                                     description: |-
-                                      Scheme is the authentication scheme clients must use. Must resolve to one
-                                      of none, apiKey, oauth2, basicAuth.
+                                      Scheme is the authentication scheme clients must use, as a literal or a
+                                      ${...} expression resolving to one of none, apiKey, oauth2, basicAuth, so a
+                                      parameter can switch authentication on and off. The admission webhook
+                                      checks a literal against these values and the binding controller checks
+                                      the resolved value.
                                     minLength: 1
                                     type: string
                                 required:
@@ -450,8 +464,12 @@ spec:
                                 type: string
                               scheme:
                                 description: |-
-                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
-                                  grpc, grpcs, tcp, tls.
+                                  Scheme is the URL scheme, as a literal or a ${...} expression resolving to
+                                  one of http, https, ws, wss, grpc, grpcs, tcp, tls. It is a string rather
+                                  than an enum so a type can pick it per environment, for example
+                                  ${gateway.ingress.external.?https.hasValue() ? "https" : "http"}. The
+                                  admission webhook checks a literal against these values and the binding
+                                  controller checks the resolved value.
                                 minLength: 1
                                 type: string
                               security:
@@ -483,8 +501,11 @@ spec:
                                     type: object
                                   scheme:
                                     description: |-
-                                      Scheme is the authentication scheme clients must use. Must resolve to one
-                                      of none, apiKey, oauth2, basicAuth.
+                                      Scheme is the authentication scheme clients must use, as a literal or a
+                                      ${...} expression resolving to one of none, apiKey, oauth2, basicAuth, so a
+                                      parameter can switch authentication on and off. The admission webhook
+                                      checks a literal against these values and the binding controller checks
+                                      the resolved value.
                                     minLength: 1
                                     type: string
                                 required:
@@ -526,8 +547,12 @@ spec:
                                 type: string
                               scheme:
                                 description: |-
-                                  Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
-                                  grpc, grpcs, tcp, tls.
+                                  Scheme is the URL scheme, as a literal or a ${...} expression resolving to
+                                  one of http, https, ws, wss, grpc, grpcs, tcp, tls. It is a string rather
+                                  than an enum so a type can pick it per environment, for example
+                                  ${gateway.ingress.external.?https.hasValue() ? "https" : "http"}. The
+                                  admission webhook checks a literal against these values and the binding
+                                  controller checks the resolved value.
                                 minLength: 1
                                 type: string
                               security:
@@ -559,8 +584,11 @@ spec:
                                     type: object
                                   scheme:
                                     description: |-
-                                      Scheme is the authentication scheme clients must use. Must resolve to one
-                                      of none, apiKey, oauth2, basicAuth.
+                                      Scheme is the authentication scheme clients must use, as a literal or a
+                                      ${...} expression resolving to one of none, apiKey, oauth2, basicAuth, so a
+                                      parameter can switch authentication on and off. The admission webhook
+                                      checks a literal against these values and the binding controller checks
+                                      the resolved value.
                                     minLength: 1
                                     type: string
                                 required:

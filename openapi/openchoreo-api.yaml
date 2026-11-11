@@ -12429,8 +12429,9 @@ components:
         owner:
           type: object
           description: >-
-            Identifies what owns this Endpoint, and so what deleting removes it: the component
-            when componentName is set, otherwise the project.
+            Identifies what owns this Endpoint, and so what deleting removes it: the release
+            line when releaseLineName is set, the component when componentName is set,
+            otherwise the project.
           required:
             - projectName
           properties:
@@ -12448,6 +12449,16 @@ components:
               minLength: 1
               maxLength: 63
               example: orders
+            releaseLineName:
+              type: string
+              description: >-
+                Release line of the owning component that owns this Endpoint. Requires
+                componentName, and every backend must route to this line. When an update makes a
+                backend route to another line or the main line, the API drops this field so the
+                component owns the Endpoint.
+              minLength: 1
+              maxLength: 63
+              example: next
         type:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:
@@ -12799,7 +12810,7 @@ components:
           example: '${gateway.?ingress.?external.?https.hasValue()}'
         scheme:
           type: string
-          description: URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+          description: URL scheme, as a literal or a ${...} expression resolving to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
           minLength: 1
           example: https
         host:
@@ -12826,7 +12837,7 @@ components:
       properties:
         scheme:
           type: string
-          description: Must resolve to one of none, apiKey, oauth2, basicAuth.
+          description: Authentication scheme, as a literal or a ${...} expression resolving to one of none, apiKey, oauth2, basicAuth.
           minLength: 1
           example: apiKey
         apiKey:

@@ -57,7 +57,7 @@ func (s *endpointService) CreateEndpoint(ctx context.Context, namespaceName stri
 	}
 
 	widenOwner(endpoint)
-	if err := s.validateOwnerComponent(ctx, namespaceName, endpoint); err != nil {
+	if err := s.validateOwner(ctx, namespaceName, endpoint); err != nil {
 		return nil, err
 	}
 
@@ -124,8 +124,9 @@ func (s *endpointService) UpdateEndpoint(ctx context.Context, namespaceName stri
 	}
 
 	widenOwner(endpoint)
-	if endpoint.Spec.Owner.ComponentName != existing.Spec.Owner.ComponentName {
-		if err := s.validateOwnerComponent(ctx, namespaceName, endpoint); err != nil {
+	if endpoint.Spec.Owner.ComponentName != existing.Spec.Owner.ComponentName ||
+		endpoint.Spec.Owner.ReleaseLineName != existing.Spec.Owner.ReleaseLineName {
+		if err := s.validateOwner(ctx, namespaceName, endpoint); err != nil {
 			return nil, err
 		}
 	}
@@ -251,45 +252,69 @@ func (s *endpointService) DeleteEndpoint(ctx context.Context, namespaceName, end
 	return nil
 }
 
-// widenOwner moves a component-owned Endpoint to its project when a backend
-// routes anywhere but the owning component. The owner decides what deleting
-// removes the Endpoint, so a route that serves another component must not die
-// with this one. Ownership only ever widens here; a client names a component
-// explicitly to narrow it.
+// widenOwner moves an Endpoint up to the narrowest owner every backend still
+// fits: a line-owned Endpoint to its component when a backend routes to
+// another line or the main line, and a component-owned one to its project when
+// a backend routes to another component. The owner decides what deleting
+// removes the Endpoint, so a route that serves another line or component must
+// not die with this one. Ownership only ever widens here; a client names a
+// component or line explicitly to narrow it.
 func widenOwner(ep *openchoreov1alpha1.Endpoint) {
-	name := ep.Spec.Owner.ComponentName
-	if name == "" {
+	owner := &ep.Spec.Owner
+	if owner.ComponentName == "" {
+		owner.ReleaseLineName = ""
 		return
 	}
 	for _, ref := range ep.Spec.BackendRefs {
-		if ref.Component == nil || ref.Component.Name != name {
-			ep.Spec.Owner.ComponentName = ""
+		if ref.Component == nil || ref.Component.Name != owner.ComponentName {
+			owner.ComponentName, owner.ReleaseLineName = "", ""
 			return
+		}
+		if ref.Component.ReleaseLine != owner.ReleaseLineName {
+			owner.ReleaseLineName = ""
 		}
 	}
 }
 
-// validateOwnerComponent checks that the owning component, if any, exists in
-// the Endpoint's project, so a typo is reported to the client instead of
-// leaving the Endpoint owned by the project.
-func (s *endpointService) validateOwnerComponent(
+// validateOwner checks that the owning component and release line, if any,
+// exist in the Endpoint's project, so a typo is reported to the client instead
+// of leaving the Endpoint owned by a wider owner.
+func (s *endpointService) validateOwner(
 	ctx context.Context, namespaceName string, ep *openchoreov1alpha1.Endpoint,
 ) error {
-	name := ep.Spec.Owner.ComponentName
-	if name == "" {
+	owner := ep.Spec.Owner
+	if owner.ComponentName == "" {
 		return nil
 	}
 	comp := &openchoreov1alpha1.Component{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, comp); err != nil {
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: owner.ComponentName, Namespace: namespaceName}, comp); err != nil {
 		if apierrors.IsNotFound(err) {
-			return &services.ValidationError{Msg: fmt.Sprintf("spec.owner.componentName: component %q not found", name)}
+			return &services.ValidationError{Msg: fmt.Sprintf(
+				"spec.owner.componentName: component %q not found", owner.ComponentName)}
 		}
-		return fmt.Errorf("failed to get component %q: %w", name, err)
+		return fmt.Errorf("failed to get component %q: %w", owner.ComponentName, err)
 	}
-	if comp.Spec.Owner.ProjectName != ep.Spec.Owner.ProjectName {
+	if comp.Spec.Owner.ProjectName != owner.ProjectName {
 		return &services.ValidationError{Msg: fmt.Sprintf(
 			"spec.owner.componentName: component %q belongs to project %q, not %q",
-			name, comp.Spec.Owner.ProjectName, ep.Spec.Owner.ProjectName)}
+			owner.ComponentName, comp.Spec.Owner.ProjectName, owner.ProjectName)}
+	}
+
+	if owner.ReleaseLineName == "" {
+		return nil
+	}
+	rl := &openchoreov1alpha1.ReleaseLine{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: owner.ReleaseLineName, Namespace: namespaceName}, rl); err != nil {
+		if apierrors.IsNotFound(err) {
+			return &services.ValidationError{Msg: fmt.Sprintf(
+				"spec.owner.releaseLineName: release line %q not found", owner.ReleaseLineName)}
+		}
+		return fmt.Errorf("failed to get release line %q: %w", owner.ReleaseLineName, err)
+	}
+	if rl.Spec.Owner.ProjectName != owner.ProjectName || rl.Spec.Owner.ComponentName != owner.ComponentName {
+		return &services.ValidationError{Msg: fmt.Sprintf(
+			"spec.owner.releaseLineName: release line %q belongs to component %q, not %q",
+			owner.ReleaseLineName, rl.Spec.Owner.ComponentName, owner.ComponentName)}
 	}
 	return nil
 }

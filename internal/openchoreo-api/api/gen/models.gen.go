@@ -2349,7 +2349,7 @@ type EndpointSecurityTemplate struct {
 		Name string `json:"name"`
 	} `json:"apiKey,omitempty"`
 
-	// Scheme Must resolve to one of none, apiKey, oauth2, basicAuth.
+	// Scheme Authentication scheme, as a literal or a ${...} expression resolving to one of none, apiKey, oauth2, basicAuth.
 	Scheme string `json:"scheme"`
 }
 
@@ -2361,13 +2361,16 @@ type EndpointSpec struct {
 	// BackendRefs Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
 	BackendRefs []EndpointBackendRef `json:"backendRefs"`
 
-	// Owner Identifies what owns this Endpoint, and so what deleting removes it: the component when componentName is set, otherwise the project.
+	// Owner Identifies what owns this Endpoint, and so what deleting removes it: the release line when releaseLineName is set, the component when componentName is set, otherwise the project.
 	Owner struct {
 		// ComponentName Component that owns this Endpoint. Every backend must route to it. When an update makes a backend route to another component, the API drops this field so the project owns the Endpoint.
 		ComponentName *string `json:"componentName,omitempty"`
 
 		// ProjectName Parent project name. Immutable.
 		ProjectName string `json:"projectName"`
+
+		// ReleaseLineName Release line of the owning component that owns this Endpoint. Requires componentName, and every backend must route to this line. When an update makes a backend route to another line or the main line, the API drops this field so the component owns the Endpoint.
+		ReleaseLineName *string `json:"releaseLineName,omitempty"`
 	} `json:"owner"`
 
 	// Parameters Values for the parameter schema declared on the referenced (Cluster)EndpointType. Validated by the controller.
@@ -2567,7 +2570,7 @@ type EndpointURLTemplate struct {
 	// Port Literal or CEL template resolving to an integer between 1 and 65535. Omit for the scheme default.
 	Port *string `json:"port,omitempty"`
 
-	// Scheme URL scheme; must resolve to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
+	// Scheme URL scheme, as a literal or a ${...} expression resolving to one of http, https, ws, wss, grpc, grpcs, tcp, tls.
 	Scheme string `json:"scheme"`
 
 	// Security Template for the security enforced at a URL, as declared by the EndpointType.

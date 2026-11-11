@@ -20,6 +20,10 @@ spec:
     - jsonPath: .spec.owner.componentName
       name: Component
       type: string
+    - jsonPath: .spec.owner.releaseLineName
+      name: Release Line
+      priority: 1
+      type: string
     - jsonPath: .spec.type.name
       name: Type
       type: string
@@ -158,9 +162,9 @@ spec:
               owner:
                 description: |-
                   Owner identifies what this Endpoint belongs to, and so what deleting
-                  removes it. Its project is fixed; its component is set only while every
-                  backend routes to that component, so deleting one component never deletes
-                  a route that still serves another.
+                  removes it. Its project is fixed; its component and release line are set
+                  only while every backend routes to them, so deleting one component or line
+                  never deletes a route that still serves another.
                 properties:
                   componentName:
                     description: |-
@@ -181,9 +185,24 @@ spec:
                     x-kubernetes-validations:
                     - message: spec.owner.projectName is immutable
                       rule: self == oldSelf
+                  releaseLineName:
+                    description: |-
+                      ReleaseLineName is the release line of the owning component that owns
+                      this Endpoint, for an Endpoint created for one line. Every backend must
+                      route to that line. Like componentName it can change: an Endpoint that
+                      starts routing to another line, or to the main line, moves to its
+                      component by dropping this field in the same update.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                 required:
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner.componentName is required when releaseLineName
+                    is set
+                  rule: '!has(self.releaseLineName) || has(self.componentName)'
               parameters:
                 description: |-
                   Parameters contains values for the parameter schema declared on the referenced
@@ -266,6 +285,10 @@ spec:
                 project
               rule: '!has(self.owner.componentName) || self.backendRefs.all(b, has(b.component)
                 && b.component.name == self.owner.componentName)'
+            - message: spec.owner.releaseLineName must be the release line every backend
+                routes to; an Endpoint routing to several lines is owned by its component
+              rule: '!has(self.owner.releaseLineName) || self.backendRefs.all(b, has(b.component)
+                && has(b.component.releaseLine) && b.component.releaseLine == self.owner.releaseLineName)'
           status:
             description: EndpointStatus defines the observed state of Endpoint.
             properties:
