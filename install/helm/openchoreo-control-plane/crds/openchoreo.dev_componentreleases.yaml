@@ -158,6 +158,13 @@ spec:
                               items:
                                 description: EndpointProtocol defines the different
                                   API technologies supported by the endpoint
+                                enum:
+                                - HTTP
+                                - gRPC
+                                - GraphQL
+                                - Websocket
+                                - TCP
+                                - UDP
                                 type: string
                               maxItems: 6
                               minItems: 1
