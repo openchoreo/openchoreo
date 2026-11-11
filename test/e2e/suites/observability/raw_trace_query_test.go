@@ -76,9 +76,6 @@ var _ = Describe("Raw trace queries", Ordered, Label("tier3"), func() {
 	It("runs an OpenSearch search body and returns OpenSearch's response", func() {
 		status, body, err := framework.QueryRawTraces(observerQ, adminToken, "application/json", lastHour())
 		Expect(err).NotTo(HaveOccurred())
-		if status == http.StatusNotImplemented {
-			Skip("the installed tracing module does not support raw queries yet: " + body)
-		}
 		Expect(status).To(Equal(http.StatusOK), body)
 
 		var resp struct {
