@@ -616,6 +616,21 @@
               "title": "observability",
               "type": "object"
             },
+            "scorecards": {
+              "additionalProperties": false,
+              "description": "Scorecards portal feature",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container. Checks authored in the portal are stored in the Backstage database, which is SQLite on an emptyDir by default, so they are lost when the pod restarts. Set backstage.database.type to postgresql or enable backstage.database.sqlite.persistence to keep them.",
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "scorecards",
+              "type": "object"
+            },
             "workflows": {
               "additionalProperties": false,
               "description": "Build plane / Workflows functionality configuration",
