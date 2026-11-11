@@ -9,6 +9,25 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
+// ResourcesApplied and its reasons are untyped strings rather than
+// controller.ConditionType and controller.ConditionReason: the binding
+// controllers pass the condition type to meta.FindStatusCondition, which takes a
+// string.
+const (
+	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
+	// When False, it contains the error message from the failed apply operation.
+	ConditionResourcesApplied = "ResourcesApplied"
+
+	// ReasonApplySucceeded indicates all resources were applied successfully
+	ReasonApplySucceeded = "ApplySucceeded"
+	// ReasonApplyFailed indicates one or more resources failed to apply
+	ReasonApplyFailed = "ApplyFailed"
+	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
+	// are not applied. ResourcesApplied is False with this reason.
+	// TODO: the binding controllers read any current-generation False as an apply failure; check the reason first (#5362).
+	ReasonObserveMode = "ObserveMode"
+)
+
 // Constants for condition types
 
 const (

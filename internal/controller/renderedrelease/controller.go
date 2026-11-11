@@ -46,19 +46,6 @@ const (
 	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
 	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 
-	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
-	// When False, it contains the error message from the failed apply operation.
-	ConditionResourcesApplied = "ResourcesApplied"
-
-	// ReasonApplySucceeded indicates all resources were applied successfully
-	ReasonApplySucceeded = "ApplySucceeded"
-	// ReasonApplyFailed indicates one or more resources failed to apply
-	ReasonApplyFailed = "ApplyFailed"
-	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
-	// are not applied. ResourcesApplied is False with this reason.
-	// TODO: the binding controllers read any current-generation False as an apply failure; check the reason first (#5362).
-	ReasonObserveMode = "ObserveMode"
-
 	// DefaultStableInterval is the stable requeue interval when neither the release nor
 	// the controller sets one. Every stable release costs one reconcile per interval, so
 	// with many releases on a remote plane it can need more workers than the controller
