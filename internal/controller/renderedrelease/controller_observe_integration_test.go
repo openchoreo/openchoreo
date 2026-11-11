@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -39,6 +40,23 @@ func observeTestPlane(suffix string) (string, *Reconciler) {
 		forceDeleteClusterDataPlane(ctx, cdpName)
 	})
 	return envName, testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+}
+
+// observeTestOPPlane creates a ClusterObservabilityPlane, a ClusterDataPlane that
+// refers to it, and an Environment, for releases that target the observability
+// plane. It returns the environment name.
+func observeTestOPPlane(suffix string) string {
+	GinkgoHelper()
+	envName, cdpName, copName := "env-"+suffix, "cdp-"+suffix, "cop-"+suffix
+	Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, "obs-plane-"+suffix))).To(Succeed())
+	Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, "plane-"+suffix, copName))).To(Succeed())
+	Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+	DeferCleanup(func() {
+		forceDeleteEnvironment(ctx, types.NamespacedName{Name: envName, Namespace: testNs})
+		forceDeleteClusterDataPlane(ctx, cdpName)
+		forceDeleteClusterObservabilityPlane(ctx, copName)
+	})
+	return envName
 }
 
 // teamConfigMap creates a ConfigMap the way a team's own tooling would, outside
@@ -80,6 +98,27 @@ func teamDeployment(name string) *appsv1.Deployment {
 		},
 	}
 	Expect(k8sClient.Status().Update(ctx, dep)).To(Succeed())
+	return dep
+}
+
+// teamDeploymentAt creates a Deployment outside this controller with the given
+// replicas and no status, as envtest leaves it: Suspended at zero replicas,
+// Progressing otherwise, since no generation has been observed.
+func teamDeploymentAt(name string, replicas int32) *appsv1.Deployment {
+	GinkgoHelper()
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNs},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(replicas),
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": name}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": name}},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "app", Image: "nginx:latest"}}},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, dep)).To(Succeed())
+	DeferCleanup(func() { _ = k8sClient.Delete(ctx, dep) })
 	return dep
 }
 
@@ -444,6 +483,233 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
 			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Reason).
 				To(Equal(string(ReasonObservedResourceNotFound)))
+		})
+	})
+	Context("when observed workloads decide the next check", func() {
+		const releaseName = "release-observe-requeue"
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
+		})
+
+		It("polls a workload at zero every minute and a rollout at priority 0", func() {
+			envName, r := observeTestPlane("observe-requeue")
+			idle := teamDeploymentAt("requeue-idle", 0)
+			rolling := teamDeploymentAt("requeue-rolling", 1)
+
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
+			// A long stable interval, so the scaled-to-zero poll is what shortens it.
+			release.Spec.Interval = &metav1.Duration{Duration: 10 * time.Minute}
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
+				{ID: "idle", APIVersion: "apps/v1", Kind: "Deployment", Namespace: testNs, Name: idle.Name},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("A Deployment at zero replicas is Suspended and polled about every minute, at low priority")
+			mustReconcile(r, reconcileRequest(releaseName))
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(fetchRelease(releaseName).Status.ObservedResources[0].HealthStatus).
+				To(Equal(openchoreov1alpha1.HealthStatusSuspended))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", time.Minute))
+			Expect(result.RequeueAfter).To(BeNumerically("<", 72*time.Second))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityPoll)))
+
+			By("Adding a Deployment mid-rollout switches to the progressing interval at priority 0")
+			updated := fetchRelease(releaseName)
+			updated.Spec.ObservedResources = append(updated.Spec.ObservedResources, openchoreov1alpha1.ObservedResource{
+				ID: "rolling", APIVersion: "apps/v1", Kind: "Deployment", Namespace: testNs, Name: rolling.Name,
+			})
+			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+			result = mustReconcile(r, reconcileRequest(releaseName))
+			Expect(fetchRelease(releaseName).Status.ObservedResources[1].HealthStatus).
+				To(Equal(openchoreov1alpha1.HealthStatusProgressing))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+			Expect(result.Priority).To(HaveValue(Equal(requeuePriorityActive)))
+		})
+	})
+
+	Context("when every observed entry is removed", func() {
+		const releaseName = "release-observe-remove-all"
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
+		})
+
+		It("drops the condition and the list", func() {
+			envName, r := observeTestPlane("observe-remove-all")
+			cm := teamConfigMap("remove-all-settings")
+
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
+				{ID: "settings", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: cm.Name},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			mustReconcile(r, reconcileRequest(releaseName))
+			mustReconcile(r, reconcileRequest(releaseName))
+			updated := fetchRelease(releaseName)
+			Expect(updated.Status.ObservedResources).To(HaveLen(1))
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead))).NotTo(BeNil())
+
+			updated.Spec.ObservedResources = nil
+			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+			mustReconcile(r, reconcileRequest(releaseName))
+			updated = fetchRelease(releaseName)
+			Expect(updated.Status.ObservedResources).To(BeEmpty())
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead))).To(BeNil())
+		})
+	})
+
+	Context("when spec.resources holds a manifest the controller cannot parse", func() {
+		const releaseName = "release-observe-malformed"
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
+		})
+
+		It("ignores it in Observe mode and fails on it in Manage mode", func() {
+			envName, r := observeTestPlane("observe-malformed")
+
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
+				// No kind: the CRD admits it, the controller cannot decode it.
+				{ID: "broken", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion": "v1", "metadata": {"name": "no-kind"}}`)}},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			mustReconcile(r, reconcileRequest(releaseName))
+			mustReconcile(r, reconcileRequest(releaseName))
+			Expect(findCondition(fetchRelease(releaseName), ConditionResourcesApplied).Reason).To(Equal(ReasonObserveMode))
+
+			By("The same manifest fails in Manage mode, so Observe mode really skipped it")
+			setMode(releaseName, openchoreov1alpha1.RenderedReleaseModeManage)
+			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("when the API server rejects a rendered manifest", func() {
+		const releaseName = "release-observe-apply-rejected"
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
+		})
+
+		It("still publishes the observed reads", func() {
+			envName, r := observeTestPlane("observe-apply-rejected")
+			team := teamConfigMap("apply-rejected-team")
+
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
+				{ID: "bad-name", Object: configMapManifest("Not_A_Valid_Name")},
+			}
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
+				{ID: "team", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: team.Name},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			mustReconcile(r, reconcileRequest(releaseName))
+			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred())
+
+			updated := fetchRelease(releaseName)
+			applied := findCondition(updated, ConditionResourcesApplied)
+			Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+			Expect(applied.Reason).To(Equal(ReasonApplyFailed))
+			Expect(updated.Status.ObservedResources).To(HaveLen(1))
+			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Status).To(Equal(metav1.ConditionTrue))
+			expectUntouched(team)
+		})
+	})
+	Context("on the observability plane", func() {
+		const (
+			observeName  = "release-observe-op"
+			finalizeName = "release-observe-op-finalize"
+		)
+
+		AfterEach(func() {
+			forceDelete(ctx, types.NamespacedName{Name: observeName, Namespace: testNs})
+			forceDelete(ctx, types.NamespacedName{Name: finalizeName, Namespace: testNs})
+		})
+
+		It("reads observed objects in Observe mode and creates no namespace", func() {
+			envName := observeTestOPPlane("observe-op")
+			r := testReconcilerWithDPClient(k8sClient, "", "")
+			team := teamConfigMap("op-observe-team")
+
+			release := makeMinimalRelease(observeName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeObserve
+			// In Manage mode the controller would create this namespace on the
+			// observability plane before applying.
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{{ID: "unapplied", Object: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "op-unapplied", "namespace": "op-observe-absent"}}`),
+			}}}
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{
+				{ID: "team", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: team.Name},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			mustReconcile(r, reconcileRequest(observeName))
+			mustReconcile(r, reconcileRequest(observeName))
+
+			updated := fetchRelease(observeName)
+			Expect(updated.Finalizers).To(ContainElement(ObsPlaneCleanupFinalizer))
+			Expect(findCondition(updated, ConditionResourcesApplied).Reason).To(Equal(ReasonObserveMode))
+			Expect(updated.Status.ObservedResources).To(HaveLen(1))
+			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: "op-observe-absent"}, &corev1.Namespace{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "no namespace is created in Observe mode, got %v", err)
+			expectUntouched(team)
+		})
+
+		It("leaves an observed object this release applied earlier when it is deleted", func() {
+			envName := observeTestOPPlane("observe-op-finalize")
+			nn := types.NamespacedName{Name: finalizeName, Namespace: testNs}
+
+			release := makeMinimalRelease(finalizeName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
+			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{
+				ID: "handed-over", APIVersion: "openchoreo.dev/v1alpha1", Kind: "ObservabilityAlertRule", Name: "handed-over-rule",
+			}}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			fetched := fetchRelease(finalizeName)
+			fetched.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
+				ID: "applied", Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule", Name: "applied-rule",
+			}}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+			fetched = fetchRelease(finalizeName)
+
+			By("Both rules carry this release's labels and apply entry; one is now observed")
+			handedOver := makeLabeledUnstructured("openchoreo.dev/v1alpha1", "ObservabilityAlertRule", "", "handed-over-rule", "handed-over", fetched)
+			applied := makeLabeledUnstructured("openchoreo.dev/v1alpha1", "ObservabilityAlertRule", "", "applied-rule", "applied", fetched)
+			opClient := fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).
+				WithObjects(handedOver, applied).WithReturnManagedFields().Build()
+			r := testReconcilerWithDPClient(opClient, "", "")
+
+			Expect(k8sClient.Delete(ctx, fetched)).To(Succeed())
+			Eventually(func() bool {
+				return !fetchRelease(finalizeName).DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+			for range 3 {
+				if apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})) {
+					break
+				}
+				mustReconcile(r, reconcileRequest(finalizeName))
+			}
+			Eventually(func() bool {
+				return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{}))
+			}, testTimeout, testInterval).Should(BeTrue(), "the finalizer must not wait for the observed rule")
+
+			Expect(apierrors.IsNotFound(opClient.Get(ctx, client.ObjectKeyFromObject(applied), applied.DeepCopy()))).
+				To(BeTrue(), "the rule this release applied is deleted")
+			Expect(opClient.Get(ctx, client.ObjectKeyFromObject(handedOver), handedOver.DeepCopy())).
+				To(Succeed(), "the observed rule is kept")
 		})
 	})
 })

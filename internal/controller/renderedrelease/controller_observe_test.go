@@ -5,8 +5,11 @@ package renderedrelease
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -357,6 +361,96 @@ func TestReadObservedResourcesKeepsLastObservedTime(t *testing.T) {
 	})
 }
 
+// TestReadObservedResourcesThroughProxyClient reads through ProxyClient, the plane
+// client production uses, against a server answering as the gateway would. The
+// envtest client checks kinds with discovery before sending anything, and the
+// other unit tests return errors built by hand, so this is the test that covers
+// how ProxyClient turns the plane's answers into the errors classified here.
+func TestReadObservedResourcesThroughProxyClient(t *testing.T) {
+	rollingOut := healthyDeployment(3, 2)
+	rollingOut.SetNamespace("prod")
+	rollingOut.SetName("api")
+
+	writeJSON := func(w http.ResponseWriter, code int, body any) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(code)
+		_ = json.NewEncoder(w).Encode(body)
+	}
+	notFound := func(details *metav1.StatusDetails) metav1.Status {
+		return metav1.Status{Status: metav1.StatusFailure, Reason: metav1.StatusReasonNotFound,
+			Code: http.StatusNotFound, Details: details}
+	}
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The plane's API path follows /k8s in the proxy URL.
+		_, path, _ := strings.Cut(r.URL.Path, "/k8s")
+		switch path {
+		case "/apis/apps/v1/namespaces/prod/deployments/api":
+			writeJSON(w, http.StatusOK, rollingOut.Object)
+		case "/apis/apps/v1/namespaces/prod/deployments/gone":
+			writeJSON(w, http.StatusNotFound, notFound(&metav1.StatusDetails{Name: "gone", Group: "apps", Kind: "deployments"}))
+		case "/apis/apps/v1beta1/namespaces/prod/deployments/api", // a version the plane does not serve
+			"/apis/apps/v1/deployments/api": // a namespaced kind asked for without a namespace
+			writeJSON(w, http.StatusNotFound, notFound(&metav1.StatusDetails{}))
+		case "/apis/autoscaling.k8s.io/v1/namespaces/prod/verticalpodautoscalers/api":
+			// A group the plane does not serve: the API server answers in plain text.
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("404 page not found"))
+		case "/apis/storage.k8s.io/v1/storageclasses/local-path":
+			writeJSON(w, http.StatusForbidden, metav1.Status{Status: metav1.StatusFailure,
+				Reason: metav1.StatusReasonForbidden, Code: http.StatusForbidden})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer gateway.Close()
+
+	plane, err := kubernetesClient.NewProxyClient(gateway.URL, "dataplane/test", "_cluster", "cdp", nil)
+	if err != nil {
+		t.Fatalf("NewProxyClient: %v", err)
+	}
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("api", "apps/v1", "Deployment", "prod", "api"),
+		observedRes("gone", "apps/v1", "Deployment", "prod", "gone"),
+		observedRes("old-version", "apps/v1beta1", "Deployment", "prod", "api"),
+		observedRes("no-namespace", "apps/v1", "Deployment", "", "api"),
+		observedRes("vpa", "autoscaling.k8s.io/v1", "VerticalPodAutoscaler", "prod", "api"),
+		observedRes("storageclass", "storage.k8s.io/v1", "StorageClass", "", "local-path"),
+	})
+	result := (&Reconciler{}).readObservedResources(context.Background(), plane, &openchoreov1alpha1.RenderedRelease{}, entries)
+
+	if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusProgressing {
+		t.Errorf("api health = %q, want Progressing from the Deployment check", got)
+	}
+	failures := make(map[string]observedReadFailure, len(result.failures))
+	for _, f := range result.failures {
+		failures[f.entry.id] = f
+	}
+	for id, want := range map[string]controller.ConditionReason{
+		"gone":         ReasonObservedResourceNotFound,
+		"old-version":  ReasonObservedKindNotFound,
+		"no-namespace": ReasonObservedKindNotFound,
+		// Known limitation: ProxyClient turns the plain-text 404 for an unserved
+		// group into a not-found that names the object.
+		"vpa":          ReasonObservedResourceNotFound,
+		"storageclass": ReasonObservedReadForbidden,
+	} {
+		f, ok := failures[id]
+		if !ok {
+			t.Errorf("%s: no failure recorded, want %s", id, want)
+			continue
+		}
+		if f.reason != want {
+			t.Errorf("%s: reason = %s, want %s (detail %q)", id, f.reason, want, f.detail)
+		}
+	}
+	for _, id := range []string{"old-version", "no-namespace"} {
+		if d := failures[id].detail; !strings.Contains(d, "namespace does not fit the kind's scope") {
+			t.Errorf("%s: detail = %q, want it to mention the scope", id, d)
+		}
+	}
+}
+
 func TestNamesObject(t *testing.T) {
 	gr := schema.GroupResource{Group: "apps", Resource: "deployments"}
 	if !namesObject(apierrors.NewNotFound(gr, "api")) {
@@ -500,6 +594,9 @@ func TestCheckObservedOverlap(t *testing.T) {
 	}
 	if err := checkObservedOverlap([]*unstructured.Unstructured{unstructuredObj("apps/v1", "Deployment", "prod", "web")}, entries); err != nil {
 		t.Errorf("distinct objects overlap: %v", err)
+	}
+	if err := checkObservedOverlap([]*unstructured.Unstructured{unstructuredObj("apps/v1beta2", "Deployment", "prod", "api")}, entries); err == nil {
+		t.Error("the same object under another API version overlaps too")
 	}
 	if err := checkObservedOverlap([]*unstructured.Unstructured{rendered}, nil); err != nil {
 		t.Errorf("nothing observed, got %v", err)
