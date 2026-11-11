@@ -84,7 +84,7 @@ func TestWorkflowLogCommands_Formats(t *testing.T) {
 }
 
 func TestLogCommands_OutputHelp(t *testing.T) {
-	const usage = "Output format: text, json (one object per line), or custom-columns=FIELD,..."
+	const usage = "Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns=timestamp,log"
 	for _, tc := range []struct {
 		name   string
 		newCmd func(client.NewClientFunc) *cobra.Command

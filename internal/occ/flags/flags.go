@@ -224,7 +224,7 @@ func GetWorkflowRun(cmd *cobra.Command) string {
 
 func AddOutput(cmd *cobra.Command) {
 	cmd.Flags().StringP("output", "o", "text",
-		"Output format: text, json (one object per line), or custom-columns=FIELD,...")
+		"Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns=timestamp,log")
 }
 
 func GetOutput(cmd *cobra.Command) string {
