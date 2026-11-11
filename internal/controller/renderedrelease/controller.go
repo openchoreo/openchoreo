@@ -55,7 +55,8 @@ const (
 	// ReasonApplyFailed indicates one or more resources failed to apply
 	ReasonApplyFailed = "ApplyFailed"
 	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
-	// are not applied
+	// are not applied. ResourcesApplied is False with this reason.
+	// TODO: the binding controllers read any current-generation False as an apply failure; check the reason first (#5362).
 	ReasonObserveMode = "ObserveMode"
 
 	// DefaultStableInterval is the stable requeue interval when neither the release nor
@@ -207,12 +208,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
 			controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully")
 	} else {
-		// Nothing is applied in Observe mode. The condition stays True, with its own
-		// reason, so its observed generation still tells consumers which spec the
-		// status beside it reflects. Like the apply success above, it is persisted
-		// with the status at the end.
-		controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
-			controller.ConditionReason(ReasonObserveMode), "Observe mode: spec.resources are not applied")
+		// Nothing in spec.resources is applied in Observe mode, so the condition is
+		// False, with a reason of its own to tell it from an apply failure. How the
+		// observed resources were read is ObservedResourcesRead's to report. Like the
+		// apply success above, this is persisted with the status at the end, not at
+		// once like an apply failure.
+		controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+			controller.ConditionReason(ReasonObserveMode),
+			"Observe mode: spec.resources are not applied, and anything applied earlier is removed")
 	}
 
 	// PHASE 2: Discover live resources that we manage in the target plane

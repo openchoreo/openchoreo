@@ -181,8 +181,8 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			By("Nothing was applied, and the apply condition says why")
 			applied := findCondition(updated, ConditionResourcesApplied)
 			Expect(applied).NotTo(BeNil())
-			Expect(applied.Status).To(Equal(metav1.ConditionTrue))
-			Expect(applied.Reason).To(Equal(ReasonObserveMode))
+			Expect(applied.Status).To(Equal(metav1.ConditionFalse), "nothing in spec.resources is applied")
+			Expect(applied.Reason).To(Equal(ReasonObserveMode), "the reason tells it from an apply failure")
 			Expect(applied.ObservedGeneration).To(Equal(updated.Generation))
 
 			By("Unknown observed objects are re-read on the progressing interval, at poll priority")
@@ -274,7 +274,10 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(updated.Status.Resources).To(BeEmpty())
 			Expect(updated.Status.ObservedResources).To(HaveLen(1))
 			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
-			Expect(findCondition(updated, ConditionResourcesApplied).Reason).To(Equal(ReasonObserveMode))
+			applied := findCondition(updated, ConditionResourcesApplied)
+			Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+			Expect(applied.Reason).To(Equal(ReasonObserveMode))
+			Expect(applied.ObservedGeneration).To(Equal(updated.Generation))
 		})
 	})
 
