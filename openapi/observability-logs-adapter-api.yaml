@@ -847,7 +847,9 @@ components:
           type: string
         containerName:
           type: string
-          description: Filter logs to a specific container
+          description: >-
+            Filter logs to a specific container. Requires an adapter that supports
+            containerName; unsupported adapters may ignore this field.
       required: [startTime, endTime, searchScope]
 
     # Response schemas for logs
