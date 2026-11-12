@@ -889,6 +889,17 @@ components:
               type: string
               description: The OpenChoreo environment UID that generated the log
               format: uuid
+            releaseLineName:
+              type: string
+              description: >-
+                The component's release line that generated the log, from the pod's
+                openchoreo.dev/release-line label. Absent for its main line.
+            releaseLineUid:
+              type: string
+              description: >-
+                The UID of the component's release line that generated the log, from the
+                pod's openchoreo.dev/release-line-uid label. Absent for its main line.
+              format: uuid
             containerName:
               type: string
               description: The container name that generated the log

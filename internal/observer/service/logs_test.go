@@ -354,6 +354,8 @@ func TestLogsService_ConvertComponentLogsToResponse(t *testing.T) {
 				ContainerName:   "main",
 				PodName:         "pod-1",
 				PodNamespace:    "ns",
+				ReleaseLineName: "next",
+				ReleaseLineID:   sampleReleaseLineUID,
 			},
 		},
 		TotalCount: 1,
@@ -369,6 +371,8 @@ func TestLogsService_ConvertComponentLogsToResponse(t *testing.T) {
 	assert.Equal(t, sampleComponentUID, resp.Logs[0].Metadata.ComponentUID)
 	assert.Equal(t, sampleProjectUID, resp.Logs[0].Metadata.ProjectUID)
 	assert.Equal(t, sampleEnvironmentUID, resp.Logs[0].Metadata.EnvironmentUID)
+	assert.Equal(t, "next", resp.Logs[0].Metadata.ReleaseLineName)
+	assert.Equal(t, sampleReleaseLineUID, resp.Logs[0].Metadata.ReleaseLineUID)
 	assert.Equal(t, 1, resp.Total)
 	assert.Equal(t, 5, resp.TookMs)
 }

@@ -131,6 +131,9 @@ type LogMetadata struct {
 	ComponentUID    string `json:"componentUid,omitempty"`
 	ProjectUID      string `json:"projectUid,omitempty"`
 	EnvironmentUID  string `json:"environmentUid,omitempty"`
+	// ReleaseLineName and ReleaseLineUID are empty for the component's main line.
+	ReleaseLineName string `json:"releaseLineName,omitempty"`
+	ReleaseLineUID  string `json:"releaseLineUid,omitempty"`
 	ContainerName   string `json:"containerName,omitempty"`
 	PodName         string `json:"podName,omitempty"`
 	PodNamespace    string `json:"podNamespace,omitempty"`
