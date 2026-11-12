@@ -20,6 +20,7 @@ import (
 // wirelogsAgentConn is the subset of *AgentConnection that handleWirelogs uses.
 type wirelogsAgentConn interface {
 	SendRawMessage(data []byte) error
+	IsValidForCR(crKey string) bool
 }
 
 // getAgentConnectionForWirelogs defers to the server's ConnectionManager.
@@ -99,13 +100,23 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := &streamSession{
-		requestID: requestID,
-		fromAgent: make(chan *messaging.HTTPTunnelStreamChunk, 256),
-		done:      make(chan struct{}),
+		requestID:       requestID,
+		planeIdentifier: planeIdentifier,
+		crKey:           crKey,
+		fromAgent:       make(chan *messaging.HTTPTunnelStreamChunk, 256),
+		done:            make(chan struct{}),
 	}
 
 	s.registerStreamSession(requestID, session)
 	defer s.unregisterStreamSession(requestID)
+
+	// Same check as in handleExec: a revocation that ran before the session
+	// was registered could not close it.
+	if !conn.IsValidForCR(crKey) {
+		logger.Warn("CR was revoked while the wirelogs stream was starting")
+		http.Error(w, "no agent available: CR is no longer authorized", http.StatusServiceUnavailable)
+		return
+	}
 
 	agentQuery := wirelogsAgentQuery(namespace, environment, project, component, releaseLine, allReleaseLines)
 
@@ -170,6 +181,9 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Client disconnected before stream started")
 		return
 	case <-session.done:
+		// The agent already has the stream init and may still start the
+		// stream, so tell it to stop.
+		closeAgentStream(conn, requestID)
 		http.Error(w, "stream closed before start", http.StatusBadGateway)
 		return
 	}

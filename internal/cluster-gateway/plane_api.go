@@ -29,7 +29,7 @@ type PlaneNotification struct {
 // PlaneNotificationResponse represents the response to a plane notification
 type PlaneNotificationResponse struct {
 	Success               bool   `json:"success"`
-	Action                string `json:"action"` // "disconnect", "disconnect_fallback", "revalidate"
+	Action                string `json:"action"` // "disconnect", "disconnect_fallback", "revalidate", "revoke"
 	DisconnectedAgents    *int   `json:"disconnectedAgents,omitempty"`
 	AuthorizationsGranted *int   `json:"authorizationsGranted,omitempty"`
 	AuthorizationsRevoked *int   `json:"authorizationsRevoked,omitempty"`
@@ -95,6 +95,39 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 	case "created", "updated":
 		// For both "created" and "updated" events, attempt to revalidate agent certificates
 		// using the CR's CA. This avoids disconnecting all HA agent replicas unnecessarily.
+		// Read before the CR lookups below, so RevalidateCR can tell when a
+		// deletion landed while they were in progress.
+		revocations := api.connMgr.CRRevocations(
+			notification.PlaneType, notification.PlaneID, notification.Namespace, notification.Name)
+		if revocations > 0 {
+			terminating, err := api.server.planeCRTerminating(r.Context(), notification.PlaneType, notification.Namespace, notification.Name)
+			if err != nil {
+				// Without knowing whether the revoked CR is still being deleted,
+				// going on could re-grant it. Return 503 so the controller retries.
+				api.logger.Error("failed to look up CR for re-validation", "error", err,
+					"planeType", notification.PlaneType,
+					"planeID", notification.PlaneID,
+					"event", notification.Event,
+				)
+				http.Error(w, fmt.Sprintf("failed to look up CR for re-validation: %v", err), http.StatusServiceUnavailable)
+				return
+			}
+			if terminating {
+				// A terminating CR stays in service until its "deleted" event: its
+				// finalizer cleans up through the agent. Once this replica has
+				// revoked it, a notification for it is stale and must not re-grant.
+				api.logger.Info("skipping re-validation of a deleted CR",
+					"planeType", notification.PlaneType,
+					"planeID", notification.PlaneID,
+					"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+				)
+				none := 0
+				result.Action = "revalidate"
+				result.AuthorizationsGranted = &none
+				result.AuthorizationsRevoked = &none
+				break
+			}
+		}
 		caData, err := api.fetchCRClientCA(notification)
 		if err != nil {
 			api.logger.Error("failed to fetch CR CA for re-validation", "error", err,
@@ -113,6 +146,7 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 				notification.Namespace,
 				notification.Name,
 				caData,
+				revocations,
 			)
 			if err != nil {
 				api.logger.Error("CR re-validation failed", "error", err)
@@ -133,13 +167,24 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 		}
 
 	case "deleted":
-		disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
-		api.logger.Info("disconnected agents for CR deletion",
-			"planeType", notification.PlaneType,
-			"planeID", notification.PlaneID,
-			"disconnectedAgents", disconnectedCount,
+		if notification.Name == "" {
+			// Without a CR name the deleted CR cannot be told apart from others
+			// sharing the planeID, so fall back to dropping the whole plane.
+			disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
+			result.Action = "disconnect"
+			result.DisconnectedAgents = &disconnectedCount
+			break
+		}
+		// Other CRs may share this planeID: revoke only the deleted CR so agents
+		// stay connected for the rest. Agents left with no CR are disconnected.
+		revoked, disconnectedCount := api.server.revokeCR(
+			notification.PlaneType,
+			notification.PlaneID,
+			notification.Namespace,
+			notification.Name,
 		)
-		result.Action = "disconnect"
+		result.Action = "revoke"
+		result.AuthorizationsRevoked = &revoked
 		result.DisconnectedAgents = &disconnectedCount
 
 	default:
