@@ -158,15 +158,17 @@ func (t *Toolsets) RegisterCreateEndpointReleaseBinding(s *mcp.Server, perms map
 				"description": "Optional: per-env values for the referenced EndpointType's " +
 					"environmentConfigs schema.",
 			},
+			"backend_overrides": endpointBackendOverridesProperty(),
 		}, []string{"namespace_name", "name", "project_name", "endpoint_name", "environment"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName                  string                 `json:"namespace_name"`
-		Name                           string                 `json:"name"`
-		ProjectName                    string                 `json:"project_name"`
-		EndpointName                   string                 `json:"endpoint_name"`
-		Environment                    string                 `json:"environment"`
-		EndpointRelease                string                 `json:"endpoint_release"`
-		EndpointTypeEnvironmentConfigs map[string]interface{} `json:"endpoint_type_environment_configs"`
+		NamespaceName                  string                        `json:"namespace_name"`
+		Name                           string                        `json:"name"`
+		ProjectName                    string                        `json:"project_name"`
+		EndpointName                   string                        `json:"endpoint_name"`
+		Environment                    string                        `json:"environment"`
+		EndpointRelease                string                        `json:"endpoint_release"`
+		EndpointTypeEnvironmentConfigs map[string]interface{}        `json:"endpoint_type_environment_configs"`
+		BackendOverrides               []gen.EndpointBackendOverride `json:"backend_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		spec := gen.EndpointReleaseBindingSpec{Environment: args.Environment}
 		spec.Owner.ProjectName = args.ProjectName
@@ -176,6 +178,9 @@ func (t *Toolsets) RegisterCreateEndpointReleaseBinding(s *mcp.Server, perms map
 		}
 		if args.EndpointTypeEnvironmentConfigs != nil {
 			spec.EndpointTypeEnvironmentConfigs = &args.EndpointTypeEnvironmentConfigs
+		}
+		if args.BackendOverrides != nil {
+			spec.BackendOverrides = &args.BackendOverrides
 		}
 		body := &gen.CreateEndpointReleaseBindingJSONRequestBody{
 			Metadata: gen.ObjectMeta{Name: args.Name},
@@ -194,7 +199,8 @@ func (t *Toolsets) RegisterUpdateEndpointReleaseBinding(s *mcp.Server, perms map
 		Name: name,
 		Description: "Update an existing EndpointReleaseBinding (partial update). spec.owner and " +
 			"spec.environment cannot be changed. Use this to advance the release pin (promote a new " +
-			"EndpointRelease into an environment) or update environment configuration overrides.",
+			"EndpointRelease into an environment), update environment configuration overrides, or set this " +
+			"environment's backend weights and mirror shares (backend_overrides) without a new release.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("Binding name. Use list_endpoint_release_bindings to discover valid names."),
@@ -204,12 +210,14 @@ func (t *Toolsets) RegisterUpdateEndpointReleaseBinding(s *mcp.Server, perms map
 				"type":        "object",
 				"description": "Optional: replace per-env values for the referenced EndpointType's environmentConfigs.",
 			},
+			"backend_overrides": endpointBackendOverridesProperty(),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName                  string                 `json:"namespace_name"`
-		Name                           string                 `json:"name"`
-		EndpointRelease                string                 `json:"endpoint_release"`
-		EndpointTypeEnvironmentConfigs map[string]interface{} `json:"endpoint_type_environment_configs"`
+		NamespaceName                  string                        `json:"namespace_name"`
+		Name                           string                        `json:"name"`
+		EndpointRelease                string                        `json:"endpoint_release"`
+		EndpointTypeEnvironmentConfigs map[string]interface{}        `json:"endpoint_type_environment_configs"`
+		BackendOverrides               []gen.EndpointBackendOverride `json:"backend_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		spec := &gen.EndpointReleaseBindingSpec{}
 		if args.EndpointRelease != "" {
@@ -217,6 +225,9 @@ func (t *Toolsets) RegisterUpdateEndpointReleaseBinding(s *mcp.Server, perms map
 		}
 		if args.EndpointTypeEnvironmentConfigs != nil {
 			spec.EndpointTypeEnvironmentConfigs = &args.EndpointTypeEnvironmentConfigs
+		}
+		if args.BackendOverrides != nil {
+			spec.BackendOverrides = &args.BackendOverrides
 		}
 		body := &gen.UpdateEndpointReleaseBindingJSONRequestBody{
 			Metadata: gen.ObjectMeta{Name: args.Name},
@@ -245,4 +256,31 @@ func (t *Toolsets) RegisterDeleteEndpointReleaseBinding(s *mcp.Server, perms map
 		result, err := t.DeploymentToolset.DeleteEndpointReleaseBinding(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
+}
+
+func endpointBackendOverridesProperty() map[string]any {
+	return map[string]any{
+		"type": "array",
+		"description": "Optional: this environment's weight or mirror share per backend, by backend name, " +
+			"replacing the whole list; an empty list clears them so the release's values apply. Set weight " +
+			"or mirror, not both. Entries for a backend the pinned release does not have are ignored and " +
+			"reported in the BackendOverridesApplied condition.",
+		"items": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name":   stringProperty("Backend name in the release"),
+				"weight": map[string]any{"type": "integer", "description": "Relative share of traffic; 0 sends none"},
+				"mirror": overrideMirrorProperty(),
+			},
+			"required": []string{"name"},
+		},
+	}
+}
+
+// overrideMirrorProperty is an override's mirror share, set instead of a weight.
+func overrideMirrorProperty() map[string]any {
+	p := endpointMirrorProperty()
+	p["description"] = "Optional: the share of requests to copy to this backend, which must be a mirror in the " +
+		"pinned release. Set it instead of weight."
+	return p
 }

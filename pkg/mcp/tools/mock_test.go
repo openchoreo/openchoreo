@@ -12,6 +12,7 @@ import (
 const (
 	emptyObjectSchema = `{"type":"object","properties":{}}`
 	deletedResponse   = `{"action":"deleted"}`
+	rolloutResponse   = `{"endpoint":"endpoint-1"}`
 )
 
 // MockCoreToolsetHandler implements all toolset handler interfaces for testing.
@@ -1194,6 +1195,41 @@ func (m *MockCoreToolsetHandler) GetEndpoint(
 ) (any, error) {
 	m.recordCall("GetEndpoint", namespaceName, endpointName)
 	return `{"name":"endpoint-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEndpointRollout(
+	ctx context.Context, namespaceName, endpointName string,
+) (any, error) {
+	m.recordCall("GetEndpointRollout", namespaceName, endpointName)
+	return rolloutResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) StartEndpointRollout(
+	ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutStartRequest,
+) (any, error) {
+	m.recordCall("StartEndpointRollout", namespaceName, endpointName, req)
+	return rolloutResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) StepEndpointRollout(
+	ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutStepRequest,
+) (any, error) {
+	m.recordCall("StepEndpointRollout", namespaceName, endpointName, req)
+	return rolloutResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) AbortEndpointRollout(
+	ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutAbortRequest,
+) (any, error) {
+	m.recordCall("AbortEndpointRollout", namespaceName, endpointName, req)
+	return rolloutResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) FinishEndpointRollout(
+	ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutFinishRequest,
+) (any, error) {
+	m.recordCall("FinishEndpointRollout", namespaceName, endpointName, req)
+	return rolloutResponse, nil
 }
 
 func (m *MockCoreToolsetHandler) UpdateEndpoint(

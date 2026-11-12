@@ -168,7 +168,7 @@ func TestAuditCoverage(t *testing.T) {
 	// clear count mismatch instead of this test quietly covering fewer tools
 	// than actually exist.
 	t.Run("registers every known tool", func(t *testing.T) {
-		const wantTools = 155
+		const wantTools = 160
 		if len(perms) != wantTools {
 			t.Errorf("registerAllToolsets(t) registered %d tools, want %d", len(perms), wantTools)
 		}
@@ -280,7 +280,7 @@ func TestAuditCoverage(t *testing.T) {
 	// collision error instead of propagating it. 75 = those 73 plus
 	// accessReadMCPTools.
 	t.Run("no duplicate bindings", func(t *testing.T) {
-		const wantBoundToolNames = 75
+		const wantBoundToolNames = 79
 		if len(boundToolNames) != wantBoundToolNames {
 			t.Errorf("len(distinct bound tool names) = %d, want %d — a collision may have silently "+
 				"dropped a tool, or a new tool needs a binding added", len(boundToolNames), wantBoundToolNames)

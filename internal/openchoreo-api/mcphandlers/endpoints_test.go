@@ -390,11 +390,60 @@ func TestUpdateEndpointReleaseBinding(t *testing.T) {
 		assert.Equal(t, "orders.example.com", got["hostname"])
 	})
 
+	t.Run("sets the environment's backend overrides", func(t *testing.T) {
+		existing := sampleEndpointReleaseBinding()
+		svc := endpointreleasebindingmocks.NewMockService(t)
+		svc.EXPECT().
+			GetEndpointReleaseBinding(mock.Anything, testNS, testEndpointReleaseBindingName).
+			Return(existing, nil)
+		var sent *openchoreov1alpha1.EndpointReleaseBinding
+		svc.EXPECT().
+			UpdateEndpointReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, b *openchoreov1alpha1.EndpointReleaseBinding) { sent = b }).
+			Return(existing, nil)
+
+		req := &gen.UpdateEndpointReleaseBindingJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testEndpointReleaseBindingName},
+			Spec: &gen.EndpointReleaseBindingSpec{
+				BackendOverrides: &[]gen.EndpointBackendOverride{
+					{Name: "primary", Weight: ptr.To[int32](75)},
+					{Name: "shadow", Mirror: &gen.EndpointMirror{Percent: 10}},
+				},
+			},
+		}
+
+		h := newTestHandler(withEndpointReleaseBindingService(svc))
+		_, err := h.UpdateEndpointReleaseBinding(ctx, testNS, req)
+		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "primary", Weight: ptr.To[int32](75)},
+			{Name: "shadow", Mirror: &openchoreov1alpha1.EndpointMirror{Percent: 10}},
+		}, sent.Spec.BackendOverrides)
+		assert.Equal(t, testEndpointReleaseName, sent.Spec.EndpointRelease, "the pin is kept")
+	})
+
 	t.Run("rejects nil body", func(t *testing.T) {
 		h := newTestHandler()
 		_, err := h.UpdateEndpointReleaseBinding(ctx, testNS, nil)
 		require.Error(t, err)
 	})
+}
+
+func TestEndpointBackendsReportMatchAndMirror(t *testing.T) {
+	match := &openchoreov1alpha1.EndpointMatch{
+		Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-canary", Value: "true"}},
+	}
+	mirror := &openchoreov1alpha1.EndpointMirror{Percent: 10}
+	out := endpointBackends([]openchoreov1alpha1.EndpointBackendRef{
+		{Name: "canary", Weight: ptr.To[int32](0), Match: match},
+		{Name: "shadow", Weight: ptr.To[int32](0), Mirror: mirror},
+	})
+	require.Len(t, out, 2)
+	assert.Equal(t, match, out[0]["match"])
+	assert.Equal(t, mirror, out[1]["mirror"])
+	assert.NotContains(t, out[0], "mirror")
 }
 
 func TestEndpointReleaseBindingDetail(t *testing.T) {

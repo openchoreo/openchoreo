@@ -78,7 +78,7 @@ func TestMCPBindings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	const wantTotalKeys = 99
+	const wantTotalKeys = 103
 	if len(bindings) != wantTotalKeys {
 		t.Fatalf("len(MCPBindings()) = %d, want %d (got tools: %v)", len(bindings), wantTotalKeys, toolNames(bindings))
 	}

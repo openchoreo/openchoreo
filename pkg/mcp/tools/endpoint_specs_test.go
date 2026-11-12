@@ -5,6 +5,8 @@ package tools
 
 import (
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 const testEndpointName = "orders-api"
@@ -15,6 +17,7 @@ const testEndpointName = "orders-api"
 func endpointToolSpecs() []toolTestSpec {
 	specs := make([]toolTestSpec, 0, 8)
 	specs = append(specs, endpointCRUDSpecs()...)
+	specs = append(specs, endpointRolloutSpecs()...)
 	specs = append(specs, endpointEndpointTypeSpecs()...)
 	return specs
 }
@@ -97,11 +100,33 @@ func endpointCRUDSpecs() []toolTestSpec {
 				"namespace_name": testNamespaceName,
 				"name":           testEndpointName,
 				"visibility":     []any{"internal", "external"},
+				"backend_refs": []any{
+					map[string]any{"name": "stable", "component": "greeter", "endpoint": "http", "weight": 100},
+					map[string]any{
+						"name": "canary", "component": "greeter-v2", "endpoint": "http", "weight": 0,
+						"match": map[string]any{"headers": []any{map[string]any{"name": "x-canary", "value": "true"}}},
+					},
+					map[string]any{
+						"name": "shadow", "component": "greeter-v3", "endpoint": "http", "weight": 0,
+						"mirror": map[string]any{"percent": 10},
+					},
+				},
 			},
 			expectedMethod: "UpdateEndpoint",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+				body, ok := args[1].(*gen.UpdateEndpointJSONRequestBody)
+				if !ok || body.Spec == nil || len(body.Spec.BackendRefs) != 3 {
+					t.Fatalf("Expected three backend refs in the body, got %#v", args[1])
+				}
+				refs := body.Spec.BackendRefs
+				if refs[1].Match == nil || (*refs[1].Match.Headers)[0].Name != "x-canary" {
+					t.Errorf("Expected the canary's match to be kept, got %#v", refs[1].Match)
+				}
+				if refs[2].Mirror == nil || refs[2].Mirror.Percent != 10 {
+					t.Errorf("Expected the shadow's mirror to be kept, got %#v", refs[2].Mirror)
 				}
 			},
 		},

@@ -114,6 +114,10 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 	"CreateEndpointReleaseBinding": {ToolName: "create_endpoint_release_binding", ResourceArg: "name"},
 	"UpdateEndpointReleaseBinding": {ToolName: "update_endpoint_release_binding", ResourceArg: "name"},
 	"DeleteEndpointReleaseBinding": {ToolName: "delete_endpoint_release_binding", ResourceArg: "name"},
+	"StartEndpointRollout":         {ToolName: "start_endpoint_rollout", ResourceArg: "name"},
+	"StepEndpointRollout":          {ToolName: "step_endpoint_rollout", ResourceArg: "name"},
+	"AbortEndpointRollout":         {ToolName: "abort_endpoint_rollout", ResourceArg: "name"},
+	"FinishEndpointRollout":        {ToolName: "finish_endpoint_rollout", ResourceArg: "name"},
 
 	"CreateSecretReference": {ToolName: "create_secret_reference", ResourceArg: "name"},
 	"UpdateSecretReference": {ToolName: "update_secret_reference", ResourceArg: "secret_reference_name"},

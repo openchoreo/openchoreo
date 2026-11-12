@@ -27,6 +27,12 @@ var writeMethodPrefixes = []string{"Create", "Update", "Patch"}
 // writeMethodPrefixes.
 var extraWriteMethods = map[string]bool{
 	"TriggerWorkflowRun": true, // creates a WorkflowRun; alias entry point of CreateWorkflowRun
+
+	// Each writes the Endpoint or one of its EndpointReleaseBindings.
+	"StartEndpointRollout":  true,
+	"StepEndpointRollout":   true,
+	"AbortEndpointRollout":  true,
+	"FinishEndpointRollout": true,
 }
 
 // setResourceExemptions maps a write handler's method name to the reason it
@@ -48,8 +54,8 @@ var setResourceExemptions = map[string]string{}
 // On a mismatch: if the new method writes, give it a Create/Update/Patch name
 // or add it to extraWriteMethods; if it only reads, just update the total.
 const (
-	wantCheckedWriteMethods = 64
-	wantHandlerMethods      = 200
+	wantCheckedWriteMethods = 68
+	wantHandlerMethods      = 205
 )
 
 // TestMCPHandlers_WritesCallSetResource statically guards the UID gap on the

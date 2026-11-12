@@ -17,11 +17,13 @@ import (
 // flattened relative to the API shape: the only backend kind today is
 // Component, so the component fields sit at the top level.
 type endpointBackendArg struct {
-	Name        string `json:"name"`
-	Component   string `json:"component"`
-	Endpoint    string `json:"endpoint"`
-	ReleaseLine string `json:"release_line,omitempty"`
-	Weight      *int32 `json:"weight,omitempty"`
+	Name        string              `json:"name"`
+	Component   string              `json:"component"`
+	Endpoint    string              `json:"endpoint"`
+	ReleaseLine string              `json:"release_line,omitempty"`
+	Weight      *int32              `json:"weight,omitempty"`
+	Match       *gen.EndpointMatch  `json:"match,omitempty"`
+	Mirror      *gen.EndpointMirror `json:"mirror,omitempty"`
 }
 
 func endpointVisibilityProperty(description string) map[string]any {
@@ -53,9 +55,65 @@ func endpointBackendRefsProperty(description string) map[string]any {
 					"type":        "integer",
 					"description": "Optional: relative share of traffic (default 1; 0 sends none)",
 				},
+				"match":  endpointMatchProperty(),
+				"mirror": endpointMirrorProperty(),
 			},
 			"required": []string{"name", "component", "endpoint"},
 		},
+	}
+}
+
+func endpointMatchProperty() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"description": "Optional: requests that meet all of these conditions go to this backend, whatever the " +
+			"weights, e.g. a header testers send to reach a canary. Keep it when replacing backend_refs, or the " +
+			"route is removed.",
+		"properties": map[string]any{
+			"path": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"type":  map[string]any{"type": "string", "enum": []string{"PathPrefix", "Exact"}},
+					"value": stringProperty("Path relative to where the Endpoint is served, e.g. /next"),
+				},
+				"required": []string{"value"},
+			},
+			"headers": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name":  stringProperty("Header name"),
+						"type":  map[string]any{"type": "string", "enum": []string{"Exact", "RegularExpression"}},
+						"value": stringProperty("Header value, or an RE2 expression"),
+					},
+					"required": []string{"name", "value"},
+				},
+			},
+			"cookies": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name":  stringProperty("Cookie name"),
+						"value": stringProperty("Cookie value"),
+					},
+					"required": []string{"name", "value"},
+				},
+			},
+		},
+	}
+}
+
+func endpointMirrorProperty() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"description": "Optional: copy a share of the weighted requests to this backend; its answers are " +
+			"discarded. A mirror backend needs weight 0 and no match.",
+		"properties": map[string]any{
+			"percent": map[string]any{"type": "integer", "description": "Share of requests to copy, 0 to 100"},
+		},
+		"required": []string{"percent"},
 	}
 }
 
@@ -88,6 +146,8 @@ func toEndpointBackendRefs(raw []endpointBackendArg) []gen.EndpointBackendRef {
 			Kind:      &kind,
 			Component: component,
 			Weight:    b.Weight,
+			Match:     b.Match,
+			Mirror:    b.Mirror,
 		})
 	}
 	return out
