@@ -120,7 +120,7 @@ func TestLogs_InvalidSince(t *testing.T) {
 
 func TestLogs_InvalidOutput(t *testing.T) {
 	err := New(nil).Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Output: "yaml"})
-	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or custom-columns=FIELD,...`)
+	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`)
 }
 
 func TestFollowLiveLogs_Formats(t *testing.T) {

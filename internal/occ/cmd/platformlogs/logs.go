@@ -441,7 +441,7 @@ func tailLimit(tail int) int {
 // validateOutput rejects an unknown --output rather than silently printing text.
 func validateOutput(output string) error {
 	if output == "" {
-		return fmt.Errorf("invalid --output %q: must be text, json, or custom-columns=FIELD,...", output)
+		return fmt.Errorf("invalid --output %q: must be text, json, or 'custom-columns=FIELD,...'", output)
 	}
 	if err := logformat.Validate(output); err != nil {
 		return fmt.Errorf("invalid --output %q: %w", output, err)

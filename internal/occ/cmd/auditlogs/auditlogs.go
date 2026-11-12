@@ -144,7 +144,7 @@ func buildRequest(params QueryParams, now time.Time) (obsgen.AuditLogsQueryReque
 	var body obsgen.AuditLogsQueryRequest
 
 	if params.Output == "" {
-		return body, fmt.Errorf("invalid --output %q: must be text, json, or custom-columns=FIELD,...", params.Output)
+		return body, fmt.Errorf("invalid --output %q: must be text, json, or 'custom-columns=FIELD,...'", params.Output)
 	}
 	if err := logformat.Validate(params.Output); err != nil {
 		return body, fmt.Errorf("invalid --output %q: %w", params.Output, err)

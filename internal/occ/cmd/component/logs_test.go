@@ -157,7 +157,7 @@ func TestPrintLogs_JSON(t *testing.T) {
 
 func TestLogs_InvalidOutput(t *testing.T) {
 	err := New(nil).Logs(LogsParams{Output: "yaml"})
-	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or custom-columns=FIELD,...`)
+	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`)
 }
 
 // --- printLogEntry ---

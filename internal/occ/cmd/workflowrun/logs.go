@@ -19,7 +19,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-const defaultPlaneName = "default"
+const (
+	defaultPlaneName = "default"
+	outputText       = "text"
+)
 
 // Logs fetches and displays logs for a workflow run
 func (w *WorkflowRun) Logs(params LogsParams) error {
@@ -236,7 +239,7 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.In
 		return nil
 	}
 
-	if params.Output != "" && params.Output != "text" {
+	if params.Output != "" && params.Output != outputText {
 		if err := printFormattedLogs(logResponse.Logs, params.Output); err != nil {
 			return err
 		}
@@ -340,7 +343,7 @@ func resolveObserverURLFromObsRef(ctx context.Context, apiClient client.Interfac
 
 // printLogEntries prints workflow run log entries to stdout
 func printLogEntries(entries []gen.WorkflowRunLogEntry, logFormat string) error {
-	if logFormat != "" && logFormat != "text" {
+	if logFormat != "" && logFormat != outputText {
 		return printFormattedLogs(entries, logFormat)
 	}
 	for _, entry := range entries {
@@ -378,7 +381,7 @@ func printFormattedLogs[T any](entries []T, format string) error {
 // printLogStatus keeps status messages off stdout for JSON and custom columns.
 func printLogStatus(logFormat, message string) {
 	out := os.Stdout
-	if logFormat != "" && logFormat != "text" {
+	if logFormat != "" && logFormat != outputText {
 		out = os.Stderr
 	}
 	fmt.Fprintln(out, message)

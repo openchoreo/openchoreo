@@ -27,7 +27,7 @@ func Validate(format string) error {
 		return nil
 	}
 	if !strings.HasPrefix(format, customColumnsPrefix) {
-		return fmt.Errorf("invalid log format %q: must be text, json, or custom-columns=FIELD,...", format)
+		return fmt.Errorf("invalid log format %q: must be text, json, or 'custom-columns=FIELD,...'", format)
 	}
 	_, err := ParseColumns(format)
 	return err
