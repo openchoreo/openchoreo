@@ -34,6 +34,7 @@ func Validate(format string) error {
 }
 
 // ParseColumns parses a custom-columns format, returning nil for other formats.
+// Unescaped periods separate nested attributes; \. and \\ select literal periods and backslashes in keys.
 func ParseColumns(format string) (*Columns, error) {
 	fields, custom := strings.CutPrefix(format, customColumnsPrefix)
 	if !custom {
@@ -42,7 +43,10 @@ func ParseColumns(format string) (*Columns, error) {
 	columns := &Columns{}
 	for _, field := range strings.Split(fields, ",") {
 		field = strings.TrimSpace(field)
-		path := strings.Split(field, ".")
+		path, err := splitColumnPath(field)
+		if err != nil {
+			return nil, err
+		}
 		for _, segment := range path {
 			if segment == "" || strings.ContainsFunc(segment, unicode.IsSpace) {
 				return nil, fmt.Errorf("invalid custom column %q: use non-empty dot-separated attribute names", field)
@@ -51,6 +55,35 @@ func ParseColumns(format string) (*Columns, error) {
 		columns.paths = append(columns.paths, path)
 	}
 	return columns, nil
+}
+
+func splitColumnPath(field string) ([]string, error) {
+	var path []string
+	var segment strings.Builder
+	escaped := false
+	for _, char := range field {
+		if escaped {
+			if char != '.' && char != '\\' {
+				return nil, fmt.Errorf("invalid custom column %q: unsupported escape for %q", field, char)
+			}
+			segment.WriteRune(char)
+			escaped = false
+			continue
+		}
+		switch char {
+		case '\\':
+			escaped = true
+		case '.':
+			path = append(path, segment.String())
+			segment.Reset()
+		default:
+			segment.WriteRune(char)
+		}
+	}
+	if escaped {
+		return nil, fmt.Errorf("invalid custom column %q: trailing escape", field)
+	}
+	return append(path, segment.String()), nil
 }
 
 // Print writes selected JSON attributes separated by spaces. Missing or null values print as '-'.

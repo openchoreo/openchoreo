@@ -13,15 +13,50 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	for _, format := range []string{"", "text", "json", "custom-columns=log", "custom-columns=timestamp,level,metadata.podName,log"} {
+	for _, format := range []string{
+		"", "text", "json", "custom-columns=log", "custom-columns=timestamp,level,metadata.podName,log",
+		`custom-columns=labels.openchoreo\.dev/plane,log`, `custom-columns=labels.path\\key`,
+	} {
 		assert.NoError(t, Validate(format), format)
 	}
 	for _, format := range []string{
 		"yaml", "custom-columns", "custom-columns=", "custom-columns=,log", "custom-columns=timestamp,",
 		"custom-columns=timestamp,,log", "custom-columns=metadata..podName", "custom-columns=.log",
 		"custom-columns=metadata.", "custom-columns=metadata. podName", "custom-columns=log message",
+		`custom-columns=labels.openchoreo\`, `custom-columns=labels.openchoreo\q`,
 	} {
 		assert.Error(t, Validate(format), format)
+	}
+}
+
+func TestColumnsPrint_EscapedPaths(t *testing.T) {
+	entry := map[string]any{
+		"log": "request handled",
+		"labels": map[string]any{
+			"openchoreo.dev/plane": "controlplane",
+			"openchoreo":           map[string]any{"dev/plane": "nested-plane"},
+			`path\key`:             "backslash",
+		},
+		"literal.key": map[string]any{"name.with.dots": "value"},
+	}
+	for _, tc := range []struct {
+		name   string
+		format string
+		want   string
+	}{
+		{"literal label key", `custom-columns=labels.openchoreo\.dev/plane,log`, "controlplane request handled\n"},
+		{"unescaped periods remain nested", "custom-columns=labels.openchoreo.dev/plane,log", "nested-plane request handled\n"},
+		{"multiple literal keys", `custom-columns=literal\.key.name\.with\.dots`, "value\n"},
+		{"literal backslash", `custom-columns=labels.path\\key`, "backslash\n"},
+		{"missing literal key", `custom-columns=labels.missing\.key,log`, "- request handled\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			columns, err := ParseColumns(tc.format)
+			require.NoError(t, err)
+			var out bytes.Buffer
+			require.NoError(t, columns.Print(&out, entry))
+			assert.Equal(t, tc.want, out.String())
+		})
 	}
 }
 
