@@ -542,6 +542,54 @@ func TestConnectionManager_DisconnectAllForPlane(t *testing.T) {
 	assert.Equal(t, 0, disconnected)
 }
 
+// Deleting one CR of a shared planeID revokes only that CR. Connections that
+// still serve another CR stay up; a connection whose last CR was deleted has
+// nothing left to route and is closed.
+func TestConnectionManager_RevokeCR(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	shared, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	only, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+	other, cleanup3 := newTestWSConn(t)
+	defer cleanup3()
+
+	_, _ = cm.Register("dataplane", "prod", shared, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", only, []string{"ns1/dp"}, nil, nil)
+	_, _ = cm.Register("workflowplane", "prod", other, []string{"ns1/dp"}, nil, nil)
+
+	revoked, disconnected := cm.RevokeCR("dataplane", "prod", "ns1", "dp")
+	assert.Equal(t, 2, revoked)
+	assert.Equal(t, 1, disconnected)
+
+	// The shared connection survives and serves only the remaining CR.
+	status := cm.GetPlaneStatus("dataplane", "prod")
+	assert.Equal(t, 1, status.ConnectedAgents)
+	conn, err := cm.GetForCR("dataplane/prod", "ns2/dp")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns2/dp"}, conn.GetValidCRs())
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+
+	// A same-named CR on another plane type is untouched.
+	_, err = cm.GetForCR("workflowplane/prod", "ns1/dp")
+	assert.NoError(t, err)
+
+	// Deleting the last CR removes the plane entirely.
+	revoked, disconnected = cm.RevokeCR("dataplane", "prod", "ns2", "dp")
+	assert.Equal(t, 1, revoked)
+	assert.Equal(t, 1, disconnected)
+	_, err = cm.Get("dataplane/prod")
+	assert.Error(t, err)
+
+	// Unknown plane or CR is a no-op.
+	revoked, disconnected = cm.RevokeCR("dataplane", "nonexistent", "ns", "dp")
+	assert.Equal(t, 0, revoked)
+	assert.Equal(t, 0, disconnected)
+	assert.Equal(t, 1, cm.Count())
+}
+
 func TestConnectionManager_GetPlaneStatus(t *testing.T) {
 	cm := NewConnectionManager(testLogger())
 
