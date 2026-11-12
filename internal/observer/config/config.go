@@ -456,7 +456,7 @@ func getDefaults() map[string]interface{} {
 		"deliveryinsights": map[string]interface{}{
 			"store.backend":                  "",
 			"store.dsn":                      "",
-			"enabled":                        false,
+			"enabled":                        true,
 			"aggregation.interval":           "5m",
 			"aggregation.overlap":            "10m",
 			"aggregation.attribution.window": "24h",

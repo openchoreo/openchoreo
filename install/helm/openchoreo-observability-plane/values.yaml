@@ -426,7 +426,7 @@ observer:
 
   # @schema
   # type: object
-  # description: Features available for evaluation and not recommended for production use. They are off by default, may change or be removed, and are not covered by upgrade guarantees.
+  # description: Features available for evaluation and not recommended for production use. Each one states its own default; they may change or be removed, and are not covered by upgrade guarantees.
   # @schema
   featurePreview:
     # @schema
@@ -436,10 +436,10 @@ observer:
     deliveryInsights:
       # @schema
       # type: boolean
-      # description: Feature preview, not recommended for production. Collect DORA delivery metrics in the Observer. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql. Maps to FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED in the Observer container.
-      # default: false
+      # description: Feature preview, on by default. Collect DORA delivery metrics in the Observer. Set to false to turn collection off. Requires a logs adapter that can filter events by reason across all namespaces; without one only Mean Time to Recovery is derived. Safe with multiple replicas, but more than one replica needs alertStoreBackend postgresql. Maps to FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED in the Observer container.
+      # default: true
       # @schema
-      enabled: false
+      enabled: true
 
   # @schema
   # description: Alert entry storage backend for fired alerts

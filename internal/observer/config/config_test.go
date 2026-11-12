@@ -314,12 +314,9 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-// TestDeliveryInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
-// not mention Delivery Insights gets it disabled. Aggregation in particular must
-// default off: the aggregator has no leader election, so the chart refuses
-// observer.replicas > 1 while it is enabled, and defaulting it on would fail the
-// render of an existing scaled deployment that never opted in.
-func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
+// TestDeliveryInsightsDefaultsTurnTheFeatureOn pins that a chart or install which does
+// not mention Delivery Insights gets it enabled, and that the flag still turns it off.
+func TestDeliveryInsightsDefaultsTurnTheFeatureOn(t *testing.T) {
 	// Load() reads the process environment, and anyone working on this feature is
 	// likely to have DELIVERY_INSIGHTS_* set in their shell -- which would make this assert
 	// their environment rather than the defaults. Load() skips empty values, so
@@ -339,8 +336,14 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
+	assert.True(t, cfg.DeliveryInsights.Enabled,
+		"Delivery Insights must default on")
+
+	t.Setenv("FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "false")
+	cfg, err = Load()
+	require.NoError(t, err)
 	assert.False(t, cfg.DeliveryInsights.Enabled,
-		"Delivery Insights must default off; it is opt-in per deployment")
+		"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED=false must still turn it off")
 }
 
 func TestValidateDeliveryInsightsStore(t *testing.T) {
