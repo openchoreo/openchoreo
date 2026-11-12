@@ -12459,6 +12459,8 @@ components:
               minLength: 1
               maxLength: 63
               pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+              not:
+                pattern: '^(main|default)$'
               example: next
         type:
           $ref: '#/components/schemas/EndpointTypeRef'
@@ -12549,6 +12551,8 @@ components:
             "default" are reserved and rejected.
           maxLength: 63
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          not:
+            pattern: '^(main|default)$'
           example: next
 
     EndpointStatus:
