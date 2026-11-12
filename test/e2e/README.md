@@ -43,6 +43,7 @@ Suites are labeled by tier on their top-level `Describe`, so CI can shard them a
 | 1 | Release Lines | Two lines of one component deploy, override, promote and delete independently, and line rules are enforced |
 | 2 | Authorization | Roles, bindings, namespace scoping, deny overrides, CEL conditions, propagation |
 | 2 | Gateway Routing | HTTP routing of deployed endpoints through the gateway |
+| 2 | Endpoint Rollout | Canary, A/B and blue/green rollouts of an Endpoint through `occ`: routing by header and cookie, steps, refusals, abort and finish |
 | 2 | OpenChoreo API | The control-plane REST API |
 | 2 | OCC CLI | `occ` commands against the control plane |
 | 2 | MCP Server | MCP tools served by the control plane |
@@ -175,6 +176,28 @@ Source: [`suites/gateway/gateway_test.go:17`](suites/gateway/gateway_test.go#L17
 4. Internal visibility: internal HTTPRoute only, reachable from the in-cluster tester pod
 5. Multi-endpoint component: one external HTTPRoute per endpoint, each with its own URL; basePath component: the route rewrites the prefix (`replacePrefixMatch`) and stays routable
 6. Staging: the rendered HTTPRoute parent switches to the environment's gateway override and hostname
+
+</details>
+
+<details>
+<summary><b>Endpoint Rollout</b> (tier 2) — canary with a testers' header → steps, refusals, abort, finish → A/B test by cookie → blue/green preview and switch</summary>
+
+Source: [`suites/endpointrollout/rollout_test.go:26`](suites/endpointrollout/rollout_test.go#L26)
+
+Runs on its own ClusterEndpointType, which declares the `Match` capability and renders `${rules}` as HTTPRoute rules: one per matched backend with its header conditions (a cookie arrives as a condition on the Cookie header), then the rule that splits the rest by weight. Every rollout call goes through `occ` and openchoreo-api.
+
+1. Deploy two components that answer with their own names, and two Endpoints serving the first alone; autoDeploy renders one route each in development
+2. A dry-run mirror start is refused: the type doesn't declare the `Mirror` capability, and nothing is written
+3. Start a canary with the testers' header `x-canary: true`: the new release adds the new version at 0% and a match rule for the header
+4. A request with the header is answered by the new version, one without it by stable
+5. Step to 25%: the binding's `backendOverrides` and the route's weights move to 75/25. A step that names the step the environment has left is refused and nothing changes
+6. Finishing while the version that leaves still gets traffic is refused
+7. Abort returns the weighted traffic to stable; the testers' header still reaches the new version
+8. Step to the last step, then finish keeping the new version: autoDeploy moves development to a release with it alone, the match rule goes, and the gateway serves it
+9. On the second Endpoint, an A/B test with the cookie `exp=b`: `exp=b`, also among other cookies, reaches the new version; `exp=bb` and no cookie reach stable. Finishing it keeping stable removes the cookie rule
+10. A blue/green with the preview header `x-preview: green`: the header reaches the new version, the switch step sends all traffic to it, abort switches back, and finish keeps stable
+
+Mirror rollouts and several environments are covered by unit tests and render tests: the sample app can't count the copies it receives, and a second environment would double the suite's setup.
 
 </details>
 
