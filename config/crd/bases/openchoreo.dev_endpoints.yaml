@@ -197,6 +197,13 @@ spec:
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
+                    x-kubernetes-validations:
+                    - message: main is the implicit line; omit releaseLineName for
+                        it
+                      rule: self != 'main'
+                    - message: default is a reserved name; omit releaseLineName for
+                        the main line
+                      rule: self != 'default'
                 required:
                 - projectName
                 type: object

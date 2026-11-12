@@ -235,28 +235,37 @@ func (t *Toolsets) RegisterUpdateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			"fields remain unchanged. backend_refs, when provided, replaces the whole backend list, so use it " +
 			"to shift traffic weights. The project and spec.type are immutable. A line-owned endpoint whose new " +
 			"backend_refs route to another line moves to its component, and a component-owned endpoint whose new " +
-			"backend_refs route to another component moves to its project. Any change cuts a new " +
-			"EndpointRelease, which bindings pick up once their pin is advanced.",
+			"backend_refs route to another component moves to its project. component_name and release_line_name " +
+			"narrow it again once every backend routes to them. Any change cuts a new EndpointRelease, which " +
+			"bindings pick up once their pin is advanced.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("Endpoint name to update. Use list_endpoints to discover valid names"),
 			"visibility":     endpointVisibilityProperty("Optional: replace the visibility list."),
 			"backend_refs":   endpointBackendRefsProperty("Optional: replace the whole backend list."),
-			"display_name":   stringProperty("Optional: update the human-readable display name"),
-			"description":    stringProperty("Optional: update the human-readable description"),
+			"component_name": stringProperty(
+				"Optional: make this component the owner, so deleting it deletes the endpoint. " +
+					"Every backend must route to it."),
+			"release_line_name": stringProperty(
+				"Optional: make this release line of the owning component the owner, so deleting the line " +
+					"deletes the endpoint. Every backend must route to it."),
+			"display_name": stringProperty("Optional: update the human-readable display name"),
+			"description":  stringProperty("Optional: update the human-readable description"),
 			"parameters": map[string]any{
 				"type":        "object",
 				"description": "Optional: replace parameter values for the referenced (Cluster)EndpointType schema.",
 			},
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		Visibility    []string               `json:"visibility"`
-		BackendRefs   []endpointBackendArg   `json:"backend_refs"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Parameters    map[string]interface{} `json:"parameters"`
+		NamespaceName   string                 `json:"namespace_name"`
+		Name            string                 `json:"name"`
+		Visibility      []string               `json:"visibility"`
+		BackendRefs     []endpointBackendArg   `json:"backend_refs"`
+		ComponentName   string                 `json:"component_name"`
+		ReleaseLineName string                 `json:"release_line_name"`
+		DisplayName     string                 `json:"display_name"`
+		Description     string                 `json:"description"`
+		Parameters      map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
 		body := &gen.UpdateEndpointJSONRequestBody{
 			Metadata: gen.ObjectMeta{Name: args.Name},
@@ -265,7 +274,8 @@ func (t *Toolsets) RegisterUpdateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			annotations := annotationsFromDisplayDesc(args.DisplayName, args.Description)
 			body.Metadata.Annotations = &annotations
 		}
-		if args.Visibility != nil || args.BackendRefs != nil || args.Parameters != nil {
+		if args.Visibility != nil || args.BackendRefs != nil || args.Parameters != nil ||
+			args.ComponentName != "" || args.ReleaseLineName != "" {
 			body.Spec = &gen.EndpointSpec{}
 			if args.Visibility != nil {
 				visibility, err := toEndpointSpecVisibility(args.Visibility)
@@ -279,6 +289,12 @@ func (t *Toolsets) RegisterUpdateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			}
 			if args.Parameters != nil {
 				body.Spec.Parameters = &args.Parameters
+			}
+			if args.ComponentName != "" {
+				body.Spec.Owner.ComponentName = &args.ComponentName
+			}
+			if args.ReleaseLineName != "" {
+				body.Spec.Owner.ReleaseLineName = &args.ReleaseLineName
 			}
 		}
 		result, err := t.EndpointToolset.UpdateEndpoint(ctx, args.NamespaceName, body)

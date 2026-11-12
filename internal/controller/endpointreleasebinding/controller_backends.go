@@ -316,8 +316,9 @@ func (r *Reconciler) getReleaseLine(
 
 // releasedPort returns the container port of the workload endpoint in the
 // release the ReleaseBinding deploys, or 0 when the release or the endpoint is
-// missing. A network policy opens the pod's port, which the Service maps to
-// but need not equal.
+// missing. A network policy is enforced at the pod, after the Service has
+// forwarded port to targetPort, so it opens targetPort, which defaults to port
+// as it does for the component's Service.
 func (r *Reconciler) releasedPort(ctx context.Context, rb *openchoreov1alpha1.ReleaseBinding, endpoint string) (int32, error) {
 	if rb.Spec.ReleaseName == "" {
 		return 0, nil
@@ -329,7 +330,11 @@ func (r *Reconciler) releasedPort(ctx context.Context, rb *openchoreov1alpha1.Re
 		}
 		return 0, fmt.Errorf("get ComponentRelease %q: %w", rb.Spec.ReleaseName, err)
 	}
-	return cr.Spec.Workload.Endpoints[endpoint].Port, nil
+	ep := cr.Spec.Workload.Endpoints[endpoint]
+	if ep.TargetPort != 0 {
+		return ep.TargetPort, nil
+	}
+	return ep.Port, nil
 }
 
 // isRoutableProtocol reports whether any route kind can carry the protocol.

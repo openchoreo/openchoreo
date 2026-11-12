@@ -472,9 +472,7 @@ var _ = Describe("Backend resolution and rendering", func() {
 	})
 
 	Context("network policies", func() {
-		policyName := func(backend string) string {
-			return networkPolicyIDPrefix + backend
-		}
+		policyName := endpointpipeline.NetworkPolicyID
 
 		It("renders a policy per backend admitting the gateways to its pods on the container port", func() {
 			release := newRelease(testRelease, componentBackend("stable", "greeter", 90), componentBackend("canary", "greeter-v2", 10))
@@ -507,6 +505,42 @@ var _ = Describe("Backend resolution and rendering", func() {
 			canary := manifest(rr, policyName("canary"))
 			canarySelectors := canary["spec"].(map[string]any)["podSelector"].(map[string]any)["matchLabels"].(map[string]any)
 			Expect(canarySelectors).To(HaveKeyWithValue(labels.LabelKeyComponentUID, "greeter-v2-uid"))
+		})
+
+		It("opens the workload endpoint's targetPort when it differs from its port", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("target-port", testRelease)
+			rb := deployedComponent("greeter", dpNS)
+			r, cli := build(release, b, rb)
+
+			// The Service forwards port 8080 to 9091 on the pod, where the policy is enforced.
+			cr := &openchoreov1alpha1.ComponentRelease{}
+			Expect(cli.Get(fctx, client.ObjectKey{Namespace: testNamespace, Name: rb.Spec.ReleaseName}, cr)).To(Succeed())
+			ep := cr.Spec.Workload.Endpoints["http"]
+			ep.Port, ep.TargetPort = 8080, 9091
+			cr.Spec.Workload.Endpoints["http"] = ep
+			Expect(cli.Update(fctx, cr)).To(Succeed())
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			rule := manifest(rr, policyName("stable"))["spec"].(map[string]any)["ingress"].([]any)[0].(map[string]any)
+			Expect(rule["ports"]).To(Equal([]any{map[string]any{"protocol": "TCP", "port": float64(9091)}}))
+		})
+
+		It("refuses to render a type resource that takes a network policy's ID", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			release.Spec.EndpointType.Spec.Resources[0].ID = policyName("stable")
+			b := newBinding("id-collision", testRelease)
+			r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+			synced := condition(updated, ConditionSynced)
+			Expect(synced.Status).To(Equal(metav1.ConditionFalse))
+			Expect(synced.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(synced.Message).To(ContainSubstring(`share the ID "openchoreo-networkpolicy-stable"`))
+			_, err := renderedRelease(cli, updated)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "nothing is written while two resources share an ID")
 		})
 
 		It("admits the other projects of the namespace for namespace visibility", func() {

@@ -12455,9 +12455,10 @@ components:
                 Release line of the owning component that owns this Endpoint. Requires
                 componentName, and every backend must route to this line. When an update makes a
                 backend route to another line or the main line, the API drops this field so the
-                component owns the Endpoint.
+                component owns the Endpoint. "main" and "default" are reserved and rejected.
               minLength: 1
               maxLength: 63
+              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
               example: next
         type:
           $ref: '#/components/schemas/EndpointTypeRef'
@@ -12543,7 +12544,9 @@ components:
           example: http
         releaseLine:
           type: string
-          description: Release line of the component to route to. Omitted for the main line.
+          description: >-
+            Release line of the component to route to. Omitted for the main line; "main" and
+            "default" are reserved and rejected.
           maxLength: 63
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           example: next

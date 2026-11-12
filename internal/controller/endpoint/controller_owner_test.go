@@ -226,6 +226,43 @@ var _ = Describe("Endpoint ownership", func() {
 
 			expectSoleOwner(reconcileOwners(ep), "ReleaseLine", rl)
 		})
+
+		It("does not hand an Endpoint to a line recreated under the same name before garbage collection", func() {
+			project, comp := newProject("p-own-line-again"), newComponent("p-own-line-again", "greeter")
+			rl := newReleaseLine(project.Name, comp.Name, "again")
+			ep := ownedByLine(newEndpoint("ep-own-line-again", project.Name, clusterTypeRef("cet-own"),
+				lineBackend("greeter", comp.Name, rl.Name)), comp.Name, rl.Name)
+			create(project, comp, rl, ep)
+			expectSoleOwner(reconcileOwners(ep), "ReleaseLine", rl)
+
+			Expect(k8sClient.Delete(ctx, rl)).To(Succeed())
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, client.ObjectKeyFromObject(rl), &openchoreov1alpha1.ReleaseLine{}) != nil
+			}).Should(BeTrue())
+			successor := newReleaseLine(project.Name, comp.Name, rl.Name)
+			create(successor)
+			Expect(successor.UID).NotTo(Equal(rl.UID))
+
+			expectSoleOwner(reconcileOwners(ep), "ReleaseLine", rl)
+		})
+	})
+
+	It("does not hand an Endpoint to a component recreated under the same name before garbage collection", func() {
+		project, comp := newProject("p-own-comp-again"), newComponent("p-own-comp-again", "greeter")
+		ep := ownedByComponent(newEndpoint("ep-own-comp-again", project.Name, clusterTypeRef("cet-own"),
+			componentBackend("greeter", comp.Name, "http", 1)), comp.Name)
+		create(project, comp, ep)
+		expectSoleOwner(reconcileOwners(ep), "Component", comp)
+
+		Expect(k8sClient.Delete(ctx, comp)).To(Succeed())
+		Eventually(func() bool {
+			return k8sClient.Get(ctx, client.ObjectKeyFromObject(comp), &openchoreov1alpha1.Component{}) != nil
+		}).Should(BeTrue())
+		successor := newComponent(project.Name, comp.Name)
+		create(successor)
+		Expect(successor.UID).NotTo(Equal(comp.UID))
+
+		expectSoleOwner(reconcileOwners(ep), "Component", comp)
 	})
 
 	Describe("admission", func() {
@@ -237,6 +274,15 @@ var _ = Describe("Endpoint ownership", func() {
 			err := k8sClient.Create(ctx, ep)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("spec.owner.componentName is required when releaseLineName is set"))
+		})
+
+		It("rejects main as an owning release line", func() {
+			ep := ownedByLine(newEndpoint("ep-own-cel-main", "p-own-cel", clusterTypeRef("cet-own"),
+				componentBackend("greeter", "greeter", "http", 1)), "greeter", "main")
+
+			err := k8sClient.Create(ctx, ep)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("main is the implicit line; omit releaseLineName for it"))
 		})
 
 		It("rejects an owning release line that is not every backend's line", func() {

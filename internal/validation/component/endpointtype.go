@@ -46,7 +46,13 @@ func ValidateEndpointTypeResourcesWithSchema(
 
 	var allErrs field.ErrorList
 	for i := range resources {
-		allErrs = append(allErrs, validateResourceTemplate(resources[i], validator, basePath.Child("resources").Index(i))...)
+		resPath := basePath.Child("resources").Index(i)
+		if strings.HasPrefix(resources[i].ID, endpointpipeline.NetworkPolicyIDPrefix) {
+			allErrs = append(allErrs, field.Invalid(resPath.Child("id"), resources[i].ID, fmt.Sprintf(
+				"IDs starting with %q are reserved for the network policies the platform renders",
+				endpointpipeline.NetworkPolicyIDPrefix)))
+		}
+		allErrs = append(allErrs, validateResourceTemplate(resources[i], validator, resPath)...)
 	}
 	for i := range validations {
 		allErrs = append(allErrs, validateValidationRule(validations[i], validator, basePath.Child("validations").Index(i))...)

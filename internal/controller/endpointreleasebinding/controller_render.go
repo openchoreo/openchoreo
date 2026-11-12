@@ -51,6 +51,14 @@ func (r *Reconciler) renderAndEmit(
 		return nil, err
 	}
 	manifests = append(manifests, policies...)
+	if id := duplicateManifestID(manifests); id != "" {
+		// The RenderedRelease controller tracks applied objects by ID, so two
+		// manifests sharing one would leave one of them unmanaged.
+		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf(
+			"Rendered resources share the ID %q; IDs starting with %q are reserved for the network policies the platform renders",
+			id, endpointpipeline.NetworkPolicyIDPrefix))
+		return nil, nil
+	}
 
 	rrName := makeRenderedReleaseName(binding)
 	rr := &openchoreov1alpha1.RenderedRelease{
@@ -149,11 +157,6 @@ func (r *Reconciler) resolveURLs(
 	controller.MarkTrueCondition(binding, ConditionURLsResolved, ReasonURLsResolved, "URLs resolved")
 }
 
-// networkPolicyIDPrefix prefixes the RenderedRelease ID of each backend's
-// network policy. EndpointType authors choose their own resource IDs, so the
-// platform's are namespaced to stay out of their way.
-const networkPolicyIDPrefix = "openchoreo-networkpolicy-"
-
 // networkPolicyManifests renders, for each resolved backend, the policy that
 // admits the Endpoint's visibility to the backend's pods. It ships in the
 // Endpoint's RenderedRelease with the routes, so a route and the policy that
@@ -189,7 +192,7 @@ func networkPolicyManifests(
 			return nil, fmt.Errorf("marshal network policy for backend %q: %w", t.backendName, err)
 		}
 		manifests = append(manifests, openchoreov1alpha1.RenderedManifest{
-			ID:     networkPolicyIDPrefix + t.backendName,
+			ID:     endpointpipeline.NetworkPolicyID(t.backendName),
 			Object: &runtime.RawExtension{Raw: raw},
 		})
 	}
@@ -214,6 +217,19 @@ func makeRenderedReleaseName(binding *openchoreov1alpha1.EndpointReleaseBinding)
 	}
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
 		"e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+}
+
+// duplicateManifestID returns the first resource ID shared by two manifests,
+// or "" when every ID is unique.
+func duplicateManifestID(manifests []openchoreov1alpha1.RenderedManifest) string {
+	seen := make(map[string]struct{}, len(manifests))
+	for _, m := range manifests {
+		if _, dup := seen[m.ID]; dup {
+			return m.ID
+		}
+		seen[m.ID] = struct{}{}
+	}
+	return ""
 }
 
 // convertEntriesToManifests marshals each pipeline-rendered map into a

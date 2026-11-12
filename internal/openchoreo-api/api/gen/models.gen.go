@@ -2140,7 +2140,7 @@ type EndpointComponentBackend struct {
 	// Name Component name.
 	Name string `json:"name"`
 
-	// ReleaseLine Release line of the component to route to. Omitted for the main line.
+	// ReleaseLine Release line of the component to route to. Omitted for the main line; "main" and "default" are reserved and rejected.
 	ReleaseLine *string `json:"releaseLine,omitempty"`
 }
 
@@ -2369,7 +2369,7 @@ type EndpointSpec struct {
 		// ProjectName Parent project name. Immutable.
 		ProjectName string `json:"projectName"`
 
-		// ReleaseLineName Release line of the owning component that owns this Endpoint. Requires componentName, and every backend must route to this line. When an update makes a backend route to another line or the main line, the API drops this field so the component owns the Endpoint.
+		// ReleaseLineName Release line of the owning component that owns this Endpoint. Requires componentName, and every backend must route to this line. When an update makes a backend route to another line or the main line, the API drops this field so the component owns the Endpoint. "main" and "default" are reserved and rejected.
 		ReleaseLineName *string `json:"releaseLineName,omitempty"`
 	} `json:"owner"`
 

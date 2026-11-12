@@ -102,6 +102,8 @@ type EndpointOwner struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLineName for it"
+	// +kubebuilder:validation:XValidation:rule="self != 'default'",message="default is a reserved name; omit releaseLineName for the main line"
 	ReleaseLineName string `json:"releaseLineName,omitempty"`
 }
 

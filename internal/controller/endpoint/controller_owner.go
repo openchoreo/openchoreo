@@ -136,6 +136,11 @@ func (r *Reconciler) ownerCandidate(
 		return nil, true, fmt.Errorf("get %s %q: %w", kind, name, err)
 	case !obj.GetDeletionTimestamp().IsZero():
 		return nil, true, nil
+	case ownedByAnother(ep, kind, name, obj.GetUID()):
+		// The owner was deleted and one of the same name created before garbage
+		// collection removed this Endpoint. It belonged to the deleted object, so
+		// it is left to garbage collection rather than handed to its successor.
+		return nil, true, nil
 	case belongs():
 		return withGVK(obj, kind), true, nil
 	default:
@@ -150,6 +155,17 @@ func (r *Reconciler) ownerCandidate(
 func ownedBy(ep *openchoreov1alpha1.Endpoint, kind, name string) bool {
 	for _, ref := range ep.OwnerReferences {
 		if isManagedOwnerKind(ref) && ref.Kind == kind && ref.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ownedByAnother reports whether ep carries an owner reference to an object of
+// the given kind and name whose UID is not uid: an earlier object of that name.
+func ownedByAnother(ep *openchoreov1alpha1.Endpoint, kind, name string, uid types.UID) bool {
+	for _, ref := range ep.OwnerReferences {
+		if isManagedOwnerKind(ref) && ref.Kind == kind && ref.Name == name && ref.UID != uid {
 			return true
 		}
 	}
