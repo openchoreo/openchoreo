@@ -542,7 +542,8 @@ Install the logs, metrics, and tracing community modules. The steps below use Op
 
 ##### Pre-requisites
 
-Create the `opensearch-admin-credentials` secret needed by the logs and tracing modules:
+Create the `opensearch-admin-credentials` secret needed by the logs and tracing modules, and the
+`opensearch-traces-users` secret with the read-only user that raw trace queries run as:
 
 ```bash
 kubectl --context k3d-openchoreo-op apply -f - <<EOF
@@ -566,6 +567,28 @@ spec:
   - secretKey: password
     remoteRef:
       key: opensearch-password
+      property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-traces-users
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-traces-users
+  data:
+  - secretKey: rawQueryUsername
+    remoteRef:
+      key: opensearch-raw-query-username
+      property: value
+  - secretKey: rawQueryPassword
+    remoteRef:
+      key: opensearch-raw-query-password
       property: value
 EOF
 ```
