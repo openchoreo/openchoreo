@@ -1,0 +1,76 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+# The cart page as it is.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: storefront
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: storefront-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: storefront
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: storefront
+      - key: MODE
+        value: "storefront"
+      - key: RECS
+        value: "false"
+---
+# The cart page with "Customers who bought this also bought".
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: storefront-recs
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: storefront-recs-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: storefront-recs
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: storefront-recs
+      - key: MODE
+        value: "storefront"
+      - key: RECS
+        value: "true"

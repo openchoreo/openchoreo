@@ -1,0 +1,25 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# The trips API. trips-python serves it until a rollout moves traffic.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Endpoint
+metadata:
+  name: trips
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterEndpointType
+    name: istio-http
+  # External callers through the gateway, in-cluster callers through the mesh,
+  # with the same split.
+  visibility: [external, namespace]
+  autoDeploy: true
+  backendRefs:
+    - name: trips-python
+      kind: Component
+      component:
+        name: trips-python
+        endpoint: http

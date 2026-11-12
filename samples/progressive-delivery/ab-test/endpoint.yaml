@@ -1,0 +1,25 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# The cart page. The storefront assigns each visitor a group in the exp_cartrecs cookie.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Endpoint
+metadata:
+  name: cart
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterEndpointType
+    name: istio-http
+  # External callers through the gateway, in-cluster callers through the mesh,
+  # with the same split.
+  visibility: [external, namespace]
+  autoDeploy: true
+  backendRefs:
+    - name: storefront
+      kind: Component
+      component:
+        name: storefront
+        endpoint: http
