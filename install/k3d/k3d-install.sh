@@ -24,6 +24,7 @@ EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
 
 # -- config --
 CLUSTER_NAME="${CLUSTER_NAME:-openchoreo}"
+IMAGE_PULL_SECRET="${OPENCHOREO_IMAGE_PULL_SECRET:-}"
 HELM_REPO="${OPENCHOREO_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 MODULES_HELM_REPO="${OPENCHOREO_MODULES_HELM_REPO:-oci://cr.openchoreo.dev/openchoreo/helm-charts}"
 CONTROL_PLANE_NS="openchoreo-control-plane"
@@ -58,6 +59,11 @@ Environment:
                                 (default: oci://cr.openchoreo.dev/openchoreo/helm-charts)
   OPENCHOREO_MODULES_HELM_REPO  Observability module chart repository
                                 (default: oci://cr.openchoreo.dev/openchoreo/helm-charts)
+  OPENCHOREO_IMAGE_PULL_SECRET  Name of an existing docker-registry Secret (in the
+                                "default" namespace) to use for pulling OpenChoreo's
+                                own images, for a private OPENCHOREO_HELM_REPO.
+                                Propagated into each plane namespace as it's created.
+                                Unset by default -- no behavior change.
 EOF
 }
 
@@ -130,6 +136,26 @@ asset() {
 chart_version_args() {
     if [[ -n "$OPENCHOREO_CHART_VERSION" ]]; then
         echo "--version $OPENCHOREO_CHART_VERSION"
+    fi
+}
+
+# propagate_pull_secret <namespace> -- copies IMAGE_PULL_SECRET from "default" into
+# a plane namespace as it's created, so the plane's own images can be pulled from
+# a private OPENCHOREO_HELM_REPO. No-op when OPENCHOREO_IMAGE_PULL_SECRET is unset.
+propagate_pull_secret() {
+    [ -n "$IMAGE_PULL_SECRET" ] || return 0
+    local ns="$1" dockerconfigjson
+    dockerconfigjson=$($KUBECTL get secret "$IMAGE_PULL_SECRET" -n default \
+        -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d)
+    $KUBECTL create secret docker-registry "$IMAGE_PULL_SECRET" -n "$ns" \
+        --from-file=.dockerconfigjson=<(printf '%s' "$dockerconfigjson") \
+        --dry-run=client -o yaml | $KUBECTL apply -f -
+}
+
+# pull_secret_args -- --set for the chart's global.imagePullSecrets, or nothing.
+pull_secret_args() {
+    if [[ -n "$IMAGE_PULL_SECRET" ]]; then
+        echo "--set global.imagePullSecrets[0].name=$IMAGE_PULL_SECRET"
     fi
 }
 
@@ -277,9 +303,11 @@ EOF
             --set openchoreoApi.config.audit.observabilityPlaneRef.name=default
         )
     fi
+    propagate_pull_secret "$CONTROL_PLANE_NS"
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-control-plane "$HELM_REPO/openchoreo-control-plane" \
         $(chart_version_args) \
+        $(pull_secret_args) \
         --namespace "$CONTROL_PLANE_NS" --create-namespace \
         --values "$(asset install/k3d/single-cluster/values-cp.yaml)" \
         ${audit_args[@]+"${audit_args[@]}"}
@@ -325,9 +353,11 @@ agent_ca() {
 install_data_plane() {
     step "Installing the data plane"
     copy_gateway_ca "$DATA_PLANE_NS"
+    propagate_pull_secret "$DATA_PLANE_NS"
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-data-plane "$HELM_REPO/openchoreo-data-plane" \
         $(chart_version_args) \
+        $(pull_secret_args) \
         --namespace "$DATA_PLANE_NS" --create-namespace \
         --values "$(asset install/k3d/single-cluster/values-dp.yaml)"
 
@@ -361,6 +391,7 @@ EOF
 install_workflow_plane() {
     step "Installing the workflow plane"
     copy_gateway_ca "$WORKFLOW_PLANE_NS"
+    propagate_pull_secret "$WORKFLOW_PLANE_NS"
 
     helm repo add twuni https://twuni.github.io/docker-registry.helm >/dev/null 2>&1 || true
     helm repo update twuni >/dev/null
@@ -371,6 +402,7 @@ install_workflow_plane() {
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-workflow-plane "$HELM_REPO/openchoreo-workflow-plane" \
         $(chart_version_args) \
+        $(pull_secret_args) \
         --namespace "$WORKFLOW_PLANE_NS" \
         --values "$(asset install/k3d/single-cluster/values-wp.yaml)"
 
@@ -402,6 +434,7 @@ EOF
 install_observability_plane() {
     step "Installing the observability plane"
     copy_gateway_ca "$OBSERVABILITY_NS"
+    propagate_pull_secret "$OBSERVABILITY_NS"
 
     step "Creating observability ExternalSecrets"
     $KUBECTL apply -f - <<EOF
@@ -469,6 +502,7 @@ EOF
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-observability-plane "$HELM_REPO/openchoreo-observability-plane" \
         $(chart_version_args) \
+        $(pull_secret_args) \
         --namespace "$OBSERVABILITY_NS" \
         --values "$(asset install/k3d/single-cluster/values-op.yaml)" \
         --set observer.audit.enabled=true \
