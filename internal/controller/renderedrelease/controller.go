@@ -454,28 +454,26 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 	return nil
 }
 
-// findStaleResources finds resources that this controller applied but are no longer in the
-// desired spec. Live objects it did not apply are never stale, whatever labels they carry
-// (see appliedByController).
+// findStaleResources returns the live objects this controller applied (see
+// appliedByController) that carry a resource ID label and match no desired object.
+//
+// Objects match by group, kind, namespace and name, not by resource ID: a
+// templated name can change under the same ID, and a listed object's ID label
+// can be out of date. The API version is ignored because the same object is
+// listed once per known version, and deleting any copy deletes the object.
 func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstructured.Unstructured) []*unstructured.Unstructured {
-	// Build a set of desired resource IDs for fast lookup
-	desiredResourceIDs := make(map[string]bool)
+	desired := make(map[resourceKey]bool, len(desiredResources))
 	for _, obj := range desiredResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if resourceID != "" {
-			desiredResourceIDs[resourceID] = true
-		}
+		desired[keyOf(obj).unversioned()] = true
 	}
 
-	// Find live resources that are not in the desired set
 	var staleResources []*unstructured.Unstructured
 	for _, liveObj := range appliedByController(liveResources) {
-		liveResourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if liveResourceID != "" {
-			// If this live resource ID is not in the desired set, it's stale
-			if !desiredResourceIDs[liveResourceID] {
-				staleResources = append(staleResources, liveObj)
-			}
+		if liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID] == "" {
+			continue
+		}
+		if !desired[keyOf(liveObj).unversioned()] {
+			staleResources = append(staleResources, liveObj)
 		}
 	}
 

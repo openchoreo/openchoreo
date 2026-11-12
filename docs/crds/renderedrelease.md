@@ -212,6 +212,8 @@ The RenderedRelease controller implements a reconciliation process:
 
 ### Stale Resource Cleanup
 - Identifies resources that exist in data plane but not in current spec
+- Matches resources by group, kind, namespace and name, not resource ID, so renaming an object under
+  the same ID deletes the old object and reads status only from the new one
 - Implements Flux-style inventory cleanup to prevent resource accumulation
 - Deletes orphaned resources (e.g., ConfigMaps removed from spec)
 

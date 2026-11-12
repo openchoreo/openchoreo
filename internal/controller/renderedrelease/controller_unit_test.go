@@ -201,11 +201,19 @@ func TestGetProgressingRequeueInterval(t *testing.T) {
 func TestFindStaleResources(t *testing.T) {
 	r := &Reconciler{}
 
-	makeObj := func(resourceID string) *unstructured.Unstructured {
+	configMapGVK := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+
+	makeNamed := func(resourceID string, gvk schema.GroupVersionKind, namespace, name string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(gvk)
+		obj.SetNamespace(namespace)
+		obj.SetName(name)
 		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
 		markAppliedByController(obj)
 		return obj
+	}
+	makeObj := func(resourceID string) *unstructured.Unstructured {
+		return makeNamed(resourceID, configMapGVK, "default", resourceID)
 	}
 
 	// ESO copies an ExternalSecret's labels onto the Secret it creates when the
@@ -300,6 +308,58 @@ func TestFindStaleResources(t *testing.T) {
 		}
 		if stale[0].GetLabels()[labels.LabelKeyRenderedReleaseResourceID] != "remove" {
 			t.Error("wrong stale resource")
+		}
+	})
+
+	t.Run("object renamed under the same resource ID: old one is stale", func(t *testing.T) {
+		oldCM := makeNamed("config", configMapGVK, "default", "config-r1")
+		newCM := makeNamed("config", configMapGVK, "default", "config-r2")
+		stale := r.findStaleResources([]*unstructured.Unstructured{oldCM, newCM}, []*unstructured.Unstructured{newCM})
+		if len(stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(stale))
+		}
+		if stale[0].GetName() != "config-r1" {
+			t.Errorf("expected config-r1 to be stale, got %s", stale[0].GetName())
+		}
+	})
+
+	t.Run("object moved to another namespace under the same resource ID: old one is stale", func(t *testing.T) {
+		oldCM := makeNamed("cfg", configMapGVK, "ns-a", "cfg")
+		newCM := makeNamed("cfg", configMapGVK, "ns-b", "cfg")
+		stale := r.findStaleResources([]*unstructured.Unstructured{oldCM, newCM}, []*unstructured.Unstructured{newCM})
+		if len(stale) != 1 || stale[0].GetNamespace() != "ns-a" {
+			t.Fatalf("expected only the ns-a object to be stale, got %v", stale)
+		}
+	})
+
+	t.Run("kind changed under the same resource ID: old one is stale", func(t *testing.T) {
+		oldObj := makeNamed("work", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, "default", "work")
+		newObj := makeNamed("work", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, "default", "work")
+		stale := r.findStaleResources([]*unstructured.Unstructured{oldObj, newObj}, []*unstructured.Unstructured{newObj})
+		if len(stale) != 1 || stale[0].GetKind() != "Deployment" {
+			t.Fatalf("expected only the Deployment to be stale, got %v", stale)
+		}
+	})
+
+	t.Run("API version is not part of identity", func(t *testing.T) {
+		live := makeNamed("hpa", schema.GroupVersionKind{Group: "autoscaling", Version: "v1", Kind: "HorizontalPodAutoscaler"}, "default", "hpa")
+		desired := makeNamed("hpa", schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"}, "default", "hpa")
+		stale := r.findStaleResources([]*unstructured.Unstructured{live}, []*unstructured.Unstructured{desired})
+		if len(stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(stale))
+		}
+	})
+
+	t.Run("desired object whose listed ID label is out of date is not stale", func(t *testing.T) {
+		// A cached list can retain the ID from before a forEach reorder.
+		live := makeNamed("items-0", configMapGVK, "default", "item-b")
+		desired := []*unstructured.Unstructured{
+			makeNamed("items-0", configMapGVK, "default", "item-a"),
+			makeNamed("items-1", configMapGVK, "default", "item-b"),
+		}
+		stale := r.findStaleResources([]*unstructured.Unstructured{live}, desired)
+		if len(stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(stale))
 		}
 	})
 }
@@ -1625,6 +1685,10 @@ func TestBuildResourceStatusTimestamps(t *testing.T) {
 				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{
 						ID:               "res-1",
+						Version:          "v1",
+						Kind:             "ConfigMap",
+						Name:             "my-cm",
+						Namespace:        "default",
 						HealthStatus:     openchoreov1alpha1.HealthStatusHealthy, // matches ConfigMap's getUnknownResourceHealth
 						Status:           &runtime.RawExtension{Raw: statusBytes},
 						LastObservedTime: &fixedTime,
@@ -1654,6 +1718,10 @@ func TestBuildResourceStatusTimestamps(t *testing.T) {
 				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{
 						ID:               "res-1",
+						Version:          "v1",
+						Kind:             "ConfigMap",
+						Name:             "my-cm",
+						Namespace:        "default",
 						HealthStatus:     openchoreov1alpha1.HealthStatusProgressing,
 						LastObservedTime: &fixedTime,
 					},
@@ -1672,6 +1740,41 @@ func TestBuildResourceStatusTimestamps(t *testing.T) {
 		}
 		if result[0].LastObservedTime.Equal(&fixedTime) {
 			t.Error("expected timestamp to be updated, but it was preserved from old")
+		}
+	})
+
+	t.Run("timestamp not carried over from an object renamed under the same ID", func(t *testing.T) {
+		// Keep status and health equal so only the object change resets the timestamp.
+		statusData := map[string]interface{}{"phase": "Active"}
+		statusBytes, _ := json.Marshal(statusData)
+		old := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{
+						ID:               "res-1",
+						Version:          "v1",
+						Kind:             "ConfigMap",
+						Name:             "cm-r1",
+						Namespace:        "default",
+						HealthStatus:     openchoreov1alpha1.HealthStatusHealthy,
+						Status:           &runtime.RawExtension{Raw: statusBytes},
+						LastObservedTime: &fixedTime,
+					},
+				},
+			},
+		}
+		result := r.buildResourceStatus(ctx, old,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-1", "cm-r2")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-1", "cm-r2", statusData)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Fatal("expected non-nil LastObservedTime")
+		}
+		if result[0].LastObservedTime.Equal(&fixedTime) {
+			t.Error("expected a fresh timestamp, but cm-r1's was carried over")
 		}
 	})
 
