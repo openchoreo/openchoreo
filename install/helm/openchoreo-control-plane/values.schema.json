@@ -28,7 +28,7 @@
           "properties": {
             "authzEntitlement": {
               "additionalProperties": false,
-              "description": "Entitlement matched by the backstage-catalog-reader ClusterAuthzRoleBinding, which grants the portal's catalog provider read access. Only seeded when backstage.enabled is true.",
+              "description": "Entitlement matched by the backstage-catalog-reader ClusterAuthzRoleBinding, which grants the bundled portal's catalog provider read access. The binding is seeded only when backstage.enabled is true; the role it names is always seeded, for portals you run yourself.",
               "properties": {
                 "claim": {
                   "default": "client_id",
@@ -4064,10 +4064,6 @@
                               "namespace": {
                                 "description": "Namespace for role (empty string for cluster-scoped)",
                                 "type": "string"
-                              },
-                              "requiresPortal": {
-                                "description": "When true the role is seeded only if backstage.enabled is true. Used for the bundled portal's catalog-reader role; its binding is added by the chart separately.",
-                                "type": "boolean"
                               },
                               "system": {
                                 "default": false,

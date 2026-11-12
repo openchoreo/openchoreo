@@ -105,9 +105,38 @@ func authzBootstrapDocs(t *testing.T, args ...string) []authzBootstrapDoc {
 	if configMap.Data.Manifests == "" {
 		t.Fatalf("the rendered bootstrap ConfigMap carries no manifests.yaml:\n%s", rendered)
 	}
+	return decodeAuthzBootstrap(t, configMap.Data.Manifests)
+}
+
+// authzBootstrapRemovals renders the hook ConfigMap and returns the objects its
+// removals.yaml tells the hook to delete, or nothing when the key is absent.
+func authzBootstrapRemovals(t *testing.T, args ...string) []authzBootstrapDoc {
+	t.Helper()
+
+	full := append(append([]string{}, args...),
+		"--show-only", "templates/authz/bootstrap-configmap.yaml")
+	rendered := renderControlPlane(t, full...)
+
+	var configMap struct {
+		Data struct {
+			Removals string `yaml:"removals.yaml"`
+		} `yaml:"data"`
+	}
+	if err := yaml.Unmarshal([]byte(rendered), &configMap); err != nil {
+		t.Fatalf("failed to parse the rendered bootstrap ConfigMap: %v\n%s", err, rendered)
+	}
+	if configMap.Data.Removals == "" {
+		return nil
+	}
+	return decodeAuthzBootstrap(t, configMap.Data.Removals)
+}
+
+// decodeAuthzBootstrap parses one of the hook's multi-document payloads.
+func decodeAuthzBootstrap(t *testing.T, payload string) []authzBootstrapDoc {
+	t.Helper()
 
 	var docs []authzBootstrapDoc
-	decoder := yaml.NewDecoder(strings.NewReader(configMap.Data.Manifests))
+	decoder := yaml.NewDecoder(strings.NewReader(payload))
 	for {
 		var doc authzBootstrapDoc
 		err := decoder.Decode(&doc)
@@ -115,7 +144,7 @@ func authzBootstrapDocs(t *testing.T, args ...string) []authzBootstrapDoc {
 			break
 		}
 		if err != nil {
-			t.Fatalf("failed to parse a bootstrap document: %v\n%s", err, configMap.Data.Manifests)
+			t.Fatalf("failed to parse a bootstrap document: %v\n%s", err, payload)
 		}
 		if doc.Metadata.Name != "" {
 			docs = append(docs, doc)
@@ -177,10 +206,11 @@ func TestChart_PortalDisabled_NeedsNoPortalValues(t *testing.T) {
 	}
 }
 
-// TestAuthzBootstrap_CatalogReaderFollowsPortalFlag pins that the portal's
-// catalog-reader role and binding are seeded only when the portal is installed.
-// They grant read access to an OAuth client that a portal-less install never
-// registers with the IdP.
+// TestAuthzBootstrap_CatalogReaderFollowsPortalFlag pins which half of the
+// catalog-reader grant follows the portal flag: the binding, which points the
+// bundled portal's OAuth client at the role, and not the role itself. The role
+// grants nothing unbound and is what a portal you run yourself binds to, so
+// dropping it would make bringing your own portal harder, not cleaner.
 func TestAuthzBootstrap_CatalogReaderFollowsPortalFlag(t *testing.T) {
 	t.Run("portal enabled", func(t *testing.T) {
 		seeded := authzBootstrapNames(t, backstageGuardOverrides...)
@@ -194,15 +224,83 @@ func TestAuthzBootstrap_CatalogReaderFollowsPortalFlag(t *testing.T) {
 
 	t.Run("portal disabled", func(t *testing.T) {
 		seeded := authzBootstrapNames(t, helmGuardOverrides...)
-		for _, name := range []string{catalogReaderRole, catalogReaderBinding} {
-			if kind, ok := seeded[name]; ok {
-				t.Errorf("a portal-less install still seeds %s/%s", kind, name)
-			}
+		if got := seeded[catalogReaderRole]; got != "ClusterAuthzRole" {
+			t.Errorf("a portal-less install does not seed %s (%q); a portal of your own would "+
+				"have to redeclare its whole action list", catalogReaderRole, got)
+		}
+		if kind, ok := seeded[catalogReaderBinding]; ok {
+			t.Errorf("a portal-less install still seeds %s/%s, granting read access to an OAuth "+
+				"client it never registers", kind, catalogReaderBinding)
 		}
 		// The rest of the bootstrap must survive, or this would pass for the
 		// wrong reason.
 		if _, ok := seeded["admin"]; !ok {
 			t.Error("a portal-less install seeds no admin role; the bootstrap payload looks empty")
+		}
+	})
+}
+
+// TestAuthzBootstrap_PortalBindingIsPruned pins that disabling the portal does
+// not just stop seeding its binding but removes one an earlier revision seeded.
+// The hook applies its payload with plain kubectl apply, which cannot delete,
+// so without the removal stream the binding survives in the cluster and keeps
+// granting cluster-wide read to a client whose secret is a published default.
+func TestAuthzBootstrap_PortalBindingIsPruned(t *testing.T) {
+	// The hook only deletes what it is given, and it must be given the binding
+	// alone: the role is deliberately kept.
+	t.Run("portal disabled", func(t *testing.T) {
+		removals := authzBootstrapRemovals(t, helmGuardOverrides...)
+		var names []string
+		for _, doc := range removals {
+			names = append(names, doc.Kind+"/"+doc.Metadata.Name)
+		}
+		want := []string{"ClusterAuthzRoleBinding/" + catalogReaderBinding}
+		if diff := cmp.Diff(want, names); diff != "" {
+			t.Errorf("unexpected removal stream (-want +got):\n%s", diff)
+		}
+
+		// The delete needs a container to run in and the permission to do it.
+		job := renderControlPlane(t, append(append([]string{}, helmGuardOverrides...),
+			"--show-only", "templates/authz/bootstrap-job.yaml")...)
+		if !strings.Contains(job, "/bootstrap/removals.yaml") {
+			t.Error("the bootstrap Job never reads removals.yaml, so nothing applies the removals")
+		}
+		rbac := renderControlPlane(t, append(append([]string{}, helmGuardOverrides...),
+			"--show-only", "templates/authz/bootstrap-rbac.yaml")...)
+		if !strings.Contains(rbac, "- delete") {
+			t.Error("the bootstrap ServiceAccount cannot delete, so the prune fails the whole hook")
+		}
+	})
+
+	// Nothing to remove, and no permission to remove anything.
+	t.Run("portal enabled", func(t *testing.T) {
+		if removals := authzBootstrapRemovals(t, backstageGuardOverrides...); removals != nil {
+			t.Errorf("an install with the portal still carries a removal stream: %+v", removals)
+		}
+		rbac := renderControlPlane(t, append(append([]string{}, backstageGuardOverrides...),
+			"--show-only", "templates/authz/bootstrap-rbac.yaml")...)
+		if strings.Contains(rbac, "- delete") {
+			t.Error("the bootstrap ServiceAccount may delete authz objects with nothing to prune")
+		}
+	})
+
+	// A deployment that declares the binding itself owns it - it is how an
+	// external portal rebinds the role - so the chart must not delete it.
+	t.Run("declared by the deployment", func(t *testing.T) {
+		args := append(append([]string{}, helmGuardOverrides...),
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].name="+catalogReaderBinding,
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].kind=ClusterAuthzRoleBinding",
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].roleMappings[0].roleRef.name="+catalogReaderRole,
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].roleMappings[0].roleRef.kind=ClusterAuthzRole",
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].entitlement.claim=sub",
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].entitlement.value=my-own-portal",
+			"--set", "openchoreoApi.config.security.authorization.bootstrap.mappings[0].effect=allow",
+		)
+		if removals := authzBootstrapRemovals(t, args...); removals != nil {
+			t.Errorf("the chart would delete a binding the deployment declares itself: %+v", removals)
+		}
+		if got := authzBootstrapNames(t, args...)[catalogReaderBinding]; got != "ClusterAuthzRoleBinding" {
+			t.Errorf("the deployment's own binding is not seeded (%q)", got)
 		}
 	})
 }

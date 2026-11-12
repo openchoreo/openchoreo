@@ -7,9 +7,9 @@
 #
 # That applies to a FRESH install only. Disabling the portal on a cluster that
 # already had it leaves this application in ThunderID, because the bootstrap is a
-# first-install-only hook; the chart's authz role and binding survive too, since
-# the authz bootstrap job only applies and never deletes. Removing either is a
-# separate, deliberate step.
+# first-install-only hook; removing it is a separate, deliberate step through the
+# management API. (The chart does take the portal's authz binding back on
+# upgrade, so the client is left registered but no longer authorized.)
 #
 # The split is additive on purpose: ThunderID seeds bootstrap.scripts from a
 # static map applied by a pre-install hook, and Helm cannot remove a key that a

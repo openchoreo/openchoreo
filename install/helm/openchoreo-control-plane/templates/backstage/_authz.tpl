@@ -3,13 +3,17 @@ The ClusterAuthzRoleBinding that grants the bundled Backstage portal's catalog
 provider read access.
 
 Only the binding lives here, not the role. The role stays in values.yaml under
-openchoreoApi.config.security.authorization.bootstrap.roles, marked
-`requiresPortal: true`, so that upstream edits to its action list land in one
-place; "openchoreo-control-plane.authz.allManifests" skips marked roles when the
-portal is disabled. The binding is here instead because the overlays that
-override bootstrap.mappings would otherwise each need a copy, and because its
-entitlement has to be configurable for IdPs that identify the client through a
-different claim (Dex encodes it into `sub`).
+openchoreoApi.config.security.authorization.bootstrap.roles and is seeded
+whatever backstage.enabled is: it grants nothing until something is bound to it,
+and a portal you run yourself needs the same actions. The binding is what
+follows the portal - "openchoreo-control-plane.authz.allManifests" appends it
+only when the portal is enabled, and
+"openchoreo-control-plane.authz.removalManifests" deletes it when it is not.
+
+It lives here rather than in bootstrap.mappings because the overlays that
+override that list would otherwise each need a copy, and because its entitlement
+has to be configurable for IdPs that identify the client through a different
+claim (Dex encodes it into `sub`).
 
 The entitlement follows the client the catalog provider actually presents (see
 backstage/deployment.yaml OPENCHOREO_SERVICE_CLIENT_ID), so a deployment that

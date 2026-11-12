@@ -37,16 +37,12 @@ Components:
 
 {{- if and (not .Values.backstage.enabled) .Values.security.authz.enabled }}
 
-The portal is disabled, but this chart cannot remove authorization objects an
-earlier install already created: the authz bootstrap only ever applies. If this
-release previously ran the portal, its catalog-reader grant is still in the
-cluster and still gives the portal's OAuth client cluster-wide read access.
-Check, and drop it if you no longer want it:
-  kubectl get clusterauthzrole backstage-catalog-reader
-  kubectl delete clusterauthzrole backstage-catalog-reader
-  kubectl delete clusterauthzrolebinding backstage-catalog-reader-binding
-The matching ThunderID application outlives the chart too, and is removed
-through the ThunderID management API.
+The portal's catalog-reader binding has been removed, so its OAuth client no
+longer has read access. The backstage-catalog-reader role itself is kept: it
+grants nothing unbound, and a portal of your own can bind to it.
+
+The client's ThunderID application outlives the chart, though, and is removed
+through the ThunderID management API rather than by helm.
 {{- end }}
 
 {{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}

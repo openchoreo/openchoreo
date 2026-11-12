@@ -41,6 +41,15 @@ OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-latest}"
 DEV_MODE="${DEV_MODE:-false}"
 DEV_HELM_CHARTS_DIR="/helm"
 
+# Control-plane values the portal-less path turns off. install_control_plane
+# passes these to helm, and preload_images renders the chart with the same
+# values so a --without-portal run does not pull images for a portal it will
+# never install. Kept in one place so the two cannot drift.
+PORTAL_DISABLED_VALUES=(
+    "backstage.enabled=false"
+    "eventForwarder.enabled=false"
+)
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${RESET} $1"
@@ -953,10 +962,10 @@ install_control_plane() {
         portal_args=("--set-string" "backstage.image.tag=$BACKSTAGE_VERSION")
     else
         # The chart drops the portal's webhook endpoint already; skip the pod too.
-        portal_args=(
-            "--set" "backstage.enabled=false"
-            "--set" "eventForwarder.enabled=false"
-        )
+        local cp_portal_value
+        for cp_portal_value in "${PORTAL_DISABLED_VALUES[@]}"; do
+            portal_args+=("--set" "$cp_portal_value")
+        done
     fi
     # Disable --wait for control plane to avoid deadlock with webhook cert hooks
     # But keep monitoring enabled to track pod status
@@ -1565,6 +1574,15 @@ preload_images() {
         "--thunder-version" "$THUNDER_VERSION"
         "--thunder-values" "$thunder_values"
     )
+
+    # Render the control plane the way install_control_plane will install it, so
+    # the portal's images are not pulled on a --without-portal run.
+    if [[ "${ENABLE_PORTAL:-true}" != "true" ]]; then
+        local preload_portal_value
+        for preload_portal_value in "${PORTAL_DISABLED_VALUES[@]}"; do
+            preload_args+=("--cp-set" "$preload_portal_value")
+        done
+    fi
 
     # Use local charts when in dev mode
     if [[ "$DEV_MODE" == "true" ]]; then
