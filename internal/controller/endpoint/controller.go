@@ -41,6 +41,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 
@@ -225,20 +226,24 @@ func (r *Reconciler) validateBackends(ctx context.Context, ep *openchoreov1alpha
 		if ref.Kind != openchoreov1alpha1.EndpointBackendKindComponent || ref.Component == nil {
 			continue
 		}
-		workload := findWorkload(workloads.Items, ep.Spec.Owner.ProjectName, ref.Component.Name)
+		subject := fmt.Sprintf("component %q", ref.Component.Name)
+		if ref.Component.ReleaseLine != "" {
+			subject = fmt.Sprintf("release line %q of component %q", ref.Component.ReleaseLine, ref.Component.Name)
+		}
+		workload := findWorkload(workloads.Items, ep.Spec.Owner.ProjectName, ref.Component.Name, ref.Component.ReleaseLine)
 		if workload == nil {
 			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
-				"backend %q: component %q in project %q has no Workload",
-				ref.Name, ref.Component.Name, ep.Spec.Owner.ProjectName)})
+				"backend %q: %s in project %q has no Workload",
+				ref.Name, subject, ep.Spec.Owner.ProjectName)})
 			continue
 		}
 		// The workload endpoint only has to exist: what it is exposed to comes
-		// from this Endpoint's visibility, which the component's network policy
-		// follows, not from the workload.
+		// from this Endpoint's visibility, which the network policy rendered
+		// with its routes admits, not from the workload.
 		if _, ok := workload.Spec.Endpoints[ref.Component.Endpoint]; !ok {
 			problems = append(problems, backendProblem{ReasonBackendNotFound, fmt.Sprintf(
-				"backend %q: component %q has no workload endpoint %q (available: %s)",
-				ref.Name, ref.Component.Name, ref.Component.Endpoint, endpointNames(workload))})
+				"backend %q: %s has no workload endpoint %q (available: %s)",
+				ref.Name, subject, ref.Component.Endpoint, endpointNames(workload))})
 		}
 	}
 	return problems, nil
@@ -250,11 +255,12 @@ type backendProblem struct {
 	message string
 }
 
-// findWorkload returns the Workload owned by the given component, or nil.
-func findWorkload(items []openchoreov1alpha1.Workload, projectName, componentName string) *openchoreov1alpha1.Workload {
+// findWorkload returns the Workload of the given component's release line, or
+// nil. An empty line is the component's main line, whose Workload names no line.
+func findWorkload(items []openchoreov1alpha1.Workload, projectName, componentName, line string) *openchoreov1alpha1.Workload {
 	for i := range items {
 		owner := items[i].Spec.Owner
-		if owner.ProjectName == projectName && owner.ComponentName == componentName {
+		if owner.ProjectName == projectName && owner.ComponentName == componentName && owner.ReleaseLine == line {
 			return &items[i]
 		}
 	}
@@ -350,7 +356,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForWorkload)).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForComponent),
-			builder.WithPredicates(componentCreated())).
+			builder.WithPredicates(createOnly())).
+		Watches(&openchoreov1alpha1.ReleaseLine{},
+			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForReleaseLine),
+			builder.WithPredicates(createOnly())).
 		Named("endpoint").
 		Complete(r)
 }

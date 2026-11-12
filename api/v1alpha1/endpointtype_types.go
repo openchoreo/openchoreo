@@ -84,8 +84,12 @@ type EndpointURLTemplate struct {
 	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	IncludeWhen string `json:"includeWhen,omitempty"`
 
-	// Scheme is the URL scheme. Must resolve to one of http, https, ws, wss,
-	// grpc, grpcs, tcp, tls.
+	// Scheme is the URL scheme, as a literal or a ${...} expression resolving to
+	// one of http, https, ws, wss, grpc, grpcs, tcp, tls. It is a string rather
+	// than an enum so a type can pick it per environment, for example
+	// ${gateway.ingress.external.?https.hasValue() ? "https" : "http"}. The
+	// admission webhook checks a literal against these values and the binding
+	// controller checks the resolved value.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Scheme string `json:"scheme"`
@@ -114,8 +118,11 @@ type EndpointURLTemplate struct {
 
 // EndpointSecurityTemplate templates the security enforced at a URL.
 type EndpointSecurityTemplate struct {
-	// Scheme is the authentication scheme clients must use. Must resolve to one
-	// of none, apiKey, oauth2, basicAuth.
+	// Scheme is the authentication scheme clients must use, as a literal or a
+	// ${...} expression resolving to one of none, apiKey, oauth2, basicAuth, so a
+	// parameter can switch authentication on and off. The admission webhook
+	// checks a literal against these values and the binding controller checks
+	// the resolved value.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Scheme string `json:"scheme"`

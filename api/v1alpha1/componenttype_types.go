@@ -146,6 +146,7 @@ type AllowedEndpointType struct {
 	// Protocols are the workload endpoint protocols this entry applies to.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=6
+	// +kubebuilder:validation:items:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
 	// +listType=set
 	Protocols []EndpointProtocol `json:"protocols"`
 

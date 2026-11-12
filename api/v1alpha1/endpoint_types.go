@@ -10,11 +10,12 @@ import (
 
 // EndpointSpec defines the desired state of Endpoint.
 // +kubebuilder:validation:XValidation:rule="!has(self.owner.componentName) || self.backendRefs.all(b, has(b.component) && b.component.name == self.owner.componentName)",message="spec.owner.componentName must be the component every backend routes to; an Endpoint routing to several components is owned by its project"
+// +kubebuilder:validation:XValidation:rule="!has(self.owner.releaseLineName) || self.backendRefs.all(b, has(b.component) && has(b.component.releaseLine) && b.component.releaseLine == self.owner.releaseLineName)",message="spec.owner.releaseLineName must be the release line every backend routes to; an Endpoint routing to several lines is owned by its component"
 type EndpointSpec struct {
 	// Owner identifies what this Endpoint belongs to, and so what deleting
-	// removes it. Its project is fixed; its component is set only while every
-	// backend routes to that component, so deleting one component never deletes
-	// a route that still serves another.
+	// removes it. Its project is fixed; its component and release line are set
+	// only while every backend routes to them, so deleting one component or line
+	// never deletes a route that still serves another.
 	// +kubebuilder:validation:Required
 	Owner EndpointOwner `json:"owner"`
 
@@ -71,8 +72,10 @@ type EndpointSpec struct {
 
 // EndpointOwner identifies what owns an Endpoint. The Endpoint controller
 // makes the narrowest owner named here the Endpoint's Kubernetes owner, so
-// garbage collection deletes the Endpoint with it: the Component when
-// componentName is set, otherwise the Project.
+// garbage collection deletes the Endpoint with it: the ReleaseLine when
+// releaseLineName is set, the Component when componentName is set, otherwise
+// the Project.
+// +kubebuilder:validation:XValidation:rule="!has(self.releaseLineName) || has(self.componentName)",message="spec.owner.componentName is required when releaseLineName is set"
 type EndpointOwner struct {
 	// ProjectName is the name of the Project this Endpoint belongs to.
 	// +kubebuilder:validation:MinLength=1
@@ -89,6 +92,19 @@ type EndpointOwner struct {
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	ComponentName string `json:"componentName,omitempty"`
+
+	// ReleaseLineName is the release line of the owning component that owns
+	// this Endpoint, for an Endpoint created for one line. Every backend must
+	// route to that line. Like componentName it can change: an Endpoint that
+	// starts routing to another line, or to the main line, moves to its
+	// component by dropping this field in the same update.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLineName for it"
+	// +kubebuilder:validation:XValidation:rule="self != 'default'",message="default is a reserved name; omit releaseLineName for the main line"
+	ReleaseLineName string `json:"releaseLineName,omitempty"`
 }
 
 // EndpointBackendKind identifies what an EndpointBackendRef points at.
@@ -147,6 +163,16 @@ type EndpointComponentBackend struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Endpoint string `json:"endpoint"`
+
+	// ReleaseLine is the component's release line to route to. Empty routes to
+	// its main line. Backends of one Endpoint may name different lines of the
+	// same component, to split traffic between them.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self != 'main'",message="main is the implicit line; omit releaseLine for it"
+	// +kubebuilder:validation:XValidation:rule="self != 'default'",message="default is a reserved name; omit releaseLine for the main line"
+	ReleaseLine string `json:"releaseLine,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint.
@@ -186,15 +212,16 @@ type LatestEndpointRelease struct {
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be at most 63 characters"
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
+// +kubebuilder:printcolumn:name="Release Line",type=string,JSONPath=`.spec.owner.releaseLineName`,priority=1
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type.name`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.latestRelease.name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Endpoint is the Schema for the endpoints API.
 // An Endpoint routes traffic across one or more backends using weights,
-// rendered through an EndpointType or ClusterEndpointType. It is concerned with
-// traffic routing only; the compute side (ports, network policies) stays on
-// Workload.spec.endpoints.
+// rendered through an EndpointType or ClusterEndpointType. The compute side
+// (ports, protocols) stays on Workload.spec.endpoints; the network policy that
+// admits the Endpoint's visibility to each backend ships with its routes.
 // The plural "endpoints" and the short name "ep" are taken by core v1 Endpoints
 // in kubectl, so this kind has no short name; use "endpoints.openchoreo.dev".
 // The name is at most 63 characters because it is carried as a label value on

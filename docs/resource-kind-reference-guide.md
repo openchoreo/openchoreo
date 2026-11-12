@@ -501,7 +501,11 @@ endpoint the developer exposes, from the chosen or default entry, with `spec.own
 set to the component. The Endpoint controller makes that Component the Endpoint's owner, so
 deleting the component deletes its Endpoints. `componentName` is accepted only while every backend
 routes to that component; an Endpoint routing to several components is owned by its Project, and
-the OpenChoreo API drops `componentName` when an update adds such a backend. The developer picks the
+the OpenChoreo API drops `componentName` when an update adds such a backend. An `Endpoint` created
+for one of the component's release lines routes to it with `component.releaseLine` and also sets
+`spec.owner.releaseLineName`, so deleting the line deletes its Endpoints; it is accepted only while
+every backend routes to that line, and the API drops it when an update adds a backend on another
+line or the main line, leaving the Component as owner. The developer picks the
 visibility on the `Endpoint`; the EndpointType renders what each requested visibility needs (for
 example `includeWhen: '${"internal" in visibility && ...}'`) and rejects any it does not support
 through its `validations`. A PE opting a type in should drop the type's own route resources for

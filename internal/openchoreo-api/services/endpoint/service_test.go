@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -32,6 +33,105 @@ func newService(t *testing.T, extra ...client.Object) Service {
 	objs = append(objs, testutil.NewProject(testNamespace, testProject))
 	objs = append(objs, extra...)
 	return NewService(testutil.NewFakeClient(objs...), testutil.TestLogger())
+}
+
+const testLine = "next"
+
+func newReleaseLine(project, component, line string) *openchoreov1alpha1.ReleaseLine {
+	return &openchoreov1alpha1.ReleaseLine{
+		ObjectMeta: metav1.ObjectMeta{Name: line, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseLineSpec{
+			Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: project, ComponentName: component},
+		},
+	}
+}
+
+// newLineEndpoint returns the Endpoint "test-r", whose backend routes to testLine of
+// testComponent and whose spec.owner names that line.
+func newLineEndpoint() *openchoreov1alpha1.Endpoint {
+	ep := testutil.NewEndpoint(testNamespace, testProject, "test-r")
+	ep.Spec.BackendRefs[0].Component.ReleaseLine = testLine
+	ep.Spec.Owner.ComponentName = testComponent
+	ep.Spec.Owner.ReleaseLineName = testLine
+	return ep
+}
+
+func TestEndpointReleaseLineOwner(t *testing.T) {
+	ctx := context.Background()
+	fixtures := func() []client.Object {
+		return []client.Object{
+			testutil.NewComponent(testNamespace, testProject, testComponent),
+			newReleaseLine(testProject, testComponent, testLine),
+		}
+	}
+
+	t.Run("created with the line its backends route to", func(t *testing.T) {
+		svc := newService(t, fixtures()...)
+
+		result, err := svc.CreateEndpoint(ctx, testNamespace, newLineEndpoint())
+		require.NoError(t, err)
+		assert.Equal(t, testComponent, result.Spec.Owner.ComponentName)
+		assert.Equal(t, testLine, result.Spec.Owner.ReleaseLineName)
+	})
+
+	t.Run("a backend on the main line moves ownership to the component", func(t *testing.T) {
+		existing := newLineEndpoint()
+		svc := newService(t, append(fixtures(), existing)...)
+
+		update := existing.DeepCopy()
+		update.Spec.BackendRefs = append(update.Spec.BackendRefs, openchoreov1alpha1.EndpointBackendRef{
+			Name: "main", Kind: openchoreov1alpha1.EndpointBackendKindComponent,
+			Component: &openchoreov1alpha1.EndpointComponentBackend{Name: testComponent, Endpoint: "http"},
+		})
+
+		result, err := svc.UpdateEndpoint(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, testComponent, result.Spec.Owner.ComponentName)
+		assert.Empty(t, result.Spec.Owner.ReleaseLineName)
+	})
+
+	t.Run("a backend on another component moves ownership to the project", func(t *testing.T) {
+		existing := newLineEndpoint()
+		svc := newService(t, append(fixtures(), existing)...)
+
+		update := existing.DeepCopy()
+		update.Spec.BackendRefs[0].Component.Name = "billing"
+
+		result, err := svc.UpdateEndpoint(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Empty(t, result.Spec.Owner.ComponentName)
+		assert.Empty(t, result.Spec.Owner.ReleaseLineName)
+	})
+
+	t.Run("a line without a component is dropped", func(t *testing.T) {
+		svc := newService(t, fixtures()...)
+		ep := newLineEndpoint()
+		ep.Spec.Owner.ComponentName = ""
+
+		result, err := svc.CreateEndpoint(ctx, testNamespace, ep)
+		require.NoError(t, err)
+		assert.Empty(t, result.Spec.Owner.ReleaseLineName)
+	})
+
+	t.Run("owning line not found", func(t *testing.T) {
+		svc := newService(t, testutil.NewComponent(testNamespace, testProject, testComponent))
+
+		_, err := svc.CreateEndpoint(ctx, testNamespace, newLineEndpoint())
+		var validationErr *services.ValidationError
+		require.ErrorAs(t, err, &validationErr)
+		assert.Contains(t, validationErr.Msg, `release line "next" not found`)
+	})
+
+	t.Run("owning line of another component", func(t *testing.T) {
+		svc := newService(t,
+			testutil.NewComponent(testNamespace, testProject, testComponent),
+			newReleaseLine(testProject, "billing", testLine))
+
+		_, err := svc.CreateEndpoint(ctx, testNamespace, newLineEndpoint())
+		var validationErr *services.ValidationError
+		require.ErrorAs(t, err, &validationErr)
+		assert.Contains(t, validationErr.Msg, `belongs to component "billing"`)
+	})
 }
 
 func TestCreateEndpoint(t *testing.T) {

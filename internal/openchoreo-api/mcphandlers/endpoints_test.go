@@ -225,6 +225,33 @@ func TestUpdateEndpoint(t *testing.T) {
 		assert.Equal(t, "5s", got["timeout"])
 	})
 
+	t.Run("sets the owning component and release line when sent", func(t *testing.T) {
+		existing := sampleEndpoint()
+		svc := endpointmocks.NewMockService(t)
+		svc.EXPECT().GetEndpoint(mock.Anything, testNS, testEndpointName).Return(existing, nil)
+		var sent *openchoreov1alpha1.Endpoint
+		svc.EXPECT().
+			UpdateEndpoint(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, ep *openchoreov1alpha1.Endpoint) { sent = ep }).
+			Return(existing, nil)
+
+		req := &gen.UpdateEndpointJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testEndpointName},
+			Spec:     &gen.EndpointSpec{},
+		}
+		req.Spec.Owner.ComponentName = ptr.To("orders")
+		req.Spec.Owner.ReleaseLineName = ptr.To("next")
+
+		h := newTestHandler(withEndpointService(svc))
+		_, err := h.UpdateEndpoint(ctx, testNS, req)
+		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, testProject, sent.Spec.Owner.ProjectName, "the project is kept")
+		assert.Equal(t, "orders", sent.Spec.Owner.ComponentName)
+		assert.Equal(t, "next", sent.Spec.Owner.ReleaseLineName)
+	})
+
 	t.Run("rejects nil body", func(t *testing.T) {
 		h := newTestHandler()
 		_, err := h.UpdateEndpoint(ctx, testNS, nil)

@@ -110,10 +110,21 @@ func (r *Reconciler) listEndpointsForComponent(ctx context.Context, obj client.O
 	return r.requestsForIndex(ctx, backendComponentIndex, indexKey, client.InNamespace(comp.Namespace))
 }
 
-// componentCreated passes only Component creation, the one Component event
-// that changes which owner an Endpoint gets. Deletion is left to garbage
-// collection, and updates never change ownership.
-func componentCreated() predicate.Funcs {
+// listEndpointsForReleaseLine returns reconcile requests for Endpoints in the
+// ReleaseLine's namespace that route to its component. An Endpoint owned by a
+// release line routes only to that line of the component, so this finds the
+// Endpoints naming it as owner: one applied before its line moves from the
+// component to the line once the line lands.
+func (r *Reconciler) listEndpointsForReleaseLine(ctx context.Context, obj client.Object) []reconcile.Request {
+	rl := obj.(*openchoreov1alpha1.ReleaseLine)
+	indexKey := backendComponentKey(rl.Spec.Owner.ProjectName, rl.Spec.Owner.ComponentName)
+	return r.requestsForIndex(ctx, backendComponentIndex, indexKey, client.InNamespace(rl.Namespace))
+}
+
+// createOnly passes only creation, the one Component or ReleaseLine event that
+// changes which owner an Endpoint gets. Deletion is left to garbage collection,
+// and updates never change ownership.
+func createOnly() predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc:  func(event.CreateEvent) bool { return true },
 		UpdateFunc:  func(event.UpdateEvent) bool { return false },

@@ -6,12 +6,14 @@ package endpointreleasebinding
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -20,6 +22,8 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 )
 
@@ -36,6 +40,18 @@ var _ = Describe("Backend resolution and rendering", func() {
 
 	build := func(objs ...client.Object) (*Reconciler, client.Client) {
 		base := []client.Object{newEnvironment(), newDataPlane(), newProject(), newEndpointCR()}
+		seen := map[string]bool{}
+		for _, obj := range objs {
+			if rb, ok := obj.(*openchoreov1alpha1.ReleaseBinding); ok {
+				for _, in := range releaseBindingInputs(rb) {
+					key := fmt.Sprintf("%T/%s", in, in.GetName())
+					if !seen[key] {
+						seen[key] = true
+						base = append(base, in)
+					}
+				}
+			}
+		}
 		cli := fake.NewClientBuilder().
 			WithScheme(scheme.Scheme).
 			WithObjects(append(base, objs...)...).
@@ -72,10 +88,37 @@ var _ = Describe("Backend resolution and rendering", func() {
 		return rr, err
 	}
 
+	// reportHealthy records every rendered resource as healthy, as the data
+	// plane would once it has applied them.
+	reportHealthy := func(cli client.Client, rr *openchoreov1alpha1.RenderedRelease) {
+		rr.Status.Resources = nil
+		for _, res := range rr.Spec.Resources {
+			var obj unstructured.Unstructured
+			Expect(json.Unmarshal(res.Object.Raw, &obj.Object)).To(Succeed())
+			gvk := obj.GroupVersionKind()
+			rr.Status.Resources = append(rr.Status.Resources, openchoreov1alpha1.RenderedManifestStatus{
+				ID: res.ID, Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind,
+				Name: obj.GetName(), HealthStatus: openchoreov1alpha1.HealthStatusHealthy,
+			})
+		}
+		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
+	}
+
+	// manifest returns the RenderedRelease resource with the given ID.
+	manifest := func(rr *openchoreov1alpha1.RenderedRelease, id string) map[string]any {
+		for _, res := range rr.Spec.Resources {
+			if res.ID == id {
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				return obj
+			}
+		}
+		Fail(fmt.Sprintf("RenderedRelease has no resource %q", id))
+		return nil
+	}
+
 	routeBackendRefs := func(rr *openchoreov1alpha1.RenderedRelease) []any {
-		Expect(rr.Spec.Resources).To(HaveLen(1))
-		var route map[string]any
-		Expect(json.Unmarshal(rr.Spec.Resources[0].Object.Raw, &route)).To(Succeed())
+		route := manifest(rr, "route")
 		rule := route["spec"].(map[string]any)["rules"].([]any)[0].(map[string]any)
 		return rule["backendRefs"].([]any)
 	}
@@ -121,11 +164,7 @@ var _ = Describe("Backend resolution and rendering", func() {
 
 		rr, err := renderedRelease(cli, b)
 		Expect(err).NotTo(HaveOccurred())
-		rr.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
-			ID: "route", Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute",
-			Name: rr.Name, HealthStatus: openchoreov1alpha1.HealthStatusHealthy,
-		}}
-		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
+		reportHealthy(cli, rr)
 
 		// Healthy entries alone are not enough: they may describe the previous
 		// routes until the RenderedRelease reports its current generation applied.
@@ -254,6 +293,11 @@ var _ = Describe("Backend resolution and rendering", func() {
 		Entry("Service in another namespace", func() *openchoreov1alpha1.ReleaseBinding {
 			return deployedComponent("greeter", "some-other-namespace")
 		}, BackendReasonNamespaceMismatch, `is served from namespace "some-other-namespace"`),
+		Entry("no release to read the container port from", func() *openchoreov1alpha1.ReleaseBinding {
+			rb := deployedComponent("greeter", dpNS)
+			rb.Spec.ReleaseName = ""
+			return rb
+		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" is not in the release deployed`),
 	)
 
 	It("reports RenderingFailed when a type validation rule rejects the backends", func() {
@@ -349,15 +393,11 @@ var _ = Describe("Backend resolution and rendering", func() {
 		// broken URL is what keeps the binding from being Ready.
 		rr, err := renderedRelease(cli, updated)
 		Expect(err).NotTo(HaveOccurred(), "routing is unaffected by a broken URL")
-		rr.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
-			ID: "route", Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute",
-			Name: rr.Name, HealthStatus: openchoreov1alpha1.HealthStatusHealthy,
-		}}
 		meta.SetStatusCondition(&rr.Status.Conditions, metav1.Condition{
 			Type: renderedrelease.ConditionResourcesApplied, Status: metav1.ConditionTrue,
 			Reason: "Applied", ObservedGeneration: rr.Generation,
 		})
-		Expect(cli.Status().Update(fctx, rr)).To(Succeed())
+		reportHealthy(cli, rr)
 		updated = reconcileBinding(r, cli, b)
 		ready := condition(updated, ConditionReady)
 		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
@@ -429,5 +469,202 @@ var _ = Describe("Backend resolution and rendering", func() {
 
 		requests := r.listBindingsForReleaseBinding(fctx, deployedComponent("greeter", dpNS))
 		Expect(requests).To(ConsistOf(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routes)}))
+	})
+
+	Context("network policies", func() {
+		policyName := endpointpipeline.NetworkPolicyID
+
+		It("renders a policy per backend admitting the gateways to its pods on the container port", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 90), componentBackend("canary", "greeter-v2", 10))
+			b := newBinding("policies", testRelease)
+			r, cli := build(release, b, deployedComponent("greeter", dpNS), deployedComponent("greeter-v2", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rr.Spec.Resources).To(HaveLen(3), "the route and one policy per backend")
+
+			policy := manifest(rr, policyName("stable"))
+			Expect(policy["kind"]).To(Equal("NetworkPolicy"))
+			Expect(policy["metadata"].(map[string]any)["namespace"]).To(Equal(dpNS))
+			spec := policy["spec"].(map[string]any)
+			selectors := spec["podSelector"].(map[string]any)["matchLabels"].(map[string]any)
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyComponentName, "greeter"))
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyComponentUID, "greeter-uid"))
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, testEnvName))
+			Expect(selectors).NotTo(HaveKey(labels.LabelKeyReleaseLine))
+			ingress := spec["ingress"].([]any)
+			Expect(ingress).To(HaveLen(1), "external visibility admits only the gateways")
+			rule := ingress[0].(map[string]any)
+			Expect(rule["ports"]).To(Equal([]any{map[string]any{"protocol": "TCP", "port": float64(9090)}}),
+				"the policy opens the container port, not the Service port the route targets")
+			Expect(rule["from"].([]any)[0].(map[string]any)["podSelector"]).To(Equal(map[string]any{
+				"matchExpressions": []any{map[string]any{"key": labels.LabelKeySystemComponent, "operator": "Exists"}},
+			}))
+
+			canary := manifest(rr, policyName("canary"))
+			canarySelectors := canary["spec"].(map[string]any)["podSelector"].(map[string]any)["matchLabels"].(map[string]any)
+			Expect(canarySelectors).To(HaveKeyWithValue(labels.LabelKeyComponentUID, "greeter-v2-uid"))
+		})
+
+		It("opens the workload endpoint's targetPort when it differs from its port", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("target-port", testRelease)
+			rb := deployedComponent("greeter", dpNS)
+			r, cli := build(release, b, rb)
+
+			// The Service forwards port 8080 to 9091 on the pod, where the policy is enforced.
+			cr := &openchoreov1alpha1.ComponentRelease{}
+			Expect(cli.Get(fctx, client.ObjectKey{Namespace: testNamespace, Name: rb.Spec.ReleaseName}, cr)).To(Succeed())
+			ep := cr.Spec.Workload.Endpoints["http"]
+			ep.Port, ep.TargetPort = 8080, 9091
+			cr.Spec.Workload.Endpoints["http"] = ep
+			Expect(cli.Update(fctx, cr)).To(Succeed())
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			rule := manifest(rr, policyName("stable"))["spec"].(map[string]any)["ingress"].([]any)[0].(map[string]any)
+			Expect(rule["ports"]).To(Equal([]any{map[string]any{"protocol": "TCP", "port": float64(9091)}}))
+		})
+
+		It("refuses to render a type resource that takes a network policy's ID", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			release.Spec.EndpointType.Spec.Resources[0].ID = policyName("stable")
+			b := newBinding("id-collision", testRelease)
+			r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+			synced := condition(updated, ConditionSynced)
+			Expect(synced.Status).To(Equal(metav1.ConditionFalse))
+			Expect(synced.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(synced.Message).To(ContainSubstring(`share the ID "openchoreo-networkpolicy-stable"`))
+			_, err := renderedRelease(cli, updated)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "nothing is written while two resources share an ID")
+		})
+
+		It("admits the other projects of the namespace for namespace visibility", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			release.Spec.Visibility = []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace}
+			b := newBinding("namespace-policy", testRelease)
+			r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			ingress := manifest(rr, policyName("stable"))["spec"].(map[string]any)["ingress"].([]any)
+			Expect(ingress).To(HaveLen(1))
+			Expect(ingress[0].(map[string]any)["from"]).To(Equal([]any{map[string]any{
+				"namespaceSelector": map[string]any{"matchLabels": map[string]any{
+					labels.LabelKeyNamespaceName:   testNamespace,
+					labels.LabelKeyEnvironmentName: testEnvName,
+				}},
+			}}))
+		})
+
+		It("selects a release line's pods for a backend on that line", func() {
+			release := newRelease(testRelease, lineBackend(1))
+			b := newBinding("line-policy", testRelease)
+			r, cli := build(release, b, newReleaseLine("greeter"), deployedLine("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			selectors := manifest(rr, policyName("next"))["spec"].(map[string]any)["podSelector"].(map[string]any)["matchLabels"].(map[string]any)
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyReleaseLine, testLine))
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyReleaseLineUID, "greeter-next-uid"))
+			Expect(selectors).To(HaveKeyWithValue(labels.LabelKeyReleaseLineComponentUID, "greeter-uid"))
+			Expect(selectors).NotTo(HaveKey(labels.LabelKeyComponentUID), "the main line's pods must not match")
+		})
+
+		It("renders a CiliumNetworkPolicy when the data plane selects Cilium", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("cilium-policy", testRelease)
+			r, cli := build(release, b, deployedComponent("greeter", dpNS))
+			dp := &openchoreov1alpha1.DataPlane{}
+			Expect(cli.Get(fctx, client.ObjectKey{Namespace: testNamespace, Name: "primary"}, dp)).To(Succeed())
+			dp.Annotations = map[string]string{networkpolicy.ProviderAnnotation: string(networkpolicy.ProviderCilium)}
+			Expect(cli.Update(fctx, dp)).To(Succeed())
+
+			updated := reconcileBinding(r, cli, b)
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			policy := manifest(rr, policyName("stable"))
+			Expect(policy["kind"]).To(Equal("CiliumNetworkPolicy"))
+			Expect(policy["spec"].(map[string]any)).To(HaveKey("endpointSelector"))
+		})
+	})
+
+	Context("release lines", func() {
+		It("routes a backend without a line to the main line while a release line is deployed beside it", func() {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("main-line", testRelease)
+			r, cli := build(release, b, newReleaseLine("greeter"),
+				deployedComponent("greeter", dpNS), deployedLine("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+
+			Expect(condition(updated, ConditionBackendsResolved).Status).To(Equal(metav1.ConditionTrue))
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(routeBackendRefs(rr)).To(Equal([]any{
+				map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(1)},
+			}))
+		})
+
+		It("splits traffic between a component's main line and one of its release lines", func() {
+			release := newRelease(testRelease,
+				componentBackend("stable", "greeter", 90), lineBackend(10))
+			b := newBinding("canary-line", testRelease)
+			r, cli := build(release, b, newReleaseLine("greeter"),
+				deployedComponent("greeter", dpNS), deployedLine("greeter", dpNS))
+
+			updated := reconcileBinding(r, cli, b)
+
+			Expect(condition(updated, ConditionBackendsResolved).Status).To(Equal(metav1.ConditionTrue))
+			rr, err := renderedRelease(cli, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(routeBackendRefs(rr)).To(Equal([]any{
+				map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(90)},
+				map[string]any{"name": "greeter-next-svc", "port": float64(8080), "weight": float64(10)},
+			}))
+		})
+
+		DescribeTable("reports why a backend on a release line does not resolve",
+			func(objs []client.Object, reason, message string) {
+				release := newRelease(testRelease, lineBackend(1))
+				b := newBinding("line-unresolved", testRelease)
+				r, cli := build(append([]client.Object{release, b, deployedComponent("greeter", dpNS)}, objs...)...)
+
+				updated := reconcileBinding(r, cli, b)
+				Expect(updated.Status.Backends).To(HaveLen(1))
+				st := updated.Status.Backends[0]
+				Expect(st.Resolved).To(BeFalse())
+				Expect(st.Reason).To(Equal(reason))
+				Expect(st.Message).To(ContainSubstring(message))
+			},
+			Entry("line does not exist", []client.Object{},
+				BackendReasonReleaseLineNotFound, `component "greeter" has no release line "next"`),
+			Entry("line belongs to another component", []client.Object{newReleaseLine("billing")},
+				BackendReasonReleaseLineNotFound, `component "greeter" has no release line "next"`),
+			Entry("line exists but is not deployed", []client.Object{newReleaseLine("greeter")},
+				BackendReasonNotDeployed, `release line "next" of component "greeter" is not deployed`),
+		)
+
+		It("maps a ReleaseLine only to bindings routing to that line", func() {
+			toLine := newRelease(testRelease, lineBackend(1))
+			toMain := newRelease("main-release", componentBackend("stable", "greeter", 1))
+			routes := newBinding("routes-to-line", toLine.Name)
+			routesProd := newBinding("routes-to-line-prod", toLine.Name)
+			routesProd.Spec.Environment = "prod"
+			mainOnly := newBinding("routes-to-main", toMain.Name)
+			r, _ := build(toLine, toMain, routes, routesProd, mainOnly)
+
+			requests := r.listBindingsForReleaseLine(fctx, newReleaseLine("greeter"))
+			Expect(requests).To(ConsistOf(
+				reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routes)},
+				reconcile.Request{NamespacedName: client.ObjectKeyFromObject(routesProd)},
+			))
+		})
 	})
 })

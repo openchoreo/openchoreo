@@ -18,13 +18,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 )
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
 
 // renderAndEmit drives the endpoint pipeline against the release snapshot and
-// writes the resulting RenderedRelease. Returns the live RenderedRelease on
+// writes the resulting RenderedRelease, together with the network policies
+// that let the Endpoint's routes reach its backends. Returns the live RenderedRelease on
 // success (created, updated, or already in sync) or nil when no further
 // evaluation should run (render error, ownership conflict). Transient API
 // errors are returned to the caller for requeue.
@@ -32,6 +34,7 @@ func (r *Reconciler) renderAndEmit(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
 	input *endpointpipeline.RenderInput,
+	policies []openchoreov1alpha1.RenderedManifest,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	logger := log.FromContext(ctx)
 
@@ -46,6 +49,15 @@ func (r *Reconciler) renderAndEmit(
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to encode rendered manifests: %v", err))
 		return nil, err
+	}
+	manifests = append(manifests, policies...)
+	if id := duplicateManifestID(manifests); id != "" {
+		// The RenderedRelease controller tracks applied objects by ID, so two
+		// manifests sharing one would leave one of them unmanaged.
+		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf(
+			"Rendered resources share the ID %q; IDs starting with %q are reserved for the network policies the platform renders",
+			id, endpointpipeline.NetworkPolicyIDPrefix))
+		return nil, nil
 	}
 
 	rrName := makeRenderedReleaseName(binding)
@@ -145,13 +157,79 @@ func (r *Reconciler) resolveURLs(
 	controller.MarkTrueCondition(binding, ConditionURLsResolved, ReasonURLsResolved, "URLs resolved")
 }
 
+// networkPolicyManifests renders, for each resolved backend, the policy that
+// admits the Endpoint's visibility to the backend's pods. It ships in the
+// Endpoint's RenderedRelease with the routes, so a route and the policy that
+// lets its traffic through are deployed, promoted and removed together, while
+// the backend component's own policy keeps its project scope and whatever its
+// deprecated workload visibility requests.
+func networkPolicyManifests(
+	binding *openchoreov1alpha1.EndpointReleaseBinding,
+	in *reconcileInputs,
+	md endpointpipeline.MetadataContext,
+	targets []policyTarget,
+) ([]openchoreov1alpha1.RenderedManifest, error) {
+	provider := networkpolicy.ProviderFromAnnotations(in.dataPlane.Annotations)
+	manifests := make([]openchoreov1alpha1.RenderedManifest, 0, len(targets))
+	for _, t := range targets {
+		policy := networkpolicy.MakeEndpointPolicy(networkpolicy.EndpointPolicyParams{
+			Name: dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxResourceNameLength,
+				"openchoreo", "e_"+binding.Spec.Owner.EndpointName, t.backendName),
+			Namespace:    md.Namespace,
+			CPNamespace:  binding.Namespace,
+			Environment:  binding.Spec.Environment,
+			PodSelectors: t.podSelectors,
+			Port:         t.port,
+			Protocol:     t.protocol,
+			Visibility:   in.release.Spec.Visibility,
+			Provider:     provider,
+		})
+		if policy == nil {
+			continue
+		}
+		raw, err := json.Marshal(policy)
+		if err != nil {
+			return nil, fmt.Errorf("marshal network policy for backend %q: %w", t.backendName, err)
+		}
+		manifests = append(manifests, openchoreov1alpha1.RenderedManifest{
+			ID:     endpointpipeline.NetworkPolicyID(t.backendName),
+			Object: &runtime.RawExtension{Raw: raw},
+		})
+	}
+	return manifests, nil
+}
+
 // makeRenderedReleaseName returns the RenderedRelease name for a binding. The
 // "e_" discriminator keeps it collision-safe against component (""), resource
 // ("r_") and project ("p_") RenderedReleases: the underscore is sanitized to
 // "-" in the visible name but drives the hash, and K8s names cannot contain
 // "_", so a Component named "e-{endpoint}" hashes a different input.
+//
+// The name is also the value of the openchoreo.dev/rendered-release-name label
+// on every resource applied from it, so it must fit a label value (63). Only
+// names longer than that are shortened: those could never be applied, while a
+// shorter name shortened as well would rename an existing RenderedRelease and
+// recreate its routes.
 func makeRenderedReleaseName(binding *openchoreov1alpha1.EndpointReleaseBinding) string {
-	return dpkubernetes.GenerateK8sName("e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+	name := dpkubernetes.GenerateK8sName("e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+	if len(name) <= dpkubernetes.MaxLabelNameLength {
+		return name
+	}
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+		"e_"+binding.Spec.Owner.EndpointName, binding.Spec.Environment)
+}
+
+// duplicateManifestID returns the first resource ID shared by two manifests,
+// or "" when every ID is unique.
+func duplicateManifestID(manifests []openchoreov1alpha1.RenderedManifest) string {
+	seen := make(map[string]struct{}, len(manifests))
+	for _, m := range manifests {
+		if _, dup := seen[m.ID]; dup {
+			return m.ID
+		}
+		seen[m.ID] = struct{}{}
+	}
+	return ""
 }
 
 // convertEntriesToManifests marshals each pipeline-rendered map into a

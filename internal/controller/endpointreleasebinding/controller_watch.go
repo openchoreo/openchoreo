@@ -51,8 +51,50 @@ func (r *Reconciler) listBindingsForReleaseBinding(ctx context.Context, obj clie
 	return requests
 }
 
+// listBindingsForReleaseLine re-enqueues the EndpointReleaseBindings, in every
+// environment, whose pinned release routes to the line, so a backend reported
+// as ReleaseLineNotFound recovers when the line is created, and the reverse
+// when it is deleted.
+func (r *Reconciler) listBindingsForReleaseLine(ctx context.Context, obj client.Object) []reconcile.Request {
+	line := obj.(*openchoreov1alpha1.ReleaseLine)
+	logger := log.FromContext(ctx)
+
+	bindings := &openchoreov1alpha1.EndpointReleaseBindingList{}
+	if err := r.List(ctx, bindings, client.InNamespace(line.Namespace)); err != nil {
+		logger.Error(err, "Failed to list EndpointReleaseBindings for ReleaseLine watch")
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		b := &bindings.Items[i]
+		if b.Spec.Owner.ProjectName != line.Spec.Owner.ProjectName || b.Spec.EndpointRelease == "" {
+			continue
+		}
+		release := &openchoreov1alpha1.EndpointRelease{}
+		if err := r.Get(ctx, types.NamespacedName{Name: b.Spec.EndpointRelease, Namespace: b.Namespace}, release); err != nil {
+			continue
+		}
+		if routesToReleaseLine(release, line.Spec.Owner.ComponentName, line.Name) {
+			requests = append(requests, requestFor(b))
+		}
+	}
+	return requests
+}
+
+// routesToReleaseLine reports whether any Component backend of the release
+// names the component's line.
+func routesToReleaseLine(release *openchoreov1alpha1.EndpointRelease, componentName, line string) bool {
+	for _, ref := range release.Spec.BackendRefs {
+		if ref.Component != nil && ref.Component.Name == componentName && ref.Component.ReleaseLine == line {
+			return true
+		}
+	}
+	return false
+}
+
 // routesToComponent reports whether any Component backend of the release names
-// the component.
+// the component, on any of its lines.
 func routesToComponent(release *openchoreov1alpha1.EndpointRelease, componentName string) bool {
 	for _, ref := range release.Spec.BackendRefs {
 		if ref.Component != nil && ref.Component.Name == componentName {

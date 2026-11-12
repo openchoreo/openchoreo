@@ -41,6 +41,13 @@ func TestValidateEndpointTypeResourcesWithSchema(t *testing.T) {
 			}},
 		},
 		{
+			name: "the network policy ID prefix is reserved",
+			resources: []v1alpha1.ResourceTemplate{{
+				ID: "openchoreo-networkpolicy-stable", Template: route("x"),
+			}},
+			wantErr: `spec.resources[0].id: Invalid value: "openchoreo-networkpolicy-stable"`,
+		},
+		{
 			name: "component-only helpers are rejected",
 			resources: []v1alpha1.ResourceTemplate{{
 				ID: "route", Template: route(`${workload.name}`),

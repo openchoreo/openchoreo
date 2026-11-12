@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -101,23 +100,6 @@ type Reconciler struct {
 	ReferencedConfigRollout bool
 }
 
-// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
-// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
-// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
-func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
-	var annotations map[string]string
-	switch {
-	case dp.DataPlane != nil:
-		annotations = dp.DataPlane.Annotations
-	case dp.ClusterDataPlane != nil:
-		annotations = dp.ClusterDataPlane.Annotations
-	}
-	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
-		return networkpolicy.ProviderCilium
-	}
-	return networkpolicy.ProviderKubernetes
-}
-
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/finalizers,verbs=update
@@ -131,7 +113,6 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpoints,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop
@@ -371,24 +352,21 @@ func (r *Reconciler) buildMetadataContext(
 	}
 
 	// Build pod selectors
-	podSelectors := map[string]string{
-		labels.LabelKeyNamespaceName:   namespaceName,
-		labels.LabelKeyProjectName:     projectName,
-		labels.LabelKeyComponentName:   componentName,
-		labels.LabelKeyEnvironmentName: environmentName,
-		labels.LabelKeyComponentUID:    componentUID,
-		labels.LabelKeyEnvironmentUID:  environmentUID,
-		labels.LabelKeyProjectUID:      projectUID,
-	}
+	podSelectors := controller.ComponentPodSelectors(controller.PodSelectorInput{
+		NamespaceName:   namespaceName,
+		ProjectName:     projectName,
+		ComponentName:   componentName,
+		EnvironmentName: environmentName,
+		ComponentUID:    componentUID,
+		EnvironmentUID:  environmentUID,
+		ProjectUID:      projectUID,
+		ReleaseLine:     releaseLine,
+		ReleaseLineUID:  releaseLineUID,
+	})
 
 	if releaseLine != "" {
 		standardLabels[labels.LabelKeyReleaseLine] = releaseLine
-		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
 		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
-		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
-		// The main line selects on the component UID, so a line's pods carry it under another key.
-		delete(podSelectors, labels.LabelKeyComponentUID)
-		podSelectors[labels.LabelKeyReleaseLineComponentUID] = componentUID
 	}
 
 	return pipelinecontext.MetadataContext{
@@ -646,14 +624,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Inject per-component network policies into dataplane resources.
 	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
-	// Ingress follows each endpoint's effective visibility, including what the
-	// Endpoints routing to it expose, since a workload no longer has to declare it.
-	endpointVisibility, err := r.endpointVisibility(ctx, releaseBinding.Namespace,
-		releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Owner.ComponentName,
-		snapshotWorkload.Spec.Endpoints)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to resolve endpoint visibility: %w", err)
-	}
+	// Ingress follows the workload endpoints' own visibility. An Endpoint routing
+	// to the component ships its own policy with its routes, in its own release.
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -661,8 +633,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: releaseline.ComponentLineName(metadataContext.ComponentName, metadataContext.ReleaseLineName),
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
-		Visibility:    endpointVisibility,
-		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
+		Provider:      networkpolicy.ProviderFromAnnotations(dataPlaneResult.ToDataPlane().Annotations),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
@@ -1767,10 +1738,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
-		// An Endpoint's visibility opens its backends' network policies.
-		Watches(&openchoreov1alpha1.Endpoint{},
-			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEndpoint),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),
