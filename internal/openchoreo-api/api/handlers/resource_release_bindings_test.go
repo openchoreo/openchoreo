@@ -4,8 +4,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -317,6 +320,38 @@ func TestUpdateResourceReleaseBindingHandler(t *testing.T) {
 		require.True(t, ok, "expected 200 response (URL path name used), got %T", resp)
 		assert.Equal(t, "rb-1", typed.Metadata.Name)
 	})
+}
+
+// A client that reads a binding and writes it back (occ resource promote, the portal,
+// the MCP tools) must not drop the requeue intervals set with kubectl or GitOps.
+func TestResourceReleaseBindingHTTPGetThenUpdateKeepsIntervals(t *testing.T) {
+	existing := testResourceReleaseBindingObj("rb-1")
+	existing.Spec.Interval = &metav1.Duration{Duration: 2 * time.Minute}
+	existing.Spec.ProgressingInterval = &metav1.Duration{Duration: 30 * time.Second}
+	svc := newResourceReleaseBindingService(t, []client.Object{existing}, &allowAllPDP{})
+	handler := newTestHTTPHandler(t, &handlerservices.Services{ResourceReleaseBindingService: svc})
+	path := "/api/v1/namespaces/" + testRRBNs + "/resourcereleasebindings/rb-1"
+
+	req, rec := doRequest(t, handler, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, rec.Body.Bytes())
+
+	var fetched gen.ResourceReleaseBinding
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &fetched))
+	require.NotNil(t, fetched.Spec)
+	fetched.Spec.ResourceRelease = ptr.To("test-r-abc123")
+	body, err := json.Marshal(fetched)
+	require.NoError(t, err)
+
+	req, rec = doRequest(t, handler, http.MethodPut, path, body)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, rec.Body.Bytes())
+
+	got, err := svc.GetResourceReleaseBinding(testContext(), testRRBNs, "rb-1")
+	require.NoError(t, err)
+	assert.Equal(t, "test-r-abc123", got.Spec.ResourceRelease)
+	assert.Equal(t, &metav1.Duration{Duration: 2 * time.Minute}, got.Spec.Interval)
+	assert.Equal(t, &metav1.Duration{Duration: 30 * time.Second}, got.Spec.ProgressingInterval)
 }
 
 // --- DeleteResourceReleaseBinding Handler ---
