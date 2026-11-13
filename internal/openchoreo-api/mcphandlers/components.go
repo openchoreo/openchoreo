@@ -259,51 +259,57 @@ func (h *MCPHandler) UpdateReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,
 ) (any, error) {
-	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.ReleaseName != nil && *req.ReleaseName != "" {
-		rb.Spec.ReleaseName = *req.ReleaseName
-	}
-	if req.State != nil {
-		rb.Spec.State = openchoreov1alpha1.ReleaseState(*req.State)
-	}
-	if req.Environment != "" && req.Environment != rb.Spec.Environment {
-		return nil, fmt.Errorf("release binding environment is immutable")
-	}
-	if req.ComponentTypeEnvironmentConfigs != nil {
-		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvironmentConfigs)
+	// Read, apply the requested fields and write in one step, retried from the
+	// read on a conflict, so a concurrent edit to the binding is never overwritten.
+	var updated *openchoreov1alpha1.ReleaseBinding
+	err := retryOnConflict(func() error {
+		rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: overrideBytes}
-	}
-	if req.TraitEnvironmentConfigs != nil {
-		traitEnvironmentConfigs := make(map[string]runtime.RawExtension, len(*req.TraitEnvironmentConfigs))
-		for k, v := range *req.TraitEnvironmentConfigs {
-			overrideBytes, err := json.Marshal(v)
+
+		if req.ReleaseName != nil && *req.ReleaseName != "" {
+			rb.Spec.ReleaseName = *req.ReleaseName
+		}
+		if req.State != nil {
+			rb.Spec.State = openchoreov1alpha1.ReleaseState(*req.State)
+		}
+		if req.Environment != "" && req.Environment != rb.Spec.Environment {
+			return fmt.Errorf("release binding environment is immutable")
+		}
+		if req.ComponentTypeEnvironmentConfigs != nil {
+			overrideBytes, err := json.Marshal(*req.ComponentTypeEnvironmentConfigs)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			traitEnvironmentConfigs[k] = runtime.RawExtension{Raw: overrideBytes}
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: overrideBytes}
 		}
-		rb.Spec.TraitEnvironmentConfigs = traitEnvironmentConfigs
-	}
-	if req.WorkloadOverrides != nil {
-		overrideBytes, err := json.Marshal(req.WorkloadOverrides)
-		if err != nil {
-			return nil, err
+		if req.TraitEnvironmentConfigs != nil {
+			traitEnvironmentConfigs := make(map[string]runtime.RawExtension, len(*req.TraitEnvironmentConfigs))
+			for k, v := range *req.TraitEnvironmentConfigs {
+				overrideBytes, err := json.Marshal(v)
+				if err != nil {
+					return err
+				}
+				traitEnvironmentConfigs[k] = runtime.RawExtension{Raw: overrideBytes}
+			}
+			rb.Spec.TraitEnvironmentConfigs = traitEnvironmentConfigs
 		}
-		var wo openchoreov1alpha1.WorkloadOverrideTemplateSpec
-		if err := json.Unmarshal(overrideBytes, &wo); err != nil {
-			return nil, err
+		if req.WorkloadOverrides != nil {
+			overrideBytes, err := json.Marshal(req.WorkloadOverrides)
+			if err != nil {
+				return err
+			}
+			var wo openchoreov1alpha1.WorkloadOverrideTemplateSpec
+			if err := json.Unmarshal(overrideBytes, &wo); err != nil {
+				return err
+			}
+			rb.Spec.WorkloadOverrides = &wo
 		}
-		rb.Spec.WorkloadOverrides = &wo
-	}
 
-	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+		updated, err = h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

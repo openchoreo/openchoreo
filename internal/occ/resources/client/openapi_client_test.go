@@ -3396,6 +3396,93 @@ func TestUpdateReleaseBinding_APIError(t *testing.T) {
 	require.ErrorContains(t, err, "not found")
 }
 
+func TestUpdateReleaseBinding_Conflict(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().UpdateReleaseBindingWithResponse(mock.Anything, "org-a", "rb-1", mock.Anything, mock.Anything).Return(&gen.UpdateReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusConflict),
+		Body:         []byte(`{"error":"ReleaseBinding was modified since it was read","code":"CONFLICT"}`),
+	}, nil)
+
+	c := newMockClient(m)
+	_, err := c.UpdateReleaseBinding(context.Background(), "org-a", "rb-1", gen.ReleaseBinding{})
+	require.ErrorIs(t, err, ErrConflict)
+	assert.EqualError(t, err, "ReleaseBinding was modified since it was read")
+}
+
+func TestUpdateResourceReleaseBinding_Conflict(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().UpdateResourceReleaseBindingWithResponse(mock.Anything, "org-a", "rrb-1", mock.Anything, mock.Anything).Return(&gen.UpdateResourceReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusConflict),
+		Body:         []byte(`{"error":"ResourceReleaseBinding was modified since it was read","code":"CONFLICT"}`),
+	}, nil)
+
+	c := newMockClient(m)
+	_, err := c.UpdateResourceReleaseBinding(context.Background(), "org-a", "rrb-1", gen.ResourceReleaseBinding{})
+	require.ErrorIs(t, err, ErrConflict)
+}
+
+func TestUpdateEndpointReleaseBinding_Conflict(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().UpdateEndpointReleaseBindingWithResponse(mock.Anything, "org-a", "erb-1", mock.Anything, mock.Anything).Return(&gen.UpdateEndpointReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusConflict),
+		Body:         []byte(`{"error":"EndpointReleaseBinding was modified since it was read","code":"CONFLICT"}`),
+	}, nil)
+
+	c := newMockClient(m)
+	_, err := c.UpdateEndpointReleaseBinding(context.Background(), "org-a", "erb-1", gen.EndpointReleaseBinding{})
+	require.ErrorIs(t, err, ErrConflict)
+}
+
+func TestUpdateReleaseBinding_OtherErrorsAreNotConflicts(t *testing.T) {
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError} {
+		m := mocks.NewMockClientWithResponsesInterface(t)
+		m.EXPECT().UpdateReleaseBindingWithResponse(mock.Anything, "org-a", "rb-1", mock.Anything, mock.Anything).Return(&gen.UpdateReleaseBindingResp{
+			HTTPResponse: httpResp(code),
+			Body:         []byte(`{"error":"failed"}`),
+		}, nil)
+
+		c := newMockClient(m)
+		_, err := c.UpdateReleaseBinding(context.Background(), "org-a", "rb-1", gen.ReleaseBinding{})
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, ErrConflict, "HTTP %d", code)
+	}
+}
+
+func TestRetryOnConflict(t *testing.T) {
+	t.Run("retries a conflicting step until it succeeds", func(t *testing.T) {
+		calls := 0
+		err := RetryOnConflict(func() error {
+			calls++
+			if calls < 3 {
+				return conflictError{fmt.Errorf("modified")}
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 3, calls)
+	})
+
+	t.Run("gives up after conflictRetries attempts", func(t *testing.T) {
+		calls := 0
+		err := RetryOnConflict(func() error {
+			calls++
+			return conflictError{fmt.Errorf("modified")}
+		})
+		require.ErrorIs(t, err, ErrConflict)
+		assert.Equal(t, conflictRetries, calls)
+	})
+
+	t.Run("does not retry other errors", func(t *testing.T) {
+		calls := 0
+		err := RetryOnConflict(func() error {
+			calls++
+			return fmt.Errorf("forbidden")
+		})
+		require.EqualError(t, err, "forbidden")
+		assert.Equal(t, 1, calls)
+	})
+}
+
 // --- CreateComponentRelease ---
 
 func TestCreateComponentRelease_Success(t *testing.T) {

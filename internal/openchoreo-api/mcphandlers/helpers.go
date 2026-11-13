@@ -5,8 +5,10 @@ package mcphandlers
 
 import (
 	"context"
+	"errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
@@ -28,6 +30,16 @@ func setAuditResource(ctx context.Context, obj metav1.Object) {
 		UID:       string(obj.GetUID()),
 		Name:      obj.GetName(),
 	})
+}
+
+// retryOnConflict runs a read-modify-write step, running it again from the read
+// when the write lost a race with another writer (services.ErrConflict). The
+// step must read the resource itself, so each attempt applies the caller's
+// change on top of the newest version instead of overwriting it.
+func retryOnConflict(step func() error) error {
+	return retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return errors.Is(err, services.ErrConflict)
+	}, step)
 }
 
 // wrapList wraps a slice in a map so that the MCP structured content response

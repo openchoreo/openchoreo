@@ -123,13 +123,20 @@ func (r *Resource) Promote(params PromoteParams) error {
 	}
 	releaseName := resource.Status.LatestRelease.Name
 
-	binding, err := r.findBindingForEnv(ctx, params.Namespace, params.ResourceName, params.Environment)
+	// The binding is written back with the resourceVersion it was read at; if it
+	// changed in between (409), read it again so edits made meanwhile are kept.
+	var binding *gen.ResourceReleaseBinding
+	err = client.RetryOnConflict(func() error {
+		var findErr error
+		binding, findErr = r.findBindingForEnv(ctx, params.Namespace, params.ResourceName, params.Environment)
+		if findErr != nil {
+			return findErr
+		}
+		binding.Spec.ResourceRelease = &releaseName
+		_, updateErr := r.client.UpdateResourceReleaseBinding(ctx, params.Namespace, binding.Metadata.Name, *binding)
+		return updateErr
+	})
 	if err != nil {
-		return err
-	}
-
-	binding.Spec.ResourceRelease = &releaseName
-	if _, err := r.client.UpdateResourceReleaseBinding(ctx, params.Namespace, binding.Metadata.Name, *binding); err != nil {
 		return err
 	}
 

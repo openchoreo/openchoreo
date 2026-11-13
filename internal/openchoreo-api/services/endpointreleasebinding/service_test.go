@@ -5,12 +5,14 @@ package endpointreleasebinding
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
@@ -205,4 +207,85 @@ func TestDeleteEndpointReleaseBinding(t *testing.T) {
 		err := svc.DeleteEndpointReleaseBinding(ctx, testNamespace, "nonexistent")
 		require.ErrorIs(t, err, ErrEndpointReleaseBindingNotFound)
 	})
+}
+
+const newReleaseName = "new-release"
+
+// TestUpdateEndpointReleaseBindingResourceVersion covers the optimistic concurrency of the update:
+// a resourceVersion read earlier makes it conditional (#5370).
+func TestUpdateEndpointReleaseBindingResourceVersion(t *testing.T) {
+	ctx := context.Background()
+
+	setup := func(t *testing.T) (client.Client, Service, *openchoreov1alpha1.EndpointReleaseBinding) {
+		t.Helper()
+		fc := testutil.NewFakeClient(testutil.NewEndpointReleaseBinding(testNamespace, testProject, testEndpointName, testEnvironment, testBindingName))
+		svc := NewService(fc, testutil.TestLogger())
+		read, err := svc.GetEndpointReleaseBinding(ctx, testNamespace, testBindingName)
+		require.NoError(t, err)
+		require.NotEmpty(t, read.ResourceVersion)
+		return fc, svc, read
+	}
+
+	t.Run("stale resourceVersion is rejected and keeps the newer change", func(t *testing.T) {
+		fc, svc, read := setup(t)
+
+		// Someone else changes the binding after it was read.
+		other := read.DeepCopy()
+		other.Annotations = map[string]string{"example/marker": "x"}
+		require.NoError(t, fc.Update(ctx, other))
+
+		stale := read.DeepCopy()
+		stale.Spec.EndpointRelease = newReleaseName
+		_, err := svc.UpdateEndpointReleaseBinding(ctx, testNamespace, stale)
+		require.ErrorIs(t, err, services.ErrConflict)
+
+		stored := &openchoreov1alpha1.EndpointReleaseBinding{}
+		require.NoError(t, fc.Get(ctx, client.ObjectKeyFromObject(read), stored))
+		assert.Equal(t, "x", stored.Annotations["example/marker"])
+		assert.Equal(t, read.Spec.EndpointRelease, stored.Spec.EndpointRelease)
+	})
+
+	t.Run("current resourceVersion succeeds", func(t *testing.T) {
+		_, svc, read := setup(t)
+
+		update := read.DeepCopy()
+		update.Spec.EndpointRelease = newReleaseName
+		result, err := svc.UpdateEndpointReleaseBinding(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, newReleaseName, result.Spec.EndpointRelease)
+		assert.NotEqual(t, read.ResourceVersion, result.ResourceVersion)
+	})
+
+	t.Run("no resourceVersion overwrites unconditionally", func(t *testing.T) {
+		fc, svc, read := setup(t)
+
+		other := read.DeepCopy()
+		other.Annotations = map[string]string{"example/marker": "x"}
+		require.NoError(t, fc.Update(ctx, other))
+
+		update := read.DeepCopy()
+		update.ResourceVersion = ""
+		update.Spec.EndpointRelease = newReleaseName
+		result, err := svc.UpdateEndpointReleaseBinding(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, newReleaseName, result.Spec.EndpointRelease)
+	})
+
+	for _, rv := range []string{"abc", "0", "-1", "1.5", " 12"} {
+		t.Run("malformed resourceVersion "+rv+" is a validation error", func(t *testing.T) {
+			fc, svc, read := setup(t)
+
+			update := read.DeepCopy()
+			update.ResourceVersion = rv
+			update.Spec.EndpointRelease = newReleaseName
+			_, err := svc.UpdateEndpointReleaseBinding(ctx, testNamespace, update)
+			validationErr, ok := errors.AsType[*services.ValidationError](err)
+			require.True(t, ok, "expected a ValidationError, got %v", err)
+			assert.Contains(t, validationErr.Msg, "metadata.resourceVersion")
+
+			stored := &openchoreov1alpha1.EndpointReleaseBinding{}
+			require.NoError(t, fc.Get(ctx, client.ObjectKeyFromObject(read), stored))
+			assert.Equal(t, read.Spec.EndpointRelease, stored.Spec.EndpointRelease)
+		})
+	}
 }

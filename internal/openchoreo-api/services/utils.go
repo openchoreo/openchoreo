@@ -6,11 +6,28 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// ApplyRequestedResourceVersion makes the update of existing conditional on the
+// resourceVersion the caller read: with it set, the API server rejects the write
+// with a conflict if the resource changed since that read. An empty value keeps
+// the unconditional update. A value that can't have come from the API is a
+// ValidationError instead of an opaque server error.
+func ApplyRequestedResourceVersion(existing metav1.Object, requested string) error {
+	if requested == "" {
+		return nil
+	}
+	if v, err := strconv.ParseUint(requested, 10, 64); err != nil || v == 0 {
+		return &ValidationError{Msg: fmt.Sprintf("metadata.resourceVersion %q is not a version read from the API", requested)}
+	}
+	existing.SetResourceVersion(requested)
+	return nil
+}
 
 // FormatDualScopedResourceName returns the authz-engine identifier for a dual-scoped resource.
 // Namespace-scoped resources use "{namespace}/{name}"; cluster-scoped resources use plain "{name}".

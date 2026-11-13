@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -1691,4 +1692,110 @@ func TestDeploy_ReleaseLine_NoSourceBindingOnLine(t *testing.T) {
 
 	err := New(mc).Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "hello", ReleaseLine: "next", To: "staging"})
 	assert.EqualError(t, err, "no release binding found for release line 'next' in source environment 'dev'")
+}
+
+const (
+	retryEnv           = "dev"
+	retriedReleaseName = "rel-retried"
+)
+
+// bindingAt is a release binding as read at resourceVersion rv, optionally with
+// an annotation another writer added.
+func bindingAt(name, env, release, rv string, annotations map[string]string) *gen.ReleaseBinding {
+	b := &gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: name, ResourceVersion: &rv},
+		Spec:     &gen.ReleaseBindingSpec{Environment: env, ReleaseName: makeReleaseName(release)},
+	}
+	if annotations != nil {
+		b.Metadata.Annotations = &annotations
+	}
+	return b
+}
+
+func TestDeploy_Promote_RetriesOnConflict(t *testing.T) {
+	// The target binding changes between the read and the write (#5370): the API
+	// rejects the stale write with 409, and promote reads the binding again and
+	// sets the release on the newer version, keeping the other edit.
+	relName := testReleaseName
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	source := bindingAt("my-comp-dev", retryEnv, relName, "5", nil)
+	source.Spec.Owner.ComponentName = "my-comp"
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{*source},
+	}, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").
+		Return(bindingAt("my-comp-staging", "staging", "old-rel", "1", nil), nil).Once()
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-staging", mock.MatchedBy(func(b gen.ReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "1"
+	})).Return(nil, fmt.Errorf("ReleaseBinding was modified since it was read: %w", client.ErrConflict)).Once()
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").
+		Return(bindingAt("my-comp-staging", "staging", "old-rel", "2", map[string]string{"example/marker": "x"}), nil).Once()
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-staging", mock.MatchedBy(func(b gen.ReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "2" && (*b.Metadata.Annotations)["example/marker"] == "x" &&
+			*b.Spec.ReleaseName == relName
+	})).Return(bindingAt("my-comp-staging", "staging", relName, "3", nil), nil).Once()
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.Deploy(DeployParams{
+			Namespace:     "ns",
+			Project:       "my-project",
+			ComponentName: "my-comp",
+			To:            "staging",
+		}))
+	})
+	assert.Contains(t, out, "staging")
+}
+
+func TestDeploy_DeployWithSet_RetriesOnConflict(t *testing.T) {
+	// The lowest-environment deploy with --set reapplies both the new release and
+	// the overrides on the newer binding after a 409.
+	relName := retriedReleaseName
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{Name: relName},
+	}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-dev").
+		Return(bindingAt("my-comp-dev", "", testReleaseName, "1", nil), nil).Once()
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-dev", mock.Anything).
+		Return(nil, fmt.Errorf("modified: %w", client.ErrConflict)).Once()
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-dev").
+		Return(bindingAt("my-comp-dev", "", testReleaseName, "2", map[string]string{"example/marker": "x"}), nil).Once()
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-dev", mock.MatchedBy(func(b gen.ReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "2" && (*b.Metadata.Annotations)["example/marker"] == "x" &&
+			*b.Spec.ReleaseName == relName && b.Spec.Environment == retryEnv
+	})).Return(bindingAt("my-comp-dev", retryEnv, relName, "3", nil), nil).Once()
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.Deploy(DeployParams{
+			Namespace:     "ns",
+			Project:       "my-project",
+			ComponentName: "my-comp",
+			Set:           []string{"spec.environment=dev"},
+		}))
+	})
+	assert.Contains(t, out, "my-comp-dev")
+}
+
+func TestDeploy_Promote_BindingDeletedDuringRetry(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	source := bindingAt("my-comp-dev", retryEnv, testReleaseName, "5", nil)
+	source.Spec.Owner.ComponentName = "my-comp"
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{*source},
+	}, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").
+		Return(bindingAt("my-comp-staging", "staging", "old-rel", "1", nil), nil).Once()
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-staging", mock.Anything).
+		Return(nil, fmt.Errorf("modified: %w", client.ErrConflict)).Once()
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").Return(nil, nil).Once()
+
+	cp := New(mc)
+	err := cp.Deploy(DeployParams{Namespace: "ns", Project: "my-project", ComponentName: "my-comp", To: "staging"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "was deleted while it was being updated")
 }

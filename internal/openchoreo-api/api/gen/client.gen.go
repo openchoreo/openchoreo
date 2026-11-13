@@ -21930,6 +21930,7 @@ type UpdateEndpointReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -23359,6 +23360,7 @@ type UpdateReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
@@ -23572,6 +23574,7 @@ type UpdateResourceReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -35139,6 +35142,13 @@ func ParseUpdateEndpointReleaseBindingResp(rsp *http.Response) (*UpdateEndpointR
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -38230,6 +38240,13 @@ func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingRes
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest UnprocessableContent
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -38696,6 +38713,13 @@ func ParseUpdateResourceReleaseBindingResp(rsp *http.Response) (*UpdateResourceR
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
