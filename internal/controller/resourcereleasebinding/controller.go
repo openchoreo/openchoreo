@@ -290,9 +290,11 @@ func (r *Reconciler) renderAndEmit(
 				ProjectName:  binding.Spec.Owner.ProjectName,
 				ResourceName: binding.Spec.Owner.ResourceName,
 			},
-			EnvironmentName: binding.Spec.Environment,
-			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
-			Resources:       manifests,
+			EnvironmentName:     binding.Spec.Environment,
+			TargetPlane:         openchoreov1alpha1.TargetPlaneDataPlane,
+			Resources:           manifests,
+			Interval:            binding.Spec.Interval,
+			ProgressingInterval: binding.Spec.ProgressingInterval,
 		}
 		return controllerutil.SetControllerReference(binding, rr, r.Scheme)
 	})

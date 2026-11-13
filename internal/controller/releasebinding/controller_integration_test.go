@@ -681,6 +681,42 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonResourcesProgressing)))
 		})
+
+		It("copies the binding's requeue intervals into the Release and clears them when unset", func() {
+			r := testReconcilerWithPipeline()
+
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding with interval and progressingInterval set")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.Interval = &metav1.Duration{Duration: 5 * time.Minute}
+			rb.Spec.ProgressingInterval = &metav1.Duration{Duration: 15 * time.Second}
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			mustReconcile(r, req)
+
+			release := &openchoreov1alpha1.RenderedRelease{}
+			releaseKey := types.NamespacedName{Namespace: ns, Name: expectedReleaseName}
+			Expect(k8sClient.Get(ctx, releaseKey, release)).To(Succeed())
+			Expect(release.Spec.Interval).To(Equal(&metav1.Duration{Duration: 5 * time.Minute}))
+			Expect(release.Spec.ProgressingInterval).To(Equal(&metav1.Duration{Duration: 15 * time.Second}))
+
+			By("Unsetting the intervals on the binding")
+			rb = fetchRB(rbName)
+			rb.Spec.Interval = nil
+			rb.Spec.ProgressingInterval = nil
+			Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+
+			mustReconcile(r, req)
+
+			Expect(k8sClient.Get(ctx, releaseKey, release)).To(Succeed())
+			Expect(release.Spec.Interval).To(BeNil())
+			Expect(release.Spec.ProgressingInterval).To(BeNil())
+		})
 	})
 
 	// ── Undeploy: no existing Release ────────────────────────────────────────

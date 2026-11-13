@@ -207,6 +207,26 @@ type ReleaseBindingSpec struct {
 	// +kubebuilder:validation:Enum=Active;Undeploy
 	// +optional
 	State ReleaseState `json:"state,omitempty"`
+
+	// Interval is how long the RenderedRelease of this binding waits between checks
+	// while its resources are stable. Copied into the RenderedRelease spec. Defaults to
+	// the controller's stable interval (1m unless configured) if not specified. Must be
+	// 0 (stop periodic checks) or at least 30s.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
+	// +kubebuilder:validation:XValidation:rule="duration(self) == duration('0s') || duration(self) >= duration('30s')",message="interval must be 0 or at least 30s"
+	// +optional
+	Interval *metav1.Duration `json:"interval,omitempty"`
+
+	// ProgressingInterval is how long the RenderedRelease of this binding waits between
+	// checks while its resources are transitioning. Copied into the RenderedRelease spec.
+	// Defaults to the controller's progressing interval (10s unless configured) if not
+	// specified. Must be 0 (stop periodic checks) or at least 5s.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
+	// +kubebuilder:validation:XValidation:rule="duration(self) == duration('0s') || duration(self) >= duration('5s')",message="progressingInterval must be 0 or at least 5s"
+	// +optional
+	ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 }
 
 // ReleaseBindingOwner identifies the component this ReleaseBinding belongs to
