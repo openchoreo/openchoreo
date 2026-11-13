@@ -362,11 +362,14 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+	// The API server answers 202 Accepted instead of 200 when the object is not removed
+	// immediately (a finalizer is pending) and the caller set orphanDependents=false.
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusAccepted, http.StatusNotFound:
+		return nil
+	default:
 		return pc.handleErrorResponse(resp, gvk, obj.GetName())
 	}
-
-	return nil
 }
 
 // buildDeleteBody returns the metav1.DeleteOptions request body for a DELETE, or nil

@@ -1100,6 +1100,17 @@ func TestProxyClientDeleteOptions(t *testing.T) {
 		assert.Equal(t, []string{metav1.DryRunAll}, sent.DryRun)
 	})
 
+	t.Run("202 Accepted for orphanDependents=false is success", func(t *testing.T) {
+		// What the API server answers when a finalizer keeps the object from being
+		// removed immediately and the caller set orphanDependents=false.
+		pc, captured := newDeleteCapturingClient(t, http.StatusAccepted, testPodJSON)
+
+		require.NoError(t, pc.Delete(context.Background(), newPod(),
+			&client.DeleteOptions{Raw: &metav1.DeleteOptions{OrphanDependents: boolPtr(false)}}))
+
+		assert.JSONEq(t, `{"orphanDependents":false}`, string(captured.body))
+	})
+
 	t.Run("failed precondition returns a Conflict error", func(t *testing.T) {
 		// What the API server answers when the resourceVersion in the precondition
 		// no longer matches the stored object.
