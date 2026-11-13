@@ -41,7 +41,7 @@ func TestParseColumns_RejectNamedColumns(t *testing.T) {
 	} {
 		t.Run(tc.fields, func(t *testing.T) {
 			format := "custom-columns=" + tc.fields
-			want := `invalid custom column "` + tc.invalidField + `": named columns (NAME:path) are not supported; use custom-columns=timestamp,log`
+			want := `invalid custom column "` + tc.invalidField + `": named columns (NAME:path) are not supported; use 'custom-columns=FIELD,...'`
 			columns, err := ParseColumns(format)
 			assert.Nil(t, columns)
 			assert.EqualError(t, err, want)

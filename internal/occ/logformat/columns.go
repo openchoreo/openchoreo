@@ -44,7 +44,7 @@ func ParseColumns(format string) (*Columns, error) {
 	for _, field := range strings.Split(fields, ",") {
 		field = strings.TrimSpace(field)
 		if strings.Contains(field, ":") {
-			return nil, fmt.Errorf("invalid custom column %q: named columns (NAME:path) are not supported; use custom-columns=timestamp,log", field)
+			return nil, fmt.Errorf("invalid custom column %q: named columns (NAME:path) are not supported; use 'custom-columns=FIELD,...'", field)
 		}
 		path, err := splitColumnPath(field)
 		if err != nil {

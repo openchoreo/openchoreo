@@ -104,7 +104,7 @@ func TestLogCommands_InvalidOutputBeforeClientCreation(t *testing.T) {
 				for _, format := range []struct{ value, wantErr string }{
 					{"yaml", `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`},
 					{"custom-columns=timestamp,,log", `invalid custom column "": use non-empty dot-separated attribute names`},
-					{"custom-columns=TIME:.timestamp,log", `invalid custom column "TIME:.timestamp": named columns (NAME:path) are not supported; use custom-columns=timestamp,log`},
+					{"custom-columns=TIME:.timestamp,log", `invalid custom column "TIME:.timestamp": named columns (NAME:path) are not supported; use 'custom-columns=FIELD,...'`},
 				} {
 					t.Run(flag+"/"+format.value, func(t *testing.T) {
 						root := tc.newCmd(func() (client.Interface, error) {
