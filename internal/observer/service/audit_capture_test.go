@@ -106,19 +106,21 @@ func TestQueryLogs_RecordsScopeSearchAndCount(t *testing.T) {
 		SearchScope: &types.SearchScope{Workflow: &types.WorkflowSearchScope{
 			Namespace: "acme", WorkflowRunName: "build-42",
 		}},
-		StartTime:    "2026-10-01T00:00:00Z",
-		EndTime:      "2026-10-02T00:00:00Z",
-		SearchPhrase: "password",
-		LogLevels:    []string{"ERROR"},
+		StartTime:     "2026-10-01T00:00:00Z",
+		EndTime:       "2026-10-02T00:00:00Z",
+		SearchPhrase:  "password",
+		ContainerName: "payment-service",
+		LogLevels:     []string{"ERROR"},
 	})
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]any{
-		"startTime":    "2026-10-01T00:00:00Z",
-		"endTime":      "2026-10-02T00:00:00Z",
-		"searchScope":  map[string]any{"namespace": "acme", "workflowRunName": "build-42"},
-		"searchPhrase": "password",
-		"logLevels":    []string{"ERROR"},
+		"startTime":     "2026-10-01T00:00:00Z",
+		"endTime":       "2026-10-02T00:00:00Z",
+		"searchScope":   map[string]any{"namespace": "acme", "workflowRunName": "build-42"},
+		"searchPhrase":  "password",
+		"logLevels":     []string{"ERROR"},
+		"containerName": "payment-service",
 	}, data.Parameters)
 	assert.Equal(t, audit.Returned{Count: 3}, *data.Returned)
 
