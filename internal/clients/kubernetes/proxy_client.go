@@ -451,7 +451,7 @@ func (psw *proxyStatusWriter) Update(ctx context.Context, obj client.Object, opt
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return psw.client.handleErrorResponse(resp, gvk, obj.GetName())
+		return psw.client.handleSubResourceErrorResponse(resp, gvk, obj.GetName())
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -506,7 +506,7 @@ func (psw *proxyStatusWriter) Patch(ctx context.Context, obj client.Object, patc
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return psw.client.handleErrorResponse(resp, gvk, obj.GetName())
+		return psw.client.handleSubResourceErrorResponse(resp, gvk, obj.GetName())
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -667,13 +667,36 @@ func (pc *ProxyClient) buildSubResourcePatchQueryParams(opts *client.SubResource
 	return strings.Join(params, "&")
 }
 
-// handleErrorResponse converts HTTP error responses to Kubernetes API errors
+// handleErrorResponse converts HTTP error responses to Kubernetes API errors.
+// A 404 for a kind the plane does not serve becomes a NoKindMatchError, as the
+// controller-runtime client returns, so callers can tell it from a missing object.
 func (pc *ProxyClient) handleErrorResponse(resp *http.Response, gvk schema.GroupVersionKind, name string) error {
+	return pc.convertErrorResponse(resp, gvk, name, false)
+}
+
+// handleSubResourceErrorResponse converts HTTP error responses for subresource requests.
+// The API server answers a request for a subresource the kind does not have with
+// the same unnamed 404 Status it uses for an unserved kind, so only the plain-text
+// 404 for an unserved API group is treated as a no-match here.
+func (pc *ProxyClient) handleSubResourceErrorResponse(resp *http.Response, gvk schema.GroupVersionKind, name string) error {
+	return pc.convertErrorResponse(resp, gvk, name, true)
+}
+
+func (pc *ProxyClient) convertErrorResponse(resp *http.Response, gvk schema.GroupVersionKind, name string, subResource bool) error {
 	body, _ := io.ReadAll(resp.Body)
 
 	// Try to parse as Kubernetes Status object
 	var status metav1.Status
-	if err := json.Unmarshal(body, &status); err == nil && status.Status == "Failure" {
+	isStatus := json.Unmarshal(body, &status) == nil && status.Status == metav1.StatusFailure
+
+	if resp.StatusCode == http.StatusNotFound && isUnservedKindResponse(isStatus, status, subResource) {
+		return &meta.NoKindMatchError{
+			GroupKind:        gvk.GroupKind(),
+			SearchedVersions: []string{gvk.Version},
+		}
+	}
+
+	if isStatus {
 		return &apierrors.StatusError{ErrStatus: status}
 	}
 
@@ -697,6 +720,21 @@ func (pc *ProxyClient) handleErrorResponse(resp *http.Response, gvk schema.Group
 	default:
 		return fmt.Errorf("proxy request failed with status %d: %s", resp.StatusCode, errMsg)
 	}
+}
+
+// isUnservedKindResponse reports whether a 404 from the API server means the
+// requested group, version or kind is not served, rather than a missing object.
+// The API server answers an unserved API group with a plain-text "404 page not found",
+// and an unserved version or resource of a served group with a NotFound Status that
+// names no object. A missing object always gets a Status that names it.
+func isUnservedKindResponse(isStatus bool, status metav1.Status, subResource bool) bool {
+	if !isStatus {
+		return true
+	}
+	if subResource || status.Reason != metav1.StatusReasonNotFound {
+		return false
+	}
+	return status.Details == nil || (status.Details.Name == "" && status.Details.Kind == "")
 }
 
 // getGVKForList extracts GVK from a list object
