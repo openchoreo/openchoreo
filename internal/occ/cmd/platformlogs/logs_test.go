@@ -26,19 +26,26 @@ import (
 
 const observerTestURL = "http://observer.test"
 
-func TestPrintLog_CustomColumns(t *testing.T) {
+func TestPrintLogs_CustomColumns(t *testing.T) {
 	timestamp := time.Date(2026, 11, 10, 8, 21, 4, 512000000, time.UTC)
 	pod, level := "controller-manager-abc", "INFO"
 	labels := map[string]string{"openchoreo.dev/plane": "controlplane"}
 	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, printLog(obsgen.PlatformLog{
-			Timestamp: timestamp, Level: &level, PodName: &pod, Log: "request handled",
-			Labels: &labels,
+		require.NoError(t, printLogs([]obsgen.PlatformLog{
+			{Timestamp: timestamp, Level: &level, PodName: &pod, Log: "request handled", Labels: &labels},
+			{Timestamp: timestamp.Add(time.Second), PodName: &pod, Log: "follow-up request"},
 		}, `custom-columns=timestamp,level,podName,labels.openchoreo\.dev/plane,log`))
 	})
-	assert.Equal(t, "2026-11-10T08:21:04.512Z INFO controller-manager-abc controlplane request handled\n", out)
+	assert.Equal(t,
+		"2026-11-10T08:21:04.512Z INFO controller-manager-abc controlplane request handled\n"+
+			"2026-11-10T08:21:05.512Z - controller-manager-abc - follow-up request\n", out)
 	assert.NoError(t, validateOutput("custom-columns=timestamp,podName,log"))
 	assert.Error(t, validateOutput("custom-columns=timestamp,,log"))
+}
+
+func TestPrintLogs_InvalidCustomColumnsWithNoEntries(t *testing.T) {
+	err := printLogs(nil, "custom-columns=timestamp,,log")
+	assert.EqualError(t, err, `invalid custom column "": use non-empty dot-separated attribute names`)
 }
 
 func setupLogsConfig(t *testing.T) {

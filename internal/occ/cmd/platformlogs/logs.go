@@ -302,6 +302,18 @@ func observerMessage(body []byte) string {
 
 // printLogs writes every entry in the chosen format.
 func printLogs(logs []obsgen.PlatformLog, output string) error {
+	columns, err := logformat.ParseColumns(output)
+	if err != nil {
+		return err
+	}
+	if columns != nil {
+		for _, log := range logs {
+			if err := columns.Print(os.Stdout, log); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for _, log := range logs {
 		if err := printLog(log, output); err != nil {
 			return err
@@ -310,16 +322,9 @@ func printLogs(logs []obsgen.PlatformLog, output string) error {
 	return nil
 }
 
-// printLog writes one entry. JSON output is one object per line so that --follow streams
+// printLog writes one entry as text or JSON. JSON output is one object per line so that --follow streams
 // the same shape a one-shot query prints, and so jq reads it without buffering.
 func printLog(log obsgen.PlatformLog, output string) error {
-	columns, err := logformat.ParseColumns(output)
-	if err != nil {
-		return err
-	}
-	if columns != nil {
-		return columns.Print(os.Stdout, log)
-	}
 	if output == outputJSON {
 		encoded, err := json.Marshal(log)
 		if err != nil {
