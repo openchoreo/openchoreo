@@ -10,7 +10,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -1008,6 +1010,110 @@ func TestProxyClientDelete(t *testing.T) {
 		pod.Name = testPodName
 		pod.Namespace = testPodNamespace
 		require.Error(t, pc.Delete(context.Background(), pod))
+	})
+}
+
+// capturedDelete records what a Delete call put on the wire.
+type capturedDelete struct {
+	contentType string
+	body        []byte
+}
+
+// newDeleteCapturingClient returns a ProxyClient whose server answers every request
+// with statusCode and responseBody, recording the request in the returned capture.
+func newDeleteCapturingClient(t *testing.T, statusCode int, responseBody string) (*ProxyClient, *capturedDelete) {
+	t.Helper()
+	captured := &capturedDelete{}
+	pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+		captured.contentType = r.Header.Get("Content-Type")
+		captured.body, _ = io.ReadAll(r.Body)
+		w.WriteHeader(statusCode)
+		_, _ = w.Write([]byte(responseBody))
+	})
+	return pc, captured
+}
+
+func TestProxyClientDeleteOptions(t *testing.T) {
+	newPod := func() *corev1.Pod {
+		pod := &corev1.Pod{}
+		pod.Name = testPodName
+		pod.Namespace = testPodNamespace
+		return pod
+	}
+	// sentOptions decodes the DeleteOptions the client sent as the request body.
+	sentOptions := func(t *testing.T, captured *capturedDelete) metav1.DeleteOptions {
+		t.Helper()
+		require.NotEmpty(t, captured.body, "delete options must be sent as the request body")
+		assert.Equal(t, "application/json", captured.contentType)
+		var sent metav1.DeleteOptions
+		require.NoError(t, json.Unmarshal(captured.body, &sent))
+		return sent
+	}
+
+	t.Run("no options sends no body", func(t *testing.T) {
+		pc, captured := newDeleteCapturingClient(t, http.StatusOK, "")
+
+		require.NoError(t, pc.Delete(context.Background(), newPod()))
+
+		assert.Empty(t, captured.body)
+		assert.Empty(t, captured.contentType)
+	})
+
+	t.Run("resourceVersion precondition is sent", func(t *testing.T) {
+		pc, captured := newDeleteCapturingClient(t, http.StatusOK, "")
+		resourceVersion := "42"
+
+		require.NoError(t, pc.Delete(context.Background(), newPod(),
+			client.Preconditions{ResourceVersion: &resourceVersion}))
+
+		sent := sentOptions(t, captured)
+		require.NotNil(t, sent.Preconditions)
+		require.NotNil(t, sent.Preconditions.ResourceVersion)
+		assert.Equal(t, resourceVersion, *sent.Preconditions.ResourceVersion)
+	})
+
+	t.Run("uid precondition is sent", func(t *testing.T) {
+		pc, captured := newDeleteCapturingClient(t, http.StatusOK, "")
+		uid := types.UID("3f1c6a52-0d1f-4a36-9d0e-6a3b7f1f8c11")
+
+		require.NoError(t, pc.Delete(context.Background(), newPod(), client.Preconditions{UID: &uid}))
+
+		sent := sentOptions(t, captured)
+		require.NotNil(t, sent.Preconditions)
+		require.NotNil(t, sent.Preconditions.UID)
+		assert.Equal(t, uid, *sent.Preconditions.UID)
+	})
+
+	t.Run("propagation policy, grace period and dry run are sent", func(t *testing.T) {
+		pc, captured := newDeleteCapturingClient(t, http.StatusOK, "")
+
+		require.NoError(t, pc.Delete(context.Background(), newPod(),
+			client.PropagationPolicy(metav1.DeletePropagationForeground),
+			client.GracePeriodSeconds(30),
+			client.DryRunAll))
+
+		sent := sentOptions(t, captured)
+		require.NotNil(t, sent.PropagationPolicy)
+		assert.Equal(t, metav1.DeletePropagationForeground, *sent.PropagationPolicy)
+		require.NotNil(t, sent.GracePeriodSeconds)
+		assert.Equal(t, int64(30), *sent.GracePeriodSeconds)
+		assert.Equal(t, []string{metav1.DryRunAll}, sent.DryRun)
+	})
+
+	t.Run("failed precondition returns a Conflict error", func(t *testing.T) {
+		// What the API server answers when the resourceVersion in the precondition
+		// no longer matches the stored object.
+		conflict := apierrors.NewConflict(schema.GroupResource{Resource: "pods"}, testPodName,
+			errors.New("the ResourceVersion in the precondition (42) does not match the ResourceVersion in record (43)"))
+		responseBody, err := json.Marshal(conflict.Status())
+		require.NoError(t, err)
+		pc, _ := newDeleteCapturingClient(t, http.StatusConflict, string(responseBody))
+		resourceVersion := "42"
+
+		err = pc.Delete(context.Background(), newPod(), client.Preconditions{ResourceVersion: &resourceVersion})
+
+		require.Error(t, err)
+		assert.True(t, apierrors.IsConflict(err), "expected a Conflict error, got %v", err)
 	})
 }
 

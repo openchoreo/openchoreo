@@ -16,6 +16,7 @@ import (
 	"os"
 	"strings"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -335,13 +336,23 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 		return err
 	}
 
+	deleteOpts := (&client.DeleteOptions{}).ApplyOptions(opts)
+
 	apiPath := pc.buildDeletePath(gvk, obj.GetNamespace(), obj.GetName())
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, nil)
+	body, err := buildDeleteBody(deleteOpts)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
 
@@ -356,6 +367,25 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 	}
 
 	return nil
+}
+
+// buildDeleteBody returns the metav1.DeleteOptions request body for a DELETE, or nil
+// when the caller set no option.
+//
+// The Kubernetes API takes preconditions only in the body, so that is where every
+// option goes, as it does in the controller-runtime client. A call without options
+// sends no body, leaving the API server's defaults in effect.
+func buildDeleteBody(opts *client.DeleteOptions) ([]byte, error) {
+	deleteOptions := opts.AsDeleteOptions()
+	if apiequality.Semantic.DeepEqual(*deleteOptions, metav1.DeleteOptions{}) {
+		return nil, nil
+	}
+
+	body, err := json.Marshal(deleteOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal delete options: %w", err)
+	}
+	return body, nil
 }
 
 // DeleteAllOf deletes all objects matching the given list options
