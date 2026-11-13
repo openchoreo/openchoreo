@@ -111,6 +111,6 @@ or archived logs from the observer for completed runs.`,
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	return cmd
 }

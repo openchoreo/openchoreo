@@ -162,7 +162,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	flags.AddWorkflowRun(cmd)
 	return cmd
 }

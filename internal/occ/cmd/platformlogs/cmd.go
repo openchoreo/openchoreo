@@ -135,7 +135,7 @@ func addLogsFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice("level", nil,
 		"Log levels to include: DEBUG, INFO, WARN, ERROR (comma-separated)")
 	cmd.Flags().String("search", "", "Only return entries whose message contains this text")
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
 	flags.AddFollow(cmd)

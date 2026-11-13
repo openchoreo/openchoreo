@@ -84,23 +84,26 @@ func TestWorkflowLogCommands_Formats(t *testing.T) {
 }
 
 func TestLogCommands_OutputHelp(t *testing.T) {
-	const usage = "Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns=timestamp,log"
+	const usagePrefix = "Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns="
+	const logExampleColumns = "timestamp,log"
 	for _, tc := range []struct {
-		name   string
-		newCmd func(client.NewClientFunc) *cobra.Command
-		path   []string
+		name           string
+		newCmd         func(client.NewClientFunc) *cobra.Command
+		path           []string
+		exampleColumns string
 	}{
-		{"component", component.NewComponentCmd, []string{"logs"}},
-		{"workflow", workflow.NewWorkflowCmd, []string{"logs"}},
-		{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}},
-		{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}},
-		{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}},
-		{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}},
-		{"observabilityplane", observabilityplane.NewObservabilityPlaneCmd, []string{"logs"}},
-		{"clusterobservabilityplane", clusterobservabilityplane.NewClusterObservabilityPlaneCmd, []string{"logs"}},
-		{"auditlogs", auditlogs.NewAuditLogsCmd, nil},
+		{"component", component.NewComponentCmd, []string{"logs"}, logExampleColumns},
+		{"workflow", workflow.NewWorkflowCmd, []string{"logs"}, logExampleColumns},
+		{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}, logExampleColumns},
+		{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}, logExampleColumns},
+		{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}, logExampleColumns},
+		{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}, logExampleColumns},
+		{"observabilityplane", observabilityplane.NewObservabilityPlaneCmd, []string{"logs"}, logExampleColumns},
+		{"clusterobservabilityplane", clusterobservabilityplane.NewClusterObservabilityPlaneCmd, []string{"logs"}, logExampleColumns},
+		{"auditlogs", auditlogs.NewAuditLogsCmd, nil, "event_time,action,result"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			usage := usagePrefix + tc.exampleColumns
 			root := tc.newCmd(func() (client.Interface, error) {
 				t.Fatal("help must not create an API client")
 				return nil, nil

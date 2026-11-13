@@ -79,7 +79,7 @@ func addQueryFlags(cmd *cobra.Command) {
 	cmd.MarkFlagsMutuallyExclusive("since", "start")
 	fl.Int("limit", defaultLimit, "Maximum number of records to return (1-1000)")
 	fl.String("sort", sortDesc, "Order by event time: 'desc' or 'asc'")
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, "event_time,action,result")
 
 	fl.StringSlice("actor", nil, "Actor IDs; the claim recorded depends on the subject's type, so pair with --actor-type (comma-separated)")
 	fl.StringSlice("actor-type", nil, "Kinds of subject, e.g. user, service_account, anonymous (comma-separated)")

@@ -14,6 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
+const logOutputExampleColumns = "timestamp,log"
+
 func NewComponentCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "component",
@@ -279,7 +281,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddEnvironment(cmd)
 	// No short alias: `-c` denotes --component elsewhere in the CLI.
 	cmd.Flags().String("container", "", "Container name to fetch logs from (defaults to all containers)")
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, logOutputExampleColumns)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
@@ -440,7 +442,7 @@ Use --workflowrun to specify a particular run.`,
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddWorkflowRun(cmd)
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, logOutputExampleColumns)
 	return cmd
 }
 
@@ -604,7 +606,7 @@ Use --workflowrun to specify a particular run.`,
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddWorkflowRun(cmd)
-	flags.AddOutput(cmd)
+	flags.AddOutput(cmd, logOutputExampleColumns)
 	return cmd
 }
 
