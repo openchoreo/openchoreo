@@ -111,7 +111,7 @@ func TestExchangeAuthCode(t *testing.T) {
 			assert.Equal(t, "auth-code-123", params.Get("code"))
 			assert.Equal(t, "http://localhost/callback", params.Get("redirect_uri"))
 			assert.Equal(t, "test-verifier", params.Get("code_verifier"))
-			assert.Equal(t, "openid offline_access api://x/access", params.Get("scope"))
+			assert.False(t, params.Has("scope"))
 
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(PKCETokenResponse{
@@ -190,12 +190,33 @@ func TestRefreshAccessToken(t *testing.T) {
 		}))
 		defer server.Close()
 
-		resp, err := RefreshAccessToken(server.URL, "test-client", "old-refresh-token")
+		resp, err := RefreshAccessToken(server.URL, "test-client", "old-refresh-token", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "new-access-token", resp.AccessToken)
 		assert.Equal(t, "new-refresh-token", resp.RefreshToken)
 		assert.Equal(t, "Bearer", resp.TokenType)
 		assert.Equal(t, 3600, resp.ExpiresIn)
+	})
+
+	t.Run("sends scope when scopes given, omits when empty", func(t *testing.T) {
+		var got []url.Values
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			params, err := url.ParseQuery(string(body))
+			require.NoError(t, err)
+			got = append(got, params)
+			_ = json.NewEncoder(w).Encode(PKCETokenResponse{AccessToken: "a"})
+		}))
+		defer server.Close()
+
+		_, err := RefreshAccessToken(server.URL, "c", "rt", []string{"openid", "offline_access", "api://x/access"})
+		require.NoError(t, err)
+		_, err = RefreshAccessToken(server.URL, "c", "rt", nil)
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		assert.Equal(t, "openid offline_access api://x/access", got[0].Get("scope"))
+		assert.False(t, got[1].Has("scope"))
 	})
 
 	t.Run("server returns error status", func(t *testing.T) {
@@ -205,7 +226,7 @@ func TestRefreshAccessToken(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := RefreshAccessToken(server.URL, "c", "bad-token")
+		_, err := RefreshAccessToken(server.URL, "c", "bad-token", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "refresh request failed with status 401")
 	})
@@ -216,7 +237,7 @@ func TestRefreshAccessToken(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := RefreshAccessToken(server.URL, "c", "token")
+		_, err := RefreshAccessToken(server.URL, "c", "token", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse refresh response")
 	})

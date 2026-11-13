@@ -101,10 +101,6 @@ func (p *PKCEAuth) ExchangeAuthCode(authCode string) (*PKCETokenResponse, error)
 		"redirect_uri":  {p.RedirectURI},
 		"code_verifier": {p.CodeVerifier},
 	}
-	// Entra ID v2 uses scope on the code redemption to pick the target resource.
-	if len(p.Scopes) > 0 {
-		data.Set("scope", strings.Join(p.Scopes, " "))
-	}
 
 	req, err := http.NewRequest("POST", p.TokenEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -136,12 +132,16 @@ func (p *PKCEAuth) ExchangeAuthCode(authCode string) (*PKCETokenResponse, error)
 	return &tokenResp, nil
 }
 
-// RefreshAccessToken refreshes the access token using a refresh token
-func RefreshAccessToken(tokenEndpoint, clientID, refreshToken string) (*PKCETokenResponse, error) {
+// RefreshAccessToken refreshes the access token using a refresh token.
+// scopes is sent only when non-empty (e.g. Entra ID v2 picks the resource from it).
+func RefreshAccessToken(tokenEndpoint, clientID, refreshToken string, scopes []string) (*PKCETokenResponse, error) {
 	data := url.Values{
 		"grant_type":    {"refresh_token"},
 		"client_id":     {clientID},
 		"refresh_token": {refreshToken},
+	}
+	if len(scopes) > 0 {
+		data.Set("scope", strings.Join(scopes, " "))
 	}
 
 	req, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(data.Encode()))
