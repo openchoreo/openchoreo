@@ -9,6 +9,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -74,6 +75,9 @@ func NewClusterPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -98,6 +102,9 @@ func NewNamespacedPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err

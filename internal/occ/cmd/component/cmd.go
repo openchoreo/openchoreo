@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -254,6 +255,9 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -424,6 +428,9 @@ Use --workflowrun to specify a particular run.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -588,6 +595,9 @@ Use --workflowrun to specify a particular run.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err

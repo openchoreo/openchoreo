@@ -83,6 +83,49 @@ func TestWorkflowLogCommands_Formats(t *testing.T) {
 	}
 }
 
+func TestLogCommands_InvalidOutputBeforeClientCreation(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		newCmd func(client.NewClientFunc) *cobra.Command
+		path   []string
+	}{
+		{"component", component.NewComponentCmd, []string{"logs"}},
+		{"workflow", workflow.NewWorkflowCmd, []string{"logs"}},
+		{"workflowrun", workflowrun.NewWorkflowRunCmd, []string{"logs"}},
+		{"clusterworkflow", clusterworkflow.NewClusterWorkflowCmd, []string{"logs"}},
+		{"component workflow", component.NewComponentCmd, []string{"workflow", "logs"}},
+		{"component workflowrun", component.NewComponentCmd, []string{"workflowrun", "logs"}},
+		{"observabilityplane", observabilityplane.NewObservabilityPlaneCmd, []string{"logs"}},
+		{"clusterobservabilityplane", clusterobservabilityplane.NewClusterObservabilityPlaneCmd, []string{"logs"}},
+		{"auditlogs", auditlogs.NewAuditLogsCmd, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, flag := range []string{"-o", "--output"} {
+				for _, format := range []struct{ value, wantErr string }{
+					{"yaml", `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`},
+					{"custom-columns=timestamp,,log", `invalid custom column "": use non-empty dot-separated attribute names`},
+					{"custom-columns=TIME:.timestamp,log", `invalid custom column "TIME:.timestamp": named columns (NAME:path) are not supported; use custom-columns=timestamp,log`},
+				} {
+					t.Run(flag+"/"+format.value, func(t *testing.T) {
+						root := tc.newCmd(func() (client.Interface, error) {
+							t.Fatal("invalid output must be rejected before creating an API client")
+							return nil, nil
+						})
+						cmd, _, err := root.Find(tc.path)
+						require.NoError(t, err)
+						require.NoError(t, cmd.ParseFlags([]string{flag, format.value}))
+						args := []string{"nope"}
+						if tc.path == nil {
+							args = nil
+						}
+						assert.EqualError(t, cmd.RunE(cmd, args), format.wantErr)
+					})
+				}
+			}
+		})
+	}
+}
+
 func TestLogCommands_OutputHelp(t *testing.T) {
 	const usagePrefix = "Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns="
 	const logExampleColumns = "timestamp,log"
