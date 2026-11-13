@@ -61,14 +61,19 @@ rules:
   - ingresses
   - networkpolicies
   verbs: ["*"]
-# RBAC (for service account management)
+# RBAC. Namespaced Roles/RoleBindings are written by occ remote-connect provisioning and
+# the release orphan cleanup; cluster-scoped kinds are only read by the orphan check.
+# No escalate or bind: the agent can only grant permissions it already holds.
 - apiGroups: ["rbac.authorization.k8s.io"]
   resources:
   - roles
   - rolebindings
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources:
   - clusterroles
   - clusterrolebindings
-  verbs: ["*"]
+  verbs: ["get", "list", "watch"]
 # Autoscaling
 - apiGroups: ["autoscaling"]
   resources:

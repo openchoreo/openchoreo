@@ -51,12 +51,13 @@ rules:
   - ingresses
   - networkpolicies
   verbs: ["*"]
-# RBAC (for service account management)
+# RBAC: the workflow run controller creates a Role and RoleBinding per run.
+# No escalate or bind: the agent can only grant permissions it already holds.
 - apiGroups: ["rbac.authorization.k8s.io"]
   resources:
   - roles
   - rolebindings
-  verbs: ["*"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 # Autoscaling
 - apiGroups: ["autoscaling"]
   resources:
@@ -97,4 +98,9 @@ rules:
   - cronworkflows
   - clusterworkflowtemplates
   verbs: ["*"]
+# Held so the agent can grant it in the per-run Role (without escalate)
+- apiGroups: ["argoproj.io"]
+  resources:
+  - workflowtaskresults
+  verbs: ["create", "patch"]
 {{- end }}
