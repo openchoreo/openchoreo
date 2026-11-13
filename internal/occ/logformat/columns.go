@@ -20,7 +20,7 @@ type Columns struct {
 	paths [][]string
 }
 
-// Validate accepts the default text output, JSON, or a custom column projection.
+// Validate accepts text (including an empty format), JSON, or a custom column projection.
 func Validate(format string) error {
 	switch format {
 	case "", "text", "json":

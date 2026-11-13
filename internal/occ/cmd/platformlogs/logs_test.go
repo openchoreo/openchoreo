@@ -302,9 +302,11 @@ func TestNormalizeLevels(t *testing.T) {
 }
 
 func TestValidateOutput(t *testing.T) {
+	require.NoError(t, validateOutput(""))
 	require.NoError(t, validateOutput(outputText))
 	require.NoError(t, validateOutput(outputJSON))
-	assert.ErrorContains(t, validateOutput("yaml"), `invalid --output "yaml"`)
+	assert.EqualError(t, validateOutput("yaml"), `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`)
+	assert.EqualError(t, validateOutput("custom-columns=timestamp,,log"), `invalid custom column "": use non-empty dot-separated attribute names`)
 }
 
 func TestLogs_RejectsBadFlagsBeforeCallingTheAPI(t *testing.T) {
@@ -314,7 +316,7 @@ func TestLogs_RejectsBadFlagsBeforeCallingTheAPI(t *testing.T) {
 		params  LogsParams
 		wantErr string
 	}{
-		{name: "output", params: LogsParams{Output: "yaml"}, wantErr: "invalid --output"},
+		{name: "output", params: LogsParams{Output: "yaml"}, wantErr: `invalid log format "yaml"`},
 		{name: "level", params: LogsParams{Output: outputText, Levels: []string{"TRACE"}}, wantErr: "invalid --level"},
 		{name: "since", params: LogsParams{Output: outputText, Since: "nope"}, wantErr: "invalid --since"},
 	}

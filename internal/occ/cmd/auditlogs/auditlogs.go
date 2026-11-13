@@ -143,11 +143,8 @@ func fetch(ctx context.Context, api observerAPI, body obsgen.AuditLogsQueryReque
 func buildRequest(params QueryParams, now time.Time) (obsgen.AuditLogsQueryRequest, error) {
 	var body obsgen.AuditLogsQueryRequest
 
-	if params.Output == "" {
-		return body, fmt.Errorf("invalid --output %q: must be text, json, or 'custom-columns=FIELD,...'", params.Output)
-	}
 	if err := logformat.Validate(params.Output); err != nil {
-		return body, fmt.Errorf("invalid --output %q: %w", params.Output, err)
+		return body, err
 	}
 	if params.SortOrder != sortAsc && params.SortOrder != sortDesc {
 		return body, fmt.Errorf("invalid --sort %q: must be %q or %q", params.SortOrder, sortDesc, sortAsc)
