@@ -235,3 +235,38 @@ Parameters:
   {{- fail (printf "Argo Workflows platform identity labels are inconsistent. Without them the observability plane cannot attribute Argo pods to this workflow plane:\n  - %s" (join "\n  - " $errors)) -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Argo Workflows CRD installer validation
+
+argo-workflows chart 2.0 installs the full CRDs with the argo-workflows-crdinstaller
+image, which bundles them, and removed crds.upgradeJob.crdBaseURL and
+crds.upgradeJob.hostPath. Their presence means one of:
+  - an upgrade with --reuse-values from a release on the 1.x subchart, which
+    renders with the old chart's defaults: the CRD install Job would pull a
+    kubectl image under the crdinstaller's registry (a reference that does not
+    exist), and the Argo images would stay pinned to v4.0.15
+  - an operator override of a key the subchart no longer reads
+Fail the render with what to do instead of letting the pre-upgrade hook hang
+on an image pull, or the override be silently ignored.
+
+Usage:
+  {{ include "openchoreo-workflow-plane.validateArgoCRDInstaller" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-workflow-plane.validateArgoCRDInstaller" -}}
+{{- $argo := index .Values "argo-workflows" | default (dict) -}}
+{{- $crds := index $argo "crds" | default (dict) -}}
+{{- $job := index $crds "upgradeJob" | default (dict) -}}
+{{- $removed := list -}}
+{{- range $key := list "crdBaseURL" "hostPath" -}}
+  {{- if hasKey $job $key -}}
+    {{- $removed = append $removed (printf "argo-workflows.crds.upgradeJob.%s" $key) -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt (len $removed) 0 -}}
+  {{- fail (printf "Removed in the bundled argo-workflows chart (2.x), but set: %s. Its CRD install Job now applies the CRDs bundled in the argo-workflows-crdinstaller image (argo-workflows.crds.upgradeJob.image).\n  - Upgrading with --reuse-values from a release on the 1.x subchart keeps that chart's defaults, so use --reset-then-reuse-values or pass your values files again.\n  - If you set it yourself, remove it; to mirror the installer image, set argo-workflows.crds.upgradeJob.image.registry." (join ", " $removed)) -}}
+{{- end -}}
+{{- end }}
