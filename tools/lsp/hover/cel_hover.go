@@ -37,6 +37,12 @@ func expressionHover(doc *parser.DocumentNode, line, column int) *protocol.Hover
 			text += fmt.Sprintf("\n| `%s` | `%s` |", child.Name, child.Type)
 		}
 	}
+	if len(info.Functions) > 0 {
+		text += "\n\n**Available functions:**\n\n| Function | Return type |\n|---|---|"
+		for _, fn := range info.Functions {
+			text += fmt.Sprintf("\n| `%s` | `%s` |", fn.Name, fn.Type)
+		}
+	}
 	r := protocol.Range{Start: protocol.Position{Line: protocol.UInteger(info.Range.Start.Line - 1), Character: protocol.UInteger(runeToUTF16Column(string(doc.Source), info.Range.Start.Line, info.Range.Start.Column) - 1)}, End: protocol.Position{Line: protocol.UInteger(info.Range.End.Line - 1), Character: protocol.UInteger(runeToUTF16Column(string(doc.Source), info.Range.End.Line, info.Range.End.Column) - 1)}}
 	return &protocol.Hover{Contents: protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: text}, Range: &r}
 }

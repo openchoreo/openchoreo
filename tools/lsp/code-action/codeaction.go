@@ -4,8 +4,10 @@
 package codeaction
 
 import (
+	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
@@ -26,6 +28,16 @@ func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange pr
 			continue
 		}
 		switch diagCode(sd) {
+		case "cel-unknown-name":
+			if a := fixCELFunction(uri, text, sd); a != nil {
+				actions = append(actions, *a)
+			} else if a := fixCELRoot(uri, text, sd); a != nil {
+				actions = append(actions, *a)
+			}
+		case "cel-type-error":
+			if a := fixCELField(uri, text, sd); a != nil {
+				actions = append(actions, *a)
+			}
 		case "missing-apiVersion":
 			if a := fixMissingAPIVersion(uri, text, sd); a != nil {
 				actions = append(actions, *a)
@@ -296,4 +308,74 @@ func closestMatches(typo string, candidates []string, max int) []string {
 		out = append(out, ms[i].s)
 	}
 	return out
+}
+
+var celFunctionSuggestion = regexp.MustCompile(`undeclared reference to '([A-Za-z_][A-Za-z0-9_]*)'.*Did you mean "([A-Za-z_][A-Za-z0-9_]*)"\?`)
+
+func fixCELFunction(uri, text string, diag protocol.Diagnostic) *protocol.CodeAction {
+	match := celFunctionSuggestion.FindStringSubmatch(diag.Message)
+	if len(match) != 3 {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	line := int(diag.Range.Start.Line)
+	if line >= len(lines) {
+		return nil
+	}
+	pattern := regexp.MustCompile(`\.` + regexp.QuoteMeta(match[1]) + `\s*\(`)
+	spans := pattern.FindAllStringIndex(lines[line], -1)
+	if len(spans) != 1 {
+		return nil
+	}
+	start := spans[0][0] + 1
+	column := len(utf16.Encode([]rune(lines[line][:start])))
+	r := protocol.Range{Start: protocol.Position{Line: diag.Range.Start.Line, Character: protocol.UInteger(column)}, End: protocol.Position{Line: diag.Range.Start.Line, Character: protocol.UInteger(column + len(match[1]))}}
+	return quickFix("Replace with "+match[2], uri, diag, []protocol.TextEdit{{Range: r, NewText: match[2]}})
+}
+
+// fixCELRoot uses the authoritative token range, never a text-wide replacement.
+func fixCELRoot(uri, text string, diag protocol.Diagnostic) *protocol.CodeAction {
+	match := celFunctionSuggestion.FindStringSubmatch(diag.Message)
+	if len(match) != 3 || diag.Range.Start.Line != diag.Range.End.Line {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	line := int(diag.Range.Start.Line)
+	if line >= len(lines) {
+		return nil
+	}
+	units := utf16.Encode([]rune(lines[line]))
+	start, end := int(diag.Range.Start.Character), int(diag.Range.End.Character)
+	if start < 0 || end < start || end > len(units) {
+		return nil
+	}
+	if string(utf16.Decode(units[start:end])) != match[1] {
+		return nil
+	}
+	// Member names have their own fix; this fallback is for root identifiers.
+	if start > 0 && units[start-1] == '.' {
+		return nil
+	}
+	return quickFix("Replace with "+match[2], uri, diag, []protocol.TextEdit{{Range: diag.Range, NewText: match[2]}})
+}
+
+var celFieldSuggestion = regexp.MustCompile(`undefined field '([A-Za-z_][A-Za-z0-9_]*)'.*Did you mean "([A-Za-z_][A-Za-z0-9_]*)"\?`)
+
+// fixCELField edits only the checker-selected identifier, preserving patch syntax.
+func fixCELField(uri, text string, diag protocol.Diagnostic) *protocol.CodeAction {
+	match := celFieldSuggestion.FindStringSubmatch(diag.Message)
+	if len(match) != 3 || diag.Range.Start.Line != diag.Range.End.Line {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	line := int(diag.Range.Start.Line)
+	if line >= len(lines) {
+		return nil
+	}
+	units := utf16.Encode([]rune(lines[line]))
+	start, end := int(diag.Range.Start.Character), int(diag.Range.End.Character)
+	if start < 0 || end < start || end > len(units) || string(utf16.Decode(units[start:end])) != match[1] {
+		return nil
+	}
+	return quickFix("Replace with "+match[2], uri, diag, []protocol.TextEdit{{Range: diag.Range, NewText: match[2]}})
 }

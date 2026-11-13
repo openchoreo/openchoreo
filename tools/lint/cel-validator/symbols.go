@@ -23,6 +23,7 @@ type ExpressionInfo struct {
 	Range                               parser.Range
 	ChildrenParent                      string
 	Children                            []ExpressionChild
+	Functions                           []ExpressionChild
 	OpenKeys                            bool
 }
 
@@ -215,6 +216,31 @@ func fieldSuggestion(env *cel.Env, expr, message string, offset int) string {
 	bad := undefinedTargetField.FindStringSubmatch(message)
 	if len(bad) != 2 {
 		if root := undeclaredToken.FindStringSubmatch(message); len(root) == 2 {
+			for _, span := range symbolPaths.FindAllStringIndex(expr, -1) {
+				executable := false
+				for _, selected := range expressionSymbols(expr) {
+					if selected[0] == span[0] {
+						executable = true
+						break
+					}
+				}
+				if !executable {
+					continue
+				}
+				path := expr[span[0]:span[1]]
+				parts := strings.Split(path, ".")
+				if len(parts) < 2 || parts[len(parts)-1] != root[1] || !strings.HasPrefix(strings.TrimSpace(expr[span[1]:]), "(") {
+					continue
+				}
+				typ, _ := pathType(env, parts[:len(parts)-1])
+				var names []string
+				for _, fn := range receiverFunctions(env, typ, strings.Join(parts[:len(parts)-1], ".")) {
+					names = append(names, fn.Description)
+				}
+				if candidate := closestField(root[1], names); candidate != "" {
+					return fmt.Sprintf("%s. Did you mean %q?", message, candidate)
+				}
+			}
 			if candidate := symbolSuggestion(env, []string{root[1]}); candidate != "" {
 				return fmt.Sprintf("%s. Did you mean %q?", message, candidate)
 			}
@@ -307,6 +333,7 @@ func (c *checker) addSymbolChildren(info *ExpressionInfo, env *cel.Env, prefix [
 		return
 	}
 	info.ChildrenParent = strings.Join(path, ".")
+	info.Functions = receiverFunctions(env, typ, info.ChildrenParent)
 	for _, name := range structFieldNames(env, typ) {
 		field, ok := env.CELTypeProvider().FindStructFieldType(typ.TypeName(), name)
 		if !ok {
@@ -315,4 +342,62 @@ func (c *checker) addSymbolChildren(info *ExpressionInfo, env *cel.Env, prefix [
 		childPath := append(append([]string(nil), path...), name)
 		info.Children = append(info.Children, ExpressionChild{Name: strings.Join(childPath, "."), Type: field.Type.String(), Description: c.symbolDescription(childPath, typ.TypeName())})
 	}
+}
+
+// receiverFunctions reads member overloads from the checking environment. Dynamic
+// and generic receivers are excluded because they cannot establish membership.
+func receiverFunctions(env *cel.Env, typ *cel.Type, receiver string) []ExpressionChild {
+	if typ == nil || typ.Kind() == types.DynKind {
+		return nil
+	}
+	var result []ExpressionChild
+	seen := map[string]bool{}
+	// OpenChoreo helpers are receiver macros, not overload declarations.
+	// Compile a zero-argument call to establish receiver eligibility and result
+	// type using the production macro expansion, without evaluating anything.
+	if receiver != "" {
+		for _, macro := range env.Macros() {
+			if !macro.IsReceiverStyle() || macro.ArgCount() != 0 {
+				continue
+			}
+			signature := receiver + "." + macro.Function() + "()"
+			checked, issues := env.Compile(signature)
+			if issues != nil && issues.Err() != nil {
+				continue
+			}
+			if checked == nil {
+				continue
+			}
+			key := signature + checked.OutputType().String()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			result = append(result, ExpressionChild{Name: signature, Type: checked.OutputType().String(), Description: macro.Function()})
+		}
+	}
+	for name, fn := range env.Functions() {
+		for _, overload := range fn.OverloadDecls() {
+			args := overload.ArgTypes()
+			if !overload.IsMemberFunction() || len(args) == 0 || args[0].String() != typ.String() {
+				continue
+			}
+			var params []string
+			for _, arg := range args[1:] {
+				params = append(params, arg.String())
+			}
+			signature := name + "(" + strings.Join(params, ", ") + ")"
+			if receiver != "" {
+				signature = receiver + "." + signature
+			}
+			key := signature + overload.ResultType().String()
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			result = append(result, ExpressionChild{Name: signature, Type: overload.ResultType().String(), Description: name})
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result
 }

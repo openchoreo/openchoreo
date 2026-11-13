@@ -170,3 +170,59 @@ func TestProjectStaticCELContext(t *testing.T) {
 		}
 	}
 }
+
+func TestFailedRuleValueLocations(t *testing.T) {
+	for _, tc := range []struct{ name, expr, values, token string }{
+		{"single", "parameters.count > 3", "    count: 2", "count: 2"},
+		{"nested", "parameters.tuning.count > 3", "    tuning:\n      count: 2", "count: 2"},
+		{"multiple", "parameters.count > 3 && parameters.other > 3", "    count: 2\n    other: 2", "parameters:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := `apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata: {name: type}
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        count: {type: integer}
+        other: {type: integer}
+        tuning:
+          type: object
+          properties:
+            count: {type: integer}
+  preRenderValidations:
+    - rule: '${` + tc.expr + `}'
+      message: too small
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata: {name: app}
+spec:
+  componentType: {kind: ComponentType, name: deployment/type}
+  parameters:
+` + tc.values + "\n"
+			resources := parseResources(t, source)
+			got := ValidateDocuments(context.Background(), resources)
+			if len(got) != 1 {
+				t.Fatalf("%+v", got)
+			}
+			want := 0
+			for i, line := range strings.Split(source, "\n") {
+				if strings.Contains(line, tc.token) {
+					want = i + 1
+				}
+			}
+			if tc.name == "multiple" {
+				want = nodeAt(resources[1].Document.Spec, "parameters").Line
+				if got[0].Column != nodeAt(resources[1].Document.Spec, "parameters").Column {
+					t.Fatal(got[0])
+				}
+			}
+			if got[0].Line != want {
+				t.Fatalf("want line %d, got %+v", want, got[0])
+			}
+		})
+	}
+}

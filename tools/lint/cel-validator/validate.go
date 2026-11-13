@@ -581,7 +581,7 @@ func (c *checker) postRenderValidations(seq *yaml.Node, env *cel.Env, provider *
 }
 
 // patch validates one trait patch: forEach/var, target.where, and (for add /
-// replace) the operation values, all under the loop-variable-extended env.
+// replace) the operation values, plus all operation paths, under the loop environment.
 func (c *checker) patch(env *cel.Env, provider *apiservercel.DeclTypeProvider, entry *yaml.Node) {
 	bodyEnv := env
 	if ext := c.forEachEnv(env, provider, mappingValue(entry, fieldForEach), mappingValue(entry, fieldVar)); ext != nil {
@@ -593,13 +593,14 @@ func (c *checker) patch(env *cel.Env, provider *apiservercel.DeclTypeProvider, e
 	c.operations(mappingValue(entry, fieldOperations), bodyEnv)
 }
 
-// operations validates add/replace operation values (walked as template
-// bodies); remove operations carry no value to validate.
+// operations validates interpolated paths for every operation and add/replace
+// values. Paths use the same environment as the production Trait renderer.
 func (c *checker) operations(seq *yaml.Node, env *cel.Env) {
 	if seq == nil || seq.Kind != yaml.SequenceNode {
 		return
 	}
 	for _, op := range seq.Content {
+		c.walk(mappingValue(op, "path"), env)
 		switch scalarString(mappingValue(op, fieldOp)) {
 		case patchOpAdd, patchOpReplace:
 			c.walk(mappingValue(op, fieldValue), env)

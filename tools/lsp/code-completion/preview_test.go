@@ -284,3 +284,27 @@ func TestDescriptivePlaceholders(t *testing.T) {
 		}
 	}
 }
+
+func TestPreviewScalarBeforeStructure(t *testing.T) {
+	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: ComponentType"
+	got := RequiredPreview(text, 1, len("kind: ComponentType"), "  ")
+	scalar, nested := strings.Index(got, "workloadType:"), strings.Index(got, "resources:")
+	if scalar < 0 || nested < 0 || scalar > nested {
+		t.Fatalf("wrong preview order: %s", got)
+	}
+}
+
+func TestPreviewCompactObjectArray(t *testing.T) {
+	for _, indent := range []string{" ", "  ", "    "} {
+		text := "apiVersion: openchoreo.dev/v1alpha1\nkind: ComponentType"
+		got := RequiredPreview(text, 1, len("kind: ComponentType"), indent)
+		if !strings.Contains(got, "- id:") || strings.Contains(got, "-\n") {
+			t.Fatalf("noncompact preview: %s", got)
+		}
+		// Existing audit helpers decode snippets and validate all selectable kinds.
+		concrete := regexp.MustCompile(`\$\{[0-9]+:([^}]*)\}`).ReplaceAllString(got, "$1")
+		if _, err := parser.ParseYAML([]byte(text + concrete)); err != nil {
+			t.Fatalf("indent %q: %v\n%s", indent, err, concrete)
+		}
+	}
+}

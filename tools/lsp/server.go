@@ -270,7 +270,7 @@ func (s *Server) Completion(
 	if s.indexer == nil {
 		return codecompletion.Handle(doc.Text, cursorLine, cursorCol)
 	}
-	return codecompletion.HandleWithIndex(doc.Text, cursorLine, cursorCol, s.indexer)
+	return codecompletion.HandleWithIndex(doc.Text, cursorLine, cursorCol, s.indexer, uri)
 }
 
 // CodeAction handles textDocument/codeAction requests, delegating to the

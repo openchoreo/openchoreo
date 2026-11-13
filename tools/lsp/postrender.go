@@ -82,6 +82,7 @@ func (s *Server) ExecuteCommand(
 	}
 	if params.Command == "openchoreo.requiredFieldsPreview" {
 		var request struct {
+			URI       string
 			Text      string
 			Version   int
 			Line      int
@@ -98,7 +99,7 @@ func (s *Server) ExecuteCommand(
 		if err = json.Unmarshal(data, &request); err != nil {
 			return nil, err
 		}
-		return map[string]any{"version": request.Version, "text": codecompletion.RequiredPreview(request.Text, request.Line, request.Character, request.Indent)}, nil
+		return map[string]any{"version": request.Version, "text": codecompletion.RequiredPreviewWithIndex(request.Text, request.Line, request.Character, request.Indent, request.URI, s.indexer)}, nil
 	}
 	if params.Command != postRenderCommand {
 		return nil, fmt.Errorf("unknown command %q", params.Command)

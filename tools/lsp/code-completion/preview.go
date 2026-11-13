@@ -7,6 +7,7 @@ import (
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"gopkg.in/yaml.v3"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -73,38 +74,10 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 		}
 		path = ctx.path
 	}
-	existing := d.Root
-	if existing.Kind == yaml.DocumentNode {
-		existing = existing.Content[0]
+	existing, path, ok := previewMappingContext(d.Root, path, lines, localLine)
+	if !ok {
+		return ""
 	}
-	// The ordinary resolver retains open containers across blank lines. Trim
-	// its path to the actual cursor indentation so Shift+Tab returns to the
-	// parent mapping rather than suggesting nested keys at the root.
-	var resolved []string
-	for _, part := range strings.Split(path, ".") {
-		if part == "" {
-			continue
-		}
-		var key, value *yaml.Node
-		if existing.Kind == yaml.MappingNode {
-			for i := 0; i+1 < len(existing.Content); i += 2 {
-				if existing.Content[i].Value == part {
-					key = existing.Content[i]
-					value = existing.Content[i+1]
-					break
-				}
-			}
-		}
-		if key == nil {
-			return ""
-		}
-		if key.Column-1 >= len(lines[localLine]) {
-			break
-		}
-		resolved = append(resolved, part)
-		existing = value
-	}
-	path = strings.Join(resolved, ".")
 
 	if existing.Kind != yaml.MappingNode && !(existing.Kind == yaml.ScalarNode && existing.Tag == "!!null") {
 		return ""
@@ -127,7 +100,7 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 			return ""
 		}
 		out := ""
-		for _, name := range sortedFieldNames(n) {
+		for _, name := range previewFieldNames(n) {
 			child := n.Properties[name]
 			childPath := joinSchemaPath(objectPath, name)
 			body := ""
@@ -155,7 +128,21 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 				item.Required = true
 				wrapper := &schema.FieldSchema{Type: "object", Properties: map[string]*schema.FieldSchema{"item": &item}}
 				itemBody := expand(wrapper, listPrefix, childPath+"[]")
-				out += prefix + name + ":\n" + listPrefix + "-" + strings.TrimPrefix(itemBody, listPrefix+"item:")
+				rendered := strings.TrimPrefix(itemBody, listPrefix+"item:")
+				if item.Type == "object" && strings.HasPrefix(rendered, "\n"+listPrefix+indent) {
+					lines := strings.Split(strings.TrimPrefix(rendered, "\n"), "\n")
+					// A compact sequence item's keys align two columns after
+					// the dash, independently of the editor's indent width.
+					for i, line := range lines {
+						if strings.HasPrefix(line, listPrefix+indent) {
+							lines[i] = listPrefix + "  " + strings.TrimPrefix(line, listPrefix+indent)
+						}
+					}
+					lines[0] = strings.TrimPrefix(lines[0], listPrefix+"  ")
+					out += prefix + name + ":\n" + listPrefix + "- " + strings.Join(lines, "\n")
+				} else {
+					out += prefix + name + ":\n" + listPrefix + "-" + rendered
+				}
 				continue
 			}
 			count++
@@ -323,4 +310,136 @@ func placeholderLabel(field string) string {
 	field = regexp.MustCompile(`([A-Z]+)([A-Z][a-z])`).ReplaceAllString(field, "${1}-${2}")
 	field = regexp.MustCompile(`([a-z0-9])([A-Z])`).ReplaceAllString(field, "${1}-${2}")
 	return strings.ToLower(strings.ReplaceAll(field, "_", "-"))
+}
+
+// Preview ordering groups leaf values before nested structures, without
+// changing dropdown completion ordering or the user's existing mappings.
+func previewFieldNames(node *schema.FieldSchema) []string {
+	names := sortedFieldNames(node)
+	nested := func(name string) bool { typ := node.Properties[name].Type; return typ == "object" || typ == "array" }
+	sort.Slice(names, func(i, j int) bool {
+		a, b := nested(names[i]), nested(names[j])
+		if a != b {
+			return !a
+		}
+		return names[i] < names[j]
+	})
+	return names
+}
+
+// RequiredPreviewWithIndex overlays only resolved dynamic parameter schemas on
+// a private copy of the template, retaining the existing insertion safeguards.
+func RequiredPreviewWithIndex(text string, line, column int, indent, uri string, idx ResourceIndexer) string {
+	var dynamic *schema.FieldSchema
+	var path string
+	dynamicItems(text, line+1, column+1, idx, uri, func(p string, s *schema.FieldSchema) { path, dynamic = p, s })
+	choices, policyKnown, doc := allowedWorkflowChoices(text, line+1, uri, idx)
+	bindingFields := bindingPreviewFields(text, line+1, uri, idx)
+	if dynamic == nil && !policyKnown && len(bindingFields) == 0 {
+		return RequiredPreview(text, line, column, indent)
+	}
+	// Required is used only as an authoring inclusion flag on this private
+	// resolved schema copy. It does not change the validation schema.
+	var mark func(*schema.FieldSchema)
+	mark = func(n *schema.FieldSchema) {
+		if n == nil {
+			return
+		}
+		n.Required = true
+		for _, child := range n.Properties {
+			mark(child)
+		}
+		mark(n.Items)
+	}
+	mark(dynamic)
+	for _, field := range bindingFields {
+		mark(field)
+	}
+	return requiredPreviewWithSchema(text, line, column, indent, func(kind string) *schema.FieldSchema {
+		base := template.SchemaFor(kind)
+		if base == nil {
+			return nil
+		}
+		copied := cloneCompletionSchema(base)
+		if copied == nil {
+			return nil
+		}
+		root := *copied
+		if spec := schema.FindSchema(&root, "spec"); spec != nil {
+			for name, field := range bindingFields {
+				spec.Properties[name] = field
+			}
+		}
+		if policyKnown {
+			applyWorkflowPolicy(&root, choices, doc)
+		}
+		if dynamic == nil {
+			return &root
+		}
+		parts := strings.Split(path, ".")
+		parent := schema.FindSchema(&root, strings.Join(parts[:len(parts)-1], "."))
+		if parent != nil {
+			if parent.Type == "array" {
+				parent = parent.Items
+			}
+			if parent != nil {
+				if parent.Properties == nil {
+					parent.Properties = map[string]*schema.FieldSchema{}
+				}
+				parent.Properties[parts[len(parts)-1]] = dynamic
+			}
+		}
+		return &root
+	})
+}
+
+// previewMappingContext trims lexical container paths to the cursor's actual
+// indentation. Both schema lookup and rendering must use this same context.
+func previewMappingContext(root *yaml.Node, path string, lines []string, localLine int) (*yaml.Node, string, bool) {
+	existing := root
+	if existing.Kind == yaml.DocumentNode {
+		existing = existing.Content[0]
+	}
+	// The ordinary resolver retains open containers across blank lines. Trim
+	// its path to the actual cursor indentation so Shift+Tab returns to the
+	// parent mapping rather than suggesting nested keys at the root.
+	var resolved []string
+	for _, part := range strings.Split(path, ".") {
+		if part == "" {
+			continue
+		}
+		if existing.Kind == yaml.SequenceNode {
+			var selected *yaml.Node
+			for _, item := range existing.Content {
+				if item.Line <= localLine+1 {
+					selected = item
+				}
+			}
+			if selected == nil {
+				return nil, "", false
+			}
+			existing = selected
+		}
+		var key, value *yaml.Node
+		if existing.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(existing.Content); i += 2 {
+				if existing.Content[i].Value == part {
+					key = existing.Content[i]
+					value = existing.Content[i+1]
+					break
+				}
+			}
+		}
+		if key == nil {
+			return nil, "", false
+		}
+		if key.Column-1 >= len(lines[localLine]) {
+			break
+		}
+		resolved = append(resolved, part)
+		existing = value
+	}
+	path = strings.Join(resolved, ".")
+
+	return existing, path, true
 }

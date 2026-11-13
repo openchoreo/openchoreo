@@ -169,6 +169,9 @@ func evaluateRulesAt(ctx context.Context, r Resource, definition, values, env *y
 			case "ProjectReleaseBinding":
 				target = nodeAt(r.Document.Spec, "environmentConfigs")
 			}
+			if precise := ruleValueLocation(ast.Expr(), values, env); precise != nil {
+				target = precise
+			}
 			findings = append(findings, nodeFinding(r, target, "pre-render-validation-failed", err.Error()))
 		}
 	}
@@ -245,4 +248,78 @@ func availableExpr(e *exprpb.Expr, scope map[string]bool) bool {
 		return availableExpr(a.LoopCondition, local) && availableExpr(a.LoopStep, local) && availableExpr(a.Result, local)
 	}
 	return true
+}
+
+// ruleValueLocation narrows a failed rule to a supplied value only when all
+// input references identify one path. Multi-input rules retain their container
+// location rather than claiming one of several values caused the failure.
+func ruleValueLocation(expr *exprpb.Expr, parameters, configs *yaml.Node) *yaml.Node {
+	paths := map[string][]string{}
+	var visit func(*exprpb.Expr)
+	visit = func(e *exprpb.Expr) {
+		if e == nil {
+			return
+		}
+		if path := ruleInputPath(e); len(path) > 0 {
+			paths[strings.Join(path, "\x00")] = path
+			return
+		}
+		switch x := e.ExprKind.(type) {
+		case *exprpb.Expr_SelectExpr:
+			visit(x.SelectExpr.Operand)
+		case *exprpb.Expr_CallExpr:
+			visit(x.CallExpr.Target)
+			for _, arg := range x.CallExpr.Args {
+				visit(arg)
+			}
+		case *exprpb.Expr_ListExpr:
+			for _, item := range x.ListExpr.Elements {
+				visit(item)
+			}
+		case *exprpb.Expr_StructExpr:
+			for _, item := range x.StructExpr.Entries {
+				visit(item.GetMapKey())
+				visit(item.Value)
+			}
+		case *exprpb.Expr_ComprehensionExpr:
+			c := x.ComprehensionExpr
+			visit(c.IterRange)
+			visit(c.AccuInit)
+			visit(c.LoopCondition)
+			visit(c.LoopStep)
+			visit(c.Result)
+		}
+	}
+	visit(expr)
+	if len(paths) != 1 {
+		return nil
+	}
+	for _, path := range paths {
+		if len(path) < 2 {
+			return nil
+		}
+		root := parameters
+		if path[0] == "environmentConfigs" {
+			root = configs
+		}
+		return nodeAt(root, path[1:]...)
+	}
+	return nil
+}
+
+func ruleInputPath(e *exprpb.Expr) []string {
+	if e == nil {
+		return nil
+	}
+	switch x := e.ExprKind.(type) {
+	case *exprpb.Expr_IdentExpr:
+		if x.IdentExpr.Name == "parameters" || x.IdentExpr.Name == "environmentConfigs" {
+			return []string{x.IdentExpr.Name}
+		}
+	case *exprpb.Expr_SelectExpr:
+		if p := ruleInputPath(x.SelectExpr.Operand); p != nil {
+			return append(p, x.SelectExpr.Field)
+		}
+	}
+	return nil
 }

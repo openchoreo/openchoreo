@@ -40,6 +40,7 @@ spec:
 func TestContextFieldSuggestions(t *testing.T) {
 	for _, tc := range []struct{ expr, want string }{
 		{"metadata.podSelectores", "podSelectors"},
+		{"configurations.toConfigEvsByContainer()", "toConfigEnvsByContainer"},
 		{"parameters.retrise", "retries"},
 		{"metadtaa.name", "metadata"},
 		{"metadata.podSelectors", ""},
@@ -213,5 +214,43 @@ func TestSymbolChildrenMatchCELDeclarations(t *testing.T) {
 	info, err := InspectExpression(doc, pair, 16, strings.Index(line, "anyKey")+2)
 	if err != nil || info == nil || !info.OpenKeys || len(info.Children) != 0 {
 		t.Fatalf("map keys must not be enumerated: %+v %v", info, err)
+	}
+}
+
+func TestConfigurationFunctionDiscovery(t *testing.T) {
+	doc := expressionDoc(t, "configurations.toConfigEnvsByContainer()")
+	pair, err := ExtractSchemas(doc.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(doc.Source), "\n")
+	for i, line := range lines {
+		if at := strings.Index(line, "configurations."); at >= 0 {
+			info, err := InspectExpression(doc, pair, i+1, at+1)
+			if err != nil || info == nil {
+				t.Fatalf("%v %v", info, err)
+			}
+			for _, fn := range info.Functions {
+				if fn.Name == "configurations.toConfigEnvsByContainer()" {
+					return
+				}
+			}
+			t.Fatalf("missing function: %+v", info.Functions)
+		}
+	}
+	t.Fatal("no expression")
+}
+
+func TestFunctionSuggestionsRespectReceiver(t *testing.T) {
+	doc := expressionDoc(t, "metadata.toConfigEvsByContainer()")
+	pair, _ := ExtractSchemas(doc.Spec)
+	findings, err := ValidateDocument(doc, pair)
+	if err != nil || len(findings) == 0 {
+		t.Fatalf("%v %v", findings, err)
+	}
+	for _, finding := range findings {
+		if strings.Contains(finding.Message, "Did you mean") {
+			t.Fatal(finding)
+		}
 	}
 }
