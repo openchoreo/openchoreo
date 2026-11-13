@@ -172,7 +172,8 @@ containerd use to parse image references. The override may itself carry a
 path (e.g. "registry.example.com/ghcr.io") for path-preserving mirrors.
 
 Note: images of the argo-workflows subchart are not covered by this value;
-override them via argo-workflows.{controller,executor,server}.image.registry.
+override them via argo-workflows.{controller,executor,server}.image.registry
+and argo-workflows.crds.upgradeJob.image.registry (the CRD installer Job).
 
 Usage:
   {{ include "openchoreo-workflow-plane.image" (dict "context" . "image" .Values.clusterAgent.image) }}
