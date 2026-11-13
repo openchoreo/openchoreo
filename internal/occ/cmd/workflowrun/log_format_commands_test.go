@@ -68,7 +68,7 @@ func TestWorkflowLogCommands_Formats(t *testing.T) {
 								require.NoError(t, cmd.RunE(cmd, []string{"run-1"}))
 							})
 							if format != "json" {
-								assert.Equal(t, "2026-11-10T08:21:04.512Z first\nsecond\t\"quoted\" <tag>\n- no timestamp\n", out)
+								assert.Equal(t, "2026-11-10T08:21:04.512Z\tfirst\nsecond\t\"quoted\" <tag>\n-\tno timestamp\n", out)
 								return
 							}
 							lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")

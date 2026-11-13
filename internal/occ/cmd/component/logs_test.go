@@ -587,7 +587,7 @@ func TestFollowLogs_Formats(t *testing.T) {
 			})
 			require.Equal(t, 2, requests)
 			if format != logFormatJSON {
-				assert.Equal(t, "2026-11-10T08:21:04.512Z INFO initial log\n2026-11-10T08:21:05.087Z WARN new log\n", out)
+				assert.Equal(t, "2026-11-10T08:21:04.512Z\tINFO\tinitial log\n2026-11-10T08:21:05.087Z\tWARN\tnew log\n", out)
 				return
 			}
 			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")

@@ -37,8 +37,8 @@ func TestPrintLogs_CustomColumns(t *testing.T) {
 		}, `custom-columns=timestamp,level,podName,labels.openchoreo\.dev/plane,log`))
 	})
 	assert.Equal(t,
-		"2026-11-10T08:21:04.512Z INFO controller-manager-abc controlplane request handled\n"+
-			"2026-11-10T08:21:05.512Z - controller-manager-abc - follow-up request\n", out)
+		"2026-11-10T08:21:04.512Z\tINFO\tcontroller-manager-abc\tcontrolplane\trequest handled\n"+
+			"2026-11-10T08:21:05.512Z\t-\tcontroller-manager-abc\t-\tfollow-up request\n", out)
 	assert.NoError(t, validateOutput("custom-columns=timestamp,podName,log"))
 	assert.Error(t, validateOutput("custom-columns=timestamp,,log"))
 }

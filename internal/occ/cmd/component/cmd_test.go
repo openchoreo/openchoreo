@@ -249,8 +249,8 @@ func TestLogsCmd_CustomColumns(t *testing.T) {
 		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
 	})
 	assert.Equal(t,
-		"2026-11-10T08:21:04.512Z INFO "+pod+" GET /api/v1/urls/abc123 302 1.4ms\n"+
-			"2026-11-10T08:21:05.087Z WARN "+pod+" failed to resolve short code xyz789: not found\n", out)
+		"2026-11-10T08:21:04.512Z\tINFO\t"+pod+"\tGET /api/v1/urls/abc123 302 1.4ms\n"+
+			"2026-11-10T08:21:05.087Z\tWARN\t"+pod+"\tfailed to resolve short code xyz789: not found\n", out)
 }
 
 // --- workflow subcommands ---

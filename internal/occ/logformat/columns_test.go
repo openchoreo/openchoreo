@@ -29,6 +29,27 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestParseColumns_RejectNamedColumns(t *testing.T) {
+	for _, tc := range []struct{ fields, invalidField string }{
+		{"TIME:.timestamp,MSG:.log", "TIME:.timestamp"},
+		{"TIME:timestamp,MSG:log", "TIME:timestamp"},
+		{"TIME:.timestamp,log", "TIME:.timestamp"},
+		{"timestamp,MSG:.log", "MSG:.log"},
+		{"timestamp, MSG:.log ", "MSG:.log"},
+		{":.log", ":.log"},
+		{"labels.example:key", "labels.example:key"},
+	} {
+		t.Run(tc.fields, func(t *testing.T) {
+			format := "custom-columns=" + tc.fields
+			want := `invalid custom column "` + tc.invalidField + `": named columns (NAME:path) are not supported; use custom-columns=timestamp,log`
+			columns, err := ParseColumns(format)
+			assert.Nil(t, columns)
+			assert.EqualError(t, err, want)
+			assert.EqualError(t, Validate(format), want)
+		})
+	}
+}
+
 func TestColumnsPrint_EscapedPaths(t *testing.T) {
 	entry := map[string]any{
 		"log": "request handled",
@@ -44,11 +65,11 @@ func TestColumnsPrint_EscapedPaths(t *testing.T) {
 		format string
 		want   string
 	}{
-		{"literal label key", `custom-columns=labels.openchoreo\.dev/plane,log`, "controlplane request handled\n"},
-		{"unescaped periods remain nested", "custom-columns=labels.openchoreo.dev/plane,log", "nested-plane request handled\n"},
+		{"literal label key", `custom-columns=labels.openchoreo\.dev/plane,log`, "controlplane\trequest handled\n"},
+		{"unescaped periods remain nested", "custom-columns=labels.openchoreo.dev/plane,log", "nested-plane\trequest handled\n"},
 		{"multiple literal keys", `custom-columns=literal\.key.name\.with\.dots`, "value\n"},
 		{"literal backslash", `custom-columns=labels.path\\key`, "backslash\n"},
-		{"missing literal key", `custom-columns=labels.missing\.key,log`, "- request handled\n"},
+		{"missing literal key", `custom-columns=labels.missing\.key,log`, "-\trequest handled\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			columns, err := ParseColumns(tc.format)
@@ -72,11 +93,11 @@ func TestColumnsPrint(t *testing.T) {
 		want   string
 	}{
 		{"example", "custom-columns=timestamp,level,metadata.podName,log",
-			"2026-11-10T08:21:04.512Z INFO snip-api-service-development-6d8f7c9b5-x2k4p GET /api/v1/urls/abc123 302 1.4ms\n"},
-		{"order and repeated fields", "custom-columns=level,log,level", "INFO GET /api/v1/urls/abc123 302 1.4ms INFO\n"},
-		{"missing and null fields", "custom-columns=missing,metadata.missing,metadata.null,level.foo,log", "- - - - GET /api/v1/urls/abc123 302 1.4ms\n"},
-		{"scalar values", "custom-columns=count,ready,empty,level", "9007199254740993 false  INFO\n"},
-		{"trim field whitespace", "custom-columns= level , metadata.podName ", "INFO snip-api-service-development-6d8f7c9b5-x2k4p\n"},
+			"2026-11-10T08:21:04.512Z\tINFO\tsnip-api-service-development-6d8f7c9b5-x2k4p\tGET /api/v1/urls/abc123 302 1.4ms\n"},
+		{"order and repeated fields", "custom-columns=level,log,level", "INFO\tGET /api/v1/urls/abc123 302 1.4ms\tINFO\n"},
+		{"missing and null fields", "custom-columns=missing,metadata.missing,metadata.null,level.foo,log", "-\t-\t-\t-\tGET /api/v1/urls/abc123 302 1.4ms\n"},
+		{"scalar values", "custom-columns=count,ready,empty,level", "9007199254740993\tfalse\t\tINFO\n"},
+		{"trim field whitespace", "custom-columns= level , metadata.podName ", "INFO\tsnip-api-service-development-6d8f7c9b5-x2k4p\n"},
 		{"object value", "custom-columns=metadata", "{\"null\":null,\"podName\":\"snip-api-service-development-6d8f7c9b5-x2k4p\"}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

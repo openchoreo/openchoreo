@@ -96,7 +96,7 @@ func TestQuery_CustomColumns(t *testing.T) {
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).Query(params))
 	})
-	assert.Equal(t, "2026-11-10T08:21:04.512Z alice@example.com acme-corp create_project success\n", out)
+	assert.Equal(t, "2026-11-10T08:21:04.512Z\talice@example.com\tacme-corp\tcreate_project\tsuccess\n", out)
 }
 
 func TestQuery_SendsFiltersAndPrintsTable(t *testing.T) {

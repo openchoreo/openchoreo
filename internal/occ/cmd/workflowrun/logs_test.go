@@ -148,7 +148,7 @@ func TestFollowLiveLogs_Formats(t *testing.T) {
 				}, 0))
 			})
 			if format != "json" {
-				assert.Equal(t, now.Format(time.RFC3339Nano)+" initial log\n"+later.Format(time.RFC3339Nano)+" new log\n", out)
+				assert.Equal(t, now.Format(time.RFC3339Nano)+"\tinitial log\n"+later.Format(time.RFC3339Nano)+"\tnew log\n", out)
 				return
 			}
 			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
@@ -206,7 +206,7 @@ func TestFetchArchivedLogs_Formats(t *testing.T) {
 						return
 					}
 					if format != "json" {
-						assert.Equal(t, "2026-11-10T08:21:04.512Z INFO build-pod build\ncompleted\n", out)
+						assert.Equal(t, "2026-11-10T08:21:04.512Z\tINFO\tbuild-pod\tbuild\ncompleted\n", out)
 						return
 					}
 					assert.Equal(t, 1, strings.Count(out, "\n"))

@@ -43,6 +43,9 @@ func ParseColumns(format string) (*Columns, error) {
 	columns := &Columns{}
 	for _, field := range strings.Split(fields, ",") {
 		field = strings.TrimSpace(field)
+		if strings.Contains(field, ":") {
+			return nil, fmt.Errorf("invalid custom column %q: named columns (NAME:path) are not supported; use custom-columns=timestamp,log", field)
+		}
 		path, err := splitColumnPath(field)
 		if err != nil {
 			return nil, err
@@ -86,7 +89,7 @@ func splitColumnPath(field string) ([]string, error) {
 	return append(path, segment.String()), nil
 }
 
-// Print writes selected JSON attributes separated by spaces. Missing or null values print as '-'.
+// Print writes selected JSON attributes separated by tabs, without a header row. Missing or null values print as '-'.
 // Strings retain their contents; other JSON values use their compact JSON representation.
 func (c *Columns) Print(out io.Writer, entry any) error {
 	encoded, err := json.Marshal(entry)
@@ -124,7 +127,7 @@ func (c *Columns) Print(out io.Writer, entry any) error {
 			values[i] = string(data)
 		}
 	}
-	if _, err := fmt.Fprintln(out, strings.Join(values, " ")); err != nil {
+	if _, err := fmt.Fprintln(out, strings.Join(values, "\t")); err != nil {
 		return fmt.Errorf("failed to write log entry: %w", err)
 	}
 	return nil
