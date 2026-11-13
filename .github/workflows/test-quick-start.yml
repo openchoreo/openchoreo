@@ -41,7 +41,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  QS_IMAGE: ghcr.io/openchoreo/quick-start
+  QS_IMAGE: ${{ vars.QS_IMAGE || 'ghcr.io/openchoreo/quick-start' }}
   QS_CONTAINER: openchoreo-quick-start
 
 jobs:
