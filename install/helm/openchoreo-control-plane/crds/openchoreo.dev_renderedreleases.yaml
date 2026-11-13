@@ -48,6 +48,65 @@ spec:
                   specified. Set to 0 to stop periodic checks.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
+              mode:
+                description: |-
+                  Mode decides whether the manifests in spec.resources are applied. Manage
+                  applies them. Observe does not, and removes whatever this release applied
+                  earlier. Observed resources are read in both modes. Unset means Manage.
+                enum:
+                - Manage
+                - Observe
+                type: string
+              observedResources:
+                description: |-
+                  ObservedResources lists existing objects on the target plane that this
+                  release reads and reports in status.observedResources. They are never
+                  created, updated, labeled or deleted, in either mode.
+                items:
+                  description: |-
+                    ObservedResource names an existing object on the target plane for a
+                    RenderedRelease to read.
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the object's API version, such as
+                        "apps/v1" or "v1".
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^([^/]+/)?[^/]+$
+                      type: string
+                    id:
+                      description: |-
+                        ID identifies this entry in status.observedResources. It is unique within
+                        observedResources.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    kind:
+                      description: Kind is the object's kind, such as "Deployment".
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[A-Z][A-Za-z0-9]*$
+                      type: string
+                    name:
+                      description: Name is the object's name.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the object's namespace. Empty for
+                        cluster-scoped kinds.
+                      maxLength: 63
+                      type: string
+                  required:
+                  - apiVersion
+                  - id
+                  - kind
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               owner:
                 description: |-
                   RenderedReleaseOwner identifies the owner of a RenderedRelease. ProjectName
@@ -195,12 +254,13 @@ spec:
                   - type
                   type: object
                 type: array
-              resources:
-                description: Resources contain the list of resources that have been
-                  successfully applied to the data plane
+              observedResources:
+                description: |-
+                  ObservedResources reports the objects listed in spec.observedResources, as
+                  read from the target plane.
                 items:
                   description: RenderedManifestStatus tracks a resource that was applied
-                    to the data plane.
+                    to, or observed on, the target plane.
                   properties:
                     group:
                       description: |-
@@ -212,7 +272,9 @@ spec:
                         in the data plane.
                       type: string
                     id:
-                      description: ID corresponds to the resource ID in spec.resources
+                      description: |-
+                        ID corresponds to the resource ID in spec.resources, or to the ID in
+                        spec.observedResources for entries in status.observedResources.
                       minLength: 1
                       type: string
                     kind:
@@ -236,7 +298,64 @@ spec:
                       type: string
                     status:
                       description: Status captures the entire .status field of the
-                        resource applied to the data plane.
+                        resource on the target plane.
+                      x-kubernetes-preserve-unknown-fields: true
+                    version:
+                      description: Version is the API version of the resource (e.g.,
+                        "v1", "v1beta1")
+                      minLength: 1
+                      type: string
+                  required:
+                  - id
+                  - kind
+                  - name
+                  - version
+                  type: object
+                type: array
+              resources:
+                description: Resources contain the list of resources that have been
+                  successfully applied to the data plane
+                items:
+                  description: RenderedManifestStatus tracks a resource that was applied
+                    to, or observed on, the target plane.
+                  properties:
+                    group:
+                      description: |-
+                        Group is the API group of the resource (e.g., "apps", "batch")
+                        Empty string for core resources
+                      type: string
+                    healthStatus:
+                      description: HealthStatus indicates the health of the resource
+                        in the data plane.
+                      type: string
+                    id:
+                      description: |-
+                        ID corresponds to the resource ID in spec.resources, or to the ID in
+                        spec.observedResources for entries in status.observedResources.
+                      minLength: 1
+                      type: string
+                    kind:
+                      description: Kind is the type of the resource (e.g., "Deployment",
+                        "Service")
+                      minLength: 1
+                      type: string
+                    lastObservedTime:
+                      description: LastObservedTime stores the last time the status
+                        was observed
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name is the name of the resource in the data plane
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the resource in the data plane
+                        Empty for cluster-scoped resources
+                      type: string
+                    status:
+                      description: Status captures the entire .status field of the
+                        resource on the target plane.
                       x-kubernetes-preserve-unknown-fields: true
                     version:
                       description: Version is the API version of the resource (e.g.,

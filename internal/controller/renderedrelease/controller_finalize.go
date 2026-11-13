@@ -135,7 +135,8 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 	// Only what this controller applied is deleted, and only that is waited for below:
 	// an object that merely carries our labels (e.g. the Secret ESO creates for an
 	// ExternalSecret) belongs to its creator and may legitimately outlive the release.
-	liveResources = appliedByController(liveResources)
+	// Observed objects are never deleted, even one this release applied earlier.
+	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
 
 	// STEP 4: Delete all live resources (since we want to delete everything, all live resources are "stale")
 	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
@@ -202,8 +203,9 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to list live resources for cleanup: %w", err)
 	}
-	// As on the data plane: delete, and wait for, only what this controller applied.
-	liveResources = appliedByController(liveResources)
+	// As on the data plane: delete, and wait for, only what this controller applied,
+	// and never an observed object.
+	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
 
 	// STEP 4: Delete all live resources
 	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
