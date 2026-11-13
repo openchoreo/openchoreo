@@ -4,6 +4,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -173,7 +174,14 @@ func TestLogsService_QueryLogs_WorkflowScope_Success(t *testing.T) {
 			Took:       12,
 		},
 	}
-	svc := newLogsServiceForTest(t, adapter)
+	var logOutput bytes.Buffer
+	svc, err := NewLogsService(
+		adapter,
+		nil,
+		&config.Config{},
+		slog.New(slog.NewTextHandler(&logOutput, nil)),
+	)
+	require.NoError(t, err)
 
 	resp, err := svc.QueryLogs(context.Background(), &types.LogsQueryRequest{
 		SearchScope: &types.SearchScope{
@@ -201,6 +209,7 @@ func TestLogsService_QueryLogs_WorkflowScope_Success(t *testing.T) {
 	assert.Equal(t, "task-1", adapter.lastWorkflow.TaskName)
 	assert.Equal(t, "error", adapter.lastWorkflow.SearchPhrase)
 	assert.Equal(t, "sidecar", adapter.lastWorkflow.ContainerName)
+	assert.Contains(t, logOutput.String(), "hasContainerName=true")
 	assert.Equal(t, []string{"INFO"}, adapter.lastWorkflow.LogLevels)
 	assert.Equal(t, 50, adapter.lastWorkflow.Limit)
 	assert.Equal(t, "asc", adapter.lastWorkflow.SortOrder)

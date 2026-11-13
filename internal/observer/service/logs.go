@@ -77,6 +77,7 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
 		"hasSearchPhrase", req.SearchPhrase != "",
+		"hasContainerName", req.ContainerName != "",
 		"limit", req.Limit)
 
 	// Convert request to internal representation with resolved UIDs
