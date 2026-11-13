@@ -320,3 +320,51 @@ func TestUpdateReleaseBindingResourceVersion(t *testing.T) {
 		})
 	}
 }
+
+// unpromotedRelease is a release no binding in the source environment references.
+const unpromotedRelease = "old-release"
+
+// TestUpdateReleaseBindingStaleBeforePromotionCheck: a stale request is judged
+// against a state its caller never saw, so it must get the conflict (which the
+// clients retry on) rather than a promotion error about that state.
+func TestUpdateReleaseBindingStaleBeforePromotionCheck(t *testing.T) {
+	ctx := context.Background()
+	// The test pipeline promotes dev -> prod; nothing in dev references unpromotedRelease.
+	fc := testutil.NewFakeClient(
+		testutil.NewReleaseBinding(testNamespace, testProjectName, testComponentName, "prod", "rb-prod"),
+		testutil.NewProject(testNamespace, testProjectName),
+		testutil.NewDeploymentPipeline(testNamespace, "default"),
+	)
+	svc := NewService(fc, testutil.TestLogger())
+	read, err := svc.GetReleaseBinding(ctx, testNamespace, "rb-prod")
+	require.NoError(t, err)
+
+	other := read.DeepCopy()
+	other.Annotations = map[string]string{"example/marker": "x"}
+	require.NoError(t, fc.Update(ctx, other))
+
+	stale := read.DeepCopy()
+	stale.Spec.ReleaseName = unpromotedRelease
+	_, err = svc.UpdateReleaseBinding(ctx, testNamespace, stale)
+	require.ErrorIs(t, err, services.ErrConflict)
+
+	t.Run("a malformed version is still a validation error", func(t *testing.T) {
+		bad := read.DeepCopy()
+		bad.ResourceVersion = "abc"
+		bad.Spec.ReleaseName = unpromotedRelease
+		_, err := svc.UpdateReleaseBinding(ctx, testNamespace, bad)
+		validationErr, ok := errors.AsType[*services.ValidationError](err)
+		require.True(t, ok, "expected a ValidationError, got %v", err)
+		assert.Contains(t, validationErr.Msg, "metadata.resourceVersion")
+	})
+
+	t.Run("a current version still runs the promotion check", func(t *testing.T) {
+		current, err := svc.GetReleaseBinding(ctx, testNamespace, "rb-prod")
+		require.NoError(t, err)
+		current.Spec.ReleaseName = unpromotedRelease
+		_, err = svc.UpdateReleaseBinding(ctx, testNamespace, current)
+		validationErr, ok := errors.AsType[*services.ValidationError](err)
+		require.True(t, ok, "expected a ValidationError, got %v", err)
+		assert.Contains(t, validationErr.Msg, "must be referenced by a ReleaseBinding")
+	})
+}

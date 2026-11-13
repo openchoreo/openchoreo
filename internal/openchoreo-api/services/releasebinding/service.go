@@ -113,6 +113,17 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 		s.logger.Error("Failed to get release binding", "error", err)
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
+	// A stale request gets its conflict before the promotion check, which would
+	// otherwise judge it against a state its caller hasn't seen. The API server's
+	// precondition still covers a change between here and the Update.
+	if rb.ResourceVersion != "" && rb.ResourceVersion != existing.ResourceVersion {
+		if err := services.ApplyRequestedResourceVersion(existing, rb.ResourceVersion); err != nil {
+			return nil, err
+		}
+		s.logger.Warn("Release binding update conflicts with a newer version", "namespace", namespaceName, "releaseBinding", rb.Name)
+		return nil, fmt.Errorf("%w: release binding %q is at resourceVersion %s, not %s",
+			services.ErrConflict, rb.Name, existing.ResourceVersion, rb.ResourceVersion)
+	}
 	if err := s.validatePromotionPath(ctx, namespaceName, rb, existing); err != nil {
 		return nil, err
 	}
