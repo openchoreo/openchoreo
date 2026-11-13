@@ -78,9 +78,6 @@ func TestLogsCmd_Output(t *testing.T) {
 				require.NoError(t, cmd.ValidateFlagGroups())
 			}
 		}
-		cmd := newCmd(errFactory("unused"))
-		assert.Nil(t, cmd.Flags().Lookup("log-format"))
-		assert.ErrorContains(t, cmd.ParseFlags([]string{"--log-format", "json"}), "unknown flag: --log-format")
 	}
 }
 

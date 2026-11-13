@@ -245,7 +245,7 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.In
 		}
 	} else {
 		for _, log := range logResponse.Logs {
-			fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+			fmt.Printf("%s %s\n", log.Timestamp.Format(time.RFC3339Nano), log.Log)
 		}
 	}
 

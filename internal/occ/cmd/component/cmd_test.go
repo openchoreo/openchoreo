@@ -4,6 +4,7 @@
 package component
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
@@ -202,6 +205,7 @@ func TestLogsCmd_JSON(t *testing.T) {
 		"componentName":"snip-api-service","projectName":"url-shortener","environmentName":"development","namespaceName":"default",
 		"componentUid":"3f6c1a2e-8b4d-4c7a-9e21-5d0f7b9a6c13","projectUid":"a8e2d4b1-6c3f-4f9a-b7d2-1e5c8a0f4b96",
 		"environmentUid":"7b1d9e4c-2a6f-4e8b-8c3d-9f0a5b2e7d41","containerName":"main",
+		"releaseLineName":"canary","releaseLineUid":"9f8e7d6c-5b4a-4321-8fed-cba987654321",
 		"podName":"snip-api-service-development-6d8f7c9b5-x2k4p","podNamespace":"dp-default-url-shortener-development-50b4b7e4"}}`
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
@@ -226,18 +230,52 @@ func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
 	assert.Contains(t, err.Error(), "none of the others can be")
 }
 
+func TestLogsCmd_ReleaseLineColumns(t *testing.T) {
+	setupLogsConfig(t)
+	mc := mocks.NewMockInterface(t)
+	setupMockForLogs(t, mc, observerTestURL)
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var body struct {
+			SearchScope struct {
+				AllReleaseLines bool `json:"allReleaseLines"`
+			} `json:"searchScope"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.True(t, body.SearchScope.AllReleaseLines)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body: io.NopCloser(strings.NewReader(`{"logs":[
+						{"timestamp":"2026-11-10T08:21:04.512Z","log":"canary log","metadata":{
+							"releaseLineName":"canary","releaseLineUid":"9f8e7d6c-5b4a-4321-8fed-cba987654321"}},
+						{"timestamp":"2026-11-10T08:21:05Z","log":"main log","metadata":{}}
+					]}`)),
+		}, nil
+	}))
+	cmd := newLogsCmd(mockFactory(mc))
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--namespace", "ns", "--project", "my-proj", "--all-release-lines",
+		"-o", "custom-columns=timestamp,metadata.releaseLineName,metadata.releaseLineUid,log",
+	}))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
+	})
+	assert.Equal(t,
+		"2026-11-10T08:21:04.512Z\tcanary\t9f8e7d6c-5b4a-4321-8fed-cba987654321\tcanary log\n"+
+			"2026-11-10T08:21:05Z\t-\t-\tmain log\n", out)
+}
+
 func TestLogsCmd_CustomColumns(t *testing.T) {
 	setupLogsConfig(t)
 	mc := mocks.NewMockInterface(t)
 	setupMockForLogs(t, mc, observerTestURL)
 	pod := "snip-api-service-development-6d8f7c9b5-x2k4p"
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(*http.Request) (*http.Response, error) {
-		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []client.LogEntry{
-			{Timestamp: "2026-11-10T08:21:05.087Z", Level: "WARN", Log: "failed to resolve short code xyz789: not found",
-				Metadata: &client.LogMetadata{ContainerName: "main", PodName: pod}},
-			{Timestamp: "2026-11-10T08:21:05Z", Log: "sidecar log", Metadata: &client.LogMetadata{ContainerName: "daprd"}},
-			{Timestamp: "2026-11-10T08:21:04.512Z", Level: "INFO", Log: "GET /api/v1/urls/abc123 302 1.4ms",
-				Metadata: &client.LogMetadata{ContainerName: "main", PodName: pod}},
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []obsgen.LogEntry{
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:05.087Z"), Level: ptr.To("WARN"), Log: "failed to resolve short code xyz789: not found",
+				Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("main"), PodName: ptr.To(pod)}},
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:05Z"), Log: "sidecar log", Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("daprd")}},
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:04.512Z"), Level: ptr.To("INFO"), Log: "GET /api/v1/urls/abc123 302 1.4ms",
+				Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("main"), PodName: ptr.To(pod)}},
 		}}), nil
 	}))
 	cmd := newLogsCmd(mockFactory(mc))

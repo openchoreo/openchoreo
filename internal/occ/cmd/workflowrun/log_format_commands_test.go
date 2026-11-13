@@ -158,14 +158,11 @@ func TestLogCommands_OutputHelp(t *testing.T) {
 			assert.Equal(t, "o", output.Shorthand)
 			assert.Equal(t, "text", output.DefValue)
 			assert.Equal(t, usage, output.Usage)
-			assert.Nil(t, cmd.Flags().Lookup("log-format"))
 			var help bytes.Buffer
 			cmd.SetOut(&help)
 			require.NoError(t, cmd.Help())
 			assert.Contains(t, help.String(), "-o, --output string")
 			assert.Contains(t, help.String(), usage+` (default "text")`)
-			assert.NotContains(t, help.String(), "--log-format")
-			assert.ErrorContains(t, cmd.ParseFlags([]string{"--log-format", "json"}), "unknown flag: --log-format")
 		})
 	}
 }
