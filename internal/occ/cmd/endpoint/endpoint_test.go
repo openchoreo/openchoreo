@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -380,3 +381,49 @@ func TestPromote_UpdateError(t *testing.T) {
 	err := r.Promote(PromoteParams{Namespace: "my-org", EndpointName: "orders-api", Environment: "dev"})
 	assert.EqualError(t, err, "conflict")
 }
+
+func TestPromote_RetriesOnConflict(t *testing.T) {
+	// The binding changes between promote's read and its write (#5370): the API
+	// rejects the stale write with 409, promote reads the newer version and
+	// sets the release on it, so the other edit is kept.
+	stale := bindingForEnv("orders-api-dev", "dev")
+	stale.Metadata.ResourceVersion = ptr("1")
+	fresh := bindingForEnv("orders-api-dev", "dev")
+	fresh.Metadata.ResourceVersion = ptr("2")
+	fresh.Metadata.Annotations = &map[string]string{"example/marker": "x"}
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetEndpoint(mock.Anything, "my-org", "orders-api").Return(endpointWithLatestRelease(), nil)
+	mc.EXPECT().ListEndpointReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.EndpointReleaseBindingList{Items: []gen.EndpointReleaseBinding{stale}}, nil).Once()
+	mc.EXPECT().ListEndpointReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.EndpointReleaseBindingList{Items: []gen.EndpointReleaseBinding{fresh}}, nil).Once()
+	mc.EXPECT().UpdateEndpointReleaseBinding(mock.Anything, "my-org", "orders-api-dev", mock.MatchedBy(func(b gen.EndpointReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "1"
+	})).Return(nil, fmt.Errorf("EndpointReleaseBinding was modified since it was read: %w", client.ErrConflict)).Once()
+	mc.EXPECT().UpdateEndpointReleaseBinding(mock.Anything, "my-org", "orders-api-dev", mock.MatchedBy(func(b gen.EndpointReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "2" && (*b.Metadata.Annotations)["example/marker"] == "x" &&
+			*b.Spec.EndpointRelease == "orders-api-abc123"
+	})).Return(&gen.EndpointReleaseBinding{Metadata: gen.ObjectMeta{Name: "orders-api-dev"}}, nil).Once()
+
+	r := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, r.Promote(PromoteParams{Namespace: "my-org", EndpointName: "orders-api", Environment: "dev"}))
+	})
+	assert.Contains(t, out, "promoted")
+}
+
+func TestPromote_GivesUpAfterRepeatedConflicts(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetEndpoint(mock.Anything, "my-org", "orders-api").Return(endpointWithLatestRelease(), nil)
+	mc.EXPECT().ListEndpointReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.EndpointReleaseBindingList{Items: []gen.EndpointReleaseBinding{bindingForEnv("orders-api-dev", "dev")}}, nil).Times(5)
+	mc.EXPECT().UpdateEndpointReleaseBinding(mock.Anything, "my-org", "orders-api-dev", mock.Anything).
+		Return(nil, fmt.Errorf("modified: %w", client.ErrConflict)).Times(5)
+
+	r := New(mc)
+	err := r.Promote(PromoteParams{Namespace: "my-org", EndpointName: "orders-api", Environment: "dev"})
+	require.ErrorIs(t, err, client.ErrConflict)
+}
+
+func ptr(s string) *string { return &s }

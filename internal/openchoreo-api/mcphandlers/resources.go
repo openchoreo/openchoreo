@@ -265,29 +265,35 @@ func (h *MCPHandler) UpdateResourceReleaseBinding(
 	// spec.environment (and the binding's metadata) are preserved — otherwise they
 	// would be submitted empty and rejected by the CRD's immutability and
 	// min-length validations.
-	existing, err := h.services.ResourceReleaseBindingService.GetResourceReleaseBinding(
-		ctx, namespaceName, req.Metadata.Name)
-	if err != nil {
-		return nil, err
-	}
+	// Read, apply the requested fields and write in one step, retried from the
+	// read on a conflict, so a concurrent edit to the binding is never overwritten.
+	var updated *openchoreov1alpha1.ResourceReleaseBinding
+	err := retryOnConflict(func() error {
+		existing, err := h.services.ResourceReleaseBindingService.GetResourceReleaseBinding(
+			ctx, namespaceName, req.Metadata.Name)
+		if err != nil {
+			return err
+		}
 
-	if req.Spec != nil {
-		if req.Spec.ResourceRelease != nil {
-			existing.Spec.ResourceRelease = *req.Spec.ResourceRelease
-		}
-		if req.Spec.RetainPolicy != nil {
-			existing.Spec.RetainPolicy = openchoreov1alpha1.ResourceRetainPolicy(*req.Spec.RetainPolicy)
-		}
-		if req.Spec.ResourceTypeEnvironmentConfigs != nil {
-			raw, mErr := json.Marshal(*req.Spec.ResourceTypeEnvironmentConfigs)
-			if mErr != nil {
-				return nil, fmt.Errorf("marshal resourceTypeEnvironmentConfigs: %w", mErr)
+		if req.Spec != nil {
+			if req.Spec.ResourceRelease != nil {
+				existing.Spec.ResourceRelease = *req.Spec.ResourceRelease
 			}
-			existing.Spec.ResourceTypeEnvironmentConfigs = &runtime.RawExtension{Raw: raw}
+			if req.Spec.RetainPolicy != nil {
+				existing.Spec.RetainPolicy = openchoreov1alpha1.ResourceRetainPolicy(*req.Spec.RetainPolicy)
+			}
+			if req.Spec.ResourceTypeEnvironmentConfigs != nil {
+				raw, mErr := json.Marshal(*req.Spec.ResourceTypeEnvironmentConfigs)
+				if mErr != nil {
+					return fmt.Errorf("marshal resourceTypeEnvironmentConfigs: %w", mErr)
+				}
+				existing.Spec.ResourceTypeEnvironmentConfigs = &runtime.RawExtension{Raw: raw}
+			}
 		}
-	}
 
-	updated, err := h.services.ResourceReleaseBindingService.UpdateResourceReleaseBinding(ctx, namespaceName, existing)
+		updated, err = h.services.ResourceReleaseBindingService.UpdateResourceReleaseBinding(ctx, namespaceName, existing)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

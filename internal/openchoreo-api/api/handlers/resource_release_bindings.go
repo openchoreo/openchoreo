@@ -153,6 +153,9 @@ func (h *Handler) UpdateResourceReleaseBinding(
 		if errors.Is(err, resourcereleasebindingsvc.ErrResourceReleaseBindingNotFound) {
 			return gen.UpdateResourceReleaseBinding404JSONResponse{NotFoundJSONResponse: notFound("ResourceReleaseBinding")}, nil
 		}
+		if errors.Is(err, services.ErrConflict) {
+			return gen.UpdateResourceReleaseBinding409JSONResponse{ConflictJSONResponse: conflict(staleUpdateMessage("ResourceReleaseBinding"))}, nil
+		}
 		var validationErr *services.ValidationError
 		if errors.As(err, &validationErr) {
 			return gen.UpdateResourceReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil

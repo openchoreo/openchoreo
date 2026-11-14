@@ -3062,6 +3062,15 @@ type ObjectMeta struct {
 	// Namespace Kubernetes namespace
 	Namespace *string `json:"namespace,omitempty"`
 
+	// ResourceVersion Opaque version of the resource, set by the server on every write.
+	// The release binding updates (updateReleaseBinding,
+	// updateResourceReleaseBinding and updateEndpointReleaseBinding)
+	// honor it: send back the value you read to make the update
+	// conditional, and it is rejected with 409 when the binding changed
+	// since that read. Omit it to overwrite unconditionally. Other
+	// updates ignore it.
+	ResourceVersion *string `json:"resourceVersion,omitempty"`
+
 	// Uid Unique identifier (Kubernetes UID)
 	Uid *string `json:"uid,omitempty"`
 }
