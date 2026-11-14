@@ -32,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpointreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/endpointtype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/environment"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/export"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace"
@@ -72,6 +73,7 @@ func BuildRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(
 		apply.NewApplyCmd(f),
+		export.NewExportCmd(f),
 		login.NewLoginCmd(),
 		logout.NewLogoutCmd(),
 		config.NewConfigCmd(),
