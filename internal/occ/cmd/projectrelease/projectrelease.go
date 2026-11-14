@@ -15,6 +15,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/specdiff"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -82,6 +83,35 @@ func (pr *ProjectRelease) Get(params GetParams) error {
 
 	fmt.Print(string(data))
 	return nil
+}
+
+// Diff compares the specs of two project releases and prints the differences
+func (pr *ProjectRelease) Diff(params DiffParams) error {
+	if err := cmdutil.RequireFields("diff", "projectrelease", map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+	if params.From == "" || params.To == "" {
+		return fmt.Errorf("both project release names must be non-empty")
+	}
+
+	ctx := context.Background()
+
+	from, err := pr.client.GetProjectRelease(ctx, params.Namespace, params.From)
+	if err != nil {
+		return fmt.Errorf("failed to get project release %q: %w", params.From, err)
+	}
+	to, err := pr.client.GetProjectRelease(ctx, params.Namespace, params.To)
+	if err != nil {
+		return fmt.Errorf("failed to get project release %q: %w", params.To, err)
+	}
+
+	return specdiff.Run(os.Stdout, specdiff.Options{
+		Kind:  "projectrelease",
+		From:  params.From,
+		To:    params.To,
+		Root:  "spec",
+		Color: params.Color,
+	}, from.Spec, to.Spec)
 }
 
 // Delete deletes a single project release
