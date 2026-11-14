@@ -395,6 +395,23 @@ func openchoreoAnnotationsChanged(oldAnn, newAnn map[string]string) bool {
 	return !apiequality.Semantic.DeepEqual(pick(oldAnn), pick(newAnn))
 }
 
+// observabilityPlaneChangedPredicate passes lifecycle events and spec changes while
+// ignoring status-only updates. ReleaseBinding only depends on plane availability and
+// desired configuration; status churn must not fan out reconciles to every workload.
+func observabilityPlaneChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+	}
+}
+
 // findReleaseBindingsForDataPlane enqueues every ReleaseBinding whose target Environment
 // references the changed namespace-scoped DataPlane.
 func (r *Reconciler) findReleaseBindingsForDataPlane(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -414,6 +431,110 @@ func (r *Reconciler) findReleaseBindingsForClusterDataPlane(ctx context.Context,
 		return nil
 	}
 	return r.releaseBindingsForDataPlaneRef(ctx, "", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, cdp.Name)
+}
+
+// findReleaseBindingsForObservabilityPlane enqueues bindings whose namespaced
+// DataPlane references the changed namespaced ObservabilityPlane.
+func (r *Reconciler) findReleaseBindingsForObservabilityPlane(ctx context.Context, obj client.Object) []reconcile.Request {
+	op, ok := obj.(*openchoreov1alpha1.ObservabilityPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForObservabilityPlaneRef(
+		ctx, op.Namespace, openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane, op.Name)
+}
+
+// findReleaseBindingsForClusterObservabilityPlane enqueues bindings whose namespaced
+// DataPlane or cluster-scoped ClusterDataPlane references the changed plane.
+func (r *Reconciler) findReleaseBindingsForClusterObservabilityPlane(
+	ctx context.Context, obj client.Object,
+) []reconcile.Request {
+	cop, ok := obj.(*openchoreov1alpha1.ClusterObservabilityPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForObservabilityPlaneRef(
+		ctx, "", openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane, cop.Name)
+}
+
+// releaseBindingsForObservabilityPlaneRef resolves the data planes that reference an
+// observability plane, then reuses the data-plane mapper to find their ReleaseBindings.
+func (r *Reconciler) releaseBindingsForObservabilityPlaneRef(
+	ctx context.Context, namespace string, kind openchoreov1alpha1.ObservabilityPlaneRefKind, name string,
+) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
+	var dataPlanes openchoreov1alpha1.DataPlaneList
+	var listOpts []client.ListOption
+	if kind == openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane {
+		listOpts = append(listOpts, client.InNamespace(namespace))
+	}
+	if err := r.List(ctx, &dataPlanes, listOpts...); err != nil {
+		logger.Error(err, "Failed to list DataPlanes for observability plane change",
+			"kind", kind, "observabilityPlane", name)
+		return nil
+	}
+
+	seen := make(map[types.NamespacedName]struct{})
+	requests := make([]reconcile.Request, 0)
+	appendUnique := func(items []reconcile.Request) {
+		for _, item := range items {
+			if _, exists := seen[item.NamespacedName]; exists {
+				continue
+			}
+			seen[item.NamespacedName] = struct{}{}
+			requests = append(requests, item)
+		}
+	}
+
+	for i := range dataPlanes.Items {
+		dp := &dataPlanes.Items[i]
+		if !observabilityPlaneRefMatches(dp.Spec.ObservabilityPlaneRef, kind, name) {
+			continue
+		}
+		appendUnique(r.releaseBindingsForDataPlaneRef(
+			ctx, dp.Namespace, openchoreov1alpha1.DataPlaneRefKindDataPlane, dp.Name))
+	}
+
+	if kind != openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane {
+		return requests
+	}
+
+	var clusterDataPlanes openchoreov1alpha1.ClusterDataPlaneList
+	if err := r.List(ctx, &clusterDataPlanes); err != nil {
+		logger.Error(err, "Failed to list ClusterDataPlanes for observability plane change",
+			"observabilityPlane", name)
+		return requests
+	}
+	for i := range clusterDataPlanes.Items {
+		cdp := &clusterDataPlanes.Items[i]
+		if !clusterObservabilityPlaneRefMatches(cdp.Spec.ObservabilityPlaneRef, name) {
+			continue
+		}
+		appendUnique(r.releaseBindingsForDataPlaneRef(
+			ctx, "", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, cdp.Name))
+	}
+	return requests
+}
+
+func observabilityPlaneRefMatches(
+	ref *openchoreov1alpha1.ObservabilityPlaneRef,
+	kind openchoreov1alpha1.ObservabilityPlaneRefKind,
+	name string,
+) bool {
+	if ref == nil {
+		// A DataPlane with no explicit reference can resolve to either a namespaced
+		// or cluster-scoped default. Enqueueing for both avoids missing precedence changes.
+		return name == controller.DefaultPlaneName
+	}
+	return ref.Kind == kind && ref.Name == name
+}
+
+func clusterObservabilityPlaneRefMatches(ref *openchoreov1alpha1.ClusterObservabilityPlaneRef, name string) bool {
+	if ref == nil {
+		return name == controller.DefaultPlaneName
+	}
+	return ref.Kind == openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane && ref.Name == name
 }
 
 // releaseBindingsForDataPlaneRef returns reconcile requests for the ReleaseBindings whose target
