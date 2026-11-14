@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	k8s "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 type namespacesHandler struct {
@@ -35,16 +35,18 @@ func (h *namespacesHandler) IsRequired(envCtx *dataplane.EnvironmentContext) boo
 	return true
 }
 
-func (h *namespacesHandler) GetCurrentState(ctx context.Context, envCtx *dataplane.EnvironmentContext) (interface{}, error) {
-	// this should list the namespaces which has the following labels:
-	//	environment-name: <environment_name>
-	//	namespace-name: <namespace_name>
-	namespaceList := &corev1.NamespaceList{}
-	labelSelector := client.MatchingLabels{
-		k8s.LabelKeyEnvironmentName: envCtx.Environment.Name,
-		k8s.LabelKeyNamespaceName:   envCtx.Environment.Namespace,
+// environmentNamespaceLabels matches data-plane namespaces owned by this environment.
+// Keys must match those set when the namespace is created (see renderedrelease.makeDesiredNamespaces).
+func environmentNamespaceLabels(envCtx *dataplane.EnvironmentContext) client.MatchingLabels {
+	return client.MatchingLabels{
+		labels.LabelKeyEnvironmentName: envCtx.Environment.Name,
+		labels.LabelKeyNamespaceName:   envCtx.Environment.Namespace,
 	}
-	if err := h.kubernetesClient.List(ctx, namespaceList, labelSelector); err != nil {
+}
+
+func (h *namespacesHandler) GetCurrentState(ctx context.Context, envCtx *dataplane.EnvironmentContext) (interface{}, error) {
+	namespaceList := &corev1.NamespaceList{}
+	if err := h.kubernetesClient.List(ctx, namespaceList, environmentNamespaceLabels(envCtx)); err != nil {
 		if k8sapierrors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -65,26 +67,14 @@ func (h *namespacesHandler) Update(ctx context.Context, envCtx *dataplane.Enviro
 }
 
 func (h *namespacesHandler) Delete(ctx context.Context, envCtx *dataplane.EnvironmentContext) error {
-	// this should delete the namespaces which has the following labels:
-	//	environment-name: <environment_name>
-	//	namespace-name: <namespace_name>
 	namespaceList := &corev1.NamespaceList{}
-	labelSelector := client.MatchingLabels{
-		k8s.LabelKeyEnvironmentName: envCtx.Environment.Name,
-		k8s.LabelKeyNamespaceName:   envCtx.Environment.Namespace,
-	}
-
-	if err := h.kubernetesClient.List(ctx, namespaceList, labelSelector); err != nil {
+	if err := h.kubernetesClient.List(ctx, namespaceList, environmentNamespaceLabels(envCtx)); err != nil {
 		return fmt.Errorf("error listing namespaces: %w", err)
 	}
 
-	if len(namespaceList.Items) == 0 {
-		return nil
-	}
-
-	// Deleting each namespace
-	for _, ns := range namespaceList.Items {
-		if err := h.kubernetesClient.Delete(ctx, &ns); err != nil {
+	for i := range namespaceList.Items {
+		ns := &namespaceList.Items[i]
+		if err := h.kubernetesClient.Delete(ctx, ns); err != nil {
 			if k8sapierrors.IsNotFound(err) {
 				continue
 			}
