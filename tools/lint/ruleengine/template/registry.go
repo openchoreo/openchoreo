@@ -58,7 +58,7 @@ var (
 // LatestVersion and availableVersions.
 func loadVersions() {
 	versionsOnce.Do(func() {
-		file := templatever.File{}
+		var file templatever.File
 		for _, c := range versionFileCandidates() {
 			data, err := os.ReadFile(c)
 			if err == nil {
@@ -138,12 +138,7 @@ func versionFileCandidates() []string {
 	if exeDir != "" {
 		candidates = append(candidates, filepath.Join(exeDir, versionFileName))
 	}
-	for _, base := range []string{
-		filepath.Join(templateRoot, versionFileName),
-		filepath.Join(templateRootLegacy, versionFileName),
-	} {
-		candidates = append(candidates, base)
-	}
+	candidates = append(candidates, filepath.Join(templateRoot, versionFileName), filepath.Join(templateRootLegacy, versionFileName))
 	return candidates
 }
 
@@ -313,11 +308,6 @@ func SchemaFor(kind string) *schema.FieldSchema {
 		return nil
 	}
 	return schemasByVersion[currentVersion()][kind]
-}
-
-// versionDir returns the subdirectory holding the schema files for a version.
-func versionDir(version string) string {
-	return "template-" + version
 }
 
 // readSchemaFile loads a schema JSON file for the given template version,

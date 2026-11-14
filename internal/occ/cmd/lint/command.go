@@ -24,11 +24,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
+	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
 )
 
 // exitErrorf returns the exit error for a deliberate non-zero status, or nil
@@ -252,7 +252,7 @@ func newValidateCmd() *cobra.Command {
 	fs.BoolP("verbose", "v", false, "print verbose/debug detail to stderr")
 	fs.Bool("no-color", false, "use plain text markers instead of glyph icons")
 	fs.String("template-version", "", "template version to validate against (e.g. v1.2.0, v1.3.0, latest); also saved as the current version")
-	fs.Bool("fix", false, "repair misspelt field, kind and enum values and normalize YAML formatting")
+	fs.Bool("fix", false, "repair misspelled field, kind and enum values and normalize YAML formatting")
 	fs.Bool("dry-run", false, "with -fix, print the proposed changes as a diff instead of writing them")
 	fs.Bool("render", false, "enable post-render validation")
 

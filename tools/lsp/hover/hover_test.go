@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestBuildHoverContent(t *testing.T) {
@@ -145,7 +146,7 @@ func TestBuildHoverContent(t *testing.T) {
 		node := &schema.FieldSchema{Type: "string"}
 		content := buildHoverContent(node, "customField")
 		if strings.Contains(content, "customField") && strings.Contains(content, "Description") {
-			// It's fine if it has the name but no description
+			t.Error("unknown field must not have a description")
 		}
 	})
 }

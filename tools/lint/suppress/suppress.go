@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Markers recognized inside YAML comments:
+// Set contains suppression markers recognized inside YAML comments:
 //
 //	# occ:ignore <code>[, <code2> ...]   suppress the listed codes on this line
 //	# occ:ignore                          suppress every code on this line

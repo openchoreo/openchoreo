@@ -1,0 +1,660 @@
+### vali-clean-file
+$ occ linter vali <FIXTURE>/valid.yaml
+exit: 0
+--- stdout ---
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  OK No issues found
+
+Validation passed: 0 warning(s)
+
+--- stderr ---
+
+### vali-invalid-file
+$ occ linter vali <FIXTURE>/invalid.yaml
+exit: 1
+--- stdout ---
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR 4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+
+Validation failed: 1 error(s), 0 warning(s)
+Hint: try 'occ lint vali -fix <folder path>'
+
+--- stderr ---
+
+### vali-json-invalid
+$ occ linter vali -obj <FIXTURE>/invalid.yaml
+exit: 1
+--- stdout ---
+{
+  "linter_version": "<VER>",
+  "schema_version": "openchoreo v1.3.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "occ linter"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "name-invalid",
+          "level": "error",
+          "message": {
+            "text": "metadata.name \"INVALID_NAME_UPPERCASE\" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "<FIXTURE>/invalid.yaml"
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 3
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+--- stderr ---
+
+### vali-json-clean
+$ occ linter vali -obj <FIXTURE>/valid.yaml
+exit: 0
+--- stdout ---
+{
+  "linter_version": "<VER>",
+  "schema_version": "openchoreo v1.3.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "occ linter"
+        }
+      },
+      "results": []
+    }
+  ]
+}
+
+--- stderr ---
+
+### vali-batch-brief
+$ occ linter vali -b <FIXTURE>
+exit: 1
+--- stdout ---
+Validating 3 YAML file(s) in <FIXTURE>
+
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-detect-folder
+$ occ linter vali -detect -p 1 <FIXTURE>
+exit: 1
+--- stdout ---
+Validating 3 YAML file(s) in <FIXTURE>
+
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-fix
+$ occ linter vali -fix <FIXTURE>/typo.yaml
+exit: 0
+--- stdout ---
+File: <FIXTURE>/typo.yaml
+
+  OK fixed field spec.componentTyp "componentTyp" -> "componentType" (7:3)
+  OK 1 issue(s) fixed in <FIXTURE>/typo.yaml
+Document 0: Component
+  OK No issues found
+
+Validation passed: 0 warning(s) (1 file(s) rewritten)
+
+--- stderr ---
+
+### vali-fix-dry-run
+$ occ linter vali -fix -dry-run <FIXTURE>/typo.yaml
+exit: 0
+--- stdout ---
+File: <FIXTURE>/typo.yaml
+
+--- a<FIXTURE>/typo.yaml
++++ b<FIXTURE>/typo.yaml
+@@ -4,7 +4,7 @@
+   name: my-app
+   namespace: default
+ spec:
+-  componentTyp:
++  componentType:
+     kind: ClusterComponentType
+     name: deployment/service
+   owner:
+  OK would fix field spec.componentTyp "componentTyp" -> "componentType" (7:3)
+  OK 1 issue(s) would be fixed in <FIXTURE>/typo.yaml
+  (dry run: no file was written)
+Document 0: Component
+  ERROR 7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR 7:3 [unknown-field] unknown field: componentTyp
+
+Validation passed: 0 warning(s) (after the proposed fixes; no file was written)
+
+--- stderr ---
+
+### vali-quiet
+$ occ linter vali -detect -q -p 1 <FIXTURE>
+exit: 1
+--- stdout ---
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-verbose
+$ occ linter vali -detect -v -p 1 <FIXTURE>
+exit: 1
+--- stdout ---
+Validating 3 YAML file(s) in <FIXTURE>
+
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+DEBUG parallel: <N>
+DEBUG path: <FIXTURE>
+DEBUG template-version: v1.3.0 (default (latest))
+indexed 2 resource name(s) in <FIXTURE>
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-no-color
+$ occ linter vali -detect --no-color -p 1 <FIXTURE>
+exit: 1
+--- stdout ---
+Validating 3 YAML file(s) in <FIXTURE>
+
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-explicit-template
+$ occ linter vali -template-version v1.2.0 <FIXTURE>/invalid.yaml
+exit: 2
+--- stdout ---
+
+--- stderr ---
+Error: unknown template version "v1.2.0" (available: v1.3.0)
+
+### vali-double-dash-obj
+$ occ linter vali --obj <FIXTURE>/invalid.yaml
+exit: 1
+--- stdout ---
+{
+  "linter_version": "<VER>",
+  "schema_version": "openchoreo v1.3.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "occ linter"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "name-invalid",
+          "level": "error",
+          "message": {
+            "text": "metadata.name \"INVALID_NAME_UPPERCASE\" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "<FIXTURE>/invalid.yaml"
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 3
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+--- stderr ---
+
+### vali-double-dash-dry-run
+$ occ linter vali --dry-run <FIXTURE>/typo.yaml
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: -dry-run only applies together with -fix
+
+
+### schema-list
+$ occ linter schema list
+exit: 0
+--- stdout ---
+Available openchoreo versions:
+* v1.3.0
+
+Current template version: v1.3.0
+Use 'occ linter schema select <version>' to change it.
+
+--- stderr ---
+
+### schema-select
+$ occ linter schema select v1.2.0
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: unknown template version "v1.2.0" (available: v1.3.0)
+
+
+### version-subcommand
+$ occ linter version
+exit: 0
+--- stdout ---
+occ linter version <VER>
+selected openchoreo version: v1.3.0
+
+--- stderr ---
+
+### version-flag
+$ occ linter --version
+exit: 0
+--- stdout ---
+occ linter version <VER>
+selected openchoreo version: v1.3.0
+
+--- stderr ---
+
+### lint-alias-matches-linter
+$ occ lint vali <FIXTURE>/invalid.yaml
+exit: 1
+--- stdout ---
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR 4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+
+Validation failed: 1 error(s), 0 warning(s)
+Hint: try 'occ lint vali -fix <folder path>'
+
+--- stderr ---
+
+### linter-missing-subcommand
+$ occ linter
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: missing linter subcommand
+
+
+### linter-unknown-subcommand-flag
+$ occ linter -b <FIXTURE>
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: unknown linter subcommand "-b" (run 'occ linter help' for usage)
+
+
+### linter-unknown-subcommand-path
+$ occ linter <FIXTURE>/valid.yaml
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: unknown linter subcommand "<FIXTURE>/valid.yaml" (run 'occ linter help' for usage)
+
+
+### linter-not-a-command
+$ occ linter config
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: 'occ linter config' is not a command
+
+
+### linter-renamed-templates
+$ occ linter templates
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: 'occ linter templates' was renamed to 'occ linter schema' (short alias: 'occ lint schema')
+
+
+### linter-renamed-version
+$ occ linter version x
+exit: 0
+--- stdout ---
+occ linter version <VER>
+selected openchoreo version: v1.3.0
+
+--- stderr ---
+
+### linter-help
+$ occ linter help
+exit: 0
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+
+### linter-help-flag
+$ occ linter --help
+exit: 0
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+
+### vali-extra-positional-ignored
+$ occ linter vali <FIXTURE>/invalid.yaml ignored
+exit: 1
+--- stdout ---
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR 4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+
+Validation failed: 1 error(s), 0 warning(s)
+Hint: try 'occ lint vali -fix <folder path>'
+
+--- stderr ---
+
+### vali-long-flag-batch
+$ occ linter vali --batch -p 1 <FIXTURE>
+exit: 1
+--- stdout ---
+Validating 3 YAML file(s) in <FIXTURE>
+
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/invalid.yaml:4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+  WARN <FIXTURE>/invalid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+File: <FIXTURE>/typo.yaml
+
+Document 0: Component
+  ERROR <FIXTURE>/typo.yaml:7:3 [missing-component.spec.componentType] component.spec.componentType is required
+  ERROR <FIXTURE>/typo.yaml:7:3 [unknown-field] unknown field: componentTyp
+
+File: <FIXTURE>/valid.yaml
+
+Document 0: Component
+  WARN <FIXTURE>/valid.yaml:9:11 [location-not-found] no resource with name "deployment/service" was found in the workspace
+
+Validation failed: 2 file(s) with issues, 3 error(s), 2 warning(s) across 3 file(s)
+
+--- stderr ---
+Total validation time: <DUR> (<N> workers)
+[scan <DUR> | index <DUR> | validate <DUR> | print <DUR>]
+
+### vali-long-flag-parallel
+$ occ linter vali --parallel 1 <FIXTURE>/invalid.yaml
+exit: 1
+--- stdout ---
+File: <FIXTURE>/invalid.yaml
+
+Document 0: Component
+  ERROR 4:3 [name-invalid] metadata.name "INVALID_NAME_UPPERCASE" must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character
+
+Validation failed: 1 error(s), 0 warning(s)
+Hint: try 'occ lint vali -fix <folder path>'
+
+--- stderr ---
+
+### vali-missing-flag-value
+$ occ linter vali -p
+exit: 2
+--- stdout ---
+
+--- stderr ---
+flag needs an argument: -p
+<HELP PRINTED>
+### vali-invalid-flag-value
+$ occ linter vali -p abc <FIXTURE>/valid.yaml
+exit: 2
+--- stdout ---
+
+--- stderr ---
+invalid value "abc" for flag -p: parse error
+<HELP PRINTED>
+### vali-unknown-long-flag
+$ occ linter vali --nope <FIXTURE>/valid.yaml
+exit: 2
+--- stdout ---
+
+--- stderr ---
+flag provided but not defined: -nope
+<HELP PRINTED>
+### vali-help
+$ occ linter vali -h
+exit: 0
+--- stdout ---
+Validate OpenChoreo resource files.
+
+A path selects what is validated: a single YAML file, or a folder, which needs
+-batch or -detect. The report lists every issue per document. The exit code is
+1 when any error was found, and 2 for a usage mistake.
+
+Examples:
+  occ linter vali ./component.yaml
+  occ linter vali -b -p 8 ./manifests
+  occ linter vali -detect -q ./sample-gitops
+  occ linter vali -fix -dry-run ./manifests
+  occ linter vali -obj ./component.yaml
+  occ linter vali --template-version v1.2.0 ./manifests
+
+With -fix, the repaired files are written atomically and then validated again,
+so the report shows what is left to do. The summary says how many files were
+rewritten. Add -dry-run to preview a diff instead of writing anything.
+
+See 'occ linter help' for the full command list and docs/cli-usage.md for the
+diagnostic codes.
+<HELP PRINTED>
+--- stderr ---
+
+### schema-missing-subcommand
+$ occ linter schema
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: missing schema subcommand
+
+
+### schema-unknown-subcommand
+$ occ linter schema nope
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: unknown schema subcommand "nope"
+
+
+### schema-select-no-version
+$ occ linter schema select
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: 'schema select' requires exactly one version argument
+
+
+### usage-dry-run-without-fix
+$ occ linter vali -dry-run <FIXTURE>/typo.yaml
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: -dry-run only applies together with -fix
+
+
+### usage-missing-path
+$ occ linter vali
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: missing file or folder path
+
+
+### usage-unknown-flag
+$ occ linter vali -nope <FIXTURE>/valid.yaml
+exit: 2
+--- stdout ---
+
+--- stderr ---
+flag provided but not defined: -nope
+<HELP PRINTED>
+### usage-unknown-command
+$ occ linter nope
+exit: 2
+--- stdout ---
+occ - OpenChoreo linter
+
+<HELP PRINTED>
+--- stderr ---
+Error: unknown linter subcommand "nope" (run 'occ linter help' for usage)
+
+

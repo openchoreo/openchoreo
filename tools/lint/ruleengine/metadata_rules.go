@@ -4,8 +4,9 @@
 package ruleengine
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 var knownMetadataFields = map[string]bool{

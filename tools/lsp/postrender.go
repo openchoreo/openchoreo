@@ -8,19 +8,22 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
-	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	postrendervalidator "github.com/openchoreo/openchoreo/tools/lint/post-render-validator"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	postrendervalidator "github.com/openchoreo/openchoreo/tools/lint/post-render-validator"
+	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
+	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 const (
@@ -49,7 +52,7 @@ func (s *Server) CodeLens(
 	if params == nil {
 		return nil, fmt.Errorf("missing codeLens parameters")
 	}
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	text, ok := s.documentText(uri)
 	if !ok || !parser.HasOpenChoreoAPIVersion([]byte(text)) {
 		return []protocol.CodeLens{}, nil
@@ -96,7 +99,7 @@ func (s *Server) ExecuteCommand(
 		if err != nil {
 			return nil, err
 		}
-		if err = json.Unmarshal(data, &request); err != nil {
+		if err := json.Unmarshal(data, &request); err != nil {
 			return nil, err
 		}
 		return map[string]any{"version": request.Version, "text": codecompletion.RequiredPreviewWithIndex(request.Text, request.Line, request.Character, request.Indent, request.URI, s.indexer)}, nil
@@ -119,6 +122,12 @@ func (s *Server) ExecuteCommand(
 		if e = json.Unmarshal(data, &documents); e != nil {
 			return nil, fmt.Errorf("invalid editor snapshot: %w", e)
 		}
+		// Validate the complete snapshot before mutating any editor buffers.
+		for _, doc := range documents {
+			if doc.Version < math.MinInt32 || doc.Version > math.MaxInt32 {
+				return nil, fmt.Errorf("document version %d is outside the signed 32-bit range", doc.Version)
+			}
+		}
 		for _, doc := range documents {
 			current := s.GetDocument(doc.URI)
 			if current == nil || doc.Version < current.Version || doc.Text == current.Text {
@@ -127,8 +136,8 @@ func (s *Server) ExecuteCommand(
 			if fileURIToPath(doc.URI) == "" {
 				continue
 			}
-			if e = s.DidChange(nil, &protocol.DidChangeTextDocumentParams{
-				TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(doc.URI)}, Version: protocol.Integer(doc.Version)},
+			if e := s.DidChange(nil, &protocol.DidChangeTextDocumentParams{
+				TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: doc.URI}, Version: lsputil.Integer(doc.Version)},
 				ContentChanges: []any{protocol.TextDocumentContentChangeEventWhole{Text: doc.Text}},
 			}); e != nil {
 				return nil, e
@@ -235,7 +244,7 @@ func (s *Server) runPostRenderValidation(uri string) postRenderResult {
 			if d.Code != nil {
 				code = fmt.Sprint(d.Code.Value)
 			}
-			severity := "error"
+			severity := valueError
 			if d.Severity != nil {
 				switch *d.Severity {
 				case protocol.DiagnosticSeverityWarning:
@@ -284,11 +293,6 @@ func (s *Server) postRenderRoot(activePath string) string {
 	return activeDir
 }
 
-func isDirectory(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}
-
 func ensureActiveFile(files []string, activePath string) []string {
 	active := filepath.Clean(activePath)
 	for _, file := range files {
@@ -302,7 +306,7 @@ func ensureActiveFile(files []string, activePath string) []string {
 func (s *Server) publishPostRenderFailure(activeURI, activePath string, err error) postRenderResult {
 	findings := []postrendervalidator.Finding{{
 		Path:     activePath,
-		Severity: "error",
+		Severity: valueError,
 		Code:     "post-render-error",
 		Message:  err.Error(),
 	}}
@@ -378,7 +382,7 @@ func (s *Server) publishPostRenderFindings(
 	details := make([]string, 0, len(findings))
 	for _, finding := range findings {
 		switch finding.Severity {
-		case "error":
+		case valueError:
 			errors++
 		case "warning":
 			warnings++
@@ -448,16 +452,16 @@ func postRenderDiagnostic(finding postrendervalidator.Finding) protocol.Diagnost
 		column = 1
 	}
 	start := protocol.Position{
-		Line:      protocol.UInteger(line - 1),
-		Character: protocol.UInteger(column - 1),
+		Line:      lsputil.PositionIndex(line - 1),
+		Character: lsputil.PositionIndex(column - 1),
 	}
 	end := protocol.Position{
 		Line:      start.Line,
-		Character: start.Character + 1,
+		Character: min(start.Character+1, math.MaxInt32),
 	}
 	severity := protocol.DiagnosticSeverityWarning
 	switch finding.Severity {
-	case "error":
+	case valueError:
 		severity = protocol.DiagnosticSeverityError
 	case "info":
 		severity = protocol.DiagnosticSeverityInformation

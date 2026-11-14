@@ -4,9 +4,8 @@
 package ruleengine
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/cel-validator"
+	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/templates"
 )
 
 // Diagnostic codes seen when the CEL rule itself cannot run: the document's
@@ -33,8 +32,6 @@ func (r *CELRules) Name() string { return "cel-rules" }
 // Evaluate extracts the parameters / environmentConfigs schemas from the
 // document and runs schema-aware CEL validation over its template expressions.
 func (r *CELRules) Evaluate(doc *parser.DocumentNode) Diagnostics {
-	// Use pre-generated CEL env artifacts from embedded templates
-	celvalidator.SetCelEnvFS(templates.FS)
 	pair, err := celvalidator.ExtractSchemas(doc.Spec)
 	if err != nil {
 		return Diagnostics{{

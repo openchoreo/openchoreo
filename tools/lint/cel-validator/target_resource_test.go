@@ -1,9 +1,13 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
+	"testing"
+
 	"github.com/google/cel-go/cel"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestTargetResourceFields(t *testing.T) {

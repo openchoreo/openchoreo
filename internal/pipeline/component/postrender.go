@@ -123,7 +123,7 @@ func evaluateOnePostRender(
 	}
 	varName := v.Var
 	if varName == "" {
-		varName = "item"
+		varName = valueItem
 	}
 	for _, item := range items {
 		iterCtx := maps.Clone(p.context)
@@ -416,7 +416,7 @@ func evaluateOnePostRenderForLint(
 	}
 	varName := v.Var
 	if varName == "" {
-		varName = "item"
+		varName = valueItem
 	}
 	for _, item := range items {
 		iterCtx := maps.Clone(p.context)

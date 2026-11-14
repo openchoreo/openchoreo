@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package hover
 
 import (
@@ -7,9 +8,11 @@ import (
 	"strings"
 	"unicode/utf16"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	protocol "github.com/tliron/glsp/protocol_3_16"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func expressionHover(doc *parser.DocumentNode, line, column int) *protocol.Hover {
@@ -43,7 +46,7 @@ func expressionHover(doc *parser.DocumentNode, line, column int) *protocol.Hover
 			text += fmt.Sprintf("\n| `%s` | `%s` |", fn.Name, fn.Type)
 		}
 	}
-	r := protocol.Range{Start: protocol.Position{Line: protocol.UInteger(info.Range.Start.Line - 1), Character: protocol.UInteger(runeToUTF16Column(string(doc.Source), info.Range.Start.Line, info.Range.Start.Column) - 1)}, End: protocol.Position{Line: protocol.UInteger(info.Range.End.Line - 1), Character: protocol.UInteger(runeToUTF16Column(string(doc.Source), info.Range.End.Line, info.Range.End.Column) - 1)}}
+	r := protocol.Range{Start: protocol.Position{Line: lsputil.PositionIndex(info.Range.Start.Line - 1), Character: lsputil.PositionIndex(runeToUTF16Column(string(doc.Source), info.Range.Start.Line, info.Range.Start.Column) - 1)}, End: protocol.Position{Line: lsputil.PositionIndex(info.Range.End.Line - 1), Character: lsputil.PositionIndex(runeToUTF16Column(string(doc.Source), info.Range.End.Line, info.Range.End.Column) - 1)}}
 	return &protocol.Hover{Contents: protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: text}, Range: &r}
 }
 

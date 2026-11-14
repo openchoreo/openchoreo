@@ -1,14 +1,18 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package postrendervalidator
 
 import (
 	"context"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 func TestWorkspaceValidatesIndependentComponents(t *testing.T) {
-	var sources []SourceDocument
+	sources := make([]SourceDocument, 0, 2)
 	for _, name := range []string{"first", "second"} {
 		text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component\nmetadata:\n  name: " + name + "\nspec:\n  componentType:\n    kind: ComponentType\n    name: missing\n"
 		docs, err := parser.ParseYAML([]byte(text))
@@ -79,7 +83,7 @@ spec: {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sources []SourceDocument
+	sources := make([]SourceDocument, 0, 2)
 	for _, d := range docs {
 		sources = append(sources, SourceDocument{Path: "project.yaml", Document: d})
 	}

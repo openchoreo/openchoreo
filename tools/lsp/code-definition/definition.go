@@ -4,15 +4,17 @@
 package codedefinition
 
 import (
+	"math"
 	"net/url"
 	"path/filepath"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // KindIndexer is the subset of indexer operations needed to resolve
@@ -159,7 +161,7 @@ func sameProjectLocations(sourceURI string, locations []protocol.Location) []pro
 
 	result := make([]protocol.Location, 0, len(locations))
 	for _, loc := range locations {
-		if projectRoots.rootFor(string(loc.URI)) == sourceRoot {
+		if projectRoots.rootFor(loc.URI) == sourceRoot {
 			result = append(result, loc)
 		}
 	}
@@ -179,7 +181,7 @@ func closestByPathDepth(sourceURI string, locations []protocol.Location) []proto
 	maxScore := 0
 	scores := make([]int, len(locations))
 	for i, loc := range locations {
-		scores[i] = pathSharedDepth(sourceURI, string(loc.URI))
+		scores[i] = pathSharedDepth(sourceURI, loc.URI)
 		if scores[i] > maxScore {
 			maxScore = scores[i]
 		}
@@ -238,18 +240,21 @@ func fileURIToPath(uri string) string {
 
 // toLSPLocations converts indexer locations to LSP locations.
 func toLSPLocations(locations []indexer.Location) []protocol.Location {
-	var result []protocol.Location
+	if len(locations) == 0 {
+		return nil
+	}
+	result := make([]protocol.Location, 0, len(locations))
 	for _, loc := range locations {
 		result = append(result, protocol.Location{
-			URI: protocol.DocumentUri(loc.URI),
+			URI: loc.URI,
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      uint32(loc.Line - 1),
-					Character: uint32(loc.Column - 1),
+					Line:      lsputil.PositionIndex(max(loc.Line, 1) - 1),
+					Character: lsputil.PositionIndex(max(loc.Column, 1) - 1),
 				},
 				End: protocol.Position{
-					Line:      uint32(loc.Line - 1),
-					Character: uint32(loc.Column - 1 + 4), // cover "kind" keyword
+					Line:      lsputil.PositionIndex(max(loc.Line, 1) - 1),
+					Character: min(lsputil.PositionIndex(max(loc.Column, 1)-1)+4, math.MaxInt32), // cover "kind" keyword
 				},
 			},
 		})

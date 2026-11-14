@@ -45,33 +45,33 @@ func resolvePostRenderDiagnostic(
 				return s.file, docPosition(s.doc)
 			}
 		}
-	case "image-latest":
-		if file, pos, ok := searchKey(sources, []string{"Workload"}, "image"); ok {
+	case valueImageLatest:
+		if file, pos, ok := searchKey(sources, []string{valueWorkload}, "image"); ok {
 			return file, pos
 		}
-	case "limits-required":
-		if file, pos, ok := searchKey(sources, []string{"ComponentType", "ClusterComponentType"}, "limits"); ok {
+	case valueLimitsRequired:
+		if file, pos, ok := searchKey(sources, []string{valueComponentType, valueClusterComponentType}, "limits"); ok {
 			return file, pos
 		}
-	case "requests-required":
-		if file, pos, ok := searchKey(sources, []string{"ComponentType", "ClusterComponentType"}, "requests"); ok {
+	case valueRequestsRequired:
+		if file, pos, ok := searchKey(sources, []string{valueComponentType, valueClusterComponentType}, "requests"); ok {
 			return file, pos
 		}
-	case "replicas-positive":
-		if file, pos, ok := searchKey(sources, []string{"Component"}, "replicas"); ok {
+	case valueReplicasPositive:
+		if file, pos, ok := searchKey(sources, []string{valueComponent}, "replicas"); ok {
 			return file, pos
 		}
-	case "no-privileged":
-		if file, pos, ok := searchKey(sources, []string{"ComponentType", "ClusterComponentType"}, "privileged"); ok {
+	case valueNoPrivileged:
+		if file, pos, ok := searchKey(sources, []string{valueComponentType, valueClusterComponentType}, "privileged"); ok {
 			return file, pos
 		}
-	case "no-host-namespaces":
+	case valueNoHostNamespaces:
 		for _, key := range []string{"hostNetwork", "hostPID", "hostIPC"} {
-			if file, pos, ok := searchKey(sources, []string{"ComponentType", "ClusterComponentType"}, key); ok {
+			if file, pos, ok := searchKey(sources, []string{valueComponentType, valueClusterComponentType}, key); ok {
 				return file, pos
 			}
 		}
-	case "post-render-unresolved-expression":
+	case valuePostRenderUnresolvedExpression:
 		if expr := quotedAfter(d.Message, "unresolved expression "); expr != "" {
 			if file, pos, ok := searchScalar(sources, expr); ok {
 				return file, pos
@@ -89,12 +89,12 @@ func resolvePostRenderDiagnostic(
 // Workload that actually shapes the rendered resources over the Component
 // object itself.
 func fallbackLocation(sources []postRenderSource, fallback string) (string, parser.Position) {
-	for _, kind := range []string{"ComponentType", "ClusterComponentType"} {
+	for _, kind := range []string{valueComponentType, valueClusterComponentType} {
 		if s := findSource(sources, func(s postRenderSource) bool { return s.doc.Kind == kind }); s != nil {
 			return s.file, docPosition(s.doc)
 		}
 	}
-	if s := findSource(sources, func(s postRenderSource) bool { return s.doc.Kind == "Workload" }); s != nil {
+	if s := findSource(sources, func(s postRenderSource) bool { return s.doc.Kind == valueWorkload }); s != nil {
 		return s.file, docPosition(s.doc)
 	}
 	if s := findSource(sources, func(s postRenderSource) bool { return s.file == fallback }); s != nil {
@@ -139,7 +139,7 @@ func declaringSource(msg string) (kind, name string, ok bool) {
 	if i := strings.Index(label, ":"); i >= 0 {
 		label = label[:i]
 	}
-	for _, k := range []string{"ComponentType", "ClusterComponentType", "Trait", "ClusterTrait"} {
+	for _, k := range []string{valueComponentType, valueClusterComponentType, valueTrait, valueClusterTrait} {
 		rest, found := strings.CutPrefix(label, k+" ")
 		if !found {
 			continue

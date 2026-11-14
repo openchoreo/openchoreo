@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package strdist provides the Levenshtein edit distance and closest-match
-// selection used to recognize misspelt OpenChoreo field, kind and enum values.
+// selection used to recognize misspelled OpenChoreo field, kind and enum values.
 package strdist
 
 import "strings"

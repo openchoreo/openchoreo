@@ -18,7 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/validation/component/decltype"
 )
 
-const maxListSize = 1000
 const maxMapSize = 1000
 
 type Var struct {
@@ -46,7 +45,7 @@ var schemaBased = map[string]bool{
 	"environmentConfigs": true,
 }
 
-func generateForJob(j job, targetDir string) error {
+func generateForJob(targetDir string) error {
 	// Component envs
 	compFields := decltype.ExtractFields(reflect.TypeFor[componentctx.ComponentContext](), schemaBased)
 	traitFields := decltype.ExtractFields(reflect.TypeFor[componentctx.TraitContext](), schemaBased)
@@ -84,7 +83,18 @@ func componentExt() Ext {
 		Base:            []string{"optionalTypes", "strings", "encoders", "math", "lists", "sets", "twoVarComprehensions"},
 		CustomMacros:    []string{"oc_generate_name", "oc_dns_label", "oc_merge"},
 		CustomFunctions: []string{"oc_omit"},
-		ContextMacros:   []string{"toConfigFileList", "toSecretFileList", "toContainerEnvFrom", "toContainerVolumeMounts", "toVolumes", "toConfigEnvsByContainer", "toSecretEnvsByContainer", "toServicePorts", "toContainerEnvs", "toEndpointResources"},
+		ContextMacros: []string{
+			"toConfigFileList",
+			"toSecretFileList",
+			"toContainerEnvFrom",
+			"toContainerVolumeMounts",
+			"toVolumes",
+			"toConfigEnvsByContainer",
+			"toSecretEnvsByContainer",
+			"toServicePorts",
+			"toContainerEnvs",
+			"toEndpointResources",
+		},
 	}
 }
 
@@ -107,13 +117,16 @@ func workflowExt() Ext {
 }
 
 func workflowVars() []decltype.FieldInfo {
-	// Minimal: just schema-based handled separately; but for loader, include metadata/workflowplane/externalRefs markers via decls?
+	// Schema-based fields are handled separately. Include metadata, workflowplane,
+	// and externalRefs markers for the loader.
 	// Build decl types directly
 	metadataType := apiservercel.NewObjectType("WorkflowMetadata", map[string]*apiservercel.DeclField{
 		"namespaceName":   apiservercel.NewDeclField("namespaceName", apiservercel.StringType, true, nil, nil),
 		"workflowRunName": apiservercel.NewDeclField("workflowRunName", apiservercel.StringType, true, nil, nil),
 		"namespace":       apiservercel.NewDeclField("namespace", apiservercel.StringType, true, nil, nil),
-		"labels":          apiservercel.NewDeclField("labels", apiservercel.NewMapType(apiservercel.StringType, apiservercel.StringType, maxMapSize), true, nil, nil),
+		"labels": apiservercel.NewDeclField("labels",
+			apiservercel.NewMapType(apiservercel.StringType, apiservercel.StringType, maxMapSize),
+			true, nil, nil),
 	})
 	wfpType := apiservercel.NewObjectType("WorkflowPlaneData", map[string]*apiservercel.DeclField{
 		"secretStore": apiservercel.NewDeclField("secretStore", apiservercel.StringType, true, nil, nil),
@@ -142,9 +155,10 @@ func writeEnv(targetDir, kind string, fields []decltype.FieldInfo, hasApplied bo
 	}
 
 	if hasApplied {
-		appliedType := apiservercel.NewMapType(apiservercel.StringType, apiservercel.NewObjectType("AppliedEntry", map[string]*apiservercel.DeclField{
-			"status": apiservercel.NewDeclField("status", apiservercel.DynType, true, nil, nil),
-		}), maxMapSize)
+		appliedType := apiservercel.NewMapType(apiservercel.StringType,
+			apiservercel.NewObjectType("AppliedEntry", map[string]*apiservercel.DeclField{
+				"status": apiservercel.NewDeclField("status", apiservercel.DynType, true, nil, nil),
+			}), maxMapSize)
 		b, _ := json.Marshal(appliedType)
 		vars = append(vars, Var{Name: "applied", CELType: "map(string, AppliedEntry)", DeclType: b})
 	}

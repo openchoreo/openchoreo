@@ -4,9 +4,10 @@
 package lsp
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-action"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	codeaction "github.com/openchoreo/openchoreo/tools/lsp/code-action"
 )
 
 // Validation cache.
@@ -67,7 +68,6 @@ func (s *Server) diagnosticsForCached(uri, text string) []protocol.Diagnostic {
 		entry.combined = combineDiagnostics(entry.validationDiags, entry.refDiags)
 		entry.indexVer = indexVer
 		return entry.combined
-
 	}
 
 	s.cacheMisses++

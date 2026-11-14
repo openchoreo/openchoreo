@@ -1,11 +1,13 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package postrendervalidator
 
 import (
 	"context"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"strings"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // SourceDocument is a parsed file snapshot, including unsaved editor content.
@@ -27,16 +29,11 @@ func ValidateWorkspace(ctx context.Context, sources []SourceDocument) []Finding 
 		if ctx.Err() != nil {
 			break
 		}
-		if source.Document == nil || source.Document.Kind != "Component" || !parser.IsOpenChoreoAPIVersion(source.Document.APIVersion) {
+		if source.Document == nil || source.Document.Kind != valueComponent || !parser.IsOpenChoreoAPIVersion(source.Document.APIVersion) {
 			continue
 		}
 		// Namespace isolation is essential when an entire workspace is indexed.
-		var scoped []projectDocument
-		for _, d := range all {
-			if d.doc.Metadata.Namespace == source.Document.Metadata.Namespace || strings.HasPrefix(d.doc.Kind, "Cluster") {
-				scoped = append(scoped, d)
-			}
-		}
+		scoped := namespaceDocuments(all, source.Document.Metadata.Namespace)
 		index, decodeErrors := buildProjectIndex(scoped)
 		if err := decodeErrors[source.Document]; err != nil {
 			out = append(out, errorFinding(source.Path, err)...)
@@ -55,7 +52,7 @@ func ValidateWorkspace(ctx context.Context, sources []SourceDocument) []Finding 
 		bindings := index.releaseBindingsForComponent(*component)
 		targets := []*parser.DocumentNode{source.Document}
 		if len(bindings) > 0 {
-			targets = nil
+			targets = make([]*parser.DocumentNode, 0, len(bindings))
 			for _, b := range bindings {
 				targets = append(targets, b.doc)
 			}
@@ -69,7 +66,7 @@ func ValidateWorkspace(ctx context.Context, sources []SourceDocument) []Finding 
 			for _, embedded := range selected.componentType.obj.Spec.Traits {
 				kind := string(embedded.Kind)
 				if kind == "" {
-					kind = "Trait"
+					kind = valueTrait
 				}
 				found := false
 				for _, t := range selected.traits {
@@ -110,4 +107,14 @@ func ValidateWorkspace(ctx context.Context, sources []SourceDocument) []Finding 
 		}
 	}
 	return dedupeFindings(out)
+}
+
+func namespaceDocuments(all []projectDocument, namespace string) []projectDocument {
+	var scoped []projectDocument
+	for _, d := range all {
+		if d.doc.Metadata.Namespace == namespace || strings.HasPrefix(d.doc.Kind, "Cluster") {
+			scoped = append(scoped, d)
+		}
+	}
+	return scoped
 }

@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// The linter distinguishes three process outcomes, and CI gates are built on
+// ExitError distinguishes three process outcomes, and CI gates are built on
 // them: 0 for success, 1 when validation found problems, and 2 for a usage
 // mistake such as an unknown flag or a missing path.
 //

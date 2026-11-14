@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
@@ -11,10 +12,11 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lint/strdist"
 	"gopkg.in/yaml.v3"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/strdist"
 )
 
 // ExpressionInfo describes a symbol in the exact environment used to check it.
@@ -170,7 +172,7 @@ func closestField(name string, names []string) string {
 }
 func symbolSuggestion(env *cel.Env, parts []string) string {
 	if len(parts) == 1 {
-		names := []string{}
+		names := make([]string, 0, len(env.Variables()))
 		for _, v := range env.Variables() {
 			names = append(names, v.Name())
 		}

@@ -5,13 +5,15 @@ package codeaction
 
 import (
 	"fmt"
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"math"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // fileNameRefFixes walks the document for `name` values that reference another
@@ -21,7 +23,7 @@ import (
 // when `docker-gitops-release` is a resource name -> `Change name to
 // "docker-gitops-release"`). resourceNames is the authoritative set of
 // `metadata.name` values that a reference can resolve to.
-func fileNameRefFixes(uri, text string, clientDiags []protocol.Diagnostic, requestRange protocol.Range, resourceNames, pool []string, scopes ...ReferenceScope) []protocol.CodeAction {
+func fileNameRefFixes(uri string, text string, clientDiags []protocol.Diagnostic, resourceNames []string, pool []string, scopes ...ReferenceScope) []protocol.CodeAction {
 	if len(pool) == 0 {
 		return nil
 	}
@@ -90,12 +92,16 @@ func FileNameRefDiagnosticsDocs(docs []*parser.DocumentNode, resourceNames, pool
 		if doc == nil || doc.Root == nil {
 			continue
 		}
+		var sourceLines []string
+		if len(doc.Source) > 0 {
+			sourceLines = splitLines(string(doc.Source))
+		}
 		walkNameValues(doc.Root, func(valNode *yaml.Node) {
 			names, candidates := referencePool(doc, valNode, resourceNames, pool, scopes)
 			if best, ok := mostMatchingFileName(valNode.Value, names, candidates); ok {
 				severity := protocol.DiagnosticSeverity(2)
 				out = append(out, protocol.Diagnostic{
-					Range:    scalarRange(valNode),
+					Range:    scalarRange(valNode, sourceLines),
 					Severity: &severity,
 					Code:     &protocol.IntegerOrString{Value: "unknown-resource-file"},
 					Source:   lsputil.StringPtr("openchoreo"),
@@ -173,12 +179,18 @@ func mostMatchingFileName(current string, resourceNames, pool []string) (string,
 }
 
 // scalarRange returns the 0-indexed LSP range covering a yaml scalar's value.
-func scalarRange(n *yaml.Node) protocol.Range {
-	li := protocol.UInteger(n.Line - 1)
-	start := protocol.UInteger(n.Column - 1)
+func scalarRange(n *yaml.Node, source ...[]string) protocol.Range {
+	li := lsputil.PositionIndex(max(n.Line, 1) - 1)
+	start := lsputil.PositionIndex(max(n.Column, 1) - 1)
+	if len(source) > 0 && len(source[0]) > 0 {
+		lines := source[0]
+		if n.Line > 0 && n.Line <= len(lines) {
+			start = lsputil.PositionIndex(utf16Column(lines[n.Line-1], n.Column))
+		}
+	}
 	return protocol.Range{
 		Start: protocol.Position{Line: li, Character: start},
-		End:   protocol.Position{Line: li, Character: start + protocol.UInteger(utf16Len(n.Value))},
+		End:   protocol.Position{Line: li, Character: min(start+lsputil.PositionIndex(utf16Len(n.Value)), math.MaxInt32)},
 	}
 }
 

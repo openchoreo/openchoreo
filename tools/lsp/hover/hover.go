@@ -12,12 +12,13 @@ import (
 	"strings"
 	"sync"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
-	protocol "github.com/tliron/glsp/protocol_3_16"
-	"gopkg.in/yaml.v3"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 //go:embed hover_config.json
@@ -155,7 +156,7 @@ func buildHoverContent(node *schema.FieldSchema, path string, resource ...string
 		return ""
 	}
 
-	var lines []string
+	lines := make([]string, 0, 5)
 
 	fieldName := path
 	if idx := strings.LastIndex(path, "."); idx >= 0 {
@@ -172,11 +173,11 @@ func buildHoverContent(node *schema.FieldSchema, path string, resource ...string
 
 	if node.Type != "" {
 		typeStr := node.Type
-		if node.Type == "object" && node.Properties != nil {
-			typeStr = "object"
+		if node.Type == valueObject && node.Properties != nil {
+			typeStr = valueObject
 		}
-		if node.Type == "array" && node.Items != nil {
-			typeStr = "array"
+		if node.Type == valueArray && node.Items != nil {
+			typeStr = valueArray
 		}
 		lines = append(lines, fmt.Sprintf("**Type:** `%s`", typeStr))
 	}
@@ -217,7 +218,7 @@ func buildHoverContent(node *schema.FieldSchema, path string, resource ...string
 		lines = append(lines, "**preserveUnknownFields:** `true`")
 	}
 
-	if node.Type == "array" && node.Items != nil && node.Items.Properties != nil {
+	if node.Type == valueArray && node.Items != nil && node.Items.Properties != nil {
 		lines = append(lines, "")
 		lines = append(lines, "**Array item fields:**")
 		lines = append(lines, "")
@@ -232,7 +233,7 @@ func buildHoverContent(node *schema.FieldSchema, path string, resource ...string
 		}
 	}
 
-	if node.Type == "object" && node.Properties != nil {
+	if node.Type == valueObject && node.Properties != nil {
 		lines = append(lines, "")
 		lines = append(lines, fmt.Sprintf("**Fields (%d):**", len(node.Properties)))
 		lines = append(lines, "")
@@ -336,7 +337,7 @@ func findKindValuePairInMapping(node *yaml.Node, line int) (*yaml.Node, int) {
 
 // buildKindHoverContent builds the hover markdown for a resource kind value.
 func buildKindHoverContent(kind string, info KindInfo) string {
-	var lines []string
+	lines := make([]string, 0, 5)
 	lines = append(lines, fmt.Sprintf("### `%s`", kind))
 	lines = append(lines, "")
 	lines = append(lines, info.Description)
@@ -403,14 +404,14 @@ func descriptionPath(root *schema.FieldSchema, path string) string {
 		if node == nil {
 			break
 		}
-		if node.Type == "array" {
+		if node.Type == valueArray {
 			node = node.Items
 		}
 		if node == nil {
 			break
 		}
 		node = node.Properties[strings.TrimSuffix(part, "[]")]
-		if node != nil && node.Type == "array" && i < len(parts)-1 {
+		if node != nil && node.Type == valueArray && i < len(parts)-1 {
 			parts[i] = strings.TrimSuffix(part, "[]") + "[]"
 		}
 	}

@@ -1,20 +1,22 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
 	"crypto/sha256"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"path/filepath"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestUnchangedWatchEventsPreservePlayFindings(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "environment.yaml")
 	uri := pathToDocumentURI(path)
-	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: demo}\n"
+	text := demoEnvironmentYAML
 	if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestClosingSavedDocumentPreservesPlayFindings(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "environment.yaml")
 	uri := pathToDocumentURI(path)
-	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: demo}\n"
+	text := demoEnvironmentYAML
 	if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +110,7 @@ func TestClosingSavedDocumentPreservesPlayFindings(t *testing.T) {
 	s.OpenDocument(uri, text, 1)
 	_ = s.indexer.UpdateFile(uri, []byte(text))
 	seed()
-	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}}); err != nil {
+	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}}); err != nil {
 		t.Fatal(err)
 	}
 	s.postRenderMu.Lock()
@@ -119,7 +121,7 @@ func TestClosingSavedDocumentPreservesPlayFindings(t *testing.T) {
 	}
 	s.OpenDocument(uri, text+"spec: {isProduction: true}\n", 2)
 	seed()
-	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}}); err != nil {
+	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}}); err != nil {
 		t.Fatal(err)
 	}
 	s.postRenderMu.Lock()
@@ -134,7 +136,7 @@ func TestLateWatchEventMatchingRenderedSnapshotPreservesFindings(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "environment.yaml")
 	uri := pathToDocumentURI(path)
-	old := "apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: demo}\n"
+	old := demoEnvironmentYAML
 	rendered := old + "spec: {isProduction: true}\n"
 	if err := os.WriteFile(path, []byte(rendered), 0600); err != nil {
 		t.Fatal(err)

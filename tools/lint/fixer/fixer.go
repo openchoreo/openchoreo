@@ -16,7 +16,7 @@ import (
 )
 
 // DefaultMaxDistance is the largest edit distance a candidate name may have
-// from the misspelt token and still be used as the replacement.
+// from the misspelled token and still be used as the replacement.
 const DefaultMaxDistance = 3
 
 // maxPasses bounds the repair loop. Repairing a kind changes the schema the

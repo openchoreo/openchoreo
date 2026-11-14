@@ -5,6 +5,7 @@ package lsp
 
 import (
 	"fmt"
+	"math/bits"
 	"path/filepath"
 	"runtime/debug"
 	"time"
@@ -53,7 +54,7 @@ func (s *Server) runIndexing(roots []string) {
 	if useProgress {
 		if err := s.requestProgressStartup(); err != nil {
 			if s.logger != nil {
-				s.logger.Debug("client rejected workDoneProgress/create; indexing without progress", "error", err.Error())
+				s.logger.Debug("client rejected workDoneProgress/create; indexing without progress", valueError, err.Error())
 			}
 			useProgress = false
 		}
@@ -74,7 +75,7 @@ func (s *Server) runIndexing(roots []string) {
 	if err != nil {
 		finalMessage = "workspace indexing failed"
 		s.logAt(protocol.MessageTypeError, finalMessage, []any{
-			"roots", roots, "error", err.Error(),
+			"roots", roots, valueError, err.Error(),
 		})
 		s.showAsync(protocol.MessageTypeError, "Failed to index workspace: "+err.Error())
 		s.logAsync(protocol.MessageTypeError, "IndexWorkspaces failed: "+err.Error())
@@ -126,8 +127,24 @@ func (s *Server) reportIndexProgress(scanned, total int) {
 	if total <= 0 {
 		return
 	}
-	message := fmt.Sprintf("%d/%d files", scanned, total)
-	percentage := protocol.UInteger(scanned * 100 / total)
+	denominator := uint64(total)
+	var numerator uint64
+	if scanned > 0 {
+		numerator = uint64(scanned)
+	}
+	// The directory walk may discover files added after the pre-count.
+	denominator = max(denominator, numerator)
+	message := fmt.Sprintf("%d/%d files", numerator, denominator)
+	// A double-width product preserves exact truncation even at MaxInt.
+	// numerator <= denominator, so the quotient fits and Div64 cannot overflow.
+	hi, lo := bits.Mul64(numerator, 100)
+	quotient, _ := bits.Div64(hi, lo, denominator)
+	var percentage protocol.UInteger
+	if quotient >= 100 {
+		percentage = 100
+	} else {
+		percentage = protocol.UInteger(quotient)
+	}
 	s.SendAsync(protocol.MethodProgress, &protocol.ProgressParams{
 		Token: s.indexingProgressToken(),
 		Value: protocol.WorkDoneProgressReport{

@@ -1,20 +1,22 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"encoding/json"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
-	"github.com/openchoreo/openchoreo/tools/templates"
-	"gopkg.in/yaml.v3"
 	"io/fs"
 	"regexp"
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
+	"github.com/openchoreo/openchoreo/tools/templates"
 )
 
 func acceptAuditPreview(text, preview string, line int) string {
@@ -82,10 +84,10 @@ func TestAuditEveryEmbeddedTemplate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if root.Properties["kind"] == nil {
+			if root.Properties[valueKind] == nil {
 				t.Fatal("template has no kind")
 			}
-			kind := root.Properties["kind"].Default
+			kind := root.Properties[valueKind].Default
 			if kind == "" {
 				t.Fatal("template has no kind default")
 			}
@@ -131,7 +133,6 @@ func TestAuditEveryEmbeddedTemplate(t *testing.T) {
 			if again := requiredPreviewWithSchema(complete, completeLine, 0, "  ", lookup); again != "" {
 				t.Fatalf("completed root suggested again: %q", again)
 			}
-
 		})
 	}
 	t.Logf("audited %d embedded resource templates", len(files))
@@ -153,7 +154,7 @@ func TestAuditEveryObjectContext(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			kind := root.Properties["kind"].Default
+			kind := root.Properties[valueKind].Default
 			lookup := func(k string) *schema.FieldSchema {
 				if k == kind {
 					return root
@@ -162,7 +163,7 @@ func TestAuditEveryObjectContext(t *testing.T) {
 			}
 			var visit func(*schema.FieldSchema, []string)
 			visit = func(node *schema.FieldSchema, path []string) {
-				if node.Type != "object" {
+				if node.Type != valueObject {
 					return
 				}
 				if len(path) > 0 {
@@ -214,7 +215,7 @@ func TestAuditEveryObjectContext(t *testing.T) {
 					}
 				}
 				for _, name := range sortedFieldNames(node) {
-					if len(path) == 0 && (name == "status" || name == "apiVersion" || name == "kind") {
+					if len(path) == 0 && (name == "status" || name == "apiVersion" || name == valueKind) {
 						continue
 					}
 					child := node.Properties[name]
@@ -235,7 +236,7 @@ func hasPreviewRequirements(node *schema.FieldSchema) bool {
 		if child.Required || referenceKindHint(node, name, child) {
 			return true
 		}
-		if child.Type == "object" && hasPreviewRequirements(child) {
+		if child.Type == valueObject && hasPreviewRequirements(child) {
 			return true
 		}
 	}

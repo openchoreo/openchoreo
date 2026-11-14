@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lint/cel-validator"
+	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"

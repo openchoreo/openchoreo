@@ -5,42 +5,41 @@ package schemavalidator
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"strings"
+
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func validateSchemaDefinitions(index *index) []Finding {
-	var findings []Finding
+	findings := make([]Finding, 0, len(index.componentTypes)+len(index.clusterComponentTypes))
 
 	for _, ct := range index.componentTypes {
-		if ct.doc.Spec.Parameters != nil && ct.doc.Spec.Parameters.OpenAPIV3Schema != nil {
-		}
 		_, _, errs := schemautil.ExtractAndValidateSchemas(ct.doc.Spec.Parameters, ct.doc.Spec.EnvironmentConfigs, field.NewPath("spec"))
-		findings = append(findings, mapSchemaDefErrors(errs, ct.file, ct.pdoc, "ComponentType", ct.doc.Name)...)
+		findings = append(findings, mapSchemaDefErrors(errs, ct.file, ct.pdoc, valueComponentType, ct.doc.Name)...)
 	}
 	for _, cct := range index.clusterComponentTypes {
 		_, _, errs := schemautil.ExtractAndValidateSchemas(cct.doc.Spec.Parameters, cct.doc.Spec.EnvironmentConfigs, field.NewPath("spec"))
-		findings = append(findings, mapSchemaDefErrors(errs, cct.file, cct.pdoc, "ClusterComponentType", cct.doc.Name)...)
+		findings = append(findings, mapSchemaDefErrors(errs, cct.file, cct.pdoc, valueClusterComponentType, cct.doc.Name)...)
 	}
 	for _, t := range index.traits {
 		_, _, errs := schemautil.ExtractAndValidateSchemas(t.doc.Spec.Parameters, t.doc.Spec.EnvironmentConfigs, field.NewPath("spec"))
-		findings = append(findings, mapSchemaDefErrors(errs, t.file, t.pdoc, "Trait", t.doc.Name)...)
+		findings = append(findings, mapSchemaDefErrors(errs, t.file, t.pdoc, valueTrait, t.doc.Name)...)
 	}
 	for _, ct2 := range index.clusterTraits {
 		_, _, errs := schemautil.ExtractAndValidateSchemas(ct2.doc.Spec.Parameters, ct2.doc.Spec.EnvironmentConfigs, field.NewPath("spec"))
-		findings = append(findings, mapSchemaDefErrors(errs, ct2.file, ct2.pdoc, "ClusterTrait", ct2.doc.Name)...)
+		findings = append(findings, mapSchemaDefErrors(errs, ct2.file, ct2.pdoc, valueClusterTrait, ct2.doc.Name)...)
 	}
 
 	return findings
 }
 
 func mapSchemaDefErrors(errs field.ErrorList, file string, doc *parser.DocumentNode, kind, name string) []Finding {
-	var findings []Finding
+	findings := make([]Finding, 0, len(errs))
 	for _, err := range errs {
 		if err == nil {
 			continue
@@ -78,7 +77,7 @@ func mapSchemaDefErrors(errs field.ErrorList, file string, doc *parser.DocumentN
 		if strings.Contains(err.Error(), "failed to parse") {
 			code = "schema-definition-parse-error"
 		} else if strings.Contains(err.Error(), "unknown or invalid fields") {
-			code = "schema-definition-invalid-fields"
+			code = valueSchemaDefinitionInvalidFields
 		}
 
 		findings = append(findings, Finding{

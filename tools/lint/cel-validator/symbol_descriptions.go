@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
@@ -7,8 +8,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	structural "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 )
 
 //go:embed context_descriptions.json

@@ -6,10 +6,11 @@ package schemavalidator
 import (
 	"context"
 	"fmt"
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"sort"
 	"strings"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // Resource preserves the parsed source, including unsaved editor content.
@@ -66,7 +67,7 @@ func ValidateDocuments(ctx context.Context, resources []Resource, validators ...
 		sources = append(sources, sourceDoc{doc: d, file: r.Path})
 	}
 	resources = unique
-	findings := validateLegacySources(ctx, sources)
+	findings := validateLegacySources(sources)
 	for _, candidates := range snapshot.Resources {
 		if len(candidates) < 2 || !isSchemaDefinition(candidates[0].Document.Kind) || candidates[0].Document.Metadata.Name == "" || !strings.HasPrefix(candidates[0].Document.APIVersion, "openchoreo.dev/") {
 			continue
@@ -118,7 +119,7 @@ func validateSources(ctx context.Context, sources []sourceDoc) []Finding {
 
 func isSchemaDefinition(kind string) bool {
 	switch kind {
-	case "ComponentType", "ClusterComponentType", "Trait", "ClusterTrait":
+	case valueComponentType, valueClusterComponentType, valueTrait, valueClusterTrait:
 		return true
 	}
 	return additionalDefinitions[kind]

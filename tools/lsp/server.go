@@ -4,7 +4,7 @@
 package lsp
 
 import (
-	"context"
+	stdcontext "context"
 	"errors"
 	"log/slog"
 	"os"
@@ -12,16 +12,17 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-action"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-completion"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-definition"
-	"github.com/openchoreo/openchoreo/tools/lsp/hover"
 	"github.com/sourcegraph/jsonrpc2"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"github.com/tliron/glsp/server"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
+	codeaction "github.com/openchoreo/openchoreo/tools/lsp/code-action"
+	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
+	codedefinition "github.com/openchoreo/openchoreo/tools/lsp/code-definition"
+	"github.com/openchoreo/openchoreo/tools/lsp/hover"
 )
 
 type outboundNotification struct {
@@ -119,7 +120,7 @@ type Server struct {
 	preRenderSchemaFiles map[string]struct{}
 }
 
-// New creates a new OpenChoreo language server.
+// NewServer creates a new OpenChoreo language server.
 func NewServer() *Server {
 	handler := protocol.Handler{}
 
@@ -227,8 +228,8 @@ func (s *Server) SendAsync(method string, params any) {
 
 func (s *Server) pumpOutbox() {
 	for item := range s.outbox {
-		if err := item.conn.Notify(context.Background(), item.method, item.params); err != nil && s.logger != nil {
-			s.logger.Error("async notification failed", "method", item.method, "error", err.Error())
+		if err := item.conn.Notify(stdcontext.Background(), item.method, item.params); err != nil && s.logger != nil {
+			s.logger.Error("async notification failed", "method", item.method, valueError, err.Error())
 		}
 	}
 }
@@ -243,7 +244,7 @@ func (s *Server) CallRequest(timeout time.Duration, method string, params any) e
 	if conn == nil {
 		return errors.New("no connection attached")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := stdcontext.WithTimeout(stdcontext.Background(), timeout)
 	defer cancel()
 	return conn.Call(ctx, method, params, nil)
 }
@@ -258,7 +259,7 @@ func (s *Server) Completion(
 	context *glsp.Context,
 	params *protocol.CompletionParams,
 ) (any, error) {
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	doc := s.GetDocument(uri)
 	if doc == nil {
 		return nil, nil
@@ -276,7 +277,7 @@ func (s *Server) Completion(
 // CodeAction handles textDocument/codeAction requests, delegating to the
 // code-action feature package (which returns raw CodeAction values).
 func (s *Server) CodeAction(context *glsp.Context, params *protocol.CodeActionParams) (any, error) {
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	doc := s.GetDocument(uri)
 	if doc == nil {
 		return []protocol.CodeAction{}, nil
@@ -297,7 +298,7 @@ func (s *Server) Definition(
 	context *glsp.Context,
 	params *protocol.DefinitionParams,
 ) (any, error) {
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	doc := s.GetDocument(uri)
 	if doc == nil {
 		return nil, nil
@@ -315,7 +316,7 @@ func (s *Server) Hover(
 	context *glsp.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	doc := s.GetDocument(uri)
 	if doc == nil {
 		return nil, nil
@@ -325,5 +326,5 @@ func (s *Server) Hover(
 	cursorCol := int(params.Position.Character) + 1
 
 	scope := s.targetSchemaScope(uri, map[string][]byte{fileURIToPath(uri): []byte(doc.Text)})
-	return hover.Handle(doc.Text, cursorLine, cursorCol, targetschema.WithResolver(nil, scope)), nil
+	return hover.Handle(doc.Text, cursorLine, cursorCol, targetschema.WithResolver(stdcontext.Background(), scope)), nil
 }

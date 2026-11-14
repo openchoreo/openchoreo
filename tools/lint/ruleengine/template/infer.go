@@ -4,9 +4,10 @@
 package template
 
 import (
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/strdist"
-	"gopkg.in/yaml.v3"
 )
 
 // inferMaxDistance is the largest edit distance a spec field name may have from

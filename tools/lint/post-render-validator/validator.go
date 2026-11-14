@@ -11,7 +11,7 @@ import (
 	"context"
 	"fmt"
 
-	component "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 )

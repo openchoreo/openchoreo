@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 const postRenderTestCommand = "openchoreo.runPostRenderValidation"
@@ -103,7 +104,7 @@ func postRenderProject(t *testing.T) (componentPath, workloadPath string) {
 	write := func(name, content string) string {
 		t.Helper()
 		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
 		return path
@@ -181,8 +182,8 @@ func TestPostRenderPublishesFindingsForClosedBundleFile(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPostRenderFinding(t, client, 2*time.Second)
-	if string(params.URI) != fileURI(workloadPath) {
+	params := readPostRenderFinding(t, client)
+	if params.URI != fileURI(workloadPath) {
 		t.Fatalf("diagnostics URI = %q, want workload %q", params.URI, fileURI(workloadPath))
 	}
 	if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
@@ -215,8 +216,8 @@ func TestPostRenderMergesWithOpenDocumentStructuralDiagnostics(t *testing.T) {
 
 	done := startPostRender(t, s, componentURI)
 
-	params := readPostRenderFinding(t, client, 2*time.Second)
-	if string(params.URI) != workloadURI {
+	params := readPostRenderFinding(t, client)
+	if params.URI != workloadURI {
 		t.Fatalf("diagnostics URI = %q, want %q", params.URI, workloadURI)
 	}
 	if params.Version == nil || *params.Version != 7 {
@@ -236,7 +237,7 @@ func TestPostRenderSurvivesStructuralRepublish(t *testing.T) {
 	openDoc(t, s, workloadURI, postRenderWorkload, 1)
 
 	done := startPostRender(t, s, componentURI)
-	if params := readPostRenderFinding(t, client, 2*time.Second); !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
+	if params := readPostRenderFinding(t, client); !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
 		t.Fatalf("expected initial post-render finding, got %+v", params.Diagnostics)
 	}
 	waitPostRender(t, done)
@@ -248,8 +249,8 @@ func TestPostRenderSurvivesStructuralRepublish(t *testing.T) {
 	changeDoc(t, s, otherURI, 2, protocol.TextDocumentContentChangeEventWhole{Text: "apiVersion: v1\nkind: Secret\n"})
 
 	for i := 0; i < 4; i++ {
-		params := readPostRenderFinding(t, client, 2*time.Second)
-		if string(params.URI) != workloadURI {
+		params := readPostRenderFinding(t, client)
+		if params.URI != workloadURI {
 			continue
 		}
 		if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
@@ -291,7 +292,7 @@ func TestPostRenderClearsStaleFindingsOnEdit(t *testing.T) {
 func TestPostRenderReportsSelectionErrorOnActiveDocument(t *testing.T) {
 	dir := t.TempDir()
 	componentPath := filepath.Join(dir, "component.yaml")
-	if err := os.WriteFile(componentPath, []byte(postRenderComponent), 0o644); err != nil {
+	if err := os.WriteFile(componentPath, []byte(postRenderComponent), 0o600); err != nil {
 		t.Fatalf("write component: %v", err)
 	}
 	s, client := newDebouncedServer(t)
@@ -299,8 +300,8 @@ func TestPostRenderReportsSelectionErrorOnActiveDocument(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPostRenderFinding(t, client, 2*time.Second)
-	if string(params.URI) != componentURI {
+	params := readPostRenderFinding(t, client)
+	if params.URI != componentURI {
 		t.Fatalf("diagnostics URI = %q, want active %q", params.URI, componentURI)
 	}
 	if !hasPostRenderDiagnostic(params.Diagnostics, "was not found") {
@@ -323,7 +324,7 @@ func TestPostRenderCodeLens(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	lenses, err := s.CodeLens(nil, &protocol.CodeLensParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(componentURI)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: componentURI},
 	})
 	if err != nil {
 		t.Fatalf("codeLens error: %v", err)
@@ -344,7 +345,7 @@ func TestPostRenderCodeLens(t *testing.T) {
 	plainURI := fileURI(filepath.Join(t.TempDir(), "plain.yaml"))
 	openDoc(t, s, plainURI, "apiVersion: v1\nkind: ConfigMap\n", 1)
 	lenses, err = s.CodeLens(nil, &protocol.CodeLensParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(plainURI)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: plainURI},
 	})
 	if err != nil {
 		t.Fatalf("codeLens error: %v", err)
@@ -362,7 +363,7 @@ func TestPostRenderDiscoversGitOpsProjectResources(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
 		return path
@@ -379,8 +380,8 @@ func TestPostRenderDiscoversGitOpsProjectResources(t *testing.T) {
 	openDoc(t, s, componentURI, postRenderComponent, 1)
 
 	done := startPostRender(t, s, componentURI)
-	params := readPostRenderFinding(t, client, 2*time.Second)
-	if string(params.URI) != fileURI(workloadPath) {
+	params := readPostRenderFinding(t, client)
+	if params.URI != fileURI(workloadPath) {
 		t.Fatalf("diagnostics URI = %q, want workload %q", params.URI, fileURI(workloadPath))
 	}
 	if !hasPostRenderDiagnostic(params.Diagnostics, "specify an image tag") {
@@ -393,7 +394,9 @@ func TestPostRenderDiscoversGitOpsProjectResources(t *testing.T) {
 }
 
 // Static workspace notifications may arrive before manual render findings.
-func readPostRenderFinding(t *testing.T, client net.Conn, timeout time.Duration) protocol.PublishDiagnosticsParams {
+func readPostRenderFinding(t *testing.T, client net.Conn) protocol.PublishDiagnosticsParams {
+	timeout := 2 * time.Second
+
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for {

@@ -1,10 +1,14 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 const completionSection = `    openAPIV3Schema:
@@ -34,14 +38,14 @@ func TestSchemaBackedRelationships(t *testing.T) {
 		assertDynamicRelationship(t, text, idx)
 	}
 	for _, tc := range []struct{ kind, definition, values, binding, pin, configs string }{
-		{"ComponentRelease", "componentType", "componentProfile.parameters", "ReleaseBinding", "releaseName", "componentTypeEnvironmentConfigs"},
+		{testValueComponentRelease, "componentType", "componentProfile.parameters", "ReleaseBinding", "releaseName", "componentTypeEnvironmentConfigs"},
 		{"ResourceRelease", "resourceType", "parameters", "ResourceReleaseBinding", "resourceRelease", "resourceTypeEnvironmentConfigs"},
 		{"ProjectRelease", "projectType", "parameters", "ProjectReleaseBinding", "projectRelease", "environmentConfigs"},
 	} {
 		// Frozen schemas are deliberately different from any live definitions.
-		spec := "  " + tc.definition + ":\n    spec:\n      parameters:\n" + indentSection(completionSection, 4) + "      environmentConfigs:\n" + indentSection(completionSection, 4)
+		spec := "  " + tc.definition + ":\n    spec:\n      parameters:\n" + indentSection(4) + "      environmentConfigs:\n" + indentSection(4)
 		body := "  parameters:\n    "
-		if tc.kind == "ComponentRelease" {
+		if tc.kind == testValueComponentRelease {
 			body = "  componentProfile:\n    parameters:\n      "
 		}
 		header := "apiVersion: openchoreo.dev/v1alpha1\nkind: " + tc.kind + "\nmetadata: {name: frozen}\nspec:\n"
@@ -55,7 +59,9 @@ func TestSchemaBackedRelationships(t *testing.T) {
 		assertDynamicRelationship(t, text, idx)
 	}
 }
-func indentSection(s string, n int) string {
+func indentSection(n int) string {
+	s := completionSection
+
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
 		if line != "" {
@@ -103,7 +109,7 @@ spec:
       name: storage
       spec:
         parameters:
-` + indentSection(completionSection, 6) + "        environmentConfigs:\n" + indentSection(completionSection, 6) + `  componentProfile:
+` + indentSection(6) + "        environmentConfigs:\n" + indentSection(6) + `  componentProfile:
     traits:
       - kind: Trait
         name: storage
@@ -124,7 +130,6 @@ spec:
 	if !ok || len(items) != 1 || items[0].Label != "volume" {
 		t.Fatalf("trait map: %v %+v", ok, items)
 	}
-
 }
 
 func TestUnknownFlexibleFieldHasNoDynamicSchema(t *testing.T) {

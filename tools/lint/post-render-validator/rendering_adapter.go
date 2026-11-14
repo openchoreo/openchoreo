@@ -67,13 +67,13 @@ func BundleFromDocuments(docs []*parser.DocumentNode) (*Bundle, error) {
 			continue
 		}
 		switch doc.Kind {
-		case "ComponentType":
+		case valueComponentType:
 			ct, err := decodeTyped[v1alpha1.ComponentType](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode ComponentType: %w", err)
 			}
 			b.ComponentType = &ct
-		case "ClusterComponentType":
+		case valueClusterComponentType:
 			cct, err := decodeTyped[v1alpha1.ClusterComponentType](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode ClusterComponentType: %w", err)
@@ -84,13 +84,13 @@ func BundleFromDocuments(docs []*parser.DocumentNode) (*Bundle, error) {
 				Spec:       cct.Spec.ToComponentTypeSpec(),
 			}
 			b.ComponentType = &ct
-		case "Trait":
+		case valueTrait:
 			t, err := decodeTyped[v1alpha1.Trait](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode Trait: %w", err)
 			}
 			b.Traits = append(b.Traits, t)
-		case "ClusterTrait":
+		case valueClusterTrait:
 			// Try to decode as ClusterTrait first
 			ctrait, err := decodeTyped[v1alpha1.ClusterTrait](doc)
 			if err == nil {
@@ -108,31 +108,31 @@ func BundleFromDocuments(docs []*parser.DocumentNode) (*Bundle, error) {
 				return nil, fmt.Errorf("decode ClusterTrait: %w", err)
 			}
 			b.Traits = append(b.Traits, t)
-		case "Component":
+		case valueComponent:
 			c, err := decodeTyped[v1alpha1.Component](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode Component: %w", err)
 			}
 			b.Component = &c
-		case "Workload":
+		case valueWorkload:
 			w, err := decodeTyped[v1alpha1.Workload](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode Workload: %w", err)
 			}
 			b.Workload = &w
-		case "ReleaseBinding":
+		case valueReleaseBinding:
 			rb, err := decodeTyped[v1alpha1.ReleaseBinding](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode ReleaseBinding: %w", err)
 			}
 			b.ReleaseBinding = &rb
-		case "Environment":
+		case valueEnvironment:
 			e, err := decodeTyped[v1alpha1.Environment](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode Environment: %w", err)
 			}
 			b.Environment = &e
-		case "DataPlane":
+		case valueDataPlane:
 			dp, err := decodeTyped[v1alpha1.DataPlane](doc)
 			if err != nil {
 				return nil, fmt.Errorf("decode DataPlane: %w", err)
@@ -214,7 +214,7 @@ func (b *Bundle) RenderInput() (*componentpipeline.RenderInput, error) {
 	// gateway.ingress.external.name and gateway.ingress.internal.name, so fill
 	// in placeholders for any endpoint the DataPlane does not define. Real
 	// Environment gateway values still take precedence when merging.
-	namespace := "default"
+	namespace := valueDefault
 	if b.Component != nil && b.Component.Namespace != "" {
 		namespace = b.Component.Namespace
 	}

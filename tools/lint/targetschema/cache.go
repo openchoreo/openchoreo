@@ -1,13 +1,15 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package targetschema
 
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"sync"
+
 	"gopkg.in/yaml.v3"
 	structural "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	"sync"
 )
 
 var catalogCache = struct {

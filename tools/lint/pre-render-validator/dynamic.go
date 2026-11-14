@@ -8,13 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
-	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	sigsyaml "sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
+	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 )
 
 // Views retain original YAML nodes and locations; snapshots never resolve to live definitions.
@@ -63,10 +64,10 @@ func validateValueNode(r Resource, section *v1alpha1.SchemaSection, values *yaml
 	line, column := position(r.Document.Spec)
 	spec := &yaml.Node{Kind: yaml.MappingNode, Line: line, Column: column}
 	if values != nil {
-		spec.Content = []*yaml.Node{{Kind: yaml.ScalarNode, Value: "parameters", Line: values.Line, Column: values.Column}, values}
+		spec.Content = []*yaml.Node{{Kind: yaml.ScalarNode, Value: valueParameters, Line: values.Line, Column: values.Column}, values}
 	}
 	view := specView(r, r.Document.Kind, spec)
-	return validateParamsAgainstSchema(section, raw, owner, r.Path, view.Document, "parameters")
+	return validateParamsAgainstSchema(section, raw, owner, r.Path, view.Document, valueParameters)
 }
 func validateDefinitionNode(r Resource, kind string, spec *yaml.Node, checkCEL bool) []Finding {
 	if spec == nil {
@@ -98,36 +99,36 @@ func validateDefinitionNode(r Resource, kind string, spec *yaml.Node, checkCEL b
 type snapshotValidator struct{}
 
 func (snapshotValidator) Supports(kind string) bool {
-	return kind == "ComponentRelease" || kind == "ResourceRelease" || kind == "ProjectRelease"
+	return kind == valueComponentRelease || kind == valueResourceRelease || kind == valueProjectRelease
 }
 func (snapshotValidator) Validate(ctx context.Context, r Resource, _ *ValidationContext) []Finding {
 	if ctx.Err() != nil {
 		return nil
 	}
 	spec := r.Document.Spec
-	key, kind, values := "componentType", "ComponentType", nodeAt(spec, "componentProfile", "parameters")
-	if r.Document.Kind == "ResourceRelease" {
-		key, kind, values = "resourceType", "ResourceType", nodeAt(spec, "parameters")
+	key, kind, values := "componentType", valueComponentType, nodeAt(spec, "componentProfile", valueParameters)
+	if r.Document.Kind == valueResourceRelease {
+		key, kind, values = "resourceType", "ResourceType", nodeAt(spec, valueParameters)
 	}
-	if r.Document.Kind == "ProjectRelease" {
-		key, kind, values = "projectType", "ProjectType", nodeAt(spec, "parameters")
+	if r.Document.Kind == valueProjectRelease {
+		key, kind, values = "projectType", valueProjectType, nodeAt(spec, valueParameters)
 	}
 	definition := nodeAt(spec, key, "spec")
 	findings := validateDefinitionNode(r, kind, definition, true)
-	section, err := sectionNode(nodeAt(definition, "parameters"))
+	section, err := sectionNode(nodeAt(definition, valueParameters))
 	if err == nil {
 		findings = append(findings, validateValueNode(r, section, values, r.Document.Kind+" snapshot")...)
 	}
-	if r.Document.Kind != "ComponentRelease" {
+	if r.Document.Kind != valueComponentRelease {
 		return findings
 	}
-	traits := nodeAt(spec, "traits")
+	traits := nodeAt(spec, valueTraits)
 	definitions := map[string][]*yaml.Node{}
 	if traits != nil && traits.Kind == yaml.SequenceNode {
 		for _, trait := range traits.Content {
 			k := scalar(nodeAt(trait, "kind"))
 			name := scalar(nodeAt(trait, "name"))
-			if k != "Trait" && k != "ClusterTrait" {
+			if k != valueTrait && k != valueClusterTrait {
 				continue
 			}
 			defs := nodeAt(trait, "spec")
@@ -136,7 +137,7 @@ func (snapshotValidator) Validate(ctx context.Context, r Resource, _ *Validation
 		}
 	}
 	findings = append(findings, validateEmbeddedBindings(ctx, r, definition, values, nil, false, func(k, n string) []*yaml.Node { return definitions[k+":"+n] })...)
-	instances := nodeAt(spec, "componentProfile", "traits")
+	instances := nodeAt(spec, "componentProfile", valueTraits)
 	if instances != nil && instances.Kind == yaml.SequenceNode {
 		for _, instance := range instances.Content {
 			key := scalar(nodeAt(instance, "kind")) + ":" + scalar(nodeAt(instance, "name"))
@@ -149,12 +150,12 @@ func (snapshotValidator) Validate(ctx context.Context, r Resource, _ *Validation
 				findings = append(findings, nodeFinding(r, instance, "pre-render-missing-definition", "embedded trait snapshot not found: "+key))
 				continue
 			}
-			section, err := sectionNode(nodeAt(candidates[0], "parameters"))
+			section, err := sectionNode(nodeAt(candidates[0], valueParameters))
 			if err != nil {
 				continue
 			}
-			findings = append(findings, validateValueNode(r, section, nodeAt(instance, "parameters"), "embedded trait "+key)...)
-			findings = append(findings, evaluateRulesAt(ctx, r, candidates[0], nodeAt(instance, "parameters"), nil, false, scalar(nodeAt(instance, "kind")))...)
+			findings = append(findings, validateValueNode(r, section, nodeAt(instance, valueParameters), "embedded trait "+key)...)
+			findings = append(findings, evaluateRulesAt(ctx, r, candidates[0], nodeAt(instance, valueParameters), nil, false, scalar(nodeAt(instance, "kind")))...)
 		}
 	}
 	return findings
@@ -177,15 +178,15 @@ func nodeFinding(r Resource, n *yaml.Node, code, message string) Finding {
 type environmentValidator struct{}
 
 func (environmentValidator) Supports(k string) bool {
-	return k == "ReleaseBinding" || k == "ResourceReleaseBinding" || k == "ProjectReleaseBinding"
+	return k == "ReleaseBinding" || k == "ResourceReleaseBinding" || k == valueProjectReleaseBinding
 }
 func (environmentValidator) Validate(ctx context.Context, r Resource, c *ValidationContext) []Finding {
-	pin, release, definition, values := "releaseName", "ComponentRelease", "componentType", "componentTypeEnvironmentConfigs"
+	pin, release, definition, values := "releaseName", valueComponentRelease, "componentType", "componentTypeEnvironmentConfigs"
 	if r.Document.Kind == "ResourceReleaseBinding" {
-		pin, release, definition, values = "resourceRelease", "ResourceRelease", "resourceType", "resourceTypeEnvironmentConfigs"
+		pin, release, definition, values = "resourceRelease", valueResourceRelease, "resourceType", "resourceTypeEnvironmentConfigs"
 	}
-	if r.Document.Kind == "ProjectReleaseBinding" {
-		pin, release, definition, values = "projectRelease", "ProjectRelease", "projectType", "environmentConfigs"
+	if r.Document.Kind == valueProjectReleaseBinding {
+		pin, release, definition, values = "projectRelease", valueProjectRelease, "projectType", valueEnvironmentConfigs
 	}
 	name := scalar(nodeAt(r.Document.Spec, pin))
 	if name == "" {
@@ -199,23 +200,23 @@ func (environmentValidator) Validate(ctx context.Context, r Resource, c *Validat
 		return nil
 	}
 	frozen := candidates[0].Document.Spec
-	section, err := sectionNode(nodeAt(frozen, definition, "spec", "environmentConfigs"))
+	section, err := sectionNode(nodeAt(frozen, definition, "spec", valueEnvironmentConfigs))
 	if err != nil {
 		return nil
 	}
 	findings := validateEnvironmentNode(r, section, nodeAt(r.Document.Spec, values), release+" "+name)
-	if release == "ComponentRelease" {
-		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(frozen, definition, "spec"), nodeAt(frozen, "componentProfile", "parameters"), nodeAt(r.Document.Spec, values), true, "ComponentType")...)
+	if release == valueComponentRelease {
+		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(frozen, definition, "spec"), nodeAt(frozen, "componentProfile", valueParameters), nodeAt(r.Document.Spec, values), true, valueComponentType)...)
 	}
-	if release == "ProjectRelease" {
-		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(frozen, definition, "spec"), nodeAt(frozen, "parameters"), nodeAt(r.Document.Spec, values), true, "ProjectType")...)
+	if release == valueProjectRelease {
+		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(frozen, definition, "spec"), nodeAt(frozen, valueParameters), nodeAt(r.Document.Spec, values), true, valueProjectType)...)
 	}
-	if release != "ComponentRelease" {
+	if release != valueComponentRelease {
 		return findings
 	}
-	findings = append(findings, validateEmbeddedBindings(ctx, r, nodeAt(frozen, "componentType", "spec"), nodeAt(frozen, "componentProfile", "parameters"), nodeAt(r.Document.Spec, values), true, func(k, n string) []*yaml.Node {
+	findings = append(findings, validateEmbeddedBindings(ctx, r, nodeAt(frozen, "componentType", "spec"), nodeAt(frozen, "componentProfile", valueParameters), nodeAt(r.Document.Spec, values), true, func(k, n string) []*yaml.Node {
 		var matches []*yaml.Node
-		traits := nodeAt(frozen, "traits")
+		traits := nodeAt(frozen, valueTraits)
 		if traits != nil && traits.Kind == yaml.SequenceNode {
 			for _, t := range traits.Content {
 				if scalar(nodeAt(t, "kind")) == k && scalar(nodeAt(t, "name")) == n {
@@ -227,8 +228,8 @@ func (environmentValidator) Validate(ctx context.Context, r Resource, c *Validat
 	})...)
 	// Component-level trait configuration is keyed by instanceName; embedded
 	// trait bindings are evaluated through the production context builder later.
-	instances := nodeAt(frozen, "componentProfile", "traits")
-	traits := nodeAt(frozen, "traits")
+	instances := nodeAt(frozen, "componentProfile", valueTraits)
+	traits := nodeAt(frozen, valueTraits)
 	if instances == nil || traits == nil || instances.Kind != yaml.SequenceNode || traits.Kind != yaml.SequenceNode {
 		return findings
 	}
@@ -242,13 +243,13 @@ func (environmentValidator) Validate(ctx context.Context, r Resource, c *Validat
 		if len(matches) != 1 {
 			continue
 		}
-		section, err := sectionNode(nodeAt(matches[0], "spec", "environmentConfigs"))
+		section, err := sectionNode(nodeAt(matches[0], "spec", valueEnvironmentConfigs))
 		if err != nil {
 			continue
 		}
 		instanceName := scalar(nodeAt(instance, "instanceName"))
 		findings = append(findings, validateEnvironmentNode(r, section, nodeAt(r.Document.Spec, "traitEnvironmentConfigs", instanceName), "trait "+instanceName)...)
-		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(matches[0], "spec"), nodeAt(instance, "parameters"), nodeAt(r.Document.Spec, "traitEnvironmentConfigs", instanceName), true, "Trait")...)
+		findings = append(findings, evaluateRulesAt(ctx, r, nodeAt(matches[0], "spec"), nodeAt(instance, valueParameters), nodeAt(r.Document.Spec, "traitEnvironmentConfigs", instanceName), true, valueTrait)...)
 	}
 	return findings
 }

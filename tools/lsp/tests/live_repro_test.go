@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // normalizeTraitName rewrites the first "name:" line (the resource's
@@ -86,10 +87,10 @@ func TestLiveReferenceWarningAfterResourceNameEdit(t *testing.T) {
 	watchRoot := t.TempDir()
 	dstTrait := filepath.Join(watchRoot, "traits.yaml")
 	dstWebapp := filepath.Join(watchRoot, "webapp.yaml")
-	if err := os.WriteFile(dstTrait, []byte(traitDoc), 0o644); err != nil {
+	if err := os.WriteFile(dstTrait, []byte(traitDoc), 0o600); err != nil {
 		t.Fatalf("write dstTrait: %v", err)
 	}
-	if err := os.WriteFile(dstWebapp, webappBytes, 0o644); err != nil {
+	if err := os.WriteFile(dstWebapp, webappBytes, 0o600); err != nil {
 		t.Fatalf("write dstWebapp: %v", err)
 	}
 

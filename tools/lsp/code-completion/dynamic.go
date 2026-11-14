@@ -1,14 +1,19 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"encoding/json"
+	"strings"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"gopkg.in/yaml.v3"
+
 	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
-	protocol "github.com/tliron/glsp/protocol_3_16"
-	"gopkg.in/yaml.v3"
-	"strings"
 )
 
 func dynamicItems(text string, line, col int, idx ResourceIndexer, uri string, resolved ...func(string, *schema.FieldSchema)) ([]protocol.CompletionItem, bool) {
@@ -19,37 +24,8 @@ func dynamicItems(text string, line, col int, idx ResourceIndexer, uri string, r
 		return nil, false
 	}
 	originalText, originalLine := text, line
-	// Limit both schema context and parsing to the cursor's YAML document.
-	lines := strings.Split(text, "\n")
-	if line < 1 || line > len(lines) {
-		return nil, false
-	}
-	start, end := 0, len(lines)
-	for i := 0; i < line-1; i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
-			start = i + 1
-		}
-	}
-	for i := line; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
-			end = i
-			break
-		}
-	}
-	line -= start
-	text = strings.Join(lines[start:end], "\n")
-	docs, err := parser.ParseYAML([]byte(text))
-	if err != nil || len(docs) == 0 {
-		// A partially typed key is safe to omit for reference extraction.
-		local := strings.Split(text, "\n")
-		local[line-1] = strings.Repeat(" ", len(local[line-1])-len(strings.TrimLeft(local[line-1], " ")))
-		docs, err = parser.ParseYAML([]byte(strings.Join(local, "\n")))
-	}
-	if err != nil || len(docs) != 1 {
-		return nil, false
-	}
-	doc := docs[0]
-	if !parser.IsOpenChoreoAPIVersion(doc.APIVersion) {
+	doc, text, line, ok := dynamicDocument(text, line)
+	if !ok {
 		return nil, false
 	}
 	ctx := resolveContext(text, line, col)
@@ -61,7 +37,7 @@ func dynamicItems(text string, line, col int, idx ResourceIndexer, uri string, r
 		ctx.path = path
 	}
 
-	rootPath, definition, environment := dynamicRelationship(doc, ctx.path, line, len(resolved) > 0, workspace.Snapshot(uri))
+	rootPath, definition, environment := dynamicRelationship(doc, ctx.path, line, workspace.Snapshot(uri))
 	if definition == nil || rootPath == "" {
 		return nil, false
 	}
@@ -105,7 +81,7 @@ func dynamicItems(text string, line, col int, idx ResourceIndexer, uri string, r
 	items := suggest(ctx, fields, nil)
 	for i := range items {
 		path := schemaPath
-		if ctx.mode != modeValue || schema.FindSchema(fields, path) == nil || schema.FindSchema(fields, path).Type == "object" {
+		if ctx.mode != modeValue || schema.FindSchema(fields, path) == nil || schema.FindSchema(fields, path).Type == valueObject {
 			path = joinSchemaPath(path, items[i].Label)
 		}
 		if n := dynamicRawSchema(raw, path); n != nil {
@@ -190,4 +166,42 @@ func dynamicAtCursor(n *yaml.Node, path string, line int) *yaml.Node {
 		n = selectedInstance(n, line)
 	}
 	return n
+}
+
+func dynamicDocument(text string, line int) (*parser.DocumentNode, string, int, bool) {
+	// Limit both schema context and parsing to the cursor's YAML document.
+	lines := strings.Split(text, "\n")
+	if line < 1 || line > len(lines) {
+		return nil, "", 0, false
+	}
+	start, end := 0, len(lines)
+	for i := 0; i < line-1; i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			start = i + 1
+		}
+	}
+	for i := line; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			end = i
+			break
+		}
+	}
+	line -= start
+	text = strings.Join(lines[start:end], "\n")
+	docs, err := parser.ParseYAML([]byte(text))
+	if err != nil || len(docs) == 0 {
+		// A partially typed key is safe to omit for reference extraction.
+		local := strings.Split(text, "\n")
+		local[line-1] = strings.Repeat(" ", len(local[line-1])-len(strings.TrimLeft(local[line-1], " ")))
+		docs, err = parser.ParseYAML([]byte(strings.Join(local, "\n")))
+	}
+	if err != nil || len(docs) != 1 {
+		return nil, "", 0, false
+	}
+	doc := docs[0]
+	if !parser.IsOpenChoreoAPIVersion(doc.APIVersion) {
+		return nil, "", 0, false
+	}
+
+	return doc, text, line, true
 }

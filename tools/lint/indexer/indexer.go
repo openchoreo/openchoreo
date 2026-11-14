@@ -5,6 +5,7 @@ package indexer
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -103,10 +104,7 @@ func (idx *Indexer) IndexWorkspacesWithProgress(roots []string, onProgress func(
 				return nil
 			}
 			newContents[uri] = data
-			resources, err := scanYAMLBytes(data)
-			if err != nil {
-				return nil // skip unparseable files
-			}
+			resources := scanYAMLBytes(data)
 
 			for _, r := range resources {
 				loc := Location{
@@ -201,10 +199,7 @@ func (idx *Indexer) UpdateFile(uri string, content []byte) error {
 	idx.version++
 
 	// Parse and index new content
-	resources, err := scanYAMLBytes(content)
-	if err != nil {
-		return nil // skip unparseable content
-	}
+	resources := scanYAMLBytes(content)
 
 	for _, r := range resources {
 		loc := Location{
@@ -413,17 +408,8 @@ type ResourceEntry struct {
 	Column int
 }
 
-// scanYAMLFile reads and parses a YAML file, returning all OpenChoreo resources found.
-func scanYAMLFile(path string) ([]ResourceEntry, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return scanYAMLBytes(data)
-}
-
 // scanYAMLBytes parses raw YAML bytes and extracts resource kind+name pairs.
-func scanYAMLBytes(data []byte) ([]ResourceEntry, error) {
+func scanYAMLBytes(data []byte) []ResourceEntry {
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 
 	var resources []ResourceEntry
@@ -431,7 +417,7 @@ func scanYAMLBytes(data []byte) ([]ResourceEntry, error) {
 		var node yaml.Node
 		err := decoder.Decode(&node)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			break // skip parse errors
@@ -459,7 +445,7 @@ func scanYAMLBytes(data []byte) ([]ResourceEntry, error) {
 		}
 	}
 
-	return resources, nil
+	return resources
 }
 
 // extractResource extracts kind and metadata.name from a YAML mapping node.

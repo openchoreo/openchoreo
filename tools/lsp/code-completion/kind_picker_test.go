@@ -1,14 +1,16 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"strings"
 	"testing"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestRootKindDropdown(t *testing.T) {

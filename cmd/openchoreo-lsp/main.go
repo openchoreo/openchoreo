@@ -16,8 +16,8 @@ import (
 // Flags accepted for vscode-languageclient compatibility. Declared package-level
 // so flag.Parse() in main recognizes the names without exporting them.
 var (
-	stdioFlag         bool
-	clientProcessIdId int
+	stdioFlag       bool
+	clientProcessID int
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	// Accepted for compatibility with vscode-languageclient, which launches
 	// stdio servers with these arguments. The server always speaks stdio.
 	flag.BoolVar(&stdioFlag, "stdio", false, "accepted for vscode-languageclient compatibility")
-	flag.IntVar(&clientProcessIdId, "clientProcessId", 0, "accepted for vscode-languageclient compatibility")
+	flag.IntVar(&clientProcessID, "clientProcessId", 0, "accepted for vscode-languageclient compatibility")
 	flag.Parse()
 
 	logger, closeFn, err := buildLogger(*logLevel, *logFile)

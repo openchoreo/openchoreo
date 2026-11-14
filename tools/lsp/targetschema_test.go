@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
@@ -8,9 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	clivalidator "github.com/openchoreo/openchoreo/tools/lint/cli-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func schemaWorkspace(t *testing.T) (string, string, string, string, string) {
@@ -77,13 +79,13 @@ func TestSchemaDiagnosticsSavedCLIParityAndUnsavedLifecycle(t *testing.T) {
 		t.Fatalf("CLI/LSP parity: CLI=%+v LSP=%+v", cli, original)
 	}
 	updated := strings.Replace(crd, "count:", "coutn:", 1)
-	if err := s.DidChange(nil, &protocol.DidChangeTextDocumentParams{TextDocument: protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(crdURI)}, Version: 2}, ContentChanges: []any{protocol.TextDocumentContentChangeEventWhole{Text: updated}}}); err != nil {
+	if err := s.DidChange(nil, &protocol.DidChangeTextDocumentParams{TextDocument: protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: crdURI}, Version: 2}, ContentChanges: []any{protocol.TextDocumentContentChangeEventWhole{Text: updated}}}); err != nil {
 		t.Fatal(err)
 	}
 	if got := celTypeDiagnostics(s.DiagnosticsForText(uri, text)); len(got) != 0 {
 		t.Fatalf("unsaved CRD edit did not clear dependent error: %+v", got)
 	}
-	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(crdURI)}}); err != nil {
+	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: crdURI}}); err != nil {
 		t.Fatal(err)
 	}
 	if got := celTypeDiagnostics(s.DiagnosticsForText(uri, text)); len(got) != 1 {

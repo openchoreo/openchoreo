@@ -1,10 +1,14 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
 	"context"
 	"fmt"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 func parseResources(t *testing.T, text string) []Resource {
@@ -13,7 +17,7 @@ func parseResources(t *testing.T, text string) []Resource {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result []Resource
+	result := make([]Resource, 0, len(docs))
 	for _, d := range docs {
 		result = append(result, Resource{Path: "input.yaml", Document: d})
 	}
@@ -23,25 +27,25 @@ func parseResources(t *testing.T, text string) []Resource {
 func TestComponentAndTraitResolution(t *testing.T) {
 	for _, cluster := range []bool{false, true} {
 		for _, trait := range []bool{false, true} {
-			for _, scenario := range []string{"valid", "invalid", "other-namespace", "duplicate"} {
+			for _, scenario := range []string{"valid", "invalid", testValueOtherNamespace, "duplicate"} {
 				t.Run(fmt.Sprint(cluster, trait, scenario), func(t *testing.T) {
-					kind := "ComponentType"
-					ref := "componentType"
+					kind := valueComponentType
+					ref := testValueComponentTypeValue
 					if trait {
-						kind = "Trait"
+						kind = valueTrait
 						ref = "traits"
 					}
 					if cluster {
 						kind = "Cluster" + kind
 					}
 					ns := "a"
-					if scenario == "other-namespace" {
+					if scenario == testValueOtherNamespace {
 						ns = "b"
 					}
 					definition := fmt.Sprintf("apiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: def\n  namespace: %s\nspec:\n  parameters:\n    openAPIV3Schema:\n      type: object\n      properties:\n        count:\n          type: integer\n", kind, ns)
 					value := "2"
 					if scenario != "valid" {
-						value = "wrong"
+						value = testValueWrong
 					}
 					binding := fmt.Sprintf("  %s:\n    kind: %s\n    name: def\n  parameters:\n    count: %s\n", ref, kind, value)
 					if trait {
@@ -54,11 +58,11 @@ func TestComponentAndTraitResolution(t *testing.T) {
 					findings := ValidateDocuments(context.Background(), parseResources(t, input))
 					mismatch := false
 					for _, f := range findings {
-						if f.Code == "schema-parameters-mismatch" {
+						if f.Code == testValueSchemaParametersMismatch {
 							mismatch = true
 						}
 					}
-					want := scenario == "invalid" || (scenario == "other-namespace" && cluster)
+					want := scenario == "invalid" || (scenario == testValueOtherNamespace && cluster)
 					if mismatch != want {
 						t.Fatalf("mismatch=%v want=%v findings=%v", mismatch, want, findings)
 					}
@@ -96,7 +100,7 @@ spec:
 `
 	findings := ValidateDocuments(context.Background(), parseResources(t, input))
 	for _, f := range findings {
-		if f.Code == "schema-parameters-mismatch" {
+		if f.Code == testValueSchemaParametersMismatch {
 			return
 		}
 	}

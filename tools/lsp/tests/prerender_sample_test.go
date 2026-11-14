@@ -5,14 +5,15 @@ package lsp_test
 
 import (
 	"encoding/json"
-	"github.com/sourcegraph/jsonrpc2"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sourcegraph/jsonrpc2"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestPreRenderSamplePublishesDynamicFindings(t *testing.T) {
@@ -53,12 +54,14 @@ func testPreRenderSamplePublication(t *testing.T, componentOpen bool) {
 	if componentOpen {
 		s.OpenDocument(fileURI(filepath.Join(dir, "component.yaml")), component, 1)
 	}
-	if err := s.DidSave(nil, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}}); err != nil {
+	if err := s.DidSave(nil, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}}); err != nil {
 		t.Fatal(err)
 	}
 	componentURI := fileURI(filepath.Join(dir, "component.yaml"))
 	deadline := time.Now().Add(5 * time.Second)
-	client.SetReadDeadline(deadline)
+	if err := client.SetReadDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 	for time.Now().Before(deadline) {
 		var frame rxFrame
@@ -78,7 +81,7 @@ func testPreRenderSamplePublication(t *testing.T, componentOpen bool) {
 		if err := json.Unmarshal(frame.Params, &params); err != nil {
 			t.Fatal(err)
 		}
-		if string(params.URI) != componentURI {
+		if params.URI != componentURI {
 			continue
 		}
 		matches := 0
@@ -111,11 +114,13 @@ func TestReleasePreRenderFindingsOnWire(t *testing.T) {
 	s, client := newDebouncedServer(t)
 	uri := fileURI(path)
 	s.OpenDocument(uri, string(data), 1)
-	if err := s.DidSave(nil, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}}); err != nil {
+	if err := s.DidSave(nil, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}}); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(5 * time.Second)
-	client.SetReadDeadline(deadline)
+	if err := client.SetReadDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 	var frame rxFrame
 	if err := stream.ReadObject(&frame); err != nil {

@@ -1,9 +1,13 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
 	"context"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 type snapshotProbe struct {

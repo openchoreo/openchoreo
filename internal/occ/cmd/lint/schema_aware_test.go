@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package lint_test
 
 import (
@@ -147,7 +148,7 @@ func TestCLICRDSchemaDiscoveryScope(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "catalog.json"), []byte(catalog), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".openchoreo-lint.yaml"), []byte("version: 1\nkubernetesSchemaVersion: '1.36.3'\nschemaCatalogs: [catalog.json]\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".openchoreo-lint.yaml"), []byte("version: 1\nkubernetesSchemaVersion: '1.36.4'\nschemaCatalogs: [catalog.json]\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	for _, mode := range []string{"-b", "-detect"} {

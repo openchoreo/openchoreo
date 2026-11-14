@@ -1,0 +1,7 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata: {name: default, namespace: default}
+spec:
+  clusterAgent:
+    clientCA:
+      value: test-ca

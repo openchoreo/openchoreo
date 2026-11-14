@@ -21,7 +21,7 @@ func fixSource(t *testing.T, src string, opts fixer.Options) fixer.Result {
 }
 
 func appliedCodes(res fixer.Result) []string {
-	var out []string
+	out := make([]string, 0, len(res.Applied))
 	for _, a := range res.Applied {
 		out = append(out, a.Code)
 	}
@@ -29,7 +29,7 @@ func appliedCodes(res fixer.Result) []string {
 }
 
 func appliedMessages(res fixer.Result) []string {
-	var out []string
+	out := make([]string, 0, len(res.Applied))
 	for _, a := range res.Applied {
 		out = append(out, a.Message)
 	}
@@ -49,7 +49,7 @@ spec:
     name: doclet
 `
 
-// TestFix_FieldAndKindTypos verifies a misspelt kind and its misspelt spec
+// TestFix_FieldAndKindTypos verifies a misspelled kind and its misspelled spec
 // fields are all corrected, and that the follow-up pass picks up fields that
 // only the corrected kind's schema reveals.
 func TestFix_FieldAndKindTypos(t *testing.T) {
@@ -83,7 +83,7 @@ func TestFix_NoChangeLeavesContentIdentical(t *testing.T) {
 	}
 }
 
-// TestFix_KindTypoWithoutSchema verifies a misspelt kind is repaired even when
+// TestFix_KindTypoWithoutSchema verifies a misspelled kind is repaired even when
 // nothing in the document identifies the intended kind, because the candidate
 // set is the closed list of registered kinds.
 func TestFix_KindTypoWithoutSchema(t *testing.T) {
@@ -227,7 +227,7 @@ spec:
 	}
 }
 
-// TestFix_EnumValue verifies a misspelt enum value is corrected.
+// TestFix_EnumValue verifies a misspelled enum value is corrected.
 func TestFix_EnumValue(t *testing.T) {
 	src := `apiVersion: openchoreo.dev/v1alpha1
 kind: Project
@@ -255,7 +255,7 @@ kind: Component
 metadata:
   name: doclet
 spec:
-  imagePullPolicy: Alwyas
+  imagePullPolicy: Al` + `wyas
 `
 	res := fixSource(t, src, fixer.Options{})
 	if !strings.Contains(string(res.Data), "imagePullPolicy: Always\n") {

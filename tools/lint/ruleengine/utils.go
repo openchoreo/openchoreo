@@ -4,8 +4,9 @@
 package ruleengine
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // PointRange returns a zero-length range at the given position.

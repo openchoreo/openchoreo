@@ -5,13 +5,16 @@ package lsp
 
 import (
 	"fmt"
+	"math"
 	"time"
+
+	"github.com/tliron/glsp"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	clivalidator "github.com/openchoreo/openchoreo/tools/lint/cli-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
-	"github.com/tliron/glsp"
-	protocol "github.com/tliron/glsp/protocol_3_16"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // diagnosticDebounceDelay is how long the server waits after the last edit
@@ -41,7 +44,7 @@ func Validate(text string) []protocol.Diagnostic {
 // shared core of Validate so callers that parse once (e.g. the validation
 // cache) can reuse the AST for both rule-engine and reference checks.
 func validateDocs(docs []*parser.DocumentNode) []protocol.Diagnostic {
-	var out []protocol.Diagnostic
+	out := make([]protocol.Diagnostic, 0, len(docs))
 	for _, result := range clivalidator.ValidateDocuments(docs) {
 		for _, finding := range result.Diagnostics {
 			out = append(out, toLSPDiagnostic(finding))
@@ -66,7 +69,15 @@ func parseErrorDiagnostic(err error) protocol.Diagnostic {
 
 // toLSPDiagnostic converts a rule engine diagnostic into an LSP diagnostic.
 func toLSPDiagnostic(d ruleengine.Diagnostic) protocol.Diagnostic {
-	severity := protocol.DiagnosticSeverity(d.Severity)
+	severity := protocol.DiagnosticSeverityError
+	switch d.Severity {
+	case ruleengine.SeverityWarning:
+		severity = protocol.DiagnosticSeverityWarning
+	case ruleengine.SeverityInfo:
+		severity = protocol.DiagnosticSeverityInformation
+	case ruleengine.SeverityHint:
+		severity = protocol.DiagnosticSeverityHint
+	}
 	return protocol.Diagnostic{
 		Range:    toLSPRange(d.Range),
 		Severity: &severity,
@@ -87,17 +98,11 @@ func toLSPRange(r parser.Range) protocol.Range {
 // toLSPPosition converts a 1-indexed parser position into a 0-indexed
 // LSP position.
 func toLSPPosition(p parser.Position) protocol.Position {
-	line := p.Line - 1
-	character := p.Column - 1
-	if line < 0 {
-		line = 0
-	}
-	if character < 0 {
-		character = 0
-	}
+	line := max(p.Line, 1) - 1
+	character := max(p.Column, 1) - 1
 	return protocol.Position{
-		Line:      protocol.UInteger(line),
-		Character: protocol.UInteger(character),
+		Line:      lsputil.PositionIndex(line),
+		Character: lsputil.PositionIndex(character),
 	}
 }
 
@@ -119,10 +124,9 @@ func (s *Server) publishDiagnostics(context *glsp.Context, uri string, version i
 	}
 
 	diags = uniqueProjectDiagnostics(diags)
-	versionUInt := protocol.UInteger(version)
-	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
-		URI:         protocol.DocumentUri(uri),
-		Version:     diagnosticVersion(s, uri, &versionUInt),
+	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, &diagnosticPublication{
+		URI:         uri,
+		Version:     diagnosticVersion(s, uri, version),
 		Diagnostics: diags,
 	})
 }
@@ -146,10 +150,9 @@ func (s *Server) publishDiagnosticsAsync(uri string, version int, diags []protoc
 	}
 
 	diags = uniqueProjectDiagnostics(diags)
-	versionUInt := protocol.UInteger(version)
-	s.SendAsync(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
-		URI:         protocol.DocumentUri(uri),
-		Version:     diagnosticVersion(s, uri, &versionUInt),
+	s.SendAsync(protocol.ServerTextDocumentPublishDiagnostics, &diagnosticPublication{
+		URI:         uri,
+		Version:     diagnosticVersion(s, uri, version),
 		Diagnostics: diags,
 	})
 }
@@ -317,11 +320,12 @@ func (s *Server) validationSnapshotCurrent(uri string, version int) bool {
 }
 
 // Closed workspace documents have no client document version.
-func diagnosticVersion(s *Server, uri string, version *protocol.UInteger) *protocol.UInteger {
-	if s.GetDocument(uri) == nil {
+func diagnosticVersion(s *Server, uri string, version int) *protocol.Integer {
+	if s.GetDocument(uri) == nil || version < math.MinInt32 || version > math.MaxInt32 {
 		return nil
 	}
-	return version
+	signed := lsputil.Integer(version)
+	return &signed
 }
 
 // Refresh the automatic lane before merging manual findings. An unrelated index
@@ -344,4 +348,12 @@ func (s *Server) republishCurrentDiagnostics(uri string) {
 	s.workspaceStaticByURI[uri] = diags
 	s.preRenderSchemaMu.Unlock()
 	s.publishDiagnosticsAsync(uri, 0, nil)
+}
+
+// diagnosticPublication keeps document identities signed. The installed GLSP
+// PublishDiagnosticsParams uses an unsigned version despite the LSP definition.
+type diagnosticPublication struct {
+	URI         protocol.DocumentUri  `json:"uri"`
+	Version     *protocol.Integer     `json:"version,omitempty"`
+	Diagnostics []protocol.Diagnostic `json:"diagnostics"`
 }

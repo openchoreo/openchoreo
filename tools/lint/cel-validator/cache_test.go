@@ -24,7 +24,8 @@ func TestHashStructuralDeterministic(t *testing.T) {
 	if hashStructural(a) != hashStructural(b) {
 		t.Fatal("structurally equal schemas must hash equal")
 	}
-	if hashStructural(nil) != hashStructural(nil) {
+	nilHash := hashStructural(nil)
+	if nilHash != hashStructural(nil) {
 		t.Fatal("nil schema hash must be stable")
 	}
 }
@@ -113,7 +114,8 @@ func TestEnvCacheMemoizes(t *testing.T) {
 
 	build := func() (cachedEnv, error) {
 		builds.Add(1)
-		return cachedEnv{env: &cel.Env{}}, nil
+		env, err := cel.NewEnv()
+		return cachedEnv{env: env}, err
 	}
 
 	first, err := c.get(key, build)
@@ -142,7 +144,8 @@ func TestEnvCacheConcurrent(t *testing.T) {
 
 	build := func() (cachedEnv, error) {
 		builds.Add(1)
-		return cachedEnv{env: &cel.Env{}}, nil
+		env, err := cel.NewEnv()
+		return cachedEnv{env: env}, err
 	}
 
 	const n = 16

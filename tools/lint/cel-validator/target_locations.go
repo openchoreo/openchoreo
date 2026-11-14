@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
@@ -7,8 +8,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 var undeclaredToken = regexp.MustCompile(`undeclared reference to '([^']+)'`)

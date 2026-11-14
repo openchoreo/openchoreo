@@ -1,3 +1,6 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package indexer
 
 import (
@@ -8,8 +11,8 @@ import (
 
 func TestScopedComponentTypeReference(t *testing.T) {
 	root := t.TempDir()
-	component := filepath.Join(root, "namespaces/default/projects/doclet/components/postgres/component.yaml")
-	definition := filepath.Join(root, "namespaces/default/platform/component-types/database.yaml")
+	component := filepath.Join(root, "namespaces", "default", "projects", "doclet", "components", "postgres", "component.yaml")
+	definition := filepath.Join(root, "namespaces", "default", "platform", "component-types", "database.yaml")
 	if err := os.MkdirAll(filepath.Dir(definition), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +54,7 @@ func TestScopedMultiDocumentClusterAndAmbiguity(t *testing.T) {
 	if err := idx.IndexWorkspace(root); err != nil {
 		t.Fatal(err)
 	}
-	source := pathToFileURI(filepath.Join(root, "components/postgres.yaml"))
+	source := pathToFileURI(filepath.Join(root, "components", "postgres.yaml"))
 	if got := idx.FindScopedDefinition("ClusterComponentType", "different", "deployment/database", source); len(got) != 1 {
 		t.Fatalf("cluster lookup: %+v", got)
 	}

@@ -1,13 +1,18 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"encoding/json"
+	"sort"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
-	protocol "github.com/tliron/glsp/protocol_3_16"
-	"gopkg.in/yaml.v3"
-	"sort"
 )
 
 type workflowChoice struct{ kind, name string }
@@ -29,15 +34,15 @@ func allowedWorkflowChoices(text string, line int, uri string, idx ResourceIndex
 			doc = d
 		}
 	}
-	if doc == nil || doc.Kind != "Component" {
+	if doc == nil || doc.Kind != valueComponent {
 		return nil, false, doc
 	}
 	ref := dynamicNode(doc.Spec, "componentType")
-	kind := dynamicScalar(dynamicNode(ref, "kind"))
+	kind := dynamicScalar(dynamicNode(ref, valueKind))
 	if kind == "" {
-		kind = "ComponentType"
+		kind = valueComponentType
 	}
-	if kind != "ComponentType" && kind != "ClusterComponentType" {
+	if kind != valueComponentType && kind != valueClusterComponentType {
 		return nil, false, doc
 	}
 	definition := uniqueDefinition(workspace.Snapshot(uri), doc, kind, dynamicScalar(dynamicNode(ref, "name")))
@@ -47,7 +52,7 @@ func allowedWorkflowChoices(text string, line int, uri string, idx ResourceIndex
 	}
 	var result []workflowChoice
 	for _, item := range allowed.Content {
-		k, n := dynamicScalar(dynamicNode(item, "kind")), dynamicScalar(dynamicNode(item, "name"))
+		k, n := dynamicScalar(dynamicNode(item, valueKind)), dynamicScalar(dynamicNode(item, "name"))
 		if k == "" {
 			k = "ClusterWorkflow"
 		}
@@ -73,7 +78,7 @@ func workflowPolicyItems(text string, line, col int, uri string, idx ResourceInd
 		return nil, false
 	}
 	current := dynamicNode(doc.Spec, "workflow")
-	kind := dynamicScalar(dynamicNode(current, "kind"))
+	kind := dynamicScalar(dynamicNode(current, valueKind))
 	name := dynamicScalar(dynamicNode(current, "name"))
 	var values []string
 	seen := map[string]bool{}
@@ -103,7 +108,7 @@ func applyWorkflowPolicy(root *schema.FieldSchema, choices []workflowChoice, doc
 		return
 	}
 	current := dynamicNode(doc.Spec, "workflow")
-	kind, name := dynamicScalar(dynamicNode(current, "kind")), dynamicScalar(dynamicNode(current, "name"))
+	kind, name := dynamicScalar(dynamicNode(current, valueKind)), dynamicScalar(dynamicNode(current, "name"))
 	var selected *workflowChoice
 	for i := range choices {
 		c := &choices[i]
@@ -116,7 +121,7 @@ func applyWorkflowPolicy(root *schema.FieldSchema, choices []workflowChoice, doc
 		delete(spec.Properties, "workflow")
 		return
 	}
-	for key, value := range map[string]string{"kind": selected.kind, "name": selected.name} {
+	for key, value := range map[string]string{valueKind: selected.kind, "name": selected.name} {
 		if n := workflow.Properties[key]; n != nil {
 			n.Default = value
 			n.Enum = []string{value}

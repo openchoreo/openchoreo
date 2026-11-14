@@ -1,3 +1,6 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
@@ -10,7 +13,7 @@ import (
 func TestParameterRelationships(t *testing.T) {
 	for instance, rel := range parameterRelationships {
 		for _, kind := range []string{rel.defaultKind, rel.clusterKind} {
-			for _, scenario := range []string{"valid", "wrong-type", "required", "additional", "nested", "array", "missing-definition", "other-namespace", "duplicate", "no-schema"} {
+			for _, scenario := range []string{"valid", "wrong-type", "required", "additional", "nested", "array", "missing-definition", testValueOtherNamespace, "duplicate", "no-schema"} {
 				t.Run(instance+"/"+kind+"/"+scenario, func(t *testing.T) {
 					schema := "      type: object\n      properties:\n        count:\n          type: integer\n"
 					values := "    count: 3\n"
@@ -31,7 +34,7 @@ func TestParameterRelationships(t *testing.T) {
 						values = "    items: [wrong]\n"
 					}
 					ns := "a"
-					if scenario == "other-namespace" {
+					if scenario == testValueOtherNamespace {
 						ns = "b"
 					}
 					definition := fmt.Sprintf("apiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: def\n  namespace: %s\nspec:\n  parameters:\n    openAPIV3Schema:\n%s", kind, ns, schema)
@@ -52,7 +55,7 @@ func TestParameterRelationships(t *testing.T) {
 					findings := ValidateDocuments(context.Background(), parseResources(t, input))
 					mismatch := false
 					for _, f := range findings {
-						if f.Code == "schema-parameters-mismatch" {
+						if f.Code == testValueSchemaParametersMismatch {
 							mismatch = true
 						}
 					}
@@ -70,7 +73,7 @@ func indentValues(s string) string {
 }
 func TestAdditionalDefinitionSchemas(t *testing.T) {
 	for kind := range additionalDefinitions {
-		for _, section := range []string{"parameters", "environmentConfigs"} {
+		for _, section := range []string{"parameters", valueEnvironmentConfigs} {
 			// Workflow defines only parameters.
 			if strings.Contains(kind, "Workflow") && section != "parameters" {
 				continue

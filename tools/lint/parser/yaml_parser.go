@@ -86,10 +86,7 @@ func ParseYAML(data []byte) ([]*DocumentNode, error) {
 			break
 		}
 
-		doc, err := buildDocumentNode(&node, idx)
-		if err != nil {
-			return nil, fmt.Errorf("document %d: %w", idx, err)
-		}
+		doc := buildDocumentNode(&node, idx)
 		if doc == nil {
 			continue
 		}
@@ -104,16 +101,16 @@ func ParseYAML(data []byte) ([]*DocumentNode, error) {
 
 // buildDocumentNode converts a raw yaml.Node (expected to be a MappingNode)
 // into a DocumentNode with extracted fields and positions.
-func buildDocumentNode(node *yaml.Node, docIndex int) (*DocumentNode, error) {
+func buildDocumentNode(node *yaml.Node, docIndex int) *DocumentNode {
 	if node.Kind == yaml.DocumentNode {
 		if len(node.Content) == 0 {
-			return nil, nil
+			return nil
 		}
 		node = node.Content[0]
 	}
 
 	if node.Kind != yaml.MappingNode {
-		return nil, nil
+		return nil
 	}
 
 	doc := &DocumentNode{
@@ -145,7 +142,7 @@ func buildDocumentNode(node *yaml.Node, docIndex int) (*DocumentNode, error) {
 		}
 	}
 
-	return doc, nil
+	return doc
 }
 
 // buildMetadataNode extracts name, namespace, labels, and annotations

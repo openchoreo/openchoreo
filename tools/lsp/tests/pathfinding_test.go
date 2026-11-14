@@ -6,8 +6,9 @@ package lsp_test
 import (
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 	"gopkg.in/yaml.v3"
+
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func parseDocument(t *testing.T, doc string) *yaml.Node {

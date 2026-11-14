@@ -1,13 +1,15 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
 	"context"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 const runtimeFixture = `apiVersion: openchoreo.dev/v1alpha1
@@ -51,7 +53,7 @@ func TestRuntimeConcreteRules(t *testing.T) {
 			if len(got) != tc.want {
 				t.Fatalf("want=%d got=%+v", tc.want, got)
 			}
-			if tc.want > 0 && got[0].Code != "pre-render-validation-failed" {
+			if tc.want > 0 && got[0].Code != testValuePreRenderValidationFailed {
 				t.Fatalf("unexpected: %+v", got)
 			}
 		})
@@ -63,9 +65,9 @@ func TestRuntimeSnapshotUsesFrozenParameters(t *testing.T) {
 	release := parseResources(t, "apiVersion: openchoreo.dev/v1alpha1\nkind: ComponentRelease\nmetadata:\n  name: frozen\nspec: {}\n")[0]
 	definition := resources[0].Document.Spec
 	release.Document.Spec.Content = append(release.Document.Spec.Content,
-		nodeKey("componentType"), nodeMap("spec", definition))
+		nodeKey(testValueComponentTypeValue), nodeMap("spec", definition))
 	got := ValidateDocuments(context.Background(), []Resource{release})
-	if len(got) != 1 || got[0].Code != "pre-render-validation-failed" {
+	if len(got) != 1 || got[0].Code != testValuePreRenderValidationFailed {
 		t.Fatalf("snapshot runtime: %+v", got)
 	}
 }
@@ -78,7 +80,7 @@ func nodeMap(k string, v *yaml.Node) *yaml.Node {
 func TestProjectParameterRule(t *testing.T) {
 	text := strings.NewReplacer("kind: ComponentType", "kind: ProjectType", "kind: Component\n", "kind: Project\n", "componentType:", "type:", "deployment/type", "type", "preRenderValidations:", "validations:").Replace(runtimeFixture)
 	got := ValidateDocuments(context.Background(), parseResources(t, text))
-	if len(got) != 1 || got[0].Code != "pre-render-validation-failed" {
+	if len(got) != 1 || got[0].Code != testValuePreRenderValidationFailed {
 		t.Fatalf("project rules: %+v", got)
 	}
 }
@@ -109,7 +111,7 @@ spec:
   releaseName: frozen
 `
 	got := ValidateDocuments(context.Background(), parseResources(t, text))
-	if len(got) != 1 || got[0].Code != "pre-render-validation-failed" || got[0].Line < 23 {
+	if len(got) != 1 || got[0].Code != testValuePreRenderValidationFailed || got[0].Line < 23 {
 		t.Fatalf("pinned environment context: %+v", got)
 	}
 	got = ValidateDocuments(context.Background(), parseResources(t, strings.Replace(text, "count > 3", "count > 1", 1)))
@@ -119,11 +121,11 @@ spec:
 }
 
 func TestRuntimeTraitInstances(t *testing.T) {
-	for _, kind := range []string{"Trait", "ClusterTrait"} {
+	for _, kind := range []string{valueTrait, "ClusterTrait"} {
 		text := strings.Replace(runtimeFixture, "count > 3", "count > 1", 1)
 		text += "  traits:\n    - kind: " + kind + "\n      name: scaling\n      instanceName: scale\n---\napiVersion: openchoreo.dev/v1alpha1\nkind: " + kind + "\nmetadata:\n  name: scaling\nspec:\n  parameters:\n    openAPIV3Schema:\n      type: object\n      properties:\n        count:\n          type: integer\n          default: 2\n  preRenderValidations:\n    - rule: ${parameters.count > 3}\n      message: too small\n"
 		got := ValidateDocuments(context.Background(), parseResources(t, text))
-		if len(got) != 1 || got[0].Code != "pre-render-validation-failed" {
+		if len(got) != 1 || got[0].Code != testValuePreRenderValidationFailed {
 			t.Fatalf("%s rules: %+v", kind, got)
 		}
 	}
@@ -138,7 +140,7 @@ func TestRuntimeFrozenTraitRule(t *testing.T) {
 	got := ValidateDocuments(context.Background(), parseResources(t, text))
 	count := 0
 	for _, f := range got {
-		if f.Code == "pre-render-validation-failed" {
+		if f.Code == testValuePreRenderValidationFailed {
 			count++
 		}
 	}

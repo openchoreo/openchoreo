@@ -10,19 +10,19 @@ import "strings"
 // the user at the exact field that should change.
 func fixForDiagnostic(code, message string) string {
 	switch code {
-	case "image-latest":
-		return "specify an image tag, such as a version or latest, or an image digest"
-	case "limits-required":
+	case valueImageLatest:
+		return imageTagGuidance
+	case valueLimitsRequired:
 		return "add resources.limits.cpu and resources.limits.memory to the container"
-	case "requests-required":
+	case valueRequestsRequired:
 		return "add resources.requests.cpu and resources.requests.memory to the container"
-	case "replicas-positive":
+	case valueReplicasPositive:
 		return "set replicas to at least 1 in the Component parameters or the ComponentType template"
-	case "no-privileged":
+	case valueNoPrivileged:
 		return "set securityContext.privileged to false"
-	case "no-host-namespaces":
+	case valueNoHostNamespaces:
 		return "set hostNetwork, hostPID, and hostIPC to false"
-	case "post-render-unresolved-expression":
+	case valuePostRenderUnresolvedExpression:
 		return "replace the unresolved expression with a value provided by the render context"
 	case "post-render-missing-field":
 		return "add the missing Kubernetes field to the ComponentType or Trait template"

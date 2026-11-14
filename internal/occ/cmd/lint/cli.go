@@ -8,6 +8,7 @@ package lint
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/version"
-	"github.com/openchoreo/openchoreo/tools/lint/cli-validator"
+	clivalidator "github.com/openchoreo/openchoreo/tools/lint/cli-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/fixer"
 	"github.com/openchoreo/openchoreo/tools/lint/parallel"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
@@ -32,8 +33,6 @@ import (
 	"github.com/openchoreo/openchoreo/tools/lint/suppress"
 	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
-
-	"context"
 )
 
 // linterVersion is the version the linter reports, in the -obj report's
@@ -105,7 +104,7 @@ Commands:
                                        and, with -fix, fixes[] for the repairs made.
                                        Combine with -b or -detect.
   linter vali -fix <file|folder>       repair what can be repaired safely:
-                                         - a misspelt field, kind, or enum value
+                                         - a misspelled field, kind, or enum value
                                          - trailing whitespace, repeated blank
                                            lines, CRLF line endings, the final
                                            newline, comments and indentation
@@ -115,7 +114,7 @@ Commands:
                                        name. Ambiguous candidates are reported as
                                        skipped and left alone. Only OpenChoreo
                                        YAML is touched, and '# occ:ignore'
-                                       suppressions are honoured. The file is
+                                       suppressions are honored. The file is
                                        written atomically, then validated again
                                        so the report shows what is left to do.
                                        Add -dry-run to preview a diff instead.
@@ -146,7 +145,7 @@ Options:
   -b        batch mode: validate YAML files directly inside the given folder only
   -detect   scan the folder and all subfolders recursively for YAML files
   -obj      output the result as a JSON report instead of text
-  -fix      repair misspelt field, kind and enum values and normalize YAML
+  -fix      repair misspelled field, kind and enum values and normalize YAML
             formatting in place, then report the issues that remain
   -dry-run  with -fix, print the proposed changes as a diff and write nothing
   -p N      validate up to N files in parallel (default: number of CPUs)
@@ -348,7 +347,7 @@ func runValidate(f validateFlags, path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		if f.obj {
-			printJSON([]diagnosticJSON{{File: path, Severity: "error", Message: err.Error()}}, nil)
+			printJSON([]diagnosticJSON{{File: path, Severity: valueError, Message: err.Error()}}, nil)
 			return exitErrorf(1)
 		}
 		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", path, err)
@@ -376,7 +375,7 @@ func runValidate(f validateFlags, path string) error {
 	data, rerr := os.ReadFile(path)
 	if rerr != nil {
 		if f.obj {
-			printJSON([]diagnosticJSON{{File: path, Severity: "error", Message: rerr.Error()}}, nil)
+			printJSON([]diagnosticJSON{{File: path, Severity: valueError, Message: rerr.Error()}}, nil)
 			return exitErrorf(1)
 		}
 		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", path, rerr)
@@ -386,7 +385,7 @@ func runValidate(f validateFlags, path string) error {
 		if f.obj {
 			return exitErrorf(validateFileObj(path, nil, cfg))
 		}
-		errs, warns, wrote := validateFile(path, false, nil, cfg)
+		errs, warns, wrote := validateFile(path, nil, cfg)
 		if errs > 0 {
 			fmt.Printf("Validation failed: %d error(s), %d warning(s)%s\n", errs, warns, summaryNote(cfg, countRewritten(wrote)))
 			fmt.Printf("Hint: try 'occ lint vali -fix <folder path>'\n")
@@ -400,7 +399,7 @@ func runValidate(f validateFlags, path string) error {
 		return exitErrorf(validateFileObj(path, buildNamesForFile(path), cfg))
 	}
 
-	errs, warns, wrote := validateFile(path, false, buildNamesForFile(path), cfg)
+	errs, warns, wrote := validateFile(path, buildNamesForFile(path), cfg)
 	var rendered []diagnosticJSON
 	if f.render {
 		// A single file cannot be rendered on its own: the bundle needs the
@@ -412,9 +411,9 @@ func runValidate(f validateFlags, path string) error {
 			for _, d := range rendered {
 				printDiagnostic(d)
 				switch d.Severity {
-				case "error":
+				case valueError:
 					errs++
-				case "warning":
+				case valueWarning:
 					warns++
 				}
 			}
@@ -425,9 +424,9 @@ func runValidate(f validateFlags, path string) error {
 		for _, d := range distinctRuntimeFindings(runPreRenderValidation(siblings2), rendered) {
 			printDiagnostic(d)
 			switch d.Severity {
-			case "error":
+			case valueError:
 				errs++
-			case "warning":
+			case valueWarning:
 				warns++
 			}
 		}
@@ -441,11 +440,11 @@ func runValidate(f validateFlags, path string) error {
 	return nil
 }
 
-// // RunValidate validates a single path and prints a human-readable report
+// RunValidate validates a single path and prints a human-readable report
 // to stdout (like `occ linter vali`), returning nil if clean and an error if
 // validation finds issues or fails.
 func RunValidate(path string) error {
-	err, warns, wrote := validateFile(path, false, buildNamesForFile(path), fixConfig{})
+	err, warns, wrote := validateFile(path, buildNamesForFile(path), fixConfig{})
 	if err > 0 {
 		fmt.Printf("Validation failed: %d error(s), %d warning(s)%s\n", err, warns, summaryNote(fixConfig{}, countRewritten(wrote)))
 		fmt.Printf("Hint: try 'occ lint vali -fix %s'\n", path)
@@ -675,7 +674,7 @@ func loadResults(path string, data []byte, names map[string]bool, resolvers ...t
 
 // diagnosticsJSON converts per-document results into JSON entries for a file.
 func diagnosticsJSON(path string, results []clivalidator.DocumentResult) []diagnosticJSON {
-	var out []diagnosticJSON
+	out := make([]diagnosticJSON, 0, len(results))
 	for _, res := range results {
 		for _, d := range res.Diagnostics {
 			out = append(out, diagnosticJSON{
@@ -687,6 +686,9 @@ func diagnosticsJSON(path string, results []clivalidator.DocumentResult) []diagn
 				Message:  d.Message,
 			})
 		}
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
@@ -752,7 +754,7 @@ func writeFileAtomic(path string, content []byte) error {
 func validateFileObj(path string, names map[string]bool, cfg fixConfig) int {
 	out := safeAnalyze(path, func() fileOutcome { return analyzeFile(path, names, cfg) })
 	if out.err != nil {
-		printJSON([]diagnosticJSON{{File: path, Severity: "error", Message: out.err.Error()}}, nil)
+		printJSON([]diagnosticJSON{{File: path, Severity: valueError, Message: out.err.Error()}}, nil)
 		return 1
 	}
 	printJSON(out.diags, fixReports(out.path, out.fixes, out.dryRun))
@@ -772,7 +774,7 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 	}
 	info, err := os.Stat(folder)
 	if err != nil {
-		printJSON([]diagnosticJSON{{File: folder, Severity: "error", Message: err.Error()}}, nil)
+		printJSON([]diagnosticJSON{{File: folder, Severity: valueError, Message: err.Error()}}, nil)
 		return 1
 	}
 	if !info.IsDir() {
@@ -781,13 +783,13 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 
 	names, err := clivalidator.ResourceNames(folder, recursive)
 	if err != nil {
-		printJSON([]diagnosticJSON{{File: folder, Severity: "error", Message: err.Error()}}, nil)
+		printJSON([]diagnosticJSON{{File: folder, Severity: valueError, Message: err.Error()}}, nil)
 		return 1
 	}
 
 	files, err := parser.CollectYAMLFiles(folder, recursive)
 	if err != nil {
-		printJSON([]diagnosticJSON{{File: folder, Severity: "error", Message: err.Error()}}, nil)
+		printJSON([]diagnosticJSON{{File: folder, Severity: valueError, Message: err.Error()}}, nil)
 		return 1
 	}
 
@@ -802,7 +804,7 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 	for _, out := range outcomes {
 		if out.err != nil {
 			failed = true
-			all = append(all, diagnosticJSON{File: out.path, Severity: "error", Message: out.err.Error()})
+			all = append(all, diagnosticJSON{File: out.path, Severity: valueError, Message: out.err.Error()})
 			continue
 		}
 		if out.errs > 0 {
@@ -817,7 +819,7 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 		renderDiags = runPostRenderValidation(files)
 		all = append(all, renderDiags...)
 		for _, d := range renderDiags {
-			if d.Severity == "error" {
+			if d.Severity == valueError {
 				failed = true
 			}
 		}
@@ -825,7 +827,7 @@ func validateFolderObj(folder string, recursive bool, workers int, cfg fixConfig
 	preRenderDiags := distinctRuntimeFindings(runPreRenderValidation(files), renderDiags)
 	all = append(all, preRenderDiags...)
 	for _, d := range preRenderDiags {
-		if d.Severity == "error" {
+		if d.Severity == valueError {
 			failed = true
 		}
 	}
@@ -912,7 +914,7 @@ func buildSARIF(data []diagnosticJSON, fixes []fixReport) sarifLog {
 // sarifLevel maps a diagnostic severity to a SARIF result level.
 func sarifLevel(sev string) string {
 	switch sev {
-	case "error", "warning":
+	case valueError, valueWarning:
 		return sev
 	case "info", "hint":
 		return "note"
@@ -921,23 +923,13 @@ func sarifLevel(sev string) string {
 	}
 }
 
-// diagHasErrors reports whether any diagnostic is a severity error.
-func diagHasErrors(diags []diagnosticJSON) bool {
-	for _, d := range diags {
-		if d.Severity == "error" {
-			return true
-		}
-	}
-	return false
-}
-
 // severityName maps a ruleengine severity to its string form.
 func severityName(s ruleengine.Severity) string {
 	switch s {
 	case ruleengine.SeverityError:
-		return "error"
+		return valueError
 	case ruleengine.SeverityWarning:
-		return "warning"
+		return valueWarning
 	case ruleengine.SeverityInfo:
 		return "info"
 	case ruleengine.SeverityHint:
@@ -1101,7 +1093,7 @@ func printFixReport(out fileOutcome, includePath bool) {
 // per-file report, so a post-render finding reads like any other finding.
 func printDiagnostic(d diagnosticJSON) {
 	sev := ruleengine.SeverityError
-	if d.Severity == "warning" {
+	if d.Severity == valueWarning {
 		sev = ruleengine.SeverityWarning
 	}
 	loc := d.File
@@ -1114,7 +1106,7 @@ func printDiagnostic(d diagnosticJSON) {
 // hasErrorDiag reports whether any of the given diagnostics is an error.
 func hasErrorDiag(diags []diagnosticJSON) bool {
 	for _, d := range diags {
-		if d.Severity == "error" {
+		if d.Severity == valueError {
 			return true
 		}
 	}
@@ -1174,7 +1166,9 @@ func printFileOutcome(out fileOutcome, includePath bool) (errors, warnings int, 
 // includePath is true (batch mode), the file report is only printed if the
 // file has issues, and each diagnostic line is prefixed with the file path so
 // errors are self-contained.
-func validateFile(path string, includePath bool, names map[string]bool, cfg fixConfig) (errors, warnings int, wrote bool) {
+func validateFile(path string, names map[string]bool, cfg fixConfig) (errors, warnings int, wrote bool) {
+	includePath := false
+
 	return printFileOutcome(safeAnalyze(path, func() fileOutcome { return analyzeFile(path, names, cfg) }), includePath)
 }
 
@@ -1222,7 +1216,7 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		return 1
 	}
 	if !info.IsDir() {
-		errs, warns, wrote := validateFile(folder, false, buildNamesForFile(folder), cfg)
+		errs, warns, wrote := validateFile(folder, buildNamesForFile(folder), cfg)
 		if errs > 0 {
 			fmt.Printf("Validation failed: %d error(s), %d warning(s)%s\n", errs, warns, summaryNote(cfg, countRewritten(wrote)))
 			return 1
@@ -1293,13 +1287,13 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		for _, d := range preRenderDiags {
 			printDiagnostic(d)
 			switch d.Severity {
-			case "error":
+			case valueError:
 				totalErrors++
 				if !failedFiles[d.File] {
 					failedFiles[d.File] = true
 					failed++
 				}
-			case "warning":
+			case valueWarning:
 				totalWarnings++
 			}
 		}
@@ -1310,9 +1304,9 @@ func validateFolder(folder string, recursive bool, workers int, quiet, verbose b
 		for _, d := range renderDiags {
 			printDiagnostic(d)
 			switch d.Severity {
-			case "error":
+			case valueError:
 				totalErrors++
-			case "warning":
+			case valueWarning:
 				totalWarnings++
 			}
 		}

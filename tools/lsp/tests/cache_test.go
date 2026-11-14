@@ -6,8 +6,9 @@ package lsp_test
 import (
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // Black-box tests for the validation cache: it must reuse the parse and
@@ -127,7 +128,7 @@ func TestValidationCacheEvictsOnClose(t *testing.T) {
 	}
 
 	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}); err != nil {
 		t.Fatalf("DidClose: %v", err)
 	}

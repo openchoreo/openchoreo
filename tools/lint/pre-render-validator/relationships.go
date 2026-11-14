@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	sigsyaml "sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // relationship describes API-defined reference and value paths, not arbitrary
@@ -21,13 +22,13 @@ type relationship struct {
 }
 
 var parameterRelationships = map[string]relationship{
-	"Resource":    {[]string{"type"}, []string{"parameters"}, "ResourceType", "ClusterResourceType"},
-	"Project":     {[]string{"type"}, []string{"parameters"}, "ProjectType", "ClusterProjectType"},
-	"WorkflowRun": {[]string{"workflow"}, []string{"workflow", "parameters"}, "ClusterWorkflow", "Workflow"},
+	"Resource":    {[]string{"type"}, []string{valueParameters}, "ResourceType", "ClusterResourceType"},
+	"Project":     {[]string{"type"}, []string{valueParameters}, valueProjectType, "ClusterProjectType"},
+	"WorkflowRun": {[]string{"workflow"}, []string{"workflow", valueParameters}, "ClusterWorkflow", "Workflow"},
 }
 var additionalDefinitions = map[string]bool{
 	"ResourceType": true, "ClusterResourceType": true,
-	"ProjectType": true, "ClusterProjectType": true,
+	valueProjectType: true, "ClusterProjectType": true,
 	"Workflow": true, "ClusterWorkflow": true,
 }
 
@@ -46,7 +47,7 @@ func (relationshipValidator) Validate(ctx context.Context, r Resource, snapshot 
 		return nil
 	}
 	if additionalDefinitions[d.Kind] {
-		return validateDefinitionNode(r, d.Kind, d.Spec, d.Kind == "ProjectType" || d.Kind == "ClusterProjectType")
+		return validateDefinitionNode(r, d.Kind, d.Spec, d.Kind == valueProjectType || d.Kind == "ClusterProjectType")
 	}
 
 	rel := parameterRelationships[d.Kind]
@@ -99,7 +100,7 @@ func (relationshipValidator) Validate(ctx context.Context, r Resource, snapshot 
 		values = &runtime.RawExtension{Raw: data}
 	}
 
-	return validateParamsAgainstSchema(definition.Spec.Parameters, values, fmt.Sprintf("%s %q", kind, name.Value), r.Path, d, "parameters")
+	return validateParamsAgainstSchema(definition.Spec.Parameters, values, fmt.Sprintf("%s %q", kind, name.Value), r.Path, d, valueParameters)
 }
 func relationshipDecodeFinding(r Resource, err error) Finding {
 	line, column := position(r.Document.Root)

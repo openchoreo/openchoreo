@@ -1,11 +1,13 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
+	"path/filepath"
+
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
-	"path/filepath"
 )
 
 func (s *Server) workspaceRootsSnapshot() []string {
@@ -14,12 +16,12 @@ func (s *Server) workspaceRootsSnapshot() []string {
 	return append([]string(nil), s.workspaceRoots...)
 }
 
-// Folder changes rescan asynchronously; handlers and completion stay responsive.
+// DidChangeWorkspaceFolders rescans asynchronously; handlers and completion stay responsive.
 func (s *Server) DidChangeWorkspaceFolders(_ *glsp.Context, params *protocol.DidChangeWorkspaceFoldersParams) error {
 	s.workspaceRootsMu.Lock()
 	roots := append([]string(nil), s.workspaceRoots...)
 	for _, removed := range params.Event.Removed {
-		path := filepath.Clean(fileURIToPath(string(removed.URI)))
+		path := filepath.Clean(fileURIToPath(removed.URI))
 		var kept []string
 		for _, root := range roots {
 			if root != path {
@@ -29,7 +31,7 @@ func (s *Server) DidChangeWorkspaceFolders(_ *glsp.Context, params *protocol.Did
 		roots = kept
 	}
 	for _, added := range params.Event.Added {
-		roots = append(roots, fileURIToPath(string(added.URI)))
+		roots = append(roots, fileURIToPath(added.URI))
 	}
 	s.workspaceRoots = NormalizeWorkspaceRoots(roots)
 	s.workspaceRootsMu.Unlock()

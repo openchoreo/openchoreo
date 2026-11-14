@@ -1,15 +1,19 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestProjectDiagnosticsMergeAutomaticFindingsOnce(t *testing.T) {
-	d := protocol.Diagnostic{Message: "invalid parameter", Code: &protocol.IntegerOrString{Value: "schema-parameters-mismatch"}, Range: protocol.Range{Start: protocol.Position{Line: 4, Character: 2}}}
+	d := protocol.Diagnostic{Message: "invalid parameter", Code: &protocol.IntegerOrString{Value: testValueSchemaParametersMismatch}, Range: protocol.Range{Start: protocol.Position{Line: 4, Character: 2}}}
 	manual := d
 	manual.Source = stringPtr("openchoreo-post-render")
 	other := d

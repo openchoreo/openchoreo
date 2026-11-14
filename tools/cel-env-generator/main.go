@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	var generated []string
+	generated := make([]string, 0, len(jobs))
 	for _, j := range jobs {
 		if err := resolveJobVersion(&j); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to resolve version: %v\n", err)
@@ -49,7 +49,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n", targetDir, err)
 			os.Exit(1)
 		}
-		if err := generateForJob(j, targetDir); err != nil {
+		if err := generateForJob(targetDir); err != nil {
 			fmt.Fprintf(os.Stderr, "generate: %v\n", err)
 			os.Exit(1)
 		}

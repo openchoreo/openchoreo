@@ -24,7 +24,9 @@ type Rule interface {
 // makeDiag creates a diagnostic for a rendered resource. The diagnostic is
 // anchored to the resource identity rather than to a source range: rendered
 // resources are plain maps with no source positions.
-func makeDiag(sev ruleengine.Severity, code, message string, r renderer.RenderedResource) ruleengine.Diagnostic {
+func makeDiag(code string, message string, r renderer.RenderedResource) ruleengine.Diagnostic {
+	sev := ruleengine.SeverityError
+
 	return ruleengine.Diagnostic{
 		Severity: sev,
 		Code:     code,
@@ -70,14 +72,13 @@ func defaultRules() []Rule {
 // the template referenced something the context did not provide.
 type unresolvedExprRule struct{}
 
-func (unresolvedExprRule) Name() string { return "post-render-unresolved-expression" }
+func (unresolvedExprRule) Name() string { return valuePostRenderUnresolvedExpression }
 
 func (u unresolvedExprRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	var diags ruleengine.Diagnostics
 	for _, r := range resources {
 		if expr, ok := findUnresolved(r.Resource); ok {
 			diags = append(diags, makeDiag(
-				ruleengine.SeverityError,
 				u.Name(),
 				fmt.Sprintf("unresolved expression %q", expr),
 				r,
@@ -123,19 +124,19 @@ func (m missingFieldsRule) Evaluate(resources []renderer.RenderedResource) rulee
 		kind, _ := r.Resource["kind"].(string)
 		switch {
 		case apiVersion == "":
-			diags = append(diags, makeDiag(ruleengine.SeverityError, m.Name(), "resource has no apiVersion", r))
+			diags = append(diags, makeDiag(m.Name(), "resource has no apiVersion", r))
 			continue
 		case kind == "":
-			diags = append(diags, makeDiag(ruleengine.SeverityError, m.Name(), "resource has no kind", r))
+			diags = append(diags, makeDiag(m.Name(), "resource has no kind", r))
 			continue
 		}
 		meta, ok := r.Resource["metadata"].(map[string]any)
 		if !ok {
-			diags = append(diags, makeDiag(ruleengine.SeverityError, m.Name(), "resource has no metadata", r))
+			diags = append(diags, makeDiag(m.Name(), "resource has no metadata", r))
 			continue
 		}
 		if name, _ := meta["name"].(string); name == "" {
-			diags = append(diags, makeDiag(ruleengine.SeverityError, m.Name(), "resource has no metadata.name", r))
+			diags = append(diags, makeDiag(m.Name(), "resource has no metadata.name", r))
 		}
 	}
 	return diags
@@ -144,7 +145,7 @@ func (m missingFieldsRule) Evaluate(resources []renderer.RenderedResource) rulee
 // imageTagRule requires an explicit tag (including latest) or digest.
 type imageTagRule struct{}
 
-func (imageTagRule) Name() string { return "image-latest" }
+func (imageTagRule) Name() string { return valueImageLatest }
 
 func (i imageTagRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	var diags ruleengine.Diagnostics
@@ -155,7 +156,6 @@ func (i imageTagRule) Evaluate(resources []renderer.RenderedResource) ruleengine
 			}
 			if reason := unpinnedImageReason(c.image); reason != "" {
 				diags = append(diags, makeDiag(
-					ruleengine.SeverityError,
 					i.Name(),
 					fmt.Sprintf("container %q uses image %q: %s", c.name, c.image, reason),
 					r,
@@ -178,11 +178,11 @@ func unpinnedImageReason(image string) string {
 	segment := image[lastSlash+1:]
 	colon := strings.LastIndex(segment, ":")
 	if colon < 0 {
-		return "specify an image tag, such as a version or latest, or an image digest"
+		return imageTagGuidance
 	}
 	tag := segment[colon+1:]
 	if tag == "" {
-		return "specify an image tag, such as a version or latest, or an image digest"
+		return imageTagGuidance
 	}
 	return ""
 }
@@ -191,7 +191,7 @@ func unpinnedImageReason(image string) string {
 // limits.
 type resourceLimitsRule struct{}
 
-func (resourceLimitsRule) Name() string { return "limits-required" }
+func (resourceLimitsRule) Name() string { return valueLimitsRequired }
 
 func (l resourceLimitsRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	return checkResourceQuantities(resources, l.Name(), "limits")
@@ -201,7 +201,7 @@ func (l resourceLimitsRule) Evaluate(resources []renderer.RenderedResource) rule
 // requests.
 type resourceRequestsRule struct{}
 
-func (resourceRequestsRule) Name() string { return "requests-required" }
+func (resourceRequestsRule) Name() string { return valueRequestsRequired }
 
 func (q resourceRequestsRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	return checkResourceQuantities(resources, q.Name(), "requests")
@@ -219,7 +219,6 @@ func checkResourceQuantities(
 			values, ok := c.resources[section].(map[string]any)
 			if !ok {
 				diags = append(diags, makeDiag(
-					ruleengine.SeverityError,
 					code,
 					fmt.Sprintf("container %q declares no resource %s", c.name, section),
 					r,
@@ -229,7 +228,6 @@ func checkResourceQuantities(
 			for _, key := range []string{"cpu", "memory"} {
 				if _, ok := values[key]; !ok {
 					diags = append(diags, makeDiag(
-						ruleengine.SeverityError,
 						code,
 						fmt.Sprintf("container %q has no %s %s", c.name, section, key),
 						r,
@@ -246,9 +244,9 @@ func checkResourceQuantities(
 // mistake in the ComponentType template or the parameters feeding it.
 type replicasRule struct{}
 
-func (replicasRule) Name() string { return "replicas-positive" }
+func (replicasRule) Name() string { return valueReplicasPositive }
 
-// replicatedKinds are the workload kinds that honour spec.replicas.
+// replicatedKinds are the workload kinds that honor spec.replicas.
 var replicatedKinds = map[string]bool{
 	"Deployment":            true,
 	"StatefulSet":           true,
@@ -276,7 +274,6 @@ func (r replicasRule) Evaluate(resources []renderer.RenderedResource) ruleengine
 			continue
 		}
 		diags = append(diags, makeDiag(
-			ruleengine.SeverityError,
 			r.Name(),
 			fmt.Sprintf("spec.replicas is %d: at least one replica is required", count),
 			res,
@@ -313,7 +310,7 @@ func numericValue(value any) (int, bool) {
 // hostNamespaceRule reports pods that share a namespace with the host.
 type hostNamespaceRule struct{}
 
-func (hostNamespaceRule) Name() string { return "no-host-namespaces" }
+func (hostNamespaceRule) Name() string { return valueNoHostNamespaces }
 
 func (h hostNamespaceRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	var diags ruleengine.Diagnostics
@@ -322,7 +319,6 @@ func (h hostNamespaceRule) Evaluate(resources []renderer.RenderedResource) rulee
 			for _, field := range []string{"hostNetwork", "hostPID", "hostIPC"} {
 				if enabled, ok := spec[field].(bool); ok && enabled {
 					diags = append(diags, makeDiag(
-						ruleengine.SeverityError,
 						h.Name(),
 						fmt.Sprintf("%s is enabled", field),
 						r,
@@ -337,7 +333,7 @@ func (h hostNamespaceRule) Evaluate(resources []renderer.RenderedResource) rulee
 // privilegedRule reports containers that run as privileged.
 type privilegedRule struct{}
 
-func (privilegedRule) Name() string { return "no-privileged" }
+func (privilegedRule) Name() string { return valueNoPrivileged }
 
 func (p privilegedRule) Evaluate(resources []renderer.RenderedResource) ruleengine.Diagnostics {
 	var diags ruleengine.Diagnostics
@@ -345,7 +341,6 @@ func (p privilegedRule) Evaluate(resources []renderer.RenderedResource) ruleengi
 		for _, c := range containersOf(r) {
 			if c.privileged {
 				diags = append(diags, makeDiag(
-					ruleengine.SeverityError,
 					p.Name(),
 					fmt.Sprintf("container %q runs as privileged", c.name),
 					r,

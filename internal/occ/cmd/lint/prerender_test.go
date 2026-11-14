@@ -12,7 +12,7 @@ import (
 )
 
 func TestPreRenderSampleCLIModes(t *testing.T) {
-	source := filepath.Join("..", "..", "..", "..", "tools", "lint", "testData", "sample-projects", "pre-render-schema-validation")
+	source := filepath.Join("testdata", "pre-render")
 	dir := t.TempDir()
 	for _, name := range []string{"componenttype.yaml", "component.yaml", "autoscaling-trait.yaml", "storage-trait.yaml", "workload.yaml", "environment.yaml", "dataplane.yaml"} {
 		data, err := os.ReadFile(filepath.Join(source, name))

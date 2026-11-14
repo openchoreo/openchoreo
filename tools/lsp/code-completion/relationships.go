@@ -1,21 +1,26 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"encoding/json"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+
 	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"gopkg.in/yaml.v3"
-	"strings"
 )
 
 type completionRelationship struct{ reference, values, kind, other string }
 
 var completionRelationships = map[string]completionRelationship{
-	"Component":   {"componentType", "parameters", "ComponentType", "ClusterComponentType"},
-	"Resource":    {"type", "parameters", "ResourceType", "ClusterResourceType"},
-	"Project":     {"type", "parameters", "ProjectType", "ClusterProjectType"},
-	"WorkflowRun": {"workflow", "workflow.parameters", "ClusterWorkflow", "Workflow"},
+	valueComponent: {"componentType", "parameters", valueComponentType, valueClusterComponentType},
+	"Resource":     {"type", "parameters", "ResourceType", "ClusterResourceType"},
+	"Project":      {"type", "parameters", "ProjectType", "ClusterProjectType"},
+	"WorkflowRun":  {"workflow", "workflow.parameters", "ClusterWorkflow", "Workflow"},
 }
 
 type snapshotRelationship struct{ definition, values string }
@@ -29,7 +34,7 @@ var snapshotRelationships = map[string]snapshotRelationship{
 type bindingRelationship struct{ pin, release, definition, values string }
 
 var bindingRelationships = map[string]bindingRelationship{
-	"ReleaseBinding":         {"releaseName", "ComponentRelease", "componentType", "componentTypeEnvironmentConfigs"},
+	valueReleaseBinding:      {"releaseName", "ComponentRelease", "componentType", "componentTypeEnvironmentConfigs"},
 	"ResourceReleaseBinding": {"resourceRelease", "ResourceRelease", "resourceType", "resourceTypeEnvironmentConfigs"},
 	"ProjectReleaseBinding":  {"projectRelease", "ProjectRelease", "projectType", "environmentConfigs"},
 }
@@ -92,7 +97,7 @@ func frozenTrait(frozen, instance *yaml.Node) *yaml.Node {
 	}
 	var result *yaml.Node
 	for _, n := range seq.Content {
-		if dynamicScalar(dynamicNode(n, "kind")) == dynamicScalar(dynamicNode(instance, "kind")) && dynamicScalar(dynamicNode(n, "name")) == dynamicScalar(dynamicNode(instance, "name")) {
+		if dynamicScalar(dynamicNode(n, valueKind)) == dynamicScalar(dynamicNode(instance, valueKind)) && dynamicScalar(dynamicNode(n, "name")) == dynamicScalar(dynamicNode(instance, "name")) {
 			if result != nil {
 				return nil
 			}
@@ -104,37 +109,24 @@ func frozenTrait(frozen, instance *yaml.Node) *yaml.Node {
 
 // dynamicRelationship follows API-defined relationships. Flexible fields alone
 // never imply a schema; pinned bindings always use frozen release definitions.
-func dynamicRelationship(doc *parser.DocumentNode, path string, line int, preview bool, docs []indexer.SnapshotDocument) (string, *yaml.Node, bool) {
+func dynamicRelationship(doc *parser.DocumentNode, path string, line int, docs []indexer.SnapshotDocument) (string, *yaml.Node, bool) {
 	// Definition-level Trait bindings have the same linked schema contract as
 	// Component Trait instances, including their environment configuration.
-	if (doc.Kind == "ComponentType" || doc.Kind == "ClusterComponentType") && strings.HasPrefix(path, "spec.traits") {
-		instance := selectedInstance(dynamicNode(doc.Spec, "traits"), line)
-		kind := dynamicScalar(dynamicNode(instance, "kind"))
-		if kind == "" {
-			kind = "Trait"
-		}
-		if kind != "Trait" && kind != "ClusterTrait" {
-			return "", nil, false
-		}
-		section := "parameters"
-		environment := strings.Contains(path, ".environmentConfigs")
-		if environment {
-			section = "environmentConfigs"
-		}
-		return "spec.traits." + section, uniqueDefinition(docs, doc, kind, dynamicScalar(dynamicNode(instance, "name"))), environment
+	if (doc.Kind == valueComponentType || doc.Kind == valueClusterComponentType) && strings.HasPrefix(path, "spec.traits") {
+		return definitionTraitRelationship(doc, path, line, docs)
 	}
 	if rel, ok := completionRelationships[doc.Kind]; ok {
-		if doc.Kind == "Component" && strings.HasPrefix(path, "spec.workflow") {
+		if doc.Kind == valueComponent && strings.HasPrefix(path, "spec.workflow") {
 			rel = completionRelationship{"workflow", "workflow.parameters", "ClusterWorkflow", "Workflow"}
 		}
 		ref := dynamicAt(doc.Spec, rel.reference)
 		root := "spec." + rel.values
-		if doc.Kind == "Component" && strings.HasPrefix(path, "spec.traits") {
+		if doc.Kind == valueComponent && strings.HasPrefix(path, "spec.traits") {
 			ref = selectedInstance(dynamicNode(doc.Spec, "traits"), line)
 			root = "spec.traits.parameters"
-			rel.kind, rel.other = "Trait", "ClusterTrait"
+			rel.kind, rel.other = valueTrait, "ClusterTrait"
 		}
-		kind := dynamicScalar(dynamicNode(ref, "kind"))
+		kind := dynamicScalar(dynamicNode(ref, valueKind))
 		if kind == "" {
 			kind = rel.kind
 		}
@@ -165,10 +157,10 @@ func dynamicRelationship(doc *parser.DocumentNode, path string, line int, previe
 		if frozen == nil {
 			return "", nil, false
 		}
-		if doc.Kind == "ReleaseBinding" && path == "spec.traitEnvironmentConfigs" {
+		if doc.Kind == valueReleaseBinding && path == "spec.traitEnvironmentConfigs" {
 			return "spec.traitEnvironmentConfigs", traitConfigMapSchema(frozen), true
 		}
-		if doc.Kind == "ReleaseBinding" && strings.HasPrefix(path, "spec.traitEnvironmentConfigs.") {
+		if doc.Kind == valueReleaseBinding && strings.HasPrefix(path, "spec.traitEnvironmentConfigs.") {
 			parts := strings.Split(path, ".")
 			name := parts[2]
 			instances := dynamicAt(frozen, "componentProfile.traits")
@@ -220,7 +212,7 @@ func traitConfigMapSchema(frozen *yaml.Node) *yaml.Node {
 	if len(props) == 0 {
 		return nil
 	}
-	data, err := json.Marshal(map[string]any{"environmentConfigs": map[string]any{"openAPIV3Schema": map[string]any{"type": "object", "properties": props}}})
+	data, err := json.Marshal(map[string]any{"environmentConfigs": map[string]any{"openAPIV3Schema": map[string]any{"type": valueObject, "properties": props}}})
 	if err != nil {
 		return nil
 	}
@@ -229,4 +221,21 @@ func traitConfigMapSchema(frozen *yaml.Node) *yaml.Node {
 		return nil
 	}
 	return root.Content[0]
+}
+
+func definitionTraitRelationship(doc *parser.DocumentNode, path string, line int, docs []indexer.SnapshotDocument) (string, *yaml.Node, bool) {
+	instance := selectedInstance(dynamicNode(doc.Spec, "traits"), line)
+	kind := dynamicScalar(dynamicNode(instance, valueKind))
+	if kind == "" {
+		kind = valueTrait
+	}
+	if kind != valueTrait && kind != "ClusterTrait" {
+		return "", nil, false
+	}
+	section := "parameters"
+	environment := strings.Contains(path, ".environmentConfigs")
+	if environment {
+		section = "environmentConfigs"
+	}
+	return "spec.traits." + section, uniqueDefinition(docs, doc, kind, dynamicScalar(dynamicNode(instance, "name"))), environment
 }

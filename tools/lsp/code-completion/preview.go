@@ -1,14 +1,19 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"fmt"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"gopkg.in/yaml.v3"
 	"regexp"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 )
 
 // RequiredPreview uses the existing completion context resolver, but generates
@@ -22,21 +27,9 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 	if line < 0 || line >= len(allLines) || column != len(allLines[line]) {
 		return ""
 	}
-	// Resolve only the current YAML document; a neighbouring kind is unrelated.
-	start, end := 0, len(allLines)
-	separator := regexp.MustCompile(`^(---|\.\.\.)(\s+#.*)?\s*$`)
-	for i, l := range allLines {
-		if separator.MatchString(l) {
-			if i == line {
-				return ""
-			}
-			if i < line {
-				start = i + 1
-			} else {
-				end = i
-				break
-			}
-		}
+	start, end, ok := previewDocumentBounds(allLines, line)
+	if !ok {
+		return ""
 	}
 	lines := allLines[start:end]
 	localLine := line - start
@@ -93,171 +86,20 @@ func requiredPreviewWithSchema(text string, line, column int, indent string, loo
 	if indent == "" || strings.Contains(indent, "\t") {
 		indent = "  "
 	}
-	count := 0
-	var expand func(*schema.FieldSchema, string, string) string
-	expand = func(n *schema.FieldSchema, prefix string, objectPath string) string {
-		if n == nil {
-			return ""
-		}
-		out := ""
-		for _, name := range previewFieldNames(n) {
-			child := n.Properties[name]
-			childPath := joinSchemaPath(objectPath, name)
-			body := ""
-			if child.Type == "object" {
-				body = expand(child, prefix+indent, childPath)
-			}
-			if !child.Required && body == "" && !referenceKindHint(n, name, child) {
-				continue
-			}
-			if child.Type == "object" {
-				if body == "" {
-					out += prefix + name + ": {}\n"
-				} else {
-					out += prefix + name + ":\n" + body
-				}
-				continue
-			}
-			if child.Type == "array" {
-				listPrefix := prefix + indent
-				if child.Items == nil {
-					out += prefix + name + ":\n" + listPrefix + "- {}\n"
-					continue
-				}
-				item := *child.Items
-				item.Required = true
-				wrapper := &schema.FieldSchema{Type: "object", Properties: map[string]*schema.FieldSchema{"item": &item}}
-				itemBody := expand(wrapper, listPrefix, childPath+"[]")
-				rendered := strings.TrimPrefix(itemBody, listPrefix+"item:")
-				if item.Type == "object" && strings.HasPrefix(rendered, "\n"+listPrefix+indent) {
-					lines := strings.Split(strings.TrimPrefix(rendered, "\n"), "\n")
-					// A compact sequence item's keys align two columns after
-					// the dash, independently of the editor's indent width.
-					for i, line := range lines {
-						if strings.HasPrefix(line, listPrefix+indent) {
-							lines[i] = listPrefix + "  " + strings.TrimPrefix(line, listPrefix+indent)
-						}
-					}
-					lines[0] = strings.TrimPrefix(lines[0], listPrefix+"  ")
-					out += prefix + name + ":\n" + listPrefix + "- " + strings.Join(lines, "\n")
-				} else {
-					out += prefix + name + ":\n" + listPrefix + "-" + rendered
-				}
-				continue
-			}
-			count++
-			placeholder := "<" + placeholderLabel(name) + ">"
-			if childPath == "metadata.name" {
-				placeholder = placeholderLabel(d.Kind) + "-name"
-			}
-			value := fmt.Sprintf("${%d:%s}", count, placeholder)
-			switch child.Type {
-			case "integer", "number":
-				value = fmt.Sprintf("${%d:0}", count)
-			case "boolean":
-				value = fmt.Sprintf("${%d:false}", count)
-			case "array":
-				value = "[]"
-			}
-			if child.Type == "string" && child.Default == "" && len(child.Enum) == 0 && child.Pattern != "" {
-				if example, ok := patternExample(child.Pattern); ok {
-					encoded, err := yaml.Marshal(example)
-					if err != nil {
-						return ""
-					}
-					escaped := strings.NewReplacer("\\", "\\\\", "$", "\\$", "}", "\\}").Replace(strings.TrimSuffix(string(encoded), "\n"))
-					value = fmt.Sprintf("${%d:%s}", count, escaped)
-				}
-			}
-			literal := child.Default
-			editableEnum := literal == "" && len(child.Enum) > 1
-			if literal == "" && len(child.Enum) > 0 {
-				literal = child.Enum[0]
-			}
-			if literal != "" || len(child.Enum) > 0 {
-				if child.Type == "string" {
-					encoded, err := yaml.Marshal(literal)
-					if err != nil {
-						return ""
-					}
-					literal = strings.TrimSuffix(string(encoded), "\n")
-				}
-				value = strings.NewReplacer("\\", "\\\\", "$", "\\$", "}", "\\}").Replace(literal)
-				if editableEnum {
-					value = fmt.Sprintf("${%d:%s}", count, value)
-				}
-			}
-
-			out += prefix + name + ": " + value + "\n"
-		}
-		return out
-	}
-	// Existing headers must never be generated again.
-	copyRoot := *root
-	copyRoot.Properties = map[string]*schema.FieldSchema{}
-	for k, v := range root.Properties {
-		if k != "apiVersion" && k != "kind" && k != "status" {
-			copyRoot.Properties[k] = v
-		}
-	}
-	// Metadata identity is required by the shared RuleEngine, even where the
-	// versioned structural template marks it optional. Copy authoring hints;
-	// never change the cached template or its validation semantics.
-	if original := root.Properties["metadata"]; original != nil {
-		metadata := *original
-		metadata.Properties = map[string]*schema.FieldSchema{}
-		for name, field := range original.Properties {
-			metadata.Properties[name] = field
-		}
-		for _, name := range []string{"name", "namespace"} {
-			if name == "namespace" && strings.HasPrefix(d.Kind, "Cluster") {
-				continue
-			}
-			if field := original.Properties[name]; field != nil {
-				copyField := *field
-				copyField.Required = true
-				if name == "namespace" && copyField.Default == "" {
-					copyField.Default = "default"
-				}
-				metadata.Properties[name] = &copyField
-			}
-		}
-		copyRoot.Properties["metadata"] = &metadata
-	}
-	target := &copyRoot
+	expander := &previewExpander{indent: indent, kind: d.Kind}
+	copyRoot := previewAuthoringSchema(root, d.Kind)
+	target := copyRoot
 	if path != "" {
-		target = schema.FindSchema(&copyRoot, path)
+		target = schema.FindSchema(copyRoot, path)
 	}
-	if target == nil || target.Type != "object" || target.Preserve {
+	if target == nil || target.Type != valueObject || target.Preserve {
 		return ""
 	}
-	missing := *target
-	missing.Properties = map[string]*schema.FieldSchema{}
-	for name, field := range target.Properties {
-		if mappingValue(existing, name) == nil && (typedKey == "" || strings.HasPrefix(name, typedKey)) {
-			if referenceKindHint(target, name, field) {
-				copyField := *field
-				copyField.Required = true
-				missing.Properties[name] = &copyField
-			} else {
-				missing.Properties[name] = field
-			}
-		}
-	}
-	result := strings.TrimSuffix(expand(&missing, prefix, path), "\n")
-	if result == "" {
+	missing := missingPreviewFields(target, existing, typedKey)
+	result := strings.TrimSuffix(expander.expand(missing, prefix, path), "\n")
+	result, ok = previewInsertion(result, prefix, typedKey, header)
+	if !ok {
 		return ""
-	}
-	if header {
-		result = "\n" + result
-	} else {
-		result = strings.TrimPrefix(result, prefix)
-		if typedKey != "" {
-			if !strings.HasPrefix(result, typedKey) {
-				return ""
-			}
-			result = strings.TrimPrefix(result, typedKey)
-		}
 	}
 	// Parse the accepted placeholder defaults, not snippet syntax. This catches
 	// unsafe indentation, duplicate mappings and joins with following YAML.
@@ -291,7 +133,7 @@ func mappingValue(node *yaml.Node, key string) *yaml.Node {
 // while shared reference validation requires it explicitly. Recognize the
 // schema shape instead of keeping a resource-specific reference-field list.
 func referenceKindHint(parent *schema.FieldSchema, name string, child *schema.FieldSchema) bool {
-	if name != "kind" || child == nil || child.Type != "string" || parent.Properties["name"] == nil {
+	if name != valueKind || child == nil || child.Type != valueString || parent.Properties["name"] == nil {
 		return false
 	}
 	if parser.KnownKinds[child.Default] {
@@ -316,7 +158,10 @@ func placeholderLabel(field string) string {
 // changing dropdown completion ordering or the user's existing mappings.
 func previewFieldNames(node *schema.FieldSchema) []string {
 	names := sortedFieldNames(node)
-	nested := func(name string) bool { typ := node.Properties[name].Type; return typ == "object" || typ == "array" }
+	nested := func(name string) bool {
+		typ := node.Properties[name].Type
+		return typ == valueObject || typ == valueArray
+	}
 	sort.Slice(names, func(i, j int) bool {
 		a, b := nested(names[i]), nested(names[j])
 		if a != b {
@@ -379,7 +224,7 @@ func RequiredPreviewWithIndex(text string, line, column int, indent, uri string,
 		parts := strings.Split(path, ".")
 		parent := schema.FindSchema(&root, strings.Join(parts[:len(parts)-1], "."))
 		if parent != nil {
-			if parent.Type == "array" {
+			if parent.Type == valueArray {
 				parent = parent.Items
 			}
 			if parent != nil {
@@ -442,4 +287,210 @@ func previewMappingContext(root *yaml.Node, path string, lines []string, localLi
 	path = strings.Join(resolved, ".")
 
 	return existing, path, true
+}
+
+type previewExpander struct {
+	indent, kind string
+	count        int
+}
+
+func (e *previewExpander) expand(n *schema.FieldSchema, prefix, objectPath string) string {
+	if n == nil {
+		return ""
+	}
+	out := ""
+	for _, name := range previewFieldNames(n) {
+		child := n.Properties[name]
+		childPath := joinSchemaPath(objectPath, name)
+		body := ""
+		if child.Type == valueObject {
+			body = e.expand(child, prefix+e.indent, childPath)
+		}
+		if !child.Required && body == "" && !referenceKindHint(n, name, child) {
+			continue
+		}
+		if child.Type == valueObject {
+			if body == "" {
+				out += prefix + name + ": {}\n"
+			} else {
+				out += prefix + name + ":\n" + body
+			}
+			continue
+		}
+		if child.Type == valueArray {
+			listPrefix := prefix + e.indent
+			if child.Items == nil {
+				out += prefix + name + ":\n" + listPrefix + "- {}\n"
+				continue
+			}
+			item := *child.Items
+			item.Required = true
+			wrapper := &schema.FieldSchema{Type: valueObject, Properties: map[string]*schema.FieldSchema{"item": &item}}
+			itemBody := e.expand(wrapper, listPrefix, childPath+"[]")
+			rendered := strings.TrimPrefix(itemBody, listPrefix+"item:")
+			if item.Type == valueObject && strings.HasPrefix(rendered, "\n"+listPrefix+e.indent) {
+				lines := strings.Split(strings.TrimPrefix(rendered, "\n"), "\n")
+				// A compact sequence item's keys align two columns after
+				// the dash, independently of the editor's e.indent width.
+				for i, line := range lines {
+					if strings.HasPrefix(line, listPrefix+e.indent) {
+						lines[i] = listPrefix + "  " + strings.TrimPrefix(line, listPrefix+e.indent)
+					}
+				}
+				lines[0] = strings.TrimPrefix(lines[0], listPrefix+"  ")
+				out += prefix + name + ":\n" + listPrefix + "- " + strings.Join(lines, "\n")
+			} else {
+				out += prefix + name + ":\n" + listPrefix + "-" + rendered
+			}
+			continue
+		}
+		value, ok := e.scalarValue(child, name, childPath)
+		if !ok {
+			return ""
+		}
+
+		out += prefix + name + ": " + value + "\n"
+	}
+	return out
+}
+
+func (e *previewExpander) scalarValue(child *schema.FieldSchema, name, childPath string) (string, bool) {
+	e.count++
+	placeholder := "<" + placeholderLabel(name) + ">"
+	if childPath == "metadata.name" {
+		placeholder = placeholderLabel(e.kind) + "-name"
+	}
+	value := fmt.Sprintf("${%d:%s}", e.count, placeholder)
+	switch child.Type {
+	case valueInteger, valueNumber:
+		value = fmt.Sprintf("${%d:0}", e.count)
+	case valueBoolean:
+		value = fmt.Sprintf("${%d:false}", e.count)
+	case valueArray:
+		value = "[]"
+	}
+	if child.Type == valueString && child.Default == "" && len(child.Enum) == 0 && child.Pattern != "" {
+		if example, ok := patternExample(child.Pattern); ok {
+			encoded, err := yaml.Marshal(example)
+			if err != nil {
+				return "", false
+			}
+			escaped := strings.NewReplacer("\\", "\\\\", "$", "\\$", "}", "\\}").Replace(strings.TrimSuffix(string(encoded), "\n"))
+			value = fmt.Sprintf("${%d:%s}", e.count, escaped)
+		}
+	}
+	literal := child.Default
+	editableEnum := literal == "" && len(child.Enum) > 1
+	if literal == "" && len(child.Enum) > 0 {
+		literal = child.Enum[0]
+	}
+	if literal != "" || len(child.Enum) > 0 {
+		if child.Type == valueString {
+			encoded, err := yaml.Marshal(literal)
+			if err != nil {
+				return "", false
+			}
+			literal = strings.TrimSuffix(string(encoded), "\n")
+		}
+		value = strings.NewReplacer("\\", "\\\\", "$", "\\$", "}", "\\}").Replace(literal)
+		if editableEnum {
+			value = fmt.Sprintf("${%d:%s}", e.count, value)
+		}
+	}
+
+	return value, true
+}
+
+func previewAuthoringSchema(root *schema.FieldSchema, kind string) *schema.FieldSchema {
+	// Existing headers must never be generated again.
+	copyRoot := *root
+	copyRoot.Properties = map[string]*schema.FieldSchema{}
+	for k, v := range root.Properties {
+		if k != "apiVersion" && k != valueKind && k != "status" {
+			copyRoot.Properties[k] = v
+		}
+	}
+	// Metadata identity is required by the shared RuleEngine, even where the
+	// versioned structural template marks it optional. Copy authoring hints;
+	// never change the cached template or its validation semantics.
+	if original := root.Properties["metadata"]; original != nil {
+		metadata := *original
+		metadata.Properties = map[string]*schema.FieldSchema{}
+		for name, field := range original.Properties {
+			metadata.Properties[name] = field
+		}
+		for _, name := range []string{"name", "namespace"} {
+			if name == "namespace" && strings.HasPrefix(kind, "Cluster") {
+				continue
+			}
+			if field := original.Properties[name]; field != nil {
+				copyField := *field
+				copyField.Required = true
+				if name == "namespace" && copyField.Default == "" {
+					copyField.Default = "default"
+				}
+				metadata.Properties[name] = &copyField
+			}
+		}
+		copyRoot.Properties["metadata"] = &metadata
+	}
+	return &copyRoot
+}
+
+func previewDocumentBounds(allLines []string, line int) (int, int, bool) {
+	// Resolve only the current YAML document; a neighboring kind is unrelated.
+	start, end := 0, len(allLines)
+	separator := regexp.MustCompile(`^(---|\.\.\.)(\s+#.*)?\s*$`)
+	for i, l := range allLines {
+		if separator.MatchString(l) {
+			if i == line {
+				return 0, 0, false
+			}
+			if i < line {
+				start = i + 1
+			} else {
+				end = i
+				break
+			}
+		}
+	}
+
+	return start, end, true
+}
+
+func missingPreviewFields(target *schema.FieldSchema, existing *yaml.Node, typedKey string) *schema.FieldSchema {
+	missing := *target
+	missing.Properties = map[string]*schema.FieldSchema{}
+	for name, field := range target.Properties {
+		if mappingValue(existing, name) == nil && (typedKey == "" || strings.HasPrefix(name, typedKey)) {
+			if referenceKindHint(target, name, field) {
+				copyField := *field
+				copyField.Required = true
+				missing.Properties[name] = &copyField
+			} else {
+				missing.Properties[name] = field
+			}
+		}
+	}
+
+	return &missing
+}
+
+func previewInsertion(result, prefix, typedKey string, header bool) (string, bool) {
+	if result == "" {
+		return "", false
+	}
+	if header {
+		result = "\n" + result
+	} else {
+		result = strings.TrimPrefix(result, prefix)
+		if typedKey != "" {
+			if !strings.HasPrefix(result, typedKey) {
+				return "", false
+			}
+			result = strings.TrimPrefix(result, typedKey)
+		}
+	}
+
+	return result, true
 }

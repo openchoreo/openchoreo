@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package targetschema
 
 import (
@@ -108,13 +109,13 @@ func TestWorkspaceVersionsScopesAndAmbiguity(t *testing.T) {
 		if err != nil || found == nil {
 			t.Fatal(scope, err)
 		}
-		if found.Properties["spec"].Properties["count"].Type != "integer" || found.Properties["metadata"].Properties["namespace"].Type != "string" {
+		if found.Properties["spec"].Properties["count"].Type != "integer" || found.Properties["metadata"].Properties["namespace"].Type != testValueString {
 			t.Fatalf("missing CRD/envelope type: %+v", found)
 		}
 		next := key
 		next.Version = "v2"
 		v2, err := resolver.Resolve(next)
-		if err != nil || v2 == nil || v2.Properties["spec"].Properties["title"].Type != "string" {
+		if err != nil || v2 == nil || v2.Properties["spec"].Properties["title"].Type != testValueString {
 			t.Fatal(err)
 		}
 		next.Version = "v3"
@@ -152,10 +153,10 @@ func TestConfiguredCatalogsAndFallback(t *testing.T) {
 	root := t.TempDir()
 	key := schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"}
 	for _, v3 := range []bool{false, true} {
-		sources := map[string][]byte{filepath.Join(root, ConfigName): []byte("version: 1\nkubernetesSchemaVersion: '1.36.4'\nschemaCatalogs: [schemas/one.json]\n"), filepath.Join(root, "schemas", "one.json"): openAPICatalog(v3, "string"), filepath.Join(root, "widget.yaml"): []byte(sampleCRD)}
+		sources := map[string][]byte{filepath.Join(root, ConfigName): []byte("version: 1\nkubernetesSchemaVersion: '1.36.4'\nschemaCatalogs: [schemas/one.json]\n"), filepath.Join(root, "schemas", "one.json"): openAPICatalog(v3, testValueString), filepath.Join(root, "widget.yaml"): []byte(sampleCRD)}
 		resolver := NewScope(root, sources)
 		found, err := resolver.Resolve(key)
-		if err != nil || found == nil || found.Properties["spec"].Properties["count"].Type != "string" {
+		if err != nil || found == nil || found.Properties["spec"].Properties["count"].Type != testValueString {
 			t.Fatal("configured catalog must take precedence", err, resolver.warnings)
 		}
 		if len(resolver.warnings) != 0 {

@@ -5,27 +5,29 @@ package codeaction
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"gopkg.in/yaml.v3"
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
-	protocol "github.com/tliron/glsp/protocol_3_16"
-	"gopkg.in/yaml.v3"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // schemaFixes walks the parsed document against its JSON schema and produces
-// quick fixes for missing required fields, invalid enum values, and misspelt
+// quick fixes for missing required fields, invalid enum values, and misspelled
 // field names at every level of the YAML, giving schema-driven fixes for "each
 // and every field" rather than only the handful of top-level diagnostics.
-func schemaFixes(uri, text string, root *schema.FieldSchema, clientDiags []protocol.Diagnostic, requestRange protocol.Range) []protocol.CodeAction {
+func schemaFixes(uri string, text string, root *schema.FieldSchema, clientDiags []protocol.Diagnostic) []protocol.CodeAction {
 	if root == nil {
 		return nil
 	}
 	// The root `kind` field is a free-form string in every schema file; declare
-	// every known kind name as its enum so a misspelt kind value is corrected
+	// every known kind name as its enum so a misspelled kind value is corrected
 	// by the same schema-driven enum fixer used for every other field.
 	if kind, ok := root.Properties["kind"]; ok && len(kind.Enum) == 0 {
 		kind.Enum = template.AllKinds()
@@ -41,14 +43,14 @@ func schemaFixes(uri, text string, root *schema.FieldSchema, clientDiags []proto
 		if doc.Root == nil || doc.Root.Kind != yaml.MappingNode {
 			continue
 		}
-		walkMap(uri, text, lines, root, doc.Root, &actions, clientDiags, requestRange)
+		walkMap(uri, lines, root, doc.Root, &actions, clientDiags)
 	}
 	return actions
 }
 
 // walkMap inspects a mapping node against a schema object and emits fixes for
 // its children, recursing into nested objects/arrays.
-func walkMap(uri, text string, lines []string, sc *schema.FieldSchema, m *yaml.Node, actions *[]protocol.CodeAction, clientDiags []protocol.Diagnostic, requestRange protocol.Range) {
+func walkMap(uri string, lines []string, sc *schema.FieldSchema, m *yaml.Node, actions *[]protocol.CodeAction, clientDiags []protocol.Diagnostic) {
 	if sc == nil || m == nil || m.Kind != yaml.MappingNode {
 		return
 	}
@@ -100,7 +102,7 @@ func walkMap(uri, text string, lines []string, sc *schema.FieldSchema, m *yaml.N
 		*actions = append(*actions, *quickFix(title, uri, diag, []protocol.TextEdit{*edit}))
 	}
 
-	// 2+3) Unknown/misspelt keys, enum fixes, and recursion.
+	// 2+3) Unknown/misspelled keys, enum fixes, and recursion.
 	for _, i := range childIndices {
 		keyNode := m.Content[i]
 		valNode := m.Content[i+1]
@@ -109,7 +111,7 @@ func walkMap(uri, text string, lines []string, sc *schema.FieldSchema, m *yaml.N
 		childSchema, known := sc.Properties[fieldName]
 
 		if !known && !sc.Preserve {
-			// Misspelt / unrecognized field: offer the closest schema field.
+			// Misspelled / unrecognized field: offer the closest schema field.
 			matches := closestMatches(fieldName, names, 1)
 			if len(matches) > 0 && matches[0] != fieldName {
 				edit := replaceTokenAt(lines, keyNode, matches[0])
@@ -124,7 +126,7 @@ func walkMap(uri, text string, lines []string, sc *schema.FieldSchema, m *yaml.N
 
 		// Enum violation for scalar leaves.
 		if childSchema != nil && valNode.Kind == yaml.ScalarNode && len(childSchema.Enum) > 0 {
-			if fix := enumFix(uri, lines, text, keyNode, valNode, childSchema, requestRange, clientDiags); fix != nil {
+			if fix := enumFix(uri, lines, keyNode, valNode, childSchema, clientDiags); fix != nil {
 				*actions = append(*actions, *fix)
 			}
 		}
@@ -133,13 +135,13 @@ func walkMap(uri, text string, lines []string, sc *schema.FieldSchema, m *yaml.N
 		switch valNode.Kind {
 		case yaml.MappingNode:
 			if childSchema != nil {
-				walkMap(uri, text, lines, childSchema, valNode, actions, clientDiags, requestRange)
+				walkMap(uri, lines, childSchema, valNode, actions, clientDiags)
 			}
 		case yaml.SequenceNode:
 			if childSchema != nil && childSchema.Items != nil {
 				for _, item := range valNode.Content {
 					if item.Kind == yaml.MappingNode {
-						walkMap(uri, text, lines, childSchema.Items, item, actions, clientDiags, requestRange)
+						walkMap(uri, lines, childSchema.Items, item, actions, clientDiags)
 					}
 				}
 			}
@@ -177,8 +179,8 @@ func insertSiblingEdit(lines []string, m *yaml.Node, indent, name string, child 
 	body := "\n" + indent + name + ":" + lsputil.ExpandObjectBody(name, child, indent+"  ")
 	edit := &protocol.TextEdit{
 		Range: protocol.Range{
-			Start: protocol.Position{Line: protocol.UInteger(bottomLine), Character: protocol.UInteger(utf16Len(lines[bottomLine]))},
-			End:   protocol.Position{Line: protocol.UInteger(bottomLine), Character: protocol.UInteger(utf16Len(lines[bottomLine]))},
+			Start: protocol.Position{Line: lsputil.PositionIndex(bottomLine), Character: lsputil.PositionIndex(utf16Len(lines[bottomLine]))},
+			End:   protocol.Position{Line: lsputil.PositionIndex(bottomLine), Character: lsputil.PositionIndex(utf16Len(lines[bottomLine]))},
 		},
 		NewText: body,
 	}
@@ -210,7 +212,7 @@ func bottomLine(n *yaml.Node) int {
 // utf16Len returns the UTF-16 length of a string (LSP character counts in
 // UTF-16 code units). For ASCII YAML this equals byte length.
 func utf16Len(s string) int {
-	return len([]rune(s))
+	return lsputil.UTF16Length(s)
 }
 
 // replaceTokenAt replaces the exact text span of a yaml scalar node with the
@@ -223,23 +225,20 @@ func replaceTokenAt(lines []string, n *yaml.Node, replacement string) *protocol.
 	if li >= len(lines) {
 		return nil
 	}
-	start := n.Column - 1
-	token := n.Value
-	end := start + utf16Len(token)
-	if end > utf16Len(lines[li]) {
-		end = utf16Len(lines[li])
-	}
+	start := lsputil.PositionIndex(utf16Column(lines[li], n.Column))
+	end := min(start+lsputil.PositionIndex(utf16Len(n.Value)), math.MaxInt32)
+	end = min(end, lsputil.PositionIndex(utf16Len(lines[li])))
 	return &protocol.TextEdit{
 		Range: protocol.Range{
-			Start: protocol.Position{Line: protocol.UInteger(li), Character: protocol.UInteger(start)},
-			End:   protocol.Position{Line: protocol.UInteger(li), Character: protocol.UInteger(end)},
+			Start: protocol.Position{Line: lsputil.PositionIndex(li), Character: start},
+			End:   protocol.Position{Line: lsputil.PositionIndex(li), Character: end},
 		},
 		NewText: replacement,
 	}
 }
 
 // enumFix offers to replace a scalar value with the closest enum option.
-func enumFix(uri string, lines []string, text string, keyNode, valNode *yaml.Node, child *schema.FieldSchema, requestRange protocol.Range, clientDiags []protocol.Diagnostic) *protocol.CodeAction {
+func enumFix(uri string, lines []string, keyNode *yaml.Node, valNode *yaml.Node, child *schema.FieldSchema, clientDiags []protocol.Diagnostic) *protocol.CodeAction {
 	current := valNode.Value
 	if current == "" {
 		return nil
@@ -283,4 +282,11 @@ func fakeDiag(client []protocol.Diagnostic, r protocol.Range, code, message stri
 	}
 	d.Severity = &sev
 	return d
+}
+
+// utf16Column converts YAML's one-based rune column within a source line.
+func utf16Column(line string, column int) int {
+	runes := []rune(line)
+	offset := min(max(column, 1)-1, len(runes))
+	return utf16Len(string(runes[:offset]))
 }

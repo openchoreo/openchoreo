@@ -110,17 +110,8 @@ func FindPathInMapping(node *yaml.Node, line, col int, includeCurrentField bool)
 			}
 
 		case yaml.SequenceNode:
-			for _, item := range valNode.Content {
-				if item.Kind == yaml.MappingNode && len(item.Content) >= 2 {
-					itemStart := item.Content[0].Line
-					itemEnd := NodeEndLine(item)
-					if line >= itemStart && line <= itemEnd {
-						sub := FindPathInMapping(item, line, col, includeCurrentField)
-						if sub != "" {
-							return keyNode.Value + "." + sub
-						}
-					}
-				}
+			if sub := mappingSequencePath(valNode, line, col, includeCurrentField); sub != "" {
+				return keyNode.Value + "." + sub
 			}
 
 		default:
@@ -129,12 +120,12 @@ func FindPathInMapping(node *yaml.Node, line, col int, includeCurrentField bool)
 				// FindFieldPathAtPosition mode: only match when value is on a different
 				// line than the key, so cursor on the NEXT key's line isn't
 				// falsely matched as this key's scope.
-				if valNode.Line != keyNode.Line && line > keyNode.Line && line <= nextBoundary {
+				if valNode.Line != keyNode.Line && withinScalarScope(line, keyNode.Line, nextBoundary) {
 					return keyNode.Value
 				}
 			} else {
 				// FindPathAtPosition mode: match any scalar where cursor is past the key.
-				if line > keyNode.Line && line <= nextBoundary {
+				if withinScalarScope(line, keyNode.Line, nextBoundary) {
 					isLast := i+2 >= len(node.Content)
 					if isLast && line > endLine && valNode.Value != "" {
 						continue
@@ -182,4 +173,24 @@ func NodeEndLine(node *yaml.Node) int {
 	default:
 		return node.Line
 	}
+}
+
+func mappingSequencePath(valNode *yaml.Node, line, col int, includeCurrentField bool) string {
+	for _, item := range valNode.Content {
+		if item.Kind == yaml.MappingNode && len(item.Content) >= 2 {
+			itemStart := item.Content[0].Line
+			itemEnd := NodeEndLine(item)
+			if line >= itemStart && line <= itemEnd {
+				sub := FindPathInMapping(item, line, col, includeCurrentField)
+				if sub != "" {
+					return sub
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func withinScalarScope(line, keyLine, nextBoundary int) bool {
+	return line > keyLine && line <= nextBoundary
 }

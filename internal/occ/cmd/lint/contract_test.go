@@ -25,6 +25,7 @@ package lint_test
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -78,8 +79,6 @@ func TestMain(m *testing.M) {
 type scenario struct {
 	name string
 	args []string
-	// dir is the fixture directory, written once per scenario.
-	dir bool
 }
 
 var (
@@ -217,9 +216,9 @@ func TestCLIContractGolden(t *testing.T) {
 		})
 	}
 
-	goldenPath := filepath.Join("cli_contract.golden")
+	goldenPath := "cli_contract.golden"
 	if *updateGolden {
-		if err := os.WriteFile(goldenPath, []byte(sb.String()), 0o644); err != nil {
+		if err := os.WriteFile(goldenPath, []byte(sb.String()), 0o600); err != nil {
 			t.Fatalf("write golden: %v", err)
 		}
 		t.Logf("wrote %s (%d bytes, %d scenarios)", goldenPath, sb.Len(), len(scenarios))
@@ -241,13 +240,15 @@ func TestCLIContractGolden(t *testing.T) {
 func runCLI(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
+	// Golden contracts use plain markers regardless of the invoking environment.
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		ee, ok := err.(*exec.ExitError)
-		if !ok {
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) {
 			t.Fatalf("running %s %v: %v", binPath, args, err)
 		}
 		code = ee.ExitCode()
@@ -257,7 +258,7 @@ func runCLI(t *testing.T, args ...string) (code int, stdout, stderr string) {
 
 func writeFixture(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", name, err)
 	}
 }

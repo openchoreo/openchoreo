@@ -1,30 +1,32 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestReleaseSnapshots(t *testing.T) {
-	for _, kind := range []string{"ComponentRelease", "ResourceRelease", "ProjectRelease"} {
+	for _, kind := range []string{valueComponentRelease, valueResourceRelease, valueProjectRelease} {
 		for _, bad := range []bool{false, true} {
 			t.Run(fmt.Sprint(kind, bad), func(t *testing.T) {
-				field, values := "componentType", "  componentProfile:\n    parameters:\n      count: wrong\n"
-				if kind == "ResourceRelease" {
-					field, values = "resourceType", "  parameters:\n    count: wrong\n"
+				field, values := testValueComponentTypeValue, "  componentProfile:\n    parameters:\n      count: wrong\n"
+				if kind == valueResourceRelease {
+					field, values = testValueResourceType, "  parameters:\n    count: wrong\n"
 				}
-				if kind == "ProjectRelease" {
-					field, values = "projectType", "  parameters:\n    count: wrong\n"
+				if kind == valueProjectRelease {
+					field, values = testValueProjectType, "  parameters:\n    count: wrong\n"
 				}
 				if !bad {
-					values = strings.ReplaceAll(values, "wrong", "3")
+					values = strings.ReplaceAll(values, testValueWrong, "3")
 				}
 				text := fmt.Sprintf("apiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: release\nspec:\n  %s:\n    spec:\n      parameters:\n        openAPIV3Schema:\n          type: object\n          properties:\n            count:\n              type: integer\n%s", kind, field, values)
 				got := ValidateDocuments(context.Background(), parseResources(t, text))
@@ -39,7 +41,7 @@ func TestReleaseSnapshots(t *testing.T) {
 	}
 }
 func TestEmbeddedTraitSnapshots(t *testing.T) {
-	for _, kind := range []string{"Trait", "ClusterTrait"} {
+	for _, kind := range []string{valueTrait, "ClusterTrait"} {
 		text := fmt.Sprintf(`apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentRelease
 metadata:
@@ -64,7 +66,7 @@ spec:
           count: wrong
 `, kind, kind)
 		got := ValidateDocuments(context.Background(), parseResources(t, text))
-		if len(got) != 1 || got[0].Code != "schema-parameters-mismatch" || got[0].Line != 22 {
+		if len(got) != 1 || got[0].Code != testValueSchemaParametersMismatch || got[0].Line != 22 {
 			t.Fatalf("%s: %+v", kind, got)
 		}
 		text = strings.Replace(text, "type: integer", "types: integer", 1)
@@ -81,24 +83,24 @@ spec:
 	}
 }
 func TestBindingEnvironmentSchemasAndDefaults(t *testing.T) {
-	for _, binding := range []string{"ReleaseBinding", "ResourceReleaseBinding", "ProjectReleaseBinding"} {
-		pin, release, definition, values := "releaseName", "ComponentRelease", "componentType", "componentTypeEnvironmentConfigs"
-		if binding == "ResourceReleaseBinding" {
-			pin, release, definition, values = "resourceRelease", "ResourceRelease", "resourceType", "resourceTypeEnvironmentConfigs"
+	for _, binding := range []string{"ReleaseBinding", testValueResourceReleaseBinding, valueProjectReleaseBinding} {
+		pin, release, definition, values := "releaseName", valueComponentRelease, testValueComponentTypeValue, "componentTypeEnvironmentConfigs"
+		if binding == testValueResourceReleaseBinding {
+			pin, release, definition, values = "resourceRelease", valueResourceRelease, testValueResourceType, "resourceTypeEnvironmentConfigs"
 		}
-		if binding == "ProjectReleaseBinding" {
-			pin, release, definition, values = "projectRelease", "ProjectRelease", "projectType", "environmentConfigs"
+		if binding == valueProjectReleaseBinding {
+			pin, release, definition, values = "projectRelease", valueProjectRelease, testValueProjectType, valueEnvironmentConfigs
 		}
-		for _, value := range []string{"wrong", "3", ""} {
+		for _, value := range []string{testValueWrong, "3", ""} {
 			text := fmt.Sprintf("apiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: frozen\n  namespace: test\nspec:\n  %s:\n    spec:\n      environmentConfigs:\n        openAPIV3Schema:\n          type: object\n          required: [count]\n          properties:\n            count:\n              type: integer\n              default: 2\n---\napiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: binding\n  namespace: test\nspec:\n  %s: frozen\n", release, definition, binding, pin)
 			if value != "" {
 				text += fmt.Sprintf("  %s:\n    count: %s\n", values, value)
 			}
 			got := ValidateDocuments(context.Background(), parseResources(t, text))
-			if (len(got) > 0) != (value == "wrong") {
+			if (len(got) > 0) != (value == testValueWrong) {
 				t.Fatalf("%s value=%q findings=%+v", binding, value, got)
 			}
-			if value == "wrong" && got[0].Code != "schema-environment-configs-mismatch" {
+			if value == testValueWrong && got[0].Code != "schema-environment-configs-mismatch" {
 				t.Fatalf("wrong code: %+v", got)
 			}
 		}
@@ -114,7 +116,7 @@ func TestMultiDocumentReleaseAcceptance(t *testing.T) {
 			t.Fatalf("invalid location: %+v", f)
 		}
 	}
-	if counts["schema-parameters-mismatch"] != 2 || counts["schema-environment-configs-mismatch"] != 1 || counts["pre-render-validation-failed"] != 1 {
+	if counts[testValueSchemaParametersMismatch] != 2 || counts["schema-environment-configs-mismatch"] != 1 || counts[testValuePreRenderValidationFailed] != 1 {
 		t.Fatalf("unexpected coverage: %+v findings=%+v", counts, got)
 	}
 }
@@ -151,7 +153,7 @@ spec:
 	got := ValidateDocuments(context.Background(), resources)
 	found := false
 	for _, f := range got {
-		if f.Code == "schema-parameters-mismatch" {
+		if f.Code == testValueSchemaParametersMismatch {
 			found = true
 		}
 	}

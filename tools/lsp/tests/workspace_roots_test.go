@@ -20,31 +20,31 @@ func TestNormalizeWorkspaceRootsKeepsSiblings(t *testing.T) {
 }
 
 func TestNormalizeWorkspaceRootsDropsNestedRoot(t *testing.T) {
-	roots := lsp.NormalizeWorkspaceRoots([]string{"/a/proj", "/a/proj/sub"})
-	if len(roots) != 1 || roots[0] != "/a/proj" {
-		t.Fatalf("roots = %v, want [%s]", roots, "/a/proj")
+	roots := lsp.NormalizeWorkspaceRoots([]string{testValueAProj, "/a/proj/sub"})
+	if len(roots) != 1 || roots[0] != testValueAProj {
+		t.Fatalf("roots = %v, want [%s]", roots, testValueAProj)
 	}
 }
 
 func TestNormalizeWorkspaceRootsShallowAfterDeep(t *testing.T) {
 	// A shallower root arriving after a deeper one replaces it.
-	roots := lsp.NormalizeWorkspaceRoots([]string{"/a/proj/sub", "/a/proj"})
-	if len(roots) != 1 || roots[0] != "/a/proj" {
-		t.Fatalf("roots = %v, want [%s]", roots, "/a/proj")
+	roots := lsp.NormalizeWorkspaceRoots([]string{"/a/proj/sub", testValueAProj})
+	if len(roots) != 1 || roots[0] != testValueAProj {
+		t.Fatalf("roots = %v, want [%s]", roots, testValueAProj)
 	}
 }
 
 func TestNormalizeWorkspaceRootsDedups(t *testing.T) {
-	roots := lsp.NormalizeWorkspaceRoots([]string{"/a/proj", "/a/proj", "/a/proj/"})
-	if len(roots) != 1 || roots[0] != "/a/proj" {
-		t.Fatalf("roots = %v, want [%s]", roots, "/a/proj")
+	roots := lsp.NormalizeWorkspaceRoots([]string{testValueAProj, testValueAProj, "/a/proj/"})
+	if len(roots) != 1 || roots[0] != testValueAProj {
+		t.Fatalf("roots = %v, want [%s]", roots, testValueAProj)
 	}
 }
 
 func TestNormalizeWorkspaceRootsIgnoresEmpty(t *testing.T) {
-	roots := lsp.NormalizeWorkspaceRoots([]string{"", "/a/proj"})
-	if len(roots) != 1 || roots[0] != "/a/proj" {
-		t.Fatalf("roots = %v, want [%s]", roots, "/a/proj")
+	roots := lsp.NormalizeWorkspaceRoots([]string{"", testValueAProj})
+	if len(roots) != 1 || roots[0] != testValueAProj {
+		t.Fatalf("roots = %v, want [%s]", roots, testValueAProj)
 	}
 }
 

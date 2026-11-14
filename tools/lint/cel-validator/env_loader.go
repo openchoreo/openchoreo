@@ -5,9 +5,6 @@ package celvalidator
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 var celEnvDir = ""
@@ -33,20 +30,4 @@ type EnvDesc struct {
 	Variables  []Var  `json:"variables"`
 	HasApplied bool   `json:"hasApplied"`
 	Extensions Ext    `json:"extensions"`
-}
-
-func loadEnvDesc(kind string) (*EnvDesc, bool) {
-	if celEnvDir == "" {
-		return nil, false
-	}
-	path := filepath.Join(celEnvDir, strings.ToLower(kind)+"_celenv.json")
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, false
-	}
-	var d EnvDesc
-	if err := json.Unmarshal(b, &d); err != nil {
-		return nil, false
-	}
-	return &d, true
 }

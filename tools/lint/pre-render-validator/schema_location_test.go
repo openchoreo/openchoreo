@@ -1,3 +1,6 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
@@ -7,8 +10,8 @@ import (
 )
 
 func TestDefinitionUnknownFieldLocations(t *testing.T) {
-	for _, kind := range []string{"ComponentType", "ClusterComponentType", "Trait", "ClusterTrait"} {
-		for _, section := range []string{"parameters", "environmentConfigs"} {
+	for _, kind := range []string{valueComponentType, "ClusterComponentType", valueTrait, "ClusterTrait"} {
+		for _, section := range []string{"parameters", valueEnvironmentConfigs} {
 			t.Run(kind+section, func(t *testing.T) {
 				text := fmt.Sprintf("apiVersion: openchoreo.dev/v1alpha1\nkind: %s\nmetadata:\n  name: example\nspec:\n  %s:\n    openAPIV3Schema:\n      type: object\n      properties:\n        replicas:\n          types: integer\n", kind, section)
 				got := ValidateDocuments(context.Background(), parseResources(t, text))
@@ -34,7 +37,7 @@ func TestNestedValuePathLocations(t *testing.T) {
 	node := findMappingValue(resources[0].Document.Spec, "parameters")
 	for _, path := range []string{"items[0].count", "items.0.count"} {
 		got := valuePathNode(node, path)
-		if got == nil || got.Line != 6 || got.Value != "wrong" {
+		if got == nil || got.Line != 6 || got.Value != testValueWrong {
 			t.Fatalf("%s: incorrect node: %+v", path, got)
 		}
 	}
@@ -45,8 +48,8 @@ func TestNestedValuePathLocations(t *testing.T) {
 }
 
 func TestSchemaDefinitionAcceptance(t *testing.T) {
-	for _, kind := range []string{"ComponentType", "ClusterComponentType", "Trait", "ClusterTrait"} {
-		for _, section := range []string{"parameters", "environmentConfigs"} {
+	for _, kind := range []string{valueComponentType, "ClusterComponentType", valueTrait, "ClusterTrait"} {
+		for _, section := range []string{"parameters", valueEnvironmentConfigs} {
 			for _, tc := range []struct{ name, body, code string }{
 				{"valid", "      type: object\n", ""},
 				{"malformed", "      not-a-schema\n", "schema-definition-parse-error"},
@@ -117,7 +120,7 @@ spec:
 	got := ValidateDocuments(context.Background(), parseResources(t, text))
 	lines := map[int]bool{}
 	for _, f := range got {
-		if f.Code == "schema-parameters-mismatch" {
+		if f.Code == testValueSchemaParametersMismatch {
 			lines[f.Line] = true
 		}
 	}
@@ -149,7 +152,7 @@ spec:
     name: deployment/definition
 `
 	got := ValidateDocuments(context.Background(), parseResources(t, text))
-	if len(got) != 1 || got[0].Code != "schema-parameters-mismatch" || got[0].Line < 18 {
+	if len(got) != 1 || got[0].Code != testValueSchemaParametersMismatch || got[0].Line < 18 {
 		t.Fatalf("missing parameter must point to the Component container: %+v", got)
 	}
 }

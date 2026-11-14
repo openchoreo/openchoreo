@@ -6,8 +6,9 @@ package ruleengine
 import (
 	"fmt"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // ReferenceRules validates cross-references between resources.
@@ -41,15 +42,15 @@ func (r *ReferenceRules) validateKindNameRef(doc *parser.DocumentNode, field str
 		return nil
 	}
 
-	refNode := findInMapping(doc.Spec, "", field)
+	refNode := findInMapping(doc.Spec, field)
 	if refNode == nil || refNode.Kind != yaml.MappingNode {
 		return nil
 	}
 
 	var diags Diagnostics
 
-	kindNode := findInMapping(refNode, "", "kind")
-	nameNode := findInMapping(refNode, "", "name")
+	kindNode := findInMapping(refNode, "kind")
+	nameNode := findInMapping(refNode, "name")
 
 	if kindNode == nil || kindNode.Kind != yaml.ScalarNode {
 		diags = append(diags, Diagnostic{
@@ -85,12 +86,12 @@ func (r *ReferenceRules) validateNameRef(doc *parser.DocumentNode, field string)
 		return nil
 	}
 
-	refNode := findInMapping(doc.Spec, "", field)
+	refNode := findInMapping(doc.Spec, field)
 	if refNode == nil || refNode.Kind != yaml.MappingNode {
 		return nil
 	}
 
-	nameNode := findInMapping(refNode, "", "name")
+	nameNode := findInMapping(refNode, "name")
 
 	if nameNode == nil || nameNode.Kind != yaml.ScalarNode || nameNode.Value == "" {
 		return Diagnostics{{
@@ -106,7 +107,9 @@ func (r *ReferenceRules) validateNameRef(doc *parser.DocumentNode, field string)
 
 // findInMapping searches a yaml.MappingNode for a nested key.
 // If parent is empty, it searches the node directly.
-func findInMapping(node *yaml.Node, parent, key string) *yaml.Node {
+func findInMapping(node *yaml.Node, key string) *yaml.Node {
+	parent := ""
+
 	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}

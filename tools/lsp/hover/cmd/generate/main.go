@@ -5,9 +5,10 @@ package main
 
 import (
 	"flag"
-	"github.com/openchoreo/openchoreo/tools/lsp/hover/internal/catalog"
 	"log"
 	"os"
+
+	"github.com/openchoreo/openchoreo/tools/lsp/hover/internal/catalog"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = os.WriteFile(*out, append(data, '\n'), 0644); err != nil {
+	if err = os.WriteFile(*out, append(data, '\n'), 0600); err != nil {
 		log.Fatal(err)
 	}
 }

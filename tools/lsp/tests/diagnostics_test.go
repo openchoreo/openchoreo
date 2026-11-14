@@ -4,11 +4,13 @@
 package lsp_test
 
 import (
+	"math"
 	"strings"
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // findDiagnostic returns the first diagnostic with the given code, or nil.
@@ -94,8 +96,8 @@ spec:
 		if strings.HasPrefix(d.Message, "yaml:") {
 			continue
 		}
-		if start.Line < 0 || end.Line < 0 || start.Character < 0 || end.Character < 0 {
-			t.Errorf("diagnostic %d has negative position: %+v", i, d.Range)
+		if start.Line > math.MaxInt32 || end.Line > math.MaxInt32 || start.Character > math.MaxInt32 || end.Character > math.MaxInt32 {
+			t.Errorf("diagnostic %d has a position outside the LSP integer range: %+v", i, d.Range)
 		}
 	}
 }

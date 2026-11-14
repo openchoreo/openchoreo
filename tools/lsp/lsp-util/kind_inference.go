@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 )
 
 // FindKindByFieldName checks if any registered kind name is a substring of the field name.

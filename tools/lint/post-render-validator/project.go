@@ -17,16 +17,16 @@ import (
 // activeKindPriority defines which document in a multi-document active file is
 // treated as the one to validate. The first matching kind wins.
 var activeKindPriority = []string{
-	"Component",
-	"Workload",
-	"ReleaseBinding",
-	"Trait",
-	"ClusterTrait",
-	"ComponentType",
-	"ClusterComponentType",
-	"Environment",
-	"DataPlane",
-	"ClusterDataPlane",
+	valueComponent,
+	valueWorkload,
+	valueReleaseBinding,
+	valueTrait,
+	valueClusterTrait,
+	valueComponentType,
+	valueClusterComponentType,
+	valueEnvironment,
+	valueDataPlane,
+	valueClusterDataPlane,
 	"Project",
 }
 
@@ -191,7 +191,7 @@ func ValidateProject(ctx context.Context, files []string, activeFile string) []F
 // loadActiveDocument parses the active file, returns every document so
 // resources declared alongside the active one are indexed, and chooses the
 // document to validate. A malformed active file is a hard error, unlike
-// malformed neighbouring files which are skipped.
+// malformed neighboring files which are skipped.
 func loadActiveDocument(path string) (*parser.DocumentNode, []*parser.DocumentNode, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -236,14 +236,14 @@ func buildProjectIndex(docs []projectDocument) (*projectIndex, map[*parser.Docum
 			continue
 		}
 		switch pd.doc.Kind {
-		case "Component":
+		case valueComponent:
 			obj, err := decodeTyped[v1alpha1.Component](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode Component %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.components = append(index.components, componentEntry{file: pd.file, doc: pd.doc, obj: obj})
-		case "ComponentType":
+		case valueComponentType:
 			obj, err := decodeTyped[v1alpha1.ComponentType](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode ComponentType %s: %w", pd.doc.Metadata.Name, err)
@@ -257,7 +257,7 @@ func buildProjectIndex(docs []projectDocument) (*projectIndex, map[*parser.Docum
 				workloadType: obj.Spec.WorkloadType,
 				obj:          obj,
 			})
-		case "ClusterComponentType":
+		case valueClusterComponentType:
 			obj, err := decodeTyped[v1alpha1.ClusterComponentType](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode ClusterComponentType %s: %w", pd.doc.Metadata.Name, err)
@@ -276,14 +276,14 @@ func buildProjectIndex(docs []projectDocument) (*projectIndex, map[*parser.Docum
 				workloadType: obj.Spec.WorkloadType,
 				obj:          converted,
 			})
-		case "Trait":
+		case valueTrait:
 			obj, err := decodeTyped[v1alpha1.Trait](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode Trait %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.traits = append(index.traits, traitEntry{file: pd.file, doc: pd.doc, kind: pd.doc.Kind, name: obj.Name, obj: obj})
-		case "ClusterTrait":
+		case valueClusterTrait:
 			obj, err := decodeTyped[v1alpha1.ClusterTrait](pd.doc)
 			if err != nil {
 				// Mirror BundleFromDocuments, which falls back to Trait.
@@ -300,35 +300,35 @@ func buildProjectIndex(docs []projectDocument) (*projectIndex, map[*parser.Docum
 				Spec:       v1alpha1.TraitSpec(obj.Spec),
 			}
 			index.traits = append(index.traits, traitEntry{file: pd.file, doc: pd.doc, kind: pd.doc.Kind, name: obj.Name, obj: converted})
-		case "Workload":
+		case valueWorkload:
 			obj, err := decodeTyped[v1alpha1.Workload](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode Workload %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.workloads = append(index.workloads, workloadEntry{file: pd.file, doc: pd.doc, obj: obj})
-		case "ReleaseBinding":
+		case valueReleaseBinding:
 			obj, err := decodeTyped[v1alpha1.ReleaseBinding](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode ReleaseBinding %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.releaseBindings = append(index.releaseBindings, releaseBindingEntry{file: pd.file, doc: pd.doc, obj: obj})
-		case "Environment":
+		case valueEnvironment:
 			obj, err := decodeTyped[v1alpha1.Environment](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode Environment %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.environments = append(index.environments, environmentEntry{file: pd.file, doc: pd.doc, obj: obj})
-		case "DataPlane":
+		case valueDataPlane:
 			obj, err := decodeTyped[v1alpha1.DataPlane](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode DataPlane %s: %w", pd.doc.Metadata.Name, err)
 				continue
 			}
 			index.dataPlanes = append(index.dataPlanes, dataPlaneEntry{file: pd.file, doc: pd.doc, obj: obj})
-		case "ClusterDataPlane":
+		case valueClusterDataPlane:
 			obj, err := decodeTyped[v1alpha1.ClusterDataPlane](pd.doc)
 			if err != nil {
 				errs[pd.doc] = fmt.Errorf("decode ClusterDataPlane %s: %w", pd.doc.Metadata.Name, err)
@@ -342,46 +342,46 @@ func buildProjectIndex(docs []projectDocument) (*projectIndex, map[*parser.Docum
 
 func (idx *projectIndex) resolveActiveComponent(active *parser.DocumentNode) (componentEntry, error) {
 	switch active.Kind {
-	case "Component":
+	case valueComponent:
 		if c := idx.componentByDoc(active); c != nil {
 			return *c, nil
 		}
 		return componentEntry{}, fmt.Errorf("active Component %q could not be decoded", active.Metadata.Name)
-	case "Workload":
+	case valueWorkload:
 		w := idx.workloadByDoc(active)
 		if w == nil {
 			return componentEntry{}, fmt.Errorf("active Workload %q could not be decoded", active.Metadata.Name)
 		}
 		return oneComponent(idx.componentsByOwner(w.obj.Spec.Owner.ProjectName, w.obj.Spec.Owner.ComponentName),
 			fmt.Sprintf("Workload %s/%s", w.obj.Spec.Owner.ProjectName, w.obj.Spec.Owner.ComponentName))
-	case "ReleaseBinding":
+	case valueReleaseBinding:
 		rb := idx.releaseBindingByDoc(active)
 		if rb == nil {
 			return componentEntry{}, fmt.Errorf("active ReleaseBinding %q could not be decoded", active.Metadata.Name)
 		}
 		return oneComponent(idx.componentsByOwner(rb.obj.Spec.Owner.ProjectName, rb.obj.Spec.Owner.ComponentName),
 			fmt.Sprintf("ReleaseBinding %s", active.Metadata.Name))
-	case "Trait", "ClusterTrait":
+	case valueTrait, valueClusterTrait:
 		if idx.traitByDoc(active) == nil {
 			return componentEntry{}, fmt.Errorf("active %s %q could not be decoded", active.Kind, active.Metadata.Name)
 		}
 		return oneComponent(idx.componentsForTrait(active.Kind, active.Metadata.Name),
 			fmt.Sprintf("%s %s", active.Kind, active.Metadata.Name))
-	case "ComponentType", "ClusterComponentType":
+	case valueComponentType, valueClusterComponentType:
 		ct := idx.componentTypeByDoc(active)
 		if ct == nil {
 			return componentEntry{}, fmt.Errorf("active %s %q could not be decoded", active.Kind, active.Metadata.Name)
 		}
 		return oneComponent(idx.componentsForComponentType(ct.kind, ct.workloadType, ct.name),
 			fmt.Sprintf("%s %s", active.Kind, active.Metadata.Name))
-	case "Environment":
+	case valueEnvironment:
 		env := idx.environmentByDoc(active)
 		if env == nil {
 			return componentEntry{}, fmt.Errorf("active Environment %q could not be decoded", active.Metadata.Name)
 		}
 		return oneComponent(idx.componentsForEnvironment(env.obj.Name),
 			fmt.Sprintf("Environment %s", env.obj.Name))
-	case "DataPlane", "ClusterDataPlane":
+	case valueDataPlane, valueClusterDataPlane:
 		return oneComponent(idx.componentsForDataPlane(active.Kind, active.Metadata.Name),
 			fmt.Sprintf("%s %s", active.Kind, active.Metadata.Name))
 	case "Project":
@@ -407,7 +407,7 @@ func (idx *projectIndex) selectRelated(component componentEntry, active *parser.
 	for _, ref := range component.obj.Spec.Traits {
 		kind := string(ref.Kind)
 		if kind == "" {
-			kind = "Trait"
+			kind = valueTrait
 		}
 		key := kind + "\x00" + ref.Name
 		if seenTraits[key] {
@@ -454,7 +454,7 @@ func (idx *projectIndex) selectRelated(component componentEntry, active *parser.
 func (idx *projectIndex) selectComponentType(component componentEntry) (componentTypeEntry, error) {
 	refKind := string(component.obj.Spec.ComponentType.Kind)
 	if refKind == "" {
-		refKind = "ComponentType"
+		refKind = valueComponentType
 	}
 	refName := component.obj.Spec.ComponentType.Name
 	workloadType, name, hasWorkloadType := strings.Cut(refName, "/")
@@ -474,9 +474,7 @@ func (idx *projectIndex) selectComponentType(component componentEntry) (componen
 		matches = append(matches, ct)
 	}
 	if len(matches) == 0 {
-		return componentTypeEntry{}, locateError(component.doc, component.file, "componentType", fmt.Errorf(
-			"Component %s references %s %q, but it was not found in the active directory",
-			component.obj.Name, refKind, refName))
+		return componentTypeEntry{}, locateError(component.doc, component.file, "componentType", referenceError{ownerKind: "Component", ownerName: component.obj.Name, targetKind: refKind, targetName: refName, activeDirectory: true})
 	}
 	if len(matches) > 1 {
 		return componentTypeEntry{}, locateError(component.doc, component.file, "componentType", fmt.Errorf(
@@ -526,7 +524,7 @@ func (idx *projectIndex) selectWorkload(component componentEntry) (workloadEntry
 
 func (idx *projectIndex) selectReleaseBinding(component componentEntry, active *parser.DocumentNode) (*releaseBindingEntry, error) {
 	candidates := idx.releaseBindingsForComponent(component)
-	if active.Kind == "ReleaseBinding" {
+	if active.Kind == valueReleaseBinding {
 		for i := range candidates {
 			if candidates[i].doc == active {
 				return &candidates[i], nil
@@ -541,7 +539,7 @@ func (idx *projectIndex) selectReleaseBinding(component componentEntry, active *
 	if len(candidates) == 1 {
 		return &candidates[0], nil
 	}
-	if active.Kind == "Environment" {
+	if active.Kind == valueEnvironment {
 		var matching []releaseBindingEntry
 		for _, rb := range candidates {
 			if rb.obj.Spec.Environment == active.Metadata.Name {
@@ -582,10 +580,10 @@ func (idx *projectIndex) selectDataPlane(env environmentEntry) (*dataPlaneEntry,
 	}
 	kind := string(ref.Kind)
 	if kind == "" {
-		kind = "DataPlane"
+		kind = valueDataPlane
 	}
 	switch kind {
-	case "ClusterDataPlane":
+	case valueClusterDataPlane:
 		var matches []clusterDataPlaneEntry
 		for _, cdp := range idx.clusterDataPlanes {
 			if cdp.obj.Name == ref.Name {
@@ -593,13 +591,13 @@ func (idx *projectIndex) selectDataPlane(env environmentEntry) (*dataPlaneEntry,
 			}
 		}
 		if len(matches) == 0 {
-			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("Environment %s references ClusterDataPlane %q, but it was not found in the active directory", env.obj.Name, ref.Name))
+			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", referenceError{ownerKind: "Environment", ownerName: env.obj.Name, targetKind: "ClusterDataPlane", targetName: ref.Name, activeDirectory: true})
 		}
 		if len(matches) > 1 {
 			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("multiple ClusterDataPlanes named %q match Environment %s; keep only one in the active directory", ref.Name, env.obj.Name))
 		}
 		return nil, &matches[0], nil
-	case "DataPlane":
+	case valueDataPlane:
 		var matches []dataPlaneEntry
 		for _, dp := range idx.dataPlanes {
 			if dp.obj.Name == ref.Name {
@@ -607,14 +605,14 @@ func (idx *projectIndex) selectDataPlane(env environmentEntry) (*dataPlaneEntry,
 			}
 		}
 		if len(matches) == 0 {
-			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("Environment %s references DataPlane %q, but it was not found in the active directory", env.obj.Name, ref.Name))
+			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", referenceError{ownerKind: "Environment", ownerName: env.obj.Name, targetKind: "DataPlane", targetName: ref.Name, activeDirectory: true})
 		}
 		if len(matches) > 1 {
 			return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("multiple DataPlanes named %q match Environment %s; keep only one in the active directory", ref.Name, env.obj.Name))
 		}
 		return &matches[0], nil, nil
 	default:
-		return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("Environment %s references unsupported data plane kind %q", env.obj.Name, kind))
+		return nil, nil, locateError(env.doc, env.file, "dataPlaneRef", referenceError{ownerKind: "Environment", ownerName: env.obj.Name, targetKind: kind, unsupported: true})
 	}
 }
 
@@ -648,7 +646,7 @@ func (idx *projectIndex) componentsForTrait(kind, name string) []componentEntry 
 		for _, ref := range component.obj.Spec.Traits {
 			refKind := string(ref.Kind)
 			if refKind == "" {
-				refKind = "Trait"
+				refKind = valueTrait
 			}
 			if refKind == kind && ref.Name == name {
 				out = append(out, component)
@@ -664,7 +662,7 @@ func (idx *projectIndex) componentsForComponentType(kind, workloadType, name str
 	for _, component := range idx.components {
 		refKind := string(component.obj.Spec.ComponentType.Kind)
 		if refKind == "" {
-			refKind = "ComponentType"
+			refKind = valueComponentType
 		}
 		if refKind != kind {
 			continue
@@ -705,7 +703,7 @@ func (idx *projectIndex) componentsForDataPlane(kind, name string) []componentEn
 		}
 		refKind := string(ref.Kind)
 		if refKind == "" {
-			refKind = "DataPlane"
+			refKind = valueDataPlane
 		}
 		if refKind != kind || ref.Name != name {
 			continue
@@ -905,10 +903,10 @@ func (s selectedProject) fileForDoc(doc *parser.DocumentNode) string {
 
 // clusterDataPlaneToDataPlane adapts a cluster-scoped data plane to the
 // namespaced type the rendering pipeline expects. The LSP uses this locally so
-// the CLI's shared BundleFromDocuments behaviour stays unchanged.
+// the CLI's shared BundleFromDocuments behavior stays unchanged.
 func clusterDataPlaneToDataPlane(cdp v1alpha1.ClusterDataPlane) *v1alpha1.DataPlane {
 	typeMeta := cdp.TypeMeta
-	typeMeta.Kind = "DataPlane"
+	typeMeta.Kind = valueDataPlane
 	return &v1alpha1.DataPlane{
 		TypeMeta:   typeMeta,
 		ObjectMeta: cdp.ObjectMeta,

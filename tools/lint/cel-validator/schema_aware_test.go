@@ -1,8 +1,10 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -118,7 +120,7 @@ func TestCustomSchemaFlexibleFieldsAndFallback(t *testing.T) {
 	} {
 		t.Run(tc.expr, func(t *testing.T) {
 			doc := schemaRuleDoc(t, tc.expr, "ComponentType", "{group: example.com, version: v1, kind: Widget}")
-			doc.ValidationContext = targetschema.WithResolver(nil, resolver)
+			doc.ValidationContext = targetschema.WithResolver(context.Background(), resolver)
 			findings, err := ValidateDocument(doc, SchemaPair{})
 			if err != nil {
 				t.Fatal(err)
@@ -131,7 +133,7 @@ func TestCustomSchemaFlexibleFieldsAndFallback(t *testing.T) {
 	// Conflicting definitions make strict checking unsafe, so retain dyn.
 	sources[filepath.Join(root, "conflict.yaml")] = []byte(strings.Replace(customCRD, "count: {type: integer}", "count: {type: string}", 1))
 	doc := schemaRuleDoc(t, "resource.spec.unknown.deep == 2", "ComponentType", "{group: example.com, version: v1, kind: Widget}")
-	doc.ValidationContext = targetschema.WithResolver(nil, targetschema.NewScope(root, sources))
+	doc.ValidationContext = targetschema.WithResolver(context.Background(), targetschema.NewScope(root, sources))
 	if findings, err := ValidateDocument(doc, SchemaPair{}); err != nil || len(findings) > 0 {
 		t.Fatal(findings, err)
 	}

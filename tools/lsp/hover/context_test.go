@@ -5,11 +5,13 @@ package hover
 
 import (
 	"bytes"
-	"github.com/openchoreo/openchoreo/tools/lsp/hover/internal/catalog"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"strings"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp/hover/internal/catalog"
 )
 
 func TestCatalogReproducible(t *testing.T) {

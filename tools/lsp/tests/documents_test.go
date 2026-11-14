@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 func TestPositionToByteOffset(t *testing.T) {
@@ -53,7 +54,7 @@ func TestPositionToByteOffset(t *testing.T) {
 func TestDidChangeWhole(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///whole.yaml"
-	open(t, s, uri, "kind: Component\nname: demo\n", 1)
+	open(t, s, uri, "kind: Component\nname: demo\n")
 
 	updated := "kind: Deployment\nname: demo\n"
 	if err := change(t, s, uri, 2, protocol.TextDocumentContentChangeEventWhole{Text: updated}); err != nil {
@@ -72,7 +73,7 @@ func TestDidChangeWhole(t *testing.T) {
 func TestDidChangeRangedMissingRangeIsWhole(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///whole.yaml"
-	open(t, s, uri, "kind: Component\n", 1)
+	open(t, s, uri, "kind: Component\n")
 
 	updated := "kind: Deployment\n"
 	if err := change(t, s, uri, 2, protocol.TextDocumentContentChangeEvent{Text: updated}); err != nil {
@@ -88,7 +89,7 @@ func TestDidChangeRangedMissingRangeIsWhole(t *testing.T) {
 func TestDidChangeSingleLineRange(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///ranged.yaml"
-	open(t, s, uri, "kind: Component\nname: demo\n", 1)
+	open(t, s, uri, "kind: Component\nname: demo\n")
 
 	if err := change(t, s, uri, 2,
 		ranged(p(0, 6), p(0, 15), "Deployment"),
@@ -106,7 +107,7 @@ func TestDidChangeSingleLineRange(t *testing.T) {
 func TestDidChangeMultiLineRange(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///multi.yaml"
-	open(t, s, uri, "kind: Component\nname: demo\n", 1)
+	open(t, s, uri, "kind: Component\nname: demo\n")
 
 	if err := change(t, s, uri, 2,
 		// Replace "kind: Component\n" (through the newline) with new content.
@@ -125,7 +126,7 @@ func TestDidChangeMultiLineRange(t *testing.T) {
 func TestDidChangeDeleteToEOF(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///eof.yaml"
-	open(t, s, uri, "kind: Component\nname: demo\n", 1)
+	open(t, s, uri, "kind: Component\nname: demo\n")
 
 	// Delete from "name:" to the end of the document.
 	if err := change(t, s, uri, 2, ranged(p(1, 0), p(2, 0), "")); err != nil {
@@ -142,7 +143,7 @@ func TestDidChangeDeleteToEOF(t *testing.T) {
 func TestDidChangeInsertAtEOF(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///append.yaml"
-	open(t, s, uri, "abc\n", 1)
+	open(t, s, uri, "abc\n")
 
 	if err := change(t, s, uri, 2, ranged(p(1, 0), p(1, 0), "def")); err != nil {
 		t.Fatalf("DidChange error: %v", err)
@@ -159,7 +160,7 @@ func TestDidChangeUTF16(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///utf16.yaml"
 	// \U0001F600 counts as two UTF-16 code units in the LSP position scheme.
-	open(t, s, uri, "a\U0001F600b\n", 1)
+	open(t, s, uri, "a\U0001F600b\n")
 
 	if err := change(t, s, uri, 2, ranged(p(0, 1), p(0, 3), "X")); err != nil {
 		t.Fatalf("DidChange error: %v", err)
@@ -175,7 +176,7 @@ func TestDidChangeUTF16(t *testing.T) {
 func TestDidChangeCRLF(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///crlf.yaml"
-	open(t, s, uri, "a\r\nb\r\n", 1)
+	open(t, s, uri, "a\r\nb\r\n")
 
 	if err := change(t, s, uri, 2, ranged(p(0, 0), p(0, 1), "z")); err != nil {
 		t.Fatalf("DidChange error: %v", err)
@@ -191,7 +192,7 @@ func TestDidChangeCRLF(t *testing.T) {
 func TestDidChangeSequential(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///seq.yaml"
-	open(t, s, uri, "kind: Component\nname: demo\n", 1)
+	open(t, s, uri, "kind: Component\nname: demo\n")
 
 	if err := change(t, s, uri, 3,
 		ranged(p(0, 6), p(0, 15), "Deployment"),
@@ -213,7 +214,7 @@ func TestDidChangeSequential(t *testing.T) {
 func TestDidChangeInvalidRange(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///invalid.yaml"
-	open(t, s, uri, "kind: Component\n", 1)
+	open(t, s, uri, "kind: Component\n")
 
 	err := change(t, s, uri, 2, ranged(p(99, 0), p(99, 0), "x"))
 	if err == nil {
@@ -227,7 +228,7 @@ func TestDidChangeInvalidRange(t *testing.T) {
 func TestDidChangeReversedRange(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///reversed.yaml"
-	open(t, s, uri, "kind: Component\n", 1)
+	open(t, s, uri, "kind: Component\n")
 
 	err := change(t, s, uri, 2, ranged(p(0, 5), p(0, 2), "x"))
 	if err == nil {
@@ -238,7 +239,7 @@ func TestDidChangeReversedRange(t *testing.T) {
 func TestDidChangeUnknownType(t *testing.T) {
 	s := lsp.NewServer()
 	uri := "file:///unknown.yaml"
-	open(t, s, uri, "kind: Component\n", 1)
+	open(t, s, uri, "kind: Component\n")
 
 	err := change(t, s, uri, 2, "not a change event")
 	if err == nil {
@@ -267,11 +268,13 @@ func ranged(start, end protocol.Position, text string) protocol.TextDocumentCont
 	}
 }
 
-func open(t *testing.T, s *lsp.Server, uri, text string, version int32) {
+func open(t *testing.T, s *lsp.Server, uri string, text string) {
+	const version = 1
+
 	t.Helper()
 	if err := s.DidOpen(nil, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:     protocol.DocumentUri(uri),
+			URI:     uri,
 			Version: version,
 			Text:    text,
 		},
@@ -284,7 +287,7 @@ func change(t *testing.T, s *lsp.Server, uri string, version int32, changes ...a
 	t.Helper()
 	return s.DidChange(nil, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 			Version:                version,
 		},
 		ContentChanges: changes,

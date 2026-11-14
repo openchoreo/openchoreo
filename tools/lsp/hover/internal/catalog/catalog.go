@@ -5,9 +5,10 @@ package catalog
 
 import (
 	"encoding/json"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Generate retains descriptions by exact API version, kind and schema path.
@@ -36,7 +37,7 @@ func Generate(dir string) ([]byte, error) {
 				} `yaml:"versions"`
 			} `yaml:"spec"`
 		}
-		if err = yaml.Unmarshal(raw, &crd); err != nil {
+		if err := yaml.Unmarshal(raw, &crd); err != nil {
 			return nil, err
 		}
 		for _, version := range crd.Spec.Versions {

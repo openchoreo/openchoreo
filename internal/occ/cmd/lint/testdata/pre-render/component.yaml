@@ -1,0 +1,14 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo
+  namespace: default
+spec:
+  componentType:
+    name: deployment/web-service
+    kind: ComponentType
+  owner:
+    projectName: default
+  parameters:
+    replicas: 1
+    port: 8080

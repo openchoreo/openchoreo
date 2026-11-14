@@ -1,12 +1,14 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
 	"flag"
-	"github.com/openchoreo/openchoreo/tools/lint/cel-validator/internal/contextdocs"
 	"log"
 	"os"
+
+	"github.com/openchoreo/openchoreo/tools/lint/cel-validator/internal/contextdocs"
 )
 
 func main() {
@@ -17,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = os.WriteFile(*out, append(raw, '\n'), 0644); err != nil {
+	if err = os.WriteFile(*out, append(raw, '\n'), 0600); err != nil {
 		log.Fatal(err)
 	}
 }

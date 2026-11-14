@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	glsp "github.com/tliron/glsp"
+	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -59,18 +59,6 @@ func (s *Server) showAsync(messageType protocol.MessageType, message string) {
 		Type:    messageType,
 		Message: message,
 	})
-}
-
-// logTrace sends a trace message to the client via window/logMessage when the
-// client's trace level allows it, and mirrors it to the server-side logger.
-func (s *Server) logTrace(ctx *glsp.Context, messageType protocol.MessageType, message string) {
-	if ctx != nil && protocol.HasTraceMessageType(messageType) {
-		ctx.Notify(protocol.ServerWindowLogMessage, &protocol.LogMessageParams{
-			Type:    messageType,
-			Message: message,
-		})
-	}
-	s.logAt(messageType, message, nil)
 }
 
 func (s *Server) logAt(messageType protocol.MessageType, message string, attrs []any) {

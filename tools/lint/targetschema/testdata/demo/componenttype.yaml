@@ -1,0 +1,16 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata: {name: demo, namespace: default}
+spec:
+  workloadType: deployment
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata: {name: demo}
+        spec: {replicas: 1}
+  postRenderValidations:
+    - target: {group: apps, version: v1, kind: Deployment}
+      rule: '${resource.spec.replicas <= 2}'
+      message: deployment must have at most two replicas

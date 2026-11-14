@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
-	"gopkg.in/yaml.v3"
 )
 
 // Validate checks a YAML document root against a schema and returns
@@ -58,17 +59,17 @@ func validateNode(node *yaml.Node, schema *FieldSchema, path string) ruleengine.
 	switch node.Kind {
 	case yaml.MappingNode:
 		diags = append(diags, validateMapping(node, schema, path)...)
-		if schema.Type == "string" || schema.Type == "integer" || schema.Type == "boolean" {
+		if schema.Type == valueString || schema.Type == valueInteger || schema.Type == valueBoolean {
 			diags = append(diags, typeMismatch(node, schema.Type, "a mapping", path))
 		}
 	case yaml.ScalarNode:
 		diags = append(diags, validateScalar(node, schema, path)...)
-		if schema.Type == "object" || schema.Type == "array" {
+		if schema.Type == valueObject || schema.Type == valueArray {
 			diags = append(diags, typeMismatch(node, schema.Type, "a scalar", path))
 		}
 	case yaml.SequenceNode:
 		diags = append(diags, validateSequence(node, schema, path)...)
-		if schema.Type == "string" || schema.Type == "integer" || schema.Type == "boolean" || schema.Type == "object" {
+		if schema.Type == valueString || schema.Type == valueInteger || schema.Type == valueBoolean || schema.Type == valueObject {
 			diags = append(diags, typeMismatch(node, schema.Type, "a sequence", path))
 		}
 	}
@@ -179,7 +180,7 @@ func validateScalar(node *yaml.Node, schema *FieldSchema, path string) ruleengin
 
 	// String type check: YAML resolves unquoted scalars like numbers or
 	// booleans to non-string tags; timestamps are still valid strings.
-	if schema.Type == "string" && node.Tag != "" && node.Tag != "!!str" && node.Tag != "!!timestamp" {
+	if schema.Type == valueString && node.Tag != "" && node.Tag != "!!str" && node.Tag != "!!timestamp" {
 		diags = append(diags, ruleengine.Diagnostic{
 			Range:    nodeRange(node),
 			Severity: ruleengine.SeverityError,
@@ -189,7 +190,7 @@ func validateScalar(node *yaml.Node, schema *FieldSchema, path string) ruleengin
 	}
 
 	// Boolean type check: only YAML-native booleans are accepted.
-	if schema.Type == "boolean" && node.Tag != "!!bool" {
+	if schema.Type == valueBoolean && node.Tag != "!!bool" {
 		diags = append(diags, ruleengine.Diagnostic{
 			Range:    nodeRange(node),
 			Severity: ruleengine.SeverityError,
@@ -199,7 +200,7 @@ func validateScalar(node *yaml.Node, schema *FieldSchema, path string) ruleengin
 	}
 
 	// Integer type check: only YAML-native integers are accepted.
-	if schema.Type == "integer" {
+	if schema.Type == valueInteger {
 		if _, err := strconv.Atoi(val); err != nil {
 			diags = append(diags, ruleengine.Diagnostic{
 				Range:    nodeRange(node),
@@ -304,9 +305,9 @@ func nodeRange(node *yaml.Node) parser.Range {
 func typeMismatch(node *yaml.Node, schemaType, got string, path string) ruleengine.Diagnostic {
 	expected := "a scalar"
 	switch schemaType {
-	case "object":
+	case valueObject:
 		expected = "a mapping"
-	case "array":
+	case valueArray:
 		expected = "a sequence"
 	}
 	return ruleengine.Diagnostic{

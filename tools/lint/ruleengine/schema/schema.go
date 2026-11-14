@@ -12,7 +12,7 @@ import (
 // definition emitted by the json-schema-generator. It is shared by every
 // rule-engine template package.
 type FieldSchema struct {
-	Type       string                  // "string", "object", "array", "integer", "boolean"
+	Type       string                  // valueString, valueObject, "array", valueInteger, "boolean"
 	Required   bool                    // whether the field must be present
 	Properties map[string]*FieldSchema // nested fields (for objects)
 	Items      *FieldSchema            // element schema (for arrays)
@@ -112,7 +112,7 @@ func FindSchema(root *FieldSchema, path string) *FieldSchema {
 		if current == nil {
 			return nil
 		}
-		if current.Type == "array" {
+		if current.Type == valueArray {
 			current = current.Items
 		}
 		if current == nil {

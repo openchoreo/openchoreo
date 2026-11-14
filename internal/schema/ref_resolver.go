@@ -140,6 +140,12 @@ func schemaKeywords() []string {
 
 // resolveRef resolves a single $ref, handling sibling keys and cycle detection.
 func resolveRef(ref string, node map[string]any, defs map[string]any, visiting []string, depth int) (any, error) {
+	// Bound the stack before any size arithmetic, including the cycle error path.
+	visitingCount := len(visiting)
+	if visitingCount >= maxRefDepth || depth < 0 || depth >= maxRefDepth {
+		return nil, fmt.Errorf("$ref resolution exceeded maximum depth of %d", maxRefDepth)
+	}
+
 	// Reject remote/URL refs
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 		return nil, fmt.Errorf("only local $ref supported, got %q", ref)
@@ -175,9 +181,9 @@ func resolveRef(ref string, node map[string]any, defs map[string]any, visiting [
 	resolved := clone.DeepCopyMap(defMap)
 
 	// Recursively resolve refs within the definition
-	newVisiting := make([]string, len(visiting)+1)
+	newVisiting := make([]string, visitingCount+1)
 	copy(newVisiting, visiting)
-	newVisiting[len(visiting)] = defName
+	newVisiting[visitingCount] = defName
 
 	resolvedNode, err := resolveNode(resolved, defs, newVisiting, depth+1)
 	if err != nil {

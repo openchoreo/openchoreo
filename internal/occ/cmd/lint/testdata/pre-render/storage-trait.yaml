@@ -1,0 +1,4 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata: {name: storage, namespace: default}
+spec: {}

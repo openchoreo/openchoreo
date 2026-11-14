@@ -6,13 +6,16 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	prerendervalidator "github.com/openchoreo/openchoreo/tools/lint/pre-render-validator"
-	protocol "github.com/tliron/glsp/protocol_3_16"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 const preRenderPreRenderSchemaValidationSource = "openchoreo-schema"
@@ -108,6 +111,10 @@ func (s *Server) runPreRenderSchemaValidationFiles(files []string) {
 	if s.indexer.Version() != revision {
 		return
 	}
+	s.publishPreRenderFindings(files, static, findings)
+}
+
+func (s *Server) publishPreRenderFindings(files []string, static map[string][]protocol.Diagnostic, findings []prerendervalidator.Finding) {
 	s.preRenderSchemaMu.Lock()
 	if s.workspaceStaticByURI == nil {
 		s.workspaceStaticByURI = make(map[string][]protocol.Diagnostic)
@@ -203,12 +210,12 @@ func schemaFindingToDiagnostic(f prerendervalidator.Finding) protocol.Diagnostic
 		column = 1
 	}
 	start := protocol.Position{
-		Line:      protocol.UInteger(line - 1),
-		Character: protocol.UInteger(column - 1),
+		Line:      lsputil.PositionIndex(line - 1),
+		Character: lsputil.PositionIndex(column - 1),
 	}
 	end := protocol.Position{
 		Line:      start.Line,
-		Character: start.Character + 1,
+		Character: min(start.Character+1, math.MaxInt32),
 	}
 	severity := protocol.DiagnosticSeverityError
 	switch f.Severity {
@@ -226,19 +233,6 @@ func schemaFindingToDiagnostic(f prerendervalidator.Finding) protocol.Diagnostic
 		Source:   stringPtr(preRenderPreRenderSchemaValidationSource),
 		Message:  f.Message,
 	}
-}
-
-func (s *Server) mergeSchemaDiagnostics(uri string, diags []protocol.Diagnostic) []protocol.Diagnostic {
-	s.preRenderSchemaMu.Lock()
-	cached := append([]protocol.Diagnostic(nil), s.preRenderSchemaByURI[uri]...)
-	s.preRenderSchemaMu.Unlock()
-	if len(cached) == 0 {
-		return diags
-	}
-	merged := make([]protocol.Diagnostic, 0, len(diags)+len(cached))
-	merged = append(merged, diags...)
-	merged = append(merged, cached...)
-	return merged
 }
 
 func (s *Server) triggerPreRenderSchemaValidationForPath(path string) {

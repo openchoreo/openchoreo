@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"sort"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/openchoreo/openchoreo/tools/lint/strdist"
-	"gopkg.in/yaml.v3"
 )
 
 // Diagnostic codes reported for the repairs this package makes. They match the
@@ -45,7 +46,7 @@ type scanner struct {
 
 // schemaFor returns the schema a document is validated against: the schema of
 // its declared kind, or - when the kind is not recognized - the schema of the
-// kind inferred from its spec fields, so a misspelt kind still gets its field
+// kind inferred from its spec fields, so a misspelled kind still gets its field
 // names checked.
 func schemaFor(doc *parser.DocumentNode) *schema.FieldSchema {
 	if s := template.SchemaFor(doc.Kind); s != nil {
@@ -83,7 +84,7 @@ func collectEdits(docs []*parser.DocumentNode, opts Options) ([]fix, []string) {
 			continue
 		}
 		// Without a schema there are no field names to check, but the kind is
-		// still a closed set of registered names, so a misspelt kind can be
+		// still a closed set of registered names, so a misspelled kind can be
 		// repaired on its own.
 		s.fixRootKind(kindNode(doc.Root))
 	}

@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package targetschema
 
 import (
@@ -14,9 +15,10 @@ import (
 	"strings"
 	"sync"
 
-	schemas "github.com/openchoreo/openchoreo/internal/schema"
 	structural "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	schemas "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 type Resolver interface {

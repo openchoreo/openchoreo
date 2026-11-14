@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 )
 
 // watchDebounceDelay coalesces filesystem events: editors stage writes in
@@ -28,14 +29,14 @@ func (s *Server) startWatch(roots []string) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		s.logAt(protocol.MessageTypeWarning, "failed to start filesystem watcher",
-			[]any{"roots", roots, "error", err.Error()})
+			[]any{"roots", roots, valueError, err.Error()})
 		return
 	}
 
 	for _, root := range roots {
 		if err := watchDirectories(w, root); err != nil {
 			s.logAt(protocol.MessageTypeWarning, "failed to register some watch paths",
-				[]any{"root", root, "error", err.Error()})
+				[]any{"root", root, valueError, err.Error()})
 		}
 	}
 
@@ -84,7 +85,7 @@ func (s *Server) watchLoop(w *fsnotify.Watcher) {
 				return
 			}
 			s.logAt(protocol.MessageTypeWarning, "filesystem watcher error",
-				[]any{"error", err.Error()})
+				[]any{valueError, err.Error()})
 		case event, ok := <-w.Events:
 			if !ok {
 				return
@@ -113,7 +114,7 @@ func (s *Server) handleWatchEvent(w *fsnotify.Watcher, event fsnotify.Event) {
 		if info, err := os.Stat(path); err == nil && info.IsDir() && !isDotPath(path) {
 			if err := watchDirectories(w, path); err != nil {
 				s.logAt(protocol.MessageTypeWarning, "failed to register created directory",
-					[]any{"path", path, "error", err.Error()})
+					[]any{"path", path, valueError, err.Error()})
 			}
 			// A directory can already contain files by the time the watch is
 			// registered (e.g. a working tree copied into place), and kqueue
@@ -276,7 +277,7 @@ func (s *Server) updateIndexedFile(path string) bool {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		s.logAt(protocol.MessageTypeWarning, "failed to read changed file",
-			[]any{"path", path, "error", err.Error()})
+			[]any{"path", path, valueError, err.Error()})
 		return false
 	}
 	if previous, ok := s.indexer.SourceContent(uri); ok && bytes.Equal(previous, content) {
@@ -284,7 +285,7 @@ func (s *Server) updateIndexedFile(path string) bool {
 	}
 	if err := s.indexer.UpdateFile(uri, content); err != nil {
 		s.logAt(protocol.MessageTypeWarning, "indexer update failed for changed file",
-			[]any{"path", path, "error", err.Error()})
+			[]any{"path", path, valueError, err.Error()})
 		return false
 	}
 	return true

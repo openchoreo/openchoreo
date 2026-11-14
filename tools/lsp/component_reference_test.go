@@ -1,18 +1,24 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func TestPostgresWorkspaceDefinitionAndSchema(t *testing.T) {
 	root := t.TempDir()
 	relativeComponent := "namespaces/default/projects/doclet/components/postgres/component.yaml"
 	relativeType := "namespaces/default/platform/component-types/database.yaml"
-	source := filepath.Join("..", "..", "..", "..", "sample-gitops")
+	source := filepath.Join("testdata", "postgres-workspace")
 	var component, definition string
 	for _, relative := range []string{relativeComponent, relativeType} {
 		data, err := os.ReadFile(filepath.Join(source, relative))
@@ -44,15 +50,15 @@ func TestPostgresWorkspaceDefinitionAndSchema(t *testing.T) {
 	var position protocol.Position
 	for line, text := range strings.Split(component, "\n") {
 		if column := strings.Index(text, "deployment/database"); column >= 0 {
-			position = protocol.Position{Line: protocol.UInteger(line), Character: protocol.UInteger(column + 2)}
+			position = protocol.Position{Line: lsputil.PositionIndex(line), Character: lsputil.PositionIndex(column + 2)}
 		}
 	}
-	result, err := s.Definition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Position: position}})
+	result, err := s.Definition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}, Position: position}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	locations, ok := result.([]protocol.Location)
-	if !ok || len(locations) != 1 || string(locations[0].URI) != target {
+	if !ok || len(locations) != 1 || locations[0].URI != target {
 		t.Fatalf("workspace definition not found: %+v", result)
 	}
 	invalid := strings.Replace(component, "port: 5432", "port: invalid", 1)
@@ -63,7 +69,7 @@ func TestPostgresWorkspaceDefinitionAndSchema(t *testing.T) {
 	s.triggerPreRenderSchemaValidationForPath(path)
 	found := false
 	for _, d := range s.preRenderSchemaByURI[uri] {
-		if d.Code != nil && d.Code.Value == "schema-parameters-mismatch" {
+		if d.Code != nil && d.Code.Value == testValueSchemaParametersMismatch {
 			found = true
 		}
 	}
@@ -76,10 +82,12 @@ func TestPostgresWorkspaceDefinitionAndSchema(t *testing.T) {
 		t.Fatal("sample schema layout changed")
 	}
 	s.OpenDocument(target, updated, 3)
-	s.indexer.UpdateFile(target, []byte(updated))
+	if err := s.indexer.UpdateFile(target, []byte(updated)); err != nil {
+		t.Fatal(err)
+	}
 	s.triggerPreRenderSchemaValidationForPath(filepath.Join(root, relativeType))
 	for _, d := range s.preRenderSchemaByURI[uri] {
-		if d.Code != nil && d.Code.Value == "schema-parameters-mismatch" {
+		if d.Code != nil && d.Code.Value == testValueSchemaParametersMismatch {
 			t.Fatalf("dependent error did not clear for unsaved definition: %+v", d)
 		}
 	}
@@ -99,12 +107,12 @@ func TestDefinitionUsesSecondDocumentNamespace(t *testing.T) {
 	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Environment\nmetadata: {name: unrelated, namespace: other}\n---\napiVersion: openchoreo.dev/v1alpha1\nkind: Component\nmetadata: {name: postgres, namespace: default}\nspec:\n  componentType:\n    kind: ComponentType\n    name: deployment/database\n"
 	uri := pathToDocumentURI(filepath.Join(root, "component.yaml"))
 	s.OpenDocument(uri, text, 1)
-	result, err := s.Definition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Position: protocol.Position{Line: 10, Character: 14}}})
+	result, err := s.Definition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri}, Position: protocol.Position{Line: 10, Character: 14}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	locations, ok := result.([]protocol.Location)
-	if !ok || len(locations) != 1 || string(locations[0].URI) != pathToDocumentURI(path) {
+	if !ok || len(locations) != 1 || locations[0].URI != pathToDocumentURI(path) {
 		t.Fatalf("second document resolved using the wrong namespace: %+v", result)
 	}
 }

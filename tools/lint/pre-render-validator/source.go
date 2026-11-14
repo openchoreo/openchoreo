@@ -4,8 +4,6 @@
 package schemavalidator
 
 import (
-	"strings"
-
 	"gopkg.in/yaml.v3"
 
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
@@ -55,7 +53,7 @@ func findTraitParametersKey(doc *parser.DocumentNode, traitIndex int) *yaml.Node
 	if spec == nil {
 		return nil
 	}
-	traits := findMappingValue(spec, "traits")
+	traits := findMappingValue(spec, valueTraits)
 	if traits == nil || traits.Kind != yaml.SequenceNode {
 		return nil
 	}
@@ -66,7 +64,7 @@ func findTraitParametersKey(doc *parser.DocumentNode, traitIndex int) *yaml.Node
 	if trait == nil || trait.Kind != yaml.MappingNode {
 		return nil
 	}
-	return findKeyInMapping(trait, "parameters")
+	return findKeyInMapping(trait, valueParameters)
 }
 
 func findMappingValue(root *yaml.Node, key string) *yaml.Node {
@@ -104,19 +102,4 @@ func findKeyInMapping(m *yaml.Node, key string) *yaml.Node {
 // fallbackLineColumn returns 1,1 as a safe fallback.
 func fallbackLineColumn() (int, int) {
 	return 1, 1
-}
-
-// componentNameFromDoc returns the component name for error messages.
-func componentNameFromDoc(doc *parser.DocumentNode) string {
-	if doc == nil {
-		return ""
-	}
-	if doc.Metadata.Name != "" {
-		return doc.Metadata.Name
-	}
-	return ""
-}
-
-func stringsContains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }

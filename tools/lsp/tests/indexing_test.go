@@ -15,9 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // Background indexing tests: they drive the scan through the public Initialize
@@ -58,11 +59,11 @@ func initializeIndexingParams(t *testing.T, root string, workDoneProgress bool) 
 // null rootUri.
 func initializeWorkspaceFoldersParams(t *testing.T, roots []string, workDoneProgress bool) *protocol.InitializeParams {
 	t.Helper()
-	var folders []map[string]string
+	folders := make([]map[string]string, 0, len(roots))
 	for i, root := range roots {
 		folders = append(folders, map[string]string{
-			"uri":  "file://" + root,
-			"name": fmt.Sprintf("folder-%d", i),
+			"uri":         "file://" + root,
+			testValueName: fmt.Sprintf("folder-%d", i),
 		})
 	}
 	foldersJSON, err := json.Marshal(folders)
@@ -110,11 +111,11 @@ func makeIndexWorkspace(t *testing.T, count int) string {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)
 		}
-		if err := os.WriteFile(path, []byte(indexingTestYAML+string(rune('a'+i))+"\n"), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(indexingTestYAML+string(rune('a'+i))+"\n"), 0o600); err != nil {
 			t.Fatalf("write yaml: %v", err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(root, "config", "notes.txt"), []byte("not yaml\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "config", "notes.txt"), []byte("not yaml\n"), 0o600); err != nil {
 		t.Fatalf("write txt: %v", err)
 	}
 	return root
@@ -156,8 +157,14 @@ func replyIndexingCreate(t *testing.T, client net.Conn, frame indexingFrame, err
 // returns whether create/begin/report were observed before the end.
 func consumeProgress(t *testing.T, client net.Conn, replyErrCode int64) (create, begin, report bool) {
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer client.SetReadDeadline(time.Time{})
+	if err := client.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := client.SetReadDeadline(time.Time{}); err != nil {
+			t.Error(err)
+		}
+	}()
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 
 	for {
@@ -217,7 +224,7 @@ func TestIndexingReportsProgressWhenClientSupportsIt(t *testing.T) {
 	}
 
 	// The end notification concludes the sequence: nothing may follow.
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 func TestIndexingSkipsProgressWhenClientRejectsCreate(t *testing.T) {
@@ -230,7 +237,9 @@ func TestIndexingSkipsProgressWhenClientRejectsCreate(t *testing.T) {
 
 	// The client advertises WorkDoneProgress but its request handler answers
 	// -32601: it registered no server-to-client request handlers.
-	client.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if err := client.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 	var create indexingFrame
 	for {
@@ -245,7 +254,7 @@ func TestIndexingSkipsProgressWhenClientRejectsCreate(t *testing.T) {
 
 	// Indexing still completes, and no $/progress frames may follow.
 	waitIndexed(t, s)
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 func TestIndexingNoProgressWithoutClientSupport(t *testing.T) {
@@ -260,7 +269,7 @@ func TestIndexingNoProgressWithoutClientSupport(t *testing.T) {
 
 	// No work-done progress frames may be sent for a client that did not
 	// declare Window.WorkDoneProgress.
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 func TestIndexingRunsOncePerServer(t *testing.T) {
@@ -278,7 +287,7 @@ func TestIndexingRunsOncePerServer(t *testing.T) {
 	if _, err := s.Initialize(nil, initializeIndexingParams(t, root, true)); err != nil {
 		t.Fatalf("second Initialize: %v", err)
 	}
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 // TestIndexingMultipleRoots drives the scan through workspaceFolders (the
@@ -294,10 +303,10 @@ func TestIndexingMultipleRoots(t *testing.T) {
 			t.Fatalf("mkdir: %v", err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(rootA, "a.yaml"), []byte(indexingTestYAML+"from-a\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(rootA, "a.yaml"), []byte(indexingTestYAML+"from-a\n"), 0o600); err != nil {
 		t.Fatalf("write a.yaml: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(rootB, "b.yaml"), []byte(indexingTestYAML+"from-b\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(rootB, "b.yaml"), []byte(indexingTestYAML+"from-b\n"), 0o600); err != nil {
 		t.Fatalf("write b.yaml: %v", err)
 	}
 
@@ -314,7 +323,7 @@ func TestIndexingMultipleRoots(t *testing.T) {
 		t.Errorf("index missing resource from root B: %v", names)
 	}
 	// No $/progress frames were declared, so nothing may be sent.
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 // TestInitializeWithoutRootsKeepsIndexEmpty mirrors a client that sends neither
@@ -335,14 +344,22 @@ func TestInitializeWithoutRootsKeepsIndexEmpty(t *testing.T) {
 	if names := s.ResourceNames(); len(names) != 0 {
 		t.Fatalf("expected empty index, got %v", names)
 	}
-	expectNoIndexingFrames(t, client, 300*time.Millisecond)
+	expectNoIndexingFrames(t, client)
 }
 
 // Automatic workspace diagnostics may follow indexing; progress must still stop.
-func expectNoIndexingFrames(t *testing.T, client net.Conn, within time.Duration) {
+func expectNoIndexingFrames(t *testing.T, client net.Conn) {
+	within := 300 * time.Millisecond
+
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(within))
-	defer client.SetReadDeadline(time.Time{})
+	if err := client.SetReadDeadline(time.Now().Add(within)); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := client.SetReadDeadline(time.Time{}); err != nil {
+			t.Error(err)
+		}
+	}()
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 	for {
 		var frame rxFrame

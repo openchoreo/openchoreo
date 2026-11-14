@@ -5,15 +5,16 @@ package schemavalidator
 
 import (
 	"encoding/json"
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	sigsyaml "sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 type index struct {
@@ -67,7 +68,7 @@ func buildIndex(sources []sourceDoc) *index {
 			continue
 		}
 		switch doc.Kind {
-		case "ComponentType":
+		case valueComponentType:
 			var obj v1alpha1.ComponentType
 			if err := decodeTyped(doc, &obj); err == nil {
 				if obj.Name == "" && doc.Metadata.Name != "" {
@@ -77,19 +78,18 @@ func buildIndex(sources []sourceDoc) *index {
 					obj.Namespace = doc.Metadata.Namespace
 				}
 				idx.componentTypes = append(idx.componentTypes, componentTypeEntry{doc: obj, file: s.file, pdoc: doc})
-			} else {
 			}
-		case "ClusterComponentType":
+		case valueClusterComponentType:
 			var obj v1alpha1.ClusterComponentType
 			if err := decodeTyped(doc, &obj); err == nil {
 				idx.clusterComponentTypes = append(idx.clusterComponentTypes, clusterComponentTypeEntry{doc: obj, file: s.file, pdoc: doc})
 			}
-		case "Trait":
+		case valueTrait:
 			var obj v1alpha1.Trait
 			if err := decodeTyped(doc, &obj); err == nil {
 				idx.traits = append(idx.traits, traitEntry{doc: obj, file: s.file, pdoc: doc})
 			}
-		case "ClusterTrait":
+		case valueClusterTrait:
 			var obj v1alpha1.ClusterTrait
 			if err := decodeTyped(doc, &obj); err == nil {
 				idx.clusterTraits = append(idx.clusterTraits, clusterTraitEntry{doc: obj, file: s.file, pdoc: doc})
@@ -108,20 +108,20 @@ func buildIndex(sources []sourceDoc) *index {
 			if err := decodeTyped(&view, &projected); err == nil {
 				obj.Spec.ComponentType = projected.Spec.ComponentType
 			}
-			params, err := rawNode(findMappingValue(doc.Spec, "parameters"))
+			params, err := rawNode(findMappingValue(doc.Spec, valueParameters))
 			if err != nil {
 				continue
 			}
 			entry := componentEntry{doc: doc, file: s.file, obj: obj, parameters: params}
-			if traits := findMappingValue(doc.Spec, "traits"); traits != nil && traits.Kind == yaml.SequenceNode {
+			if traits := findMappingValue(doc.Spec, valueTraits); traits != nil && traits.Kind == yaml.SequenceNode {
 				for _, node := range traits.Content {
 					trait := componentTraitEntry{}
-					view.Root = projectMapping(node, "kind", "name", "parameters")
+					view.Root = projectMapping(node, "kind", "name", valueParameters)
 					var decoded v1alpha1.ComponentTrait
 					if err := decodeTyped(&view, &decoded); err == nil {
 						trait.kind, trait.name, trait.parameters = string(decoded.Kind), decoded.Name, decoded.Parameters
 						if trait.kind == "" {
-							trait.kind = "Trait"
+							trait.kind = valueTrait
 						}
 					}
 					// Preserve sequence positions even when another reference is invalid.
@@ -154,14 +154,14 @@ func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.Component
 	ref := comp.obj.Spec.ComponentType
 	kind := string(ref.Kind)
 	if kind == "" {
-		kind = "ComponentType"
+		kind = valueComponentType
 	}
 	name := (&typed.Component{Component: &comp.obj}).ComponentTypeName()
-	if kind == "ClusterComponentType" {
+	if kind == valueClusterComponentType {
 		var match *v1alpha1.ClusterComponentType
 		for i := range idx.clusterComponentTypes {
 			candidate := &idx.clusterComponentTypes[i].doc
-			if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && string(candidate.Spec.WorkloadType) != "" && string(candidate.Spec.WorkloadType) != prefix {
+			if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && candidate.Spec.WorkloadType != "" && candidate.Spec.WorkloadType != prefix {
 				continue
 			}
 			if candidate.Name == name {
@@ -173,14 +173,14 @@ func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.Component
 		}
 		return nil, match
 	}
-	if kind != "ComponentType" {
+	if kind != valueComponentType {
 		return nil, nil
 	}
 	ns := indexer.NamespaceOrDefault(comp.obj.Namespace)
 	var match *v1alpha1.ComponentType
 	for i := range idx.componentTypes {
 		candidate := &idx.componentTypes[i].doc
-		if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && string(candidate.Spec.WorkloadType) != "" && string(candidate.Spec.WorkloadType) != prefix {
+		if prefix, _, qualified := strings.Cut(ref.Name, "/"); qualified && candidate.Spec.WorkloadType != "" && candidate.Spec.WorkloadType != prefix {
 			continue
 		}
 		if candidate.Name == name && indexer.NamespaceOrDefault(candidate.Namespace) == ns {
@@ -193,13 +193,13 @@ func (idx *index) resolveComponentType(comp componentEntry) (*v1alpha1.Component
 	return match, nil
 }
 
-func (idx *index) resolveTrait(file string, doc *parser.DocumentNode, trait componentTraitEntry) (*v1alpha1.Trait, *v1alpha1.ClusterTrait) {
+func (idx *index) resolveTrait(doc *parser.DocumentNode, trait componentTraitEntry) (*v1alpha1.Trait, *v1alpha1.ClusterTrait) {
 	kind := trait.kind
 	if kind == "" {
-		kind = "Trait"
+		kind = valueTrait
 	}
 	name := trait.name
-	if kind == "ClusterTrait" {
+	if kind == valueClusterTrait {
 		var match *v1alpha1.ClusterTrait
 		for i := range idx.clusterTraits {
 			candidate := &idx.clusterTraits[i].doc
@@ -212,7 +212,7 @@ func (idx *index) resolveTrait(file string, doc *parser.DocumentNode, trait comp
 		}
 		return nil, match
 	}
-	if kind != "Trait" {
+	if kind != valueTrait {
 		return nil, nil
 	}
 	ns := ""

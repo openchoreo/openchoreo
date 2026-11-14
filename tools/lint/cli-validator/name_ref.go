@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
-	"gopkg.in/yaml.v3"
 )
 
 // referenceFields are the spec fields whose mapping (or sequence of mappings)

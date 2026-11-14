@@ -8,10 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"github.com/openchoreo/openchoreo/tools/lsp/hover"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
+	"github.com/openchoreo/openchoreo/tools/lsp/hover"
 )
 
 // buildVersion is stamped at release time via
@@ -101,7 +102,6 @@ func (s *Server) Initialize(
 	context *glsp.Context,
 	params *protocol.InitializeParams,
 ) (any, error) {
-
 	version := "0.2.0"
 
 	openClose := true
@@ -198,8 +198,7 @@ func (s *Server) DidOpen(
 	context *glsp.Context,
 	params *protocol.DidOpenTextDocumentParams,
 ) error {
-
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	s.OpenDocument(
 		uri,
 		params.TextDocument.Text,
@@ -233,8 +232,7 @@ func (s *Server) DidChange(
 	context *glsp.Context,
 	params *protocol.DidChangeTextDocumentParams,
 ) error {
-
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 
 	doc, err := s.applyChangesToDocument(uri, params)
 	if err != nil {
@@ -264,8 +262,7 @@ func (s *Server) DidClose(
 	context *glsp.Context,
 	params *protocol.DidCloseTextDocumentParams,
 ) error {
-
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	closeChanged := false
 	if current := s.GetDocument(uri); current != nil {
 		saved, err := os.ReadFile(fileURIToPath(uri))
@@ -316,7 +313,7 @@ func (s *Server) DidSave(
 	context *glsp.Context,
 	params *protocol.DidSaveTextDocumentParams,
 ) error {
-	uri := string(params.TextDocument.URI)
+	uri := params.TextDocument.URI
 	if path := fileURIToPath(uri); path != "" {
 		go s.triggerPreRenderSchemaValidationForPath(path)
 	}

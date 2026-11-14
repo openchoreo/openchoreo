@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // Filesystem watcher tests. After the initial scan the server watches the
@@ -109,9 +110,15 @@ func makeWatchRoot(t *testing.T) string {
 // its raw params for code probing.
 func readWatchPublish(t *testing.T, client net.Conn, within time.Duration) json.RawMessage {
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(within))
+	if err := client.SetReadDeadline(time.Now().Add(within)); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
-	defer client.SetReadDeadline(time.Time{})
+	defer func() {
+		if err := client.SetReadDeadline(time.Time{}); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	for {
 		var frame rxFrame
@@ -147,7 +154,9 @@ func probeCodes(raw json.RawMessage) []string {
 	return codes
 }
 
-func hasDiagCode(raw json.RawMessage, code string) bool {
+func hasDiagCode(raw json.RawMessage) bool {
+	code := unknownResourceFileCode
+
 	for _, c := range probeCodes(raw) {
 		if c == code {
 			return true
@@ -165,15 +174,21 @@ func drainWatchFrames(t *testing.T, client net.Conn, within time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(within)
 	for {
-		client.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		if err := client.SetReadDeadline(time.Now().Add(200 * time.Millisecond)); err != nil {
+			t.Fatal(err)
+		}
 		stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 		var frame rxFrame
 		if err := stream.ReadObject(&frame); err != nil {
-			client.SetReadDeadline(time.Time{})
+			if err := client.SetReadDeadline(time.Time{}); err != nil {
+				t.Fatal(err)
+			}
 			return
 		}
 		if time.Now().After(deadline) {
-			client.SetReadDeadline(time.Time{})
+			if err := client.SetReadDeadline(time.Time{}); err != nil {
+				t.Fatal(err)
+			}
 			return
 		}
 	}
@@ -184,9 +199,15 @@ func drainWatchFrames(t *testing.T, client net.Conn, within time.Duration) {
 // a split-window pair are open and republished together).
 func readWatchPublishForURI(t *testing.T, client net.Conn, wantURI string, within time.Duration) json.RawMessage {
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(within))
+	if err := client.SetReadDeadline(time.Now().Add(within)); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
-	defer client.SetReadDeadline(time.Time{})
+	defer func() {
+		if err := client.SetReadDeadline(time.Time{}); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	for {
 		var frame rxFrame
@@ -210,19 +231,19 @@ func TestWatchCreateIndexesFileAndPublishesDiagnostics(t *testing.T) {
 	root := makeWatchRoot(t)
 	s, client := watchServer(t, root)
 
-	openURI := "file:///virtual/open.yaml"
+	openURI := testValueFileVirtualOpenYaml
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 	expectNoFrame(t, client, 300*time.Millisecond)
 
 	// A resource file that is one edit away from the open document's
 	// misspelled reference appears on disk.
 	created := filepath.Join(root, "resources", "docker-gitops-release.yaml")
-	if err := os.WriteFile(created, []byte(watchPipeline), 0o644); err != nil {
+	if err := os.WriteFile(created, []byte(watchPipeline), 0o600); err != nil {
 		t.Fatalf("write resource file: %v", err)
 	}
 
 	raw := readWatchPublish(t, client, 5*time.Second)
-	if !hasDiagCode(raw, unknownResourceFileCode) {
+	if !hasDiagCode(raw) {
 		t.Errorf("resource appeared on disk but the reference diagnostic stayed clear; codes=%v", probeCodes(raw))
 	}
 }
@@ -233,17 +254,17 @@ func TestWatchDeleteFileClearsDiagnostics(t *testing.T) {
 
 	// The reference target exists from the very start.
 	created := filepath.Join(root, "resources", "docker-gitops-release.yaml")
-	if err := os.WriteFile(created, []byte(watchPipeline), 0o644); err != nil {
+	if err := os.WriteFile(created, []byte(watchPipeline), 0o600); err != nil {
 		t.Fatalf("write resource file: %v", err)
 	}
 
-	openURI := "file:///virtual/open.yaml"
+	openURI := testValueFileVirtualOpenYaml
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 
 	// The initial index already contains the file, so the diagnostic is
 	// present on the open document right away.
 	raw := readWatchPublish(t, client, 5*time.Second)
-	if !hasDiagCode(raw, unknownResourceFileCode) {
+	if !hasDiagCode(raw) {
 		t.Fatalf("expected the reference diagnostic before deletion; codes=%v", probeCodes(raw))
 	}
 
@@ -252,7 +273,7 @@ func TestWatchDeleteFileClearsDiagnostics(t *testing.T) {
 		t.Fatalf("remove resource file: %v", err)
 	}
 	raw = readWatchPublish(t, client, 5*time.Second)
-	if hasDiagCode(raw, unknownResourceFileCode) {
+	if hasDiagCode(raw) {
 		t.Errorf("resource vanished on disk but the reference diagnostic stayed; codes=%v", probeCodes(raw))
 	}
 }
@@ -261,7 +282,7 @@ func TestWatchRegistersNewSubdirectories(t *testing.T) {
 	root := makeWatchRoot(t)
 	s, client := watchServer(t, root)
 
-	openURI := "file:///virtual/open.yaml"
+	openURI := testValueFileVirtualOpenYaml
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 	expectNoFrame(t, client, 300*time.Millisecond)
 
@@ -271,7 +292,7 @@ func TestWatchRegistersNewSubdirectories(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(sub, "docker-gitops-release.yaml"), []byte(watchPipeline), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(sub, "docker-gitops-release.yaml"), []byte(watchPipeline), 0o600); err != nil {
 		t.Fatalf("write resource file: %v", err)
 	}
 
@@ -280,7 +301,7 @@ func TestWatchRegistersNewSubdirectories(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		raw := readWatchPublish(t, client, time.Until(deadline))
-		if hasDiagCode(raw, unknownResourceFileCode) {
+		if hasDiagCode(raw) {
 			break
 		}
 		if !time.Now().Before(deadline) {
@@ -299,7 +320,7 @@ func TestWatchRenameReferencedFileWhileOpenUpdatesDiagnostics(t *testing.T) {
 	// differs from its file name, so the open document's reference resolves
 	// through the file name specifically.
 	created := filepath.Join(root, "resources", "docker-gitops-release.yaml")
-	if err := os.WriteFile(created, []byte(watchPipelineFileName), 0o644); err != nil {
+	if err := os.WriteFile(created, []byte(watchPipelineFileName), 0o600); err != nil {
 		t.Fatalf("write resource file: %v", err)
 	}
 
@@ -310,18 +331,18 @@ func TestWatchRenameReferencedFileWhileOpenUpdatesDiagnostics(t *testing.T) {
 	refURI := "file://" + created
 	openDoc(t, s, refURI, watchPipelineFileName, 1)
 
-	openURI := "file:///virtual/open.yaml"
+	openURI := testValueFileVirtualOpenYaml
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 
 	// Baseline: an unrelated disk change forces a revalidation of the open
 	// document, which is still a near-miss of the target's name. (didOpen with
 	// a nil context below sends no frame, so the watcher supplies the publish.)
 	extra := filepath.Join(root, "resources", "unrelated.yaml")
-	if err := os.WriteFile(extra, []byte(watchUnrelated), 0o644); err != nil {
+	if err := os.WriteFile(extra, []byte(watchUnrelated), 0o600); err != nil {
 		t.Fatalf("write unrelated file: %v", err)
 	}
 	first := readWatchPublishForURI(t, client, openURI, 5*time.Second)
-	if !hasDiagCode(first, unknownResourceFileCode) {
+	if !hasDiagCode(first) {
 		t.Fatalf("expected the reference diagnostic before rename; codes=%v", probeCodes(first))
 	}
 
@@ -339,7 +360,7 @@ func TestWatchRenameReferencedFileWhileOpenUpdatesDiagnostics(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		after := readWatchPublishForURI(t, client, openURI, time.Until(deadline))
-		if !hasDiagCode(after, unknownResourceFileCode) {
+		if !hasDiagCode(after) {
 			cleared = true
 			break
 		}
@@ -387,7 +408,7 @@ func TestDidChangeResourceNameRevalidatesReferencingDocuments(t *testing.T) {
 	root := makeWatchRoot(t)
 
 	target := filepath.Join(root, "resources", "observability-alert-rule.yaml")
-	if err := os.WriteFile(target, []byte(watchTraitsTarget), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte(watchTraitsTarget), 0o600); err != nil {
 		t.Fatalf("write trait file: %v", err)
 	}
 
@@ -404,11 +425,11 @@ func TestDidChangeResourceNameRevalidatesReferencingDocuments(t *testing.T) {
 	// Baseline: an unrelated disk change forces a revalidation; the reference
 	// resolves exactly against the trait's metadata.name, so no diagnostic.
 	extra := filepath.Join(root, "resources", "unrelated.yaml")
-	if err := os.WriteFile(extra, []byte(watchUnrelated), 0o644); err != nil {
+	if err := os.WriteFile(extra, []byte(watchUnrelated), 0o600); err != nil {
 		t.Fatalf("write unrelated file: %v", err)
 	}
 	first := readWatchPublishForURI(t, client, openURI, 5*time.Second)
-	if hasDiagCode(first, unknownResourceFileCode) {
+	if hasDiagCode(first) {
 		t.Fatalf("unexpected reference diagnostic before the rename; codes=%v", probeCodes(first))
 	}
 
@@ -421,7 +442,7 @@ func TestDidChangeResourceNameRevalidatesReferencingDocuments(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		after := readWatchPublishForURI(t, client, openURI, time.Until(deadline))
-		if hasDiagCode(after, unknownResourceFileCode) {
+		if hasDiagCode(after) {
 			got = true
 			break
 		}
@@ -444,7 +465,7 @@ func TestWatchIgnoresChangesToOpenDocuments(t *testing.T) {
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 	expectNoFrame(t, client, 300*time.Millisecond)
 
-	if err := os.WriteFile(path, []byte(watchPipeline), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(watchPipeline), 0o600); err != nil {
 		t.Fatalf("write open document on disk: %v", err)
 	}
 
@@ -455,17 +476,17 @@ func TestWatchIgnoresNonYAMLAndHiddenFiles(t *testing.T) {
 	root := makeWatchRoot(t)
 	s, client := watchServer(t, root)
 
-	openURI := "file:///virtual/open.yaml"
+	openURI := testValueFileVirtualOpenYaml
 	openDoc(t, s, openURI, watchOpenComponent, 1)
 	expectNoFrame(t, client, 300*time.Millisecond)
 
 	// Non-YAML and dot-named files must not re-index anything.
-	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("hello\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("hello\n"), 0o600); err != nil {
 		t.Fatalf("write txt: %v", err)
 	}
 	// Even a YAML file whose content would match the reference is ignored
 	// because it is hidden.
-	if err := os.WriteFile(filepath.Join(root, ".docker-gitops-release.yaml"), []byte(watchPipeline), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".docker-gitops-release.yaml"), []byte(watchPipeline), 0o600); err != nil {
 		t.Fatalf("write hidden yaml: %v", err)
 	}
 

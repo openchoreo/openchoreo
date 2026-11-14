@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func TestDidOpenStoresDocument(t *testing.T) {
@@ -28,11 +30,11 @@ func TestDidOpenStoresDocument(t *testing.T) {
 		t.Fatalf("DidOpen returned error: %v", err)
 	}
 
-	doc := s.Document(string(params.TextDocument.URI))
+	doc := s.Document(params.TextDocument.URI)
 	if doc == nil {
 		t.Fatal("expected document to be stored after DidOpen")
 	}
-	if doc.URI != string(params.TextDocument.URI) {
+	if doc.URI != params.TextDocument.URI {
 		t.Errorf("URI = %q, want %q", doc.URI, params.TextDocument.URI)
 	}
 	if doc.Text != params.TextDocument.Text {
@@ -70,7 +72,7 @@ func TestDidOpenOverwritesExistingDocument(t *testing.T) {
 		t.Fatalf("DidOpen returned error: %v", err)
 	}
 
-	doc := s.Document(string(uri))
+	doc := s.Document(uri)
 	if doc.Text != second.TextDocument.Text {
 		t.Errorf("Text = %q, want %q", doc.Text, second.TextDocument.Text)
 	}
@@ -90,7 +92,7 @@ func TestDidOpenSeparateDocuments(t *testing.T) {
 		params := &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI:     uri,
-				Version: protocol.Integer(i + 1),
+				Version: lsputil.Integer(i + 1),
 				Text:    "kind: Component\n",
 			},
 		}
@@ -100,11 +102,11 @@ func TestDidOpenSeparateDocuments(t *testing.T) {
 		}
 	}
 
-	if s.Document(string(uris[0])).Version != 1 {
-		t.Errorf("a.yaml version = %d, want 1", s.Document(string(uris[0])).Version)
+	if s.Document("file:///a.yaml").Version != 1 {
+		t.Errorf("a.yaml version = %d, want 1", s.Document("file:///a.yaml").Version)
 	}
-	if s.Document(string(uris[1])).Version != 2 {
-		t.Errorf("b.yaml version = %d, want 2", s.Document(string(uris[1])).Version)
+	if s.Document("file:///b.yaml").Version != 2 {
+		t.Errorf("b.yaml version = %d, want 2", s.Document("file:///b.yaml").Version)
 	}
 }
 
@@ -135,7 +137,7 @@ func TestDidChangeUpdatesDocument(t *testing.T) {
 		t.Fatalf("DidChange returned error: %v", err)
 	}
 
-	doc := s.Document(string(uri))
+	doc := s.Document(uri)
 	if doc.Text != updated {
 		t.Errorf("Text = %q, want %q", doc.Text, updated)
 	}
@@ -178,7 +180,7 @@ func TestDidCloseRemovesDocument(t *testing.T) {
 		t.Fatalf("DidOpen returned error: %v", err)
 	}
 
-	if s.Document(string(uri)) == nil {
+	if s.Document(uri) == nil {
 		t.Fatal("expected document to be stored before DidClose")
 	}
 
@@ -188,7 +190,7 @@ func TestDidCloseRemovesDocument(t *testing.T) {
 		t.Fatalf("DidClose returned error: %v", err)
 	}
 
-	if doc := s.Document(string(uri)); doc != nil {
+	if doc := s.Document(uri); doc != nil {
 		t.Errorf("expected document to be removed after DidClose, got %+v", doc)
 	}
 }
@@ -213,10 +215,10 @@ func TestDidCloseRemovesOnlyTargetDocument(t *testing.T) {
 		t.Fatalf("DidClose returned error: %v", err)
 	}
 
-	if s.Document(string(keepURI)) == nil {
+	if s.Document(keepURI) == nil {
 		t.Error("expected keep.yaml to remain open")
 	}
-	if s.Document(string(closeURI)) != nil {
+	if s.Document(closeURI) != nil {
 		t.Error("expected close.yaml to be removed")
 	}
 }

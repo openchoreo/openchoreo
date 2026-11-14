@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-definition"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
-	"gopkg.in/yaml.v3"
+	codedefinition "github.com/openchoreo/openchoreo/tools/lsp/code-definition"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func TestFindKindByFieldName(t *testing.T) {
@@ -61,12 +62,7 @@ func TestFindKindByFieldName(t *testing.T) {
 }
 
 func TestDefinition_MetadataName(t *testing.T) {
-	src := `apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
-metadata:
-  name: docker-gitops-release
-  namespace: default
-`
+	src := releaseWorkflowYAML
 
 	docs, err := parser.ParseYAML([]byte(src))
 	if err != nil || len(docs) == 0 {
@@ -89,7 +85,7 @@ metadata:
 	if parentMapping == nil {
 		t.Fatal("lsputil.FindParentMappingAndKey returned nil parent")
 	}
-	if parentKey != "name" {
+	if parentKey != testValueName {
 		t.Fatalf("expected parent key 'name', got %q", parentKey)
 	}
 
@@ -118,12 +114,7 @@ spec:
     - name: docker-gitops-release
 `
 
-	workflowSrc := `apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
-metadata:
-  name: docker-gitops-release
-  namespace: default
-`
+	workflowSrc := releaseWorkflowYAML
 
 	docs, err := parser.ParseYAML([]byte(componentSrc))
 	if err != nil || len(docs) == 0 {
@@ -143,7 +134,7 @@ metadata:
 	if parentMapping == nil {
 		t.Fatal("parent mapping is nil")
 	}
-	if parentKey != "name" {
+	if parentKey != testValueName {
 		t.Fatalf("expected parent key 'name', got %q", parentKey)
 	}
 
@@ -189,12 +180,7 @@ spec:
       name: docker-gitops-release
 `
 
-	workflowSrc := `apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
-metadata:
-  name: docker-gitops-release
-  namespace: default
-`
+	workflowSrc := releaseWorkflowYAML
 
 	docs, err := parser.ParseYAML([]byte(componentTypeSrc))
 	if err != nil || len(docs) == 0 {
@@ -214,7 +200,7 @@ metadata:
 	if parentMapping == nil {
 		t.Fatal("lsputil.FindParentMappingAndKey returned nil")
 	}
-	if parentKey != "name" {
+	if parentKey != testValueName {
 		t.Fatalf("expected parent key 'name', got %q", parentKey)
 	}
 
@@ -275,19 +261,8 @@ func TestHandle_SameGitProjectOnly(t *testing.T) {
 		}
 	}
 
-	trait := `apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
-metadata:
-  name: persistent-volume
-`
-	doc := `apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: web-application
-spec:
-  allowedTraits:
-    - name: persistent-volume
-`
+	trait := persistentVolumeTraitYAML
+	doc := webApplicationTypeYAML
 
 	idx := indexer.NewIndexer()
 	// Foreign-repo candidate indexed first (mimics alphabetical workspace walk).
@@ -305,7 +280,7 @@ spec:
 	if len(locs) != 1 {
 		t.Fatalf("expected exactly 1 definition from the source git project, got %d: %v", len(locs), locs)
 	}
-	if want := "file://" + sameTrait; string(locs[0].URI) != want {
+	if want := "file://" + sameTrait; locs[0].URI != want {
 		t.Errorf("definition = %s, want %s", locs[0].URI, want)
 	}
 }
@@ -330,19 +305,8 @@ func TestHandle_EncodedSourceURI_SameGitProject(t *testing.T) {
 		}
 	}
 
-	trait := `apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
-metadata:
-  name: persistent-volume
-`
-	doc := `apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: web-application
-spec:
-  allowedTraits:
-    - name: persistent-volume
-`
+	trait := persistentVolumeTraitYAML
+	doc := webApplicationTypeYAML
 
 	idx := indexer.NewIndexer()
 	otherTrait := filepath.Join(otherRepo, "component-with-traits.yaml")
@@ -362,7 +326,7 @@ spec:
 	if len(locs) != 1 {
 		t.Fatalf("expected exactly 1 definition, got %d: %v", len(locs), locs)
 	}
-	if want := "file://" + sameTrait; string(locs[0].URI) != want {
+	if want := "file://" + sameTrait; locs[0].URI != want {
 		t.Errorf("definition = %s, want %s", locs[0].URI, want)
 	}
 }
@@ -372,25 +336,14 @@ spec:
 // AND next to the source document. Go-to-definition must only return the one
 // belonging to the same project as the source file.
 func TestHandle_SameProjectOnly(t *testing.T) {
-	upstreamTrait := `apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
-metadata:
-  name: persistent-volume
-`
+	upstreamTrait := persistentVolumeTraitYAML
 	sampleTrait := `apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
   name: persistent-volume
   namespace: default
 `
-	doc := `apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: web-application
-spec:
-  allowedTraits:
-    - name: persistent-volume
-`
+	doc := webApplicationTypeYAML
 
 	idx := indexer.NewIndexer()
 	if err := idx.UpdateFile(
@@ -412,7 +365,7 @@ spec:
 		t.Fatalf("expected exactly 1 definition, got %d: %v", len(locs), locs)
 	}
 	want := "file:///workspace/sample-gitops/namespaces/default/platform/traits/persistent-volume.yaml"
-	if string(locs[0].URI) != want {
+	if locs[0].URI != want {
 		t.Errorf("first definition = %s, want %s", locs[0].URI, want)
 	}
 }

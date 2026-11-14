@@ -7,17 +7,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	openapierrors "k8s.io/kube-openapi/pkg/validation/errors"
 	"os"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	openapierrors "k8s.io/kube-openapi/pkg/validation/errors"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ValidateFiles validates Component parameters and trait instance parameters
@@ -60,7 +60,7 @@ type sourceDoc struct {
 	file string
 }
 
-func validateLegacySources(ctx context.Context, sources []sourceDoc) []Finding {
+func validateLegacySources(sources []sourceDoc) []Finding {
 	index := buildIndex(sources)
 	var findings []Finding
 
@@ -79,14 +79,14 @@ func validateLegacySources(ctx context.Context, sources []sourceDoc) []Finding {
 				owner = fmt.Sprintf("ClusterComponentType %q", cct.Name)
 			}
 			if schemaSection != nil {
-				f := validateParamsAgainstSchema(schemaSection, comp.parameters, owner, comp.file, comp.doc, "parameters")
+				f := validateParamsAgainstSchema(schemaSection, comp.parameters, owner, comp.file, comp.doc, valueParameters)
 				findings = append(findings, f...)
 			}
 		}
 
 		// Validate trait parameters
 		for i, trait := range comp.traits {
-			if t, ct2 := index.resolveTrait(comp.file, comp.doc, trait); t != nil || ct2 != nil {
+			if t, ct2 := index.resolveTrait(comp.doc, trait); t != nil || ct2 != nil {
 				var schemaSection *v1alpha1.SchemaSection
 				var owner string
 				if t != nil {
@@ -97,7 +97,7 @@ func validateLegacySources(ctx context.Context, sources []sourceDoc) []Finding {
 					owner = fmt.Sprintf("ClusterTrait %q", ct2.Name)
 				}
 				if schemaSection != nil {
-					f := validateParamsAgainstSchema(schemaSection, trait.parameters, owner, comp.file, comp.doc, "traits", i)
+					f := validateParamsAgainstSchema(schemaSection, trait.parameters, owner, comp.file, comp.doc, valueTraits, i)
 					findings = append(findings, f...)
 				}
 			}
@@ -125,16 +125,7 @@ func validateParamsAgainstSchema(
 
 	structural, jsonSchema, err := schema.ResolveSectionToBundle(schemaSection)
 	if err != nil {
-		line, column := position(doc.Spec)
-		if key == "parameters" && len(traitIndex) == 0 {
-			if n := findKeyNode(doc.Root, "parameters"); n != nil {
-				line, column = position(n)
-			}
-		} else if key == "traits" && len(traitIndex) == 1 {
-			if n := findTraitParametersKey(doc, traitIndex[0]); n != nil {
-				line, column = position(n)
-			}
-		}
+		line, column := parameterLocation(doc, key, traitIndex)
 		return []Finding{{
 			Path:     file,
 			Severity: SeverityError,
@@ -148,16 +139,7 @@ func validateParamsAgainstSchema(
 	var params map[string]any
 	if rawParams != nil && len(rawParams.Raw) > 0 {
 		if err := yamlUnmarshal(rawParams.Raw, &params); err != nil {
-			line, column := position(doc.Spec)
-			if key == "parameters" && len(traitIndex) == 0 {
-				if n := findKeyNode(doc.Root, "parameters"); n != nil {
-					line, column = position(n)
-				}
-			} else if key == "traits" && len(traitIndex) == 1 {
-				if n := findTraitParametersKey(doc, traitIndex[0]); n != nil {
-					line, column = position(n)
-				}
-			}
+			line, column := parameterLocation(doc, key, traitIndex)
 			return []Finding{{
 				Path:     file,
 				Severity: SeverityError,
@@ -173,26 +155,17 @@ func validateParamsAgainstSchema(
 
 	params = schema.ApplyDefaults(params, structural)
 	if err := schema.ValidateWithJSONSchema(params, jsonSchema); err != nil {
-		line, column := position(doc.Spec)
-		if key == "parameters" && len(traitIndex) == 0 {
-			if n := findKeyNode(doc.Root, "parameters"); n != nil {
-				line, column = position(n)
-			}
-		} else if key == "traits" && len(traitIndex) == 1 {
-			if n := findTraitParametersKey(doc, traitIndex[0]); n != nil {
-				line, column = position(n)
-			}
-		}
+		line, column := parameterLocation(doc, key, traitIndex)
 		base := findMappingValue(doc.Root, "spec")
-		if key == "traits" && len(traitIndex) == 1 {
-			base = findMappingValue(base, "traits")
+		if key == valueTraits && len(traitIndex) == 1 {
+			base = findMappingValue(base, valueTraits)
 			if base != nil && base.Kind == yaml.SequenceNode && traitIndex[0] >= 0 && traitIndex[0] < len(base.Content) {
 				base = base.Content[traitIndex[0]]
 			} else {
 				base = nil
 			}
 		}
-		base = findMappingValue(base, "parameters")
+		base = findMappingValue(base, valueParameters)
 		var structured *schema.ValueValidationError
 		if errors.As(err, &structured) {
 			var findings []Finding
@@ -256,12 +229,28 @@ func valuePathNode(node *yaml.Node, path string) *yaml.Node {
 func valueErrors(errs []error) []*openapierrors.Validation {
 	var result []*openapierrors.Validation
 	for _, err := range errs {
-		switch e := err.(type) {
-		case *openapierrors.Validation:
-			result = append(result, e)
-		case *openapierrors.CompositeError:
-			result = append(result, valueErrors(e.Errors)...)
+		var validation *openapierrors.Validation
+		var composite *openapierrors.CompositeError
+		switch {
+		case errors.As(err, &validation):
+			result = append(result, validation)
+		case errors.As(err, &composite):
+			result = append(result, valueErrors(composite.Errors)...)
 		}
 	}
 	return result
+}
+
+func parameterLocation(doc *parser.DocumentNode, key string, traitIndex []int) (int, int) {
+	line, column := position(doc.Spec)
+	if key == valueParameters && len(traitIndex) == 0 {
+		if n := findKeyNode(doc.Root, valueParameters); n != nil {
+			line, column = position(n)
+		}
+	} else if key == valueTraits && len(traitIndex) == 1 {
+		if n := findTraitParametersKey(doc, traitIndex[0]); n != nil {
+			line, column = position(n)
+		}
+	}
+	return line, column
 }

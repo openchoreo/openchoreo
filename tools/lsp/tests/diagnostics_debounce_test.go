@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // Debounced diagnostics are published over the retained JSON-RPC connection
@@ -69,7 +70,7 @@ func openDoc(t *testing.T, s *lsp.Server, uri, text string, version int32) {
 	t.Helper()
 	if err := s.DidOpen(nil, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:     protocol.DocumentUri(uri),
+			URI:     uri,
 			Version: version,
 			Text:    text,
 		},
@@ -82,7 +83,7 @@ func changeDoc(t *testing.T, s *lsp.Server, uri string, version int32, changes .
 	t.Helper()
 	if err := s.DidChange(nil, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 			Version:                version,
 		},
 		ContentChanges: changes,
@@ -94,22 +95,32 @@ func changeDoc(t *testing.T, s *lsp.Server, uri string, version int32, changes .
 // expectNoFrame asserts that no object arrives within the given duration.
 func expectNoFrame(t *testing.T, client net.Conn, within time.Duration) {
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(within))
+	if err := client.SetReadDeadline(time.Now().Add(within)); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
 	var frame rxFrame
 	if err := stream.ReadObject(&frame); err == nil {
 		t.Fatalf("unexpected frame %q within %v", frame.Method, within)
 	}
-	client.SetReadDeadline(time.Time{})
+	if err := client.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // readPublish reads the next frame, asserting it is a publishDiagnostics
 // notification, and returns its params.
 func readPublish(t *testing.T, client net.Conn, within time.Duration) protocol.PublishDiagnosticsParams {
 	t.Helper()
-	client.SetReadDeadline(time.Now().Add(within))
+	if err := client.SetReadDeadline(time.Now().Add(within)); err != nil {
+		t.Fatal(err)
+	}
 	stream := jsonrpc2.NewBufferedStream(client, jsonrpc2.VSCodeObjectCodec{})
-	defer client.SetReadDeadline(time.Time{})
+	defer func() {
+		if err := client.SetReadDeadline(time.Time{}); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	for {
 		var frame rxFrame
@@ -139,7 +150,7 @@ func TestDidChangeDelaysPublish(t *testing.T) {
 
 	// One publish arrives after the window with the final version.
 	params := readPublish(t, client, 800*time.Millisecond)
-	if string(params.URI) != uri {
+	if params.URI != uri {
 		t.Errorf("URI = %q, want %q", params.URI, uri)
 	}
 	if params.Version == nil || *params.Version != 2 {
@@ -200,7 +211,7 @@ func TestDidCloseCancelsPendingPublish(t *testing.T) {
 	changeDoc(t, s, uri, 2, protocol.TextDocumentContentChangeEventWhole{Text: invalidComponent})
 
 	if err := s.DidClose(nil, &protocol.DidCloseTextDocumentParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}); err != nil {
 		t.Fatalf("DidClose error: %v", err)
 	}

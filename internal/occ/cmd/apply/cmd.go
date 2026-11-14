@@ -20,7 +20,7 @@ func NewApplyCmd(f client.NewClientFunc) *cobra.Command {
 Examples:
   # Apply a namespace configuration
   occ apply -f namespace.yaml`,
-			PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			filePath, _ := cmd.Flags().GetString("file")
 			if filePath != "" {
 				if err := lintcmd.RunValidate(filePath); err != nil {

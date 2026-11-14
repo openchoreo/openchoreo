@@ -22,12 +22,12 @@ func resolveWorkspaceRoots(params *protocol.InitializeParams) []string {
 	var roots []string
 	if len(params.WorkspaceFolders) > 0 {
 		for _, folder := range params.WorkspaceFolders {
-			if path := fileURIToPath(string(folder.URI)); path != "" {
+			if path := fileURIToPath(folder.URI); path != "" {
 				roots = append(roots, path)
 			}
 		}
 	} else if params.RootURI != nil {
-		if path := fileURIToPath(string(*params.RootURI)); path != "" {
+		if path := fileURIToPath(*params.RootURI); path != "" {
 			roots = []string{path}
 		}
 	}
@@ -86,7 +86,8 @@ func NormalizeWorkspaceRoots(paths []string) []string {
 				kept = append(kept, existing)
 			}
 		}
-		out = append(kept, abs)
+		out = kept
+		out = append(out, abs)
 	}
 	return out
 }

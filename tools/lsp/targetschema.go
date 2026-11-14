@@ -1,12 +1,14 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package lsp
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"path/filepath"
 	"strings"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 )
 
 type schemaScopeEntry struct {

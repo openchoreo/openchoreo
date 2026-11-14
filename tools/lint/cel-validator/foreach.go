@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Forked from internal/validation/component/foreach_types.go so that
+// Package celvalidator includes forEach typing forked from internal/validation/component/foreach_types.go so that
 // tools/lint does not have to depend on the webhook validation layer.
 // The two must be kept in sync if forEach loop-variable typing semantics change.
 package celvalidator

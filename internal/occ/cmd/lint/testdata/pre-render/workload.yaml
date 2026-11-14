@@ -1,0 +1,11 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo
+  container:
+    image: nginx:1.25

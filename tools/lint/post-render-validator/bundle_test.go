@@ -59,7 +59,7 @@ func TestBundleFromDocuments_ClusterVariants(t *testing.T) {
 }
 
 func TestBundleFromDocuments_UnknownAndNil(t *testing.T) {
-	docs := []*parser.DocumentNode{nil}
+	docs := make([]*parser.DocumentNode, 1, 2)
 	// Also try unknown kind
 	unk, _ := parser.ParseYAML([]byte("apiVersion: v1\nkind: Service\nmetadata:\n  name: x\n"))
 	docs = append(docs, unk...)

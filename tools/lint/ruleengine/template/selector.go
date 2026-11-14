@@ -4,7 +4,7 @@
 package template
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/cel-validator"
+	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
 )
 

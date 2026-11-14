@@ -24,7 +24,7 @@ func parseSources(t *testing.T, files map[string]string) []postRenderSource {
 			}
 		}
 	}
-	var sources []postRenderSource
+	sources := make([]postRenderSource, 0, len(names))
 	for _, name := range names {
 		docs, err := parser.ParseYAML([]byte(files[name]))
 		if err != nil {
@@ -78,7 +78,7 @@ spec:
 	}
 
 	file, pos = resolvePostRenderDiagnostic(
-		ruleengine.Diagnostic{Code: "image-latest", Message: `Deployment/lint: container "app" uses image "nginx:latest"`},
+		ruleengine.Diagnostic{Code: valueImageLatest, Message: `Deployment/lint: container "app" uses image "nginx:latest"`},
 		sources,
 		"component.yaml",
 	)
@@ -118,7 +118,7 @@ func TestResolvePostRenderDiagnostic_FallsBack(t *testing.T) {
 		"component.yaml": "apiVersion: openchoreo.dev/v1alpha1\nkind: Component\nmetadata:\n  name: web-app\n",
 	})
 	file, pos := resolvePostRenderDiagnostic(
-		ruleengine.Diagnostic{Code: "post-render-error", Message: "boom"},
+		ruleengine.Diagnostic{Code: testValuePostRenderError, Message: "boom"},
 		sources,
 		"missing.yaml",
 	)

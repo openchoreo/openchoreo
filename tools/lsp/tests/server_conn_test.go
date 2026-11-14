@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
-
 	"github.com/sourcegraph/jsonrpc2"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
 )
 
 // TestSendAsyncAfterHandlerReturn proves the retained connection can push a
@@ -44,7 +44,9 @@ func TestSendAsyncAfterHandlerReturn(t *testing.T) {
 	// Simulate an async task firing after the originating handler has returned.
 	// net.Pipe is unbuffered, so the client must read concurrently with the send.
 	clientStream := jsonrpc2.NewBufferedStream(clientSide, jsonrpc2.VSCodeObjectCodec{})
-	clientSide.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if err := clientSide.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
 	var frame struct {
 		Method string          `json:"method"`
 		Params json.RawMessage `json:"params"`

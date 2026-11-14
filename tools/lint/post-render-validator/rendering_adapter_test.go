@@ -31,7 +31,7 @@ func TestRenderInput_ConvertsBundle(t *testing.T) {
 	if ri.ComponentType == nil || ri.Component == nil || ri.Workload == nil {
 		t.Fatal("missing required fields")
 	}
-	if ri.Metadata.PodSelectors == nil || len(ri.Metadata.PodSelectors) == 0 {
+	if len(ri.Metadata.PodSelectors) == 0 {
 		t.Fatal("metadata not synthesized")
 	}
 }
@@ -75,7 +75,7 @@ func TestRenderBundle_MissingRequired(t *testing.T) {
 
 func TestBundleFromDocuments_FromTestdata(t *testing.T) {
 	files := []string{"valid-componenttype.yaml", "valid-component.yaml", "valid-workload.yaml", "valid-trait.yaml"}
-	docs := []*parser.DocumentNode{}
+	docs := make([]*parser.DocumentNode, 0, len(files))
 	for _, f := range files {
 		path := filepath.Join("testdata", f)
 		data, err := os.ReadFile(path)

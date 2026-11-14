@@ -5,7 +5,6 @@ package celvalidator
 
 import (
 	"fmt"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"sort"
 	"strings"
 
@@ -19,6 +18,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/template"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 )
 
 // Diagnostic codes reported for CEL expressions. Each is unique across the
@@ -472,7 +472,7 @@ func (c *checker) includeWhen(node *yaml.Node, env *cel.Env) {
 // bindings are structurally dynamic; callers expect only that the name exists.
 func withResource(env *cel.Env) *cel.Env {
 	if env == nil {
-		return env
+		return nil
 	}
 	ext, err := env.Extend(cel.Variable("resource", cel.DynType))
 	if err != nil {
@@ -872,7 +872,6 @@ func (c *checker) addIssues(node *yaml.Node, code string, issues *cel.Issues, fu
 		} else if hint := fieldSuggestion(c.currentEnv, expr, e.Message, exprOffset(expr, e.Location)); hint != "" {
 			message = hint
 		}
-
 	}
 
 	if code != CodeCELParseError {
@@ -917,7 +916,7 @@ func (c *checker) addIssues(node *yaml.Node, code string, issues *cel.Issues, fu
 // message because cel-go exposes no stable error code; everything else falls
 // back to a plain type error.
 func classifyCELIssues(issues *cel.Issues) string {
-	var msgs []string
+	msgs := make([]string, 0, len(issues.Errors()))
 	for _, e := range issues.Errors() {
 		msgs = append(msgs, e.Message)
 	}

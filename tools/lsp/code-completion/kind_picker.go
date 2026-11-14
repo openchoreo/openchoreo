@@ -1,15 +1,18 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"regexp"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // rootKindChoices handles the current document's root kind independently of
@@ -25,8 +28,11 @@ func rootKindChoices(text string, line, column int) ([]protocol.CompletionItem, 
 	if match == nil {
 		return nil, false
 	}
+	if column < 1 {
+		return nil, false
+	}
 	cursor := column - 1
-	if cursor < match[1] || cursor > len(current) {
+	if cursor < match[1] || cursor > lsputil.UTF16Length(current) {
 		return nil, false
 	}
 	separator := regexp.MustCompile(`^(---|\.\.\.)([ \t]*(#.*)?)?$`)
@@ -57,7 +63,7 @@ func rootKindChoices(text string, line, column int) ([]protocol.CompletionItem, 
 	endValue := len(current)
 	if hash := strings.Index(current[match[1]:], "#"); hash >= 0 {
 		endValue = match[1] + hash
-		if cursor > endValue {
+		if cursor > lsputil.UTF16Length(current[:endValue]) {
 			return nil, true
 		}
 	}
@@ -83,7 +89,7 @@ func rootKindChoices(text string, line, column int) ([]protocol.CompletionItem, 
 		completionKind := protocol.CompletionItemKindEnum
 		detail := "OpenChoreo resource kind"
 		insert, filter, sortKey := replacement, replacement, name
-		edit := protocol.TextEdit{Range: protocol.Range{Start: protocol.Position{Line: uint32(line - 1), Character: uint32(startValue)}, End: protocol.Position{Line: uint32(line - 1), Character: uint32(endValue)}}, NewText: replacement}
+		edit := protocol.TextEdit{Range: protocol.Range{Start: protocol.Position{Line: lsputil.PositionIndex(line - 1), Character: lsputil.PositionIndex(lsputil.UTF16Length(current[:startValue]))}, End: protocol.Position{Line: lsputil.PositionIndex(line - 1), Character: lsputil.PositionIndex(lsputil.UTF16Length(current[:endValue]))}}, NewText: replacement}
 		items = append(items, protocol.CompletionItem{Label: name, Kind: &completionKind, Detail: &detail, InsertText: &insert, FilterText: &filter, SortText: &sortKey, TextEdit: &edit})
 	}
 	return items, true

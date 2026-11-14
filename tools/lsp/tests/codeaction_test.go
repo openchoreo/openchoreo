@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/tools/lsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	"github.com/openchoreo/openchoreo/tools/lsp"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // indexServer creates a server whose workspace index is populated from every
@@ -41,10 +43,10 @@ func codeActions(t *testing.T, uri, text string) []protocol.CodeAction {
 	s := lsp.NewServer()
 	s.OpenDocument(uri, text, 1)
 	res, err := s.CodeAction(nil, &protocol.CodeActionParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		Range: protocol.Range{
 			Start: protocol.Position{Line: 0, Character: 0},
-			End:   protocol.Position{Line: protocol.UInteger(len(strings.Split(text, "\n"))), Character: 0},
+			End:   protocol.Position{Line: lsputil.PositionIndex(len(strings.Split(text, "\n"))), Character: 0},
 		},
 		Context: protocol.CodeActionContext{Diagnostics: []protocol.Diagnostic{}},
 	})
@@ -158,7 +160,7 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 		"standard.yaml":              "apiVersion: openchoreo.dev/v1alpha1\nkind: DeploymentPipeline\nmetadata:\n  name: standard\n",
 	}
 	for name, content := range refs {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -166,14 +168,14 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 	s := indexServer(t, dir)
 
 	uri := fileURI(filepath.Join(dir, "p.yaml"))
-	// Reference `name` fields at different nesting points are misspelt; the
+	// Reference `name` fields at different nesting points are misspelled; the
 	// document's own `metadata.name` (line 3) must NOT be "fixed".
 	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Project\nmetadata:\n  name: p1\nspec:\n  allowedWorkflows:\n    - kind: Workflow\n      name: docker-gitopsdd-release\n  deploymentPipelineRef:\n    name: standrd\n"
 	s.OpenDocument(uri, text, 1)
 	// Request quick fixes ONLY over the metadata section (lines 0-4): the
 	// file-name fixes on the reference lines must still be offered.
 	res, err := s.CodeAction(nil, &protocol.CodeActionParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		Range: protocol.Range{
 			Start: protocol.Position{Line: 2, Character: 0},
 			End:   protocol.Position{Line: 5, Character: 0},
@@ -191,7 +193,7 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 	gotRef, gotWorkflow := false, false
 	for _, a := range actions {
 		switch a.Title {
-		case `Change name to "docker-gitops-release"`:
+		case testValueChangeNameToDockerGitopsRelease:
 			gotRef = true
 			edits := a.Edit.Changes[uri]
 			if len(edits) == 0 || edits[0].NewText != "docker-gitops-release" {
@@ -211,7 +213,7 @@ func TestCodeActionFileNameRefTypo(t *testing.T) {
 func TestCodeActionFileNameValidNoFix(t *testing.T) {
 	dir := t.TempDir()
 	existing := "apiVersion: openchoreo.dev/v1alpha1\nkind: DeploymentPipeline\nmetadata:\n  name: standard\n"
-	if err := os.WriteFile(filepath.Join(dir, "standard.yaml"), []byte(existing), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "standard.yaml"), []byte(existing), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -222,10 +224,10 @@ func TestCodeActionFileNameValidNoFix(t *testing.T) {
 	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Project\nmetadata:\n  name: p1\nspec:\n  deploymentPipelineRef:\n    name: standard\n"
 	s.OpenDocument(uri, text, 1)
 	res, err := s.CodeAction(nil, &protocol.CodeActionParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		Range: protocol.Range{
 			Start: protocol.Position{Line: 0, Character: 0},
-			End:   protocol.Position{Line: protocol.UInteger(len(strings.Split(text, "\n"))), Character: 0},
+			End:   protocol.Position{Line: lsputil.PositionIndex(len(strings.Split(text, "\n"))), Character: 0},
 		},
 		Context: protocol.CodeActionContext{Diagnostics: []protocol.Diagnostic{}},
 	})
@@ -251,7 +253,7 @@ func TestCodeActionFileNameRefAllowedTraitsAndWorkflows(t *testing.T) {
 		"docker-gitops-release.yaml": "apiVersion: openchoreo.dev/v1alpha1\nkind: Workflow\nmetadata:\n  name: docker-gitops-release\n",
 	}
 	for name, content := range refs {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -268,16 +270,16 @@ func TestCodeActionFileNameRefAllowedTraitsAndWorkflows(t *testing.T) {
 		"  name: dp1\n" +
 		"spec:\n" +
 		"  allowedTraits:\n" +
-		"    - name: api-configuraton\n" +
+		"    - name: api-configur" + "aton\n" +
 		"  allowedWorkflows:\n" +
 		"    - kind: Workflow\n" +
 		"      name: docker-gitops-rvelease\n"
 	s.OpenDocument(uri, text, 1)
 	res, err := s.CodeAction(nil, &protocol.CodeActionParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		Range: protocol.Range{
 			Start: protocol.Position{Line: 0, Character: 0},
-			End:   protocol.Position{Line: protocol.UInteger(len(strings.Split(text, "\n"))), Character: 0},
+			End:   protocol.Position{Line: lsputil.PositionIndex(len(strings.Split(text, "\n"))), Character: 0},
 		},
 		Context: protocol.CodeActionContext{Diagnostics: []protocol.Diagnostic{}},
 	})
@@ -294,7 +296,7 @@ func TestCodeActionFileNameRefAllowedTraitsAndWorkflows(t *testing.T) {
 		switch a.Title {
 		case `Change name to "api-configuration"`:
 			gotTrait = true
-		case `Change name to "docker-gitops-release"`:
+		case testValueChangeNameToDockerGitopsRelease:
 			gotWorkflow = true
 		}
 	}
@@ -306,12 +308,12 @@ func TestCodeActionFileNameRefAllowedTraitsAndWorkflows(t *testing.T) {
 // TestCodeActionFileNameRefMatchesMetadataName verifies the target candidate
 // list includes indexed resource metadata.names, not only file basenames: a
 // resource whose FILE is named differently from its metadata.name must still be
-// a valid fix target for a misspelt reference.
+// a valid fix target for a misspelled reference.
 func TestCodeActionFileNameRefMatchesMetadataName(t *testing.T) {
 	dir := t.TempDir()
 	// The file is NOT named docker-gitops-release.yaml.
 	existing := "apiVersion: openchoreo.dev/v1alpha1\nkind: Workflow\nmetadata:\n  name: docker-gitops-release\n"
-	if err := os.WriteFile(filepath.Join(dir, "my-workflow.yaml"), []byte(existing), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "my-workflow.yaml"), []byte(existing), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -328,10 +330,10 @@ func TestCodeActionFileNameRefMatchesMetadataName(t *testing.T) {
 		"      name: docker-gitops-releasne\n"
 	s.OpenDocument(uri, text, 1)
 	res, err := s.CodeAction(nil, &protocol.CodeActionParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 		Range: protocol.Range{
 			Start: protocol.Position{Line: 0, Character: 0},
-			End:   protocol.Position{Line: protocol.UInteger(len(strings.Split(text, "\n"))), Character: 0},
+			End:   protocol.Position{Line: lsputil.PositionIndex(len(strings.Split(text, "\n"))), Character: 0},
 		},
 		Context: protocol.CodeActionContext{Diagnostics: []protocol.Diagnostic{}},
 	})
@@ -344,7 +346,7 @@ func TestCodeActionFileNameRefMatchesMetadataName(t *testing.T) {
 	}
 
 	for _, a := range actions {
-		if a.Title == `Change name to "docker-gitops-release"` {
+		if a.Title == testValueChangeNameToDockerGitopsRelease {
 			return
 		}
 	}

@@ -6,16 +6,17 @@ package lsp_test
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 )
-
-const lspBinary = "../../../bin/openchoreo-lsp"
 
 type jsonrpcMessage struct {
 	JSONRPC string      `json:"jsonrpc"`
@@ -186,6 +187,14 @@ func completionKindString(kind int) string {
 }
 
 func TestCompletionE2E(t *testing.T) {
+	lspBinary := filepath.Join(t.TempDir(), "openchoreo-lsp")
+	if runtime.GOOS == "windows" {
+		lspBinary += ".exe"
+	}
+	build := exec.Command("go", "build", "-o", lspBinary, "github.com/openchoreo/openchoreo/cmd/openchoreo-lsp")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build LSP: %v\n%s", err, output)
+	}
 	cmd := exec.Command(lspBinary)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -200,7 +209,11 @@ func TestCompletionE2E(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start binary: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() {
+		if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			t.Error(err)
+		}
+	}()
 
 	writer := bufio.NewWriter(stdin)
 	reader := bufio.NewReader(stdout)
@@ -271,25 +284,7 @@ func TestCompletionE2E(t *testing.T) {
 	}
 
 	fmt.Println("\n========== COMPLETION RESULTS #1 (line 3, col 0, after kind: Environment) ==========")
-	if resp1.Error != nil {
-		fmt.Printf("ERROR: %v\n", resp1.Error)
-	} else {
-		resultBytes, _ := json.Marshal(resp1.Result)
-		var compList completionList
-		if err := json.Unmarshal(resultBytes, &compList); err != nil {
-			var items []completionItem
-			if err2 := json.Unmarshal(resultBytes, &items); err2 != nil {
-				fmt.Printf("Raw result: %s\n", resultBytes)
-			} else {
-				compList.Items = items
-			}
-		}
-		fmt.Printf("Total completion items: %d\n", len(compList.Items))
-		for i, item := range compList.Items {
-			fmt.Printf("  [%d] Label: %q | Kind: %s (%d) | InsertText: %q | Detail: %q\n",
-				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
-		}
-	}
+	printCompletionResponse(resp1)
 
 	didOpenParams2 := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -324,25 +319,7 @@ func TestCompletionE2E(t *testing.T) {
 	}
 
 	fmt.Println("\n========== COMPLETION RESULTS #2 (line 4, col 0, after metadata:) ==========")
-	if resp2.Error != nil {
-		fmt.Printf("ERROR: %v\n", resp2.Error)
-	} else {
-		resultBytes, _ := json.Marshal(resp2.Result)
-		var compList completionList
-		if err := json.Unmarshal(resultBytes, &compList); err != nil {
-			var items []completionItem
-			if err2 := json.Unmarshal(resultBytes, &items); err2 != nil {
-				fmt.Printf("Raw result: %s\n", resultBytes)
-			} else {
-				compList.Items = items
-			}
-		}
-		fmt.Printf("Total completion items: %d\n", len(compList.Items))
-		for i, item := range compList.Items {
-			fmt.Printf("  [%d] Label: %q | Kind: %s (%d) | InsertText: %q | Detail: %q\n",
-				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
-		}
-	}
+	printCompletionResponse(resp2)
 
 	didOpenParams3 := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -377,25 +354,7 @@ func TestCompletionE2E(t *testing.T) {
 	}
 
 	fmt.Println("\n========== COMPLETION RESULTS #3 (line 2, col 3, 'kin' no colon) ==========")
-	if resp3.Error != nil {
-		fmt.Printf("ERROR: %v\n", resp3.Error)
-	} else {
-		resultBytes, _ := json.Marshal(resp3.Result)
-		var compList completionList
-		if err := json.Unmarshal(resultBytes, &compList); err != nil {
-			var items []completionItem
-			if err2 := json.Unmarshal(resultBytes, &items); err2 != nil {
-				fmt.Printf("Raw result: %s\n", resultBytes)
-			} else {
-				compList.Items = items
-			}
-		}
-		fmt.Printf("Total completion items: %d\n", len(compList.Items))
-		for i, item := range compList.Items {
-			fmt.Printf("  [%d] Label: %q | Kind: %s (%d) | InsertText: %q | Detail: %q\n",
-				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
-		}
-	}
+	printCompletionResponse(resp3)
 
 	didOpenParams4 := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -430,25 +389,7 @@ func TestCompletionE2E(t *testing.T) {
 	}
 
 	fmt.Println("\n========== COMPLETION RESULTS #4 (line 3, col 4, partial 'meta', invalid YAML) ==========")
-	if resp4.Error != nil {
-		fmt.Printf("ERROR: %v\n", resp4.Error)
-	} else {
-		resultBytes, _ := json.Marshal(resp4.Result)
-		var compList completionList
-		if err := json.Unmarshal(resultBytes, &compList); err != nil {
-			var items []completionItem
-			if err2 := json.Unmarshal(resultBytes, &items); err2 != nil {
-				fmt.Printf("Raw result: %s\n", resultBytes)
-			} else {
-				compList.Items = items
-			}
-		}
-		fmt.Printf("Total completion items: %d\n", len(compList.Items))
-		for i, item := range compList.Items {
-			fmt.Printf("  [%d] Label: %q | Kind: %s (%d) | InsertText: %q | Detail: %q\n",
-				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
-		}
-	}
+	printCompletionResponse(resp4)
 
 	shutdownID := 99
 	fmt.Println("\n=== Sending shutdown request ===")
@@ -467,4 +408,26 @@ func TestCompletionE2E(t *testing.T) {
 	}
 
 	fmt.Println("\n=== Test completed ===")
+}
+
+func printCompletionResponse(response *jsonrpcMessage) {
+	if response.Error != nil {
+		fmt.Printf("ERROR: %v\n", response.Error)
+	} else {
+		resultBytes, _ := json.Marshal(response.Result)
+		var compList completionList
+		if err := json.Unmarshal(resultBytes, &compList); err != nil {
+			var items []completionItem
+			if err2 := json.Unmarshal(resultBytes, &items); err2 != nil {
+				fmt.Printf("Raw result: %s\n", resultBytes)
+			} else {
+				compList.Items = items
+			}
+		}
+		fmt.Printf("Total completion items: %d\n", len(compList.Items))
+		for i, item := range compList.Items {
+			fmt.Printf("  [%d] Label: %q | Kind: %s (%d) | InsertText: %q | Detail: %q\n",
+				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
+		}
+	}
 }

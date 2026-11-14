@@ -6,8 +6,9 @@ package lsp_test
 import (
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lsp/code-completion"
 	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
 )
 
 type fakeResourceIndexer struct {

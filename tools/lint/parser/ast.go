@@ -5,6 +5,7 @@ package parser
 
 import (
 	"context"
+
 	"gopkg.in/yaml.v3"
 )
 

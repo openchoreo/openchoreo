@@ -1,10 +1,14 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/indexer"
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/indexer"
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 type dynamicTestIndex struct{ docs []indexer.SnapshotDocument }
@@ -48,7 +52,7 @@ spec:
 }
 
 func TestDynamicTraitAndNamespace(t *testing.T) {
-	for _, kind := range []string{"Trait", "ClusterTrait"} {
+	for _, kind := range []string{valueTrait, "ClusterTrait"} {
 		docs, err := parser.ParseYAML([]byte("apiVersion: openchoreo.dev/v1alpha1\nkind: " + kind + "\nmetadata: {name: storage, namespace: other}\nspec:\n  parameters:\n    openAPIV3Schema:\n      type: object\n      properties:\n        mountPath: {type: string, description: Mount directory}\n"))
 		if err != nil {
 			t.Fatal(err)
@@ -56,7 +60,7 @@ func TestDynamicTraitAndNamespace(t *testing.T) {
 		idx := dynamicTestIndex{[]indexer.SnapshotDocument{{Document: docs[0]}}}
 		text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  traits:\n    - kind: " + kind + "\n      name: storage\n      parameters:\n        "
 		items, ok := dynamicItems(text, 9, 9, idx, "")
-		if kind == "Trait" {
+		if kind == valueTrait {
 			if ok {
 				t.Fatal("namespace leak")
 			}
@@ -123,7 +127,7 @@ func TestDynamicGhostText(t *testing.T) {
 	for _, trait := range []bool{false, true} {
 		kind, name, prop := "ComponentType", "database", "port: {type: integer, default: 5432}"
 		if trait {
-			kind, name, prop = "Trait", "storage", "mountPath: {type: string, default: /data}"
+			kind, name, prop = valueTrait, "storage", "mountPath: {type: string, default: /data}"
 		}
 		definition := "apiVersion: openchoreo.dev/v1alpha1\nkind: " + kind + "\nmetadata: {name: " + name + "}\nspec:\n  workloadType: deployment\n  parameters:\n    openAPIV3Schema:\n      type: object\n      properties:\n        " + prop + "\n        optional: {type: string}\n"
 		docs, err := parser.ParseYAML([]byte(definition))
@@ -152,7 +156,6 @@ func TestDynamicGhostText(t *testing.T) {
 				t.Fatalf("duplicate field: %q", again)
 			}
 		}
-
 	}
 }
 

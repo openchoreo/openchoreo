@@ -19,8 +19,8 @@ func ParseFile(path string) ([]*DocumentNode, error) {
 
 // DocumentForPosition finds which DocumentNode in the list contains the
 // given line/column position. Returns nil if no document matches.
-func DocumentForPosition(docs []*DocumentNode, line, col int) *DocumentNode {
-	pos := Position{Line: line, Column: col}
+func DocumentForPosition(docs []*DocumentNode, line, _ int) *DocumentNode {
+	pos := Position{Line: line}
 	for _, doc := range docs {
 		if pos.Line >= doc.Range.Start.Line && pos.Line <= doc.Range.End.Line {
 			return doc

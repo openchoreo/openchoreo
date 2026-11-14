@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
@@ -8,39 +9,40 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/template"
-	"gopkg.in/yaml.v3"
 )
 
 // validateEmbeddedBindings resolves only bindings with concrete, available
 // inputs through the production resolver. It never manufactures context roots.
 func validateEmbeddedBindings(ctx context.Context, r Resource, definition, parameters, configs *yaml.Node, envAvailable bool, lookup func(string, string) []*yaml.Node) []Finding {
-	bindings := nodeAt(definition, "traits")
+	bindings := nodeAt(definition, valueTraits)
 	if bindings == nil || bindings.Kind != yaml.SequenceNode {
 		return nil
 	}
-	params, ok := runtimeValues(nodeAt(definition, "parameters"), parameters)
+	params, ok := runtimeValues(nodeAt(definition, valueParameters), parameters)
 	if !ok {
 		return nil
 	}
-	roots := map[string]bool{"parameters": true}
-	activation := map[string]any{"parameters": params}
+	roots := map[string]bool{valueParameters: true}
+	activation := map[string]any{valueParameters: params}
 	if envAvailable {
-		env, ok := runtimeValues(nodeAt(definition, "environmentConfigs"), configs)
+		env, ok := runtimeValues(nodeAt(definition, valueEnvironmentConfigs), configs)
 		if !ok {
 			return nil
 		}
-		roots["environmentConfigs"] = true
-		activation["environmentConfigs"] = env
+		roots[valueEnvironmentConfigs] = true
+		activation[valueEnvironmentConfigs] = env
 	}
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(pipelinecontext.CELExtensions()...))
 	var findings []Finding
 	for _, binding := range bindings.Content {
 		kind := scalar(nodeAt(binding, "kind"))
 		if kind == "" {
-			kind = "Trait"
+			kind = valueTrait
 		}
 		name := scalar(nodeAt(binding, "name"))
 		defs := lookup(kind, name)
@@ -70,7 +72,7 @@ func validateEmbeddedBindings(ctx context.Context, r Resource, definition, param
 			name   string
 			values map[string]any
 			code   string
-		}{{"parameters", resolved, "schema-parameters-mismatch"}, {"environmentConfigs", env, "schema-environment-configs-mismatch"}} {
+		}{{valueParameters, resolved, "schema-parameters-mismatch"}, {valueEnvironmentConfigs, env, "schema-environment-configs-mismatch"}} {
 			schema, err := sectionNode(nodeAt(defs[0], section.name))
 			if err != nil {
 				continue
@@ -120,7 +122,11 @@ func bindingsAvailable(node *yaml.Node, roots map[string]bool) bool {
 		if issues != nil && issues.Err() != nil {
 			return false
 		}
-		return availableExpr(ast.Expr(), roots)
+		parsed, err := cel.AstToParsedExpr(ast)
+		if err != nil {
+			return false
+		}
+		return availableExpr(parsed.GetExpr(), roots)
 	}
 	for _, child := range node.Content {
 		if !bindingsAvailable(child, roots) {

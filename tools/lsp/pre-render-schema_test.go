@@ -4,11 +4,12 @@
 package lsp
 
 import (
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestPreRenderUsesUnsavedDefinitionAndClearsFindings(t *testing.T) {
@@ -63,7 +64,7 @@ spec:
 	if len(findings) != 1 {
 		t.Fatalf("unsaved schema mismatch not reported: %v", findings)
 	}
-	if findings[0].Code == nil || findings[0].Code.Value != "schema-parameters-mismatch" {
+	if findings[0].Code == nil || findings[0].Code.Value != testValueSchemaParametersMismatch {
 		t.Fatalf("unexpected diagnostic: %v", findings)
 	}
 	s.OpenDocument(pathToDocumentURI(dp), definition, 3)
@@ -93,7 +94,7 @@ func TestReleaseEnvironmentAndRuntimeLifecycle(t *testing.T) {
 			counts[f.Code.Value.(string)]++
 		}
 	}
-	if counts["schema-parameters-mismatch"] != 2 || counts["schema-environment-configs-mismatch"] != 1 || counts["pre-render-validation-failed"] != 1 {
+	if counts[testValueSchemaParametersMismatch] != 2 || counts["schema-environment-configs-mismatch"] != 1 || counts["pre-render-validation-failed"] != 1 {
 		t.Fatalf("missing findings: %+v", counts)
 	}
 	// An invalid unsaved overlay must not keep obsolete schema findings. The
@@ -180,7 +181,7 @@ func TestWorkspaceStaticDiagnosticsForClosedFiles(t *testing.T) {
 	if len(s.workspaceStaticByURI[uri]) == 0 {
 		t.Fatal("unopened structural error missing")
 	}
-	if diagnosticVersion(s, uri, new(protocol.UInteger)) != nil {
+	if diagnosticVersion(s, uri, 0) != nil {
 		t.Fatal("closed files must not publish version zero")
 	}
 	corrected := strings.Replace(invalid, "isProduction: wrong", "isProduction: false", 1)

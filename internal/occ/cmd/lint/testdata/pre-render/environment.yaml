@@ -1,0 +1,4 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata: {name: dev, namespace: default}
+spec: {}

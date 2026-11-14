@@ -1,16 +1,26 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codeaction
 
 import (
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"strings"
 	"testing"
 	"unicode/utf16"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func TestCELRootQuickFix(t *testing.T) {
 	for _, text := range []string{"value: '${metdata.name}'", "value: '${metdata.name}' # metdata", "value: '😀 ${metdata.name}'\r"} {
-		start := len(utf16.Encode([]rune(text[:strings.Index(text, "metdata")])))
-		diag := protocol.Diagnostic{Message: `undeclared reference to 'metdata' (in container ''). Did you mean "metadata"?`, Range: protocol.Range{Start: protocol.Position{Character: protocol.UInteger(start)}, End: protocol.Position{Character: protocol.UInteger(start + 7)}}}
+		index := strings.Index(text, "metdata")
+		if index < 0 {
+			t.Fatal("fixture token missing")
+		}
+		start := len(utf16.Encode([]rune(text[:index])))
+		diag := protocol.Diagnostic{Message: `undeclared reference to 'metdata' (in container ''). Did you mean "metadata"?`, Range: protocol.Range{Start: protocol.Position{Character: lsputil.PositionIndex(start)}, End: protocol.Position{Character: lsputil.PositionIndex(start + 7)}}}
 		action := fixCELRoot("file:///demo.yaml", text, diag)
 		if action == nil {
 			t.Fatal("missing fix", text)

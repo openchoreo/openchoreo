@@ -1,8 +1,12 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codeaction
 
 import (
-	protocol "github.com/tliron/glsp/protocol_3_16"
 	"testing"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 func TestCELFunctionFix(t *testing.T) {

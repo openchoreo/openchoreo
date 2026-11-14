@@ -6,11 +6,12 @@ package lsp_test
 import (
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lsp/code-completion"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	codecompletion "github.com/openchoreo/openchoreo/tools/lsp/code-completion"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 func completionLabels(res any) map[string]bool {

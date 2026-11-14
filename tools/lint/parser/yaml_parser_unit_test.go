@@ -11,8 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 func TestParseYAML_SingleDocument(t *testing.T) {
@@ -29,7 +30,7 @@ func TestParseYAML_SingleDocument(t *testing.T) {
 
 	doc := docs[0]
 
-	if doc.Kind != "Component" {
+	if doc.Kind != testValueComponent {
 		t.Errorf("expected kind Component, got %q", doc.Kind)
 	}
 	if doc.APIVersion != "openchoreo.dev/v1alpha1" {
@@ -69,7 +70,7 @@ func TestParseYAML_MultiDocument(t *testing.T) {
 		t.Errorf("expected first document index 0, got %d", docs[0].DocumentIndex)
 	}
 
-	if docs[1].Kind != "Component" {
+	if docs[1].Kind != testValueComponent {
 		t.Errorf("expected second kind Component, got %q", docs[1].Kind)
 	}
 	if docs[1].Metadata.Name != "comp-a" {
@@ -184,7 +185,7 @@ func TestParseYAML_DocumentForPosition(t *testing.T) {
 	}
 
 	doc = parser.DocumentForPosition(docs, 7, 1)
-	if doc == nil || doc.Kind != "Component" {
+	if doc == nil || doc.Kind != testValueComponent {
 		t.Errorf("expected Component doc at line 7, got %v", doc)
 	}
 
@@ -206,14 +207,14 @@ func TestParseYAML_RealisticFixtures(t *testing.T) {
 			name:     "component",
 			fixture:  "component.yaml",
 			expected: 1,
-			kinds:    []string{"Component"},
+			kinds:    []string{testValueComponent},
 			names:    []string{"demo"},
 		},
 		{
 			name:     "project and component",
 			fixture:  "project-and-component.yaml",
 			expected: 2,
-			kinds:    []string{"Project", "Component"},
+			kinds:    []string{"Project", testValueComponent},
 			names:    []string{"proj-a", "comp-a"},
 		},
 	}
@@ -316,51 +317,7 @@ func TestParseYAML_CRDDataPlane(t *testing.T) {
 		t.Error("expected spec.names.shortNames to be a sequence")
 	}
 
-	versionsNode := findMappingValue(doc.Spec, "versions")
-	if versionsNode == nil || versionsNode.ValueNode.Kind != yaml.SequenceNode {
-		t.Fatal("expected spec.versions to be a sequence")
-	}
-	if len(versionsNode.ValueNode.Content) != 1 {
-		t.Fatalf("expected 1 version, got %d", len(versionsNode.ValueNode.Content))
-	}
-
-	v1alpha1Name := findMappingValue(versionsNode.ValueNode.Content[0], "name")
-	if v1alpha1Name == nil || v1alpha1Name.ValueNode.Value != "v1alpha1" {
-		t.Errorf("expected versions[0].name v1alpha1, got %v", v1alpha1Name)
-	}
-
-	schemaNode := findMappingValue(versionsNode.ValueNode.Content[0], "schema")
-	if schemaNode == nil {
-		t.Fatal("expected versions[0].schema to exist")
-	}
-
-	openAPIProps := findMappingValue(schemaNode.ValueNode, "openAPIV3Schema")
-	if openAPIProps == nil {
-		t.Fatal("expected schema.openAPIV3Schema to exist")
-	}
-
-	propsProperties := findMappingValue(openAPIProps.ValueNode, "properties")
-	if propsProperties == nil {
-		t.Fatal("expected openAPIV3Schema.properties to exist")
-	}
-
-	specProp := findMappingValue(propsProperties.ValueNode, "spec")
-	if specProp == nil {
-		t.Fatal("expected openAPIV3Schema.properties.spec to exist")
-	}
-
-	caNode := findMappingValue(specProp.ValueNode, "properties")
-	if caNode == nil {
-		t.Fatal("expected spec.properties to exist")
-	}
-	clusterAgent := findMappingValue(caNode.ValueNode, "clusterAgent")
-	if clusterAgent == nil {
-		t.Fatal("expected spec.properties.clusterAgent to exist")
-	}
-	clusterAgentDesc := findMappingValue(clusterAgent.ValueNode, "description")
-	if clusterAgentDesc == nil || clusterAgentDesc.ValueNode.Value == "" {
-		t.Error("expected clusterAgent to have a description")
-	}
+	assertDataPlaneVersions(t, doc.Spec)
 
 	t.Logf("CRD parsed successfully: kind=%s name=%s group=%s scope=%s",
 		doc.Kind, doc.Metadata.Name, specGroup.ValueNode.Value, specScope.ValueNode.Value)
@@ -445,4 +402,53 @@ func TestParseYAML_CRDTest1(t *testing.T) {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 	fmt.Println(string(b))
+}
+
+func assertDataPlaneVersions(t *testing.T, spec *yaml.Node) {
+	t.Helper()
+	versionsNode := findMappingValue(spec, "versions")
+	if versionsNode == nil || versionsNode.ValueNode.Kind != yaml.SequenceNode {
+		t.Fatal("expected spec.versions to be a sequence")
+	}
+	if len(versionsNode.ValueNode.Content) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(versionsNode.ValueNode.Content))
+	}
+
+	v1alpha1Name := findMappingValue(versionsNode.ValueNode.Content[0], "name")
+	if v1alpha1Name == nil || v1alpha1Name.ValueNode.Value != "v1alpha1" {
+		t.Errorf("expected versions[0].name v1alpha1, got %v", v1alpha1Name)
+	}
+
+	schemaNode := findMappingValue(versionsNode.ValueNode.Content[0], "schema")
+	if schemaNode == nil {
+		t.Fatal("expected versions[0].schema to exist")
+	}
+
+	openAPIProps := findMappingValue(schemaNode.ValueNode, "openAPIV3Schema")
+	if openAPIProps == nil {
+		t.Fatal("expected schema.openAPIV3Schema to exist")
+	}
+
+	propsProperties := findMappingValue(openAPIProps.ValueNode, "properties")
+	if propsProperties == nil {
+		t.Fatal("expected openAPIV3Schema.properties to exist")
+	}
+
+	specProp := findMappingValue(propsProperties.ValueNode, "spec")
+	if specProp == nil {
+		t.Fatal("expected openAPIV3Schema.properties.spec to exist")
+	}
+
+	caNode := findMappingValue(specProp.ValueNode, "properties")
+	if caNode == nil {
+		t.Fatal("expected spec.properties to exist")
+	}
+	clusterAgent := findMappingValue(caNode.ValueNode, "clusterAgent")
+	if clusterAgent == nil {
+		t.Fatal("expected spec.properties.clusterAgent to exist")
+	}
+	clusterAgentDesc := findMappingValue(clusterAgent.ValueNode, "description")
+	if clusterAgentDesc == nil || clusterAgentDesc.ValueNode.Value == "" {
+		t.Error("expected clusterAgent to have a description")
+	}
 }

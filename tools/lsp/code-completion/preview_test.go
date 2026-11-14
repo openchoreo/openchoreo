@@ -1,16 +1,20 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
-	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine"
+	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 )
 
 func TestRequiredPreviewComponent(t *testing.T) {
-	text := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	text := testValueAPIVersionOpenchoreoDevV1alpha1KindComponent
 	got := RequiredPreview(text, 1, len("kind: Component"), "  ")
 	for _, key := range []string{"spec:", "owner:", "projectName:", "componentType:", "name:"} {
 		if !strings.Contains(got, key) {
@@ -77,7 +81,7 @@ func TestPreviewExistingTypingContexts(t *testing.T) {
 }
 
 func TestPreviewSafetyAndFormatting(t *testing.T) {
-	header := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	header := testValueAPIVersionOpenchoreoDevV1alpha1KindComponent
 	got := RequiredPreview(header, 1, 15, "    ")
 	if !strings.Contains(got, "metadata:\n    name:") {
 		t.Fatal(got)
@@ -108,7 +112,7 @@ func TestPreviewPartialKey(t *testing.T) {
 }
 
 func TestPreviewReferenceKindsSatisfySharedRules(t *testing.T) {
-	header := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	header := testValueAPIVersionOpenchoreoDevV1alpha1KindComponent
 	preview := RequiredPreview(header, 1, len("kind: Component"), "  ")
 	if !strings.Contains(preview, "kind: ComponentType") || !strings.Contains(preview, "kind: ClusterWorkflow") {
 		t.Fatalf("missing template reference defaults: %s", preview)
@@ -146,8 +150,8 @@ func TestReferencePreviewUsesSelectedTemplates(t *testing.T) {
 				continue
 			}
 			for field, node := range root.Properties["spec"].Properties {
-				kindSchema := node.Properties["kind"]
-				if kindSchema == nil || !referenceKindHint(node, "kind", kindSchema) || kindSchema.Default == "" {
+				kindSchema := node.Properties[valueKind]
+				if kindSchema == nil || !referenceKindHint(node, valueKind, kindSchema) || kindSchema.Default == "" {
 					continue
 				}
 				before := kindSchema.Required
@@ -166,7 +170,7 @@ func TestReferencePreviewUsesSelectedTemplates(t *testing.T) {
 }
 
 func TestAcceptedComponentPreviewPassesStructuralRules(t *testing.T) {
-	header := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	header := testValueAPIVersionOpenchoreoDevV1alpha1KindComponent
 	preview := RequiredPreview(header, 1, len("kind: Component"), "  ")
 	if !strings.Contains(preview, "deployment/a") {
 		t.Fatalf("expected template-pattern example: %s", preview)
@@ -260,7 +264,7 @@ func TestDescriptivePlaceholders(t *testing.T) {
 			t.Fatalf("%s: %s", tc.field, got)
 		}
 	}
-	header := "apiVersion: openchoreo.dev/v1alpha1\nkind: Component"
+	header := testValueAPIVersionOpenchoreoDevV1alpha1KindComponent
 	preview := RequiredPreview(header, 1, len("kind: Component"), "  ")
 	if !strings.Contains(preview, ":<project-name>}") {
 		t.Fatalf("missing descriptive placeholder: %s", preview)

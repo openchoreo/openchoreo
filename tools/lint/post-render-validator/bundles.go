@@ -55,9 +55,8 @@ func bundleForComponent(
 	if ct == nil {
 		return componentBundle{
 			fallback: component.file,
-			err: locateError(component.doc, component.file, "componentType", fmt.Errorf("Component %s references %s %q, but it was not found",
-				component.obj.Name, componentTypeKind(component), component.obj.Spec.ComponentType.Name)),
-			errPath: component.file,
+			err:      locateError(component.doc, component.file, "componentType", referenceError{ownerKind: "Component", ownerName: component.obj.Name, targetKind: componentTypeKind(component), targetName: component.obj.Spec.ComponentType.Name}),
+			errPath:  component.file,
 		}
 	}
 	bundle.ComponentType = &ct.obj
@@ -67,7 +66,7 @@ func bundleForComponent(
 	for _, ref := range component.obj.Spec.Traits {
 		kind := string(ref.Kind)
 		if kind == "" {
-			kind = "Trait"
+			kind = valueTrait
 		}
 		key := kind + "\x00" + ref.Name
 		if seenTraits[key] {
@@ -111,9 +110,8 @@ func bundleForComponent(
 			if dp == nil && cdp == nil {
 				return componentBundle{
 					fallback: component.file,
-					err: locateError(env.doc, env.file, "dataPlaneRef", fmt.Errorf("Environment %s references %s %q, but it was not found",
-						env.obj.Name, dataPlaneKind(env), ref.Name)),
-					errPath: env.file,
+					err:      locateError(env.doc, env.file, "dataPlaneRef", referenceError{ownerKind: "Environment", ownerName: env.obj.Name, targetKind: dataPlaneKind(env), targetName: ref.Name}),
+					errPath:  env.file,
 				}
 			}
 			if cdp != nil {
@@ -160,18 +158,18 @@ func bundleSources(
 func componentTypeKind(component componentEntry) string {
 	kind := string(component.obj.Spec.ComponentType.Kind)
 	if kind == "" {
-		return "ComponentType"
+		return valueComponentType
 	}
 	return kind
 }
 
 func dataPlaneKind(env *environmentEntry) string {
 	if env == nil || env.obj.Spec.DataPlaneRef == nil {
-		return "DataPlane"
+		return valueDataPlane
 	}
 	kind := string(env.obj.Spec.DataPlaneRef.Kind)
 	if kind == "" {
-		return "DataPlane"
+		return valueDataPlane
 	}
 	return kind
 }
@@ -244,13 +242,13 @@ func (idx *projectIndex) matchDataPlane(env *environmentEntry) (*dataPlaneEntry,
 	}
 	ref := env.obj.Spec.DataPlaneRef
 	switch dataPlaneKind(env) {
-	case "ClusterDataPlane":
+	case valueClusterDataPlane:
 		for i := range idx.clusterDataPlanes {
 			if idx.clusterDataPlanes[i].obj.Name == ref.Name {
 				return nil, &idx.clusterDataPlanes[i]
 			}
 		}
-	case "DataPlane":
+	case valueDataPlane:
 		for i := range idx.dataPlanes {
 			if idx.dataPlanes[i].obj.Name == ref.Name {
 				return &idx.dataPlanes[i], nil

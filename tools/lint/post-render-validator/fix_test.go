@@ -6,7 +6,7 @@ package postrendervalidator
 import "testing"
 
 func TestFixForDiagnostic(t *testing.T) {
-	if got := fixForDiagnostic("image-latest", ""); got == "" {
+	if got := fixForDiagnostic(valueImageLatest, ""); got == "" {
 		t.Fatal("image-latest should include fix guidance")
 	}
 	if got := fixForDiagnostic("post-render-validation-failed", "replicas must be one"); got != "" {

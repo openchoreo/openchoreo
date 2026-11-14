@@ -70,7 +70,7 @@ func TestImageTagRule(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := deploymentWith(map[string]any{"name": "app", "image": tc.image}, nil)
 			diags := imageTagRule{}.Evaluate([]renderer.RenderedResource{res})
-			if got := hasCode(diags, "image-latest"); got != tc.wantAlert {
+			if got := hasCode(diags, valueImageLatest); got != tc.wantAlert {
 				t.Fatalf("image %q: alert = %v (%v), want %v", tc.image, got, codes(diags), tc.wantAlert)
 			}
 		})
@@ -109,7 +109,7 @@ func TestResourceQuantitiesRules(t *testing.T) {
 			"requests": map[string]any{"cpu": "100m"},
 		})
 		diags := resourceRequestsRule{}.Evaluate([]renderer.RenderedResource{res})
-		if len(diags) != 1 || diags[0].Code != "requests-required" {
+		if len(diags) != 1 || diags[0].Code != valueRequestsRequired {
 			t.Fatalf("expected one requests-required, got %v", codes(diags))
 		}
 	})

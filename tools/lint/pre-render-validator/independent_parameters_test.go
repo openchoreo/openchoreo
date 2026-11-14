@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package schemavalidator
 
 import (
@@ -57,7 +58,7 @@ spec:
 			messages := ""
 			count := 0
 			for _, f := range findings {
-				if f.Code == "schema-parameters-mismatch" {
+				if f.Code == testValueSchemaParametersMismatch {
 					count++
 					messages += f.Message + "\n"
 					if f.Line < 34 {

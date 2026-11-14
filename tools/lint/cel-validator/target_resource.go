@@ -1,15 +1,17 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package celvalidator
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 	"gopkg.in/yaml.v3"
 	structural "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/model"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/common"
+
+	"github.com/openchoreo/openchoreo/tools/lint/targetschema"
 )
 
 func withTargetResource(env *cel.Env, target *yaml.Node) *cel.Env {
@@ -24,7 +26,7 @@ func withResolvedTargetResource(env *cel.Env, target *yaml.Node, resolver target
 	if group == nil || version == nil || kind == nil {
 		return withResource(env)
 	}
-	if group.Kind != yaml.ScalarNode || version.Kind != yaml.ScalarNode || kind.Kind != yaml.ScalarNode || group.Tag != "!!str" || version.Tag != "!!str" || kind.Tag != "!!str" {
+	if group.Kind != yaml.ScalarNode || version.Kind != yaml.ScalarNode || kind.Kind != yaml.ScalarNode || group.Tag != valueStr || version.Tag != valueStr || kind.Tag != valueStr {
 		return withResource(env)
 	}
 	key, ok := targetschema.LiteralGVK(group.Value, version.Value, kind.Value)

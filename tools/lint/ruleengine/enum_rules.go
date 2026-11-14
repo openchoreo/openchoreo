@@ -6,8 +6,9 @@ package ruleengine
 import (
 	"fmt"
 
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // EnumRules validates that fields with fixed sets of allowed values

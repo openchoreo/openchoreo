@@ -9,10 +9,11 @@ import (
 	"strings"
 	"unicode/utf16"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	"github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
-	protocol "github.com/tliron/glsp/protocol_3_16"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // Handle computes the quick fixes for a code action request. serverDiags are
@@ -58,12 +59,12 @@ func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange pr
 	}
 
 	// Schema-driven fixes for every field: missing required fields, invalid
-	// enums, and misspelt field names at any nesting level.
-	actions = append(actions, schemaFixes(uri, text, schemaForDocument(text), clientDiags, requestRange)...)
+	// enums, and misspelled field names at any nesting level.
+	actions = append(actions, schemaFixes(uri, text, schemaForDocument(text), clientDiags)...)
 
-	// Resource file name fixes: correct a misspelt `name` value to the
+	// Resource file name fixes: correct a misspelled `name` value to the
 	// most-matching resource name from the indexed list.
-	actions = append(actions, fileNameRefFixes(uri, text, clientDiags, requestRange, resourceNames, pool, scopes...)...)
+	actions = append(actions, fileNameRefFixes(uri, text, clientDiags, resourceNames, pool, scopes...)...)
 
 	if actions == nil {
 		actions = []protocol.CodeAction{}
@@ -72,8 +73,8 @@ func Handle(uri, text string, clientDiags []protocol.Diagnostic, requestRange pr
 }
 
 // schemaForDocument returns the schema for the kind declared in the text. If
-// no kind is present or it is not recognized (e.g. misspelt), it returns a
-// minimal "kind-resolver" schema so the misspelt kind value is still corrected
+// no kind is present or it is not recognized (e.g. misspelled), it returns a
+// minimal "kind-resolver" schema so the misspelled kind value is still corrected
 // through the same schema-driven enum path. The resolver preserves unknown
 // fields, so it never offers bogus fixes for sibling keys.
 func schemaForDocument(text string) *schema.FieldSchema {
@@ -134,7 +135,7 @@ func quickFix(title string, uri string, diag protocol.Diagnostic, edits []protoc
 		IsPreferred: &preferred,
 		Edit: &protocol.WorkspaceEdit{
 			Changes: map[protocol.DocumentUri][]protocol.TextEdit{
-				protocol.DocumentUri(uri): edits,
+				uri: edits,
 			},
 		},
 	}
@@ -177,8 +178,8 @@ func fixInvalidAPIVersion(uri, text string, diag protocol.Diagnostic) *protocol.
 		if strings.HasPrefix(trimmed, "apiVersion:") && !strings.HasPrefix(trimmed, " ") {
 			edit := protocol.TextEdit{
 				Range: protocol.Range{
-					Start: protocol.Position{Line: protocol.UInteger(i), Character: 0},
-					End:   protocol.Position{Line: protocol.UInteger(i), Character: protocol.UInteger(len(ln))},
+					Start: protocol.Position{Line: lsputil.PositionIndex(i), Character: 0},
+					End:   protocol.Position{Line: lsputil.PositionIndex(i), Character: lsputil.PositionIndex(utf16Len(ln))},
 				},
 				NewText: "apiVersion: openchoreo.dev/v1alpha1",
 			}
@@ -207,8 +208,8 @@ func fixMissingMetadataName(uri, text string, diag protocol.Diagnostic) *protoco
 		}
 		edit := protocol.TextEdit{
 			Range: protocol.Range{
-				Start: protocol.Position{Line: protocol.UInteger(i), Character: protocol.UInteger(len(ln))},
-				End:   protocol.Position{Line: protocol.UInteger(i), Character: protocol.UInteger(len(ln))},
+				Start: protocol.Position{Line: lsputil.PositionIndex(i), Character: lsputil.PositionIndex(utf16Len(ln))},
+				End:   protocol.Position{Line: lsputil.PositionIndex(i), Character: lsputil.PositionIndex(utf16Len(ln))},
 			},
 			NewText: "\n  name: default",
 		}
@@ -228,7 +229,7 @@ func fixMissingKind(uri, text string, diag protocol.Diagnostic) *protocol.CodeAc
 	// Insert after the apiVersion line if present, otherwise at the top.
 	pos := protocol.Position{Line: 0, Character: 0}
 	if lines[0] != "" {
-		pos = protocol.Position{Line: 0, Character: protocol.UInteger(len(lines[0]))}
+		pos = protocol.Position{Line: 0, Character: lsputil.PositionIndex(utf16Len(lines[0]))}
 	}
 	edit := protocol.TextEdit{
 		Range: protocol.Range{Start: pos, End: pos},
@@ -242,7 +243,7 @@ func fixMissingKind(uri, text string, diag protocol.Diagnostic) *protocol.CodeAc
 
 // editDistance returns the Levenshtein edit distance between two strings, a
 // measure of how many single-character edits separate them. It is used to find
-// the closest valid field/kind name to a misspelt token.
+// the closest valid field/kind name to a misspelled token.
 func editDistance(a, b string) int {
 	if a == b {
 		return 0
@@ -329,7 +330,7 @@ func fixCELFunction(uri, text string, diag protocol.Diagnostic) *protocol.CodeAc
 	}
 	start := spans[0][0] + 1
 	column := len(utf16.Encode([]rune(lines[line][:start])))
-	r := protocol.Range{Start: protocol.Position{Line: diag.Range.Start.Line, Character: protocol.UInteger(column)}, End: protocol.Position{Line: diag.Range.Start.Line, Character: protocol.UInteger(column + len(match[1]))}}
+	r := protocol.Range{Start: protocol.Position{Line: diag.Range.Start.Line, Character: lsputil.PositionIndex(column)}, End: protocol.Position{Line: diag.Range.Start.Line, Character: lsputil.PositionIndex(column + len(match[1]))}}
 	return quickFix("Replace with "+match[2], uri, diag, []protocol.TextEdit{{Range: r, NewText: match[2]}})
 }
 

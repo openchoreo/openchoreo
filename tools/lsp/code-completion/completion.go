@@ -7,10 +7,12 @@ import (
 	"sort"
 	"strings"
 
+	protocol "github.com/tliron/glsp/protocol_3_16"
+
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
-	protocol "github.com/tliron/glsp/protocol_3_16"
+	lsputil "github.com/openchoreo/openchoreo/tools/lsp/lsp-util"
 )
 
 // ResourceIndexer is the subset of the workspace index that reference
@@ -164,8 +166,8 @@ func completionFromText(text string, cursorLine, cursorCol int, idx ResourceInde
 	}
 
 	existingKeys := extractExistingKeys(text)
-	rootFields := []string{"apiVersion", "kind", "metadata", "spec", "status"}
-	var items []protocol.CompletionItem
+	rootFields := []string{"apiVersion", valueKind, "metadata", "spec", "status"}
+	items := make([]protocol.CompletionItem, 0, len(rootFields))
 	for _, name := range rootFields {
 		if existingKeys[name] {
 			continue
@@ -345,17 +347,17 @@ func suggest(ctx completionContext, root *schema.FieldSchema, idx ResourceIndexe
 		}
 		// The cursor rests on an object/array key's value slot (`metadata:`):
 		// the user wants that block's fields.
-		if node.Type == "object" || len(node.Properties) > 0 {
+		if node.Type == valueObject || len(node.Properties) > 0 {
 			return buildFieldItems(node, ctx)
 		}
-		if node.Type == "array" {
+		if node.Type == valueArray {
 			if item := node.Items; item != nil && len(item.Properties) > 0 {
 				return buildFieldItems(item, ctx)
 			}
 			return nil
 		}
 		// `kind:` values are the valid resource kind names.
-		if ctx.field == "kind" && ctx.path == "kind" {
+		if ctx.field == valueKind && ctx.path == valueKind {
 			return kindNameCompletions(ctx.text, ctx.line, ctx.col)
 		}
 		// A `name:` value under an object with a sibling `kind:` is a resource
@@ -374,7 +376,7 @@ func suggest(ctx completionContext, root *schema.FieldSchema, idx ResourceIndexe
 			return nil
 		}
 		item := node
-		if node.Type == "array" {
+		if node.Type == valueArray {
 			item = node.Items
 		}
 		if item == nil {
@@ -390,13 +392,13 @@ func suggest(ctx completionContext, root *schema.FieldSchema, idx ResourceIndexe
 		if node == nil {
 			return nil
 		}
-		if node.Type == "array" {
+		if node.Type == valueArray {
 			if item := node.Items; item != nil && len(item.Properties) > 0 {
 				return buildFieldItems(item, ctx)
 			}
 			return nil
 		}
-		if node.Type == "object" || len(node.Properties) > 0 {
+		if node.Type == valueObject || len(node.Properties) > 0 {
 			return buildFieldItems(node, ctx)
 		}
 		return nil
@@ -488,8 +490,8 @@ func valueEditRange(ctx completionContext) (protocol.Range, bool) {
 		start = len(line)
 	}
 	return protocol.Range{
-		Start: protocol.Position{Line: uint32(ctx.line - 1), Character: uint32(start)},
-		End:   protocol.Position{Line: uint32(ctx.line - 1), Character: uint32(len(line))},
+		Start: protocol.Position{Line: lsputil.PositionIndex(ctx.line - 1), Character: lsputil.PositionIndex(lsputil.UTF16Length(line[:start]))},
+		End:   protocol.Position{Line: lsputil.PositionIndex(ctx.line - 1), Character: lsputil.PositionIndex(lsputil.UTF16Length(line))},
 	}, true
 }
 
@@ -620,7 +622,7 @@ func shallowLeafSuffix(node *schema.FieldSchema) string {
 		return ": ${1:value}"
 	}
 	switch node.Type {
-	case "object", "array":
+	case valueObject, valueArray:
 		return ":"
 	default:
 		return ": " + leafValuePlaceholder(node)
@@ -636,12 +638,12 @@ func buildInsertText(name string, node *schema.FieldSchema) string {
 	}
 
 	switch node.Type {
-	case "object":
+	case valueObject:
 		return name + ":" + expandObjectBody(name, node, "  ")
-	case "array":
+	case valueArray:
 		return name + ":" + expandArrayBody(node, "  ", 1)
 	default:
-		return name + ": " + dummyValue(name, node)
+		return name + ": " + dummyValue(node)
 	}
 }
 
@@ -671,7 +673,7 @@ func sortedFieldNames(node *schema.FieldSchema) []string {
 // Resolution order: a real schema "default" wins, then a single enum option
 // (options are never invented — a multi-option enum becomes a tab-stop
 // choice). Without either, a typed tab-stop placeholder is emitted.
-func dummyValue(name string, node *schema.FieldSchema) string {
+func dummyValue(node *schema.FieldSchema) string {
 	return leafValuePlaceholder(node)
 }
 
@@ -681,7 +683,7 @@ func leafValuePlaceholder(node *schema.FieldSchema) string {
 		return "${1:value}"
 	}
 	switch node.Type {
-	case "string":
+	case valueString:
 		if node.Default != "" {
 			return yamlSafeString(node.Default)
 		}
@@ -692,12 +694,12 @@ func leafValuePlaceholder(node *schema.FieldSchema) string {
 			return "${1|" + strings.Join(node.Enum, ",") + "|}"
 		}
 		return "${1:value}"
-	case "integer", "number":
+	case valueInteger, valueNumber:
 		if node.Default != "" {
 			return node.Default
 		}
 		return "${1:0}"
-	case "boolean":
+	case valueBoolean:
 		if node.Default != "" {
 			return node.Default
 		}
@@ -739,12 +741,12 @@ func expandObjectBody(name string, node *schema.FieldSchema, indent string) stri
 		child := node.Properties[n]
 		b.WriteString("\n" + indent)
 		switch child.Type {
-		case "object":
+		case valueObject:
 			b.WriteString(n + ":" + expandObjectBody(n, child, indent+"  "))
-		case "array":
+		case valueArray:
 			b.WriteString(n + ":" + expandArrayBody(child, indent+"  ", 1))
 		default:
-			b.WriteString(n + ": " + dummyValue(n, child))
+			b.WriteString(n + ": " + dummyValue(child))
 		}
 	}
 	return b.String()
@@ -782,12 +784,12 @@ func expandArrayBody(node *schema.FieldSchema, indent string, depth int) string 
 	}
 	childIndent := indent + "  "
 	switch item.Type {
-	case "object":
+	case valueObject:
 		return "\n" + indent + "-" + expandObjectBody("item", item, childIndent)
-	case "array":
+	case valueArray:
 		return "\n" + indent + "-" + expandArrayBody(item, childIndent, depth+1)
 	default:
-		return "\n" + indent + "- " + dummyValue("item", item)
+		return "\n" + indent + "- " + dummyValue(item)
 	}
 }
 
@@ -797,19 +799,19 @@ func completionItemKind(node *schema.FieldSchema) protocol.CompletionItemKind {
 		return protocol.CompletionItemKindField
 	}
 	switch node.Type {
-	case "object":
+	case valueObject:
 		if len(node.Properties) > 0 {
 			return protocol.CompletionItemKindModule
 		}
 		return protocol.CompletionItemKindField
-	case "array":
+	case valueArray:
 		return protocol.CompletionItemKindEnum
-	case "string":
+	case valueString:
 		if len(node.Enum) > 0 {
 			return protocol.CompletionItemKindEnum
 		}
 		return protocol.CompletionItemKindValue
-	case "integer", "number", "boolean":
+	case valueInteger, valueNumber, valueBoolean:
 		return protocol.CompletionItemKindValue
 	default:
 		return protocol.CompletionItemKindField
@@ -925,18 +927,19 @@ func kindNameCompletions(text string, cursorLine, cursorCol int) []protocol.Comp
 	if lines := strings.Split(text, "\n"); cursorLine >= 1 && cursorLine <= len(lines) {
 		line = lines[cursorLine-1]
 	}
-	if cursorCol > len(line) {
-		cursorCol = len(line)
+	if cursorCol > lsputil.UTF16Length(line) {
+		cursorCol = lsputil.UTF16Length(line)
 	}
-	// Locate the start of the "kind" prefix on this line (its leading
+	// Locate the start of the valueKind prefix on this line (its leading
 	// indentation), then replace everything from there up to the cursor.
 	kindPos := strings.Index(line, "kind:")
 	if kindPos < 0 {
 		kindPos = 0
 	}
 
-	var items []protocol.CompletionItem
-	for _, k := range template.AllKinds() {
+	kinds := template.AllKinds()
+	items := make([]protocol.CompletionItem, 0, len(kinds))
+	for _, k := range kinds {
 		name := k
 		kind := protocol.CompletionItemKindEnum
 		detail := "resource kind"
@@ -944,8 +947,8 @@ func kindNameCompletions(text string, cursorLine, cursorCol int) []protocol.Comp
 		newText := name + "\n"
 		edit := protocol.TextEdit{
 			Range: protocol.Range{
-				Start: protocol.Position{Line: uint32(cursorLine - 1), Character: uint32(kindPos)},
-				End:   protocol.Position{Line: uint32(cursorLine - 1), Character: uint32(cursorCol)},
+				Start: protocol.Position{Line: lsputil.PositionIndex(max(cursorLine, 1) - 1), Character: lsputil.PositionIndex(lsputil.UTF16Length(line[:kindPos]))},
+				End:   protocol.Position{Line: lsputil.PositionIndex(max(cursorLine, 1) - 1), Character: lsputil.PositionIndex(cursorCol)},
 			},
 			NewText: replacement,
 		}

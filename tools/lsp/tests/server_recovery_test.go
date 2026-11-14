@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	glsp "github.com/tliron/glsp"
+	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/openchoreo/openchoreo/tools/lsp"

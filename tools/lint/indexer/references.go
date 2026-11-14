@@ -1,10 +1,14 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package indexer
 
 import (
-	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	"github.com/openchoreo/openchoreo/tools/lint/parser"
 )
 
 // SnapshotDocument retains parsed source identity for workspace consumers.

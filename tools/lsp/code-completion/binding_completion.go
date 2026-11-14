@@ -1,14 +1,19 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package codecompletion
 
 import (
 	"encoding/json"
+	"sort"
+
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"gopkg.in/yaml.v3"
+
 	celvalidator "github.com/openchoreo/openchoreo/tools/lint/cel-validator"
 	"github.com/openchoreo/openchoreo/tools/lint/indexer"
 	"github.com/openchoreo/openchoreo/tools/lint/parser"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/schema"
-	protocol "github.com/tliron/glsp/protocol_3_16"
-	"gopkg.in/yaml.v3"
-	"sort"
 )
 
 func bindingDocument(text string, line int) *parser.DocumentNode {
@@ -89,7 +94,7 @@ func bindingPreviewFields(text string, line int, uri string, idx ResourceIndexer
 	if !ok {
 		return nil
 	}
-	fields := map[string]*schema.FieldSchema{rel.pin: {Type: "string", Required: true}}
+	fields := map[string]*schema.FieldSchema{rel.pin: {Type: valueString, Required: true}}
 	workspace, ok := idx.(interface {
 		Snapshot(string) []indexer.SnapshotDocument
 	})
@@ -103,7 +108,7 @@ func bindingPreviewFields(text string, line int, uri string, idx ResourceIndexer
 	if s := environmentCompletionSchema(dynamicAt(frozen, rel.definition+".spec")); s != nil {
 		fields[rel.values] = s
 	}
-	if doc.Kind == "ReleaseBinding" {
+	if doc.Kind == valueReleaseBinding {
 		if s := environmentCompletionSchema(traitConfigMapSchema(frozen)); s != nil {
 			fields["traitEnvironmentConfigs"] = s
 		}

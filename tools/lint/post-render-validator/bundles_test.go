@@ -10,7 +10,9 @@ import (
 	"testing"
 )
 
-func workloadWithEndpointYAML(project, component, image, endpointType string) string {
+func workloadWithEndpointYAML(component string, image string, endpointType string) string {
+	project := valueDefault
+
 	return fmt.Sprintf(`apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -43,17 +45,16 @@ func TestValidateFiles_GroupsComponentsIndependently(t *testing.T) {
 	_, files := writeProject(t, map[string]string{
 		"webapp-ct.yaml":   componentTypeWithValidation("ComponentType", "web-application", validation, "webapp needs HTTP"),
 		"database-ct.yaml": componentTypeYAML("ComponentType", "database"),
-		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/web-application"),
-		"postgres.yaml":    componentYAML("postgres", "default", "ComponentType", "deployment/database"),
-		"frontend-wl.yaml": workloadWithEndpointYAML("default", "frontend", "nginx:1.25", "HTTP"),
-		"postgres-wl.yaml": workloadWithEndpointYAML("default", "postgres", "postgres:16", "TCP"),
+		"frontend.yaml":    componentYAML("frontend", "ComponentType", "deployment/web-application"),
+		"postgres.yaml":    componentYAML("postgres", "ComponentType", "deployment/database"),
+		"frontend-wl.yaml": workloadWithEndpointYAML("frontend", "nginx:1.25", "HTTP"),
+		"postgres-wl.yaml": workloadWithEndpointYAML("postgres", "postgres:16", "TCP"),
 	})
 
 	findings := ValidateFiles(context.Background(), files)
 	if len(findings) != 0 {
 		t.Fatalf("components should be validated with their own ComponentTypes, got %+v", findings)
 	}
-
 }
 
 func TestValidateFiles_AttributesDeclaredFailureToOwningComponentType(t *testing.T) {
@@ -61,16 +62,16 @@ func TestValidateFiles_AttributesDeclaredFailureToOwningComponentType(t *testing
 	_, files := writeProject(t, map[string]string{
 		"webapp-ct.yaml":   componentTypeWithValidation("ComponentType", "web-application", validation, "webapp needs HTTP"),
 		"database-ct.yaml": componentTypeYAML("ComponentType", "database"),
-		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/web-application"),
-		"postgres.yaml":    componentYAML("postgres", "default", "ComponentType", "deployment/database"),
-		"frontend-wl.yaml": workloadWithEndpointYAML("default", "frontend", "nginx:1.25", "TCP"),
-		"postgres-wl.yaml": workloadWithEndpointYAML("default", "postgres", "postgres:16", "TCP"),
+		"frontend.yaml":    componentYAML("frontend", "ComponentType", "deployment/web-application"),
+		"postgres.yaml":    componentYAML("postgres", "ComponentType", "deployment/database"),
+		"frontend-wl.yaml": workloadWithEndpointYAML("frontend", "nginx:1.25", "TCP"),
+		"postgres-wl.yaml": workloadWithEndpointYAML("postgres", "postgres:16", "TCP"),
 	})
 
 	findings := ValidateFiles(context.Background(), files)
 	var failure *Finding
 	for i := range findings {
-		if findings[i].Code == "post-render-error" && strings.Contains(findings[i].Message, "webapp needs HTTP") {
+		if findings[i].Code == testValuePostRenderError && strings.Contains(findings[i].Message, "webapp needs HTTP") {
 			failure = &findings[i]
 			break
 		}
@@ -89,15 +90,15 @@ func TestValidateFiles_AttributesDeclaredFailureToOwningComponentType(t *testing
 func TestValidateFiles_ClusterDataPlaneBundle(t *testing.T) {
 	_, files := writeProject(t, map[string]string{
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
-		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
-		"frontend-wl.yaml": workloadWithEndpointYAML("default", "frontend", "nginx:1.25", "HTTP"),
-		"frontend-rb.yaml": releaseBindingYAML("frontend-dev", "default", "frontend", "dev"),
-		"dev.yaml":         environmentYAML("dev", "ClusterDataPlane", "shared"),
+		"frontend.yaml":    componentYAML("frontend", "ComponentType", "deployment/frontend-ct"),
+		"frontend-wl.yaml": workloadWithEndpointYAML("frontend", "nginx:1.25", "HTTP"),
+		"frontend-rb.yaml": releaseBindingYAML("frontend-dev", "frontend"),
+		"dev.yaml":         environmentYAML("ClusterDataPlane", "shared"),
 		"cluster-dp.yaml":  dataPlaneYAML("ClusterDataPlane", "shared"),
 	})
 
 	findings := ValidateFiles(context.Background(), files)
-	if hasFinding(findings, "post-render-error") {
+	if hasFinding(findings, testValuePostRenderError) {
 		t.Fatalf("ClusterDataPlane should be converted for rendering, got %+v", findings)
 	}
 }
@@ -106,19 +107,19 @@ func TestValidateFiles_ReportsMissingDataPlaneOnce(t *testing.T) {
 	_, files := writeProject(t, map[string]string{
 		"frontend-ct.yaml": componentTypeYAML("ComponentType", "frontend-ct"),
 		"backend-ct.yaml":  componentTypeYAML("ComponentType", "backend-ct"),
-		"frontend.yaml":    componentYAML("frontend", "default", "ComponentType", "deployment/frontend-ct"),
-		"backend.yaml":     componentYAML("backend", "default", "ComponentType", "deployment/backend-ct"),
-		"frontend-wl.yaml": workloadYAML("default", "frontend", "nginx:1.25"),
-		"backend-wl.yaml":  workloadYAML("default", "backend", "nginx:1.25"),
-		"frontend-rb.yaml": releaseBindingYAML("frontend-dev", "default", "frontend", "dev"),
-		"backend-rb.yaml":  releaseBindingYAML("backend-dev", "default", "backend", "dev"),
-		"dev.yaml":         environmentYAML("dev", "ClusterDataPlane", "shared"),
+		"frontend.yaml":    componentYAML("frontend", "ComponentType", "deployment/frontend-ct"),
+		"backend.yaml":     componentYAML("backend", "ComponentType", "deployment/backend-ct"),
+		"frontend-wl.yaml": workloadYAML("frontend", "nginx:1.25"),
+		"backend-wl.yaml":  workloadYAML("backend", "nginx:1.25"),
+		"frontend-rb.yaml": releaseBindingYAML("frontend-dev", "frontend"),
+		"backend-rb.yaml":  releaseBindingYAML("backend-dev", "backend"),
+		"dev.yaml":         environmentYAML("ClusterDataPlane", "shared"),
 	})
 
 	findings := ValidateFiles(context.Background(), files)
 	var errors []Finding
 	for _, finding := range findings {
-		if finding.Code == "post-render-error" {
+		if finding.Code == testValuePostRenderError {
 			errors = append(errors, finding)
 		}
 	}
@@ -145,12 +146,12 @@ func TestValidateFiles_ReportsMissingDataPlaneOnce(t *testing.T) {
 func TestValidateFiles_ImageLatestNamesComponent(t *testing.T) {
 	_, files := writeProject(t, map[string]string{
 		"collab-ct.yaml": componentTypeYAML("ComponentType", "collab-ct"),
-		"collab.yaml":    componentYAML("collab-svc", "default", "ComponentType", "deployment/collab-ct"),
-		"collab-wl.yaml": workloadYAML("default", "collab-svc", "temp-image-placeholder"),
+		"collab.yaml":    componentYAML("collab-svc", "ComponentType", "deployment/collab-ct"),
+		"collab-wl.yaml": workloadYAML("collab-svc", "temp-image-placeholder"),
 	})
 
 	findings := ValidateFiles(context.Background(), files)
-	finding := findFinding(findings, "image-latest")
+	finding := findFinding(findings, valueImageLatest)
 	if finding == nil {
 		t.Fatalf("expected image-latest, got %+v", findings)
 	}
