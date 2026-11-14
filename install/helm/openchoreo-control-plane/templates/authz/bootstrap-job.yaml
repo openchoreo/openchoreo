@@ -1,5 +1,6 @@
 {{- if .Values.security.authz.enabled }}
 {{- $name := include "openchoreo-control-plane.authz.bootstrapName" . }}
+{{- $removals := include "openchoreo-control-plane.authz.removalManifests" . | trim }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -30,6 +31,38 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+{{- if $removals }}
+      initContainers:
+        # Bootstrap objects an earlier revision seeded that these values no
+        # longer do - today only the bundled portal's catalog-reader binding,
+        # once the portal is disabled. `kubectl apply` cannot remove what is no
+        # longer in its input, so they are deleted first. Still a single
+        # command, so this shares the apply step's distroless kubectl image.
+        - name: authz-prune
+          image: {{ .Values.openchoreoApi.config.security.authorization.bootstrap.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+            - delete
+            - --ignore-not-found
+            - -f
+            - /bootstrap/removals.yaml
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+{{- end }}
       containers:
         - name: authz-bootstrap
           # Every bootstrap object is upserted via a single `kubectl apply`,

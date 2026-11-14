@@ -1,5 +1,6 @@
 {{- if .Values.security.authz.enabled }}
 {{- $name := include "openchoreo-control-plane.authz.bootstrapName" . }}
+{{- $removals := include "openchoreo-control-plane.authz.removalManifests" . | trim }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -34,6 +35,10 @@ rules:
       - get
       - create
       - patch
+      {{- if $removals }}
+      # Only while there is something to prune; see the Job's initContainer.
+      - delete
+      {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

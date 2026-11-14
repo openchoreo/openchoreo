@@ -157,4 +157,56 @@ Roles before bindings. Consumed by the bootstrap ConfigMap.
 ---
 {{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" $m "root" $root) }}
 {{- end }}
+{{/*
+The binding that points the bundled portal's client at backstage-catalog-reader
+is appended here rather than declared in bootstrap.mappings, because the
+overlays that replace that list wholesale would otherwise each need a copy.
+
+A deployment that still declares the binding itself wins: the job applies this
+stream in order, so appending ours would overwrite theirs by name. That matters
+because a deployment on an external IdP binds a different claim (Dex identifies
+the client through `sub`), and replacing it with the default `client_id` binding
+breaks catalog sync with a 403 and nothing else would say why.
+*/}}
+{{- if and $root.Values.backstage.enabled (not (include "openchoreo-control-plane.authz.portalBindingDeclared" $root)) }}
+---
+{{ include "openchoreo-control-plane.authz.bindingManifest" (dict "mapping" (include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml) "root" $root) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Whether bootstrap.mappings already declares the portal's binding by name, in
+which case the chart neither appends its own nor removes the deployment's.
+Renders a non-empty string for yes, nothing for no.
+*/}}
+{{- define "openchoreo-control-plane.authz.portalBindingDeclared" -}}
+{{- $root := . -}}
+{{- $name := (include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml).name -}}
+{{- range $m := $root.Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+{{- if eq (default "" $m.name) $name }}declared{{ end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Objects an earlier revision of this release seeded that these values no longer
+do, as a multi-document stream of just apiVersion/kind/name. The bootstrap job
+deletes these before applying the rest, because `kubectl apply` cannot remove
+what is no longer in its input (see bootstrap-job.yaml).
+
+Only the bundled portal's binding qualifies. Turning the portal off has to drop
+it: it grants the portal's OAuth client cluster-wide read, and the quick-start
+installs that client with a published default secret. The role it names stays
+seeded either way, and every other bootstrap object is seeded unconditionally,
+so nothing else can be left behind.
+*/}}
+{{- define "openchoreo-control-plane.authz.removalManifests" -}}
+{{- $root := . -}}
+{{- if and (not $root.Values.backstage.enabled) (not (include "openchoreo-control-plane.authz.portalBindingDeclared" $root)) }}
+{{- $portalBinding := include "openchoreo-control-plane.backstage.authzBinding" $root | fromYaml }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterAuthzRoleBinding
+metadata:
+  name: {{ $portalBinding.name }}
+{{- end }}
 {{- end }}

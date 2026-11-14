@@ -1,5 +1,6 @@
 OpenChoreo Control Plane installed in namespace "{{ .Release.Namespace }}".
 
+{{- if .Values.backstage.enabled }}
 {{- if .Values.backstage.http.enabled }}
 
 URLs:
@@ -8,8 +9,20 @@ URLs:
 
 {{- else }}
 
+URLs:
+  API:     {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
+
 Port-forward to access the console:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.backstage.name" . }} 7007:7007
+{{- end }}
+{{- else }}
+
+URLs:
+  API:     {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
+
+The Backstage portal is not installed. Drive the platform with the occ CLI or the
+API above, or run your own portal:
+  https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/
 {{- end }}
 
 Gateway:
@@ -21,6 +34,35 @@ Gateway:
 Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
+
+{{- if and (not .Values.backstage.enabled) .Values.security.authz.enabled }}
+
+The portal's catalog-reader binding has been removed, so its OAuth client no
+longer has read access. The backstage-catalog-reader role itself is kept: it
+grants nothing unbound, and a portal of your own can bind to it.
+
+The client's ThunderID application outlives the chart, though, and is removed
+through the ThunderID management API rather than by helm.
+{{- end }}
+
+{{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
+{{- $endpoints := .Values.eventForwarder.config.webhooks.endpoints | default list }}
+{{- $portalURL := printf "http://%s:%v/" (include "openchoreo-control-plane.backstage.name" .) .Values.backstage.service.port }}
+{{- $others := 0 }}
+{{- range $e := $endpoints }}
+{{- if not (hasPrefix $portalURL $e.url) }}
+{{- $others = add1 $others }}
+{{- end }}
+{{- end }}
+{{- if eq $others 0 }}
+
+The event forwarder is enabled but has no subscriber: the portal is not
+installed, and its endpoint has been dropped from the forwarder's config. The
+catalog reconciles by periodic sync instead. You can turn the forwarder off:
+  --set eventForwarder.enabled=false
+or point eventForwarder.config.webhooks.endpoints at a subscriber of your own.
+{{- end }}
+{{- end }}
 
 {{- if .Values.clusterGateway.tls.existingSecret }}
 
