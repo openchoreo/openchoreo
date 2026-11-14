@@ -18,7 +18,7 @@
 # =============================================================================
 set -euo pipefail
 
-# ---- pinned versions (keep in sync with OpenChoreo install/k3d/single-cluster) ----
+# ---- pinned versions (keep in sync with docs/contributors/tested-versions.md) ----
 GATEWAY_API_VERSION="v1.5.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"

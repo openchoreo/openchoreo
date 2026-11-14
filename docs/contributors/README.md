@@ -10,6 +10,7 @@ Before you start contributing, check out our guidelines:
 - **[GitHub Workflow](./github_workflow.md)** – Understand our GitHub workflow for submitting pull requests.
 - **[AI Policy](./AI-POLICY.md)** – Expectations for using AI tools (Copilot, Claude, ChatGPT, and similar) when contributing.
 - **[Release Guide](./release.md)** – Guide to releasing a new version of OpenChoreo.
+- **[Tested Versions](./tested-versions.md)** – Tested minor versions of third-party prerequisites for each release line.
 - **[Resource Kind Reference Guide](./../resource-kind-reference-guide.md)** – Get details about resource kinds in OpenChoreo.
 
 ## Need Help?
