@@ -240,6 +240,8 @@ func TestCLIContractGolden(t *testing.T) {
 func runCLI(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
+	// Golden contracts use plain markers regardless of the invoking environment.
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf

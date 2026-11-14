@@ -18,7 +18,7 @@ func TestPostgresWorkspaceDefinitionAndSchema(t *testing.T) {
 	root := t.TempDir()
 	relativeComponent := "namespaces/default/projects/doclet/components/postgres/component.yaml"
 	relativeType := "namespaces/default/platform/component-types/database.yaml"
-	source := filepath.Join("..", "..", "..", "..", "sample-gitops")
+	source := filepath.Join("testdata", "postgres-workspace")
 	var component, definition string
 	for _, relative := range []string{relativeComponent, relativeType} {
 		data, err := os.ReadFile(filepath.Join(source, relative))

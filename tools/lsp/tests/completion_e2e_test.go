@@ -11,12 +11,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 )
-
-const lspBinary = "../../../bin/openchoreo-lsp"
 
 type jsonrpcMessage struct {
 	JSONRPC string      `json:"jsonrpc"`
@@ -187,6 +187,14 @@ func completionKindString(kind int) string {
 }
 
 func TestCompletionE2E(t *testing.T) {
+	lspBinary := filepath.Join(t.TempDir(), "openchoreo-lsp")
+	if runtime.GOOS == "windows" {
+		lspBinary += ".exe"
+	}
+	build := exec.Command("go", "build", "-o", lspBinary, "github.com/openchoreo/openchoreo/cmd/openchoreo-lsp")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build LSP: %v\n%s", err, output)
+	}
 	cmd := exec.Command(lspBinary)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
