@@ -29,7 +29,7 @@ type PlaneNotification struct {
 // PlaneNotificationResponse represents the response to a plane notification
 type PlaneNotificationResponse struct {
 	Success               bool   `json:"success"`
-	Action                string `json:"action"` // "disconnect", "disconnect_fallback", "revalidate"
+	Action                string `json:"action"` // "disconnect", "disconnect_fallback", "revalidate", "revoke"
 	DisconnectedAgents    *int   `json:"disconnectedAgents,omitempty"`
 	AuthorizationsGranted *int   `json:"authorizationsGranted,omitempty"`
 	AuthorizationsRevoked *int   `json:"authorizationsRevoked,omitempty"`
@@ -133,13 +133,24 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 		}
 
 	case "deleted":
-		disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
-		api.logger.Info("disconnected agents for CR deletion",
-			"planeType", notification.PlaneType,
-			"planeID", notification.PlaneID,
-			"disconnectedAgents", disconnectedCount,
+		if notification.Name == "" {
+			// Without a CR name the deleted CR cannot be told apart from others
+			// sharing the planeID, so fall back to dropping the whole plane.
+			disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
+			result.Action = "disconnect"
+			result.DisconnectedAgents = &disconnectedCount
+			break
+		}
+		// Other CRs may share this planeID: revoke only the deleted CR so agents
+		// stay connected for the rest. Agents left with no CR are disconnected.
+		revoked, disconnectedCount := api.connMgr.RevokeCR(
+			notification.PlaneType,
+			notification.PlaneID,
+			notification.Namespace,
+			notification.Name,
 		)
-		result.Action = "disconnect"
+		result.Action = "revoke"
+		result.AuthorizationsRevoked = &revoked
 		result.DisconnectedAgents = &disconnectedCount
 
 	default:

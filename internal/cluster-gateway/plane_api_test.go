@@ -69,9 +69,75 @@ func TestHandlePlaneNotification_Deleted(t *testing.T) {
 	var resp PlaneNotificationResponse
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.True(t, resp.Success)
-	assert.Equal(t, "disconnect", resp.Action)
+	assert.Equal(t, "revoke", resp.Action)
+	require.NotNil(t, resp.AuthorizationsRevoked)
+	assert.Equal(t, 1, *resp.AuthorizationsRevoked)
+	// ns/dp1 was the agent's only CR, so nothing is left for it to serve.
 	require.NotNil(t, resp.DisconnectedAgents)
 	assert.Equal(t, 1, *resp.DisconnectedAgents)
+	assert.Equal(t, 0, cm.Count())
+}
+
+// Many namespaces can point DataPlane CRs at one physical plane through a
+// shared planeID. Deleting one of those CRs must not drop the agent: every
+// other namespace would lose its plane until the agent reconnects.
+func TestHandlePlaneNotification_DeletedKeepsAgentForSharedPlaneID(t *testing.T) {
+	mux, cm := newTestPlaneAPI(t)
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	body, _ := json.Marshal(PlaneNotification{
+		PlaneType: "dataplane",
+		PlaneID:   "prod",
+		Event:     "deleted",
+		Namespace: "ns1",
+		Name:      "dp",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp PlaneNotificationResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "revoke", resp.Action)
+	require.NotNil(t, resp.AuthorizationsRevoked)
+	assert.Equal(t, 1, *resp.AuthorizationsRevoked)
+	require.NotNil(t, resp.DisconnectedAgents)
+	assert.Equal(t, 0, *resp.DisconnectedAgents)
+
+	// The surviving CR is still routable; the deleted one is not.
+	_, err = cm.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+}
+
+// A deletion that does not name the CR cannot be scoped, so the whole plane
+// is dropped as before rather than leaving a stale authorization behind.
+func TestHandlePlaneNotification_DeletedWithoutNameDisconnectsPlane(t *testing.T) {
+	mux, cm := newTestPlaneAPI(t)
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	body, _ := json.Marshal(PlaneNotification{PlaneType: "dataplane", PlaneID: "prod", Event: "deleted"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	var resp PlaneNotificationResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "disconnect", resp.Action)
+	assert.Equal(t, 0, cm.Count())
 }
 
 func TestHandlePlaneNotification_Created(t *testing.T) {

@@ -2702,6 +2702,31 @@ func TestServer_PropagatePlaneEventReachesPeers(t *testing.T) {
 	})
 }
 
+// A propagated deletion that names its CR must leave a peer's agent connected
+// when that agent still serves other CRs sharing the planeID.
+func TestServer_ApplyPlaneEventDeletedKeepsSharedPlaneAgent(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	mock := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(fabric.PlaneEvent{
+		PlaneType: "dataplane", PlaneID: "prod", Event: "deleted",
+		Namespace: "ns1", Name: "dp",
+	})
+
+	mock.mu.Lock()
+	closed := mock.closed
+	mock.mu.Unlock()
+	assert.False(t, closed)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+}
+
 // Without a mesh there is nobody to tell, and the notification path is shared:
 // a single-replica gateway must take it silently rather than panic.
 func TestServer_PropagatePlaneEventWithoutMeshIsNoop(t *testing.T) {

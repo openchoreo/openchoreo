@@ -445,6 +445,82 @@ func (cm *ConnectionManager) DisconnectAllForPlane(planeType, planeID string) in
 	return disconnectedCount
 }
 
+// RevokeCR removes a deleted CR's authorization from the plane's connections.
+// Many CRs can share one planeID, so a connection is closed only when the
+// deleted CR was the last one it was authorized for; otherwise it keeps
+// serving the remaining CRs. Returns how many connections lost the
+// authorization and how many of those were disconnected.
+func (cm *ConnectionManager) RevokeCR(planeType, planeID, crNamespace, crName string) (revoked int, disconnected int) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
+
+	// The CR is gone, so its round-robin cursor is too.
+	delete(cm.roundRobin, fmt.Sprintf("%s/%s", planeIdentifier, crKey))
+
+	conns := cm.connections[planeIdentifier]
+	if len(conns) == 0 {
+		cm.logger.Debug("no connections to revoke CR from",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+		)
+		return 0, 0
+	}
+
+	remaining := make([]*AgentConnection, 0, len(conns))
+	for _, conn := range conns {
+		if !conn.IsValidForCR(crKey) {
+			remaining = append(remaining, conn)
+			continue
+		}
+
+		conn.RemoveValidCR(crKey)
+		revoked++
+		validCRs := conn.GetValidCRs()
+
+		if len(validCRs) > 0 {
+			remaining = append(remaining, conn)
+			if cm.listener != nil {
+				cm.listener.OnAgentCRsChanged(planeIdentifier, conn.ID, validCRs)
+			}
+			continue
+		}
+
+		conn.Conn.Close()
+		disconnected++
+		cm.logger.Info("disconnecting agent, its last authorized CR was deleted",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+			"connectionID", conn.ID,
+		)
+		if cm.listener != nil {
+			cm.listener.OnAgentUnregistered(planeIdentifier, conn.ID)
+		}
+	}
+
+	if len(remaining) == 0 {
+		delete(cm.connections, planeIdentifier)
+		delete(cm.roundRobin, planeIdentifier)
+		cm.cleanupPerCRRoundRobinKeys(planeIdentifier)
+	} else {
+		cm.connections[planeIdentifier] = remaining
+	}
+
+	cm.logger.Info("revoked deleted CR from plane connections",
+		"planeType", planeType,
+		"planeID", planeID,
+		"cr", crKey,
+		"authorizationsRevoked", revoked,
+		"disconnectedAgents", disconnected,
+	)
+
+	return revoked, disconnected
+}
+
 // SendHTTPTunnelRequest sends an HTTPTunnelRequest through this connection
 func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) error {
 	ac.mu.Lock()

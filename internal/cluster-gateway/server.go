@@ -1238,7 +1238,13 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 		if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData); err != nil {
 			s.logger.Warn("propagated CR re-validation failed", "error", err)
 		}
-	case "deleted", "reconnect":
+	case "deleted":
+		if ev.Name == "" {
+			s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
+			return
+		}
+		s.connMgr.RevokeCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+	case "reconnect":
 		s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
 	default:
 		s.logger.Warn("unknown propagated plane event", "event", ev.Event)
