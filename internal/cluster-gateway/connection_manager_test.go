@@ -9,11 +9,14 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -942,4 +945,283 @@ func TestAgentConnection_SendHTTPTunnelRequest_Success(t *testing.T) {
 
 	err := ac.SendHTTPTunnelRequest(req)
 	assert.NoError(t, err)
+}
+
+func TestAgentConnection_Draining(t *testing.T) {
+	ac := &AgentConnection{}
+	assert.False(t, ac.IsDraining(), "new connection must not be draining")
+
+	ac.SetDraining()
+	assert.True(t, ac.IsDraining(), "connection must be marked draining after SetDraining")
+
+	ac.ClearDraining()
+	assert.False(t, ac.IsDraining(), "connection must not be draining after ClearDraining")
+}
+
+func TestPreferLive(t *testing.T) {
+	c1 := &AgentConnection{ID: "c1"}
+	c2 := &AgentConnection{ID: "c2"}
+	c3 := &AgentConnection{ID: "c3"}
+	c2.SetDraining()
+
+	// Mixed: returns only non-draining
+	res := preferLive([]*AgentConnection{c1, c2, c3})
+	assert.Equal(t, []*AgentConnection{c1, c3}, res)
+
+	// All live: returns all
+	res = preferLive([]*AgentConnection{c1, c3})
+	assert.Equal(t, []*AgentConnection{c1, c3}, res)
+
+	// All draining: falls back to all
+	c1.SetDraining()
+	c3.SetDraining()
+	res = preferLive([]*AgentConnection{c1, c2, c3})
+	assert.Equal(t, []*AgentConnection{c1, c2, c3}, res)
+
+	// Empty
+	res = preferLive([]*AgentConnection{})
+	assert.Empty(t, res)
+}
+
+func TestConnectionManager_SetDraining(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	// SetDraining and ClearDraining handle nil safely
+	cm.SetDraining(nil)
+	cm.ClearDraining(nil)
+
+	ac := &AgentConnection{ID: "c1"}
+	assert.False(t, ac.IsDraining())
+	cm.SetDraining(ac)
+	assert.True(t, ac.IsDraining())
+	cm.ClearDraining(ac)
+	assert.False(t, ac.IsDraining())
+}
+
+func TestConnectionManager_Get_PreferLive(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
+
+	// Both live: round robin returns id1 then id2
+	got1, err := cm.Get("dataplane/prod")
+	require.NoError(t, err)
+	assert.Equal(t, id1, got1.ID)
+
+	// Mark conn1 as draining: Get should always pick conn2
+	cm.SetDraining(got1)
+
+	for range 3 {
+		got, err := cm.Get("dataplane/prod")
+		require.NoError(t, err)
+		assert.Equal(t, id2, got.ID, "should exclusively select the live connection")
+	}
+
+	// Mark conn2 as draining as well: Get falls back to rotating between draining connections
+	got2, err := cm.Get("dataplane/prod")
+	require.NoError(t, err)
+	cm.SetDraining(got2)
+
+	seen := make(map[string]bool)
+	for range 2 {
+		got, err := cm.Get("dataplane/prod")
+		require.NoError(t, err)
+		seen[got.ID] = true
+	}
+	assert.True(t, seen[id1] && seen[id2], "should fall back to both connections when all are draining")
+}
+
+func TestConnectionManager_GetForCR_PreferLive(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+	conn3, cleanup3 := newTestWSConn(t)
+	defer cleanup3()
+
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
+	id3, _ := cm.Register("dataplane", "prod", conn3, []string{"ns/dp2"}, nil, nil)
+
+	// Both conn1 and conn2 are valid for ns/dp1
+	got1, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	assert.Equal(t, id1, got1.ID)
+
+	// Mark conn1 as draining: GetForCR for ns/dp1 should always select conn2
+	cm.SetDraining(got1)
+
+	for range 3 {
+		got, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+		require.NoError(t, err)
+		assert.Equal(t, id2, got.ID, "should exclusively select the live connection for CR")
+	}
+
+	// For ns/dp2, only conn3 is authorized and live
+	got3, err := cm.GetForCR("dataplane/prod", "ns/dp2")
+	require.NoError(t, err)
+	assert.Equal(t, id3, got3.ID)
+
+	// Mark conn2 as draining: now all authorized connections for ns/dp1 are draining
+	// GetForCR should fall back to returning draining connections rather than failing
+	got2, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	assert.Equal(t, id2, got2.ID)
+	cm.SetDraining(got2)
+
+	fallbackGot, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	assert.True(t, fallbackGot.ID == id1 || fallbackGot.ID == id2, "should fall back to draining authorized connections")
+}
+
+func TestConnectionManager_DrainConnection_Nil(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+	assert.NoError(t, cm.DrainConnection(nil, nil))
+}
+
+func TestConnectionManager_DrainConnection_SendError(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+	conn, cleanup := newTestWSConn(t)
+	cleanup() // close connection so WriteMessage fails
+
+	id, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+
+	conns := cm.GetAll()
+	require.Len(t, conns, 1)
+	ac := conns[0]
+	assert.Equal(t, id, ac.ID)
+
+	goAway, err := json.Marshal(messaging.GoAway{Type: messaging.MessageTypeGoAway})
+	require.NoError(t, err)
+
+	err = cm.DrainConnection(ac, goAway)
+	assert.Error(t, err, "send on closed connection should error")
+	assert.False(t, ac.IsDraining(), "connection must have draining cleared after failed GOAWAY send")
+}
+
+type atomicDrainFixture struct {
+	cm      *ConnectionManager
+	c1      *AgentConnection
+	id1     string
+	id2     string
+	cleanup func()
+}
+
+func setupAtomicDrainFixture(t *testing.T) *atomicDrainFixture {
+	t.Helper()
+	cm := NewConnectionManager(testLogger())
+
+	// c1 will be drained, c2 will remain live
+	conn1, cleanup1 := newTestWSConn(t)
+	conn2, cleanup2 := newTestWSConn(t)
+
+	id1, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+	id2, err := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+
+	conns := cm.GetAll()
+	var c1 *AgentConnection
+	for _, c := range conns {
+		if c.ID == id1 {
+			c1 = c
+			break
+		}
+	}
+	require.NotNil(t, c1)
+
+	return &atomicDrainFixture{
+		cm:  cm,
+		c1:  c1,
+		id1: id1,
+		id2: id2,
+		cleanup: func() {
+			cleanup1()
+			cleanup2()
+		},
+	}
+}
+
+func startConcurrentSelectors(
+	stop <-chan struct{},
+	cm *ConnectionManager,
+	drained *atomic.Bool,
+	drainedID string,
+	violation *atomic.Bool,
+) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					// Only assert selections that were initiated after DrainConnection returned.
+					isDrained := drained.Load()
+					got, err := cm.Get("dataplane/prod")
+					if err == nil && isDrained && got.ID == drainedID {
+						violation.Store(true)
+					}
+					gotCR, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+					if err == nil && isDrained && gotCR.ID == drainedID {
+						violation.Store(true)
+					}
+				}
+			}
+		}()
+	}
+	return &wg
+}
+
+func verifyPostDrainSelection(t *testing.T, cm *ConnectionManager, expectedID string, iterations int) {
+	t.Helper()
+	for range iterations {
+		got, err := cm.Get("dataplane/prod")
+		require.NoError(t, err)
+		assert.Equal(t, expectedID, got.ID, "Get must exclusively select live connection")
+
+		gotCR, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+		require.NoError(t, err)
+		assert.Equal(t, expectedID, gotCR.ID, "GetForCR must exclusively select live connection")
+	}
+}
+
+func TestConnectionManager_DrainConnection_AtomicWithSelection(t *testing.T) {
+	f := setupAtomicDrainFixture(t)
+	defer f.cleanup()
+
+	goAway, err := json.Marshal(messaging.GoAway{Type: messaging.MessageTypeGoAway})
+	require.NoError(t, err)
+
+	stop := make(chan struct{})
+	var drained atomic.Bool
+	var sawDrainedSelection atomic.Bool
+
+	wg := startConcurrentSelectors(stop, f.cm, &drained, f.id1, &sawDrainedSelection)
+
+	time.Sleep(10 * time.Millisecond)
+	err = f.cm.DrainConnection(f.c1, goAway)
+	require.NoError(t, err)
+	assert.True(t, f.c1.IsDraining())
+	drained.Store(true)
+
+	// Run selections while c1 is drained to verify only c2 is picked
+	verifyPostDrainSelection(t, f.cm, f.id2, 50)
+
+	close(stop)
+	wg.Wait()
+
+	assert.False(t, sawDrainedSelection.Load(), "selections initiated after DrainConnection must never return the draining connection")
 }
