@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -275,6 +276,41 @@ func TestReleaseBindingHTTPUpdate(t *testing.T) {
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
+}
+
+// A client that reads a binding and writes it back (occ, the portal, the MCP tools)
+// must not drop the requeue intervals set with kubectl or GitOps.
+func TestReleaseBindingHTTPGetThenUpdateKeepsIntervals(t *testing.T) {
+	existing := seedReleaseBinding("rb-1")
+	existing.Spec.Interval = &metav1.Duration{Duration: 5 * time.Minute}
+	existing.Spec.ProgressingInterval = &metav1.Duration{Duration: 15 * time.Second}
+	bundle := newRBBundle(t, []client.Object{seedComponentForRB(), existing}, &allowAllPDP{})
+	path := "/api/v1/namespaces/" + testNS + "/releasebindings/rb-1"
+
+	req, rec := doRequest(t, bundle.handler, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, rec.Body.Bytes())
+
+	var fetched gen.ReleaseBinding
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &fetched))
+	require.NotNil(t, fetched.Spec)
+	require.NotNil(t, fetched.Spec.Interval)
+	require.NotNil(t, fetched.Spec.ProgressingInterval)
+
+	fetched.Metadata.Labels = &map[string]string{"tier": "updated"}
+	body, err := json.Marshal(fetched)
+	require.NoError(t, err)
+
+	req, rec = doRequest(t, bundle.handler, http.MethodPut, path, body)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, rec.Body.Bytes())
+
+	var k8sRB openchoreov1alpha1.ReleaseBinding
+	require.NoError(t, bundle.fakeClient.Get(context.Background(),
+		types.NamespacedName{Name: "rb-1", Namespace: testNS}, &k8sRB))
+	assert.Equal(t, "updated", k8sRB.Labels["tier"])
+	assert.Equal(t, &metav1.Duration{Duration: 5 * time.Minute}, k8sRB.Spec.Interval)
+	assert.Equal(t, &metav1.Duration{Duration: 15 * time.Second}, k8sRB.Spec.ProgressingInterval)
 }
 
 func TestReleaseBindingHTTPUpdateNotFound(t *testing.T) {

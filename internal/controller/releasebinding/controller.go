@@ -731,9 +731,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
-			EnvironmentName: releaseBinding.Spec.Environment,
-			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
-			Resources:       dataPlaneReleaseResources,
+			EnvironmentName:     releaseBinding.Spec.Environment,
+			TargetPlane:         openchoreov1alpha1.TargetPlaneDataPlane,
+			Resources:           dataPlaneReleaseResources,
+			Interval:            releaseBinding.Spec.Interval,
+			ProgressingInterval: releaseBinding.Spec.ProgressingInterval,
 		}
 
 		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)
@@ -1048,9 +1050,11 @@ func (r *Reconciler) reconcileObservabilityRelease(
 					ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 					ComponentName: releaseBinding.Spec.Owner.ComponentName,
 				},
-				EnvironmentName: releaseBinding.Spec.Environment,
-				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
-				Resources:       observabilityPlaneReleaseResources,
+				EnvironmentName:     releaseBinding.Spec.Environment,
+				TargetPlane:         openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Resources:           observabilityPlaneReleaseResources,
+				Interval:            releaseBinding.Spec.Interval,
+				ProgressingInterval: releaseBinding.Spec.ProgressingInterval,
 			}
 
 			return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
