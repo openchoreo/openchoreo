@@ -24,7 +24,9 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,6 +78,11 @@ const (
 
 	testPodJSON     = `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx","namespace":"default"}}`
 	testPodListJSON = `{"apiVersion":"v1","kind":"PodList","metadata":{},"items":[{"metadata":{"name":"nginx","namespace":"default"}}]}`
+
+	// Bodies the API server returns: a missing object gets a Status that names it,
+	// an unserved version or kind of a served group gets one that names nothing.
+	missingPodStatusJSON   = `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","message":"pods \"nginx\" not found","details":{"name":"nginx","kind":"pods"},"code":404}`
+	unservedKindStatusJSON = `{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"the server could not find the requested resource","reason":"NotFound","details":{},"code":404}`
 )
 
 // ───────────────────────── Pure-logic helper tests ─────────────────────────
@@ -667,14 +674,26 @@ func TestHandleErrorResponse(t *testing.T) {
 		{
 			name:       "kubernetes Status object → StatusError",
 			statusCode: http.StatusNotFound,
-			body:       `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","message":"pods \"nginx\" not found","code":404}`,
+			body:       `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","message":"pods \"nginx\" not found","details":{"name":"nginx","kind":"pods"},"code":404}`,
 			errCheck:   apierrors.IsNotFound,
 		},
 		{
-			name:       "plain 404 body → NotFound",
+			name:       "plain-text 404 for an unserved API group → NoKindMatchError",
 			statusCode: http.StatusNotFound,
-			body:       "pod not found",
-			errCheck:   apierrors.IsNotFound,
+			body:       "404 page not found\n",
+			errCheck:   meta.IsNoMatchError,
+		},
+		{
+			name:       "unnamed NotFound Status for an unserved kind → NoKindMatchError",
+			statusCode: http.StatusNotFound,
+			body:       unservedKindStatusJSON,
+			errCheck:   meta.IsNoMatchError,
+		},
+		{
+			name:       "NotFound Status without details → NoKindMatchError",
+			statusCode: http.StatusNotFound,
+			body:       `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`,
+			errCheck:   meta.IsNoMatchError,
 		},
 		{
 			name:       "409 conflict",
@@ -736,6 +755,57 @@ func TestHandleErrorResponse(t *testing.T) {
 	}
 }
 
+func TestHandleErrorResponseNoKindMatch(t *testing.T) {
+	pc := &ProxyClient{}
+	gvk := schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"}
+
+	err := pc.handleErrorResponse(fakeResponse(http.StatusNotFound, "404 page not found\n"), gvk, "w1")
+
+	var noMatch *meta.NoKindMatchError
+	require.ErrorAs(t, err, &noMatch)
+	assert.Equal(t, schema.GroupKind{Group: "example.com", Kind: "Widget"}, noMatch.GroupKind)
+	assert.Equal(t, []string{"v1"}, noMatch.SearchedVersions)
+	assert.False(t, apierrors.IsNotFound(err))
+}
+
+func TestHandleSubResourceErrorResponse(t *testing.T) {
+	pc := &ProxyClient{}
+	podGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+
+	tests := []struct {
+		name     string
+		body     string
+		errCheck func(error) bool
+	}{
+		{
+			name:     "named NotFound Status → NotFound",
+			body:     `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","message":"pods \"nginx\" not found","details":{"name":"nginx","kind":"pods"},"code":404}`,
+			errCheck: apierrors.IsNotFound,
+		},
+		{
+			// The API server answers a subresource the kind does not have with the same
+			// unnamed Status it uses for an unserved kind, so it stays a NotFound.
+			name:     "unnamed NotFound Status → NotFound",
+			body:     unservedKindStatusJSON,
+			errCheck: apierrors.IsNotFound,
+		},
+		{
+			name:     "plain-text 404 for an unserved API group → NoKindMatchError",
+			body:     "404 page not found\n",
+			errCheck: meta.IsNoMatchError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pc.handleSubResourceErrorResponse(fakeResponse(http.StatusNotFound, tt.body), podGVK, testPodName)
+
+			require.Error(t, err)
+			assert.True(t, tt.errCheck(err), "errCheck failed for error: %v (type %T)", err, err)
+		})
+	}
+}
+
 // ───────────────────────── ProxyClient HTTP CRUD tests ─────────────────────────
 
 func TestProxyClientGet(t *testing.T) {
@@ -763,7 +833,7 @@ func TestProxyClientGet(t *testing.T) {
 	t.Run("404 returns NotFound error", func(t *testing.T) {
 		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`))
+			_, _ = w.Write([]byte(missingPodStatusJSON))
 		})
 
 		pod := &corev1.Pod{}
@@ -771,6 +841,23 @@ func TestProxyClientGet(t *testing.T) {
 
 		require.Error(t, err)
 		assert.True(t, apierrors.IsNotFound(err), "expected NotFound error, got %T: %v", err, err)
+	})
+
+	t.Run("404 for an unserved kind returns NoKindMatchError", func(t *testing.T) {
+		for _, body := range []string{"404 page not found\n", unservedKindStatusJSON} {
+			pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(body))
+			})
+
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"})
+			err := pc.Get(context.Background(), client.ObjectKey{Namespace: testPodNamespace, Name: "w1"}, obj)
+
+			require.Error(t, err)
+			assert.True(t, meta.IsNoMatchError(err), "expected NoKindMatchError for body %q, got %T: %v", body, err, err)
+			assert.False(t, apierrors.IsNotFound(err))
+		}
 	})
 
 	t.Run("500 returns error", func(t *testing.T) {
@@ -844,6 +931,22 @@ func TestProxyClientList(t *testing.T) {
 		err := pc.List(context.Background(), &corev1.PodList{})
 		require.Error(t, err)
 	})
+
+	t.Run("404 for an unserved kind returns NoKindMatchError", func(t *testing.T) {
+		for _, body := range []string{"404 page not found\n", unservedKindStatusJSON} {
+			pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(body))
+			})
+
+			list := &unstructured.UnstructuredList{}
+			list.SetGroupVersionKind(schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "WidgetList"})
+			err := pc.List(context.Background(), list, client.InNamespace(testPodNamespace))
+
+			require.Error(t, err)
+			assert.True(t, meta.IsNoMatchError(err), "expected NoKindMatchError for body %q, got %T: %v", body, err, err)
+		}
+	})
 }
 
 func TestProxyClientCreate(t *testing.T) {
@@ -914,7 +1017,7 @@ func TestProxyClientUpdate(t *testing.T) {
 	t.Run("404 not found returns error", func(t *testing.T) {
 		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("not found"))
+			_, _ = w.Write([]byte(missingPodStatusJSON))
 		})
 
 		pod := &corev1.Pod{}
@@ -1036,6 +1139,22 @@ func TestProxyClientStatusUpdate(t *testing.T) {
 		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {})
 		pod := &corev1.Pod{}
 		require.Error(t, pc.Status().Create(context.Background(), pod, pod))
+	})
+
+	t.Run("unnamed 404 for a missing status subresource returns NotFound", func(t *testing.T) {
+		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(unservedKindStatusJSON))
+		})
+
+		cm := &corev1.ConfigMap{}
+		cm.Name = "cm"
+		cm.Namespace = testPodNamespace
+		err := pc.Status().Update(context.Background(), cm)
+
+		require.Error(t, err)
+		assert.True(t, apierrors.IsNotFound(err), "expected NotFound, got %T: %v", err, err)
+		assert.False(t, meta.IsNoMatchError(err))
 	})
 }
 
