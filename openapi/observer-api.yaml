@@ -1717,6 +1717,13 @@ components:
             enum: ["DEBUG", "INFO", "WARN", "ERROR"]
         searchPhrase:
           type: string
+        containerName:
+          type: string
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          description: >-
+            Filter logs to a specific container. Requires an adapter that supports
+            containerName; unsupported adapters may ignore this field.
       required: [startTime, endTime, searchScope]
 
     # Response schemas for logs

@@ -47,13 +47,14 @@ type workflowSearchScope struct {
 
 // backendLogsRequest represents the request body format expected by the logs adapter.
 type backendLogsRequest struct {
-	SearchScope  any       `json:"searchScope"`
-	StartTime    time.Time `json:"startTime"`
-	EndTime      time.Time `json:"endTime"`
-	Limit        int       `json:"limit,omitempty"`
-	SortOrder    string    `json:"sortOrder,omitempty"`
-	SearchPhrase string    `json:"searchPhrase,omitempty"`
-	LogLevels    []string  `json:"logLevels,omitempty"`
+	SearchScope   any       `json:"searchScope"`
+	StartTime     time.Time `json:"startTime"`
+	EndTime       time.Time `json:"endTime"`
+	Limit         int       `json:"limit,omitempty"`
+	SortOrder     string    `json:"sortOrder,omitempty"`
+	SearchPhrase  string    `json:"searchPhrase,omitempty"`
+	LogLevels     []string  `json:"logLevels,omitempty"`
+	ContainerName string    `json:"containerName,omitempty"`
 }
 
 // backendComponentLogsResponse matches the adapter's JSON response format for component logs.
@@ -133,12 +134,13 @@ func (p *LogsAdapter) GetComponentApplicationLogs(ctx context.Context, params ob
 			ReleaseLineUID:  params.ReleaseLineID,
 			AllReleaseLines: params.AllReleaseLines,
 		},
-		StartTime:    params.StartTime,
-		EndTime:      params.EndTime,
-		Limit:        params.Limit,
-		SortOrder:    params.SortOrder,
-		SearchPhrase: params.SearchPhrase,
-		LogLevels:    params.LogLevels,
+		StartTime:     params.StartTime,
+		EndTime:       params.EndTime,
+		Limit:         params.Limit,
+		SortOrder:     params.SortOrder,
+		SearchPhrase:  params.SearchPhrase,
+		LogLevels:     params.LogLevels,
+		ContainerName: params.ContainerName,
 	}
 
 	requestBody, err := json.Marshal(adapterReq)
@@ -209,12 +211,13 @@ func (p *LogsAdapter) GetWorkflowLogs(ctx context.Context, params observability.
 			Namespace:       params.Namespace,
 			WorkflowRunName: params.WorkflowRunName,
 		},
-		StartTime:    params.StartTime,
-		EndTime:      params.EndTime,
-		Limit:        params.Limit,
-		SortOrder:    params.SortOrder,
-		SearchPhrase: params.SearchPhrase,
-		LogLevels:    params.LogLevels,
+		StartTime:     params.StartTime,
+		EndTime:       params.EndTime,
+		Limit:         params.Limit,
+		SortOrder:     params.SortOrder,
+		SearchPhrase:  params.SearchPhrase,
+		LogLevels:     params.LogLevels,
+		ContainerName: params.ContainerName,
 	}
 
 	requestBody, err := json.Marshal(adapterReq)

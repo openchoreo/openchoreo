@@ -77,6 +77,7 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
 		"hasSearchPhrase", req.SearchPhrase != "",
+		"hasContainerName", req.ContainerName != "",
 		"limit", req.Limit)
 
 	// Convert request to internal representation with resolved UIDs
@@ -126,6 +127,7 @@ func (s *LogsService) queryComponentLogs(
 		StartTime:       startTime,
 		EndTime:         endTime,
 		SearchPhrase:    req.SearchPhrase,
+		ContainerName:   req.ContainerName,
 		LogLevels:       req.LogLevels,
 		Limit:           req.Limit,
 		SortOrder:       req.SortOrder,
@@ -172,6 +174,7 @@ func (s *LogsService) queryWorkflowLogs(
 		StartTime:       startTime,
 		EndTime:         endTime,
 		SearchPhrase:    req.SearchPhrase,
+		ContainerName:   req.ContainerName,
 		LogLevels:       req.LogLevels,
 		Limit:           req.Limit,
 		SortOrder:       req.SortOrder,

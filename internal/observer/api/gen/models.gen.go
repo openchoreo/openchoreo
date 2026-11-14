@@ -1570,6 +1570,9 @@ type LogEntryMetadata struct {
 
 // LogsQueryRequest defines model for LogsQueryRequest.
 type LogsQueryRequest struct {
+	// ContainerName Filter logs to a specific container. Requires an adapter that supports containerName; unsupported adapters may ignore this field.
+	ContainerName *string `json:"containerName,omitempty"`
+
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
 
