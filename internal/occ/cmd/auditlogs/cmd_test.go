@@ -70,6 +70,17 @@ func TestAuditLogsCmd_IgnoresContextDefaults(t *testing.T) {
 	assert.Empty(t, params.Resources)
 }
 
+func TestAuditLogsCmd_Output(t *testing.T) {
+	for _, format := range []string{outputJSON, "custom-columns=event_time,actor.id,action"} {
+		for _, flag := range []string{"--output", "-o"} {
+			cmd := NewAuditLogsCmd(errFactory("unused"))
+			require.NoError(t, cmd.ParseFlags([]string{flag, format}))
+			assert.Equal(t, format, queryParams(cmd).Output)
+			require.NoError(t, cmd.ValidateFlagGroups())
+		}
+	}
+}
+
 func TestAuditLogsCmd_RejectsArgs(t *testing.T) {
 	cmd := NewAuditLogsCmd(errFactory("unused"))
 	assert.Error(t, cmd.Args(cmd, []string{"extra"}))

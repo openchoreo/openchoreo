@@ -9,6 +9,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -59,7 +60,10 @@ const namespacedPlaneExample = `  # Control plane components over the last 10 mi
     --selector openchoreo.dev/plane=controlplane --since 10m
 
   # Errors from one pod, followed
-  occ op logs primary-observabilityplane -n acme-corp --pod controller-manager-7f58b689b5-pwsb5 --level ERROR -f`
+  occ op logs primary-observabilityplane -n acme-corp --pod controller-manager-7f58b689b5-pwsb5 --level ERROR -f
+
+  # Print each log entry as JSON
+  occ op logs primary-observabilityplane -n acme-corp -o json`
 
 // NewClusterPlaneLogsCmd builds the `logs` subcommand of clusterobservabilityplane.
 func NewClusterPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
@@ -71,6 +75,9 @@ func NewClusterPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -95,6 +102,9 @@ func NewNamespacedPlaneLogsCmd(f client.NewClientFunc) *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -132,8 +142,7 @@ func addLogsFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice("level", nil,
 		"Log levels to include: DEBUG, INFO, WARN, ERROR (comma-separated)")
 	cmd.Flags().String("search", "", "Only return entries whose message contains this text")
-	cmd.Flags().StringP("output", "o", outputText,
-		"Output format: 'text' or 'json' (json emits one entry per line)")
+	flags.AddOutput(cmd, "timestamp,log")
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
 	flags.AddFollow(cmd)

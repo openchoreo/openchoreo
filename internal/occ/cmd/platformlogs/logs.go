@@ -17,6 +17,7 @@ import (
 
 	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/observerclient"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
@@ -301,6 +302,18 @@ func observerMessage(body []byte) string {
 
 // printLogs writes every entry in the chosen format.
 func printLogs(logs []obsgen.PlatformLog, output string) error {
+	columns, err := logformat.ParseColumns(output)
+	if err != nil {
+		return err
+	}
+	if columns != nil {
+		for _, log := range logs {
+			if err := columns.Print(os.Stdout, log); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for _, log := range logs {
 		if err := printLog(log, output); err != nil {
 			return err
@@ -309,7 +322,7 @@ func printLogs(logs []obsgen.PlatformLog, output string) error {
 	return nil
 }
 
-// printLog writes one entry. JSON output is one object per line so that --follow streams
+// printLog writes one entry as text or JSON. JSON output is one object per line so that --follow streams
 // the same shape a one-shot query prints, and so jq reads it without buffering.
 func printLog(log obsgen.PlatformLog, output string) error {
 	if output == outputJSON {
@@ -432,10 +445,7 @@ func tailLimit(tail int) int {
 
 // validateOutput rejects an unknown --output rather than silently printing text.
 func validateOutput(output string) error {
-	if output != outputText && output != outputJSON {
-		return fmt.Errorf("invalid --output %q: must be %q or %q", output, outputText, outputJSON)
-	}
-	return nil
+	return logformat.Validate(output)
 }
 
 // normalizeLevels upper-cases --level values and rejects anything outside the enum.

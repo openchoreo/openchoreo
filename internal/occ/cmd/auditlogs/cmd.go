@@ -8,6 +8,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -58,6 +60,9 @@ func NewAuditLogsCmd(f client.NewClientFunc) *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -78,7 +83,7 @@ func addQueryFlags(cmd *cobra.Command) {
 	cmd.MarkFlagsMutuallyExclusive("since", "start")
 	fl.Int("limit", defaultLimit, "Maximum number of records to return (1-1000)")
 	fl.String("sort", sortDesc, "Order by event time: 'desc' or 'asc'")
-	fl.StringP("output", "o", outputText, "Output format: 'text' or 'json' (json emits one record per line)")
+	flags.AddOutput(cmd, "event_time,action,result")
 
 	fl.StringSlice("actor", nil, "Actor IDs; the claim recorded depends on the subject's type, so pair with --actor-type (comma-separated)")
 	fl.StringSlice("actor-type", nil, "Kinds of subject, e.g. user, service_account, anonymous (comma-separated)")

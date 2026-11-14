@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
@@ -116,6 +118,106 @@ func TestLogs_InvalidSince(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duration must be positive")
 	})
+}
+
+func TestLogs_InvalidOutput(t *testing.T) {
+	err := New(nil).Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Output: "yaml"})
+	assert.EqualError(t, err, `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`)
+}
+
+func TestFollowLiveLogs_Formats(t *testing.T) {
+	for _, format := range []string{"json", "custom-columns=timestamp,log"} {
+		t.Run(format, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			now := time.Now().UTC()
+			later := now.Add(time.Second)
+			first := gen.WorkflowRunLogEntry{Timestamp: &now, Log: "initial log"}
+			second := gen.WorkflowRunLogEntry{Timestamp: &later, Log: "new log"}
+			mc := mocks.NewMockInterface(t)
+			mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+				[]gen.WorkflowRunLogEntry{first}, nil).Once()
+			mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+				&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil).Once()
+			mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).RunAndReturn(
+				func(context.Context, string, string, *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
+					cancel()
+					return []gen.WorkflowRunLogEntry{first, second}, nil
+				}).Once()
+			out := testutil.CaptureStdout(t, func() {
+				require.NoError(t, New(mc).followLiveLogs(ctx, mc, LogsParams{
+					Namespace: "ns", WorkflowRunName: "run-1", Output: format,
+				}, 0))
+			})
+			if format != "json" {
+				assert.Equal(t, now.Format(time.RFC3339Nano)+"\tinitial log\n"+later.Format(time.RFC3339Nano)+"\tnew log\n", out)
+				return
+			}
+			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+			require.Len(t, lines, 2, "stdout must contain only new JSON log entries")
+			for i, want := range []gen.WorkflowRunLogEntry{first, second} {
+				var got gen.WorkflowRunLogEntry
+				require.NoError(t, json.Unmarshal([]byte(lines[i]), &got))
+				assert.Equal(t, want, got)
+			}
+		})
+	}
+}
+
+func TestFollowLiveLogs_JSON_RunCompleted(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{}, nil).Once()
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil).Once()
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).followLiveLogs(context.Background(), mc, LogsParams{
+			Namespace: "ns", WorkflowRunName: "run-1", Output: "json",
+		}, 0))
+	})
+	assert.Empty(t, out, "completion messages must not appear on JSON stdout")
+}
+
+func TestFetchArchivedLogs_Formats(t *testing.T) {
+	for _, format := range []string{"json", "custom-columns=timestamp,level,metadata.podName,log"} {
+		t.Run(format, func(t *testing.T) {
+			for _, empty := range []bool{false, true} {
+				t.Run(fmt.Sprintf("empty=%t", empty), func(t *testing.T) {
+					setupArchivedLogsConfig(t)
+					mc := mocks.NewMockInterface(t)
+					mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+						&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+					setupMockForArchivedLogs(t, mc, observerTestURL)
+					logs := []obsgen.LogEntry{{
+						Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:04.512Z"), Log: "build\ncompleted", Level: ptr.To("INFO"),
+						Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("main"), PodName: ptr.To("build-pod")},
+					}}
+					if empty {
+						logs = nil
+					}
+					testutil.SetTransport(t, testutil.RoundTripFunc(func(*http.Request) (*http.Response, error) {
+						return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: logs}), nil
+					}))
+					out := testutil.CaptureStdout(t, func() {
+						require.NoError(t, New(mc).Logs(LogsParams{
+							Namespace: "ns", WorkflowRunName: "run-1", Output: format, Follow: true,
+						}))
+					})
+					if empty {
+						assert.Empty(t, out)
+						return
+					}
+					if format != "json" {
+						assert.Equal(t, "2026-11-10T08:21:04.512Z\tINFO\tbuild-pod\tbuild\ncompleted\n", out)
+						return
+					}
+					assert.Equal(t, 1, strings.Count(out, "\n"))
+					assert.JSONEq(t, `{"timestamp":"2026-11-10T08:21:04.512Z","log":"build\ncompleted","level":"INFO",
+				"metadata":{"containerName":"main","podName":"build-pod"}}`, out)
+				})
+			}
+		})
+	}
 }
 
 // --- Logs: GetWorkflowRunStatus error ---
@@ -521,9 +623,9 @@ func TestFetchArchivedLogs_Success(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, observerURL+"/api/v1/logs/query", r.URL.String())
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
-			Logs: []client.LogEntry{
-				{Timestamp: "2026-01-01T00:00:00Z", Log: "build started"},
-				{Timestamp: "2026-01-01T00:01:00Z", Log: "build completed"},
+			Logs: []obsgen.LogEntry{
+				{Timestamp: parseLogTimestamp(t, "2026-01-01T00:00:00Z"), Log: "build started"},
+				{Timestamp: parseLogTimestamp(t, "2026-01-01T00:01:00Z"), Log: "build completed"},
 			},
 			TotalCount: 2,
 		}), nil
@@ -547,7 +649,7 @@ func TestFetchArchivedLogs_NoLogs(t *testing.T) {
 	setupMockForArchivedLogs(t, mc, observerURL)
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
-		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []client.LogEntry{}}), nil
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []obsgen.LogEntry{}}), nil
 	}))
 
 	wr := New(mc)
@@ -568,7 +670,7 @@ func TestFetchArchivedLogs_WithFollowFlag(t *testing.T) {
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
-			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "done"}},
+			Logs: []obsgen.LogEntry{{Timestamp: parseLogTimestamp(t, "2026-01-01T00:00:00Z"), Log: "done"}},
 		}), nil
 	}))
 
@@ -597,7 +699,7 @@ func TestFetchArchivedLogs_WithSince(t *testing.T) {
 		assert.NotEmpty(t, body["startTime"])
 		assert.NotEmpty(t, body["endTime"])
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
-			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "recent log"}},
+			Logs: []obsgen.LogEntry{{Timestamp: parseLogTimestamp(t, "2026-01-01T00:00:00Z"), Log: "recent log"}},
 		}), nil
 	}))
 
@@ -693,4 +795,11 @@ func TestFetchArchivedLogs_ResolveObserverURLError(t *testing.T) {
 	wr := New(mc)
 	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
 	assert.ErrorContains(t, err, "failed to resolve observer URL")
+}
+
+func parseLogTimestamp(t *testing.T, value string) time.Time {
+	t.Helper()
+	timestamp, err := time.Parse(time.RFC3339Nano, value)
+	require.NoError(t, err)
+	return timestamp
 }
