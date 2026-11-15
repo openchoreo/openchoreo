@@ -460,3 +460,99 @@ func (s *Server) extractCAFromSecret(secretRef *openchoreov1alpha1.SecretKeyRefe
 
 	return caData, nil
 }
+
+// planeCRTerminating reports whether a plane CR is being deleted. A failed
+// lookup is returned as an error, not as "not terminating": a caller that took
+// it for the latter could re-grant a CR it has already revoked.
+func (s *Server) planeCRTerminating(ctx context.Context, planeType, namespace, name string) (bool, error) {
+	obj, err := s.getPlaneCR(ctx, planeType, namespace, name)
+	if err != nil {
+		return false, fmt.Errorf("failed to look up %s %s/%s: %w", planeType, namespace, name, err)
+	}
+	return !obj.GetDeletionTimestamp().IsZero(), nil
+}
+
+// getPlaneCR reads one plane CR. A cluster-scoped CR has an empty namespace.
+func (s *Server) getPlaneCR(ctx context.Context, planeType, namespace, name string) (client.Object, error) {
+	var obj client.Object
+	switch {
+	case planeType == planeTypeDataPlane && namespace != "":
+		obj = &openchoreov1alpha1.DataPlane{}
+	case planeType == planeTypeDataPlane:
+		obj = &openchoreov1alpha1.ClusterDataPlane{}
+	case planeType == planeTypeWorkflowPlane && namespace != "":
+		obj = &openchoreov1alpha1.WorkflowPlane{}
+	case planeType == planeTypeWorkflowPlane:
+		obj = &openchoreov1alpha1.ClusterWorkflowPlane{}
+	case planeType == planeTypeObservabilityPlane && namespace != "":
+		obj = &openchoreov1alpha1.ObservabilityPlane{}
+	case planeType == planeTypeObservabilityPlane:
+		obj = &openchoreov1alpha1.ClusterObservabilityPlane{}
+	default:
+		return nil, fmt.Errorf("unknown plane type %q", planeType)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// existingPlaneCRs lists the CRs of one plane type, namespaced and
+// cluster-scoped, and returns the effective plane ID of each, keyed
+// "namespace/name". The namespace of a cluster-scoped CR is empty. The cost is
+// two list calls however many CRs exist.
+func (s *Server) existingPlaneCRs(ctx context.Context, planeType string) (map[string]string, error) {
+	type planeList struct {
+		list client.ObjectList
+		info func(client.Object) (planeInfo, bool)
+	}
+	var lists []planeList
+	switch planeType {
+	case planeTypeDataPlane:
+		lists = []planeList{{&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo}, {&openchoreov1alpha1.ClusterDataPlaneList{}, clusterDataPlaneInfo}}
+	case planeTypeWorkflowPlane:
+		lists = []planeList{{&openchoreov1alpha1.WorkflowPlaneList{}, workflowPlaneInfo}, {&openchoreov1alpha1.ClusterWorkflowPlaneList{}, clusterWorkflowPlaneInfo}}
+	case planeTypeObservabilityPlane:
+		lists = []planeList{{&openchoreov1alpha1.ObservabilityPlaneList{}, obsPlaneInfo}, {&openchoreov1alpha1.ClusterObservabilityPlaneList{}, clusterObsPlaneInfo}}
+	default:
+		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	existing := make(map[string]string)
+	for _, l := range lists {
+		if err := s.k8sClient.List(ctx, l.list); err != nil {
+			return nil, fmt.Errorf("failed to list %T: %w", l.list, err)
+		}
+		items, err := extractListItems(l.list)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			if info, ok := l.info(item); ok {
+				existing[item.GetNamespace()+"/"+item.GetName()] = info.planeID
+			}
+		}
+	}
+	return existing, nil
+}
+
+// planeCRPlaneID returns the effective plane ID of a plane CR: a DataPlane
+// without one uses its name. It returns "" for an object that is not a plane CR.
+func planeCRPlaneID(obj client.Object) string {
+	for _, info := range []func(client.Object) (planeInfo, bool){
+		dataPlaneInfo, clusterDataPlaneInfo,
+		workflowPlaneInfo, clusterWorkflowPlaneInfo,
+		obsPlaneInfo, clusterObsPlaneInfo,
+	} {
+		if i, ok := info(obj); ok {
+			return i.planeID
+		}
+	}
+	return ""
+}

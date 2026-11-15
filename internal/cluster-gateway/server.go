@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
@@ -289,6 +290,8 @@ func (s *Server) Start() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	go s.runDeletedCRSweep(ctx)
 
 	// The mesh outlives the shutdown signal: draining needs the links to carry
 	// DRAINING, removal deltas, and in-flight forward responses.
@@ -1266,6 +1269,27 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 
 	switch ev.Event {
 	case "created", "updated":
+		// Same staleness guard as the notification handler: see there.
+		revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+		if revocations > 0 {
+			terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
+			if err != nil {
+				s.logger.Warn("failed to look up CR for propagated re-validation",
+					"planeType", ev.PlaneType,
+					"planeID", ev.PlaneID,
+					"error", err,
+				)
+				return
+			}
+			if terminating {
+				s.logger.Info("skipping propagated re-validation of a deleted CR",
+					"planeType", ev.PlaneType,
+					"planeID", ev.PlaneID,
+					"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
+				)
+				return
+			}
+		}
 		caData, err := s.fetchCRClientCA(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 		if err != nil {
 			s.logger.Warn("failed to fetch CR CA for propagated re-validation",
@@ -1276,13 +1300,162 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 			)
 			return
 		}
-		if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData); err != nil {
+		if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData, revocations); err != nil {
 			s.logger.Warn("propagated CR re-validation failed", "error", err)
 		}
-	case "deleted", "reconnect":
+	case "deleted":
+		if ev.Name == "" {
+			s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
+			return
+		}
+		s.revokeCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+	case "reconnect":
 		s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
 	default:
 		s.logger.Warn("unknown propagated plane event", "event", ev.Event)
+	}
+}
+
+// revokeCR withdraws a deleted CR from this pod: its authorization on the
+// plane's agent connections and the streaming sessions opened for it.
+func (s *Server) revokeCR(planeType, planeID, namespace, name string) (revoked int, disconnected int) {
+	revoked, disconnected = s.connMgr.RevokeCR(planeType, planeID, namespace, name)
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	crKey := fmt.Sprintf("%s/%s", namespace, name)
+	if closed := s.closeStreamSessionsForCR(planeIdentifier, crKey); closed > 0 {
+		s.logger.Info("closed streaming sessions of deleted CR",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+			"sessions", closed,
+		)
+	}
+	return revoked, disconnected
+}
+
+// deletedCRSweepInterval bounds how long a deleted CR can stay authorized on
+// this pod after its "deleted" event was missed.
+const deletedCRSweepInterval = time.Minute
+
+// runDeletedCRSweep periodically revokes locally authorized CRs that no
+// longer exist.
+func (s *Server) runDeletedCRSweep(ctx context.Context) {
+	ticker := time.NewTicker(deletedCRSweepInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.revokeDeletedCRs(ctx)
+		}
+	}
+}
+
+// revokeDeletedCRs revokes every CR this pod has authorized that no longer
+// exists. A "deleted" event reaches a pod at most once: the mesh drops it when
+// its outbox is full or the peer link is down, and no later event withdraws a
+// CR-scoped authorization. Checking against the API server recovers from that.
+// A terminating CR still exists and stays authorized: its finalizer cleans up
+// through the agent. The pass stops as soon as ctx is canceled.
+//
+// A pass lists each plane type once, so its cost does not grow with the number
+// of authorized CRs.
+func (s *Server) revokeDeletedCRs(ctx context.Context) {
+	type authorizedCR struct{ planeType, planeID, crKey string }
+
+	// Collected before listing: a CR that is created and authorized after the
+	// listing is then not in this set, and cannot be taken for a deleted one.
+	authorized := make(map[authorizedCR]struct{})
+	for _, conn := range s.connMgr.GetAll() {
+		for _, crKey := range conn.GetValidCRs() {
+			authorized[authorizedCR{conn.PlaneType, conn.PlaneID, crKey}] = struct{}{}
+		}
+	}
+
+	existing := make(map[string]map[string]string)
+	for cr := range authorized {
+		if _, listed := existing[cr.planeType]; listed {
+			continue
+		}
+		crs, err := s.existingPlaneCRs(ctx, cr.planeType)
+		if err != nil {
+			// A failed listing says nothing about which CRs exist. Skip the
+			// whole pass rather than revoke on a partial view.
+			s.logger.Warn("skipping the deleted-CR sweep, failed to list plane CRs",
+				"planeType", cr.planeType,
+				"error", err,
+			)
+			return
+		}
+		existing[cr.planeType] = crs
+	}
+
+	for cr := range authorized {
+		// A CR moved to another planeID is no longer served by this plane's
+		// agents. Its events revalidate only its new plane, so this check is
+		// the only thing that removes the old grant.
+		if planeID, exists := existing[cr.planeType][cr.crKey]; exists && planeID == cr.planeID {
+			continue
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		s.revokeStaleCR(ctx, cr.planeType, cr.planeID, cr.crKey)
+	}
+}
+
+// revokeStaleCR revokes a CR that the sweep's listing reports as deleted or
+// moved to another planeID. The listing can be stale, so the CR is looked up
+// first: one re-created on this plane since then is left alone, and so is one
+// whose lookup fails.
+func (s *Server) revokeStaleCR(ctx context.Context, planeType, planeID, crKey string) {
+	namespace, name, _ := strings.Cut(crKey, "/")
+	obj, err := s.getPlaneCR(ctx, planeType, namespace, name)
+	switch {
+	case apierrors.IsNotFound(err):
+		s.logger.Warn("revoking a CR that no longer exists, its deleted event was missed",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+		)
+	case err != nil:
+		s.logger.Warn("skipping a CR the sweep could not look up",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+			"error", err,
+		)
+		return
+	default:
+		current := planeCRPlaneID(obj)
+		if current == planeID {
+			return // re-created since the listing: still served here
+		}
+		s.logger.Warn("revoking a CR that moved to another planeID",
+			"planeType", planeType,
+			"planeID", planeID,
+			"newPlaneID", current,
+			"cr", crKey,
+		)
+		s.revokeCR(planeType, planeID, namespace, name)
+		return
+	}
+
+	s.revokeCR(planeType, planeID, namespace, name)
+
+	// The CR can still be re-created between the lookup and the revoke. The
+	// revoke then removed the new CR's grant, and no later event would grant
+	// it again. Grant it here if it exists on this plane now.
+	if obj, err := s.getPlaneCR(ctx, planeType, namespace, name); err == nil {
+		if planeCRPlaneID(obj) == planeID {
+			s.ApplyPlaneEvent(fabric.PlaneEvent{
+				PlaneType: planeType, PlaneID: planeID, Event: "updated",
+				Namespace: namespace, Name: name,
+			})
+		}
 	}
 }
 

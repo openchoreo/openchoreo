@@ -73,6 +73,14 @@ type fakeAgentConn struct {
 	sendErr  error
 	onInit   func(initData []byte)
 	initOnce atomic.Bool
+	// crRevoked makes the connection report the CR as no longer authorized.
+	crRevoked bool
+}
+
+func (f *fakeAgentConn) IsValidForCR(string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return !f.crRevoked
 }
 
 func (f *fakeAgentConn) SendRawMessage(data []byte) error {
@@ -206,6 +214,60 @@ func TestHandleWirelogs_InitSendFailure(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.Contains(t, rec.Body.String(), "failed to start stream")
 	assert.Empty(t, s.pendingStreamSessions, "session must be unregistered on failure")
+}
+
+// A session can be ended while the gateway still waits for the agent's first
+// chunk: its CR was revoked. The agent has the stream init and starts the
+// Hubble stream anyway, so the gateway must tell it to stop. Nothing else would.
+func TestHandleWirelogs_ClosedBeforeAgentStartsTellsAgentToStop(t *testing.T) {
+	s := newWirelogsTestServer()
+	fake := &fakeAgentConn{
+		onInit: func(_ []byte) {
+			// What revoking the CR does to its sessions.
+			s.closeStreamSessionsForCR("dataplane/p1", "ns1/cr1")
+		},
+	}
+	stubGetAgentConnectionForWirelogs(t, fake, nil)
+
+	req, cancel := newWirelogsRequest(t, "/api/wirelogs/dataplane/p1/ns1/cr1", "environment=dev&namespace=ns")
+	defer cancel()
+	rec := newFlushingRecorder()
+
+	s.handleWirelogs(rec, req)
+
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+	sent := fake.sentMessages()
+	require.Len(t, sent, 2, "init, then a close for the stream the agent would otherwise keep running")
+	var closeChunk messaging.HTTPTunnelStreamChunk
+	require.NoError(t, json.Unmarshal(sent[1], &closeChunk))
+	assert.True(t, closeChunk.IsClose)
+	assert.Equal(t, "test-wirelogs-req", closeChunk.RequestID)
+}
+
+// A revocation closes the sessions registered for its CR. One that lands after
+// the handler picked its agent connection but before it registered the session
+// has nothing to close, so the handler must notice by itself. Otherwise the
+// stream starts and runs on for a CR that no longer exists.
+func TestHandleWirelogs_CRRevokedBeforeSessionRegistered(t *testing.T) {
+	req, cancel := newWirelogsRequest(t, "/api/wirelogs/dataplane/p1/ns1/cr1", "environment=dev&namespace=ns")
+	defer cancel()
+
+	fake := &fakeAgentConn{
+		crRevoked: true,
+		onInit: func(_ []byte) {
+			cancel() // do not sit out the agent timeout if the stream is started
+		},
+	}
+	stubGetAgentConnectionForWirelogs(t, fake, nil)
+
+	s := newWirelogsTestServer()
+	rec := newFlushingRecorder()
+
+	s.handleWirelogs(rec, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Empty(t, fake.sentMessages(), "no stream may be started for a revoked CR")
+	assert.Empty(t, s.pendingStreamSessions, "session must be unregistered")
 }
 
 func TestHandleWirelogs_AgentRejectsImmediately(t *testing.T) {

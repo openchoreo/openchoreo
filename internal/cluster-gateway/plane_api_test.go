@@ -76,9 +76,178 @@ func TestHandlePlaneNotification_Deleted(t *testing.T) {
 	var resp PlaneNotificationResponse
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.True(t, resp.Success)
-	assert.Equal(t, "disconnect", resp.Action)
+	assert.Equal(t, "revoke", resp.Action)
+	require.NotNil(t, resp.AuthorizationsRevoked)
+	assert.Equal(t, 1, *resp.AuthorizationsRevoked)
+	// ns/dp1 was the agent's only CR, so nothing is left for it to serve.
 	require.NotNil(t, resp.DisconnectedAgents)
 	assert.Equal(t, 1, *resp.DisconnectedAgents)
+	assert.Equal(t, 0, cm.Count())
+}
+
+// Many namespaces can point DataPlane CRs at one physical plane through a
+// shared planeID. Deleting one of those CRs must not drop the agent: every
+// other namespace would lose its plane until the agent reconnects.
+func TestHandlePlaneNotification_DeletedKeepsAgentForSharedPlaneID(t *testing.T) {
+	mux, cm := newTestPlaneAPI(t)
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	body, _ := json.Marshal(PlaneNotification{
+		PlaneType: "dataplane",
+		PlaneID:   "prod",
+		Event:     "deleted",
+		Namespace: "ns1",
+		Name:      "dp",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp PlaneNotificationResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "revoke", resp.Action)
+	require.NotNil(t, resp.AuthorizationsRevoked)
+	assert.Equal(t, 1, *resp.AuthorizationsRevoked)
+	require.NotNil(t, resp.DisconnectedAgents)
+	assert.Equal(t, 0, *resp.DisconnectedAgents)
+
+	// The surviving CR is still routable; the deleted one is not.
+	_, err = cm.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+}
+
+// A deletion that does not name the CR cannot be scoped, so the whole plane
+// is dropped as before rather than leaving a stale authorization behind.
+func TestHandlePlaneNotification_DeletedWithoutNameDisconnectsPlane(t *testing.T) {
+	mux, cm := newTestPlaneAPI(t)
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	body, _ := json.Marshal(PlaneNotification{PlaneType: "dataplane", PlaneID: "prod", Event: "deleted"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	var resp PlaneNotificationResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "disconnect", resp.Action)
+	assert.Equal(t, 0, cm.Count())
+}
+
+// An "updated" that arrives after the CR's "deleted" event is a stale one:
+// applying it would hand the agent back an authorization nothing will revoke
+// again. Until that event the CR is still in service, terminating or not,
+// because its finalizer cleans up through the agent, so it must be granted.
+func TestHandlePlaneNotification_UpdatedDoesNotGrantDeletedCR(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	caPEM := string(encodeCertToPEM(t, caCert))
+
+	newPlane := func(terminating bool) *openchoreov1alpha1.DataPlane {
+		dp := &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+			Spec: openchoreov1alpha1.DataPlaneSpec{
+				PlaneID: "prod",
+				ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+					ClientCA: openchoreov1alpha1.ValueFrom{Value: caPEM},
+				},
+			},
+		}
+		if terminating {
+			now := metav1.Now()
+			dp.DeletionTimestamp = &now
+			dp.Finalizers = []string{"openchoreo.dev/dataplane-cleanup"}
+		}
+		return dp
+	}
+
+	for _, tc := range []struct {
+		name        string
+		terminating bool
+		deleted     bool // the CR's "deleted" event has already been applied
+		wantGranted int
+	}{
+		{name: "live CR is granted", wantGranted: 1},
+		{name: "terminating CR is granted until its deleted event", terminating: true, wantGranted: 1},
+		{name: "terminating CR is not granted after its deleted event", terminating: true, deleted: true, wantGranted: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mux, cm := newTestPlaneAPI(t, newPlane(tc.terminating))
+			_, err := cm.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+			require.NoError(t, err)
+
+			notify := func(event string) *httptest.ResponseRecorder {
+				body, _ := json.Marshal(PlaneNotification{
+					PlaneType: "dataplane", PlaneID: "prod", Event: event,
+					Namespace: "ns1", Name: "dp",
+				})
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+				w := httptest.NewRecorder()
+				mux.ServeHTTP(w, req)
+				require.Equal(t, http.StatusOK, w.Code)
+				return w
+			}
+			if tc.deleted {
+				notify("deleted")
+			}
+			w := notify("updated")
+
+			var resp PlaneNotificationResponse
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+			require.NotNil(t, resp.AuthorizationsGranted)
+			assert.Equal(t, tc.wantGranted, *resp.AuthorizationsGranted)
+
+			_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+			assert.Equal(t, tc.wantGranted == 1, err == nil)
+		})
+	}
+}
+
+// Once a CR's "deleted" event is applied, knowing that the CR is still
+// terminating is all that stops a stale "updated" from granting it again. If
+// that lookup fails the gateway cannot tell, and the CA lookup after it can
+// still succeed, so it must refuse instead of granting. The 503 makes the
+// controller retry.
+func TestHandlePlaneNotification_UpdatedIsRefusedWhenTerminationLookupFails(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	plane := terminatingDataPlane(string(encodeCertToPEM(t, caCert)))
+
+	cm := NewConnectionManager(testLogger())
+	server := &Server{connMgr: cm, k8sClient: getFailingClient(plane), logger: testLogger()}
+	mux := http.NewServeMux()
+	NewPlaneAPI(cm, server, testLogger()).RegisterRoutes(mux)
+
+	_, err := cm.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	notify := func(event string) int {
+		body, _ := json.Marshal(PlaneNotification{
+			PlaneType: "dataplane", PlaneID: "prod", Event: event,
+			Namespace: "ns1", Name: "dp",
+		})
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body)))
+		return w.Code
+	}
+	require.Equal(t, http.StatusOK, notify("deleted"))
+
+	assert.Equal(t, http.StatusServiceUnavailable, notify("updated"))
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "the revoked CR must not be granted again")
 }
 
 func TestHandlePlaneNotification_Created(t *testing.T) {

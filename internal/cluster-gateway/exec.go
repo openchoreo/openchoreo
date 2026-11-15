@@ -20,6 +20,10 @@ import (
 // streamSession tracks a bidirectional streaming exec session through the agent tunnel.
 type streamSession struct {
 	requestID string
+	// planeIdentifier and crKey name the CR the session was authorized for,
+	// so the session can be ended when that CR is deleted.
+	planeIdentifier string
+	crKey           string
 	// fromAgent receives stream chunks from the agent (stdout/stderr)
 	fromAgent chan *messaging.HTTPTunnelStreamChunk
 	done      chan struct{}
@@ -97,14 +101,25 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 
 	// Create stream session
 	session := &streamSession{
-		requestID: requestID,
-		fromAgent: make(chan *messaging.HTTPTunnelStreamChunk, 256),
-		done:      make(chan struct{}),
+		requestID:       requestID,
+		planeIdentifier: planeIdentifier,
+		crKey:           crKey,
+		fromAgent:       make(chan *messaging.HTTPTunnelStreamChunk, 256),
+		done:            make(chan struct{}),
 	}
 
 	// Register the session for receiving stream responses from the agent
 	s.registerStreamSession(requestID, session)
 	defer s.unregisterStreamSession(requestID)
+
+	// A revocation closes the CR's registered sessions, so one that ran after
+	// the lookup above but before this registration missed this session.
+	// Checking here, after registering, leaves no gap: either the CR is
+	// already revoked, or the revocation comes later and finds the session.
+	if !conn.IsValidForCR(crKey) {
+		logger.Warn("CR was revoked while the exec was starting")
+		return
+	}
 
 	// Send HTTPTunnelStreamInit to the agent
 	streamInit := &messaging.HTTPTunnelStreamInit{
@@ -152,6 +167,9 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 		logger.Error("Timeout waiting for agent to start exec")
 		return
 	case <-session.done:
+		// The agent already has the stream init and may still start the exec,
+		// so tell it to stop.
+		closeAgentStream(conn, requestID)
 		return
 	}
 
@@ -241,6 +259,24 @@ func (s *Server) unregisterStreamSession(requestID string) {
 	s.streamSessionsMu.Lock()
 	defer s.streamSessionsMu.Unlock()
 	delete(s.pendingStreamSessions, requestID)
+}
+
+// closeStreamSessionsForCR ends the streaming sessions (exec, wirelogs) opened
+// for a CR. Revoking a deleted CR keeps the shared agent connection open, so
+// its in-flight sessions must be ended explicitly; sessions of other CRs on
+// the same connection are untouched.
+func (s *Server) closeStreamSessionsForCR(planeIdentifier, crKey string) int {
+	s.streamSessionsMu.RLock()
+	defer s.streamSessionsMu.RUnlock()
+
+	closed := 0
+	for _, session := range s.pendingStreamSessions {
+		if session.planeIdentifier == planeIdentifier && session.crKey == crKey {
+			session.close()
+			closed++
+		}
+	}
+	return closed
 }
 
 // handleStreamChunk routes an incoming stream chunk from an agent to the correct session.

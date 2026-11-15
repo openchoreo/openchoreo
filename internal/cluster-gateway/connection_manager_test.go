@@ -542,6 +542,114 @@ func TestConnectionManager_DisconnectAllForPlane(t *testing.T) {
 	assert.Equal(t, 0, disconnected)
 }
 
+// Deleting one CR of a shared planeID revokes only that CR. Connections that
+// still serve another CR stay up; a connection whose last CR was deleted has
+// nothing left to route and is closed.
+func TestConnectionManager_RevokeCR(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	shared, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	only, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+	other, cleanup3 := newTestWSConn(t)
+	defer cleanup3()
+
+	_, _ = cm.Register("dataplane", "prod", shared, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", only, []string{"ns1/dp"}, nil, nil)
+	_, _ = cm.Register("workflowplane", "prod", other, []string{"ns1/dp"}, nil, nil)
+
+	revoked, disconnected := cm.RevokeCR("dataplane", "prod", "ns1", "dp")
+	assert.Equal(t, 2, revoked)
+	assert.Equal(t, 1, disconnected)
+
+	// The shared connection survives and serves only the remaining CR.
+	status := cm.GetPlaneStatus("dataplane", "prod")
+	assert.Equal(t, 1, status.ConnectedAgents)
+	conn, err := cm.GetForCR("dataplane/prod", "ns2/dp")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns2/dp"}, conn.GetValidCRs())
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+
+	// A same-named CR on another plane type is untouched.
+	_, err = cm.GetForCR("workflowplane/prod", "ns1/dp")
+	assert.NoError(t, err)
+
+	// Deleting the last CR removes the plane entirely.
+	revoked, disconnected = cm.RevokeCR("dataplane", "prod", "ns2", "dp")
+	assert.Equal(t, 1, revoked)
+	assert.Equal(t, 1, disconnected)
+	_, err = cm.Get("dataplane/prod")
+	assert.Error(t, err)
+
+	// Unknown plane or CR is a no-op.
+	revoked, disconnected = cm.RevokeCR("dataplane", "nonexistent", "ns", "dp")
+	assert.Equal(t, 0, revoked)
+	assert.Equal(t, 0, disconnected)
+	assert.Equal(t, 1, cm.Count())
+}
+
+// A connection can already hold no authorization when a CR is deleted: an
+// earlier revalidation revoked its only CR. It can never serve a request, so
+// the deletion must close it rather than leave it counted as a connected agent.
+func TestConnectionManager_RevokeCR_ClosesConnectionWithNoAuthorizations(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	orphan := &mockGatewayConn{}
+	serving := &mockGatewayConn{}
+	_, _ = cm.Register("dataplane", "prod", orphan, []string{"ns1/dp"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", serving, []string{"ns2/dp"}, nil, nil)
+
+	// Revalidation revoked the orphan's only CR before the CR was deleted.
+	conns := cm.GetAll()
+	require.Len(t, conns, 2)
+	conns[0].SetValidCRs([]string{})
+
+	revoked, disconnected := cm.RevokeCR("dataplane", "prod", "ns1", "dp")
+	assert.Equal(t, 0, revoked)
+	assert.Equal(t, 1, disconnected)
+	assert.True(t, orphan.closed)
+	assert.False(t, serving.closed)
+
+	status := cm.GetPlaneStatus("dataplane", "prod")
+	assert.Equal(t, 1, status.ConnectedAgents)
+	_, err := cm.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+}
+
+// A revalidation looks the CR up before it reaches the manager, so the CR's
+// deletion can land in between. Granting from that earlier lookup would make
+// the deleted CR routable again, with no later event left to revoke it. A
+// revalidation that starts after the deletion belongs to a re-created CR and
+// must still be granted.
+func TestConnectionManager_RevalidateCR_DoesNotRestoreCRDeletedMeanwhile(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	caPEM := encodeCertToPEM(t, caCert)
+
+	cm := NewConnectionManager(testLogger())
+	_, err := cm.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/dp", "ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	// The revalidation starts, then the deletion overtakes it.
+	startedBeforeDeletion := cm.CRRevocations("dataplane", "prod", "ns1", "dp")
+	cm.RevokeCR("dataplane", "prod", "ns1", "dp")
+
+	granted, _, err := cm.RevalidateCR("dataplane", "prod", "ns1", "dp", caPEM, startedBeforeDeletion)
+	require.NoError(t, err)
+	assert.Equal(t, 0, granted)
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+
+	granted, _, err = cm.RevalidateCR("dataplane", "prod", "ns1", "dp", caPEM,
+		cm.CRRevocations("dataplane", "prod", "ns1", "dp"))
+	require.NoError(t, err)
+	assert.Equal(t, 1, granted)
+	_, err = cm.GetForCR("dataplane/prod", "ns1/dp")
+	assert.NoError(t, err)
+}
+
 func TestConnectionManager_GetPlaneStatus(t *testing.T) {
 	cm := NewConnectionManager(testLogger())
 
@@ -644,7 +752,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		// Register with no valid CRs, but with a client cert signed by the CA
 		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert, nil)
 
-		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)
+		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 1, updated)
 		assert.Equal(t, 0, removed)
@@ -662,7 +770,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		otherCACert, _ := generateTestCA(t)
 		otherPEM := encodeCertToPEM(t, otherCACert)
 
-		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", otherPEM)
+		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", otherPEM, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 0, updated)
 		assert.Equal(t, 1, removed)
@@ -671,7 +779,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 	t.Run("no connections returns zero counts", func(t *testing.T) {
 		cm := NewConnectionManager(testLogger())
 
-		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)
+		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 0, updated)
 		assert.Equal(t, 0, removed)
@@ -684,7 +792,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 
 		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert, nil)
 
-		_, _, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", []byte("not-valid-pem"))
+		_, _, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", []byte("not-valid-pem"), 0)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse")
 	})
@@ -919,7 +1027,7 @@ func TestConnectionManager_RevalidateCR_UnchangedStatus(t *testing.T) {
 	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert, nil)
 
 	// Revalidate with same CA — should be unchanged (still valid)
-	updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)
+	updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 0, updated)
 	assert.Equal(t, 0, removed)

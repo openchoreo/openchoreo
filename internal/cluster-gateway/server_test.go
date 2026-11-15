@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -31,7 +32,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
@@ -2867,6 +2870,511 @@ func TestServer_PropagatePlaneEventReachesPeers(t *testing.T) {
 	waitForCondition(t, "the peer to drop the deleted plane's connections", func() bool {
 		return peer.connMgr.Count() == 0
 	})
+}
+
+// A named deletion traveling over the mesh must reach the replica that owns
+// the agent and revoke only that CR there: the peer stops routing the deleted
+// CR and republishes the connection so the fleet's registry forgets it too,
+// while the other CR sharing the planeID stays served by the same connection.
+func TestServer_PropagateNamedDeletionRevokesOnlyThatCROnPeers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	notified, _, discNotified, addrNotified := newFabricServer(t, ctx, "gw-notified")
+	peer, _, discPeer, addrPeer := newFabricServer(t, ctx, "gw-peer")
+
+	discNotified.ch <- []fabric.Peer{{ID: "gw-peer", Addr: addrPeer}}
+	discPeer.ch <- []fabric.Peer{{ID: "gw-notified", Addr: addrNotified}}
+
+	mock := &mockGatewayConn{}
+	_, err := peer.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+	waitForCondition(t, "the mesh link to come up", func() bool {
+		return len(notified.fabricRegistry.Lookup("dataplane/prod", "ns1/dp")) == 1 &&
+			len(notified.fabricRegistry.Lookup("dataplane/prod", "ns2/dp")) == 1
+	})
+
+	notified.propagatePlaneEvent(fabric.PlaneEvent{
+		PlaneType: "dataplane", PlaneID: "prod", Event: "deleted",
+		Namespace: "ns1", Name: "dp",
+	})
+
+	waitForCondition(t, "the peer to stop routing the deleted CR", func() bool {
+		_, err := peer.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+		return err != nil
+	})
+	waitForCondition(t, "the fleet registry to forget the deleted CR", func() bool {
+		return len(notified.fabricRegistry.Lookup("dataplane/prod", "ns1/dp")) == 0
+	})
+
+	// The surviving CR keeps its agent, locally and in the registry.
+	_, err = peer.connMgr.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+	assert.Len(t, notified.fabricRegistry.Lookup("dataplane/prod", "ns2/dp"), 1)
+	mock.mu.Lock()
+	closed := mock.closed
+	mock.mu.Unlock()
+	assert.False(t, closed)
+}
+
+// Revoking a deleted CR leaves the shared agent connection open, so streaming
+// sessions opened for that CR would otherwise keep running against a CR that
+// no longer exists. Only those sessions end; another CR's session on the same
+// connection carries on.
+func TestServer_ApplyPlaneEventDeletedClosesOnlyThatCRsStreamSessions(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	newSession := func(id, crKey string) *streamSession {
+		session := &streamSession{
+			requestID:       id,
+			planeIdentifier: "dataplane/prod",
+			crKey:           crKey,
+			done:            make(chan struct{}),
+		}
+		s.registerStreamSession(id, session)
+		return session
+	}
+	deleted := newSession("req-deleted", "ns1/dp")
+	surviving := newSession("req-surviving", "ns2/dp")
+
+	s.ApplyPlaneEvent(fabric.PlaneEvent{
+		PlaneType: "dataplane", PlaneID: "prod", Event: "deleted",
+		Namespace: "ns1", Name: "dp",
+	})
+
+	select {
+	case <-deleted.done:
+	default:
+		t.Fatal("the deleted CR's stream session was left running")
+	}
+	select {
+	case <-surviving.done:
+		t.Fatal("another CR's stream session was closed")
+	default:
+	}
+}
+
+// A session can be ended while the gateway still waits for the agent to
+// acknowledge the stream init: its CR was revoked. The agent has the init and
+// starts the exec anyway, and a shell with stdin open never exits by itself,
+// so the gateway must tell the agent to stop. Nothing else would.
+func TestHandleExec_ClosedBeforeAgentStartsTellsAgentToStop(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	agent := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", agent, []string{"ns1/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(s.handleExec))
+	t.Cleanup(srv.Close)
+	execURL := "ws" + strings.TrimPrefix(srv.URL, "http") +
+		"/api/exec/dataplane/prod/ns1/dp?podNamespace=default&podName=web"
+	apiConn, resp, err := websocket.DefaultDialer.Dial(execURL, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = resp.Body.Close()
+		_ = apiConn.Close()
+	})
+
+	waitForCondition(t, "the stream init to reach the agent", func() bool {
+		return len(agent.getWrittenMessages()) == 1
+	})
+
+	// What revoking the CR does to its sessions.
+	require.Equal(t, 1, s.closeStreamSessionsForCR("dataplane/prod", "ns1/dp"))
+
+	waitForCondition(t, "the agent to be told to stop the exec", func() bool {
+		sent := agent.getWrittenMessages()
+		if len(sent) != 2 {
+			return false
+		}
+		var chunk messaging.HTTPTunnelStreamChunk
+		return json.Unmarshal(sent[1], &chunk) == nil && chunk.IsClose && chunk.RequestID != ""
+	})
+}
+
+// A revocation closes the sessions registered for its CR. One that lands after
+// the handler picked its agent connection but before it registered the session
+// has nothing to close, so the handler must notice by itself. Otherwise the
+// exec starts and runs on for a CR that no longer exists.
+func TestHandleExec_CRRevokedBeforeSessionRegistered(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	agent := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", agent, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	// The WebSocket upgrade sits between the handler's agent lookup and its
+	// session registration, so its origin check runs exactly in that window.
+	s.upgrader.CheckOrigin = func(*http.Request) bool {
+		s.revokeCR("dataplane", "prod", "ns1", "dp")
+		return true
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(s.handleExec))
+	t.Cleanup(srv.Close)
+	execURL := "ws" + strings.TrimPrefix(srv.URL, "http") +
+		"/api/exec/dataplane/prod/ns1/dp?podNamespace=default&podName=web"
+	apiConn, resp, err := websocket.DefaultDialer.Dial(execURL, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = resp.Body.Close()
+		_ = apiConn.Close()
+	})
+
+	// The handler gives up and closes the caller's connection.
+	require.NoError(t, apiConn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, _, err = apiConn.ReadMessage()
+	require.Error(t, err)
+
+	assert.Empty(t, agent.getWrittenMessages(), "no exec may be started for a revoked CR")
+	assert.False(t, agent.isClosed(), "the agent still serves the other CR")
+}
+
+// terminatingDataPlane is the DataPlane ns1/dp on plane "prod", being deleted,
+// with caPEM as its client CA.
+func terminatingDataPlane(caPEM string) *openchoreov1alpha1.DataPlane {
+	now := metav1.Now()
+	return &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "dp", Namespace: "ns1",
+			DeletionTimestamp: &now, Finalizers: []string{"openchoreo.dev/dataplane-cleanup"},
+		},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: caPEM},
+			},
+		},
+	}
+}
+
+// getFailingClient answers lists but fails every Get, like an API server that
+// drops one call of a handler and serves the next.
+func getFailingClient(objects ...client.Object) client.Client {
+	return fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+				return errors.New("api server unavailable")
+			},
+		}).Build()
+}
+
+// Once a CR's "deleted" event is applied, knowing that the CR is still
+// terminating is all that stops a stale "updated" from granting it again. If
+// that lookup fails the gateway cannot tell, and the CA lookup after it can
+// still succeed, so the propagated event must be dropped rather than applied.
+func TestServer_ApplyPlaneEventUpdatedDoesNotGrantWhenTerminationLookupFails(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	plane := terminatingDataPlane(string(encodeCertToPEM(t, caCert)))
+	s := New(&Config{}, getFailingClient(plane), testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	for _, event := range []string{"deleted", "updated"} {
+		s.ApplyPlaneEvent(fabric.PlaneEvent{
+			PlaneType: "dataplane", PlaneID: "prod", Event: event,
+			Namespace: "ns1", Name: "dp",
+		})
+	}
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "the revoked CR must not be granted again")
+}
+
+// A "deleted" event can be lost on its way to the pod that owns the agent, and
+// nothing else withdraws a CR-scoped authorization, so the deleted CR would
+// stay routable. The sweep must revoke a CR that no longer exists and leave
+// every CR that does: a live one, and a terminating one whose finalizer still
+// cleans up through the agent.
+func TestServer_RevokeDeletedCRsRecoversAMissedDeletion(t *testing.T) {
+	now := metav1.Now()
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(
+		&openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "live", Namespace: "ns1"},
+			Spec:       openchoreov1alpha1.DataPlaneSpec{PlaneID: "prod"},
+		},
+		&openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "terminating", Namespace: "ns1",
+				DeletionTimestamp: &now, Finalizers: []string{"openchoreo.dev/dataplane-cleanup"},
+			},
+			Spec: openchoreov1alpha1.DataPlaneSpec{PlaneID: "prod"},
+		},
+		&openchoreov1alpha1.ClusterDataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "live"},
+			Spec:       openchoreov1alpha1.ClusterDataPlaneSpec{PlaneID: "prod"},
+		},
+	).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	mock := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", mock,
+		[]string{"ns1/live", "ns1/terminating", "/live", "ns1/gone", "/gone"}, nil, nil)
+	require.NoError(t, err)
+
+	s.revokeDeletedCRs(context.Background())
+
+	for crKey, wantServed := range map[string]bool{
+		"ns1/live":        true,
+		"ns1/terminating": true,
+		"/live":           true,
+		"ns1/gone":        false,
+		"/gone":           false,
+	} {
+		_, err := s.connMgr.GetForCR("dataplane/prod", crKey)
+		assert.Equal(t, wantServed, err == nil, "CR %q", crKey)
+	}
+	mock.mu.Lock()
+	closed := mock.closed
+	mock.mu.Unlock()
+	assert.False(t, closed, "the agent still serves existing CRs")
+}
+
+// The sweep targets planes shared by well over a thousand CRs, and it runs on
+// every replica every minute. A pass that asked the API server about each CR
+// would exhaust the client's rate limit, which agent connects and
+// revalidations share. Its cost must not depend on the number of CRs.
+func TestServer_RevokeDeletedCRsCostDoesNotGrowWithCRs(t *testing.T) {
+	const crCount = 200
+	objects := make([]client.Object, 0, crCount)
+	crKeys := make([]string, 0, crCount)
+	for i := range crCount {
+		name := fmt.Sprintf("dp-%d", i)
+		objects = append(objects, &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+			Spec:       openchoreov1alpha1.DataPlaneSpec{PlaneID: "prod"},
+		})
+		crKeys = append(crKeys, "ns/"+name)
+	}
+
+	var gets, lists atomic.Int32
+	countingClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				gets.Add(1)
+				return c.Get(ctx, key, obj, opts...)
+			},
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				lists.Add(1)
+				return c.List(ctx, list, opts...)
+			},
+		}).Build()
+	s := New(&Config{}, countingClient, testLogger())
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, crKeys, nil, nil)
+	require.NoError(t, err)
+
+	s.revokeDeletedCRs(context.Background())
+
+	assert.Equal(t, int32(2), lists.Load(), "one listing each for DataPlanes and ClusterDataPlanes")
+	assert.Zero(t, gets.Load(), "no per-CR lookups")
+	_, err = s.connMgr.GetForCR("dataplane/prod", crKeys[0])
+	assert.NoError(t, err)
+}
+
+// A listing that fails says nothing about which CRs exist. Reading it as an
+// empty result would revoke every CR on the pod, so the pass must be skipped.
+func TestServer_RevokeDeletedCRsSkipsThePassWhenListingFails(t *testing.T) {
+	listFailingClient := fake.NewClientBuilder().WithScheme(testScheme()).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+				return errors.New("api server unavailable")
+			},
+		}).Build()
+	s := New(&Config{}, listFailingClient, testLogger())
+	mock := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	s.revokeDeletedCRs(context.Background())
+
+	for _, crKey := range []string{"ns1/dp", "ns2/dp"} {
+		_, err := s.connMgr.GetForCR("dataplane/prod", crKey)
+		assert.NoError(t, err, "CR %q", crKey)
+	}
+	assert.False(t, mock.isClosed())
+}
+
+// The listing can predate a CR that was deleted and re-created under the same
+// name. Revoking it then removes the new CR's grant, and no later event grants
+// it again, so the pass must grant it itself once it sees the CR exists.
+func TestServer_RevokeDeletedCRsRegrantsARecreatedCR(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	recreated := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(encodeCertToPEM(t, caCert))},
+			},
+		},
+	}
+
+	// The sweep's two listings come back empty, as if taken before the CR was
+	// re-created. Every later call sees it.
+	var lists atomic.Int32
+	staleListingClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(recreated).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				if lists.Add(1) <= 2 {
+					return nil
+				}
+				return c.List(ctx, list, opts...)
+			},
+		}).Build()
+	s := New(&Config{}, staleListingClient, testLogger())
+	mock := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp", "ns2/other"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.revokeDeletedCRs(context.Background())
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.NoError(t, err, "the re-created CR must end up authorized")
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns2/other")
+	assert.Error(t, err, "a CR that is really gone stays revoked")
+}
+
+// planeID can be changed on a live CR, and a CR can be re-created under the
+// same name on another plane. Its events then revalidate only the new plane,
+// so the old plane's grant would stay forever unless the sweep compares plane
+// IDs, not just names. A DataPlane without a planeID belongs to the plane
+// named after it.
+func TestServer_RevokeDeletedCRsRevokesACRThatMovedPlane(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(
+		&openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+			Spec:       openchoreov1alpha1.DataPlaneSpec{PlaneID: "staging"},
+		},
+		&openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Name: "prod", Namespace: "ns2"}},
+	).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/dp", "ns2/prod"}, nil, nil)
+	require.NoError(t, err)
+
+	s.revokeDeletedCRs(context.Background())
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "the CR moved to staging must not stay authorized on prod")
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns2/prod")
+	assert.NoError(t, err, "a DataPlane without a planeID is on the plane named after it")
+}
+
+// The listing can predate a CR that was re-created under the same name. If the
+// check revoked first and asked questions later, a re-created CR that was its
+// connection's only CR would get the agent disconnected. The CR is looked up
+// before anything is revoked, and a lookup that fails proves nothing.
+func TestServer_RevokeDeletedCRsLooksUpBeforeRevoking(t *testing.T) {
+	recreated := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+		Spec:       openchoreov1alpha1.DataPlaneSpec{PlaneID: "prod"},
+	}
+	for _, tc := range []struct {
+		name    string
+		failGet bool
+	}{
+		{name: "re-created CR is left alone"},
+		{name: "failed lookup revokes nothing", failGet: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// The listing is empty, as if taken before the CR was re-created.
+			staleListingClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(recreated).
+				WithInterceptorFuncs(interceptor.Funcs{
+					List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+						return nil
+					},
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if tc.failGet {
+							return errors.New("api server unavailable")
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				}).Build()
+			s := New(&Config{}, staleListingClient, testLogger())
+			mock := &mockGatewayConn{}
+			_, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp"}, nil, nil)
+			require.NoError(t, err)
+
+			s.revokeDeletedCRs(context.Background())
+
+			_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+			assert.NoError(t, err)
+			assert.False(t, mock.isClosed(), "the agent's only CR was never revoked")
+		})
+	}
+}
+
+// Shutdown cancels the sweep's context. A pass that ignored it would go on to
+// look up every remaining CR, and revoke, from a pod that is on its way out.
+func TestServer_RevokeDeletedCRsStopsWhenCanceled(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	// The CR is gone, so a pass that ran would revoke it.
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/gone", "ns2/gone"}, nil, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s.revokeDeletedCRs(ctx)
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/gone")
+	assert.NoError(t, err, "a canceled pass must change nothing")
+}
+
+// The sweep is bound to the server's lifetime: one that outlived it would keep
+// querying the API server and revoking from a pod that is shutting down.
+func TestServer_RunDeletedCRSweepStopsWithItsContext(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() {
+		s.runDeletedCRSweep(ctx)
+		close(stopped)
+	}()
+
+	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the deleted-CR sweep outlived its context")
+	}
+}
+
+// A propagated deletion that names its CR must leave a peer's agent connected
+// when that agent still serves other CRs sharing the planeID.
+func TestServer_ApplyPlaneEventDeletedKeepsSharedPlaneAgent(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	mock := &mockGatewayConn{}
+	_, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns1/dp", "ns2/dp"}, nil, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(fabric.PlaneEvent{
+		PlaneType: "dataplane", PlaneID: "prod", Event: "deleted",
+		Namespace: "ns1", Name: "dp",
+	})
+
+	mock.mu.Lock()
+	closed := mock.closed
+	mock.mu.Unlock()
+	assert.False(t, closed)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns2/dp")
+	assert.NoError(t, err)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
 }
 
 // Without a mesh there is nobody to tell, and the notification path is shared:
