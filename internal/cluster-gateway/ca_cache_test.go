@@ -13,12 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/cluster-gateway/fabric"
 )
 
 // sharedPlaneTenants returns n DataPlanes on plane "prod", one per namespace
@@ -245,6 +247,40 @@ func TestConnect_DoesNotUseACachedCAAfterItsSecretFailsToRead(t *testing.T) {
 	after, _, err := s.getAllPlaneClientCAs(planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Empty(t, after)
+}
+
+// A plane CR is often created just before the Secret that holds its CA. The
+// lookup then fails because the Secret does not exist yet, which is not the
+// same as the CR being gone: the Secret can appear a moment later, and nothing
+// prompts another attempt for a propagated event or a CR left unread by a
+// connect. Only a missing CR ends the retries.
+func TestRevalidation_RetriesWhileTheCASecretDoesNotExistYet(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	objects := sharedPlaneTenantsWithCA(1, encodeCertToPEM(t, caCert))
+
+	var secretGets atomic.Int32
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, isSecret := obj.(*corev1.Secret); isSecret && secretGets.Add(1) == 1 {
+					return apierrors.NewNotFound(corev1.Resource("secrets"), key.Name)
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+	s := New(&Config{}, live, testLogger())
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"other/default"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(fabric.PlaneEvent{
+		PlaneType: "dataplane", PlaneID: "prod", Event: "updated",
+		Namespace: "tenant-0", Name: "default",
+	})
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "tenant-0/default")
+	require.NoError(t, err, "the CR must be authorized once its Secret exists")
+	assert.Equal(t, int32(2), secretGets.Load())
 }
 
 // planeReaderOnly fails the test when it is asked for anything but a list. The

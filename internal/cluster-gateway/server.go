@@ -1367,6 +1367,11 @@ const planeEventAttempts = 5
 
 var planeEventRetryBackoff = time.Second
 
+// errPlaneCRGone marks a lookup that failed because the plane CR itself does
+// not exist. It is told apart from a CA Secret that does not exist, which can
+// still appear: a CR is often created just before the Secret it points at.
+var errPlaneCRGone = errors.New("plane CR does not exist")
+
 // revalidateCRWithRetry re-validates one CR on this replica's connections from
 // what the API server holds, for callers that nothing prompts a second time:
 //
@@ -1386,7 +1391,7 @@ func (s *Server) revalidateCRWithRetry(ev fabric.PlaneEvent) {
 			return
 		}
 		// A CR that no longer exists has nothing left to grant.
-		if attempt >= planeEventAttempts || apierrors.IsNotFound(err) {
+		if attempt >= planeEventAttempts || errors.Is(err, errPlaneCRGone) {
 			s.logger.Warn("giving up on CR re-validation",
 				"planeType", ev.PlaneType,
 				"planeID", ev.PlaneID,
@@ -1410,6 +1415,9 @@ func (s *Server) revalidateCROnce(ev fabric.PlaneEvent) error {
 	revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 	if revocations > 0 {
 		terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to look up CR for re-validation: %w: %w", errPlaneCRGone, err)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to look up CR for re-validation: %w", err)
 		}
@@ -1598,6 +1606,9 @@ func (s *Server) fetchCRClientCA(planeType, planeID, namespace, name string) ([]
 
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get CR %s: %w: %w", crKey, errPlaneCRGone, err)
+		}
 		return nil, fmt.Errorf("failed to get CR %s: %w", crKey, err)
 	}
 
