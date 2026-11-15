@@ -30,6 +30,9 @@ type resourceInfo struct {
 	namespace  string
 }
 
+// stdinReader allows overriding standard input in tests.
+var stdinReader io.Reader = os.Stdin
+
 // Apply applies resources from the specified file or directory.
 func Apply(c *client.Client, params Params) error {
 	if params.FilePath == "" {
@@ -244,6 +247,10 @@ func resolveDefaultNamespace() string {
 
 // discoverResourceFiles discovers all YAML files to process.
 func discoverResourceFiles(path string) ([]string, error) {
+	if path == "-" {
+		return []string{"-"}, nil
+	}
+
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return []string{path}, nil
 	}
@@ -280,8 +287,19 @@ func discoverResourceFiles(path string) ([]string, error) {
 	return yamlFiles, nil
 }
 
-// readResourceContent reads resource content from file or URL.
+// readResourceContent reads resource content from file, standard input, or URL.
 func readResourceContent(ctx context.Context, filePath string) ([]byte, error) {
+	if filePath == "-" {
+		content, err := io.ReadAll(stdinReader)
+		if err != nil {
+			return nil, fmt.Errorf("error reading from standard input: %w", err)
+		}
+		if len(bytes.TrimSpace(content)) == 0 {
+			return nil, fmt.Errorf("standard input is empty")
+		}
+		return content, nil
+	}
+
 	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
 		// #nosec G107 - URL is validated to be HTTP/HTTPS and is intentional functionality
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, filePath, nil)
