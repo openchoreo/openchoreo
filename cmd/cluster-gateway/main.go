@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -33,6 +35,11 @@ const (
 	defaultHeartbeatInterval = 30 * time.Second
 	defaultHeartbeatTimeout  = 90 * time.Second
 	defaultDrainWindow       = 10 * time.Second
+	// planeCacheSyncTimeout bounds the initial list of every plane CR. The pod
+	// exits when it is exceeded, and is restarted. It is shorter than the time
+	// the liveness probe allows for the health endpoint to come up, so a failed
+	// sync is reported in the log and not as an unexplained restart.
+	planeCacheSyncTimeout = time.Minute
 )
 
 var (
@@ -162,6 +169,50 @@ func main() {
 
 	logger.Info("Kubernetes client created successfully")
 
+	// An agent connect checks every plane CR that shares its planeID, and the
+	// deleted-CR sweep looks at every plane CR once a minute. Listing them from
+	// the API server each time grows with the number of plane CRs in the
+	// cluster, so both read from an informer cache. Secrets are not cached
+	// here: the gateway reads only the CA Secrets that plane CRs reference, by
+	// name, and has no permission to watch Secrets.
+	planeCache, err := cache.New(k8sConfig, cache.Options{
+		Scheme:           scheme,
+		DefaultTransform: cache.TransformStripManagedFields(),
+	})
+	if err != nil {
+		logger.Error("failed to create plane CR cache", "error", err)
+		os.Exit(1)
+	}
+	cacheCtx, stopCache := context.WithCancel(context.Background())
+	defer stopCache()
+	for _, obj := range []client.Object{
+		&openchoreov1alpha1.DataPlane{}, &openchoreov1alpha1.ClusterDataPlane{},
+		&openchoreov1alpha1.WorkflowPlane{}, &openchoreov1alpha1.ClusterWorkflowPlane{},
+		&openchoreov1alpha1.ObservabilityPlane{}, &openchoreov1alpha1.ClusterObservabilityPlane{},
+	} {
+		if _, err := planeCache.GetInformer(cacheCtx, obj); err != nil {
+			logger.Error("failed to create plane CR informer", "type", fmt.Sprintf("%T", obj), "error", err)
+			os.Exit(1)
+		}
+	}
+	go func() {
+		if err := planeCache.Start(cacheCtx); err != nil {
+			logger.Error("plane CR cache failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+	// The server starts only once the cache holds every plane CR. An agent that
+	// connected before that would be checked against a partial list, and
+	// rejected outright while the list was still empty.
+	syncCtx, cancelSync := context.WithTimeout(cacheCtx, planeCacheSyncTimeout)
+	synced := planeCache.WaitForCacheSync(syncCtx)
+	cancelSync()
+	if !synced {
+		logger.Error("plane CR cache did not sync", "timeout", planeCacheSyncTimeout)
+		os.Exit(1)
+	}
+	logger.Info("plane CR cache synced")
+
 	config := &clustergateway.Config{
 		Port:                     port,
 		InternalPort:             internalPort,
@@ -182,6 +233,7 @@ func main() {
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)
+	srv.SetPlaneReader(planeCache)
 
 	// Gateway mesh fabric: replicate the connection registry across replicas
 	// and forward requests between them, so the gateway can scale horizontally

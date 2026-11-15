@@ -457,7 +457,7 @@ func TestVerifyClientCertificatePerCR_ValidCert(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
 }
@@ -493,7 +493,7 @@ func TestVerifyClientCertificatePerCR_MultipleCRs(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp1, dp2).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns-a/dp1")
 	assert.NotContains(t, validCRs, "ns-b/dp2")
@@ -557,7 +557,7 @@ func TestVerifyClientCertificatePerCR_EmptyCAFailsClosed(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	require.Error(t, err, "a CR with no client CA must not authorize any certificate")
 	assert.Empty(t, validCRs)
 }
@@ -589,7 +589,7 @@ func TestVerifyClientCertificatePerCR_SharedCAMergesTrustDomains(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp1, dp2).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"tenant-a/dp1", "tenant-b/dp2"}, validCRs,
 		"one CA signing for both CRs must grant access to both — that is the hazard being warned about")
@@ -603,7 +603,7 @@ func TestVerifyClientCertificatePerCR_NoCRsFound(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "nonexistent")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "nonexistent")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no dataplane CRs found")
 }
@@ -630,7 +630,7 @@ func TestVerifyClientCertificatePerCR_CertInvalidForAll(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate not valid for any CR")
 }
@@ -656,7 +656,7 @@ func TestVerifyClientCertificatePerCR_NilCAData(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate not valid for any CR")
 }
@@ -703,7 +703,7 @@ func TestVerifyClientCertificatePerCR_WithIntermediates(t *testing.T) {
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
 	// Pass intermediate cert chain
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, buildIntermediatePool([]*x509.Certificate{intermediateCert}), "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, buildIntermediatePool([]*x509.Certificate{intermediateCert}), "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
 }

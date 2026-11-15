@@ -88,6 +88,15 @@ type Server struct {
 	logger                *slog.Logger
 	agentAuth             AgentAuthenticator // How the public listener extracts the agent client certificate
 	k8sClient             client.Client      // Kubernetes client for querying DataPlane/WorkflowPlane CRs
+	// planeReader lists plane CRs for an agent connect and for the deleted-CR
+	// sweep, both of which look at every CR of a plane type. In the gateway
+	// binary it is an informer cache, so those lists do not reach the API
+	// server. Anything decided about a single CR is read through k8sClient.
+	// It is unset in a Server built without SetPlaneReader, which then lists
+	// through k8sClient: see planes.
+	planeReader client.Reader
+	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
+	caCacheInit sync.Once
 
 	// Gateway mesh fabric (optional): replicates the connection registry
 	// across gateway replicas and forwards requests to the pod that owns the
@@ -147,6 +156,27 @@ func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 		// surfaces an invalid mode as an error).
 		agentAuth: mtlsAuthenticator{},
 	}
+}
+
+// SetPlaneReader sets where plane CRs are listed from. It must be called before
+// Start. The reader may trail the API server, as an informer cache does.
+func (s *Server) SetPlaneReader(reader client.Reader) {
+	s.planeReader = reader
+}
+
+// planes returns where plane CRs are listed from: the reader given to
+// SetPlaneReader, or the API server client when there is none.
+func (s *Server) planes() client.Reader {
+	if s.planeReader != nil {
+		return s.planeReader
+	}
+	return s.k8sClient
+}
+
+// cas returns the CA cache, created on first use.
+func (s *Server) cas() *secretCACache {
+	s.caCacheInit.Do(func() { s.caCache = newSecretCACache() })
+	return s.caCache
 }
 
 func generateRequestID() string {
@@ -591,7 +621,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Per-CR certificate validation enforces security boundaries
 	// Each CR is validated independently to prevent cross-tenant access
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediatePool, planeType, planeID)
+	validCRs, unreadCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediatePool, planeType, planeID)
 	if err != nil {
 		s.logger.Warn("per-CR certificate verification failed",
 			"planeType", planeType,
@@ -628,7 +658,43 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		"validCRCount", len(validCRs),
 	)
 
+	// The lookup stopped before it had read every CR's CA. The agent is
+	// connected and serves the CRs above; the rest are read now, without the
+	// handshake waiting on them.
+	if len(unreadCRs) > 0 {
+		go s.authorizeUnreadCRs(planeType, planeID, unreadCRs)
+	}
+
 	go s.handleConnection(planeIdentifier, connID, conn)
+}
+
+// authorizeUnreadCRs finishes what an agent connect could not do within its
+// lookup time: it reads each CR left unread from the API server and re-validates
+// it on the plane's connections, caReadConcurrency CRs at a time. Without it a
+// CR left out of a connect stays unauthorized on that connection until
+// something else notifies the gateway about the CR.
+func (s *Server) authorizeUnreadCRs(planeType, planeID string, crKeys []string) {
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, caReadConcurrency)
+	for _, crKey := range crKeys {
+		namespace, name, _ := strings.Cut(crKey, "/")
+		slots <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			s.revalidateCRWithRetry(fabric.PlaneEvent{
+				PlaneType: planeType, PlaneID: planeID, Event: "updated",
+				Namespace: namespace, Name: name,
+			})
+		}()
+	}
+	wg.Wait()
+	s.logger.Info("authorized the CRs an agent connect left unread",
+		"planeType", planeType,
+		"planeID", planeID,
+		"crs", len(crKeys),
+	)
 }
 
 func (s *Server) handleConnection(planeName, connID string, conn Connection) {
@@ -1280,7 +1346,7 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 
 	switch ev.Event {
 	case "created", "updated":
-		s.applyPropagatedCRUpdate(ev)
+		s.revalidateCRWithRetry(ev)
 	case "deleted":
 		if ev.Name == "" {
 			s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
@@ -1294,29 +1360,34 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 	}
 }
 
-// planeEventAttempts bounds how many times a propagated "created" or "updated"
-// event is tried, and planeEventRetryBackoff is the wait before the second
-// attempt, doubled before each one after it.
+// planeEventAttempts bounds how many times the re-validation of one CR is
+// tried, and planeEventRetryBackoff is the wait before the second attempt,
+// doubled before each one after it.
 const planeEventAttempts = 5
 
 var planeEventRetryBackoff = time.Second
 
-// applyPropagatedCRUpdate re-validates one CR on this replica's connections for
-// a propagated "created" or "updated" event. The replica that received the
-// notification has already answered the controller, so nothing sends this event
-// again: a lookup that fails here is retried, or the agents this replica owns
-// stay unauthorized for the CR while the CR reports as connected through
-// another replica's agent.
-func (s *Server) applyPropagatedCRUpdate(ev fabric.PlaneEvent) {
+// revalidateCRWithRetry re-validates one CR on this replica's connections from
+// what the API server holds, for callers that nothing prompts a second time:
+//
+//   - A propagated "created" or "updated" event. The replica that received the
+//     notification has already answered the controller, so the event is not
+//     sent again.
+//   - A CR that an agent connect left unread.
+//
+// In both cases a lookup that fails is retried, or the agents this replica owns
+// stay unauthorized for the CR, possibly while the CR reports as connected
+// through another replica's agent.
+func (s *Server) revalidateCRWithRetry(ev fabric.PlaneEvent) {
 	backoff := planeEventRetryBackoff
 	for attempt := 1; ; attempt++ {
-		err := s.revalidatePropagatedCR(ev)
+		err := s.revalidateCROnce(ev)
 		if err == nil {
 			return
 		}
 		// A CR that no longer exists has nothing left to grant.
 		if attempt >= planeEventAttempts || apierrors.IsNotFound(err) {
-			s.logger.Warn("dropping propagated plane event",
+			s.logger.Warn("giving up on CR re-validation",
 				"planeType", ev.PlaneType,
 				"planeID", ev.PlaneID,
 				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
@@ -1330,21 +1401,20 @@ func (s *Server) applyPropagatedCRUpdate(ev fabric.PlaneEvent) {
 	}
 }
 
-// revalidatePropagatedCR makes one attempt at a propagated "created" or
-// "updated" event. It returns an error only for a failed lookup, which is the
-// part worth retrying. Every attempt reads the CR from the API server and
-// re-reads the revocation count first, so a retry that runs after the CR's
-// "deleted" event is held back by the same staleness guard as the
-// notification handler: see there.
-func (s *Server) revalidatePropagatedCR(ev fabric.PlaneEvent) error {
+// revalidateCROnce makes one attempt at re-validating a CR. It returns an error
+// only for a failed lookup, which is the part worth retrying. Every attempt
+// reads the CR from the API server and re-reads the revocation count first, so
+// an attempt that runs after the CR's "deleted" event is held back by the same
+// staleness guard as the notification handler: see there.
+func (s *Server) revalidateCROnce(ev fabric.PlaneEvent) error {
 	revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 	if revocations > 0 {
 		terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
 		if err != nil {
-			return fmt.Errorf("failed to look up CR for propagated re-validation: %w", err)
+			return fmt.Errorf("failed to look up CR for re-validation: %w", err)
 		}
 		if terminating {
-			s.logger.Info("skipping propagated re-validation of a deleted CR",
+			s.logger.Info("skipping re-validation of a deleted CR",
 				"planeType", ev.PlaneType,
 				"planeID", ev.PlaneID,
 				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
@@ -1354,10 +1424,10 @@ func (s *Server) revalidatePropagatedCR(ev fabric.PlaneEvent) error {
 	}
 	caData, err := s.fetchCRClientCA(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CR CA for propagated re-validation: %w", err)
+		return fmt.Errorf("failed to fetch CR CA for re-validation: %w", err)
 	}
 	if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData, revocations); err != nil {
-		s.logger.Warn("propagated CR re-validation failed", "error", err)
+		s.logger.Warn("CR re-validation failed", "error", err)
 	}
 	return nil
 }
@@ -1537,7 +1607,7 @@ func (s *Server) fetchCRClientCA(planeType, planeID, namespace, name string) ([]
 		return nil, fmt.Errorf("CR %s does not belong to plane %s/%s", crKey, planeType, planeID)
 	}
 
-	caData, err := s.extractCAFromPlane(info.agent, info.namespace)
+	caData, err := s.extractCAFromPlane(ctx, info.agent, info.namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract CA from CR %s: %w", crKey, err)
 	}
@@ -1629,11 +1699,15 @@ func buildIntermediatePool(intermediates []*x509.Certificate) *x509.CertPool {
 // verifyClientCertificatePerCR validates the client certificate against EACH CR individually
 // and returns a list of CRs (namespace/name) that the certificate is valid for.
 // This enforces per-CR security boundaries in multi-tenant scenarios.
+//
+// unread lists the CRs whose CA was not read within the lookup's time. They are
+// not in validCRs, and the caller authorizes them once the connection is
+// registered: see authorizeUnreadCRs.
 func (s *Server) verifyClientCertificatePerCR(
 	clientCert *x509.Certificate,
 	intermediatePool *x509.CertPool,
 	planeType, planeID string,
-) (validCRs []string, err error) {
+) (validCRs []string, unread []string, err error) {
 	clientCN := clientCert.Subject.CommonName
 	clientIssuer := clientCert.Issuer.CommonName
 
@@ -1645,9 +1719,9 @@ func (s *Server) verifyClientCertificatePerCR(
 	)
 
 	// Get ALL CRs with matching planeType and planeID
-	crsClientCAData, err := s.getAllPlaneClientCAs(planeType, planeID)
+	crsClientCAData, unread, err := s.getAllPlaneClientCAs(planeType, planeID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client CA configurations: %w", err)
+		return nil, nil, fmt.Errorf("failed to get client CA configurations: %w", err)
 	}
 
 	if len(crsClientCAData) == 0 {
@@ -1655,7 +1729,7 @@ func (s *Server) verifyClientCertificatePerCR(
 			"planeType", planeType,
 			"planeID", planeID,
 		)
-		return nil, fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
+		return nil, nil, fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
 	}
 
 	validCRs = []string{}
@@ -1695,7 +1769,7 @@ func (s *Server) verifyClientCertificatePerCR(
 		chains, err := clientCert.Verify(opts)
 		if err == nil {
 			validCRs = append(validCRs, crKey)
-			s.logger.Info("certificate valid for CR",
+			s.logger.Debug("certificate valid for CR",
 				"cr", crKey,
 				"clientCN", clientCN,
 				"chainCount", len(chains),
@@ -1727,7 +1801,7 @@ func (s *Server) verifyClientCertificatePerCR(
 			"clientCN", clientCN,
 			"totalCRs", len(crsClientCAData),
 		)
-		return nil, fmt.Errorf("certificate not valid for any CR with planeID '%s'", planeID)
+		return nil, nil, fmt.Errorf("certificate not valid for any CR with planeID '%s'", planeID)
 	}
 
 	s.warnOnSharedClientCA(validCRs, crsClientCAData, planeType, planeID, clientCN)
@@ -1740,7 +1814,7 @@ func (s *Server) verifyClientCertificatePerCR(
 		"totalCRs", len(crsClientCAData),
 	)
 
-	return validCRs, nil
+	return validCRs, unread, nil
 }
 
 // warnOnSharedClientCA reports when one agent certificate authenticated to

@@ -303,9 +303,9 @@ func TestForwardedHeaderMatchesHandshakeVerification(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, fwdCreds.intermediates, 1)
 
-	mtlsValid, err := s.verifyClientCertificatePerCR(mtlsCreds.clientCert, getCertificatePoolFromCreds(mtlsCreds), "dataplane", "prod")
+	mtlsValid, _, err := s.verifyClientCertificatePerCR(mtlsCreds.clientCert, getCertificatePoolFromCreds(mtlsCreds), "dataplane", "prod")
 	require.NoError(t, err)
-	fwdValid, err := s.verifyClientCertificatePerCR(fwdCreds.clientCert, getCertificatePoolFromCreds(fwdCreds), "dataplane", "prod")
+	fwdValid, _, err := s.verifyClientCertificatePerCR(fwdCreds.clientCert, getCertificatePoolFromCreds(fwdCreds), "dataplane", "prod")
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"ns/dp1"}, mtlsValid)
