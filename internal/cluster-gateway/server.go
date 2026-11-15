@@ -27,7 +27,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
@@ -99,11 +98,15 @@ type Server struct {
 	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
 	caCacheInit sync.Once
 
-	// liveCRs remembers which plane CRs this replica has read from the API
-	// server lately, by plane type and then "namespace/name": see liveCR.
-	// liveMu also serializes re-validations: see revalidateCR.
-	liveMu  sync.Mutex
-	liveCRs map[string]map[string]liveCR
+	// liveCRs remembers when this replica last read each plane CR from the API
+	// server, by plane type and then "namespace/name": see noteLiveCR.
+	// crEpochs and planeEpochs count the times a CR's client CA was applied and
+	// an agent connected to a plane: see revalidateCR. liveMu guards all three
+	// and serializes re-validations.
+	liveMu      sync.Mutex
+	liveCRs     map[string]map[string]time.Time
+	crEpochs    map[string]uint64
+	planeEpochs map[string]uint64
 
 	// unreadJobs holds, per plane, the job that authorizes the CRs agent
 	// connects left unread: see authorizeUnreadCRs.
@@ -201,8 +204,9 @@ func (s *Server) lifecycle() context.Context {
 // planeReader's copy. It is the time planeReader is given to catch up.
 const liveCRWindow = time.Minute
 
-// liveCR records that this replica has read a plane CR from the API server,
-// for a notification or for a CR left over from a connect.
+// noteLiveCR records that this replica has just read a plane CR from the API
+// server, or found it gone, for a notification or for a CR left over from an
+// agent connect.
 //
 // planeReader is an informer cache and can trail the API server. A
 // notification reads its CR from the API server and applies it to the
@@ -214,58 +218,17 @@ const liveCRWindow = time.Minute
 // reads finish in any order, and a CR can be deleted and created again under
 // the same name. So no attempt is made. For liveCRWindow after a CR was read,
 // a connect reads it again and decides on that. See reconcilePlaneReader.
-type liveCR struct {
-	// generations is the highest generation read of each CR that has held the
-	// name, by UID. It only ever goes up, whatever order reads finish in, and
-	// is what revalidateCR checks a CA against.
-	generations map[types.UID]int64
-	// recordedAt is when the CR was last read, or found to be gone, outside of
-	// an agent connect.
-	recordedAt time.Time
-}
-
-// crClientCA is the client CA of a plane CR, with the version of the CR it was
-// read from.
-type crClientCA struct {
-	data       []byte
-	uid        types.UID
-	generation int64
-}
-
-// noteLiveCR records a plane CR that was just read from the API server.
-func (s *Server) noteLiveCR(planeType, crKey string, obj client.Object) {
+func (s *Server) noteLiveCR(planeType, crKey string) {
 	s.liveMu.Lock()
 	defer s.liveMu.Unlock()
 
-	cr := s.liveCRLocked(planeType, crKey)
-	cr.generations[obj.GetUID()] = max(cr.generations[obj.GetUID()], obj.GetGeneration())
-	cr.recordedAt = time.Now()
-	s.liveCRs[planeType][crKey] = cr
-}
-
-// noteLiveCRGone records that a plane CR was just found to be gone.
-func (s *Server) noteLiveCRGone(planeType, crKey string) {
-	s.liveMu.Lock()
-	defer s.liveMu.Unlock()
-
-	cr := s.liveCRLocked(planeType, crKey)
-	cr.recordedAt = time.Now()
-	s.liveCRs[planeType][crKey] = cr
-}
-
-// liveCRLocked returns the record of a CR, creating it if there is none.
-func (s *Server) liveCRLocked(planeType, crKey string) liveCR {
 	if s.liveCRs == nil {
-		s.liveCRs = make(map[string]map[string]liveCR)
+		s.liveCRs = make(map[string]map[string]time.Time)
 	}
 	if s.liveCRs[planeType] == nil {
-		s.liveCRs[planeType] = make(map[string]liveCR)
+		s.liveCRs[planeType] = make(map[string]time.Time)
 	}
-	cr, recorded := s.liveCRs[planeType][crKey]
-	if !recorded {
-		cr.generations = make(map[types.UID]int64)
-	}
-	return cr
+	s.liveCRs[planeType][crKey] = time.Now()
 }
 
 // liveCRsReadSince returns the CRs of a plane type that this replica has read
@@ -275,8 +238,8 @@ func (s *Server) liveCRsReadSince(planeType string, since time.Time) []string {
 	defer s.liveMu.Unlock()
 
 	var crKeys []string
-	for crKey, cr := range s.liveCRs[planeType] {
-		if !cr.recordedAt.Before(since) {
+	for crKey, readAt := range s.liveCRs[planeType] {
+		if !readAt.Before(since) {
 			crKeys = append(crKeys, crKey)
 		}
 	}
@@ -302,8 +265,8 @@ func (s *Server) reconcilePlaneReader(
 	var recent []string
 
 	s.liveMu.Lock()
-	for crKey, cr := range s.liveCRs[planeType] {
-		if now.Sub(cr.recordedAt) > liveCRWindow {
+	for crKey, readAt := range s.liveCRs[planeType] {
+		if now.Sub(readAt) > liveCRWindow {
 			delete(s.liveCRs[planeType], crKey)
 			continue
 		}
@@ -345,14 +308,79 @@ func (s *Server) reconcilePlaneReader(
 	return unread
 }
 
-// revalidateCR applies a plane CR's client CA to the plane's connections,
-// unless a newer generation of that CR has been read since the CA was.
+// crClientCA is the client CA of a plane CR, with the epochs that were current
+// when the fetch that returned it began.
+type crClientCA struct {
+	data   []byte
+	epochs fetchEpochs
+}
+
+// fetchEpochs is what revalidateCR compares to tell whether a fetched CA can
+// still be applied: how often the CR's CA had been applied, and how often an
+// agent had connected to the plane, when the fetch began.
+type fetchEpochs struct {
+	cr, plane uint64
+}
+
+// revalidationAttempts bounds how often a CR's client CA is fetched again
+// because it was outdated by the time it could be applied.
+const revalidationAttempts = 3
+
+// errRevalidationOutdated reports a client CA that was not applied because
+// the plane's connections were re-validated for the CR, or an agent connected
+// to the plane, after the CA's fetch had begun.
+var errRevalidationOutdated = errors.New("CR was re-validated while its client CA was being fetched")
+
+// errCRClientCALookup marks a re-validation that failed while fetching the CA.
+var errCRClientCALookup = errors.New("failed to fetch CR CA for re-validation")
+
+// fetchEpochsLocked returns the current epochs for a CR on a plane.
+func (s *Server) fetchEpochsLocked(planeType, planeID, crKey string) fetchEpochs {
+	return fetchEpochs{
+		cr:    s.crEpochs[planeType+"/"+crKey],
+		plane: s.planeEpochs[planeType+"/"+planeID],
+	}
+}
+
+// registerAgent registers an agent connection that a connect has verified. It
+// first marks the plane as having a new agent, so that a client CA fetched
+// before this point is not applied to the connection: the connect has decided
+// on what it read itself, which can be newer. See revalidateCR.
+func (s *Server) registerAgent(
+	planeType, planeID string,
+	conn Connection,
+	validCRs []string,
+	clientCert *x509.Certificate,
+	intermediates *x509.CertPool,
+) (string, error) {
+	s.liveMu.Lock()
+	if s.planeEpochs == nil {
+		s.planeEpochs = make(map[string]uint64)
+	}
+	s.planeEpochs[planeType+"/"+planeID]++
+	s.liveMu.Unlock()
+
+	return s.connMgr.Register(planeType, planeID, conn, validCRs, clientCert, intermediates)
+}
+
+// revalidateCR applies a plane CR's client CA to the plane's connections, if
+// the CA is still the latest that can be told. It is not when, since its fetch
+// began, another client CA was applied for the CR or an agent connected to the
+// plane. The CA is then left unapplied and errRevalidationOutdated returned,
+// for the caller to fetch again.
 //
 // Two re-validations of one CR can overlap: a notification and a propagated
-// event, or either with a CR left over from a connect. If the one holding the
-// older CA is applied last, it grants what the newer one has just refused. The
-// check and the re-validation are done under one lock, so the two cannot
-// interleave, and the older one is dropped.
+// event, or either with a CR left over from a connect. Which of them read the
+// newer CA cannot be told from the reads. They finish in any order, a CA can
+// change in its Secret without the CR changing, and a CR can be replaced by
+// another of the same name. If the one holding the older CA were applied last,
+// it would grant what the newer one had just refused. The same goes for a CA
+// fetched before an agent connected and applied after: the connect decided on
+// its own, possibly newer, read.
+//
+// A fetch that begins after the other was applied is served after it, so its
+// CA is the newer one. Applying only such a fetch, with the check and the
+// re-validation under one lock, leaves the connections on the newest CA.
 func (s *Server) revalidateCR(
 	planeType, planeID, namespace, name string, ca crClientCA, revocations uint64,
 ) (granted, revoked int, err error) {
@@ -360,17 +388,39 @@ func (s *Server) revalidateCR(
 	defer s.liveMu.Unlock()
 
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
-	if newest := s.liveCRs[planeType][crKey].generations[ca.uid]; newest > ca.generation {
-		s.logger.Info("skipping re-validation with a CA from an older version of the CR",
-			"planeType", planeType,
-			"planeID", planeID,
-			"cr", crKey,
-			"generation", ca.generation,
-			"newestGeneration", newest,
-		)
-		return 0, 0, nil
+	if s.fetchEpochsLocked(planeType, planeID, crKey) != ca.epochs {
+		return 0, 0, errRevalidationOutdated
 	}
-	return s.connMgr.RevalidateCR(planeType, planeID, namespace, name, ca.data, revocations)
+	granted, revoked, err = s.connMgr.RevalidateCR(planeType, planeID, namespace, name, ca.data, revocations)
+	if err != nil {
+		return 0, 0, err
+	}
+	if s.crEpochs == nil {
+		s.crEpochs = make(map[string]uint64)
+	}
+	s.crEpochs[planeType+"/"+crKey]++
+	return granted, revoked, nil
+}
+
+// revalidateCRFromAPIServer fetches a plane CR's client CA from the API server
+// and applies it to the plane's connections. A CA that is outdated by the time
+// it can be applied is fetched again, up to revalidationAttempts times.
+//
+// A failed fetch is returned as errCRClientCALookup, and a CA that stays
+// outdated as errRevalidationOutdated. Both are worth trying again later.
+func (s *Server) revalidateCRFromAPIServer(
+	ctx context.Context, planeType, planeID, namespace, name string, revocations uint64,
+) (granted, revoked int, err error) {
+	for attempt := 1; ; attempt++ {
+		ca, err := s.fetchCRClientCA(ctx, planeType, planeID, namespace, name)
+		if err != nil {
+			return 0, 0, fmt.Errorf("%w: %w", errCRClientCALookup, err)
+		}
+		granted, revoked, err = s.revalidateCR(planeType, planeID, namespace, name, ca, revocations)
+		if !errors.Is(err, errRevalidationOutdated) || attempt >= revalidationAttempts {
+			return granted, revoked, err
+		}
+	}
 }
 
 // authorizeAfterConnect re-validates, on a plane whose agent has just been
@@ -859,7 +909,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Register the connection with validated CR list and client certificate
 	// Multiple agent replicas for the same plane will share the same identifier for HA
-	connID, err := s.connMgr.Register(planeType, planeID, conn, validCRs, clientCert, intermediatePool)
+	connID, err := s.registerAgent(planeType, planeID, conn, validCRs, clientCert, intermediatePool)
 	if err != nil {
 		s.logger.Error("failed to register connection", "error", err)
 		conn.Close()
@@ -1722,6 +1772,8 @@ func (s *Server) revalidateCRWithRetry(ctx context.Context, ev fabric.PlaneEvent
 			)
 			return
 		}
+		// An outdated CA has already been fetched again several times in a
+		// row: the CR is busy, and it is as well to wait like for a failure.
 		select {
 		case <-ctx.Done():
 			return
@@ -1732,7 +1784,8 @@ func (s *Server) revalidateCRWithRetry(ctx context.Context, ev fabric.PlaneEvent
 }
 
 // revalidateCROnce makes one attempt at re-validating a CR. It returns an error
-// only for a failed lookup, which is the part worth retrying. Every attempt
+// only for a failed lookup, or a CA that was outdated before it could be
+// applied: those are the parts worth retrying. Every attempt
 // reads the CR from the API server and re-reads the revocation count first, so
 // an attempt that runs after the CR's "deleted" event is held back by the same
 // staleness guard as the notification handler: see there.
@@ -1755,11 +1808,11 @@ func (s *Server) revalidateCROnce(ctx context.Context, ev fabric.PlaneEvent) err
 			return nil
 		}
 	}
-	ca, err := s.fetchCRClientCA(ctx, ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
-	if err != nil {
-		return fmt.Errorf("failed to fetch CR CA for re-validation: %w", err)
-	}
-	if _, _, err := s.revalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, ca, revocations); err != nil {
+	_, _, err := s.revalidateCRFromAPIServer(ctx, ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, revocations)
+	switch {
+	case errors.Is(err, errCRClientCALookup), errors.Is(err, errRevalidationOutdated):
+		return err
+	case err != nil:
 		s.logger.Warn("CR re-validation failed", "error", err)
 	}
 	return nil
@@ -1774,7 +1827,7 @@ func (s *Server) revokeCR(planeType, planeID, namespace, name string) (revoked i
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
 	// Recorded, so that a connect does not grant the CR again from a
 	// planeReader copy that still lists it.
-	s.noteLiveCRGone(planeType, crKey)
+	s.noteLiveCR(planeType, crKey)
 	if closed := s.closeStreamSessionsForCR(planeIdentifier, crKey); closed > 0 {
 		s.logger.Info("closed streaming sessions of deleted CR",
 			"planeType", planeType,
@@ -1933,15 +1986,20 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 	defer cancel()
 
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
+	// Taken before anything is read: see revalidateCR.
+	s.liveMu.Lock()
+	epochs := s.fetchEpochsLocked(planeType, planeID, crKey)
+	s.liveMu.Unlock()
+
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			s.noteLiveCRGone(planeType, crKey)
+			s.noteLiveCR(planeType, crKey)
 			return crClientCA{}, fmt.Errorf("failed to get CR %s: %w: %w", crKey, errPlaneCRGone, err)
 		}
 		return crClientCA{}, fmt.Errorf("failed to get CR %s: %w", crKey, err)
 	}
 
-	s.noteLiveCR(planeType, crKey, obj)
+	s.noteLiveCR(planeType, crKey)
 
 	// A CR that has moved to another planeID is not served by this plane's agents.
 	info, ok := extractInfo(obj)
@@ -1956,7 +2014,7 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 	if caData == nil {
 		return crClientCA{}, fmt.Errorf("CR %s has no CA configured", crKey)
 	}
-	return crClientCA{data: caData, uid: obj.GetUID(), generation: obj.GetGeneration()}, nil
+	return crClientCA{data: caData, epochs: epochs}, nil
 }
 
 // PlaneStatus returns the fleet-wide connection status for a plane: local

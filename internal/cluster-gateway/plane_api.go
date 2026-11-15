@@ -4,8 +4,8 @@
 package clustergateway
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -129,8 +129,15 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 				break
 			}
 		}
-		ca, err := api.fetchCRClientCA(r.Context(), notification)
-		if err != nil {
+		updated, removed, err := api.server.revalidateCRFromAPIServer(r.Context(),
+			notification.PlaneType,
+			notification.PlaneID,
+			notification.Namespace,
+			notification.Name,
+			revocations,
+		)
+		switch {
+		case errors.Is(err, errCRClientCALookup):
 			api.logger.Error("failed to fetch CR CA for re-validation", "error", err,
 				"planeType", notification.PlaneType,
 				"planeID", notification.PlaneID,
@@ -138,34 +145,35 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 			)
 			// Return 503 so the controller treats this as a transient error and retries.
 			// Do NOT disconnect agents — existing connections are still valid.
-			http.Error(w, fmt.Sprintf("failed to fetch CR CA for re-validation: %v", err), http.StatusServiceUnavailable)
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
-		} else {
-			updated, removed, err := api.server.revalidateCR(
-				notification.PlaneType,
-				notification.PlaneID,
-				notification.Namespace,
-				notification.Name,
-				ca,
-				revocations,
-			)
-			if err != nil {
-				api.logger.Error("CR re-validation failed", "error", err)
-				http.Error(w, fmt.Sprintf("re-validation failed: %v", err), http.StatusInternalServerError)
-				return
-			}
-			api.logger.Info("CR re-validation completed",
+		case errors.Is(err, errRevalidationOutdated):
+			// The CR kept being re-validated by something else while this
+			// request fetched its CA. Nothing was applied, so the controller
+			// has to send the notification again.
+			api.logger.Warn("CR re-validation was outdated every time it could be applied", "error", err,
 				"planeType", notification.PlaneType,
 				"planeID", notification.PlaneID,
 				"event", notification.Event,
-				"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
-				"authorizationsGranted", updated,
-				"authorizationsRevoked", removed,
 			)
-			result.Action = "revalidate"
-			result.AuthorizationsGranted = &updated
-			result.AuthorizationsRevoked = &removed
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		case err != nil:
+			api.logger.Error("CR re-validation failed", "error", err)
+			http.Error(w, fmt.Sprintf("re-validation failed: %v", err), http.StatusInternalServerError)
+			return
 		}
+		api.logger.Info("CR re-validation completed",
+			"planeType", notification.PlaneType,
+			"planeID", notification.PlaneID,
+			"event", notification.Event,
+			"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+			"authorizationsGranted", updated,
+			"authorizationsRevoked", removed,
+		)
+		result.Action = "revalidate"
+		result.AuthorizationsGranted = &updated
+		result.AuthorizationsRevoked = &removed
 
 	case "deleted":
 		if notification.Name == "" {
@@ -307,25 +315,4 @@ func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Requ
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		api.logger.Error("failed to encode response", "error", err)
 	}
-}
-
-// fetchCRClientCA fetches the client CA certificate for a specific CR
-// Uses the server's getAllPlaneClientCAs() method to query Kubernetes API
-func (api *PlaneAPI) fetchCRClientCA(ctx context.Context, notification PlaneNotification) (crClientCA, error) {
-	ca, err := api.server.fetchCRClientCA(ctx,
-		notification.PlaneType,
-		notification.PlaneID,
-		notification.Namespace,
-		notification.Name,
-	)
-	if err != nil {
-		return crClientCA{}, err
-	}
-
-	api.logger.Debug("fetched CA for CR",
-		"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
-		"caSize", len(ca.data),
-	)
-
-	return ca, nil
 }

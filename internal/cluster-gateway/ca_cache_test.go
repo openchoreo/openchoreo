@@ -528,9 +528,7 @@ func TestConnect_UsesThePlaneReaderAgainOnceTheWindowHasPassed(t *testing.T) {
 
 	// The notification is now older than the window.
 	s.liveMu.Lock()
-	cr := s.liveCRs[planeTypeDataPlane]["ns1/dp"]
-	cr.recordedAt = time.Now().Add(-2 * liveCRWindow)
-	s.liveCRs[planeTypeDataPlane]["ns1/dp"] = cr
+	s.liveCRs[planeTypeDataPlane]["ns1/dp"] = time.Now().Add(-2 * liveCRWindow)
 	s.liveMu.Unlock()
 
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
@@ -615,15 +613,14 @@ func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) 
 	agentCert := generateTestClientCert(t, ca, key)
 	pem := encodeCertToPEM(t, ca)
 
-	earlier := planeOf("ns1", 5, pem)
-	earlier.UID = "earlier"
 	replacement := planeOf("ns1", 1, pem)
 	replacement.UID = "replacement"
 
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(replacement).Build()
 	s := New(&Config{}, live, testLogger())
 	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()))
-	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier)
+	// The earlier CR, at a higher generation, was read a moment ago.
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp")
 
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err, "the connect was refused over a CR that no longer exists")
@@ -649,58 +646,164 @@ func TestConnect_AnOlderReadDoesNotReplaceWhatANewerOneRecorded(t *testing.T) {
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
-	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp")
 
 	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ns2/dp"}, validCRs, "the rotated CR was granted from the cached copy")
 }
 
-// Two re-validations of one CR can overlap, and the reads behind them can
-// finish in either order: the one that read the old CA may be served first and
-// applied last, or begin first and be served last. Applied last, the old CA
-// grants an agent the rotation has just refused, and nothing takes that back.
-// A CA from a generation older than one already read must not be applied, in
-// whichever order the two reads were recorded.
-func TestRevalidation_DoesNotApplyACAFromAnOlderVersionOfTheCR(t *testing.T) {
+// Two re-validations of one CR can overlap, and nothing they read says which
+// of them has the newer CA: the reads finish in any order, a CA can change in
+// its Secret while the CR stays as it is, and a CR can be replaced by another
+// of the same name. If the one holding the old CA is applied last, it grants an
+// agent the change has just refused, and nothing takes that back. A CA fetched
+// before another was applied for the CR must not be applied.
+func TestRevalidation_DoesNotApplyACAFetchedBeforeANewerOneWasApplied(t *testing.T) {
 	oldCA, oldKey := generateTestCA(t)
 	newCA, _ := generateTestCA(t)
 	agentCert := generateTestClientCert(t, oldCA, oldKey)
 	oldPEM, newPEM := encodeCertToPEM(t, oldCA), encodeCertToPEM(t, newCA)
-	stale := crClientCA{data: oldPEM, generation: 1}
+	ctx := context.Background()
 
-	for name, recordStaleReadFirst := range map[string]bool{
-		"the older read is recorded first": true,
-		"the older read is recorded last":  false,
+	first := planeOf("ns1", 1, oldPEM)
+	first.UID = "first"
+
+	for name, tt := range map[string]struct {
+		objects         []client.Object
+		namespace, name string
+		change          func(t *testing.T, live client.Client)
+	}{
+		"the CA is changed in the CR": {
+			objects: []client.Object{planeOf("ns1", 1, oldPEM)}, namespace: "ns1", name: "dp",
+			change: func(t *testing.T, live client.Client) {
+				plane := &openchoreov1alpha1.DataPlane{}
+				require.NoError(t, live.Get(ctx, client.ObjectKey{Namespace: "ns1", Name: "dp"}, plane))
+				plane.Spec.ClusterAgent.ClientCA.Value = string(newPEM)
+				require.NoError(t, live.Update(ctx, plane))
+			},
+		},
+		"the CA is changed in its Secret only": {
+			objects: sharedPlaneTenantsWithCA(1, oldPEM), namespace: "tenant-0", name: "default",
+			change: func(t *testing.T, live client.Client) {
+				secret := &corev1.Secret{}
+				require.NoError(t, live.Get(ctx, client.ObjectKey{Namespace: "tenant-0", Name: "agent-ca"}, secret))
+				secret.Data["ca.crt"] = newPEM
+				require.NoError(t, live.Update(ctx, secret))
+			},
+		},
+		"the CR is replaced by another of the same name": {
+			objects: []client.Object{first}, namespace: "ns1", name: "dp",
+			change: func(t *testing.T, live client.Client) {
+				require.NoError(t, live.Delete(ctx, first.DeepCopy()))
+				second := planeOf("ns1", 1, newPEM)
+				second.UID = "second"
+				require.NoError(t, live.Create(ctx, second))
+			},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM)).Build()
+			live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(tt.objects...).Build()
 			s := New(&Config{}, live, testLogger())
+			crKey := tt.namespace + "/" + tt.name
 			// The agent was authorized while the old CA was in place.
-			_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/dp"}, agentCert, nil)
+			_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{crKey}, agentCert, nil)
 			require.NoError(t, err)
 
-			if recordStaleReadFirst {
-				s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
-			}
-			// The re-validation that read the rotated CA is applied first.
-			current, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+			// One re-validation fetches the CA and is held up before applying it.
+			heldUp, err := s.fetchCRClientCA(ctx, planeTypeDataPlane, "prod", tt.namespace, tt.name)
 			require.NoError(t, err)
-			_, revoked, err := s.revalidateCR("dataplane", "prod", "ns1", "dp", current, 0)
-			require.NoError(t, err)
-			require.Equal(t, 1, revoked, "the rotation must refuse the agent")
-			if !recordStaleReadFirst {
-				s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
-			}
 
-			// The one that read the old CA is applied last.
-			granted, _, err := s.revalidateCR("dataplane", "prod", "ns1", "dp", stale, 0)
+			// The CA changes, and the re-validation for that runs to the end.
+			tt.change(t, live)
+			_, revoked, err := s.revalidateCRFromAPIServer(ctx, planeTypeDataPlane, "prod", tt.namespace, tt.name, 0)
 			require.NoError(t, err)
-			assert.Zero(t, granted)
-			_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
-			assert.Error(t, err, "the agent was authorized again from the CA that was rotated out")
+			require.Equal(t, 1, revoked, "the change must refuse the agent")
+
+			// The one that was held up now applies what it fetched.
+			_, _, err = s.revalidateCR("dataplane", "prod", tt.namespace, tt.name, heldUp, 0)
+			require.ErrorIs(t, err, errRevalidationOutdated)
+			_, err = s.connMgr.GetForCR("dataplane/prod", crKey)
+			assert.Error(t, err, "the agent was authorized again from the CA that was replaced")
 		})
 	}
+}
+
+// The same goes for a CA fetched before an agent connected. The connect reads
+// the CR itself and decides on that. A re-validation that fetched its CA
+// earlier, and applies it once the agent is registered, would overrule the
+// connect with what may be the older CA.
+func TestRevalidation_DoesNotApplyACAFetchedBeforeAnAgentConnected(t *testing.T) {
+	oldCA, oldKey := generateTestCA(t)
+	newCA, _ := generateTestCA(t)
+	agentCert := generateTestClientCert(t, oldCA, oldKey)
+	oldPEM, newPEM := encodeCertToPEM(t, oldCA), encodeCertToPEM(t, newCA)
+	ctx := context.Background()
+
+	// ns2/dp keeps trusting the agent, so the connect goes ahead.
+	other := planeOf("ns2", 1, oldPEM)
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, oldPEM), other).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+
+	// A notification fetches the CA of ns1/dp and is held up before applying it.
+	heldUp, err := s.fetchCRClientCA(ctx, planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+
+	// The CA is rotated, and an agent holding a certificate of the old CA
+	// connects. The connect reads the rotated CR and leaves it out.
+	rotated := &openchoreov1alpha1.DataPlane{}
+	require.NoError(t, live.Get(ctx, client.ObjectKey{Namespace: "ns1", Name: "dp"}, rotated))
+	rotated.Spec.ClusterAgent.ClientCA.Value = string(newPEM)
+	require.NoError(t, live.Update(ctx, rotated))
+	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	require.Equal(t, []string{"ns2/dp"}, validCRs)
+	_, err = s.registerAgent("dataplane", "prod", &mockGatewayConn{}, validCRs, agentCert, nil)
+	require.NoError(t, err)
+
+	// The notification gets to apply the CA it fetched before the rotation.
+	_, _, err = s.revalidateCR("dataplane", "prod", "ns1", "dp", heldUp, 0)
+	require.ErrorIs(t, err, errRevalidationOutdated)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "the new connection was authorized from the CA that was rotated out")
+}
+
+// A CA that is outdated by the time it can be applied says nothing about the
+// CR as it is now. Dropping it is not enough: the connections would be left
+// as the other re-validation set them, and that one may itself have applied
+// the older CA. The re-validation has to fetch again and apply that.
+func TestRevalidation_FetchesAgainWhenItsCAIsOutdated(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	ctx := context.Background()
+
+	var (
+		s      *Server
+		crGets atomic.Int32
+	)
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, encodeCertToPEM(t, ca))).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				// While the first fetch is under way, another re-validation of
+				// the same CR runs from start to end.
+				if _, isPlane := obj.(*openchoreov1alpha1.DataPlane); isPlane && crGets.Add(1) == 1 {
+					_, _, err := s.revalidateCRFromAPIServer(ctx, planeTypeDataPlane, "prod", "ns1", "dp", 0)
+					require.NoError(t, err)
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+	s = New(&Config{}, live, testLogger())
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"other/dp"}, agentCert, nil)
+	require.NoError(t, err)
+
+	_, _, err = s.revalidateCRFromAPIServer(ctx, planeTypeDataPlane, "prod", "ns1", "dp", 0)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(3), crGets.Load(), "the first fetch, the other re-validation's, and the fetch made again")
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.NoError(t, err)
 }
 
 // A notification applies a CR to the connections that are registered. A connect
