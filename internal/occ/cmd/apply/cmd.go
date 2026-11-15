@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -26,9 +27,13 @@ Examples:
 			if err != nil {
 				return err
 			}
-			return Apply(cl.(*client.Client), Params{FilePath: filePath})
+			return Apply(cl.(*client.Client), Params{
+				FilePath: filePath,
+				DryRun:   flags.GetDryRun(cmd),
+			})
 		},
 	}
 	cmd.Flags().StringP("file", "f", "", "Path to the configuration file to apply (e.g., manifests/deployment.yaml)")
+	flags.AddDryRun(cmd)
 	return cmd
 }
