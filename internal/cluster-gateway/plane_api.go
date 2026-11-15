@@ -129,7 +129,7 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 				break
 			}
 		}
-		caData, err := api.fetchCRClientCA(r.Context(), notification)
+		ca, err := api.fetchCRClientCA(r.Context(), notification)
 		if err != nil {
 			api.logger.Error("failed to fetch CR CA for re-validation", "error", err,
 				"planeType", notification.PlaneType,
@@ -141,12 +141,12 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 			http.Error(w, fmt.Sprintf("failed to fetch CR CA for re-validation: %v", err), http.StatusServiceUnavailable)
 			return
 		} else {
-			updated, removed, err := api.connMgr.RevalidateCR(
+			updated, removed, err := api.server.revalidateCR(
 				notification.PlaneType,
 				notification.PlaneID,
 				notification.Namespace,
 				notification.Name,
-				caData,
+				ca,
 				revocations,
 			)
 			if err != nil {
@@ -311,21 +311,21 @@ func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Requ
 
 // fetchCRClientCA fetches the client CA certificate for a specific CR
 // Uses the server's getAllPlaneClientCAs() method to query Kubernetes API
-func (api *PlaneAPI) fetchCRClientCA(ctx context.Context, notification PlaneNotification) ([]byte, error) {
-	caData, err := api.server.fetchCRClientCA(ctx,
+func (api *PlaneAPI) fetchCRClientCA(ctx context.Context, notification PlaneNotification) (crClientCA, error) {
+	ca, err := api.server.fetchCRClientCA(ctx,
 		notification.PlaneType,
 		notification.PlaneID,
 		notification.Namespace,
 		notification.Name,
 	)
 	if err != nil {
-		return nil, err
+		return crClientCA{}, err
 	}
 
 	api.logger.Debug("fetched CA for CR",
 		"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
-		"caSize", len(caData),
+		"caSize", len(ca.data),
 	)
 
-	return caData, nil
+	return ca, nil
 }

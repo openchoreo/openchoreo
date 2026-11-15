@@ -227,7 +227,7 @@ func TestConnect_UsesTheCAOfALaterNotification(t *testing.T) {
 
 	notified, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "tenant-0", "default")
 	require.NoError(t, err)
-	require.Equal(t, []byte("rotated ca"), notified, "a notification must read the API server, not the cache")
+	require.Equal(t, []byte("rotated ca"), notified.data, "a notification must read the API server, not the cache")
 
 	after, _, err := s.getAllPlaneClientCAs(planeTypeDataPlane, "prod")
 	require.NoError(t, err)
@@ -505,10 +505,10 @@ func TestConnect_DoesNotTrustAPlaneReaderOlderThanANotification(t *testing.T) {
 	assert.Empty(t, unread, "the CR was read from the API server, so nothing is left for later")
 }
 
-// Once the plane reader has the version the notification read, its copy is as
-// good as the API server's and the connect uses it again. Reading the CR on
-// every connect from then on would bring back a read per notified CR.
-func TestConnect_TrustsThePlaneReaderOnceItHasCaughtUp(t *testing.T) {
+// Reading a CR from the API server on every connect for good would bring back
+// a read per CR. The plane reader is given liveCRWindow to catch up, and after
+// that the connect takes its copy again.
+func TestConnect_UsesThePlaneReaderAgainOnceTheWindowHasPassed(t *testing.T) {
 	ca, key := generateTestCA(t)
 	agentCert := generateTestClientCert(t, ca, key)
 	plane := planeOf("ns1", 2, encodeCertToPEM(t, ca))
@@ -520,11 +520,24 @@ func TestConnect_TrustsThePlaneReaderOnceItHasCaughtUp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(1), crGets.Load())
 
+	// Within the window the connect reads the CR itself.
+	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	require.Equal(t, []string{"ns1/dp"}, validCRs)
+	require.Equal(t, int32(2), crGets.Load())
+
+	// The notification is now older than the window.
+	s.liveMu.Lock()
+	cr := s.liveCRs[planeTypeDataPlane]["ns1/dp"]
+	cr.recordedAt = time.Now().Add(-2 * liveCRWindow)
+	s.liveCRs[planeTypeDataPlane]["ns1/dp"] = cr
+	s.liveMu.Unlock()
+
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ns1/dp"}, validCRs)
 	assert.Empty(t, unread)
-	assert.Equal(t, int32(1), crGets.Load(), "the connect read a CR the plane reader already had")
+	assert.Equal(t, int32(2), crGets.Load(), "the connect read a CR whose notification is long past")
 }
 
 // A CR that moves to this plane is notified here, and the notification
@@ -596,7 +609,7 @@ func TestConnect_DoesNotAuthorizeADeletedCRThePlaneReaderStillLists(t *testing.T
 // remembers about the first one says nothing about the second, whose
 // generation starts over. Comparing the two would make the new CR look out of
 // date on every connect, and if it is the plane's only CR every connect would
-// be refused. The record must give way to what the API server holds now.
+// be refused. The connect decides on what the API server holds now.
 func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) {
 	ca, key := generateTestCA(t)
 	agentCert := generateTestClientCert(t, ca, key)
@@ -607,29 +620,22 @@ func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) 
 	replacement := planeOf("ns1", 1, pem)
 	replacement.UID = "replacement"
 
-	var crGets atomic.Int32
-	s := New(&Config{}, crGetCountingClient(&crGets, replacement), testLogger())
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(replacement).Build()
+	s := New(&Config{}, live, testLogger())
 	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()))
-	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier, time.Now())
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier)
 
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err, "the connect was refused over a CR that no longer exists")
 	assert.Equal(t, []string{"ns1/dp"}, validCRs)
 	assert.Empty(t, unread)
-
-	// The record now describes the replacement, which the plane reader has.
-	reads := crGets.Load()
-	_, _, err = s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
-	require.NoError(t, err)
-	assert.Equal(t, reads, crGets.Load(), "the CR is read again on every connect")
 }
 
-// Two reads of one CR can finish in either order. Here a read that began before
-// a CA rotation, and still saw the old CA, records its result after the
-// notification for the rotation has recorded the new one. If it replaced that
-// record, the plane reader's copy, which is just as old, would pass for
-// current, and a connect would authorize an agent from the CA that was rotated
-// out.
+// Two reads of one CR can finish in either order. Here a read that still saw
+// the old CA records its result after the notification for the rotation has
+// recorded the new one. The plane reader's copy is just as old. Whatever was
+// recorded last, a connect must not take that copy for current and authorize
+// an agent from the CA that was rotated out.
 func TestConnect_AnOlderReadDoesNotReplaceWhatANewerOneRecorded(t *testing.T) {
 	oldCA, oldKey := generateTestCA(t)
 	newCA, _ := generateTestCA(t)
@@ -641,14 +647,60 @@ func TestConnect_AnOlderReadDoesNotReplaceWhatANewerOneRecorded(t *testing.T) {
 	s := New(&Config{}, live, testLogger())
 	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
 
-	olderReadBegan := time.Now()
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
-	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM), olderReadBegan)
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
 
 	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ns2/dp"}, validCRs, "the rotated CR was granted from the cached copy")
+}
+
+// Two re-validations of one CR can overlap, and the reads behind them can
+// finish in either order: the one that read the old CA may be served first and
+// applied last, or begin first and be served last. Applied last, the old CA
+// grants an agent the rotation has just refused, and nothing takes that back.
+// A CA from a generation older than one already read must not be applied, in
+// whichever order the two reads were recorded.
+func TestRevalidation_DoesNotApplyACAFromAnOlderVersionOfTheCR(t *testing.T) {
+	oldCA, oldKey := generateTestCA(t)
+	newCA, _ := generateTestCA(t)
+	agentCert := generateTestClientCert(t, oldCA, oldKey)
+	oldPEM, newPEM := encodeCertToPEM(t, oldCA), encodeCertToPEM(t, newCA)
+	stale := crClientCA{data: oldPEM, generation: 1}
+
+	for name, recordStaleReadFirst := range map[string]bool{
+		"the older read is recorded first": true,
+		"the older read is recorded last":  false,
+	} {
+		t.Run(name, func(t *testing.T) {
+			live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM)).Build()
+			s := New(&Config{}, live, testLogger())
+			// The agent was authorized while the old CA was in place.
+			_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns1/dp"}, agentCert, nil)
+			require.NoError(t, err)
+
+			if recordStaleReadFirst {
+				s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
+			}
+			// The re-validation that read the rotated CA is applied first.
+			current, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+			require.NoError(t, err)
+			_, revoked, err := s.revalidateCR("dataplane", "prod", "ns1", "dp", current, 0)
+			require.NoError(t, err)
+			require.Equal(t, 1, revoked, "the rotation must refuse the agent")
+			if !recordStaleReadFirst {
+				s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM))
+			}
+
+			// The one that read the old CA is applied last.
+			granted, _, err := s.revalidateCR("dataplane", "prod", "ns1", "dp", stale, 0)
+			require.NoError(t, err)
+			assert.Zero(t, granted)
+			_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+			assert.Error(t, err, "the agent was authorized again from the CA that was rotated out")
+		})
+	}
 }
 
 // A notification applies a CR to the connections that are registered. A connect
