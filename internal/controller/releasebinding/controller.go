@@ -171,6 +171,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	if releaseBinding.Spec.IsObserve() {
 		return ctrl.Result{}, r.reconcileObserve(ctx, releaseBinding)
 	}
+	if err := r.stopObservingUnlessAllowed(ctx, releaseBinding); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Fetch ComponentRelease
 	componentRelease := &openchoreov1alpha1.ComponentRelease{}
@@ -737,7 +740,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
-			Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
+			Mode:            renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
 			Resources:       dataPlaneReleaseResources,
 		}
 
@@ -1042,7 +1045,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				},
 				EnvironmentName: releaseBinding.Spec.Environment,
 				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
-				Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
+				Mode:            renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
 				Resources:       observabilityPlaneReleaseResources,
 			}
 

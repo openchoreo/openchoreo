@@ -68,6 +68,20 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		return rb
 	}
 
+	setManagedStatus := func(rb *openchoreov1alpha1.ReleaseBinding) {
+		rb.Status.Endpoints = []openchoreov1alpha1.EndpointURLStatus{{
+			Name:       "http",
+			ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.payments.svc", Port: 8080},
+		}}
+		rb.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: "rollout-1"}
+		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
+			Type:   string(ConditionConnectionsResolved),
+			Status: metav1.ConditionTrue,
+			Reason: string(ReasonNoConnections),
+		})
+		Expect(k8sClient.Status().Update(ctx, rb)).To(Succeed())
+	}
+
 	releaseOf := func(rb *openchoreov1alpha1.ReleaseBinding) (*openchoreov1alpha1.RenderedRelease, error) {
 		rr := &openchoreov1alpha1.RenderedRelease{}
 		err := k8sClient.Get(ctx, types.NamespacedName{
@@ -196,18 +210,132 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("leaves a release in Manage mode alone when it cannot observe", func() {
+	It("observes on a release line", func() {
+		prb := makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-line")
+		rb := rbFixture("obs-line-canary", project, "obs-line", env, "", true)
+		rb.Spec.Owner.ReleaseLine = "canary"
+		rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
+		rb.Spec.Observe = &openchoreov1alpha1.ReleaseBindingObserve{
+			Resources: []openchoreov1alpha1.ObservedResourceClaim{deployment},
+		}
+		Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+		rrKey := types.NamespacedName{Namespace: ns, Name: releaseline.RenderedReleaseName("obs-line", "canary", env)}
+		DeferCleanup(func() {
+			forceDelete(rb.Name)
+			forceDeleteRelease(rrKey.Name)
+		})
+
+		By("A missing ReleaseLine stops it")
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		Expect(conditionFor(fetchRB(rb.Name), string(ConditionReleaseSynced)).Reason).
+			To(Equal(string(ReasonReleaseLineNotFound)))
+
+		By("With the ReleaseLine, it observes under the line's release name")
+		line := &openchoreov1alpha1.ReleaseLine{
+			ObjectMeta: metav1.ObjectMeta{Name: "canary", Namespace: ns},
+			Spec: openchoreov1alpha1.ReleaseLineSpec{
+				Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: project, ComponentName: "obs-line"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, line)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, line) })
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		rr := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, rrKey, rr)).To(Succeed())
+		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
+		Expect(rr.Labels).To(HaveKeyWithValue(labels.LabelKeyReleaseLine, "canary"))
+		Expect(rr.Spec.ObservedResources).To(HaveLen(1))
+		Expect(rr.Spec.ObservedResources[0].Namespace).To(Equal(namespace))
+
+		By("Revoking the namespace stops it, even once the ReleaseLine is gone")
+		Expect(k8sClient.Delete(ctx, line)).To(Succeed())
+		prb.Status.Namespace = ""
+		Expect(k8sClient.Status().Update(ctx, prb)).To(Succeed())
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		err := k8sClient.Get(ctx, rrKey, &openchoreov1alpha1.RenderedRelease{})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	It("stops an Observe-mode release left by a switch to Manage once the namespace is revoked", func() {
+		prb := makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-flip")
+		rb := makeBinding("obs-flip", deployment)
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		_, err := releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Switched to Manage without a release to render, it keeps observing while allowed")
+		updated := fetchRB(rb.Name)
+		updated.Spec.Mode = openchoreov1alpha1.BindingModeManage
+		updated.Spec.ReleaseName = "not-a-release"
+		Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		rr, err := releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
+		Expect(conditionFor(fetchRB(rb.Name), string(ConditionReleaseSynced)).Reason).
+			To(Equal(string(ReasonComponentReleaseNotFound)))
+
+		By("Revoking the namespace removes it")
+		prb.Status.Namespace = ""
+		Expect(k8sClient.Status().Update(ctx, prb)).To(Succeed())
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		_, err = releaseOf(rb)
+		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	It("does not delete a release from a stale read", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-stale")
+		rb := makeBinding("obs-stale", deployment)
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		stale, err := releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+
+		current := stale.DeepCopy()
+		current.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeManage
+		Expect(k8sClient.Update(ctx, current)).To(Succeed())
+
+		Expect(testReconciler().deleteObservingRelease(ctx, stale)).NotTo(Succeed())
+		_, err = releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("leaves a release in Manage mode and its endpoints alone when it cannot observe", func() {
 		makeComponent("obs-managed")
 		rb := makeBinding("obs-managed", deployment)
+		setManagedStatus(rb)
 		rr := releaseFixture(releaseline.RenderedReleaseName("obs-managed", "", env), project, "obs-managed", env)
 		Expect(controllerutil.SetControllerReference(rb, rr, k8sClient.Scheme())).To(Succeed())
 		Expect(k8sClient.Create(ctx, rr)).To(Succeed())
 
 		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
 
-		Expect(conditionFor(fetchRB(rb.Name), string(ConditionReady)).Reason).
+		updated := fetchRB(rb.Name)
+		Expect(conditionFor(updated, string(ConditionReady)).Reason).
 			To(Equal(string(ReasonProjectReleaseBindingNotFound)))
+		Expect(updated.Status.Endpoints).To(HaveLen(1), "consumers keep resolving the running release's endpoints")
+		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).NotTo(BeNil())
 		_, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("clears what Manage mode reported once it observes", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-cleared")
+		rb := makeBinding("obs-cleared", deployment)
+		setManagedStatus(rb)
+
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		updated := fetchRB(rb.Name)
+		Expect(updated.Status.Endpoints).To(BeEmpty())
+		Expect(updated.Status.Delivery).To(BeNil())
+		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).To(BeNil())
+		rr, err := releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
 	})
 })

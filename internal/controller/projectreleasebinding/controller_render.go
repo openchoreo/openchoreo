@@ -18,6 +18,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	projectpipeline "github.com/openchoreo/openchoreo/internal/pipeline/project"
@@ -122,6 +123,9 @@ func (r *Reconciler) emitRenderedRelease(
 			labels.LabelKeyNamespaceName:   binding.Namespace,
 			labels.LabelKeyProjectName:     binding.Spec.Owner.ProjectName,
 			labels.LabelKeyEnvironmentName: binding.Spec.Environment,
+		}
+		if spec.Mode == openchoreov1alpha1.RenderedReleaseModeManage {
+			spec.Mode = renderedrelease.ManageMode(rr.Spec.Mode)
 		}
 		rr.Spec = spec
 		return controllerutil.SetControllerReference(binding, rr, r.Scheme)

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -79,8 +78,11 @@ func TestFindReleaseBindingsForProjectReleaseBinding(t *testing.T) {
 
 	got := r.findReleaseBindingsForProjectReleaseBinding(context.Background(), observePRB(openchoreov1alpha1.BindingModeObserve, "payments"))
 
-	require.Len(t, got, 1)
-	assert.Equal(t, types.NamespacedName{Namespace: "acme", Name: "api-prod"}, got[0].NamespacedName)
+	names := make([]string, 0, len(got))
+	for _, req := range got {
+		names = append(names, req.Name)
+	}
+	assert.ElementsMatch(t, []string{"api-prod", "worker-prod"}, names)
 }
 
 func TestFindProjectReleaseBinding(t *testing.T) {
@@ -96,9 +98,14 @@ func TestFindProjectReleaseBinding(t *testing.T) {
 			},
 		}
 	}
+	deleting := prb("payments-dev-old", "payments", "dev").(*openchoreov1alpha1.ProjectReleaseBinding)
+	now := metav1.Now()
+	deleting.DeletionTimestamp = &now
+	deleting.Finalizers = []string{"test"}
 	r := &Reconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		prb("payments-prod", "payments", "prod"),
 		prb("payments-dev", "payments", "dev"),
+		deleting,
 		prb("orders-prod-a", "orders", "prod"),
 		prb("orders-prod-b", "orders", "prod"),
 	).Build()}
@@ -116,6 +123,10 @@ func TestFindProjectReleaseBinding(t *testing.T) {
 	found, err := r.findProjectReleaseBinding(ctx, binding("payments", "prod"))
 	require.NoError(t, err)
 	assert.Equal(t, "payments-prod", found.Name)
+
+	found, err = r.findProjectReleaseBinding(ctx, binding("payments", "dev"))
+	require.NoError(t, err, "a binding being deleted is not counted")
+	assert.Equal(t, "payments-dev", found.Name)
 
 	found, err = r.findProjectReleaseBinding(ctx, binding("payments", "staging"))
 	require.NoError(t, err)

@@ -555,9 +555,10 @@ func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseB
 	return names
 }
 
-// findReleaseBindingsForProjectReleaseBinding enqueues the Observe-mode
-// ReleaseBindings of the ProjectReleaseBinding's project and environment, which
-// take their namespace from it.
+// findReleaseBindingsForProjectReleaseBinding enqueues the ReleaseBindings of
+// the ProjectReleaseBinding's project and environment. Observe-mode bindings
+// take their namespace from it, and a binding switched to Manage may still have
+// an Observe-mode release that must stop when the namespace is revoked.
 func (r *Reconciler) findReleaseBindingsForProjectReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
 	prb, ok := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
 	if !ok {
@@ -572,8 +573,7 @@ func (r *Reconciler) findReleaseBindingsForProjectReleaseBinding(ctx context.Con
 	var requests []reconcile.Request
 	for i := range bindings.Items {
 		rb := &bindings.Items[i]
-		if rb.Spec.IsObserve() &&
-			rb.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName &&
+		if rb.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName &&
 			rb.Spec.Environment == prb.Spec.Environment {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},

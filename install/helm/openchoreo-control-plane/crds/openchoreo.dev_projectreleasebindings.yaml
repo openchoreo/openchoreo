@@ -23,14 +23,14 @@ spec:
     - jsonPath: .spec.environment
       name: Environment
       type: string
-    - jsonPath: .spec.mode
-      name: Mode
-      type: string
     - jsonPath: .spec.projectRelease
       name: Release
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
+      type: string
+    - jsonPath: .spec.mode
+      name: Mode
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age

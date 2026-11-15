@@ -122,9 +122,9 @@ type ProjectReleaseBindingStatus struct {
 // +kubebuilder:resource:scope=Namespaced,shortName=prb;prbs
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
-// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.projectRelease`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ProjectReleaseBinding is the Schema for the projectreleasebindings API.

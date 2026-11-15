@@ -83,6 +83,19 @@ func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Uns
 // entries
 // ─────────────────────────────────────────────────────────────
 
+func TestManageMode(t *testing.T) {
+	cases := map[openchoreov1alpha1.RenderedReleaseMode]openchoreov1alpha1.RenderedReleaseMode{
+		"": "",
+		openchoreov1alpha1.RenderedReleaseModeManage:  openchoreov1alpha1.RenderedReleaseModeManage,
+		openchoreov1alpha1.RenderedReleaseModeObserve: openchoreov1alpha1.RenderedReleaseModeManage,
+	}
+	for stored, want := range cases {
+		if got := ManageMode(stored); got != want {
+			t.Errorf("ManageMode(%q) = %q, want %q", stored, got, want)
+		}
+	}
+}
+
 func TestResolveObservedResources(t *testing.T) {
 	t.Run("keeps ids as written, in spec order, with apiVersion parsed", func(t *testing.T) {
 		entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{

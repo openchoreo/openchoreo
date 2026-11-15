@@ -33,6 +33,19 @@ func effectiveMode(release *openchoreov1alpha1.RenderedRelease) openchoreov1alph
 	return release.Spec.Mode
 }
 
+// ManageMode returns the mode a binding writes into a release it renders and
+// applies, given the mode stored on the release. That is Manage, except that a
+// stored empty mode is kept: the CRD defaults mode to Manage, so a release reads
+// back without one only when its CRD predates spec.mode and drops the field.
+// Writing Manage there would make every reconcile an update that changes
+// nothing, and the empty mode already means Manage.
+func ManageMode(stored openchoreov1alpha1.RenderedReleaseMode) openchoreov1alpha1.RenderedReleaseMode {
+	if stored == "" {
+		return ""
+	}
+	return openchoreov1alpha1.RenderedReleaseModeManage
+}
+
 // objectIdentity names an object on a plane independently of the API version
 // it is read in. The kind is compared case-insensitively, as ProxyClient builds
 // the request path from it, so an entry spelled DEPLOYMENT still matches the

@@ -245,6 +245,21 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
+	It("stops observing when the Environment is gone", func() {
+		env := makeEnvironment("observe-envgone", "payments")
+		b := create(observeBinding("observe-envgone", env.Name))
+		reconcileBinding(b)
+		Expect(k8sClient.Get(ctx, releaseKey(b), &openchoreov1alpha1.RenderedRelease{})).To(Succeed())
+
+		Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+		updated := reconcileBinding(b)
+
+		Expect(updated.Status.Namespace).To(BeEmpty())
+		Expect(condition(updated, ConditionSynced).Reason).To(Equal(string(ReasonEnvironmentNotFound)))
+		err := k8sClient.Get(ctx, releaseKey(b), &openchoreov1alpha1.RenderedRelease{})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
 	It("stops observing when the environment no longer allows the namespace", func() {
 		env := makeEnvironment("observe-revoked", "payments")
 		b := create(observeBinding("observe-revoked", env.Name))

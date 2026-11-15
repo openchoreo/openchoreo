@@ -22,25 +22,25 @@ import (
 // objects, and reports the namespace in status. Otherwise it deletes that
 // release and clears status.namespace, so nothing reads the namespace.
 func (r *Reconciler) reconcileObserve(ctx context.Context, binding *openchoreov1alpha1.ProjectReleaseBinding) error {
-	environment, _, _, err := r.fetchSupportingResources(ctx, binding)
-	if err != nil {
-		return err
-	}
-	if environment == nil {
-		return nil
-	}
-
 	namespace := binding.Spec.Observe.Namespace
-	if !environment.IsNamespaceObservable(namespace) {
-		binding.Status.Namespace = ""
-		if err := r.deleteRenderedRelease(ctx, binding); err != nil {
-			return err
+
+	environment := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, types.NamespacedName{Name: binding.Spec.Environment, Namespace: binding.Namespace}, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return r.stopObserving(ctx, binding, ReasonEnvironmentNotFound,
+				fmt.Sprintf("Environment %q not found", binding.Spec.Environment))
 		}
-		markSyncedFalse(binding, ReasonNamespaceNotAllowed, fmt.Sprintf(
+		return fmt.Errorf("get Environment %q: %w", binding.Spec.Environment, err)
+	}
+	if !environment.IsNamespaceObservable(namespace) {
+		return r.stopObserving(ctx, binding, ReasonNamespaceNotAllowed, fmt.Sprintf(
 			"Namespace %q is not in Environment %q spec.observe.allowedNamespaces", namespace, environment.Name))
-		return nil
 	}
 	binding.Status.Namespace = namespace
+
+	if env, _, _, err := r.fetchSupportingResources(ctx, binding); err != nil || env == nil {
+		return err
+	}
 
 	observed, skipped := controller.ObservedResources(
 		[]openchoreov1alpha1.ObservedResource{{
@@ -95,6 +95,18 @@ func skippedClaimsNote(skipped []openchoreov1alpha1.ObservedResourceClaim) strin
 		names = append(names, fmt.Sprintf("%s %s %s", c.APIVersion, c.Kind, c.Name))
 	}
 	return "ignored claims that name an object already listed: " + strings.Join(names, ", ")
+}
+
+// stopObserving clears status.namespace, so observed ReleaseBindings stop too,
+// deletes the binding's RenderedRelease and says why on Synced.
+func (r *Reconciler) stopObserving(ctx context.Context, binding *openchoreov1alpha1.ProjectReleaseBinding,
+	reason controller.ConditionReason, msg string) error {
+	binding.Status.Namespace = ""
+	if err := r.deleteRenderedRelease(ctx, binding); err != nil {
+		return err
+	}
+	markSyncedFalse(binding, reason, msg)
+	return nil
 }
 
 // deleteRenderedRelease deletes the binding's RenderedRelease if the binding

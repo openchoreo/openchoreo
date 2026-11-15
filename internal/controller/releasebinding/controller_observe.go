@@ -27,18 +27,16 @@ import (
 // project's ProjectReleaseBinding observes, through a RenderedRelease in
 // Observe mode. It renders nothing and writes nothing to the data plane.
 func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding) error {
-	clearManagedStatus(releaseBinding)
-
-	if _, ok, err := r.validateReleaseLine(ctx, releaseBinding); err != nil || !ok {
-		return err
-	}
-
 	namespace, err := r.observedNamespace(ctx, releaseBinding)
 	if err != nil {
 		return err
 	}
 	if namespace == "" {
 		return r.stopObserving(ctx, releaseBinding)
+	}
+
+	if _, ok, err := r.validateReleaseLine(ctx, releaseBinding); err != nil || !ok {
+		return err
 	}
 
 	var claims []openchoreov1alpha1.ObservedResourceClaim
@@ -69,6 +67,7 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 	if err != nil || rr == nil {
 		return err
 	}
+	clearManagedStatus(releaseBinding)
 
 	var msg string
 	reason := ReasonReleaseSynced
@@ -142,7 +141,8 @@ var errAmbiguousProjectReleaseBinding = errors.New("several ProjectReleaseBindin
 
 // findProjectReleaseBinding returns the ProjectReleaseBinding of the binding's
 // project and environment, nil when there is none, and
-// errAmbiguousProjectReleaseBinding when there are several.
+// errAmbiguousProjectReleaseBinding when there are several. One being deleted
+// is skipped, so its replacement takes over while it finalizes.
 func (r *Reconciler) findProjectReleaseBinding(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
@@ -155,7 +155,8 @@ func (r *Reconciler) findProjectReleaseBinding(
 	for i := range list.Items {
 		prb := &list.Items[i]
 		if prb.Spec.Owner.ProjectName != releaseBinding.Spec.Owner.ProjectName ||
-			prb.Spec.Environment != releaseBinding.Spec.Environment {
+			prb.Spec.Environment != releaseBinding.Spec.Environment ||
+			!prb.DeletionTimestamp.IsZero() {
 			continue
 		}
 		if found != nil {
@@ -222,20 +223,59 @@ func (r *Reconciler) emitObservedRelease(
 // mode. A release in Manage mode is left as it is: deleting it would remove
 // what it deployed.
 func (r *Reconciler) stopObserving(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding) error {
+	rr, err := r.observingRelease(ctx, releaseBinding)
+	if err != nil || rr == nil {
+		return err
+	}
+	return r.deleteObservingRelease(ctx, rr)
+}
+
+// stopObservingUnlessAllowed runs in Manage mode. If the binding's release is
+// still in Observe mode, from before the switch to Manage, it is deleted once
+// the project's ProjectReleaseBinding no longer observes a namespace. While
+// observing is allowed, it is left for the Manage path to convert in place.
+func (r *Reconciler) stopObservingUnlessAllowed(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding) error {
+	rr, err := r.observingRelease(ctx, releaseBinding)
+	if err != nil || rr == nil {
+		return err
+	}
+	prb, err := r.findProjectReleaseBinding(ctx, releaseBinding)
+	if err != nil && !errors.Is(err, errAmbiguousProjectReleaseBinding) {
+		return err
+	}
+	if prb != nil && prb.Spec.IsObserve() && prb.Status.Namespace != "" {
+		return nil
+	}
+	return r.deleteObservingRelease(ctx, rr)
+}
+
+// observingRelease returns the binding's RenderedRelease if the binding
+// controls it and it is in Observe mode, and nil otherwise.
+func (r *Reconciler) observingRelease(ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding) (*openchoreov1alpha1.RenderedRelease, error) {
 	name := observedReleaseName(releaseBinding)
 	rr := &openchoreov1alpha1.RenderedRelease{}
 	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: releaseBinding.Namespace}, rr); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("failed to get RenderedRelease %q: %w", name, err)
+		return nil, fmt.Errorf("failed to get RenderedRelease %q: %w", name, err)
 	}
 	if !metav1.IsControlledBy(rr, releaseBinding) || !rr.DeletionTimestamp.IsZero() ||
 		rr.Spec.Mode != openchoreov1alpha1.RenderedReleaseModeObserve {
-		return nil
+		return nil, nil
 	}
-	if err := r.Delete(ctx, rr); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete RenderedRelease %q: %w", name, err)
+	return rr, nil
+}
+
+// deleteObservingRelease deletes a release read in Observe mode. The delete
+// is conditioned on the release's UID and resourceVersion, so a release that
+// has since been converted to Manage, and may have applied resources, is
+// never deleted from a stale read.
+func (r *Reconciler) deleteObservingRelease(ctx context.Context, rr *openchoreov1alpha1.RenderedRelease) error {
+	err := r.Delete(ctx, rr, client.Preconditions{UID: &rr.UID, ResourceVersion: &rr.ResourceVersion})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete RenderedRelease %q: %w", rr.Name, err)
 	}
 	return nil
 }
@@ -257,7 +297,10 @@ func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 
 // clearManagedStatus drops what Manage mode reports and Observe mode does not
 // compute: endpoint URLs, connections and resource dependencies, which also
-// feed the field indexes that find consumers and SecretReference users.
+// feed the field indexes that find consumers and SecretReference users, and the
+// delivery markers of the last rollout. It runs
+// only once the release is in Observe mode: while a Manage-mode release still
+// runs, consumers keep resolving its endpoints.
 func clearManagedStatus(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	releaseBinding.Status.Endpoints = nil
 	releaseBinding.Status.ConnectionTargets = nil
@@ -266,6 +309,7 @@ func clearManagedStatus(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	releaseBinding.Status.ResourceDependencyTargets = nil
 	releaseBinding.Status.PendingResourceDependencies = nil
 	releaseBinding.Status.SecretReferenceNames = nil
+	releaseBinding.Status.Delivery = nil
 	meta.RemoveStatusCondition(&releaseBinding.Status.Conditions, string(ConditionConnectionsResolved))
 	meta.RemoveStatusCondition(&releaseBinding.Status.Conditions, string(ConditionResourceDependenciesReady))
 }
