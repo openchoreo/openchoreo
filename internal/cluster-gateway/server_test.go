@@ -1852,6 +1852,120 @@ func TestServer_ForwardViaMesh_FailedForwardIsNotAnAuthorizationError(t *testing
 	assert.NotContains(t, err.Error(), "no agents authorized for CR")
 }
 
+// A draining replica is skipped by the forward, but its agents are still
+// connected and about to reconnect elsewhere. A CR they are authorized for must
+// not be answered with an authorization error in the meantime: that is a 403,
+// which callers do not retry, for every such CR on each gateway rolling restart.
+func TestServer_ForwardViaMesh_DrainingAuthorizedAgentIsNotAnAuthorizationError(t *testing.T) {
+	tests := []struct {
+		name                    string
+		localUnauthorizedAgent  bool
+		remoteUnauthorizedAgent bool
+	}{
+		{name: "no other agent on the plane"},
+		{name: "this pod's agent is not authorized for the CR", localUnauthorizedAgent: true},
+		{name: "another peer's agent is not authorized for the CR", remoteUnauthorizedAgent: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+
+			caller, registry, _, _ := newFabricServer(t, ctx, "gw-caller")
+			require.True(t, registry.ApplyDelta(fabric.Delta{
+				Op: fabric.DeltaOpAdd, Owner: "gw-draining", Seq: 1,
+				Entry: fabric.AgentEntry{
+					PlaneIdentifier: "dataplane/prod",
+					ConnID:          "conn-0",
+					ValidCRs:        []string{"ns/dp1"},
+				},
+			}))
+			registry.SetDraining("gw-draining")
+
+			if tt.localUnauthorizedAgent {
+				_, err := caller.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns/other"}, nil, nil)
+				require.NoError(t, err)
+			}
+			if tt.remoteUnauthorizedAgent {
+				require.True(t, registry.ApplyDelta(fabric.Delta{
+					Op: fabric.DeltaOpAdd, Owner: "gw-b", Seq: 1,
+					Entry: fabric.AgentEntry{
+						PlaneIdentifier: "dataplane/prod",
+						ConnID:          "conn-1",
+						ValidCRs:        []string{"ns/other"},
+					},
+				}))
+			}
+
+			req := messaging.NewHTTPTunnelRequest("k8s", "GET", "/x", "", nil, nil)
+			_, _, err := caller.SendHTTPTunnelRequestForCR("dataplane/prod", "ns/dp1", req, time.Second)
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), "no agents authorized for CR")
+		})
+	}
+}
+
+// An owner that answers NoAgent speaks only for itself. When another owner
+// could not be reached at all, that owner may still hold an authorized agent,
+// so its failure is what the caller must see. Reporting the NoAgent answer
+// instead can turn an unreachable peer into a 403.
+func TestServer_ForwardViaMesh_UnreachablePeerOutranksNoAgentAnswer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	caller, registry, discCaller, addrCaller := newFabricServer(t, ctx, "gw-caller")
+
+	// Sorted first, so it is the candidate tried first. It is never pushed into
+	// discovery, so there is no link to it.
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-a-down", Seq: 1,
+		Entry: fabric.AgentEntry{
+			PlaneIdentifier: "dataplane/prod",
+			ConnID:          "conn-down",
+			ValidCRs:        []string{"ns/dp1"},
+		},
+	}))
+
+	// Reachable, but its own view says its agent is not authorized for the CR.
+	stale, discStale, addrStale := newMeshPeer(t, ctx, "gw-b-stale", &stubMeshDelegate{
+		noAgent:      true,
+		noAgentError: "no agents authorized for CR ns/dp1",
+	})
+	discCaller.ch <- []fabric.Peer{{ID: "gw-b-stale", Addr: addrStale}}
+	discStale.ch <- []fabric.Peer{{ID: "gw-caller", Addr: addrCaller}}
+	stale.LocalUpsert(fabric.AgentEntry{
+		PlaneIdentifier: "dataplane/prod",
+		ConnID:          "conn-stale",
+		ValidCRs:        []string{"ns/dp1"},
+	})
+
+	// Counted and probed rather than looked up: Lookup advances the round-robin
+	// cursor, which decides the candidate order under test.
+	waitForCondition(t, "the caller to see the stale peer's entry", func() bool {
+		return registry.CountByOwner()["gw-b-stale"] == 1
+	})
+	waitForCondition(t, "an outbound link to the stale peer", func() bool {
+		probeCtx, probeCancel := context.WithTimeout(context.Background(), time.Second)
+		defer probeCancel()
+		rsp, err := caller.fabricMesh.Forward(probeCtx, "gw-b-stale", &fabric.ForwardRequest{
+			PlaneIdentifier: "dataplane/prod",
+			CRKey:           "ns/dp1",
+			TimeoutMillis:   time.Second.Milliseconds(),
+			Request:         &messaging.HTTPTunnelRequest{Target: "k8s", Method: http.MethodGet},
+		})
+		return err == nil && rsp != nil && rsp.NoAgent
+	})
+
+	// Twice, so both candidate orders are exercised: the cursor rotates per call.
+	for _, order := range []string{"unreachable peer tried first", "unreachable peer tried second"} {
+		req := &messaging.HTTPTunnelRequest{Target: "k8s", Method: http.MethodGet, Path: "/api/v1/pods"}
+		_, _, err := caller.SendHTTPTunnelRequestForCR("dataplane/prod", "ns/dp1", req, 5*time.Second)
+		require.Error(t, err, order)
+		assert.ErrorIs(t, err, fabric.ErrNoLink, order)
+		assert.NotContains(t, err.Error(), "no agents authorized for CR", order)
+	}
+}
+
 // The choreographed drain: GOAWAY frames go out to every connection, then the
 // sockets are closed.
 func TestServer_DrainAgentConnections(t *testing.T) {
@@ -2813,6 +2927,8 @@ func TestStart_MeshStartFailureIsSurfaced(t *testing.T) {
 // registry view disagreed and it never dispatched the request.
 type stubMeshDelegate struct {
 	noAgent bool
+	// noAgentError overrides the reason given with a NoAgent answer.
+	noAgentError string
 	// dispatchErr answers as a pod that did dispatch to an agent and failed,
 	// leaving it unknown whether the request ran.
 	dispatchErr bool
@@ -2828,7 +2944,11 @@ func (d *stubMeshDelegate) ServeForward(req *fabric.ForwardRequest) *fabric.Forw
 
 	switch {
 	case d.noAgent:
-		return &fabric.ForwardResponse{CorrID: req.CorrID, NoAgent: true, Error: "no agents found"}
+		reason := "no agents found"
+		if d.noAgentError != "" {
+			reason = d.noAgentError
+		}
+		return &fabric.ForwardResponse{CorrID: req.CorrID, NoAgent: true, Error: reason}
 	case d.dispatchErr:
 		return &fabric.ForwardResponse{CorrID: req.CorrID, Error: "agent stopped responding"}
 	}

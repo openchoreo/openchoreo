@@ -1087,11 +1087,19 @@ func (s *Server) SendHTTPTunnelRequestForCR(
 		if !errors.Is(fwdErr, errNoForwardCandidate) {
 			return nil, "", fwdErr
 		}
-		// No replica has an agent authorized for this CR. When peers hold
-		// agents for the plane, report the missing authorization: "no agents
-		// found" would read as a disconnected agent.
-		if s.fabricRegistry != nil && s.fabricRegistry.CountForPlane(planeName) > 0 {
-			return nil, "", fmt.Errorf("no agents authorized for CR %s", crKey)
+		if s.fabricRegistry != nil {
+			// The forward skips draining replicas, but their agents are still
+			// connected and about to reconnect elsewhere. A CR they are
+			// authorized for is unroutable for a moment, not unauthorized.
+			if s.fabricRegistry.CountForCR(planeName, crKey) > 0 {
+				return nil, "", fmt.Errorf("CR %s is served only by agents on a draining gateway replica", crKey)
+			}
+			// No replica has an agent authorized for this CR. When peers hold
+			// agents for the plane, report the missing authorization: "no
+			// agents found" would read as a disconnected agent.
+			if s.fabricRegistry.CountForPlane(planeName) > 0 {
+				return nil, "", fmt.Errorf("no agents authorized for CR %s", crKey)
+			}
 		}
 		return nil, "", err
 	}
@@ -1135,7 +1143,11 @@ func (s *Server) forwardViaMesh(
 		attempts = append(attempts, candidates[1])
 	}
 
-	var lastErr error
+	// failure is the last attempt that failed for a reason other than the owner
+	// answering NoAgent. It outranks a NoAgent answer: an owner that could not
+	// be reached may still hold an authorized agent, while NoAgent speaks only
+	// for the owner that sent it and can read as an authorization miss.
+	var lastErr, failure error
 	for _, cand := range attempts {
 		fwdReq := &fabric.ForwardRequest{
 			PlaneIdentifier: planeIdentifier,
@@ -1153,6 +1165,7 @@ func (s *Server) forwardViaMesh(
 			if !forwardIsSafeToRetry(err, req) {
 				return nil, "", err
 			}
+			failure = err
 			continue
 		}
 		if rsp.Response == nil {
@@ -1163,6 +1176,9 @@ func (s *Server) forwardViaMesh(
 			// dispatch to an agent, and may have run.
 			if !rsp.NoAgent && !isSafeHTTPMethod(req.Method) {
 				return nil, "", lastErr
+			}
+			if !rsp.NoAgent {
+				failure = lastErr
 			}
 			continue
 		}
@@ -1176,6 +1192,9 @@ func (s *Server) forwardViaMesh(
 		return rsp.Response, cand.Owner, nil
 	}
 
+	if failure != nil {
+		return nil, "", failure
+	}
 	return nil, "", lastErr
 }
 
