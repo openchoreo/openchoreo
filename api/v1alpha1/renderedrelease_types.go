@@ -49,15 +49,11 @@ type RenderedReleaseSpec struct {
 	// +kubebuilder:default=dataplane
 	TargetPlane string `json:"targetPlane,omitempty"`
 
-	// There is no API server default: the binding controllers write the whole spec
-	// without this field, and a defaulted value would read as a change on every
-	// reconcile.
-	// TODO: default to Manage once the binding controllers set mode, as for targetPlane (#5362).
-
 	// Mode decides whether the manifests in spec.resources are applied. Manage
 	// applies them. Observe does not, and removes whatever this release applied
-	// earlier. Observed resources are read in both modes. Unset means Manage.
+	// earlier. Observed resources are read in both modes. Defaults to Manage.
 	// +kubebuilder:validation:Enum=Manage;Observe
+	// +kubebuilder:default=Manage
 	// +optional
 	Mode RenderedReleaseMode `json:"mode,omitempty"`
 

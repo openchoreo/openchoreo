@@ -292,6 +292,7 @@ func (r *Reconciler) renderAndEmit(
 			},
 			EnvironmentName: binding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
 			Resources:       manifests,
 		}
 		return controllerutil.SetControllerReference(binding, rr, r.Scheme)

@@ -737,6 +737,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
 			Resources:       dataPlaneReleaseResources,
 		}
 
@@ -1041,6 +1042,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				},
 				EnvironmentName: releaseBinding.Spec.Environment,
 				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
 				Resources:       observabilityPlaneReleaseResources,
 			}
 

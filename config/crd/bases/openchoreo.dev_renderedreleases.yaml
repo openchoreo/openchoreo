@@ -50,10 +50,11 @@ spec:
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               mode:
+                default: Manage
                 description: |-
                   Mode decides whether the manifests in spec.resources are applied. Manage
                   applies them. Observe does not, and removes whatever this release applied
-                  earlier. Observed resources are read in both modes. Unset means Manage.
+                  earlier. Observed resources are read in both modes. Defaults to Manage.
                 enum:
                 - Manage
                 - Observe
