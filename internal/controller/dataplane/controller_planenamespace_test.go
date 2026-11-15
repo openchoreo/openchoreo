@@ -77,7 +77,9 @@ var _ = Describe("DataPlane plane namespace cleanup", func() {
 
 	// Marking the DataPlane as finalizing is a status write, and status writes do
 	// not trigger a reconcile. Unless the reconcile asks to run again, the
-	// finalizer is never removed and the DataPlane stays terminating.
+	// finalizer is never removed and the DataPlane stays terminating. It asks
+	// for a delay: run at once, the next reconcile reads the DataPlane from the
+	// cache before the condition is there and fails on a conflict.
 	It("requeues after marking the DataPlane as finalizing", func() {
 		const nsName = "kv-dp-finalizing-requeue"
 		nn := createNamespaceWithDataPlane(nsName)
@@ -89,7 +91,7 @@ var _ = Describe("DataPlane plane namespace cleanup", func() {
 		dp := &openchoreov1alpha1.DataPlane{}
 		Expect(k8sClient.Get(ctx, nn, dp)).To(Succeed())
 		Expect(apimeta.FindStatusCondition(dp.Status.Conditions, string(ConditionFinalizing))).NotTo(BeNil())
-		Expect(result.Requeue).To(BeTrue())
+		Expect(result.RequeueAfter).To(Equal(finalizingRequeueDelay))
 	})
 
 	It("deletes the kv namespace when its control plane namespace is deleted", func() {
