@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -85,9 +84,7 @@ func (r *Reconciler) setResourcesReadyStatus(
 	// If Release has no resources yet, check if there's an apply error on the Release
 	if len(release.Status.Resources) == 0 {
 		// Check if the Release controller recorded an apply failure for the current generation
-		applyCond := meta.FindStatusCondition(release.Status.Conditions, renderedrelease.ConditionResourcesApplied)
-		if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
-			applyCond.ObservedGeneration == release.Generation {
+		if applyCond := renderedrelease.ApplyFailedCondition(release); applyCond != nil {
 			controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 				ReasonResourceApplyFailed, applyCond.Message)
 			return nil
@@ -98,35 +95,48 @@ func (r *Reconciler) setResourcesReadyStatus(
 		return nil
 	}
 
-	// Evaluate readiness based on workload type
+	setResourcesReadyFromStatuses(ctx, releaseBinding, release.Status.Resources, component)
+	return nil
+}
+
+// setResourcesReadyFromStatuses sets the ResourcesReady condition from resource
+// statuses, with logic for the component's workload type.
+func setResourcesReadyFromStatuses(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	statuses []openchoreov1alpha1.RenderedManifestStatus,
+	component *openchoreov1alpha1.Component,
+) {
+	componentTypeName := component.Spec.ComponentType.Name
+	workloadType := extractWorkloadType(componentTypeName)
+
 	var ready bool
 	var reason, message string
 
 	switch workloadType {
 	case WorkloadTypeDeployment:
-		ready, reason, message = evaluateDeploymentStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateDeploymentStatus(statuses, workloadType)
 
 	case WorkloadTypeStatefulSet:
-		ready, reason, message = evaluateStatefulSetStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateStatefulSetStatus(statuses, workloadType)
 
 	case WorkloadTypeCronJob:
-		ready, reason, message = evaluateCronJobStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateCronJobStatus(statuses, workloadType)
 
 	case WorkloadTypeJob:
-		ready, reason, message = evaluateJobStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateJobStatus(statuses, workloadType)
 
 	case WorkloadTypeProxy:
 		// Proxy components are generic resources without traditional workload semantics
-		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
+		ready, reason, message = evaluateGenericStatus(statuses)
 
 	case WorkloadTypeUnknown:
 		// Fallback for unknown workload types or legacy components
-		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
-		logger.Info("Using generic status evaluation for unknown workload type",
+		ready, reason, message = evaluateGenericStatus(statuses)
+		log.FromContext(ctx).Info("Using generic status evaluation for unknown workload type",
 			"componentType", componentTypeName)
 	}
 
-	// Set the ResourcesReady condition
 	if ready {
 		controller.MarkTrueCondition(releaseBinding, ConditionResourcesReady,
 			controller.ConditionReason(reason), message)
@@ -134,8 +144,6 @@ func (r *Reconciler) setResourcesReadyStatus(
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			controller.ConditionReason(reason), message)
 	}
-
-	return nil
 }
 
 // setReadyCondition sets the top-level Ready condition based on ReleaseSynced,
