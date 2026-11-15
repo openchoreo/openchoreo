@@ -1280,40 +1280,7 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 
 	switch ev.Event {
 	case "created", "updated":
-		// Same staleness guard as the notification handler: see there.
-		revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
-		if revocations > 0 {
-			terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
-			if err != nil {
-				s.logger.Warn("failed to look up CR for propagated re-validation",
-					"planeType", ev.PlaneType,
-					"planeID", ev.PlaneID,
-					"error", err,
-				)
-				return
-			}
-			if terminating {
-				s.logger.Info("skipping propagated re-validation of a deleted CR",
-					"planeType", ev.PlaneType,
-					"planeID", ev.PlaneID,
-					"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
-				)
-				return
-			}
-		}
-		caData, err := s.fetchCRClientCA(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
-		if err != nil {
-			s.logger.Warn("failed to fetch CR CA for propagated re-validation",
-				"planeType", ev.PlaneType,
-				"planeID", ev.PlaneID,
-				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
-				"error", err,
-			)
-			return
-		}
-		if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData, revocations); err != nil {
-			s.logger.Warn("propagated CR re-validation failed", "error", err)
-		}
+		s.applyPropagatedCRUpdate(ev)
 	case "deleted":
 		if ev.Name == "" {
 			s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
@@ -1325,6 +1292,74 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 	default:
 		s.logger.Warn("unknown propagated plane event", "event", ev.Event)
 	}
+}
+
+// planeEventAttempts bounds how many times a propagated "created" or "updated"
+// event is tried, and planeEventRetryBackoff is the wait before the second
+// attempt, doubled before each one after it.
+const planeEventAttempts = 5
+
+var planeEventRetryBackoff = time.Second
+
+// applyPropagatedCRUpdate re-validates one CR on this replica's connections for
+// a propagated "created" or "updated" event. The replica that received the
+// notification has already answered the controller, so nothing sends this event
+// again: a lookup that fails here is retried, or the agents this replica owns
+// stay unauthorized for the CR while the CR reports as connected through
+// another replica's agent.
+func (s *Server) applyPropagatedCRUpdate(ev fabric.PlaneEvent) {
+	backoff := planeEventRetryBackoff
+	for attempt := 1; ; attempt++ {
+		err := s.revalidatePropagatedCR(ev)
+		if err == nil {
+			return
+		}
+		// A CR that no longer exists has nothing left to grant.
+		if attempt >= planeEventAttempts || apierrors.IsNotFound(err) {
+			s.logger.Warn("dropping propagated plane event",
+				"planeType", ev.PlaneType,
+				"planeID", ev.PlaneID,
+				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
+				"attempts", attempt,
+				"error", err,
+			)
+			return
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
+}
+
+// revalidatePropagatedCR makes one attempt at a propagated "created" or
+// "updated" event. It returns an error only for a failed lookup, which is the
+// part worth retrying. Every attempt reads the CR from the API server and
+// re-reads the revocation count first, so a retry that runs after the CR's
+// "deleted" event is held back by the same staleness guard as the
+// notification handler: see there.
+func (s *Server) revalidatePropagatedCR(ev fabric.PlaneEvent) error {
+	revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+	if revocations > 0 {
+		terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
+		if err != nil {
+			return fmt.Errorf("failed to look up CR for propagated re-validation: %w", err)
+		}
+		if terminating {
+			s.logger.Info("skipping propagated re-validation of a deleted CR",
+				"planeType", ev.PlaneType,
+				"planeID", ev.PlaneID,
+				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
+			)
+			return nil
+		}
+	}
+	caData, err := s.fetchCRClientCA(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+	if err != nil {
+		return fmt.Errorf("failed to fetch CR CA for propagated re-validation: %w", err)
+	}
+	if _, _, err := s.connMgr.RevalidateCR(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name, caData, revocations); err != nil {
+		s.logger.Warn("propagated CR re-validation failed", "error", err)
+	}
+	return nil
 }
 
 // revokeCR withdraws a deleted CR from this pod: its authorization on the

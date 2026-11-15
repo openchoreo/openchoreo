@@ -3092,6 +3092,93 @@ func getFailingClient(objects ...client.Object) client.Client {
 		}).Build()
 }
 
+// Propagated plane events are retried with a backoff that starts at a second.
+// The tests exercise the retry, not the wait.
+func init() { planeEventRetryBackoff = time.Millisecond }
+
+// flakyGetClient fails the first `failures` Get calls and serves the rest. It
+// counts every Get in calls.
+func flakyGetClient(failures int32, calls *atomic.Int32, objects ...client.Object) client.Client {
+	return fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if calls.Add(1) <= failures {
+					return errors.New("api server unavailable")
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+}
+
+// liveDataPlane is the DataPlane ns1/dp on plane "prod" with caPEM as its
+// client CA.
+func liveDataPlane(caPEM string) *openchoreov1alpha1.DataPlane {
+	return &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: caPEM},
+			},
+		},
+	}
+}
+
+var updatedNs1Dp = fabric.PlaneEvent{
+	PlaneType: "dataplane", PlaneID: "prod", Event: "updated",
+	Namespace: "ns1", Name: "dp",
+}
+
+// The replica that received a notification has already answered the
+// controller, so a peer whose CA lookup fails is not told again. Its agents
+// stay unauthorized for the CR, and when another replica's agent serves that CR
+// the status reports it connected, so the controller does not re-notify either.
+// The peer has to retry the lookup itself.
+func TestServer_ApplyPlaneEventRetriesAFailedLookup(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(2, &gets, liveDataPlane(string(encodeCertToPEM(t, caCert)))), testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	require.NoError(t, err, "the CR must be granted once its lookup succeeds")
+	assert.Equal(t, int32(3), gets.Load(), "two failed lookups, then the one that succeeded")
+}
+
+// A lookup that keeps failing is given up on, so a propagated event cannot hold
+// a goroutine and keep reading the API server indefinitely.
+func TestServer_ApplyPlaneEventGivesUpAfterBoundedAttempts(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(1000, &gets, liveDataPlane(string(encodeCertToPEM(t, caCert)))), testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	assert.Equal(t, int32(planeEventAttempts), gets.Load())
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "a CR whose CA was never read must not be granted")
+}
+
+// A CR that no longer exists has nothing to grant. Retrying its lookup would
+// only repeat a read whose answer cannot change the outcome.
+func TestServer_ApplyPlaneEventDoesNotRetryAMissingCR(t *testing.T) {
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(0, &gets), testLogger())
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	assert.Equal(t, int32(1), gets.Load())
+}
+
 // Once a CR's "deleted" event is applied, knowing that the CR is still
 // terminating is all that stops a stale "updated" from granting it again. If
 // that lookup fails the gateway cannot tell, and the CA lookup after it can
