@@ -206,20 +206,27 @@ const liveCRRetention = time.Minute
 type liveCR struct {
 	uid        types.UID
 	generation int64
-	gone       bool // the read found no such CR
-	readAt     time.Time
+	gone       bool      // the read found no such CR
+	startedAt  time.Time // when the read began: the later one saw the newer CR
+	recordedAt time.Time // when its result was recorded here
 }
 
-// noteLiveCR records a plane CR as it was just read from the API server.
-func (s *Server) noteLiveCR(planeType, crKey string, obj client.Object) {
-	s.setLiveCR(planeType, crKey, liveCR{uid: obj.GetUID(), generation: obj.GetGeneration(), readAt: time.Now()})
+// noteLiveCR records a plane CR as returned by a read from the API server that
+// began at startedAt.
+func (s *Server) noteLiveCR(planeType, crKey string, obj client.Object, startedAt time.Time) {
+	s.setLiveCR(planeType, crKey, liveCR{uid: obj.GetUID(), generation: obj.GetGeneration(), startedAt: startedAt})
 }
 
-// noteLiveCRGone records that a read from the API server found no such CR.
-func (s *Server) noteLiveCRGone(planeType, crKey string) {
-	s.setLiveCR(planeType, crKey, liveCR{gone: true, readAt: time.Now()})
+// noteLiveCRGone records that a read from the API server that began at
+// startedAt found no such CR.
+func (s *Server) noteLiveCRGone(planeType, crKey string, startedAt time.Time) {
+	s.setLiveCR(planeType, crKey, liveCR{gone: true, startedAt: startedAt})
 }
 
+// setLiveCR records the result of a read unless a newer one is already
+// recorded. Reads of one CR can finish in either order. An older read that
+// replaced a newer one would make a connect take a planeReader copy that is
+// just as old for current, and authorize an agent from it.
 func (s *Server) setLiveCR(planeType, crKey string, cr liveCR) {
 	s.liveMu.Lock()
 	defer s.liveMu.Unlock()
@@ -230,18 +237,29 @@ func (s *Server) setLiveCR(planeType, crKey string, cr liveCR) {
 	if s.liveCRs[planeType] == nil {
 		s.liveCRs[planeType] = make(map[string]liveCR)
 	}
+	if recorded, ok := s.liveCRs[planeType][crKey]; ok {
+		// The read that began later saw the newer CR. A CR's generation never
+		// goes down either, which settles two reads begun at the same instant.
+		sameCR := !recorded.gone && !cr.gone && recorded.uid == cr.uid
+		if recorded.startedAt.After(cr.startedAt) || sameCR && recorded.generation > cr.generation {
+			return
+		}
+	}
+	cr.recordedAt = time.Now()
 	s.liveCRs[planeType][crKey] = cr
 }
 
-// liveCRsReadSince returns the CRs of a plane type that this replica has read
-// from the API server since the given time.
+// liveCRsReadSince returns the CRs of a plane type for which this replica has
+// recorded a read from the API server since the given time. The read may have
+// begun earlier: what counts is that its result, and the re-validation that
+// goes with it, came after.
 func (s *Server) liveCRsReadSince(planeType string, since time.Time) []string {
 	s.liveMu.Lock()
 	defer s.liveMu.Unlock()
 
 	var crKeys []string
 	for crKey, cr := range s.liveCRs[planeType] {
-		if !cr.readAt.Before(since) {
+		if !cr.recordedAt.Before(since) {
 			crKeys = append(crKeys, crKey)
 		}
 	}
@@ -288,7 +306,7 @@ func (s *Server) reconcilePlaneReader(
 			behind = append(behind, crKey)
 			continue
 		}
-		if now.Sub(cr.readAt) > liveCRRetention {
+		if now.Sub(cr.recordedAt) > liveCRRetention {
 			delete(s.liveCRs[planeType], crKey)
 		}
 	}
@@ -296,16 +314,17 @@ func (s *Server) reconcilePlaneReader(
 
 	for _, crKey := range behind {
 		namespace, name, _ := strings.Cut(crKey, "/")
+		startedAt := time.Now()
 		obj, err := s.getPlaneCR(ctx, planeType, namespace, name)
 		switch {
 		case apierrors.IsNotFound(err):
-			s.noteLiveCRGone(planeType, crKey)
+			s.noteLiveCRGone(planeType, crKey, startedAt)
 			delete(cached, crKey)
 		case err != nil:
 			delete(cached, crKey)
 			unread = append(unread, crKey)
 		default:
-			s.noteLiveCR(planeType, crKey, obj)
+			s.noteLiveCR(planeType, crKey, obj, startedAt)
 			cached[crKey] = obj
 		}
 	}
@@ -1713,7 +1732,7 @@ func (s *Server) revokeCR(planeType, planeID, namespace, name string) (revoked i
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
 	// Recorded, so that a connect does not grant the CR again from a
 	// planeReader copy that still lists it.
-	s.noteLiveCRGone(planeType, crKey)
+	s.noteLiveCRGone(planeType, crKey, time.Now())
 	if closed := s.closeStreamSessionsForCR(planeIdentifier, crKey); closed > 0 {
 		s.logger.Info("closed streaming sessions of deleted CR",
 			"planeType", planeType,
@@ -1872,15 +1891,16 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 	defer cancel()
 
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
+	startedAt := time.Now()
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			s.noteLiveCRGone(planeType, crKey)
+			s.noteLiveCRGone(planeType, crKey, startedAt)
 			return nil, fmt.Errorf("failed to get CR %s: %w: %w", crKey, errPlaneCRGone, err)
 		}
 		return nil, fmt.Errorf("failed to get CR %s: %w", crKey, err)
 	}
 
-	s.noteLiveCR(planeType, crKey, obj)
+	s.noteLiveCR(planeType, crKey, obj, startedAt)
 
 	// A CR that has moved to another planeID is not served by this plane's agents.
 	info, ok := extractInfo(obj)

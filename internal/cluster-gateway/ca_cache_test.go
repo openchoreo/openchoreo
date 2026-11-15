@@ -610,7 +610,7 @@ func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) 
 	var crGets atomic.Int32
 	s := New(&Config{}, crGetCountingClient(&crGets, replacement), testLogger())
 	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()))
-	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier)
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier, time.Now())
 
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err, "the connect was refused over a CR that no longer exists")
@@ -622,6 +622,33 @@ func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) 
 	_, _, err = s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Equal(t, reads, crGets.Load(), "the CR is read again on every connect")
+}
+
+// Two reads of one CR can finish in either order. Here a read that began before
+// a CA rotation, and still saw the old CA, records its result after the
+// notification for the rotation has recorded the new one. If it replaced that
+// record, the plane reader's copy, which is just as old, would pass for
+// current, and a connect would authorize an agent from the CA that was rotated
+// out.
+func TestConnect_AnOlderReadDoesNotReplaceWhatANewerOneRecorded(t *testing.T) {
+	oldCA, oldKey := generateTestCA(t)
+	newCA, _ := generateTestCA(t)
+	agentCert := generateTestClientCert(t, oldCA, oldKey)
+	oldPEM, newPEM := encodeCertToPEM(t, oldCA), encodeCertToPEM(t, newCA)
+
+	other := planeOf("ns2", 1, oldPEM)
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM), other).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+
+	olderReadBegan := time.Now()
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", planeOf("ns1", 1, oldPEM), olderReadBegan)
+
+	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns2/dp"}, validCRs, "the rotated CR was granted from the cached copy")
 }
 
 // A notification applies a CR to the connections that are registered. A connect
