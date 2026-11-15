@@ -20,7 +20,10 @@ import (
 const (
 	defaultReconnectDelay    = 5 * time.Second
 	defaultHeartbeatInterval = 30 * time.Second
-	defaultRequestTimeout    = 30 * time.Second
+	// Below the gateway's 30s wait on a tunnel response, so a backend call that
+	// runs out of time is reported by the agent instead of timing out blind at
+	// the gateway.
+	defaultRequestTimeout = 25 * time.Second
 )
 
 func main() {

@@ -10,10 +10,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1050,4 +1052,111 @@ func TestAgentConnection_SendHTTPTunnelRequest_Success(t *testing.T) {
 
 	err := ac.SendHTTPTunnelRequest(req)
 	assert.NoError(t, err)
+}
+
+// stalledWriteConn blocks every write until released, standing in for an agent
+// that has stopped reading from its socket.
+type stalledWriteConn struct {
+	mockGatewayConn
+	writing     chan struct{} // closed once a write has started
+	release     chan struct{}
+	writingOnce sync.Once
+	releaseOnce sync.Once
+}
+
+func newStalledWriteConn() *stalledWriteConn {
+	return &stalledWriteConn{writing: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (c *stalledWriteConn) WriteMessage(_ int, _ []byte) error {
+	c.writingOnce.Do(func() { close(c.writing) })
+	<-c.release
+	return errors.New("write deadline exceeded")
+}
+
+func (c *stalledWriteConn) unblock() { c.releaseOnce.Do(func() { close(c.release) }) }
+
+// The manager reads each connection's state while holding its own lock. A write
+// that shares the lock guarding that state therefore freezes routing for every
+// plane on the pod for as long as one agent socket is stalled.
+func TestStalledAgentWrite_DoesNotBlockManager(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+	stalled := newStalledWriteConn()
+	t.Cleanup(stalled.unblock)
+
+	_, err := cm.Register("dataplane", "prod", stalled, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+	conn, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+
+	writeDone := make(chan error, 1)
+	go func() { writeDone <- conn.SendRawMessage([]byte(`{}`)) }()
+	<-stalled.writing
+
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
+		_, _ = cm.Register("workflowplane", "other", &mockGatewayConn{}, []string{"ns/wp1"}, nil, nil)
+		_ = cm.Count()
+		cm.UpdateConnectionLastSeen("dataplane/prod", conn.ID)
+	}()
+
+	select {
+	case <-finished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("manager operations blocked behind a stalled agent write")
+	}
+
+	// The write then fails, as it does when its deadline passes. The socket
+	// cannot carry another write after that, so it must not stay registered as
+	// a routable connection: closing it ends its read loop.
+	stalled.unblock()
+	require.Error(t, <-writeDone)
+	assert.True(t, stalled.isClosed(), "a connection whose write failed must be closed")
+}
+
+// deadlineRecordingConn records the write deadline in force when a message is
+// written.
+type deadlineRecordingConn struct {
+	mockGatewayConn
+	deadline        time.Time
+	deadlineAtWrite time.Time
+}
+
+func (c *deadlineRecordingConn) SetWriteDeadline(t time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deadline = t
+	return nil
+}
+
+func (c *deadlineRecordingConn) WriteMessage(_ int, _ []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deadlineAtWrite = c.deadline
+	return nil
+}
+
+// Without a deadline a write to an agent that stopped reading never returns, so
+// nothing ever closes the dead socket.
+func TestAgentWrite_HasDeadline(t *testing.T) {
+	for name, send := range map[string]func(*AgentConnection) error{
+		"tunnel request": func(ac *AgentConnection) error {
+			return ac.SendHTTPTunnelRequest(&messaging.HTTPTunnelRequest{RequestID: "req-1"})
+		},
+		"raw message": func(ac *AgentConnection) error { return ac.SendRawMessage([]byte(`{}`)) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			conn := &deadlineRecordingConn{}
+			ac := &AgentConnection{Conn: conn}
+
+			start := time.Now()
+			require.NoError(t, send(ac))
+
+			require.False(t, conn.deadlineAtWrite.IsZero(), "message written with no deadline")
+			assert.WithinDuration(t, start.Add(agentWriteTimeout), conn.deadlineAtWrite, time.Second)
+			assert.False(t, conn.isClosed(), "a successful write must leave the connection open")
+		})
+	}
 }

@@ -60,6 +60,7 @@ type Connection interface {
 	WriteMessage(messageType int, data []byte) error
 	WriteControl(messageType int, data []byte, deadline time.Time) error
 	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
 	SetPongHandler(h func(appData string) error)
 	Close() error
 }
@@ -650,11 +651,21 @@ func (s *Server) handleConnection(planeName, connID string, conn Connection) {
 	pingTicker := time.NewTicker(s.config.HeartbeatInterval)
 	defer pingTicker.Stop()
 
+	// Stopping the ticker does not close its channel, so the ping sender needs
+	// its own signal to end with the connection.
+	done := make(chan struct{})
+	defer close(done)
+
 	go func() {
-		for range pingTicker.C {
-			if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
-				s.logger.Debug("failed to send ping", "plane", planeName, "error", err)
+		for {
+			select {
+			case <-done:
 				return
+			case <-pingTicker.C:
+				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
+					s.logger.Debug("failed to send ping", "plane", planeName, "error", err)
+					return
+				}
 			}
 		}
 	}()

@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -901,6 +902,7 @@ func (m *mockGatewayConn) isClosed() bool {
 
 func (m *mockGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
 func (m *mockGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (m *mockGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (m *mockGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (m *mockGatewayConn) Close() error {
 	m.mu.Lock()
@@ -918,6 +920,7 @@ func (c *closeErrorGatewayConn) ReadMessage() (int, []byte, error)              
 func (c *closeErrorGatewayConn) WriteMessage(_ int, _ []byte) error              { return nil }
 func (c *closeErrorGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
 func (c *closeErrorGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (c *closeErrorGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (c *closeErrorGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (c *closeErrorGatewayConn) Close() error                                    { return nil }
 
@@ -2406,6 +2409,28 @@ func TestConnectionManager_UpdateLastSeenUnknownIsNoop(t *testing.T) {
 	assert.Equal(t, 0, s.connMgr.Count())
 }
 
+// Every agent connection starts a ping sender. Stopping its ticker does not end
+// it, so unless it is told the connection is gone it stays parked for the life
+// of the pod: one goroutine for every connection an agent ever made.
+func TestHandleConnection_PingSenderEndsWithConnection(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	const connections = 50
+	before := runtime.NumGoroutine()
+	for range connections {
+		mock := &closeErrorGatewayConn{err: errors.New("connection closed")}
+		connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
+		require.NoError(t, err)
+		s.handleConnection("dataplane/prod", connID, mock)
+	}
+
+	// Half the connection count is slack for goroutines unrelated to this test.
+	assert.Eventually(t, func() bool {
+		return runtime.NumGoroutine() < before+connections/2
+	}, 2*time.Second, 10*time.Millisecond, "ping senders outlived their connections")
+}
+
 // writeErrorGatewayConn fails every write, standing in for a socket that died
 // between selection and dispatch.
 type writeErrorGatewayConn struct {
@@ -2425,6 +2450,7 @@ func (c *writeErrorGatewayConn) WriteMessage(_ int, _ []byte) error {
 
 func (c *writeErrorGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return c.err }
 func (c *writeErrorGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (c *writeErrorGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (c *writeErrorGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (c *writeErrorGatewayConn) Close() error                                    { return nil }
 
