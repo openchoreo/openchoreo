@@ -493,7 +493,7 @@ func TestConnect_DoesNotTrustAPlaneReaderOlderThanANotification(t *testing.T) {
 	other := planeOf("ns2", 1, oldPEM)
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM), other).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()), nil)
 
 	// The notification for the rotation reads the CR from the API server.
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
@@ -514,7 +514,7 @@ func TestConnect_UsesThePlaneReaderAgainOnceTheWindowHasPassed(t *testing.T) {
 	plane := planeOf("ns1", 2, encodeCertToPEM(t, ca))
 	var crGets atomic.Int32
 	s := New(&Config{}, crGetCountingClient(&crGets, plane), testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, plane.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, plane.DeepCopy()), nil)
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
@@ -552,7 +552,7 @@ func TestConnect_FindsACRThatMovedHereBeforeThePlaneReaderSawIt(t *testing.T) {
 	cached.Spec.PlaneID = "elsewhere"
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, pem)).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, cached))
+	s.SetPlaneReader(planeReaderOnly(t, cached), nil)
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
@@ -572,7 +572,7 @@ func TestConnect_FindsACRThePlaneReaderDoesNotListYet(t *testing.T) {
 
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, pem)).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t))
+	s.SetPlaneReader(planeReaderOnly(t), nil)
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
@@ -592,7 +592,7 @@ func TestConnect_DoesNotAuthorizeADeletedCRThePlaneReaderStillLists(t *testing.T
 	other := planeOf("ns2", 1, pem)
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(other).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, pem), other.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, pem), other.DeepCopy()), nil)
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.Error(t, err)
@@ -618,7 +618,7 @@ func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) 
 
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(replacement).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()), nil)
 	// The earlier CR, at a higher generation, was read a moment ago.
 	s.noteLiveCR(planeTypeDataPlane, "ns1/dp")
 
@@ -642,7 +642,7 @@ func TestConnect_AnOlderReadDoesNotReplaceWhatANewerOneRecorded(t *testing.T) {
 	other := planeOf("ns2", 1, oldPEM)
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM), other).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()), nil)
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
@@ -744,7 +744,7 @@ func TestRevalidation_DoesNotApplyACAFetchedBeforeAnAgentConnected(t *testing.T)
 	other := planeOf("ns2", 1, oldPEM)
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, oldPEM), other).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()), nil)
 
 	// A notification fetches the CA of ns1/dp and is held up before applying it.
 	heldUp, err := s.fetchCRClientCA(ctx, planeTypeDataPlane, "prod", "ns1", "dp")
@@ -819,7 +819,7 @@ func TestConnect_AppliesANotificationThatArrivedWhileItWasUnderWay(t *testing.T)
 
 	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, encodeCertToPEM(t, oldCA))).Build()
 	s := New(&Config{}, live, testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, encodeCertToPEM(t, oldCA))))
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, encodeCertToPEM(t, oldCA))), nil)
 
 	lookupStart := time.Now()
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
@@ -872,7 +872,7 @@ func TestPlaneCRLists_ComeFromThePlaneReader(t *testing.T) {
 	}
 	var calls apiCalls
 	s := New(&Config{}, countingClient(&calls, secrets...), testLogger())
-	s.SetPlaneReader(planeReaderOnly(t, planes...))
+	s.SetPlaneReader(planeReaderOnly(t, planes...), nil)
 
 	cas, _, err := s.getAllPlaneClientCAs(planeTypeDataPlane, "prod")
 	require.NoError(t, err)
@@ -892,7 +892,7 @@ func TestPlaneCRLists_ComeFromThePlaneReader(t *testing.T) {
 func TestSweep_KeepsACRThePlaneReaderHasNotSeenYet(t *testing.T) {
 	var calls apiCalls
 	s := New(&Config{}, countingClient(&calls, sharedPlaneTenants(1)...), testLogger())
-	s.SetPlaneReader(planeReaderOnly(t)) // An informer cache that is still empty.
+	s.SetPlaneReader(planeReaderOnly(t), nil) // An informer cache that is still empty.
 
 	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"tenant-0/default"}, nil, nil)
 	require.NoError(t, err)

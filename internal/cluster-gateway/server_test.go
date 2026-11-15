@@ -2034,6 +2034,48 @@ func TestServer_HandleReadyDuringDrain(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
+// On a large cluster the first list of plane CRs can take longer than the
+// liveness probe allows. A gateway that waited for it before starting would be
+// restarted before it had served a single agent, over and over. So it starts
+// at once and keeps out of the way until the list is there: alive, not ready,
+// and refusing agents, because an agent checked against a partial list would be
+// authorized for too little.
+func TestServer_StaysNotReadyAndRefusesAgentsWhilePlaneCRsLoad(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+	loaded := make(chan struct{})
+	s.SetPlaneReader(fakeClient, func(ctx context.Context) bool {
+		select {
+		case <-loaded:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	})
+	waited := make(chan struct{})
+	go func() {
+		defer close(waited)
+		s.awaitPlaneReader(context.Background())
+	}()
+
+	probe := func(handler http.HandlerFunc, target string) int {
+		w := httptest.NewRecorder()
+		handler(w, httptest.NewRequest(http.MethodGet, target, nil))
+		return w.Code
+	}
+	const agentConnect = "/ws?planeType=dataplane&planeID=prod"
+
+	assert.Equal(t, http.StatusOK, probe(s.handleHealth, "/health"), "the pod must not be restarted while it loads")
+	assert.Equal(t, http.StatusServiceUnavailable, probe(s.handleReady, "/ready"))
+	assert.Equal(t, http.StatusServiceUnavailable, probe(s.handleWebSocket, agentConnect))
+
+	close(loaded)
+	<-waited
+	assert.Equal(t, http.StatusOK, probe(s.handleReady, "/ready"))
+	// The connect now gets as far as asking for the agent's certificate.
+	assert.Equal(t, http.StatusUnauthorized, probe(s.handleWebSocket, agentConnect))
+}
+
 // --- connection rebalancing ---
 
 // newRebalanceServer wires a server with a mesh identity and `local` mock

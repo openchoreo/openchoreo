@@ -95,8 +95,13 @@ type Server struct {
 	// It is unset in a Server built without SetPlaneReader, which then lists
 	// through k8sClient: see planes.
 	planeReader client.Reader
-	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
-	caCacheInit sync.Once
+	// planeReaderWait blocks until planeReader holds every plane CR. It is nil
+	// for a reader that needs no syncing. planeReaderSynced records that it
+	// has returned: see awaitPlaneReader.
+	planeReaderWait   func(context.Context) bool
+	planeReaderSynced atomic.Bool
+	caCache           *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
+	caCacheInit       sync.Once
 
 	// liveCRs remembers when this replica last read each plane CR from the API
 	// server, by plane type and then "namespace/name": see noteLiveCR.
@@ -177,9 +182,56 @@ func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 
 // SetPlaneReader sets where plane CRs are listed from. It must be called before
 // Start. The reader may trail the API server, as an informer cache does.
-func (s *Server) SetPlaneReader(reader client.Reader) {
+//
+// waitForSync, when not nil, blocks until the reader holds every plane CR, and
+// reports false if its context ends first. Until it has returned true the
+// server is not ready and refuses agent connects, because an agent checked
+// against a partial list would be authorized for too little, and refused
+// outright while the list was still empty. The server does not wait for it to
+// start: on a large cluster the first list can take longer than the liveness
+// probe allows, and a gateway that only started afterwards would be restarted
+// before it ever served an agent.
+func (s *Server) SetPlaneReader(reader client.Reader, waitForSync func(context.Context) bool) {
 	s.planeReader = reader
+	s.planeReaderWait = waitForSync
 }
+
+// planeReaderReady reports whether planeReader holds every plane CR.
+func (s *Server) planeReaderReady() bool {
+	return s.planeReaderWait == nil || s.planeReaderSynced.Load()
+}
+
+// awaitPlaneReader waits for planeReader to hold every plane CR and then lets
+// agents connect. While it waits it says so, because the server is running and
+// not ready with nothing else to show why.
+func (s *Server) awaitPlaneReader(ctx context.Context) {
+	if s.planeReaderWait == nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(planeReaderWaitLogInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				s.logger.Warn("still loading plane CRs; not ready and refusing agent connects until it is done")
+			}
+		}
+	}()
+	synced := s.planeReaderWait(ctx)
+	close(done)
+	if synced {
+		s.planeReaderSynced.Store(true)
+		s.logger.Info("plane CRs loaded; agents can connect")
+	}
+}
+
+// planeReaderWaitLogInterval is how often awaitPlaneReader reports that it is
+// still waiting.
+const planeReaderWaitLogInterval = 30 * time.Second
 
 // planes returns where plane CRs are listed from: the reader given to
 // SetPlaneReader, or the API server client when there is none.
@@ -588,6 +640,8 @@ func (s *Server) Start() error {
 	defer stop()
 	s.runCtx = ctx
 
+	go s.awaitPlaneReader(ctx)
+
 	go s.runDeletedCRSweep(ctx)
 
 	// The mesh outlives the shutdown signal: draining needs the links to carry
@@ -752,6 +806,12 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mesh registry not converged", http.StatusServiceUnavailable)
 		return
 	}
+	// Agents connect through the Service, so a pod that cannot check them yet
+	// stays out of it.
+	if !s.planeReaderReady() {
+		http.Error(w, "plane CRs not loaded", http.StatusServiceUnavailable)
+		return
+	}
 	s.handleHealth(w, r)
 }
 
@@ -848,6 +908,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	if planeID == "" {
 		s.logger.Warn("connection rejected: missing planeID parameter")
 		http.Error(w, "missing planeID parameter", http.StatusBadRequest)
+		return
+	}
+
+	// An agent that reaches this pod anyway is told to come back: see
+	// SetPlaneReader.
+	if !s.planeReaderReady() {
+		s.logger.Info("connection refused: plane CRs not loaded yet",
+			"planeType", planeType,
+			"planeID", planeID,
+		)
+		http.Error(w, "gateway is starting: plane CRs not loaded yet", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -1854,7 +1925,10 @@ func (s *Server) runDeletedCRSweep(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.revokeDeletedCRs(ctx)
+			// Without the full list every authorized CR would look deleted.
+			if s.planeReaderReady() {
+				s.revokeDeletedCRs(ctx)
+			}
 		}
 	}
 }

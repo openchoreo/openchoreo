@@ -35,11 +35,6 @@ const (
 	defaultHeartbeatInterval = 30 * time.Second
 	defaultHeartbeatTimeout  = 90 * time.Second
 	defaultDrainWindow       = 10 * time.Second
-	// planeCacheSyncTimeout bounds the initial list of every plane CR. The pod
-	// exits when it is exceeded, and is restarted. It is shorter than the time
-	// the liveness probe allows for the health endpoint to come up, so a failed
-	// sync is reported in the log and not as an unexplained restart.
-	planeCacheSyncTimeout = time.Minute
 )
 
 var (
@@ -201,18 +196,6 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	// The server starts only once the cache holds every plane CR. An agent that
-	// connected before that would be checked against a partial list, and
-	// rejected outright while the list was still empty.
-	syncCtx, cancelSync := context.WithTimeout(cacheCtx, planeCacheSyncTimeout)
-	synced := planeCache.WaitForCacheSync(syncCtx)
-	cancelSync()
-	if !synced {
-		logger.Error("plane CR cache did not sync", "timeout", planeCacheSyncTimeout)
-		os.Exit(1)
-	}
-	logger.Info("plane CR cache synced")
-
 	config := &clustergateway.Config{
 		Port:                     port,
 		InternalPort:             internalPort,
@@ -233,7 +216,9 @@ func main() {
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)
-	srv.SetPlaneReader(planeCache)
+	// The server starts without waiting for the cache. It is not ready, and
+	// refuses agent connects, until the cache holds every plane CR.
+	srv.SetPlaneReader(planeCache, planeCache.WaitForCacheSync)
 
 	// Gateway mesh fabric: replicate the connection registry across replicas
 	// and forward requests between them, so the gateway can scale horizontally
