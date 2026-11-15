@@ -348,6 +348,36 @@ func TestSecretCACache(t *testing.T) {
 		assert.Equal(t, []byte("new"), got)
 	})
 
+	// A connect and a notification read one Secret at the same time. The
+	// notification's read starts later and finds the Secret deleted. If the
+	// connect's read, which still saw the old Secret, finishes after it, the
+	// old CA must not come back: new connections would be checked against a
+	// CA whose Secret no longer exists, for the rest of the TTL.
+	t.Run("a read that started before a failed one does not restore the CA", func(t *testing.T) {
+		c, now := newCache()
+		c.put(key, []byte("old"), *now)
+
+		c.drop(key, now.Add(2*time.Second))
+		c.put(key, []byte("old"), now.Add(time.Second))
+
+		*now = start.Add(3 * time.Second)
+		_, ok := c.get(key)
+		assert.False(t, ok)
+	})
+
+	// The other order: a failed read that started before a successful one says
+	// nothing about the Secret as the later read found it.
+	t.Run("a failed read does not remove a CA read after it started", func(t *testing.T) {
+		c, now := newCache()
+		c.put(key, []byte("new"), now.Add(2*time.Second))
+		c.drop(key, now.Add(time.Second))
+
+		*now = start.Add(3 * time.Second)
+		got, ok := c.get(key)
+		require.True(t, ok)
+		assert.Equal(t, []byte("new"), got)
+	})
+
 	// Entries are only ever replaced by a read of the same Secret, so the
 	// Secrets of deleted plane CRs would otherwise stay for the life of the pod.
 	t.Run("expired entries are removed", func(t *testing.T) {

@@ -524,7 +524,7 @@ func (s *Server) extractCAFromSecret(
 	readAt := s.cas().now()
 	caData, err := s.readCAFromSecret(ctx, key)
 	if err != nil {
-		s.cas().drop(key)
+		s.cas().drop(key, readAt)
 		return nil, err
 	}
 	s.cas().put(key, caData, readAt)

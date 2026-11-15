@@ -29,7 +29,8 @@ func secretCAKeyFor(ref *openchoreov1alpha1.SecretKeyReference, planeNamespace s
 
 type secretCAEntry struct {
 	data   []byte
-	readAt time.Time // when the read that returned data started
+	failed bool      // the read failed: there is no CA to reuse
+	readAt time.Time // when the read that produced this entry started
 }
 
 // secretCACache holds client CA bundles read from Secrets, for agent connects
@@ -38,10 +39,11 @@ type secretCAEntry struct {
 // connection. Without the cache each of them reads every CR's Secret again.
 //
 // Every read of a CA Secret is recorded, including the ones a plane
-// notification makes, so an entry is never older than the latest read of its
-// Secret. An entry is used for caCacheTTL from that read. A CA changed only in
-// its Secret, with no change to the plane CR and so no notification, is
-// therefore seen by a new connection at most caCacheTTL late.
+// notification makes and the ones that fail, so an entry always reflects the
+// read of its Secret that started last. An entry is used for caCacheTTL from
+// that read. A CA changed only in its Secret, with no change to the plane CR
+// and so no notification, is therefore seen by a new connection at most
+// caCacheTTL late.
 type secretCACache struct {
 	mu       sync.Mutex
 	entries  map[secretCAKey]secretCAEntry
@@ -59,7 +61,7 @@ func (c *secretCACache) get(key secretCAKey) ([]byte, bool) {
 	defer c.mu.Unlock()
 
 	e, ok := c.entries[key]
-	if !ok || c.now().Sub(e.readAt) >= caCacheTTL {
+	if !ok || e.failed || c.now().Sub(e.readAt) >= caCacheTTL {
 		return nil, false
 	}
 	return e.data, true
@@ -69,22 +71,26 @@ func (c *secretCACache) get(key secretCAKey) ([]byte, bool) {
 // one Secret can finish in either order, and the one that started later saw the
 // newer Secret, so a read older than the recorded one is dropped.
 func (c *secretCACache) put(key secretCAKey, data []byte, readAt time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if e, ok := c.entries[key]; ok && e.readAt.After(readAt) {
-		return
-	}
-	c.entries[key] = secretCAEntry{data: data, readAt: readAt}
-	c.pruneLocked()
+	c.record(key, secretCAEntry{data: data, readAt: readAt})
 }
 
-// drop forgets the CA recorded for key. A read that failed has shown the entry
-// can no longer be relied on.
-func (c *secretCACache) drop(key secretCAKey) {
+// drop records that a read which started at readAt failed, so the CA recorded
+// before it can no longer be relied on. The failure is kept as an entry of its
+// own and not just removed: a read that started earlier and finishes later
+// would otherwise find nothing recorded and put the old CA back.
+func (c *secretCACache) drop(key secretCAKey, readAt time.Time) {
+	c.record(key, secretCAEntry{failed: true, readAt: readAt})
+}
+
+func (c *secretCACache) record(key secretCAKey, entry secretCAEntry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.entries, key)
+
+	if e, ok := c.entries[key]; ok && e.readAt.After(entry.readAt) {
+		return
+	}
+	c.entries[key] = entry
+	c.pruneLocked()
 }
 
 // pruneLocked removes expired entries, at most once per caCacheTTL. Entries are
