@@ -1088,16 +1088,19 @@ func (s *Server) SendHTTPTunnelRequestForCR(
 			return nil, "", fwdErr
 		}
 		if s.fabricRegistry != nil {
+			// Both counts come from one view of the registry, so an agent
+			// registering now cannot be missed by one and seen by the other.
+			forCR, forPlane := s.fabricRegistry.CountForCRAndPlane(planeName, crKey)
 			// The forward skips draining replicas, but their agents are still
 			// connected and about to reconnect elsewhere. A CR they are
 			// authorized for is unroutable for a moment, not unauthorized.
-			if s.fabricRegistry.CountForCR(planeName, crKey) > 0 {
+			if forCR > 0 {
 				return nil, "", fmt.Errorf("CR %s is served only by agents on a draining gateway replica", crKey)
 			}
 			// No replica has an agent authorized for this CR. When peers hold
 			// agents for the plane, report the missing authorization: "no
 			// agents found" would read as a disconnected agent.
-			if s.fabricRegistry.CountForPlane(planeName) > 0 {
+			if forPlane > 0 {
 				return nil, "", fmt.Errorf("no agents authorized for CR %s", crKey)
 			}
 		}

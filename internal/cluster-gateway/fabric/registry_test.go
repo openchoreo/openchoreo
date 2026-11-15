@@ -6,6 +6,7 @@ package fabric
 import (
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 )
 
@@ -271,4 +272,68 @@ func TestRegistry_LookupOrdersOneOwnersConnectionsByID(t *testing.T) {
 	if leaders["conn-a"] != 2 || leaders["conn-b"] != 2 {
 		t.Fatalf("rotation was uneven over two cycles: %v; the order is not stable", leaders)
 	}
+}
+
+// The gateway answers 403 when a plane has agents but none is authorized for
+// the CR, and a retryable error when the plane has no agents. The two counts
+// behind that choice must describe the same moment.
+func TestRegistry_CountForCRAndPlane(t *testing.T) {
+	r := NewRegistry(testLogger())
+	r.ApplyDelta(addDelta("gw-1", 1, "dataplane/dp-a", "conn-1", "ns/other"))
+
+	// Agents on the plane, none authorized for the CR: the authorization miss.
+	if forCR, forPlane := r.CountForCRAndPlane("dataplane/dp-a", "ns/cr-1"); forCR != 0 || forPlane != 1 {
+		t.Fatalf("expected 0 authorized of 1 on the plane, got %d of %d", forCR, forPlane)
+	}
+
+	r.ApplyDelta(addDelta("gw-2", 1, "dataplane/dp-a", "conn-2", "ns/cr-1"))
+	r.ApplyDelta(addDelta("gw-2", 2, "dataplane/dp-b", "conn-3", "ns/cr-1"))
+	if forCR, forPlane := r.CountForCRAndPlane("dataplane/dp-a", "ns/cr-1"); forCR != 1 || forPlane != 2 {
+		t.Fatalf("expected 1 authorized of 2 on the plane, got %d of %d", forCR, forPlane)
+	}
+
+	// A draining owner's agents are still connected, so they still count.
+	r.SetDraining("gw-2")
+	if forCR, forPlane := r.CountForCRAndPlane("dataplane/dp-a", "ns/cr-1"); forCR != 1 || forPlane != 2 {
+		t.Fatalf("draining owner: expected 1 authorized of 2 on the plane, got %d of %d", forCR, forPlane)
+	}
+
+	if forCR, forPlane := r.CountForCRAndPlane("dataplane/absent", "ns/cr-1"); forCR != 0 || forPlane != 0 {
+		t.Fatalf("unknown plane: expected 0 of 0, got %d of %d", forCR, forPlane)
+	}
+}
+
+// The only agent that ever exists here is authorized for the CR, so "agents on
+// the plane, none authorized" is never true. Reading the two counts separately
+// can still report it, when the agent registers between the reads, and the
+// gateway would answer 403 for an agent that is connected and authorized.
+func TestRegistry_CountForCRAndPlaneIsOneView(t *testing.T) {
+	r := NewRegistry(testLogger())
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		entry := AgentEntry{PlaneIdentifier: "dataplane/dp-a", ConnID: "conn-1", ValidCRs: []string{"ns/cr-1"}}
+		for seq := uint64(1); ; seq += 2 {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			r.ApplyDelta(Delta{Op: DeltaOpAdd, Owner: "gw-1", Seq: seq, Entry: entry})
+			r.ApplyDelta(Delta{Op: DeltaOpRemove, Owner: "gw-1", Seq: seq + 1, Entry: entry})
+		}
+	}()
+
+	for i := 0; i < 200000; i++ {
+		if forCR, forPlane := r.CountForCRAndPlane("dataplane/dp-a", "ns/cr-1"); forCR != forPlane {
+			close(stop)
+			wg.Wait()
+			t.Fatalf("counts disagree: %d authorized for the CR, %d on the plane", forCR, forPlane)
+		}
+	}
+	close(stop)
+	wg.Wait()
 }
