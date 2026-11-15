@@ -63,6 +63,7 @@ func main() {
 		shutdownTimeout          time.Duration
 		heartbeatInterval        time.Duration
 		heartbeatTimeout         time.Duration
+		planeCacheSyncTimeout    time.Duration
 		logLevel                 string
 		meshEnabled              bool
 		meshPort                 int
@@ -108,6 +109,9 @@ func main() {
 	flag.DurationVar(&shutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Graceful shutdown timeout")
 	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", defaultHeartbeatInterval, "Heartbeat ping interval")
 	flag.DurationVar(&heartbeatTimeout, "heartbeat-timeout", defaultHeartbeatTimeout, "Heartbeat timeout duration")
+	flag.DurationVar(&planeCacheSyncTimeout, "plane-cache-sync-timeout", 0,
+		"How long to wait for the plane CR cache to load before exiting. "+
+			"The gateway is not ready and refuses agent connections while it waits. 0 waits without limit")
 	flag.BoolVar(&meshEnabled, "mesh",
 		cmdutil.GetEnvBool("MESH_ENABLED", false),
 		"Enable the gateway mesh fabric: replicate the connection registry across gateway "+
@@ -213,6 +217,7 @@ func main() {
 		HeartbeatInterval:        heartbeatInterval,
 		HeartbeatTimeout:         heartbeatTimeout,
 		DrainWindow:              drainWindow,
+		PlaneCacheSyncTimeout:    planeCacheSyncTimeout,
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)

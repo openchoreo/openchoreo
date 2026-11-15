@@ -2052,11 +2052,8 @@ func TestServer_StaysNotReadyAndRefusesAgentsWhilePlaneCRsLoad(t *testing.T) {
 			return false
 		}
 	})
-	waited := make(chan struct{})
-	go func() {
-		defer close(waited)
-		s.awaitPlaneReader(context.Background())
-	}()
+	waited := make(chan error, 1)
+	go func() { waited <- s.awaitPlaneReader(context.Background()) }()
 
 	probe := func(handler http.HandlerFunc, target string) int {
 		w := httptest.NewRecorder()
@@ -2070,10 +2067,49 @@ func TestServer_StaysNotReadyAndRefusesAgentsWhilePlaneCRsLoad(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, probe(s.handleWebSocket, agentConnect))
 
 	close(loaded)
-	<-waited
+	require.NoError(t, <-waited)
 	assert.Equal(t, http.StatusOK, probe(s.handleReady, "/ready"))
 	// The connect now gets as far as asking for the agent's certificate.
 	assert.Equal(t, http.StatusUnauthorized, probe(s.handleWebSocket, agentConnect))
+}
+
+// Waiting without limit is right when the first list is slow. When the cache is
+// stuck, a restart can be what gets it going, and an operator may prefer that
+// to a pod that stays not ready. The limit is theirs to set: the gateway gives
+// up only when one is set and has passed.
+func TestServer_GivesUpOnLoadingPlaneCRsOnlyWhenALimitIsSet(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	neverLoaded := func(ctx context.Context) bool {
+		<-ctx.Done()
+		return false
+	}
+
+	t.Run("with a limit it gives up once the limit has passed", func(t *testing.T) {
+		s := New(&Config{PlaneCacheSyncTimeout: 20 * time.Millisecond}, fakeClient, testLogger())
+		s.SetPlaneReader(fakeClient, neverLoaded)
+
+		err := s.awaitPlaneReader(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, s.planeReaderReady())
+	})
+
+	t.Run("without a limit it waits until the server shuts down", func(t *testing.T) {
+		s := New(&Config{}, fakeClient, testLogger())
+		s.SetPlaneReader(fakeClient, neverLoaded)
+		ctx, shutDown := context.WithCancel(context.Background())
+		waited := make(chan error, 1)
+		go func() { waited <- s.awaitPlaneReader(ctx) }()
+
+		select {
+		case err := <-waited:
+			t.Fatalf("stopped waiting with no limit set: %v", err)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		shutDown()
+		assert.NoError(t, <-waited, "shutting down is not a failure to load")
+	})
 }
 
 // --- connection rebalancing ---

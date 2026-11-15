@@ -204,10 +204,22 @@ func (s *Server) planeReaderReady() bool {
 // awaitPlaneReader waits for planeReader to hold every plane CR and then lets
 // agents connect. While it waits it says so, because the server is running and
 // not ready with nothing else to show why.
-func (s *Server) awaitPlaneReader(ctx context.Context) {
+//
+// With Config.PlaneCacheSyncTimeout set it gives up when that has passed and
+// returns an error, for the process to exit and be restarted. Without it the
+// wait ends only with ctx.
+func (s *Server) awaitPlaneReader(ctx context.Context) error {
 	if s.planeReaderWait == nil {
-		return
+		return nil
 	}
+	waitCtx := ctx
+	timeout := s.config.PlaneCacheSyncTimeout
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		waitCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
 	done := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(planeReaderWaitLogInterval)
@@ -221,11 +233,18 @@ func (s *Server) awaitPlaneReader(ctx context.Context) {
 			}
 		}
 	}()
-	synced := s.planeReaderWait(ctx)
+	synced := s.planeReaderWait(waitCtx)
 	close(done)
-	if synced {
+
+	switch {
+	case synced:
 		s.planeReaderSynced.Store(true)
 		s.logger.Info("plane CRs loaded; agents can connect")
+		return nil
+	case ctx.Err() != nil:
+		return nil // Shutting down.
+	default:
+		return fmt.Errorf("plane CRs not loaded within %s", timeout)
 	}
 }
 
@@ -640,7 +659,12 @@ func (s *Server) Start() error {
 	defer stop()
 	s.runCtx = ctx
 
-	go s.awaitPlaneReader(ctx)
+	planeReaderFailed := make(chan error, 1)
+	go func() {
+		if err := s.awaitPlaneReader(ctx); err != nil {
+			planeReaderFailed <- err
+		}
+	}()
 
 	go s.runDeletedCRSweep(ctx)
 
@@ -692,6 +716,8 @@ func (s *Server) Start() error {
 	select {
 	case err := <-serverErrors:
 		return fmt.Errorf("server error: %w", err)
+	case err := <-planeReaderFailed:
+		return err
 	case <-ctx.Done():
 		s.logger.Info("shutdown signal received")
 
