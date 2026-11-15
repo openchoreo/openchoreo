@@ -180,7 +180,6 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 		synced := condition(updated, ConditionSynced)
 		Expect(synced).NotTo(BeNil())
 		Expect(synced.Status).To(Equal(metav1.ConditionTrue))
-		Expect(synced.Message).To(ContainSubstring("autoscaling/v2 HorizontalPodAutoscaler api"))
 
 		rr := &openchoreov1alpha1.RenderedRelease{}
 		Expect(k8sClient.Get(ctx, releaseKey(b), rr)).To(Succeed())
@@ -188,9 +187,10 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
 		Expect(rr.Spec.Resources).To(BeEmpty())
 		Expect(rr.Spec.ObservedResources).To(Equal([]openchoreov1alpha1.ObservedResource{
-			{ID: controller.ObservedResourceID("v1", "Namespace", "payments"), APIVersion: "v1", Kind: "Namespace", Name: "payments"},
-			{ID: controller.ObservedResourceID("networking.k8s.io/v1", "NetworkPolicy", "default-deny"), APIVersion: "networking.k8s.io/v1", Kind: "NetworkPolicy", Name: "default-deny", Namespace: "payments"},
-			{ID: controller.ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: "payments"},
+			{ID: controller.ObservedResourceID("v1", "Namespace", "", "payments"), APIVersion: "v1", Kind: "Namespace", Name: "payments"},
+			{ID: controller.ObservedResourceID("networking.k8s.io/v1", "NetworkPolicy", "payments", "default-deny"), APIVersion: "networking.k8s.io/v1", Kind: "NetworkPolicy", Name: "default-deny", Namespace: "payments"},
+			{ID: controller.ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "payments", "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: "payments"},
+			{ID: controller.ObservedResourceID("autoscaling/v2", "HorizontalPodAutoscaler", "payments", "api"), APIVersion: "autoscaling/v2", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: "payments"},
 		}))
 	})
 
@@ -215,6 +215,13 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 				Message:            "Observe mode",
 				ObservedGeneration: rr.Generation,
 			})
+			meta.SetStatusCondition(&rr.Status.Conditions, metav1.Condition{
+				Type:               string(renderedrelease.ConditionObservedResourcesRead),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(renderedrelease.ReasonObservedReadSucceeded),
+				Message:            "Read",
+				ObservedGeneration: rr.Generation,
+			})
 			Expect(k8sClient.Status().Update(ctx, rr)).To(Succeed())
 		}
 
@@ -230,6 +237,17 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 		ready := condition(updated, ConditionReady)
 		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 		Expect(ready.Reason).To(Equal(string(ReasonNamespaceNotFound)))
+
+		By("A new claim waits for the release to read it")
+		setObserved(openchoreov1alpha1.HealthStatusHealthy)
+		Expect(meta.IsStatusConditionTrue(reconcileBinding(b).Status.Conditions, string(ConditionReady))).To(BeTrue())
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(b), b)).To(Succeed())
+		b.Spec.Observe.Resources = append(b.Spec.Observe.Resources,
+			openchoreov1alpha1.ObservedResourceClaim{APIVersion: "v1", Kind: "ConfigMap", Name: "missing"})
+		Expect(k8sClient.Update(ctx, b)).To(Succeed())
+		updated = reconcileBinding(b)
+		Expect(condition(updated, ConditionResourcesReady).Reason).To(Equal(string(ReasonResourcesProgressing)))
+		Expect(condition(updated, ConditionReady).Status).To(Equal(metav1.ConditionFalse))
 	})
 
 	It("does not observe a namespace the environment does not allow", func() {

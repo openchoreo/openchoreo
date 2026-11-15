@@ -29,6 +29,15 @@ const (
 	ReasonObserveMode = "ObserveMode"
 )
 
+// ObservedResourcesCurrent reports whether status.observedResources reflects
+// the release's current spec, meaning its ObservedResourcesRead condition is
+// from the current generation. Until then it may still hold the reads of an
+// earlier spec, without the objects added since.
+func ObservedResourcesCurrent(release *openchoreov1alpha1.RenderedRelease) bool {
+	cond := meta.FindStatusCondition(release.Status.Conditions, string(ConditionObservedResourcesRead))
+	return cond != nil && cond.ObservedGeneration == release.Generation
+}
+
 // ApplyFailedCondition returns the release's ResourcesApplied condition when
 // it reports a failed apply of the current generation, and nil otherwise. A
 // condition from an earlier generation describes a spec that has since been

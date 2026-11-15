@@ -6,7 +6,6 @@ package projectreleasebinding
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +13,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 )
 
 // reconcileObserve maps the binding's environment to an existing namespace.
@@ -42,14 +42,12 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, binding *openchoreov1
 		return err
 	}
 
-	observed, skipped := controller.ObservedResources(
-		[]openchoreov1alpha1.ObservedResource{{
-			ID:         controller.ObservedResourceID("v1", "Namespace", namespace),
-			APIVersion: "v1",
-			Kind:       "Namespace",
-			Name:       namespace,
-		}},
-		namespace, binding.Spec.Observe.Resources)
+	observed := append([]openchoreov1alpha1.ObservedResource{{
+		ID:         controller.ObservedResourceID("v1", "Namespace", "", namespace),
+		APIVersion: "v1",
+		Kind:       "Namespace",
+		Name:       namespace,
+	}}, controller.ObservedResources(namespace, binding.Spec.Observe.Resources)...)
 
 	rr, err := r.emitRenderedRelease(ctx, binding, openchoreov1alpha1.RenderedReleaseSpec{
 		Owner: openchoreov1alpha1.RenderedReleaseOwner{
@@ -59,11 +57,17 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, binding *openchoreov1
 		TargetPlane:       openchoreov1alpha1.TargetPlaneDataPlane,
 		Mode:              openchoreov1alpha1.RenderedReleaseModeObserve,
 		ObservedResources: observed,
-	}, fmt.Sprintf("%d observed resource(s)", len(observed)), skippedClaimsNote(skipped))
+	}, fmt.Sprintf("%d observed resource(s)", len(observed)))
 	if err != nil || rr == nil {
 		return err
 	}
 
+	if !renderedrelease.ObservedResourcesCurrent(rr) {
+		msg := fmt.Sprintf("RenderedRelease %q has not read the current observed resources yet", rr.Name)
+		controller.MarkFalseCondition(binding, ConditionNamespaceReady, ReasonNamespaceProgressing, msg)
+		controller.MarkFalseCondition(binding, ConditionResourcesReady, ReasonResourcesProgressing, msg)
+		return nil
+	}
 	evaluateObservedNamespaceReady(binding, rr.Status.ObservedResources)
 	evaluateResourcesReady(binding, rr.Status.ObservedResources)
 	return nil
@@ -82,19 +86,6 @@ func evaluateObservedNamespaceReady(
 		return
 	}
 	evaluateNamespaceReady(binding, statuses)
-}
-
-// skippedClaimsNote describes claims left out because they name an object
-// already listed under another version.
-func skippedClaimsNote(skipped []openchoreov1alpha1.ObservedResourceClaim) string {
-	if len(skipped) == 0 {
-		return ""
-	}
-	names := make([]string, 0, len(skipped))
-	for _, c := range skipped {
-		names = append(names, fmt.Sprintf("%s %s %s", c.APIVersion, c.Kind, c.Name))
-	}
-	return "ignored claims that name an object already listed: " + strings.Join(names, ", ")
 }
 
 // stopObserving clears status.namespace, so observed ReleaseBindings stop too,

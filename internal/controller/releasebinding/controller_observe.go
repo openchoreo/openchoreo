@@ -19,6 +19,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
@@ -62,7 +63,7 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		return fmt.Errorf("failed to get Component %q: %w", releaseBinding.Spec.Owner.ComponentName, err)
 	}
 
-	observed, skipped := controller.ObservedResources(nil, namespace, claims)
+	observed := controller.ObservedResources(namespace, claims)
 	rr, op, err := r.emitObservedRelease(ctx, releaseBinding, observed)
 	if err != nil || rr == nil {
 		return err
@@ -78,21 +79,14 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 	default:
 		msg = fmt.Sprintf("RenderedRelease %q is up to date", rr.Name)
 	}
-	if len(skipped) > 0 {
-		names := make([]string, 0, len(skipped))
-		for _, c := range skipped {
-			names = append(names, fmt.Sprintf("%s %s %s", c.APIVersion, c.Kind, c.Name))
-		}
-		msg += "; ignored claims that name an object already listed: " + strings.Join(names, ", ")
-	}
 	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
 		msg += "; spec.state Undeploy has no effect in Observe mode"
 	}
 	controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, reason, msg)
 
-	if len(rr.Status.ObservedResources) == 0 {
+	if !renderedrelease.ObservedResourcesCurrent(rr) {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady, ReasonResourcesProgressing,
-			fmt.Sprintf("RenderedRelease %q has not read the observed resources yet", rr.Name))
+			fmt.Sprintf("RenderedRelease %q has not read the current observed resources yet", rr.Name))
 		return nil
 	}
 	setResourcesReadyFromStatuses(ctx, releaseBinding, rr.Status.ObservedResources, component)

@@ -255,6 +255,46 @@ func planeServing(served *unstructured.Unstructured) client.Client {
 	}).Build()
 }
 
+func TestReadObservedResourcesSkipsClusterScopedKindsInANamespace(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	// The fake client's default REST mapper treats every kind as namespaced.
+	mapper := apimeta.NewDefaultRESTMapper(nil)
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, apimeta.RESTScopeRoot)
+	readInNamespace := false
+	planeClient := fake.NewClientBuilder().WithRESTMapper(mapper).
+		WithObjects(unstructuredObj("v1", "Namespace", "", "orders")).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if key.Namespace == "payments" {
+					readInNamespace = true
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("claimed", "v1", "Namespace", "payments", "orders"),
+		observedRes("own", "v1", "Namespace", "", "orders"),
+	})
+	result := r.readObservedResources(ctx, planeClient, &openchoreov1alpha1.RenderedRelease{}, entries)
+
+	if readInNamespace {
+		t.Error("a cluster-scoped kind was read for an entry that names a namespace")
+	}
+	if len(result.failures) != 1 || result.failures[0].entry.id != "claimed" ||
+		result.failures[0].reason != ReasonObservedKindNotFound {
+		t.Fatalf("want one KindNotFound failure for the claimed entry, got %+v", result.failures)
+	}
+	if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusUnknown {
+		t.Errorf("claimed entry health = %q, want Unknown", got)
+	}
+	if got := result.statuses[1].HealthStatus; got != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("entry without a namespace health = %q, want Healthy", got)
+	}
+}
+
 func TestReadObservedResourcesJudgesHealthByServedKind(t *testing.T) {
 	ctx := context.Background()
 	r := &Reconciler{}

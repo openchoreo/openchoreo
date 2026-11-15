@@ -87,18 +87,17 @@ func (r *Reconciler) renderAndEmit(
 		TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
 		Mode:            openchoreov1alpha1.RenderedReleaseModeManage,
 		Resources:       manifests,
-	}, fmt.Sprintf("%d resource(s)", len(manifests)), "")
+	}, fmt.Sprintf("%d resource(s)", len(manifests)))
 }
 
 // emitRenderedRelease creates or updates the binding's RenderedRelease with
-// spec and marks Synced. summary describes the spec in the Synced message, and
-// a non-empty note is appended to it. Returns nil without an error when another
-// owner holds the release.
+// spec and marks Synced. summary describes the spec in the Synced message.
+// Returns nil without an error when another owner holds the release.
 func (r *Reconciler) emitRenderedRelease(
 	ctx context.Context,
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
 	spec openchoreov1alpha1.RenderedReleaseSpec,
-	summary, note string,
+	summary string,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	rrName := makeRenderedReleaseName(binding)
 	rr := &openchoreov1alpha1.RenderedRelease{
@@ -150,9 +149,6 @@ func (r *Reconciler) emitRenderedRelease(
 	default:
 		reason = ReasonReleaseSynced
 		msg = fmt.Sprintf("RenderedRelease %q is up to date", rrName)
-	}
-	if note != "" {
-		msg += "; " + note
 	}
 	controller.MarkTrueCondition(binding, ConditionSynced, reason, msg)
 

@@ -189,6 +189,20 @@ func (r *Reconciler) readObservedResources(ctx context.Context, planeClient clie
 func readObservedResource(ctx context.Context, planeClient client.Client, entry observedEntry) (*unstructured.Unstructured, *observedReadFailure) {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(entry.gvk)
+
+	// Claims are read in the binding's namespace. Clients ignore the namespace
+	// for a cluster-scoped kind, so reading one would return an object outside
+	// it, such as the Namespace "default" itself. Report it instead of reading.
+	if entry.namespace != "" {
+		if namespaced, err := planeClient.IsObjectNamespaced(obj); err == nil && !namespaced {
+			return nil, &observedReadFailure{
+				entry:  entry,
+				reason: ReasonObservedKindNotFound,
+				detail: "kind is cluster-scoped, so it can't be read in a namespace",
+			}
+		}
+	}
+
 	err := planeClient.Get(ctx, client.ObjectKey{Namespace: entry.namespace, Name: entry.name}, obj)
 	if err == nil {
 		// Health is chosen by the kind the server returned; some clients leave it

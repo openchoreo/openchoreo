@@ -107,7 +107,6 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		updated := fetchRB(rb.Name)
 		synced := conditionFor(updated, string(ConditionReleaseSynced))
 		Expect(synced.Status).To(Equal(metav1.ConditionTrue))
-		Expect(synced.Message).To(ContainSubstring("autoscaling/v2 HorizontalPodAutoscaler api"))
 		Expect(synced.Message).To(ContainSubstring("Undeploy has no effect"))
 
 		rr, err := releaseOf(rb)
@@ -118,9 +117,10 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(rr.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentName, "obs-api"))
 		Expect(rr.Labels).NotTo(HaveKey(labels.LabelKeyComponentReleaseName))
 		Expect(rr.Spec.ObservedResources).To(Equal([]openchoreov1alpha1.ObservedResource{
-			{ID: controller.ObservedResourceID("apps/v1", "Deployment", "api"), APIVersion: "apps/v1", Kind: "Deployment", Name: "api", Namespace: namespace},
-			{ID: controller.ObservedResourceID("v1", "Service", "api"), APIVersion: "v1", Kind: "Service", Name: "api", Namespace: namespace},
-			{ID: controller.ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: namespace},
+			{ID: controller.ObservedResourceID("apps/v1", "Deployment", namespace, "api"), APIVersion: "apps/v1", Kind: "Deployment", Name: "api", Namespace: namespace},
+			{ID: controller.ObservedResourceID("v1", "Service", namespace, "api"), APIVersion: "v1", Kind: "Service", Name: "api", Namespace: namespace},
+			{ID: controller.ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", namespace, "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: namespace},
+			{ID: controller.ObservedResourceID("autoscaling/v2", "HorizontalPodAutoscaler", namespace, "api"), APIVersion: "autoscaling/v2", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: namespace},
 		}))
 	})
 
@@ -143,6 +143,13 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 			Message:            "Observe mode",
 			ObservedGeneration: rr.Generation,
 		})
+		apimeta.SetStatusCondition(&rr.Status.Conditions, metav1.Condition{
+			Type:               string(renderedrelease.ConditionObservedResourcesRead),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(renderedrelease.ReasonObservedReadSucceeded),
+			Message:            "Read",
+			ObservedGeneration: rr.Generation,
+		})
 		Expect(k8sClient.Status().Update(ctx, rr)).To(Succeed())
 
 		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
@@ -152,6 +159,15 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(resources.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resources.Reason).To(Equal(string(ReasonReadyWithSuspendedResources)))
 		Expect(conditionFor(updated, string(ConditionReady)).Status).To(Equal(metav1.ConditionTrue))
+
+		By("A new claim waits for the release to read it")
+		updated.Spec.Observe.Resources = append(updated.Spec.Observe.Resources,
+			openchoreov1alpha1.ObservedResourceClaim{APIVersion: "v1", Kind: "ConfigMap", Name: "missing"})
+		Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		resources = conditionFor(fetchRB(rb.Name), string(ConditionResourcesReady))
+		Expect(resources.Status).To(Equal(metav1.ConditionFalse))
+		Expect(resources.Reason).To(Equal(string(ReasonResourcesProgressing)))
 	})
 
 	It("needs an observed ProjectReleaseBinding", func() {

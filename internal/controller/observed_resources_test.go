@@ -10,63 +10,66 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func TestObservedResourceID(t *testing.T) {
-	t.Run("core group is kind and name", func(t *testing.T) {
-		assert.Equal(t, "service-payments-api", ObservedResourceID("v1", "Service", "payments-api"))
+	t.Run("kind and name followed by a hash", func(t *testing.T) {
+		assert.Regexp(t, `^deployment-payments-api-[0-9a-f]{8}$`,
+			ObservedResourceID("apps/v1", "Deployment", "payments", "payments-api"))
+		assert.Regexp(t, `^service-payments-api-[0-9a-f]{8}$`,
+			ObservedResourceID("v1", "Service", "payments", "payments-api"))
 	})
 
-	t.Run("other groups add a hash of the group", func(t *testing.T) {
-		id := ObservedResourceID("apps/v1", "Deployment", "payments-api")
-		assert.Regexp(t, `^deployment-payments-api-[0-9a-f]{8}$`, id)
+	t.Run("the same kind and name in two groups differ", func(t *testing.T) {
+		knative := ObservedResourceID("serving.knative.dev/v1", "Service", "payments", "web")
+		assert.NotEqual(t, ObservedResourceID("v1", "Service", "payments", "web"), knative)
+
+		// A core Service named like the Knative id must not take that id.
+		suffix := knative[strings.LastIndex(knative, "-")+1:]
+		assert.NotEqual(t, knative, ObservedResourceID("v1", "Service", "payments", "web-"+suffix))
 	})
 
-	t.Run("same kind and name in two groups differ", func(t *testing.T) {
-		core := ObservedResourceID("v1", "Service", "web")
-		knative := ObservedResourceID("serving.knative.dev/v1", "Service", "web")
-		assert.NotEqual(t, core, knative)
+	t.Run("one object under two API versions differs", func(t *testing.T) {
+		assert.NotEqual(t,
+			ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "payments", "web"),
+			ObservedResourceID("autoscaling/v2", "HorizontalPodAutoscaler", "payments", "web"))
 	})
 
-	t.Run("one object under two versions is the same id", func(t *testing.T) {
-		assert.Equal(t,
-			ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "web"),
-			ObservedResourceID("autoscaling/v2", "HorizontalPodAutoscaler", "web"))
+	t.Run("the namespace counts", func(t *testing.T) {
+		assert.NotEqual(t,
+			ObservedResourceID("v1", "Namespace", "", "payments"),
+			ObservedResourceID("v1", "Namespace", "payments", "payments"))
 	})
 
 	t.Run("long ids are shortened and stay distinct", func(t *testing.T) {
 		name := strings.Repeat("a", 100)
-		for _, apiVersion := range []string{"v1", "apps/v1"} {
-			id := ObservedResourceID(apiVersion, "ConfigMap", name)
-			assert.LessOrEqual(t, len(id), 63, apiVersion)
-			assert.Equal(t, id, ObservedResourceID(apiVersion, "ConfigMap", name), apiVersion)
-		}
-		assert.NotEqual(t,
-			ObservedResourceID("v1", "ConfigMap", name),
-			ObservedResourceID("v1", "ConfigMap", name+"b"))
-		assert.NotEqual(t,
-			ObservedResourceID("v1", "ConfigMap", name),
-			ObservedResourceID("example.com/v1", "ConfigMap", name))
+		id := ObservedResourceID("v1", "ConfigMap", "payments", name)
+		assert.LessOrEqual(t, len(id), dpkubernetes.MaxLabelNameLength)
+		assert.Equal(t, id, ObservedResourceID("v1", "ConfigMap", "payments", name))
+		assert.NotEqual(t, id, ObservedResourceID("v1", "ConfigMap", "payments", name+"b"))
+		assert.NotEqual(t, id, ObservedResourceID("example.com/v1", "ConfigMap", "payments", name))
 	})
 }
 
 func TestObservedResources(t *testing.T) {
-	base := []openchoreov1alpha1.ObservedResource{{
-		ID: ObservedResourceID("v1", "Namespace", "payments"), APIVersion: "v1", Kind: "Namespace", Name: "payments",
-	}}
 	claims := []openchoreov1alpha1.ObservedResourceClaim{
 		{APIVersion: "apps/v1", Kind: "Deployment", Name: "api"},
 		{APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api"},
 		{APIVersion: "autoscaling/v2", Kind: "HorizontalPodAutoscaler", Name: "api"},
-		{APIVersion: "v1", Kind: "Namespace", Name: "payments"},
 	}
 
-	resources, skipped := ObservedResources(base, "payments", claims)
+	resources := ObservedResources("payments", claims)
 
-	assert.Equal(t, []openchoreov1alpha1.ObservedResource{
-		base[0],
-		{ID: ObservedResourceID("apps/v1", "Deployment", "api"), APIVersion: "apps/v1", Kind: "Deployment", Name: "api", Namespace: "payments"},
-		{ID: ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: "payments"},
-	}, resources)
-	assert.Equal(t, claims[2:], skipped)
+	assert.Len(t, resources, len(claims))
+	ids := map[string]bool{}
+	for i, r := range resources {
+		assert.Equal(t, claims[i].APIVersion, r.APIVersion)
+		assert.Equal(t, claims[i].Kind, r.Kind)
+		assert.Equal(t, claims[i].Name, r.Name)
+		assert.Equal(t, "payments", r.Namespace)
+		assert.Equal(t, ObservedResourceID(r.APIVersion, r.Kind, "payments", r.Name), r.ID)
+		ids[r.ID] = true
+	}
+	assert.Len(t, ids, len(claims), "every claim gets its own id")
 }
